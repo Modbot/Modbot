@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils'
 import { sourceLabel } from '@/lib/format'
 import { instanceName, instanceNumber } from '@/lib/instanceName'
-import { openDiscordPerson, openInstance, openPerson, openWorld } from '@/lib/subject'
+import { openAccount, openDiscordPerson, openInstance, openPerson, openWorld } from '@/lib/subject'
 import type { AuditEntry } from '@/lib/api'
 
 /**
@@ -105,7 +105,20 @@ export function SubjectLink({
   )
 }
 
-/** A Discord account, as a launcher for the Discord person popup. */
+/** A Modbot account, as a launcher for the person popup of whoever holds it. */
+export function AccountLink({
+  id,
+  name,
+  className,
+}: {
+  id: string
+  name?: string | null
+  className?: string
+}) {
+  return <SubjectLink id={id} name={name} onOpen={openAccount} className={className} />
+}
+
+/** A Discord account, as a launcher for the person popup. */
 export function DiscordPersonLink({
   id,
   name,
@@ -119,8 +132,12 @@ export function DiscordPersonLink({
 }
 
 /**
- * A person on whichever platform they are on: Discord opens the Discord popup, anything else the
- * VRChat one. Platform names arrive as `Discord` from facts and `discord` from analytics.
+ * A person, by whichever of their accounts the fact named.
+ *
+ * All three open the same popup, which ties the accounts together (one view per person design
+ * §3); the platform only decides which id the address carries. A Modbot actor is an account id,
+ * not a VRChat one, and opening it as a VRChat person used to be a dead end on a guid. Platform
+ * names arrive as `Discord` from facts and `discord` from analytics.
  */
 export function PersonLink({
   platform,
@@ -133,11 +150,12 @@ export function PersonLink({
   name?: string | null
   className?: string
 }) {
-  return platform?.toLowerCase() === 'discord' ? (
-    <DiscordPersonLink id={id} name={name} className={className} />
-  ) : (
-    <SubjectLink id={id} name={name} className={className} />
-  )
+  const of = platform?.toLowerCase()
+
+  if (of === 'discord') return <DiscordPersonLink id={id} name={name} className={className} />
+  if (of === 'modbot') return <AccountLink id={id} name={name} className={className} />
+
+  return <SubjectLink id={id} name={name} className={className} />
 }
 
 /** Shared look for every id that opens something. Inline, so it sits inside a sentence. */

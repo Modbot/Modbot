@@ -632,6 +632,44 @@ export type AuditFilters = {
   canViewOperational: boolean
 }
 
+// ── One person, whichever of their accounts a link named ────────────────────────────────
+
+/**
+ * What tied one of a person's accounts to the one that was asked about.
+ *
+ * `asked` is the account the link named. `link` is the Discord account link both sides proved.
+ * `account` is an id written on a Modbot account, which nobody proved. Kept apart so a screen
+ * cannot imply a tie the data does not hold.
+ */
+export type FoundBy = 'asked' | 'link' | 'account'
+
+export type PersonSide = { id: string; name: string | null; foundBy: FoundBy }
+
+export type PersonAccount = {
+  id: string
+  username: string
+  foundBy: FoundBy
+  roles: string[]
+  isDisabled: boolean
+  createdAt: string
+  lastLoginAt: string | null
+}
+
+/**
+ * One human being, as the accounts Modbot can tie together.
+ *
+ * A null side is one Modbot has no record of. `canSeeAccount` tells that apart from a side this
+ * account may not read: false means the Modbot account is left out whether or not there is one.
+ */
+export type PersonView = {
+  vrChat: PersonSide | null
+  discord: PersonSide | null
+  account: PersonAccount | null
+  canSeeAccount: boolean
+}
+
+export type PersonAsk = { vrchat?: string; discord?: string; account?: string }
+
 export type AuditRequest = {
   type?: string[]
   source?: string[]
@@ -639,6 +677,12 @@ export type AuditRequest = {
   subjectPlatform?: 'VRChat' | 'Discord' | 'Modbot'
   actor?: string
   actorPlatform?: 'VRChat' | 'Discord' | 'Modbot'
+  /**
+   * One Modbot account's whole history: facts about it and facts it did, together. The log
+   * records the first against the subject and the second against the actor, so either half
+   * alone is half the story.
+   */
+  account?: string
   from?: string
   to?: string
   /** Only facts that happened in this world. */
@@ -3477,6 +3521,7 @@ export const api = {
     if (query.subjectPlatform) q.set('subjectPlatform', query.subjectPlatform)
     if (query.actor) q.set('actor', query.actor)
     if (query.actorPlatform) q.set('actorPlatform', query.actorPlatform)
+    if (query.account) q.set('account', query.account)
     if (query.from) q.set('from', query.from)
     if (query.to) q.set('to', query.to)
     if (query.world) q.set('world', query.world)
@@ -3495,6 +3540,19 @@ export const api = {
   },
 
   auditFilters: () => request<AuditFilters>('/api/audit/filters'),
+
+  /**
+   * One person's VRChat, Discord and Modbot accounts, from any one of them. Give exactly one.
+   *
+   * Ids go in the query string, never in the path: a VRChat id is arbitrary text (spec 3.1.1).
+   */
+  person: (ask: PersonAsk) => {
+    const q = new URLSearchParams()
+    if (ask.vrchat) q.set('vrchatUserId', ask.vrchat)
+    if (ask.discord) q.set('discordUserId', ask.discord)
+    if (ask.account) q.set('accountId', ask.account)
+    return request<PersonView>(`/api/people?${q.toString()}`)
+  },
 
   /** One entry by its id. 404 when it does not exist or this account may not read its type. */
   auditEntry: (id: string) => request<AuditEntry>(`/api/audit/entries/${encodeURIComponent(id)}`),

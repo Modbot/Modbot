@@ -15,7 +15,7 @@ import { AUDIT_DEFAULTS, auditQueryFrom } from '@/lib/pageFilters'
 import { useLocation } from '@/lib/router'
 import { api, ApiError, type AuditEntry, type AuditFilters, type AuditPage } from '@/lib/api'
 import { useShortcuts } from '@/lib/shortcuts'
-import { openDiscordPerson, openInstance, openPerson } from '@/lib/subject'
+import { openAccount, openDiscordPerson, openInstance, openPerson } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { cn } from '@/lib/utils'
 
@@ -212,7 +212,7 @@ export function AuditLog() {
   useShortcuts([
     {
       keys: 'o',
-      label: 'Open the person or instance the selected row is about',
+      label: 'Open the person, account or instance the selected row is about',
       group: 'Lists',
       page: true,
       run: () => {
@@ -220,6 +220,7 @@ export function AuditLog() {
         if (!entry) return
         if (entry.subjectKind === 'Person')
           (entry.subjectPlatform.toLowerCase() === 'discord' ? openDiscordPerson : openPerson)(entry.subjectId)
+        else if (entry.subjectKind === 'Account') openAccount(entry.subjectId)
         else if (entry.subjectKind === 'Instance' && entry.modbotInstanceId) openInstance(entry.modbotInstanceId)
       },
     },

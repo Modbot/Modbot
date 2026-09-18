@@ -19,6 +19,14 @@ import { useLocation, go } from '@/lib/router'
  * - `?subject=world:wrld_abc` — one world.
  * - `?subject=usr_abc&subject=instance:6f3e…` — a person, then an instance opened from inside it.
  *
+ * ## Three of the kinds are one view
+ *
+ * `person`, `discord-person` and `account` are three ways of naming the same human being — their
+ * VRChat account, their Discord account, and the account they sign in to Modbot with. All three
+ * open the **same popup**, which ties the accounts together from whichever one the link named
+ * (one view per person design). They stay three values rather than one because a link has to
+ * carry which kind of id it holds: the ids are opaque and their shapes say nothing (spec 3.1.1).
+ *
  * A repeated parameter rather than one comma-separated value, because each value is
  * percent-encoded on its own: a comma separator would be indistinguishable from a comma inside an
  * id, and VRChat ids are arbitrary text (spec 3.1.1). The prefixes are Modbot's own namespacing
@@ -40,7 +48,7 @@ import { useLocation, go } from '@/lib/router'
  * the URL rather than calling back — otherwise the first Escape would take them out of Modbot
  * altogether.
  */
-export type SubjectKind = 'person' | 'world' | 'instance' | 'discord-person'
+export type SubjectKind = 'person' | 'world' | 'instance' | 'discord-person' | 'account'
 
 export type Subject = { kind: SubjectKind; id: string }
 
@@ -72,7 +80,7 @@ export function encodeSubject(subject: Subject): string {
 export function decodeSubject(value: string): Subject | null {
   if (!value) return null
 
-  for (const kind of ['world', 'instance', 'discord-person', 'person'] as const) {
+  for (const kind of ['world', 'instance', 'discord-person', 'account', 'person'] as const) {
     const prefix = `${kind}:`
     if (value.startsWith(prefix) && value.length > prefix.length)
       return { kind, id: value.slice(prefix.length) }
@@ -219,10 +227,19 @@ export function openInstance(id: string): void {
 }
 
 /**
- * A Discord account. Its own kind rather than a person with a flag, because a Discord id and a
- * VRChat id are different people until they link, and even then they stay two popups that point at
- * each other.
+ * A Discord account. Its own kind because a link has to say which kind of id it carries, not
+ * because it opens something else: it opens the person popup, which ties the accounts together.
  */
 export function openDiscordPerson(id: string): void {
   openSubject({ kind: 'discord-person', id })
+}
+
+/** A Modbot account — the thing somebody signs in with. Opens the person popup too. */
+export function openAccount(id: string): void {
+  openSubject({ kind: 'account', id })
+}
+
+/** Whether this kind of subject is one of the three ways of naming a human being. */
+export function isPerson(subject: Subject): boolean {
+  return subject.kind === 'person' || subject.kind === 'discord-person' || subject.kind === 'account'
 }

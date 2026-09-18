@@ -1,34 +1,49 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { api, ApiError, type CurrentUser, type DiscordLinkView } from '@/lib/api'
+import { api, ApiError, type CurrentUser, type DiscordLinkView, type PersonSide } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
-import { DiscordPersonLink } from '@/components/facts'
 
 /**
- * The Discord account linked to this VRChat person (M5 §5.3), beside their VRChat profile, so a
- * moderator reads one person rather than two records.
+ * The person's Discord account, beside their VRChat one, so a moderator reads one person rather
+ * than two records (M5 §5.3).
  *
- * Draws nothing while there is no link. Unlink needs Manage Discord links; it ends the link and
- * the role job takes back the roles Modbot gave. History stays either way.
+ * The card draws whatever is known. Where the two accounts proved a link, it also carries when
+ * they linked, the roles Modbot gave and — for whoever holds Manage Discord links — **Unlink**,
+ * which ends the link and lets the role job take those roles back. History stays either way.
+ *
+ * Where the Discord account was found some other way — typed onto a Modbot account, or the
+ * account the link itself named — none of that is drawn, because none of it exists. The card must
+ * never make an unproved id look like a proved link (one view per person design §3).
  */
-export function DiscordLinkCard({ subjectId, me }: { subjectId: string; me: CurrentUser }) {
+export function DiscordLinkCard({
+  side,
+  vrchatUserId,
+  me,
+}: {
+  side: PersonSide
+  /** The VRChat account to look the link up by, when there is one. */
+  vrchatUserId: string | null
+  me: CurrentUser
+}) {
   const [link, setLink] = useState<DiscordLinkView | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(
-    () =>
-      api
-        .discordLinkFor(subjectId)
-        .then((r) => {
-          setLink(r.link)
-          setError(null)
-        })
-        .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load the Discord link.')),
-    [subjectId],
-  )
+  const linked = side.foundBy === 'link' && vrchatUserId !== null
+
+  const load = useCallback(() => {
+    if (!linked || !vrchatUserId) return Promise.resolve()
+
+    return api
+      .discordLinkFor(vrchatUserId)
+      .then((r) => {
+        setLink(r.link)
+        setError(null)
+      })
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load the Discord link.'))
+  }, [linked, vrchatUserId])
 
   useEffect(() => {
     void load()
@@ -44,8 +59,6 @@ export function DiscordLinkCard({ subjectId, me }: { subjectId: string; me: Curr
       .finally(() => setBusy(false))
   }
 
-  if (!link && !error) return null
-
   return (
     <div
       className="rounded-md border px-3 py-2"
@@ -55,39 +68,48 @@ export function DiscordLinkCard({ subjectId, me }: { subjectId: string; me: Curr
 
       {error && <p className="mt-1 text-destructive">{error}</p>}
 
-      {link && (
-        <div className="mt-1 flex flex-col gap-1.5">
-          <p>
-            <DiscordPersonLink id={link.discordUserId} name={link.discordUsername} />{' '}
-            <span className="font-mono text-muted-foreground" title={link.discordUserId}>
-              {link.discordUserId}
+      <div className="mt-1 flex flex-col gap-1.5">
+        <p>
+          {side.name ?? link?.discordUsername ?? (
+            <span className="font-mono" title={side.id}>
+              {side.id}
             </span>
+          )}
+        </p>
+        {(side.name ?? link?.discordUsername) && (
+          <p className="font-mono text-muted-foreground" title={side.id}>
+            {side.id}
           </p>
-          <p className="text-muted-foreground">Linked {formatDay(link.linkedAt)}</p>
+        )}
 
-          {link.roles.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="text-muted-foreground">Roles:</span>
-              {link.roles.map((role) => (
-                <Badge key={role.id} variant="secondary" title={role.id}>
-                  {role.name ?? role.id}
-                </Badge>
-              ))}
-            </div>
-          )}
+        {link && (
+          <>
+            <p className="text-muted-foreground">Linked {formatDay(link.linkedAt)}</p>
 
-          {link.notInServer && <p className="text-muted-foreground">Not in the server</p>}
-          {link.roleError && <p className="text-destructive">{link.roleError}</p>}
+            {link.roles.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-muted-foreground">Roles:</span>
+                {link.roles.map((role) => (
+                  <Badge key={role.id} variant="secondary" title={role.id}>
+                    {role.name ?? role.id}
+                  </Badge>
+                ))}
+              </div>
+            )}
 
-          {can(me, 'ManageDiscordLinks') && (
-            <div>
-              <Button type="button" variant="outline" size="sm" onClick={unlink} disabled={busy}>
-                Unlink
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
+            {link.notInServer && <p className="text-muted-foreground">Not in the server</p>}
+            {link.roleError && <p className="text-destructive">{link.roleError}</p>}
+
+            {can(me, 'ManageDiscordLinks') && (
+              <div>
+                <Button type="button" variant="outline" size="sm" onClick={unlink} disabled={busy}>
+                  Unlink
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

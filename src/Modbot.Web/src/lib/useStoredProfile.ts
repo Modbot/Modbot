@@ -53,6 +53,11 @@ export function useStoredProfile(subjectId: string, version = 0): StoredProfile 
   const load = useCallback(() => api.userProfile(subjectId), [subjectId])
 
   useEffect(() => {
+    // No VRChat account to read. The person popup opens on somebody who has only a Discord or a
+    // Modbot account too, and asking the server for the profile of nobody is a round trip whose
+    // only possible answer is an error (one view per person design §4).
+    if (!subjectId) return
+
     cancelled.current = false
     let timer: ReturnType<typeof setTimeout> | null = null
 

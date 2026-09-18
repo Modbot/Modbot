@@ -1,4 +1,4 @@
-import { PersonLink, InstanceLink, WorldLink } from '@/components/facts'
+import { AccountLink, PersonLink, InstanceLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
@@ -140,8 +140,10 @@ function Subject({ entry }: { entry: AuditEntry }) {
       <Id value={entry.subjectId} />
     )
 
+  // A Modbot account opens the person popup of whoever holds it, the same popup their VRChat name
+  // opens: one human being, whichever of their accounts the fact happened to name.
   if (entry.subjectKind === 'Account')
-    return <span className="font-medium">{entry.subjectName ?? entry.subjectId}</span>
+    return <AccountLink id={entry.subjectId} name={entry.subjectName} />
 
   if (entry.subjectKind === 'Group') return <span className="font-medium">the group</span>
 
