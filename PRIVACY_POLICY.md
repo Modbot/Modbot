@@ -1,6 +1,6 @@
 # Privacy policy
 
-Last updated 16 September 2026.
+Last updated 17 September 2026.
 
 Modbot is a moderation tool for VRChat groups. Anyone can run a copy of it on their own server, and
 most copies are run by the moderators of one group, not by us.
@@ -196,6 +196,13 @@ all, whatever any setting says. It beats the open instances setting.
 It applies to your server only. **It does not reach the companions paired with it** — a client's
 Cloud settings live on the moderator's own PC and your server has no say in them.
 
+**One thing it does not stop: asking what the newest Modbot release is.** That request sends
+nothing at all — no id, no group, no version, no account — and everyone receives the same answer
+from one cached copy, so there is nothing about you for that variable to protect. Like any web
+request it reveals your server's IP address to us. Modbot never updates itself; it tells you a
+newer version exists and you decide. Turn it off with the **Check for updates** switch under
+**Settings**, **Host & Database**.
+
 ## What about my.modbot.co?
 
 `my.modbot.co` is the page that remembers which Modbot deployments you use, so you can pick one.
@@ -247,6 +254,11 @@ Either:
 
 The environment variable wins over the file. Turning it off also deletes anything the client had
 queued to send.
+
+Turning it off does **not** stop the client checking for a newer version of itself. That check asks
+Modbot Cloud, sends nothing about the PC, the install or the version it is on, and is recorded
+nowhere; the download comes from GitHub. Put `"checkForUpdates": false` in that PC's
+`settings.json` to stop it.
 
 We keep events sent this way for 365 days by default.
 

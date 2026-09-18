@@ -2721,6 +2721,86 @@
         ]
       }
     },
+    "/api/settings/updates": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "The newest Modbot release, and whether this server looks for it",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "GetUpdateCheck",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Turn update checking on or off",
+        "description": "Needs the `ManageSettings` permission.",
+        "operationId": "SetUpdateCheck",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetUpdateCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/email/test": {
       "post": {
         "tags": [
@@ -24785,6 +24865,17 @@
           }
         }
       },
+      "SetUpdateCheckRequest": {
+        "required": [
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        }
+      },
       "Showcase": {
         "required": [
           "available",
@@ -26328,6 +26419,76 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "UpdateView": {
+        "required": [
+          "running",
+          "newest",
+          "newerAvailable",
+          "publishedAt",
+          "notesUrl",
+          "image",
+          "tag",
+          "checkedAt",
+          "problem",
+          "on"
+        ],
+        "type": "object",
+        "properties": {
+          "running": {
+            "type": "string"
+          },
+          "newest": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "newerAvailable": {
+            "type": "boolean"
+          },
+          "publishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "notesUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "image": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "tag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "checkedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "on": {
+            "type": "boolean"
           }
         }
       },

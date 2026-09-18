@@ -195,6 +195,7 @@ public static class ApiSurface
         app.MapPublicAddressSettings();
         app.MapPublicInstancesSettings();
         app.MapCloudSettings();
+        app.MapUpdateSettings();
         app.MapEmailSettings();
         app.MapAiSettings();
         app.MapAiChatSettings();

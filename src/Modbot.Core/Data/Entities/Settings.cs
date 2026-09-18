@@ -172,6 +172,40 @@ public class Settings
     /// <summary>One short sentence about the last failure, for the Health page. Null when it worked.</summary>
     public string? CloudLastReportProblem { get; set; }
 
+    // --- Update checking (update checking design) ---
+
+    /// <summary>
+    /// Whether this server asks what the newest Modbot release is. On unless somebody turns it off.
+    /// </summary>
+    /// <remarks>
+    /// <c>MODBOT_CLOUD_DISABLED</c> does <strong>not</strong> beat this one, and that is the point
+    /// of it existing: the question sends nothing about the deployment and is not a Cloud feature,
+    /// so an operator who wants no outbound calls at all has to say so here. Modbot never updates
+    /// itself either way — it says what exists and the operator decides.
+    /// </remarks>
+    public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>The newest server release Modbot has heard of, or null before it has heard of any.</summary>
+    public string? NewestRelease { get; set; }
+
+    /// <summary>When that release was published.</summary>
+    public DateTimeOffset? NewestReleaseAt { get; set; }
+
+    /// <summary>The page with that release's notes on it.</summary>
+    public string? NewestReleaseNotesUrl { get; set; }
+
+    /// <summary>The image to pull for it, such as <c>modbot/modbot-host</c>.</summary>
+    public string? NewestReleaseImage { get; set; }
+
+    /// <summary>The tag to pull it with.</summary>
+    public string? NewestReleaseTag { get; set; }
+
+    /// <summary>When the last check was made, whether or not it worked.</summary>
+    public DateTimeOffset? UpdateCheckedAt { get; set; }
+
+    /// <summary>One short sentence about the last failed check. Null when it worked.</summary>
+    public string? UpdateCheckProblem { get; set; }
+
     // --- Optional egress proxy (spec 2.3.1) ---
     public string? ProxyUrl { get; set; }
     public string? ProxyUsername { get; set; }
