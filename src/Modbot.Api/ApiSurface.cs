@@ -396,6 +396,11 @@ public static class ApiSurface
         // than pretending to.
         app.MapModerationActions();
 
+        // Notes: one moderator's own words about a person (notes design). Modbot-side only --
+        // nothing here reaches VRChat -- so the fact log is the whole feature, and a host without
+        // a fact writer reads notes and refuses to write one.
+        Features.Notes.NoteEndpoints.MapNotes(app);
+
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.
         Features.Calendar.CalendarEndpoints.MapCalendar(app);
