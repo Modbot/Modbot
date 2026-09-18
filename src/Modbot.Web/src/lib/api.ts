@@ -753,6 +753,10 @@ export type MemberList = {
   total: number
   page: number
   pageSize: number
+  /** Send back as `cursor` for the following page. Null on the last one. */
+  next: string | null
+  /** Send back as `cursor` for the page before. Null on the first one. */
+  previous: string | null
   roles: RoleOption[]
   coverage: MemberListCoverage
 }
@@ -777,6 +781,8 @@ export type MemberQuery = {
   joinedTo?: string
   seenFrom?: string
   seenTo?: string
+  /** A `next` or `previous` from an earlier answer. Leave it out for the first page. */
+  cursor?: string | null
   page?: number
   pageSize?: number
 }
@@ -811,6 +817,8 @@ export type DiscordMemberList = {
   total: number
   page: number
   pageSize: number
+  next: string | null
+  previous: string | null
   coverage: { guildId: string | null; listedAt: string | null; inServer: number; now: string }
   /** The server's roles to filter by, highest first. */
   roles: DiscordRoleOption[]
@@ -830,6 +838,7 @@ export type DiscordMemberQuery = {
   joinedFrom?: string
   joinedTo?: string
   sort?: 'joined' | 'oldest' | 'name'
+  cursor?: string | null
   page?: number
   pageSize?: number
 }
@@ -952,12 +961,15 @@ export type GroupBanList = {
   total: number
   page: number
   pageSize: number
+  next: string | null
+  previous: string | null
   coverage: GroupBanCoverage
 }
 
 export type GroupBanQuery = {
   search?: string
   status?: 'current' | 'lifted' | 'all'
+  cursor?: string | null
   page?: number
   pageSize?: number
 }
@@ -1844,6 +1856,8 @@ export type RepeatOffenderList = {
   people: RepeatOffenderView[]
   total: number
   offset: number
+  next: string | null
+  previous: string | null
   rule: string
   lastRunAt: string | null
   now: string
@@ -3528,6 +3542,7 @@ export const api = {
     if (query.joinedTo) q.set('joinedTo', query.joinedTo)
     if (query.seenFrom) q.set('seenFrom', query.seenFrom)
     if (query.seenTo) q.set('seenTo', query.seenTo)
+    if (query.cursor) q.set('cursor', query.cursor)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()
@@ -3550,6 +3565,7 @@ export const api = {
     if (query.joinedFrom) q.set('joinedFrom', query.joinedFrom)
     if (query.joinedTo) q.set('joinedTo', query.joinedTo)
     if (query.sort && query.sort !== 'joined') q.set('sort', query.sort)
+    if (query.cursor) q.set('cursor', query.cursor)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()
@@ -3577,6 +3593,7 @@ export const api = {
     const q = new URLSearchParams()
     if (query.search) q.set('search', query.search)
     if (query.status && query.status !== 'current') q.set('status', query.status)
+    if (query.cursor) q.set('cursor', query.cursor)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()
@@ -3720,9 +3737,12 @@ export const api = {
     post<ReviewView>(`/api/reviews/${encodeURIComponent(id)}/close`, { note, outcome }),
 
   /** People acted on more than once, most recent action first. Needs ViewProfile. */
-  repeatOffenders: (query: { status?: 'all' | 'repeat' | 'more-than-once'; offset?: number; limit?: number } = {}) => {
+  repeatOffenders: (
+    query: { status?: 'all' | 'repeat' | 'more-than-once'; cursor?: string | null; offset?: number; limit?: number } = {},
+  ) => {
     const q = new URLSearchParams()
     if (query.status && query.status !== 'all') q.set('status', query.status)
+    if (query.cursor) q.set('cursor', query.cursor)
     if (query.offset) q.set('offset', String(query.offset))
     if (query.limit) q.set('limit', String(query.limit))
     const search = q.toString()

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
+import { Pager } from '@/components/Pager'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { useDemo } from '@/lib/demo'
@@ -15,6 +16,7 @@ import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type MemberList, type MemberQuery } from '@/lib/api'
 import { useListSelection } from '@/lib/listSelection'
+import { useListPosition } from '@/lib/listPosition'
 import { MEMBER_DEFAULTS, memberQueryFrom } from '@/lib/pageFilters'
 import { can, canAny } from '@/lib/permissions'
 import { useQueryParam } from '@/lib/router'
@@ -33,6 +35,11 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
  *
  * Search, the role filter and paging all run on the server: a five-thousand-row list is not
  * something to hand a browser to filter.
+ *
+ * Paged by cursor, and the page is in the address: the sweep rewrites this list while somebody is
+ * reading it, so a numbered page two would show a row twice or not at all as soon as anybody
+ * joined or left. There is no page number to show for the same reason -- Previous and Next, and
+ * the count of matching people beside the filters.
  */
 
 const PAGE_SIZE = 50
@@ -54,7 +61,9 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<NonNullable<MemberQuery['sort']>>('joined')
-  const [page, setPage] = useState(1)
+
+  // Which page of the list, in the address, so a link lands on the rows it was copied from.
+  const at = useListPosition()
   const [list, setList] = useState<MemberList | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -62,7 +71,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
   const [chips, setChipsOnly] = useFilters('members', MEMBER_DEFAULTS)
   const setChips = (next: FilterChip[]) => {
     setChipsOnly(next)
-    setPage(1)
+    at.restart()
   }
   const filter = useMemo(() => memberQueryFrom(chips), [chips])
 
@@ -76,10 +85,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
 
   // Typing waits a moment before it asks, so a name typed at speed is one request, not nine.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(typed.trim())
-      setPage(1)
-    }, 300)
+    const timer = setTimeout(() => setSearch(typed.trim()), 300)
     return () => clearTimeout(timer)
   }, [typed])
 
@@ -94,7 +100,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
         // An alert's hour-precise stretch wins over a day picked in the bar.
         joinedFrom: joined?.from ?? filter.joinedFrom,
         joinedTo: joined?.to ?? filter.joinedTo,
-        page,
+        cursor: at.cursor,
         pageSize: PAGE_SIZE,
       })
       .then((next) => {
@@ -114,7 +120,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
     return () => {
       cancelled = true
     }
-  }, [search, filter, sort, joined?.from, joined?.to, page, acted, live])
+  }, [search, filter, sort, joined?.from, joined?.to, at.cursor, acted, live])
 
   const properties = useMemo<FilterProperty[]>(
     () => [
@@ -181,8 +187,6 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
-  const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
-
   const status = filter.status ?? 'all'
 
   return (
@@ -198,7 +202,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
             onClick={() => {
               setJoinedFrom(null)
               setJoinedTo(null)
-              setPage(1)
+              at.restart()
             }}
           >
             {`Joined ${new Date(joined.from).toLocaleString()} – ${new Date(joined.to).toLocaleTimeString()} ×`}
@@ -208,7 +212,10 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
         <Input
           ref={searchBox}
           value={typed}
-          onChange={(e) => setTyped(e.target.value)}
+          onChange={(e) => {
+            setTyped(e.target.value)
+            at.restart()
+          }}
           placeholder="Search by name or id"
           className="h-7 w-56"
           aria-label="Search members"
@@ -218,7 +225,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
           value={sort}
           onChange={(v) => {
             setSort(v as typeof sort)
-            setPage(1)
+            at.restart()
           }}
           aria-label="Sort"
         >
@@ -359,22 +366,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
             </div>
           )}
 
-          {pages > 1 && (
-            <div
-              className="flex items-center gap-2 border-t px-3 py-2"
-              style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-            >
-              <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                Previous
-              </Button>
-              <span className="text-muted-foreground">
-                Page {list.page} of {pages}
-              </span>
-              <Button variant="outline" size="xs" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-                Next
-              </Button>
-            </div>
-          )}
+          <Pager at={at} next={list.next} previous={list.previous} />
         </CardContent>
       </Card>
     </div>
