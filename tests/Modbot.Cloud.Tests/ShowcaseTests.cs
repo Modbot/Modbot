@@ -194,4 +194,215 @@ public class ShowcaseTests(PostgresFixture db)
         var page = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
         Assert.Equal(0, page.GetProperty("items").GetArrayLength());
     }
+
+    [Fact]
+    public async Task ThePictureOnASavedRowIsServedByCloudItself()
+    {
+        // The address an administrator types in is usually VRChat's, and VRChat will not serve it to
+        // anybody else. Cloud fetches it once, on save, and hands every reader its own address.
+        await using var host = await CloudTestHost.StartAsync(db);
+
+        using (var added = await AddAsync(host, new
+        {
+            kind = "sponsor",
+            name = "Kind Person",
+            link = "https://example.com",
+            imageUrl = CloudTestHost.PictureAddress,
+            vrChatGroupId = "grp_1234",
+            groupImageUrl = CloudTestHost.PictureAddress,
+            groupBannerUrl = CloudTestHost.BannerAddress,
+            sortOrder = 0,
+        }))
+        {
+            Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        }
+
+        using var response = await host.GetAsync("/api/v1/sponsors");
+        var item = (await response.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("items")[0];
+
+        var picture = item.GetProperty("imageUrl").GetString()!;
+        var banner = item.GetProperty("groupBannerUrl").GetString()!;
+
+        Assert.StartsWith($"{CloudTestHost.PublicAddress}api/v1/showcase-pictures/", picture, StringComparison.Ordinal);
+        Assert.StartsWith($"{CloudTestHost.PublicAddress}api/v1/showcase-pictures/", banner, StringComparison.Ordinal);
+        Assert.NotEqual(picture, banner);
+
+        // No sign-in: the companion reads this from a moderator's own PC.
+        using var served = await host.GetAsync(new Uri(picture).AbsolutePath);
+        Assert.Equal(HttpStatusCode.OK, served.StatusCode);
+        Assert.Equal("image/png", served.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(CloudTestHost.PictureBytes, await served.Content.ReadAsByteArrayAsync(Ct));
+
+        using var servedBanner = await host.GetAsync(new Uri(banner).AbsolutePath);
+        Assert.Equal(CloudTestHost.BannerBytes, await servedBanner.Content.ReadAsByteArrayAsync(Ct));
+    }
+
+    [Theory]
+    [InlineData(CloudTestHost.NotAPictureAddress)]
+    [InlineData(CloudTestHost.TooBigAddress)]
+    [InlineData("https://pictures.test/nothing-there.png")]
+    public async Task SomethingThatIsNotAPictureIsNotKept(string address)
+    {
+        // A page calling itself a picture, something far bigger than Cloud will keep, and an address
+        // that answers nothing. None of them becomes bytes served from Cloud's own domain.
+        await using var host = await CloudTestHost.StartAsync(db);
+
+        using (var added = await AddAsync(host, new
+        {
+            kind = "sponsor",
+            name = "Trouble",
+            link = "https://example.com",
+            imageUrl = address,
+            vrChatGroupId = (string?)null,
+            groupImageUrl = (string?)null,
+            groupBannerUrl = (string?)null,
+            sortOrder = 0,
+        }))
+        {
+            Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+        }
+
+        await using (var cloud = db.NewCloudContext())
+        {
+            Assert.Equal(0, await cloud.ShowcasePictures.CountAsync(Ct));
+        }
+
+        // The row still carries what was typed in, so an administrator can see and fix it.
+        using var response = await host.GetAsync("/api/v1/sponsors");
+        var item = (await response.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("items")[0];
+
+        Assert.Equal(address, item.GetProperty("imageUrl").GetString());
+    }
+
+    [Fact]
+    public async Task AGroupsIdNameIconAndBannerAllSurviveTheRoundTrip()
+    {
+        await using var host = await CloudTestHost.StartAsync(db);
+
+        Guid id;
+        using (var added = await AddAsync(host, new
+        {
+            kind = "early-adopter",
+            name = "Cat Lounge",
+            link = "https://example.com/cats",
+            imageUrl = "",
+            vrChatGroupId = "grp_cats",
+            groupImageUrl = CloudTestHost.PictureAddress,
+            groupBannerUrl = CloudTestHost.BannerAddress,
+            sortOrder = 5,
+        }))
+        {
+            Assert.Equal(HttpStatusCode.Created, added.StatusCode);
+            id = (await added.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        }
+
+        // What an administrator sees: the four fields exactly as typed, plus the copies Cloud kept.
+        using (var admin = await host.GetAsync("/api/admin/showcase", bearer: CloudTestHost.RootKey))
+        {
+            var row = (await admin.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("items")[0];
+
+            Assert.Equal(id, row.GetProperty("id").GetGuid());
+            Assert.Equal("Cat Lounge", row.GetProperty("name").GetString());
+            Assert.Equal("grp_cats", row.GetProperty("vrChatGroupId").GetString());
+            Assert.Equal(CloudTestHost.PictureAddress, row.GetProperty("groupImageUrl").GetString());
+            Assert.Equal(CloudTestHost.BannerAddress, row.GetProperty("groupBannerUrl").GetString());
+            Assert.NotNull(row.GetProperty("savedGroupImageUrl").GetString());
+            Assert.NotNull(row.GetProperty("savedGroupBannerUrl").GetString());
+        }
+
+        // What every Modbot sees: the same four, with Cloud's own addresses for the two pictures.
+        using (var read = await host.GetAsync("/api/v1/early-adopters"))
+        {
+            var row = (await read.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("items")[0];
+
+            Assert.Equal("Cat Lounge", row.GetProperty("name").GetString());
+            Assert.Equal("grp_cats", row.GetProperty("vrChatGroupId").GetString());
+            Assert.StartsWith(
+                $"{CloudTestHost.PublicAddress}api/v1/showcase-pictures/",
+                row.GetProperty("groupImageUrl").GetString()!,
+                StringComparison.Ordinal);
+            Assert.StartsWith(
+                $"{CloudTestHost.PublicAddress}api/v1/showcase-pictures/",
+                row.GetProperty("groupBannerUrl").GetString()!,
+                StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task ClearingAnAddressTakesTheKeptPictureWithIt()
+    {
+        await using var host = await CloudTestHost.StartAsync(db);
+
+        Guid id;
+        using (var added = await AddAsync(host, new
+        {
+            kind = "sponsor",
+            name = "Kind Person",
+            link = "https://example.com",
+            imageUrl = CloudTestHost.PictureAddress,
+            vrChatGroupId = (string?)null,
+            groupImageUrl = (string?)null,
+            groupBannerUrl = (string?)null,
+            sortOrder = 0,
+        }))
+        {
+            id = (await added.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        }
+
+        await using (var cloud = db.NewCloudContext())
+        {
+            Assert.Equal(1, await cloud.ShowcasePictures.CountAsync(Ct));
+        }
+
+        using (var saved = await host.SendAsync(HttpMethod.Put, $"/api/admin/showcase/{id}", new
+        {
+            kind = "sponsor",
+            name = "Kind Person",
+            link = "https://example.com",
+            imageUrl = "",
+            vrChatGroupId = (string?)null,
+            groupImageUrl = (string?)null,
+            groupBannerUrl = (string?)null,
+            sortOrder = 0,
+        }, bearer: CloudTestHost.RootKey))
+        {
+            Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        }
+
+        await using (var cloud = db.NewCloudContext())
+        {
+            Assert.Equal(0, await cloud.ShowcasePictures.CountAsync(Ct));
+        }
+    }
+
+    [Fact]
+    public async Task RemovingARowRemovesItsPictures()
+    {
+        await using var host = await CloudTestHost.StartAsync(db);
+
+        Guid id;
+        using (var added = await AddAsync(host, new
+        {
+            kind = "sponsor",
+            name = "Kind Person",
+            link = "https://example.com",
+            imageUrl = CloudTestHost.PictureAddress,
+            vrChatGroupId = "grp_1234",
+            groupImageUrl = CloudTestHost.PictureAddress,
+            groupBannerUrl = CloudTestHost.BannerAddress,
+            sortOrder = 0,
+        }))
+        {
+            id = (await added.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        }
+
+        using (var removed = await host.SendAsync(
+            HttpMethod.Delete, $"/api/admin/showcase/{id}", bearer: CloudTestHost.RootKey))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        }
+
+        await using var check = db.NewCloudContext();
+        Assert.Equal(0, await check.ShowcasePictures.CountAsync(Ct));
+    }
 }
