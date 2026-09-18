@@ -15,6 +15,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Checkbox, Field, Outcome } from '../fields'
 import { EVENT_POST_NEEDS } from '@/lib/discordLists'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * One route, new or existing: the channel, the events, and who they must be about or done by.
@@ -398,7 +399,7 @@ function PeoplePicker({
               className="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
             >
               {person.pictureUrl ? (
-                <img src={person.pictureUrl} alt="" className="size-5 shrink-0 rounded-full object-cover" />
+                <img src={vrchatMedia(person.pictureUrl)} alt="" className="size-5 shrink-0 rounded-full object-cover" />
               ) : (
                 <span className="size-5 shrink-0 rounded-full bg-secondary" />
               )}

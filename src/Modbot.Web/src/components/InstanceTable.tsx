@@ -4,6 +4,7 @@ import { openInstance } from '@/lib/subject'
 import type { InstanceRow } from '@/lib/api'
 import { access } from '@/lib/format'
 import { instanceNumber } from '@/lib/instanceName'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * A table of actual instances: where, when, how busy, and how it ended.
@@ -45,7 +46,7 @@ export function InstanceTable({
                   <div className="flex items-center gap-2">
                     {r.worldThumbnailImageUrl && (
                       <img
-                        src={r.worldThumbnailImageUrl}
+                        src={vrchatMedia(r.worldThumbnailImageUrl)}
                         alt=""
                         loading="lazy"
                         className="size-8 shrink-0 rounded object-cover"

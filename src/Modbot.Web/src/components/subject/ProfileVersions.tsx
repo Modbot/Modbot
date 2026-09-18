@@ -8,6 +8,7 @@ import { formatDay } from '@/lib/format'
 import { fieldName } from '@/lib/profileFields'
 import { useLoad } from '@/lib/useLoad'
 import { cn } from '@/lib/utils'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * A person's profile over time: every version the facts can replay, newest first, with the one
@@ -122,7 +123,7 @@ export function Fields({ fields: p, highlight }: { fields: ProfileFields; highli
   return (
     <div className="flex gap-3">
       {picture ? (
-        <img src={picture} alt="" className={cn('size-20 shrink-0 rounded-full bg-muted object-cover', marked('profilePicOverride') || marked('currentAvatarThumbnailImageUrl'))} referrerPolicy="no-referrer" />
+        <img src={vrchatMedia(picture)} alt="" className={cn('size-20 shrink-0 rounded-full bg-muted object-cover', marked('profilePicOverride') || marked('currentAvatarThumbnailImageUrl'))} referrerPolicy="no-referrer" />
       ) : (
         <div className="size-20 shrink-0 rounded-full bg-muted" />
       )}

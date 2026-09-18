@@ -7,6 +7,7 @@ import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/a
 import { can } from '@/lib/permissions'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 import { cn } from '@/lib/utils'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * One person's stored VRChat profile, with how old it is written next to it.
@@ -176,7 +177,7 @@ function Identity({ profile }: { profile: VRChatUserProfile }) {
     <div className="flex gap-3">
       {picture ? (
         <img
-          src={picture}
+          src={vrchatMedia(picture)}
           alt=""
           className="size-16 shrink-0 rounded-full bg-muted object-cover"
           referrerPolicy="no-referrer"

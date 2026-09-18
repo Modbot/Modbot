@@ -20,6 +20,7 @@ import { can, canAny } from '@/lib/permissions'
 import { useQueryParam } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * The group's member list, as the member sweep last read it.
@@ -268,7 +269,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                         <div className="flex items-center gap-2">
                           {m.avatarThumbnailUrl ? (
                             <img
-                              src={m.avatarThumbnailUrl}
+                              src={vrchatMedia(m.avatarThumbnailUrl)}
                               alt=""
                               className="size-7 shrink-0 rounded-full bg-muted object-cover"
                               referrerPolicy="no-referrer"

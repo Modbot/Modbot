@@ -19,6 +19,7 @@ import {
 import { textList } from '@/lib/caseSnapshot'
 import { ago, formatDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * One case file, at `/cases/:id`.
@@ -390,7 +391,7 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
           the honest state: Modbot never copied the bytes. */}
       {picture ? (
         <img
-          src={picture}
+          src={vrchatMedia(picture)}
           alt=""
           className="size-16 shrink-0 rounded-md bg-muted object-cover"
           referrerPolicy="no-referrer"

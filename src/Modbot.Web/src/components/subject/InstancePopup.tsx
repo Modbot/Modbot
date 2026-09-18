@@ -13,6 +13,7 @@ import { access } from '@/lib/format'
 import { instanceName } from '@/lib/instanceName'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 const TABS = ['overview', 'people', 'logs', 'json'] as const
 type Tab = (typeof TABS)[number]
@@ -100,7 +101,7 @@ function Identity({ view }: { view: InstanceView }) {
 
   return (
     <>
-      {picture && <img src={picture} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />}
+      {picture && <img src={vrchatMedia(picture)} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />}
 
       <Field label="World" title={instance.worldId}>
         <WorldLink id={instance.worldId} name={instance.worldName} />

@@ -13,6 +13,7 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 import { ago, formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 const TABS = ['overview', 'instances', 'history', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
@@ -108,7 +109,7 @@ function Identity({ world }: { world: WorldView }) {
   return (
     <>
       {picture && (
-        <img src={picture} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />
+        <img src={vrchatMedia(picture)} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />
       )}
 
       <div>

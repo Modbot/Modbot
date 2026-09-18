@@ -24,6 +24,7 @@ import {
   type GroupBanQuery,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * Two lists, side by side, because they answer different questions.
@@ -279,7 +280,7 @@ function GroupBans({
                         <div className="flex items-center gap-2">
                           {ban.avatarThumbnailUrl ? (
                             <img
-                              src={ban.avatarThumbnailUrl}
+                              src={vrchatMedia(ban.avatarThumbnailUrl)}
                               alt=""
                               className="size-7 shrink-0 rounded-full bg-muted object-cover"
                               referrerPolicy="no-referrer"
