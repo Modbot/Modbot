@@ -77,7 +77,11 @@ public class ProxyBudgetTests
         Assert.True((await harness.CallAsync(Passthrough, ct: Ct)).IsAcquired);
 
         // The service account was rate limited, and the backstop learns that (spec 4.3.1).
-        Assert.Equal(0.5, (await harness.HealthAsync(VRChatEndpointClass.Global)).BudgetMultiplier, 9);
+        // Not to 9 places: the Moderate call above now waits out its own turn on the Interactive
+        // backstop (moderator rate-limit buckets), which moves the fake clock forward and lets
+        // Global recover a sliver of its own budget in the meantime (recovery is continuous, not
+        // per-request). A few decimal places still catch a real regression in the halving itself.
+        Assert.Equal(0.5, (await harness.HealthAsync(VRChatEndpointClass.Global)).BudgetMultiplier, 3);
     }
 
     [Fact]
