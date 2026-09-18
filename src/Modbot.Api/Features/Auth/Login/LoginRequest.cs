@@ -9,4 +9,10 @@ namespace Modbot.Api.Features.Auth.Login;
 /// would break companions and scripts to say something the description already says.
 /// </param>
 /// <param name="Password">Checked against the stored hash; never logged.</param>
-public sealed record LoginRequest(string Username, string Password);
+/// <param name="KeepSignedIn">
+/// Whether the session should survive closing the browser. A yes-or-no and nothing more: how long
+/// it then lasts is <see cref="Modbot.Api.Auth.ModbotAuth.KeepSignedInLength"/>, which is Modbot's
+/// to decide and cannot be raised by what is posted here. Left out, it is no -- the same session
+/// every sign-in got before this field existed.
+/// </param>
+public sealed record LoginRequest(string Username, string Password, bool KeepSignedIn = false);
