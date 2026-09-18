@@ -1,7 +1,20 @@
 # Modbot M7 — Segments, Cohorts & Giveaways
 
+> **What of this is built, as of 2026-09-17.**
+>
+> **§4 (Giveaways) is built**, and with it the parts of §2, §5 and §6 a giveaway needs:
+> the predicate model and its builder UI (§2.1), honesty about precision (§2.3), the performance
+> rules (§5) and the privacy rules (§6) — including the retention refusal §6 names as the most
+> likely quiet correctness failure. The design as built is
+> [`2026-09-17-giveaways-design.md`](2026-09-17-giveaways-design.md); §2.6 there records how a
+> segment feature reuses the rule model rather than growing a second one.
+>
+> **Not built:** §2.2 (saved, named, live segments), §3 (export, announce, bulk target), and the
+> predicate families in §2.1 that a giveaway had no use for — active streak, lapsed, new this month.
+> §7's non-goals stand unchanged.
+
 - **Date:** 2026-09-11
-- **Status:** Draft, awaiting review
+- **Status:** Draft, awaiting review; §4 built (see the note above)
 - **Covers:** M7 — the segment query builder, saved cohorts, exports, bulk targeting, giveaway draws
 - **Depends on:** M0 (facts, daily totals), M2.5 (profile, metrics), **M3 (presence data — the reason this is interesting)**, M5 (Discord facts)
 
