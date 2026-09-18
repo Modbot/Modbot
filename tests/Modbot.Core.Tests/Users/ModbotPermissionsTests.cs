@@ -24,6 +24,8 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 24, (long)ModbotPermissions.ReadDiscordMessages);
         Assert.Equal(1L << 25, (long)ModbotPermissions.ViewCalendar);
         Assert.Equal(1L << 26, (long)ModbotPermissions.ManageCalendar);
+        Assert.Equal(1L << 27, (long)ModbotPermissions.ViewGiveaways);
+        Assert.Equal(1L << 28, (long)ModbotPermissions.RunGiveaways);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -71,5 +73,18 @@ public class ModbotPermissionsTests
     {
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ManageCalendar));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ManageCalendar));
+    }
+
+    /// <summary>
+    /// An entrant list names people and says how long each spends here, and a draw decides who
+    /// gets something, so both are granted on purpose (giveaways design §8.2).
+    /// </summary>
+    [Fact]
+    public void TheGiveawayPermissions_AreNotInTheEditableBuiltInRoles()
+    {
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ViewGiveaways));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ViewGiveaways));
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.RunGiveaways));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.RunGiveaways));
     }
 }
