@@ -442,12 +442,21 @@ public class Settings
     public bool VRChatProxyEnabled { get; set; }
 
     /// <summary>
-    /// Whether the web app loads VRChat pictures through <c>/api/files/vrchat</c> (VRChat files
-    /// design). On by default, because VRChat's hosts refuse a browser that hotlinks them and a
-    /// deployment with this off shows no faces at all. Off is for an operator who would rather
-    /// their server never fetched a picture, and who accepts what that costs.
+    /// Whether Modbot fetches VRChat pictures itself at <c>/api/files/vrchat</c>, rather than
+    /// sending the browser to VRChat for them (VRChat files design).
     /// </summary>
-    public bool VRChatImagesProxied { get; set; } = true;
+    /// <remarks>
+    /// Off by default, since 2026-09-18. Fetching somebody else's pictures for every face on
+    /// every screen is a thing a server should be asked to do rather than told, and it costs the
+    /// deployment the bandwidth and the disk the cache sits on. Off does not mean no pictures: the
+    /// route answers with a redirect to VRChat, and whether VRChat serves a browser that asks
+    /// directly is VRChat's business rather than Modbot's to assume.
+    /// <para>
+    /// A deployment that already had this on keeps it on -- the migration changes what a new row
+    /// starts as, not what an existing one says.
+    /// </para>
+    /// </remarks>
+    public bool VRChatImagesProxied { get; set; }
 
     // --- AutoMod (AutoMod design; the AI parts, AI moderation design) ---
 
