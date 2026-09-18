@@ -81,7 +81,11 @@ public class VRChatFileTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("image/png", response.Content.Headers.ContentType!.MediaType);
         Assert.Equal([1, 2, 3], await response.Content.ReadAsByteArrayAsync(ct));
-        Assert.Equal(VRChatFileEndpoints.CacheControl, response.Headers.CacheControl!.ToString());
+        // Structured properties, not the raw header text: HttpClient reparses the "Cache-Control"
+        // header into a CacheControlHeaderValue, and its ToString() emits directives in its own
+        // canonical order, not the order the server wrote them in.
+        Assert.True(response.Headers.CacheControl!.Private);
+        Assert.Equal(TimeSpan.FromSeconds(604800), response.Headers.CacheControl!.MaxAge);
         Assert.Equal($"\"{VRChatFileCache.KeyFor(Address)}\"", response.Headers.ETag!.ToString());
 
         // Somebody else's bytes on Modbot's own address: never sniffed, never an origin.
