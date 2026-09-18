@@ -2756,7 +2756,7 @@
           "Imports"
         ],
         "summary": "Upload old data and start importing it",
-        "description": "The body is the file: a JSON array of records, or one record per line. Send it as the body with Content-Type application/json and the source as a query parameter, or as a multipart form with a file part and a source field. At most 64 MB. The import runs in the background; ask GET /api/imports/{id} how it is going. dryRun=true reads and counts without writing anything. The format is documented at docs.modbot.co/self-hosting/importing-old-data.\n\nNeeds the `ManageSettings` permission.",
+        "description": "The body is the file: a JSON array of records, or one record per line. Send it as the body with Content-Type application/json and the source as a query parameter, or as a multipart form with a file part and a source field. At most 64 MB. The import runs in the background; ask GET /api/imports/{id} how it is going. dryRun=true reads and counts without writing anything. The format is documented at docs.modbot.co/self-hosting/importing-old-data.\n\nNeeds the `ImportOldData` permission.",
         "operationId": "StartImport",
         "parameters": [
           {
@@ -2833,7 +2833,7 @@
           "Imports"
         ],
         "summary": "The latest fifty imports, newest first",
-        "description": "Needs the `ManageSettings` permission.",
+        "description": "Needs the `ImportOldData` permission.",
         "operationId": "ListImports",
         "responses": {
           "200": {
@@ -2869,7 +2869,7 @@
           "Imports"
         ],
         "summary": "One import: its status, counts and rejection reasons",
-        "description": "Counts move while the import runs, so asking again shows progress.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Counts move while the import runs, so asking again shows progress.\n\nNeeds the `ImportOldData` permission.",
         "operationId": "GetImport",
         "parameters": [
           {

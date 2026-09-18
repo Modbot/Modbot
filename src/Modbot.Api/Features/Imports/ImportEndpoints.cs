@@ -40,7 +40,7 @@ public static class ImportEndpoints
 
         var group = app.MapGroup("/api/imports")
             .WithTags("Imports")
-            .RequiresFlag(ModbotPermissions.ManageSettings);
+            .RequiresFlag(ModbotPermissions.ImportOldData);
 
         group.MapPost("/", async (
                 HttpContext http,

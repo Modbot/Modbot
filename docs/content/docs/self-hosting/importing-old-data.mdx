@@ -14,9 +14,13 @@ them for something Modbot saw happen.
 
 ## Who can import
 
-Importing needs the **Change settings** permission (see
-[roles and permissions](/accounts/roles-and-permissions#change-settings)). An
-[API key](/api/keys) holding it works too, so the upload can be scripted.
+Importing needs the **Import old data** permission (see
+[roles and permissions](/accounts/roles-and-permissions#import-old-data)). It is not part of any
+built-in role except Administrator, and it is not the same as **Change settings**: an import
+writes history that did not happen inside Modbot, so it is given out on purpose.
+
+There is no screen for it. Importing is done with an [API key](/api/keys) that holds the
+permission.
 
 ## The file
 
@@ -147,7 +151,7 @@ A file that is not JSON at all ends as **Failed** with the parser's reason.
 
 ## Importing with curl
 
-With an [API key](/api/keys) that holds **Change settings**:
+With an [API key](/api/keys) that holds **Import old data**:
 
 ```bash
 curl -X POST "https://modbot.example.com/api/imports?source=old-bot&fileName=old-bot.json&dryRun=true" \

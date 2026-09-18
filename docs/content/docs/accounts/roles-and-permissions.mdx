@@ -387,8 +387,6 @@ Name: `ManageSettings`
   (including insights and limits) and **API**.
 - Runs the [setup wizard](/setup-wizard) again once it has been completed.
 - Allows webhooks to be sent to private network addresses.
-- Uploads old data from another platform, and sees past imports. See
-  [Importing old data](/self-hosting/importing-old-data).
 
 The **API** tab's keys and webhooks also need **Manage API keys and webhooks**, and the reason list
 under **Moderation** needs **Edit the reason list**.
@@ -415,6 +413,25 @@ Name: `UseVRChatProxy`
   which needs **Change settings**.
 
 Not part of the built-in roles. Administrator holds it.
+
+### Import old data
+
+Name: `ImportOldData`
+
+- Uploads a file of another platform's bans, warnings, notes and audit entries and has Modbot
+  write each record into the log as history, and sees every past import. See
+  [Importing old data](/self-hosting/importing-old-data).
+
+Not part of the built-in roles, and deliberately not part of **Change settings**, which it used to
+be. A setting says what Modbot does next and can be changed back. An import writes history that
+did not happen inside Modbot: bans, warnings and notes dated years ago, about named people, in the
+same log a moderator reads to decide what somebody has done before. Nothing else Modbot offers can
+do that in bulk, and events cannot be deleted afterwards — the only way back is purging the people
+concerned or restoring a backup.
+
+There is no screen for importing. It is done with an [API key](/api/keys) holding this permission.
+
+Administrator holds it.
 
 ### Administrator
 

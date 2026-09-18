@@ -36,7 +36,7 @@ public class ImportTests
     public async Task AJsonArray_ImportsEveryMappedKind_OnBothPlatforms()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
 
         var source = NewSource();
         var vrchat = NewUser();
@@ -108,7 +108,7 @@ public class ImportTests
     public async Task NewlineDelimited_ImportsTheSame_AndKeepsTheActorAndData()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
 
         var source = NewSource();
         var subject = NewUser();
@@ -160,7 +160,7 @@ public class ImportTests
     public async Task AnUnknownKind_IsKept_WithTheKindInTypeRaw_AndAFullTypeName_IsUsedAsIs()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
 
         var source = NewSource();
         var subject = NewUser();
@@ -191,7 +191,7 @@ public class ImportTests
     public async Task ReUploadingTheSameFile_SkipsEveryRecord_ByExternalIdAndByHash()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
 
         var source = NewSource();
         var subject = NewUser();
@@ -245,7 +245,7 @@ public class ImportTests
     public async Task Rejections_CarryTheLineNumber_AndTheFileGoesOn()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
 
         var source = NewSource();
         var subject = NewUser();
@@ -288,7 +288,7 @@ public class ImportTests
     public async Task AFileThatIsNotJson_Fails_WithTheReason()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
 
         var import = await UploadAsync(host, cookie, NewSource(), "[ { \"kind\": ");
         var done = await FinishedAsync(host, cookie, import.GetProperty("id").GetString()!);
@@ -301,7 +301,7 @@ public class ImportTests
     public async Task ADryRun_CountsEverything_AndWritesNothing()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
 
         var source = NewSource();
         var subject = NewUser();
@@ -334,16 +334,23 @@ public class ImportTests
     }
 
     [Fact]
-    public async Task AModerator_IsRefused_AndSoIsAnUploadWithoutASource()
+    public async Task ChangeSettingsIsNotEnough_AndSoIsAnUploadWithoutASource()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, moderator) = await host.SignedInAsync(ModbotPermissions.ViewAuditLog | ModbotPermissions.Ban, Ct);
 
-        var refused = await UploadRawAsync(host, moderator, NewSource(), "[]", dryRun: false, contentType: "application/json");
+        // Import used to ride on Change settings. It has its own permission now, so an operator
+        // who holds everything the Settings page needs still cannot write history.
+        var (_, settings) = await host.SignedInAsync(
+            ModbotPermissions.ManageSettings | ModbotPermissions.ViewAuditLog | ModbotPermissions.Ban, Ct);
+
+        var refused = await UploadRawAsync(host, settings, NewSource(), "[]", dryRun: false, contentType: "application/json");
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Path, moderator), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Path, settings), Ct)).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, $"{Path}/{Guid.NewGuid()}", settings), Ct)).StatusCode);
 
-        var (_, operatorCookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, operatorCookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
 
         var noSource = await UploadRawAsync(host, operatorCookie, "", "[]", dryRun: false, contentType: "application/json");
         Assert.Equal(HttpStatusCode.BadRequest, noSource.StatusCode);
@@ -353,14 +360,14 @@ public class ImportTests
     }
 
     [Fact]
-    public async Task AnApiKey_HoldingChangeSettings_CanImport_AndTheAuditEntryNamesItsOwner()
+    public async Task AnApiKey_HoldingImportOldData_CanImport_AndTheAuditEntryNamesItsOwner()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
         var (user, cookie) = await host.SignedInAsync(
-            ModbotPermissions.ManageSettings | ModbotPermissions.ManageApiKeys, Ct);
+            ModbotPermissions.ImportOldData | ModbotPermissions.ManageApiKeys, Ct);
 
         var made = await host.SendJsonAsync(
-            HttpMethod.Post, "/api/api-keys", new { name = "Importer", permissions = new[] { "ManageSettings" }, expiresAt = (string?)null }, cookie, Ct);
+            HttpMethod.Post, "/api/api-keys", new { name = "Importer", permissions = new[] { "ImportOldData" }, expiresAt = (string?)null }, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, made.StatusCode);
         var key = (await ApiTestHost.BodyOf(made, Ct)).GetProperty("key").GetString()!;
 
@@ -412,7 +419,7 @@ public class ImportTests
         await using var host = await ApiTestHost.StartAsync(_db);
 
         // ViewAuditLog as well, to read the imported fact back through the audit log at the end.
-        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings | ModbotPermissions.ViewAuditLog, Ct);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData | ModbotPermissions.ViewAuditLog, Ct);
 
         var source = NewSource();
         var subject = NewUser();

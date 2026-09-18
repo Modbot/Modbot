@@ -112,9 +112,22 @@ for.
 
 ## 4. The endpoints
 
-Under `/api/imports`, tag **Imports**, and the permission is **Change settings**
-(`ManageSettings`): the same one that opens the Settings page, where the card lives. It is an
-operator's job, and an operator's API key holding it works, so it can be scripted.
+Under `/api/imports`, tag **Imports**, and the permission is **Import old data**
+(`ImportOldData`, bit 30) on every route in the group — uploading, listing and reading one.
+
+It used to be **Change settings** (`ManageSettings`), because that was the permission that opened
+the Settings page the card lived on. That was a bad reason, and with the card gone it is not even
+a reason. Importing has a permission of its own because it is a different and larger power than
+changing a setting: **an import writes history that did not happen inside Modbot**. A setting says
+what Modbot will do next and can be changed back; an import puts bans, warnings and notes dated
+years ago, about named people, into the same log a moderator reads to decide what somebody has
+done before — and facts are append-only (foundation §5.2), so the only way back is purging the
+people concerned or restoring a backup. Nothing else Modbot offers can put claims about people's
+pasts into that log in bulk. The operator who should be able to set the retention window is not
+automatically the person who should be able to do that, so it is granted on purpose.
+
+Not in the built-in Moderator or Viewer roles; Administrator holds it like everything else. An API
+key holding it works, which is now the only way in.
 
 ### 4.1 `POST /api/imports`
 

@@ -27,6 +27,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 27, (long)ModbotPermissions.UseVRChatProxy);
         Assert.Equal(1L << 28, (long)ModbotPermissions.ViewGiveaways);
         Assert.Equal(1L << 29, (long)ModbotPermissions.RunGiveaways);
+        Assert.Equal(1L << 30, (long)ModbotPermissions.ImportOldData);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -87,5 +88,17 @@ public class ModbotPermissionsTests
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ViewGiveaways));
         Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.RunGiveaways));
         Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.RunGiveaways));
+    }
+
+    /// <summary>
+    /// An import writes history that did not happen inside Modbot, which is a larger power than
+    /// changing a setting (import design §4). It rides on nothing else and is in no built-in role.
+    /// </summary>
+    [Fact]
+    public void ImportOldData_StandsAlone_AndIsNotInTheEditableBuiltInRoles()
+    {
+        Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.ImportOldData));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.ImportOldData));
+        Assert.False(ModbotPermissions.ManageSettings.HasFlag(ModbotPermissions.ImportOldData));
     }
 }
