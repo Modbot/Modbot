@@ -63,7 +63,7 @@ public static class ReviewEndpoints
                     : await query.OrderBy(r => r.State).ThenBy(r => r.OpenedAt).ThenBy(r => r.Id).Take(500).ToListAsync(ct);
 
                 var openCount = await db.Reviews.AsNoTracking().CountAsync(r => r.State == ReviewState.Open, ct);
-                var lastRun = await db.ReviewRunState.AsNoTracking().Select(s => s.UpdatedAt).FirstOrDefaultAsync(ct);
+                var lastRun = await db.ReviewRunState.AsNoTracking().Where(s => s.Id == 1).Select(s => s.UpdatedAt).FirstOrDefaultAsync(ct);
 
                 var ids = rows.Select(r => r.ModeratorId)
                     .Concat(rows.Where(r => r.Signal == ReviewSignal.SamePerson).Select(r => r.About))

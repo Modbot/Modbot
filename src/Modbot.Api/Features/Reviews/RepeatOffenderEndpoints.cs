@@ -126,7 +126,7 @@ public static class RepeatOffenderEndpoints
         => $"Repeat: {thresholds.RepeatOffenderActionsIn30Days} or more actions in the last 30 days.";
 
     private static async Task<DateTimeOffset?> LastRunAsync(ModbotContext db, CancellationToken ct)
-        => await db.ReviewRunState.AsNoTracking().Select(s => s.UpdatedAt).FirstOrDefaultAsync(ct);
+        => await db.ReviewRunState.AsNoTracking().Where(s => s.Id == 1).Select(s => s.UpdatedAt).FirstOrDefaultAsync(ct);
 
     private static RepeatOffenderView View(RepeatOffender row, IReadOnlyDictionary<string, string> names)
     {
