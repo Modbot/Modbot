@@ -78,6 +78,11 @@ public static class VRChatServiceCollectionExtensions
             rateLimits: rateLimits,
             clientOptions: clientOptions));
 
+        // The bytes behind a picture address, for anything that cannot follow a VRChat address
+        // itself -- a Discord card sends them, because Discord fetches pictures signed in as
+        // nobody (Discord embeds design §3).
+        services.AddSingleton<Core.Files.IPictures, Files.VRChatPictures>();
+
         return services;
     }
 

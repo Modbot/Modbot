@@ -38,6 +38,11 @@ public static class DiscordServiceCollectionExtensions
         services.TryAddSingleton<ModerationLogOptions>();
         services.TryAddSingleton<IDiscordGatewayFactory, DiscordNetGatewayFactory>();
 
+        // The pictures on cards (Discord embeds design §3). A singleton, so what one pass fetched
+        // the next one does not fetch again. IPictures comes from the VRChat side and is absent in
+        // a host without it; every card then goes without a picture rather than failing to post.
+        services.TryAddSingleton(p => new Cards.CardPictures(p.GetService<Core.Files.IPictures>()));
+
         services.AddSingleton<DiscordBotStatus>();
         services.AddSingleton<IDiscordBotStatus>(p => p.GetRequiredService<DiscordBotStatus>());
 

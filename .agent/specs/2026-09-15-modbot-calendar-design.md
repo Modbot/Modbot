@@ -113,8 +113,11 @@ event finishing and cancelling: each changes what the place should say.
 
 ### 3.3 The channel post
 
-- An embed like the instance cards: the title, the time as Discord timestamps (so every reader
-  sees their own time), the world, who can join, the region, and the event picture or the world's.
+- An embed like the instance cards: the group's name, the title, the time as Discord timestamps (so
+  every reader sees their own time), the world, who can join, the region, and the event picture or
+  the world's. The world is a linked name rather than an id, and the world's picture is sent with
+  the message (Discord embeds design 2026-09-17); the event's own picture is linked as it is,
+  because it is on a host that serves anybody.
 - A Join button once the instance is open. Rewritten when the event changes or opens.
 - Ends as "Finished" or "Cancelled", without the button. A repeating event gets a new post for
   each occurrence, the way a notice board would.

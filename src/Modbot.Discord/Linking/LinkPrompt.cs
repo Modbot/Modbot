@@ -5,6 +5,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Time;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.ModerationLog;
 
@@ -153,10 +154,15 @@ public sealed class LinkPrompt
 
     public const string BackupChannelText = "your DMs are closed. Link your VRChat account here.";
 
+    /// <remarks>
+    /// The server's name is a name, not a sentence, so it is escaped the way every other name on a
+    /// card is: a server called <c>**everyone**</c> must not make the greeting shout, and one with
+    /// a <c>]</c> in it must not break out of anything.
+    /// </remarks>
     public static string DirectMessageText(string? serverName)
         => string.IsNullOrWhiteSpace(serverName)
             ? "Welcome! Link your VRChat account."
-            : $"Welcome to **{ModerationEventEmbed.Escape(serverName)}**! Link your VRChat account.";
+            : $"Welcome to **{CardText.Fit(CardText.EscapeName(serverName), CardText.MaxNameLength)}**! Link your VRChat account.";
 
     private async Task RecordAsync(DiscordMemberJoin member, string via, string? error, CancellationToken ct)
     {

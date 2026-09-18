@@ -125,13 +125,26 @@ group's history into Discord.
 
 ## What a post looks like
 
-Each event is a card with:
+Each event is a card headed by the person it happened to: their display name, with their VRChat
+picture beside it. Under that:
 
-- the event's name as the title, for example **Banned**. When a [public address](/discord/bot-setup#enter-the-token-and-server-id-in-modbot)
-  is set, the title links to that person's entries in Modbot's **Audit log**;
-- **Who** it happened to and **By** whom, with names and ids;
+- the event's name as the title, for example **Banned**;
+- **By** whom, when somebody did it;
 - **When**, shown in each reader's own time zone;
-- VRChat's own sentence about the event, quoted, when VRChat gave one.
+- VRChat's own sentence about the event, quoted, when VRChat gave one;
+- the group's name at the bottom.
+
+When a [public address](/discord/bot-setup#enter-the-token-and-server-id-in-modbot) is set, the
+title and every name on the card open that person in Modbot. Without one, the names are still
+there; they just are not links.
+
+Cards do not print VRChat ids. The link carries the id, and the person's profile in Modbot shows it
+with a button that copies it. The one card that still shows an id is a card for somebody Modbot has
+never read a profile for, where the id is all there is to show.
+
+Pictures are sent to Discord with the message, because VRChat does not let anyone else's server
+load its pictures. A picture Modbot cannot fetch just is not there, and the card is posted without
+it.
 
 Modbot looks for new events every few seconds. When many events arrive at once, it groups up to
 ten cards in one message and spaces messages out, so it stays within Discord's limits. Events go

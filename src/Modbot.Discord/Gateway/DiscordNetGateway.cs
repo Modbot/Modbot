@@ -179,20 +179,55 @@ public sealed class DiscordNetGateway : IDiscordGateway
         string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct) =>
+        PostAsync(channelId, text, embeds, links, pictures: null, ct);
+
+    public Task<DiscordPostOutcome> PostAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(embeds);
 
         return InChannelAsync(channelId, async channel =>
         {
+            var built = embeds.Select(ToEmbed).ToArray();
+            var buttons = Buttons(links) is { Components.Count: > 0 } b ? b : null;
+
             // Names inside an embed never ping anybody, even one that happens to read like @here,
             // and neither does the operator's own line above it.
-            var sent = await channel.SendMessageAsync(
-                    text: text,
-                    embeds: embeds.Select(ToEmbed).ToArray(),
-                    allowedMentions: AllowedMentions.None,
-                    components: Buttons(links) is { Components.Count: > 0 } buttons ? buttons : null)
-                .ConfigureAwait(false);
+            IUserMessage sent;
+
+            if (Files(pictures) is { Count: > 0 } files)
+            {
+                try
+                {
+                    sent = await channel.SendFilesAsync(
+                            attachments: files,
+                            text: text,
+                            embeds: built,
+                            allowedMentions: AllowedMentions.None,
+                            components: buttons)
+                        .ConfigureAwait(false);
+                }
+                finally
+                {
+                    foreach (var file in files)
+                        file.Dispose();
+                }
+            }
+            else
+            {
+                sent = await channel.SendMessageAsync(
+                        text: text,
+                        embeds: built,
+                        allowedMentions: AllowedMentions.None,
+                        components: buttons)
+                    .ConfigureAwait(false);
+            }
 
             return DiscordPostOutcome.Posted(
                 sent.Id.ToString(CultureInfo.InvariantCulture));
@@ -205,6 +240,16 @@ public sealed class DiscordNetGateway : IDiscordGateway
         string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct) =>
+        EditAsync(channelId, messageId, text, embeds, links, pictures: null, ct);
+
+    public Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(embeds);
@@ -225,18 +270,65 @@ public sealed class DiscordNetGateway : IDiscordGateway
                     "That message is gone, or was not posted by the bot.", permanent: true);
             }
 
-            await mine.ModifyAsync(m =>
-            {
-                m.Content = text;
-                m.Embeds = embeds.Select(ToEmbed).ToArray();
-                m.AllowedMentions = AllowedMentions.None;
+            var files = pictures is null ? null : Files(pictures);
 
-                // Always set, so an edit with no buttons takes away the ones the message had.
-                m.Components = Buttons(links);
-            }).ConfigureAwait(false);
+            try
+            {
+                await mine.ModifyAsync(m =>
+                {
+                    m.Content = text;
+                    m.Embeds = embeds.Select(ToEmbed).ToArray();
+                    m.AllowedMentions = AllowedMentions.None;
+
+                    // Always set, so an edit with no buttons takes away the ones the message had.
+                    m.Components = Buttons(links);
+
+                    // Left alone when the caller sent no list at all, which is what keeps the
+                    // picture a rewritten card already paid for.
+                    if (files is not null)
+                        m.Attachments = files;
+                }).ConfigureAwait(false);
+            }
+            finally
+            {
+                foreach (var file in files ?? [])
+                    file.Dispose();
+            }
 
             return DiscordPostOutcome.Posted(messageId);
         });
+    }
+
+    /// <summary>
+    /// The library's file objects for the pictures a message carries, at most as many as Discord
+    /// accepts and never two by the same name.
+    /// </summary>
+    /// <remarks>
+    /// Discord answers a message with an eleventh file by refusing the whole message, and the
+    /// cards are built by separate pieces that do not know what the others asked for, so the cap
+    /// is held here rather than trusted to every caller.
+    /// </remarks>
+    private static List<FileAttachment> Files(IReadOnlyList<DiscordPicture>? pictures)
+    {
+        var files = new List<FileAttachment>();
+
+        if (pictures is null)
+            return files;
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var picture in pictures)
+        {
+            if (picture.Bytes.Length == 0 || !names.Add(picture.Name))
+                continue;
+
+            files.Add(new FileAttachment(new MemoryStream(picture.Bytes, writable: false), picture.Name));
+
+            if (files.Count == DiscordPicture.PerMessage)
+                break;
+        }
+
+        return files;
     }
 
     /// <summary>
@@ -1312,17 +1404,51 @@ public sealed class DiscordNetGateway : IDiscordGateway
             command.User.Username,
             command.Data.Name,
             options,
-            (reply, _) => command.FollowupAsync(
-                text: reply.Text,
-                embeds: reply.Embeds.Count == 0 ? null : reply.Embeds.Select(ToEmbed).ToArray(),
-                ephemeral: true,
-                allowedMentions: AllowedMentions.None,
-                components: Buttons(reply.Links) is { Components.Count: > 0 } buttons ? buttons : null));
+            (reply, _) => AnswerAsync(command, reply));
 
         var handler = CommandReceived;
         if (handler is not null)
             await handler(call).ConfigureAwait(false);
     }
+
+    /// <summary>One answer to a slash command, with the pictures its cards point at.</summary>
+    private static async Task AnswerAsync(SocketSlashCommand command, DiscordReply reply)
+    {
+        var embeds = reply.Embeds.Count == 0 ? null : reply.Embeds.Select(ToEmbed).ToArray();
+        var buttons = Buttons(reply.Links) is { Components.Count: > 0 } b ? b : null;
+        var files = Files(reply.Pictures);
+
+        try
+        {
+            if (files.Count > 0)
+            {
+                await command.FollowupWithFilesAsync(
+                        attachments: files,
+                        text: reply.Text,
+                        embeds: embeds,
+                        ephemeral: true,
+                        allowedMentions: AllowedMentions.None,
+                        components: buttons)
+                    .ConfigureAwait(false);
+
+                return;
+            }
+
+            await command.FollowupAsync(
+                    text: reply.Text,
+                    embeds: embeds,
+                    ephemeral: true,
+                    allowedMentions: AllowedMentions.None,
+                    components: buttons)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            foreach (var file in files)
+                file.Dispose();
+        }
+    }
+
 
     private async Task Guard(Task work, string what)
     {
@@ -1519,6 +1645,18 @@ public sealed class DiscordNetGateway : IDiscordGateway
         && Uri.TryCreate(address, UriKind.Absolute, out var uri)
         && uri.Scheme == Uri.UriSchemeHttps;
 
+    /// <summary>
+    /// An address a picture slot accepts: an https address, or a file sent with the same message.
+    /// </summary>
+    /// <remarks>
+    /// Only the picture slots. An embed's own <c>Url</c> is what the title opens when clicked, and
+    /// a file is not a page.
+    /// </remarks>
+    private static string? Picture(string? address) =>
+        address is { Length: > 0 } && address.StartsWith(DiscordPicture.Scheme, StringComparison.Ordinal)
+            ? address
+            : IsHttps(address) ? address : null;
+
     private static Embed ToEmbed(DiscordEmbedContent content)
     {
         var builder = new EmbedBuilder()
@@ -1536,14 +1674,22 @@ public sealed class DiscordNetGateway : IDiscordGateway
         if (IsHttps(content.Url))
             builder.WithUrl(content.Url);
 
-        if (IsHttps(content.ImageUrl))
-            builder.WithImageUrl(content.ImageUrl);
+        if (Picture(content.ImageUrl) is { } image)
+            builder.WithImageUrl(image);
 
-        if (IsHttps(content.ThumbnailUrl))
-            builder.WithThumbnailUrl(content.ThumbnailUrl);
+        if (Picture(content.ThumbnailUrl) is { } thumbnail)
+            builder.WithThumbnailUrl(thumbnail);
+
+        if (content.AuthorName is { Length: > 0 } author)
+        {
+            builder.WithAuthor(
+                author,
+                Picture(content.AuthorIconUrl),
+                IsHttps(content.AuthorUrl) ? content.AuthorUrl : null);
+        }
 
         if (content.Footer is { Length: > 0 })
-            builder.WithFooter(content.Footer, IsHttps(content.FooterIconUrl) ? content.FooterIconUrl : null);
+            builder.WithFooter(content.Footer, Picture(content.FooterIconUrl));
 
         foreach (var field in content.Fields)
             builder.AddField(field.Name, field.Value, field.Inline);

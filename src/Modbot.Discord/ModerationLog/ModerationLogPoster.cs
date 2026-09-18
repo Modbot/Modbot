@@ -7,6 +7,7 @@ using Modbot.Core.Discord;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Modbot.Discord.Bot;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Serilog;
 
@@ -93,6 +94,7 @@ public sealed class ModerationLogPoster
     private readonly IModbotClock _clock;
     private readonly DiscordBotStatus _status;
     private readonly ModerationLogOptions _options;
+    private readonly CardPictures _pictures;
     private readonly ILogger _log;
 
     public ModerationLogPoster(
@@ -101,6 +103,7 @@ public sealed class ModerationLogPoster
         IModbotClock clock,
         DiscordBotStatus status,
         ModerationLogOptions? options = null,
+        CardPictures? pictures = null,
         ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -113,6 +116,7 @@ public sealed class ModerationLogPoster
         _clock = clock;
         _status = status;
         _options = options ?? new ModerationLogOptions();
+        _pictures = pictures ?? new CardPictures();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
     }
 
@@ -154,9 +158,17 @@ public sealed class ModerationLogPoster
 
         var settings = await _db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.PublicAddress })
+            .Select(s => new { s.PublicAddress, s.ManagedGroupName, s.VRChatImagesProxied })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
+
+        // What every card in this pass shares. The mark beside the footer is Modbot's own, which
+        // costs nothing to link because it is served from the public address; the footer names the
+        // group, so a server watching more than one Modbot can tell the channels apart.
+        var style = new CardStyle(
+            settings?.PublicAddress,
+            settings?.ManagedGroupName,
+            BrandIcon.For(settings?.PublicAddress));
 
         var results = new List<ModerationLogChannelPass>();
         long? newest = null;
@@ -187,7 +199,9 @@ public sealed class ModerationLogPoster
                 continue;
             }
 
-            results.Add(await PostChannelAsync(gateway, delay, place, channelRoutes, settings?.PublicAddress, ct).ConfigureAwait(false));
+            results.Add(await PostChannelAsync(
+                    gateway, delay, place, channelRoutes, style, settings?.VRChatImagesProxied ?? true, ct)
+                .ConfigureAwait(false));
         }
 
         var posted = results.Sum(r => r.Posted);
@@ -207,7 +221,8 @@ public sealed class ModerationLogPoster
         Func<TimeSpan, CancellationToken, Task> delay,
         DiscordEventChannel place,
         IReadOnlyList<DiscordEventRoute> routes,
-        string? publicAddress,
+        CardStyle style,
+        bool showPictures,
         CancellationToken ct)
     {
         var channelId = place.ChannelId;
@@ -248,16 +263,18 @@ public sealed class ModerationLogPoster
                 _db, matching.Select(m => m.SubjectId).Concat(matching.Select(m => m.ActorId)), ct)
             .ConfigureAwait(false);
 
-        var embeds = matching
-            .Select(m => (m.Id, Embed: ModerationEventEmbed.For(ModerationEventView.From(m, names), publicAddress)))
-            .ToList();
+        // Only the people a card is headed by, so a pass does not read pictures for the actors,
+        // whose names sit in a field and carry no picture.
+        var faces = showPictures
+            ? await PersonPictures.LoadAsync(_db, matching.Select(m => m.SubjectId), ct).ConfigureAwait(false)
+            : [];
 
         var posted = 0;
         var postedThrough = cursor;
         var messages = 0;
         string? error = null;
 
-        foreach (var chunk in embeds.Chunk(_options.EmbedsPerMessage))
+        foreach (var chunk in matching.Chunk(_options.EmbedsPerMessage))
         {
             if (messages >= _options.MessagesPerPass)
                 break;
@@ -265,7 +282,25 @@ public sealed class ModerationLogPoster
             if (messages > 0)
                 await delay(_options.GapBetweenMessages, ct).ConfigureAwait(false);
 
-            var outcome = await gateway.PostAsync(channelId, chunk.Select(c => c.Embed).ToList(), ct).ConfigureAwait(false);
+            // The faces are collected per message, because Discord counts files by the message and
+            // two cards about the same person then cost one upload rather than two.
+            var pictures = _pictures.ForMessage(showPictures);
+            var cards = new List<DiscordEmbedContent>(chunk.Length);
+
+            foreach (var fact in chunk)
+            {
+                var view = ModerationEventView.From(fact, names);
+                var face = faces.GetValueOrDefault(view.SubjectId);
+
+                cards.Add(ModerationEventEmbed.For(
+                    view,
+                    style,
+                    new CardPicture(AuthorIcon: await pictures.AddAsync(face, ct).ConfigureAwait(false))));
+            }
+
+            var outcome = await gateway
+                .PostAsync(channelId, null, cards, null, pictures.Files, ct)
+                .ConfigureAwait(false);
             messages++;
 
             if (!outcome.Sent)
@@ -319,7 +354,7 @@ public sealed class ModerationLogPoster
                 Data = new JsonObject
                 {
                     ["count"] = posted,
-                    ["fromId"] = embeds[0].Id,
+                    ["fromId"] = matching[0].Id,
                     ["toId"] = postedThrough,
                 },
             }, ct)

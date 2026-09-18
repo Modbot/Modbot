@@ -122,6 +122,21 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>Every rewrite, in order. The message id says which card was changed.</summary>
     public List<(string ChannelId, string MessageId, string? Text, IReadOnlyList<DiscordEmbedContent> Embeds, IReadOnlyList<DiscordLinkButton> Links)> Edits { get; } = [];
 
+    /// <summary>
+    /// The pictures sent with each message, by message id, so a test can see what was uploaded and
+    /// what was not.
+    /// </summary>
+    /// <remarks>
+    /// An edit records what it was given, which is null when the caller left the message's files
+    /// alone -- the whole point of a card that is rewritten every minute. An edit key is the
+    /// message id with the number of the edit after it, so one message's edits do not overwrite
+    /// each other.
+    /// </remarks>
+    public Dictionary<string, IReadOnlyList<DiscordPicture>?> PicturesSent { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The pictures each rewrite was given, in order. Null means "keep what is there".</summary>
+    public List<IReadOnlyList<DiscordPicture>?> EditPictures { get; } = [];
+
     private int _nextMessageId = 1000;
 
     public List<string> Tokens { get; } = [];
@@ -194,6 +209,15 @@ public sealed class FakeGateway : IDiscordGateway
         string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct) =>
+        PostAsync(channelId, text, embeds, links, pictures: null, ct);
+
+    public Task<DiscordPostOutcome> PostAsync(
+        string channelId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct)
     {
         var outcome = _outcomes.Count > 0 ? _outcomes.Dequeue() : null;
@@ -205,6 +229,7 @@ public sealed class FakeGateway : IDiscordGateway
 
         Posts.Add((channelId, embeds));
         Messages.Add((channelId, messageId, text, embeds, links ?? []));
+        PicturesSent[messageId] = pictures;
 
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
@@ -215,6 +240,16 @@ public sealed class FakeGateway : IDiscordGateway
         string? text,
         IReadOnlyList<DiscordEmbedContent> embeds,
         IReadOnlyList<DiscordLinkButton>? links,
+        CancellationToken ct) =>
+        EditAsync(channelId, messageId, text, embeds, links, pictures: null, ct);
+
+    public Task<DiscordPostOutcome> EditAsync(
+        string channelId,
+        string messageId,
+        string? text,
+        IReadOnlyList<DiscordEmbedContent> embeds,
+        IReadOnlyList<DiscordLinkButton>? links,
+        IReadOnlyList<DiscordPicture>? pictures,
         CancellationToken ct)
     {
         var outcome = _editOutcomes.Count > 0 ? _editOutcomes.Dequeue() : null;
@@ -223,6 +258,8 @@ public sealed class FakeGateway : IDiscordGateway
             return Task.FromResult(outcome);
 
         Edits.Add((channelId, messageId, text, embeds, links ?? []));
+        EditPictures.Add(pictures);
+
         return Task.FromResult(DiscordPostOutcome.Posted(messageId));
     }
 

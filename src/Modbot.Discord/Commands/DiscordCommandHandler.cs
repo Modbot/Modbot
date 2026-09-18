@@ -7,7 +7,9 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 using Modbot.Discord.Bot;
+using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 using Modbot.Discord.ModerationLog;
 
@@ -35,7 +37,7 @@ namespace Modbot.Discord.Commands;
 public sealed class DiscordCommandHandler
 {
     /// <summary>Modbot's own violet, for a reply that is neither good nor bad news (brand design 2026-09-16).</summary>
-    private const uint Violet = 0x5B4BD6;
+    private const uint Violet = CardColour.Violet;
 
     public const string NotLinkedMessage = "Link your Discord account in Modbot first.";
 
@@ -44,13 +46,15 @@ public sealed class DiscordCommandHandler
     private readonly IModbotClock _clock;
     private readonly DiscordBotStatus _status;
     private readonly LookupQuery _lookup;
+    private readonly CardPictures _pictures;
 
     public DiscordCommandHandler(
         ModbotContext db,
         IFactWriter facts,
         IModbotClock clock,
         DiscordBotStatus status,
-        LookupQuery lookup)
+        LookupQuery lookup,
+        CardPictures? pictures = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -63,6 +67,7 @@ public sealed class DiscordCommandHandler
         _clock = clock;
         _status = status;
         _lookup = lookup;
+        _pictures = pictures ?? new CardPictures();
     }
 
     public async Task<DiscordReply> HandleAsync(DiscordCommandCall call, CancellationToken ct)
@@ -125,6 +130,7 @@ public sealed class DiscordCommandHandler
     {
         var query = call.Option(DiscordCommands.LookupUserOption) ?? string.Empty;
         var matches = await _lookup.FindAsync(query, ct).ConfigureAwait(false);
+        var (style, showPictures) = await StyleAsync(ct).ConfigureAwait(false);
 
         if (matches.Count == 0)
         {
@@ -138,32 +144,68 @@ public sealed class DiscordCommandHandler
             var sb = new StringBuilder();
             sb.Append(CultureInfo.InvariantCulture, $"Several people match \"{ModerationEventEmbed.Fit(ModerationEventEmbed.Escape(query), 80)}\". Run the command again with the id:");
 
+            // The one list of people that still carries ids: the moderator is being asked to run
+            // the command again with one, so here the id is the answer rather than decoration.
             foreach (var match in matches)
-                sb.Append('\n').Append("• ").Append(ModerationEventEmbed.Person(match.DisplayName, match.UserId));
+            {
+                sb.Append('\n').Append("• ")
+                    .Append(CardLink.Person(match.DisplayName, match.UserId, style.PublicAddress))
+                    .Append(" — `")
+                    .Append(match.UserId.Replace("`", string.Empty, StringComparison.Ordinal))
+                    .Append('`');
+            }
 
             return (DiscordReply.Say(sb.ToString()), null);
         }
 
         var person = matches[0];
         var summary = await _lookup.SummarizeAsync(person.UserId, ct).ConfigureAwait(false);
-        var publicAddress = await PublicAddressAsync(ct).ConfigureAwait(false);
+        var profile = summary.Profile;
 
-        return (DiscordReply.Card(ProfileCard(summary, publicAddress)), person.UserId);
+        // Three pictures on one card, which is what the slots are for: the face beside the name,
+        // the banner across the bottom, and the group they represent above the lot.
+        var pictures = _pictures.ForMessage(showPictures);
+        var picture = new CardPicture(
+            Thumbnail: await pictures.AddAsync(ProfilePictures.Best(profile), ct).ConfigureAwait(false),
+            Image: await pictures.AddAsync(profile?.BannerUrl, ct).ConfigureAwait(false),
+            AuthorIcon: await pictures.AddAsync(profile?.RepresentedGroupIconUrl, ct).ConfigureAwait(false));
+
+        return (DiscordReply.Card(ProfileCard(summary, style, picture), pictures.Files), person.UserId);
     }
 
-    /// <summary>The <c>/lookup</c> card. Public so its wording is testable without a database.</summary>
     public static DiscordEmbedContent ProfileCard(PersonSummary summary, string? publicAddress)
+        => ProfileCard(summary, new CardStyle(publicAddress, FooterIconUrl: BrandIcon.For(publicAddress)), CardPicture.None);
+
+    /// <summary>
+    /// The <c>/lookup</c> card: the one card that is about a person rather than about something
+    /// that happened to them. Public so its wording is testable without a database.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The person is the headline, so their name is the title, their picture is the thumbnail
+    /// beside it and their banner is the picture across the bottom -- the profile as VRChat shows
+    /// it. The group they represent, when they represent one, sits above the title with its icon,
+    /// which is the only place a card is about a group today.
+    /// </para>
+    /// <para>
+    /// <strong>The id is not on the card.</strong> The title links to them in Modbot, which is
+    /// where a moderator gets the id with a control that copies it; printing it here put an opaque
+    /// forty characters above every reply for the one reader in a hundred who wanted it.
+    /// </para>
+    /// </remarks>
+    public static DiscordEmbedContent ProfileCard(PersonSummary summary, CardStyle style, CardPicture picture)
     {
         ArgumentNullException.ThrowIfNull(summary);
+        ArgumentNullException.ThrowIfNull(style);
 
         var profile = summary.Profile;
         var title = string.IsNullOrWhiteSpace(profile?.DisplayName)
             ? summary.UserId
-            : ModerationEventEmbed.Escape(profile!.DisplayName!);
+            : profile!.DisplayName!;
 
-        var description = "`" + summary.UserId.Replace("`", string.Empty, StringComparison.Ordinal) + "`";
-        if (profile is null)
-            description += "\nModbot has seen this id in the group's history but has not fetched the profile yet.";
+        var description = profile is null
+            ? "Modbot has seen this id in the group's history but has not read the profile yet."
+            : null;
 
         var eighteenPlus = profile is { Is18PlusVerified: true }
             ? "Yes"
@@ -183,12 +225,12 @@ public sealed class DiscordCommandHandler
 
         var recent = summary.Recent.Count == 0
             ? "None recorded"
-            : ModerationEventEmbed.Fit(string.Join('\n', summary.Recent.Select(Line)), 1024);
+            : CardText.Fit(string.Join('\n', summary.Recent.Select(e => Line(e, style))), 1024);
 
         return new DiscordEmbedContent(
-            ModerationEventEmbed.Fit(title, 256),
+            CardText.Plain(title, 256),
             description,
-            summary.IsBanned ? 0xC0392Bu : Violet,
+            summary.IsBanned ? CardColour.Red : Violet,
             [
                 new DiscordEmbedField("18+ verified", eighteenPlus, Inline: true),
                 new DiscordEmbedField("Profile last refreshed", refreshed, Inline: true),
@@ -197,9 +239,15 @@ public sealed class DiscordCommandHandler
                 new DiscordEmbedField("Recent moderation events", recent),
             ],
             null,
-            PersonLink.For(publicAddress, summary.UserId),
-            "From Modbot's stored records. Nothing was fetched from VRChat for this reply.",
-            FooterIconUrl: BrandIcon.For(publicAddress));
+            CardLink.UrlFor(CardSubject.Person, summary.UserId, style.PublicAddress),
+            style.GroupFooter,
+            ThumbnailUrl: picture.Thumbnail,
+            ImageUrl: picture.Image,
+            FooterIconUrl: style.FooterIconUrl,
+            AuthorName: profile?.RepresentedGroupName is { Length: > 0 } group
+                ? CardText.Plain(group, 256)
+                : null,
+            AuthorIconUrl: picture.AuthorIcon);
     }
 
     private async Task<DiscordReply> RecentAsync(DiscordCommandCall call, CancellationToken ct)
@@ -213,7 +261,8 @@ public sealed class DiscordCommandHandler
         if (events.Count == 0)
             return DiscordReply.Say("No moderation events are recorded yet.");
 
-        var description = ModerationEventEmbed.Fit(string.Join('\n', events.Select(Line)), 4096);
+        var (style, _) = await StyleAsync(ct).ConfigureAwait(false);
+        var description = CardText.Fit(string.Join('\n', events.Select(e => Line(e, style))), 4096);
 
         return DiscordReply.Card(new DiscordEmbedContent(
             events.Count == 1 ? "The latest moderation event" : $"The latest {events.Count} moderation events",
@@ -222,7 +271,8 @@ public sealed class DiscordCommandHandler
             [],
             null,
             null,
-            "From Modbot's audit log. Newest first."));
+            style.GroupFooter,
+            FooterIconUrl: style.FooterIconUrl));
     }
 
     private async Task<DiscordReply> StatusAsync(CancellationToken ct)
@@ -252,14 +302,41 @@ public sealed class DiscordCommandHandler
         return DiscordReply.Say(sb.ToString());
     }
 
-    private static string Line(ModerationEventView e)
+    /// <summary>
+    /// One event as a line in a list: the time, what happened, and who -- each name a link.
+    /// </summary>
+    /// <remarks>
+    /// The same rule as a card. A list of twenty of these used to carry forty ids, which made the
+    /// reply four times as tall for nothing a moderator was going to read.
+    /// </remarks>
+    private static string Line(ModerationEventView e, CardStyle style)
     {
-        var line = $"{DiscordTime.Absolute(e.OccurredAt)} **{ModerationEventEmbed.LabelFor(e.Type)}** — {ModerationEventEmbed.Person(e.SubjectName, e.SubjectId)}";
+        var line = $"{DiscordTime.Absolute(e.OccurredAt)} **{ModerationEventEmbed.LabelFor(e.Type)}** — "
+            + CardLink.Person(e.SubjectName, e.SubjectId, style.PublicAddress);
 
         if (e.ActorId is not null)
-            line += $" by {ModerationEventEmbed.Person(e.ActorName, e.ActorId)}";
+            line += " by " + CardLink.Person(e.ActorName, e.ActorId, style.PublicAddress);
 
         return line;
+    }
+
+    /// <summary>
+    /// What the replies in this pass share, and whether pictures may be fetched for them.
+    /// </summary>
+    private async Task<(CardStyle Style, bool ShowPictures)> StyleAsync(CancellationToken ct)
+    {
+        var settings = await _db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => new { s.PublicAddress, s.ManagedGroupName, s.VRChatImagesProxied })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        return (
+            new CardStyle(
+                settings?.PublicAddress,
+                settings?.ManagedGroupName,
+                BrandIcon.For(settings?.PublicAddress)),
+            settings?.VRChatImagesProxied ?? true);
     }
 
     /// <summary>

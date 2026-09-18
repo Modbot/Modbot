@@ -1,3 +1,5 @@
+using Modbot.Discord.Cards;
+
 namespace Modbot.Discord;
 
 /// <summary>
@@ -5,20 +7,17 @@ namespace Modbot.Discord;
 /// nothing else.
 /// </summary>
 /// <remarks>
-/// The same rule the reset-link sender follows (accounts and access design §4.2): a link Modbot
-/// sends out is built from the address a human typed and confirmed, never from a request's
-/// host or a forwarded header. No public address means no link, and the message says so
-/// rather than guessing.
+/// <para>
+/// The rule and the address now live in <see cref="CardLink"/>, with worlds, instances and Discord
+/// accounts, because the popup a link opens took three more kinds and a helper that knew only
+/// about people had become the reason a world on a card was an id nobody could click.
+/// </para>
+/// <para>
+/// Kept as the name callers outside the cards already use.
+/// </para>
 /// </remarks>
 public static class PersonLink
 {
     public static string? For(string? publicAddress, string vrchatUserId)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(vrchatUserId);
-
-        if (string.IsNullOrWhiteSpace(publicAddress))
-            return null;
-
-        return $"{publicAddress.TrimEnd('/')}/audit?subject={Uri.EscapeDataString(vrchatUserId)}";
-    }
+        => CardLink.UrlFor(CardSubject.Person, vrchatUserId, publicAddress);
 }

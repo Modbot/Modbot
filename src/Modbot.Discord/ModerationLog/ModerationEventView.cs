@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 
 namespace Modbot.Discord.ModerationLog;
 
@@ -118,5 +119,39 @@ public static class DisplayNames
         }
 
         return names;
+    }
+}
+
+/// <summary>
+/// The picture to show for a set of people: whichever of their stored pictures
+/// <see cref="ProfilePictures"/> picks, by VRChat user id.
+/// </summary>
+/// <remarks>
+/// Its own read rather than a wider one on <see cref="DisplayNames"/>, because a pass that is only
+/// counting facts should not be pulling picture addresses it will not use, and because a Modbot
+/// account has no picture: only VRChat people appear here.
+/// </remarks>
+public static class PersonPictures
+{
+    public static async Task<Dictionary<string, string?>> LoadAsync(
+        ModbotContext db, IEnumerable<string?> ids, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var wanted = ids.Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).Distinct(StringComparer.Ordinal).ToArray();
+        if (wanted.Length == 0)
+            return new Dictionary<string, string?>(StringComparer.Ordinal);
+
+        var rows = await db.VRChatUsers.AsNoTracking()
+            .Where(u => wanted.Contains(u.UserId))
+            .Select(u => new { u.UserId, u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        return rows.ToDictionary(
+            r => r.UserId,
+            r => ProfilePictures.Best(r.ProfilePictureUrl, r.IconUrl, r.CurrentAvatarThumbnailImageUrl),
+            StringComparer.Ordinal);
     }
 }

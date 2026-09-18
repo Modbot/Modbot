@@ -100,8 +100,12 @@ public class ModerationLogPosterTests
         var (channel, embeds) = Assert.Single(gateway.Posts);
         Assert.Equal(Channel, channel);
         Assert.Equal(["Banned", "Warned in an instance"], embeds.Select(e => e.Title));
-        Assert.Contains("**jessie**", embeds[0].Fields.Single(f => f.Name == "Who").Value, StringComparison.Ordinal);
-        Assert.Contains("**E-Ray**", embeds[0].Fields.Single(f => f.Name == "By").Value, StringComparison.Ordinal);
+        // The subject heads the card as the author line now, not a "Who" field.
+        Assert.Equal("jessie", embeds[0].AuthorName);
+        Assert.Contains(
+            $"[E-Ray](https://modbot.example.com/audit?subject={Actor})",
+            embeds[0].Fields.Single(f => f.Name == "By").Value,
+            StringComparison.Ordinal);
         Assert.Equal($"https://modbot.example.com/audit?subject={Target}", embeds[0].Url);
 
         // The place moved past everything posted, and the posting itself is a fact.
@@ -448,7 +452,8 @@ public class ModerationLogPosterTests
 
         Assert.Equal(1, pass.Posted);
         var (_, embeds) = Assert.Single(gateway.Posts);
-        Assert.Contains(Target, Assert.Single(embeds).Fields.Single(f => f.Name == "Who").Value, StringComparison.Ordinal);
+        // No profile stored for the target, so the author line falls back to the raw id.
+        Assert.Equal(Target, Assert.Single(embeds).AuthorName);
     }
 
     [Fact]
@@ -493,7 +498,8 @@ public class ModerationLogPosterTests
         Assert.Equal(2, pass.Posted);
         var (_, embeds) = Assert.Single(gateway.Posts);
         Assert.Equal(["Banned", "Case file written"], embeds.Select(e => e.Title));
-        Assert.Contains("**sam**", embeds[1].Fields.Single(f => f.Name == "By").Value, StringComparison.Ordinal);
+        // No public address configured, so the actor's name shows with no link.
+        Assert.Equal("sam", embeds[1].Fields.Single(f => f.Name == "By").Value);
     }
 
     private static async Task AddMemberAsync(TestServices services, string userId, string[] roles, CancellationToken ct)

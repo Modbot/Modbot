@@ -155,6 +155,10 @@ the person it is for — while letting a team send staff and settings changes to
 Labels are `FactLabels`, moved from the API to Core so the bot's embed titles and the picker use
 the same words as the audit log.
 
+**What the card built from a fact looks like is the Discord embeds design (2026-09-17)**: the
+person it happened to heads the card with their name and picture, the label is the title, and the
+id that used to sit beside both names is gone.
+
 ## 5. Delivery
 
 The existing poster and its hosted service do the work. What changes is that **each channel keeps
