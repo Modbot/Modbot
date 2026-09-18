@@ -51,6 +51,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ManageRoles, "Manage roles", "Create roles and decide what each one allows.", "Administration"),
         Describe(ModbotPermissions.ManageSettings, "Change settings", "VRChat account, group, proxy, retention, evidence storage, AI and integrations.", "Administration"),
         Describe(ModbotPermissions.ManageApiKeys, "Manage API keys and webhooks", "Create and revoke API keys, and set up webhooks.", "Administration"),
+        Describe(ModbotPermissions.UseVRChatProxy, "Use the VRChat proxy", "Send requests to VRChat's API through Modbot as the service account.", "Administration"),
         Describe(ModbotPermissions.Administrator, "Administrator", "Everything, including things added in future versions.", "Administration"),
     ];
 

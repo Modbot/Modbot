@@ -1,0 +1,139 @@
+---
+title: VRChat proxy
+description: Send requests to VRChat's own API through your Modbot, as the group's service account or with your own VRChat session, without handing anyone the account's password.
+---
+
+The VRChat proxy forwards a request to VRChat's API and answers with whatever VRChat said. A
+script, a tool or a VRChat client library points at your Modbot instead of at
+`api.vrchat.cloud`, signs in with a Modbot [API key](/api/keys), and the request goes out as the
+group's service account, on the same session and the same pacing Modbot uses for itself. Nobody
+needs the account's password.
+
+The proxy is **off** until an administrator turns it on under **Settings → VRChat Proxy**.
+
+## The address
+
+`https://modbot.example.com/api/proxy/vrchat/` followed by the VRChat path, exactly as it appears
+under `https://api.vrchat.cloud/`:
+
+| You want | Send |
+|---|---|
+| `GET https://api.vrchat.cloud/api/1/users/usr_…` | `GET https://modbot.example.com/api/proxy/vrchat/api/1/users/usr_…` |
+| `POST https://api.vrchat.cloud/api/1/groups/grp_…/bans` | `POST https://modbot.example.com/api/proxy/vrchat/api/1/groups/grp_…/bans` |
+
+The address is shown on the VRChat Proxy tab as **Base URL**, with a copy button. `GET`, `POST`,
+`PUT` and `DELETE` are forwarded; the query string and a JSON body go with them.
+
+## Signing in
+
+There are three ways a request can be signed in, and Modbot looks for them in this order.
+
+### A Modbot API key in the header
+
+```bash
+curl -H "Authorization: Bearer mbk_..." \
+  https://modbot.example.com/api/proxy/vrchat/api/1/users/usr_...
+```
+
+The request goes out as the **service account**. The key needs the **Use the VRChat proxy**
+permission (see [roles and permissions](/accounts/roles-and-permissions#use-the-vrchat-proxy)).
+
+### A Modbot API key in the `auth` cookie
+
+VRChat's own API reads its session from a cookie called `auth`, and every VRChat client library
+sends whatever it was given as that cookie. So a library can be given a Modbot key where it
+expects a VRChat session:
+
+```bash
+curl -b "auth=mbk_..." https://modbot.example.com/api/proxy/vrchat/api/1/users/usr_...
+```
+
+Modbot recognises the key by its `mbk_` start and treats it exactly as a key in the header: the
+same permission, the same limits, the same last-used time. Point a library's base address at your
+proxy, give it the key as its auth cookie, and it works as the service account.
+
+### Your own VRChat session
+
+Anything else in the `auth` cookie is taken to be **your own VRChat session**, and the request
+goes out with your cookies and nothing of Modbot's:
+
+```bash
+curl -b "auth=authcookie_..." https://modbot.example.com/api/proxy/vrchat/api/1/auth/user
+```
+
+Modbot does not read, store or log the cookie; it forwards it. This needs no Modbot key and no
+Modbot account. It exists so a tool that already has a VRChat session can go through the same
+address and the same egress proxy as everything else, which matters on a host whose own network
+VRChat blocks.
+
+### Nothing
+
+A request with no key and no `auth` cookie is answered `401`.
+
+## What is and is not forwarded
+
+Only what an API call needs to say reaches VRChat: the method, the path, the query string, the
+body and its content type, and the `Accept`, `Accept-Language`, `If-None-Match` and
+`If-Modified-Since` headers. Everything else is dropped. In particular:
+
+- Your `Authorization` header never goes to VRChat: it is your Modbot key.
+- On the service account, your `Cookie` header never goes to VRChat either. The session comes
+  from Modbot's own store.
+- The `User-Agent` is always Modbot's, naming the operator, as on every request Modbot sends.
+
+On the way back you get VRChat's status code and body as they were, with `Content-Type`, `ETag`,
+`Last-Modified`, `Cache-Control`, `Retry-After` and Cloudflare's `CF-Ray`. On the service account
+a `Set-Cookie` from VRChat is kept by Modbot and never returned: it is the service account's
+session. With your own cookie, a `Set-Cookie` is yours and comes back.
+
+The answer also carries `X-Modbot-Proxy-Account: service` or `own`, so a tool can tell which
+account it was.
+
+## Pacing
+
+Every proxied request goes through Modbot's rate limiter, on a budget of its own that never
+queues in front of the member sweeps, the audit log or a moderator's ban:
+
+| Account | Budget | Counted against the account-wide ceiling |
+|---|---|---|
+| Service account | One request every three seconds | Yes |
+| Your own cookie | One request every two seconds | No: it is a different account |
+
+When VRChat answers `429` to a proxied request, Modbot stops that budget for a while and never
+retries, the same way it treats a rate limit anywhere else. Until it opens again, requests are
+answered `429` by Modbot itself with an `error` saying so, and the **Health** page shows the
+`proxy` bucket as stopped.
+
+The proxy is for trying an endpoint and for one-off scripts. Modbot cannot tell which VRChat
+endpoint a forwarded request reaches, so a script that reads the member list through the proxy is
+spending the proxy's budget beside the sweep that already reads it, and a rate limit it earns is
+recorded on the proxy rather than on the sweep. Anything that needs the whole list has the
+[API](/api) for that.
+
+## Answers from Modbot itself
+
+| Status | Meaning |
+|---|---|
+| `404` `{ "error": "The VRChat proxy is off." }` | Turn it on under **Settings → VRChat Proxy**. |
+| `401` | No key, no session and no VRChat cookie, or a key Modbot does not accept. |
+| `403` | The key or account lacks **Use the VRChat proxy**, or the account has not linked its VRChat account. |
+| `413` | The body is larger than 1 MB. |
+| `429` | Modbot's own pacing has stopped the proxy after a rate limit from VRChat. |
+| `503` | Modbot has no VRChat session to use, is waiting to sign in, or could not reach VRChat. The `error` sentence says which. |
+
+Any other status is VRChat's own, passed through.
+
+## The playground
+
+**Settings → VRChat Proxy** has a **Playground**: pick a method, type a path, add a body for a
+`POST` or `PUT`, and press **Send**. The request goes through the proxy as you, signed in to the
+web app, with the same permission a key needs, and the answer is shown with its status and its
+body.
+
+## Where to next
+
+<Cards>
+  <Card title="API keys" href="/api/keys">Making and revoking keys.</Card>
+  <Card title="Roles and permissions" href="/accounts/roles-and-permissions#use-the-vrchat-proxy">Who may use the proxy.</Card>
+  <Card title="Health" href="/self-hosting/health">The rate-limit buckets, the proxy's among them.</Card>
+</Cards>

@@ -46,6 +46,7 @@ internal static class OpenApiReference
         ("API keys", "Keys that let a program use this API as the person who made them."),
         ("Events", "Every new event as it happens, over a WebSocket or by long polling."),
         ("Webhooks", "Addresses Modbot sends new events to, signed with a secret."),
+        ("VRChat proxy", "Requests forwarded to VRChat's own API, as the service account or with your own VRChat cookie."),
         ("Members", "The group's member list and ban list, as Modbot last read them."),
         ("VRChat users", "What Modbot has stored about one VRChat user."),
         ("Live", "The group's open instances right now."),
@@ -222,6 +223,20 @@ internal static class OpenApiReference
             // Mapped AllowAnonymous because it checks its own credentials once the socket opens: an
             // API key in the Authorization header, or a one-use ticket in the query string.
             operation.Security = [Requirement(ApiKeyScheme, context.Document), new OpenApiSecurityRequirement()];
+        }
+        else if (operation.OperationId?.StartsWith(Features.Proxy.VRChatProxyEndpoints.OperationPrefix, StringComparison.Ordinal) == true)
+        {
+            // Mapped AllowAnonymous because it also takes a VRChat cookie, which no scheme knows;
+            // a Modbot key or the session still signs a caller in, and the empty requirement is
+            // the caller's own VRChat cookie.
+            operation.Security =
+            [
+                Requirement(ApiKeyScheme, context.Document),
+                Requirement(SessionScheme, context.Document),
+                new OpenApiSecurityRequirement(),
+            ];
+
+            AddResponse(operation, StatusCodes.Status401Unauthorized, "No Modbot key, no session and no VRChat cookie.");
         }
         else
         {

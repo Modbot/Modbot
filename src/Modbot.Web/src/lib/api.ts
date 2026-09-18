@@ -252,6 +252,24 @@ export type DiscordLinkingSettingsInput = {
 
 export type PublicAddressView = { publicAddress: string | null; suggestion: string | null }
 
+/** Settings → VRChat Proxy (VRChat proxy design). */
+export type VRChatProxySettings = {
+  enabled: boolean
+  /** What goes in front of a VRChat path: the public address and `/api/proxy/vrchat/`. */
+  baseUrl: string
+  publicAddressSet: boolean
+}
+
+/** What VRChat answered through the proxy, whatever the status. */
+export type VRChatProxyAnswer = {
+  status: number
+  contentType: string | null
+  /** The body as text. JSON is pretty-printed by the caller, not here. */
+  text: string
+  /** Which account the answer came from, from the `X-Modbot-Proxy-Account` header. */
+  account: string | null
+}
+
 /** Whether the group's public instances are listed on modbot.co. */
 export type PublicInstancesView = {
   shared: boolean
@@ -3291,6 +3309,47 @@ export const api = {
 
   /** Read-only in this build: a control whose value is silently discarded is worse than no control. */
   syncSettings: () => request<SyncSettings>('/api/settings/sync'),
+
+  // ── The VRChat proxy (VRChat proxy design) ─────────────────────────────────────────────────
+
+  vrchatProxySettings: () => request<VRChatProxySettings>('/api/settings/vrchat-proxy'),
+
+  setVRChatProxySettings: (body: { enabled: boolean }) =>
+    put<VRChatProxySettings>('/api/settings/vrchat-proxy', body),
+
+  /**
+   * One request through the proxy, with the signed-in session. Not `request`: a 404 from VRChat is
+   * the answer the playground exists to show, not a failure. Only a refusal from Modbot itself --
+   * the proxy off, no permission, its own pacing -- is thrown.
+   */
+  vrchatProxy: async (method: string, path: string, body?: string): Promise<VRChatProxyAnswer> => {
+    let response: Response
+    try {
+      response = await fetch('/api/proxy/vrchat/' + path.replace(/^\/+/, ''), {
+        method,
+        headers: body ? { 'content-type': 'application/json' } : undefined,
+        body: body || undefined,
+      })
+    } catch {
+      throw new ApiError(0, 'Could not reach the Modbot server. Is it still running?', null)
+    }
+
+    const text = await response.text()
+    const account = response.headers.get('x-modbot-proxy-account')
+
+    if (account === null && (response.status === 401 || response.status === 403 || response.status === 404 || response.status === 429 || response.status === 503)) {
+      let message = `The server answered ${response.status}.`
+      try {
+        const parsed: unknown = text ? JSON.parse(text) : null
+        if (typeof parsed === 'object' && parsed !== null && 'error' in parsed) message = String((parsed as { error: unknown }).error)
+      } catch {
+        // Not JSON: the generic sentence stands.
+      }
+      throw new ApiError(response.status, message, null)
+    }
+
+    return { status: response.status, contentType: response.headers.get('content-type'), text, account }
+  },
 
   /** The Discord server's channels as the bot last stored them. Use the pickers rather than calling this. */
   discordChannels: () => request<DiscordChannels>('/api/discord/channels'),

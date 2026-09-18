@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Modbot.Api.Features.ApiKeys;
+using Modbot.Api.Features.Proxy;
 using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Webhooks;
 using Modbot.Api.Features.Auth.Account;
@@ -186,6 +187,11 @@ public static class ApiSurface
         // Keys for programs (API keys design §3). A key is accepted by every endpoint mapped here,
         // through the same authorisation a session goes through.
         app.MapApiKeys();
+
+        // Requests forwarded to VRChat's own API, as the service account or with the caller's own
+        // cookie, and the switch that turns the route on (VRChat proxy design).
+        app.MapVRChatProxy();
+        app.MapVRChatProxySettings();
 
         // Uploads of old data from another platform (import design §4).
         app.MapImports();
