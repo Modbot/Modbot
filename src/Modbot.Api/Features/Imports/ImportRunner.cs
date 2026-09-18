@@ -132,7 +132,7 @@ public sealed class ImportRunner
             throw new InvalidOperationException("The upload was empty.");
 
         var months = new HashSet<DateTimeOffset>();
-        var written = new HashSet<string>(StringComparer.Ordinal);
+        var written = new HashSet<SameEvent>();
         var batch = new List<ImportItem>(BatchSize);
 
         foreach (var item in ImportFile.Read(body))
@@ -157,7 +157,7 @@ public sealed class ImportRunner
         Import import,
         List<ImportItem> items,
         HashSet<DateTimeOffset> months,
-        HashSet<string> written,
+        HashSet<SameEvent> written,
         Progress progress,
         CancellationToken ct)
     {
@@ -200,7 +200,7 @@ public sealed class ImportRunner
         foreach (var record in toWrite)
         {
             var fact = ToFact(import, record);
-            var sameEvent = SameEventKey(record);
+            var sameEvent = EventOf(record);
 
             var existing = written.Contains(sameEvent)
                 ? null
@@ -272,14 +272,10 @@ public sealed class ImportRunner
     /// <summary>
     /// What makes two records the same event for §6.1: the same person, the same thing happening
     /// to them, at the same moment. Exactly what <see cref="IFactWriter.AlreadyRecordedAsync"/>
-    /// compares, so this set and that query never disagree.
+    /// compares at a window of zero, so this set and that query never disagree.
     /// </summary>
-    private static string SameEventKey(ParsedRecord record) => string.Join(
-        '',
-        (short)record.SubjectPlatform,
-        record.SubjectId,
-        record.Type,
-        record.At.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture));
+    private static SameEvent EventOf(ParsedRecord record)
+        => new(record.SubjectPlatform, record.SubjectId, record.Type, record.At.UtcDateTime);
 
     private static FactRecord ToFact(Import import, ParsedRecord record)
     {
@@ -384,3 +380,14 @@ public sealed class ImportRunner
         public string RejectionsJson() => ImportView.RejectionsJson(_rejections);
     }
 }
+
+/// <summary>
+/// The event one imported record describes, as the thing two records are compared on when the
+/// question is whether Modbot already has it (import design §6.1).
+/// </summary>
+/// <param name="At">The instant in UTC. Nothing either side of it is the same event.</param>
+public readonly record struct SameEvent(
+    FactPlatform SubjectPlatform,
+    string SubjectId,
+    string Type,
+    DateTime At);
