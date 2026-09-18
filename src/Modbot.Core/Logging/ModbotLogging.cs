@@ -36,6 +36,10 @@ public sealed class ModbotLogOptions
     /// The lowest level anything is written at, from <c>LOG_LEVEL</c>. Debug when
     /// <see cref="Debug"/> is on and <c>LOG_LEVEL</c> is unset.
     /// </summary>
+    /// <remarks>
+    /// It is also the floor on <see cref="DatabaseSink"/>, so the Logs page shows what was asked
+    /// for rather than Information and above whatever was asked for. See <c>Create</c>.
+    /// </remarks>
     public LogEventLevel Level { get; init; } = LogEventLevel.Information;
 
     /// <summary>
@@ -101,6 +105,7 @@ public sealed class ModbotLogOptions
 ///   modbot_log_debug_&lt;date&gt;_&lt;epoch&gt;.jsonl/.txt  everything, opt-in
 ///   modbot_log_http_&lt;date&gt;_&lt;epoch&gt;.jsonl/.txt   API traffic only
 ///   Seq                                  optional, SEQ_URL
+///   modbot_log (the Logs page)           LOG_LEVEL and above, excludes Http
 /// </code>
 /// <para>
 /// Both formats of every stream, because they serve different readers. Text is what a self-hoster
@@ -150,10 +155,19 @@ public static class ModbotLogging
             config.WriteTo.Seq(options.SeqUrl, restrictedToMinimumLevel: LogEventLevel.Debug);
 
         // ── The database: the same events as the main stream, for the operator who has no Seq and
-        //    no disk that survives a redeploy. Information and above whatever LOG_LEVEL says, so
-        //    turning Debug on to read the console does not put a week of Debug in the database.
+        //    no disk that survives a redeploy. The floor follows the level that was asked for,
+        //    rather than being pinned at Information as it was until 2026-09-18.
+        //
+        //    Pinning it made sense while the Logs page was the only place the level could not
+        //    reach: it kept a week of Debug out of a table nobody prunes by size. But the operator
+        //    who has no Seq and no disk is exactly the operator who has nowhere else to read Debug,
+        //    so "you may turn Debug on, but not where you can see it" was the wrong trade — the
+        //    request lines and the query lines this switch is usually thrown for would have been
+        //    written and then dropped at the door. What it costs is in LogStore: the daily prune
+        //    now has a ceiling on rows as well as on days, because at Debug a busy day is worth a
+        //    quiet month.
         if (options.DatabaseSink is { } database)
-            config.WriteTo.Sink(database, restrictedToMinimumLevel: LogEventLevel.Information);
+            config.WriteTo.Sink(database, restrictedToMinimumLevel: options.Level);
 
         return config.CreateLogger();
     }

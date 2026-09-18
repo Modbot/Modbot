@@ -58,10 +58,12 @@ public sealed record ShipResult(
 ///
 /// <para><strong>What it sends.</strong></para>
 /// <para>
-/// The same rows the deployment keeps itself, unchanged: Information and above, outbound API traffic
-/// left out, secret-looking properties already replaced by <see cref="LogSecrets"/> before they were
-/// ever stored. The maintainer chose unchanged over warnings-only and over anonymised, and the
-/// privacy policy says so plainly.
+/// The same rows the deployment keeps itself, unchanged: whatever level it records at — Information
+/// and above unless <c>LOG_LEVEL</c> asks for more (2026-09-18) — outbound API traffic left out,
+/// secret-looking properties already replaced by <see cref="LogSecrets"/> before they were ever
+/// stored. The maintainer chose unchanged over warnings-only and over anonymised, and the privacy
+/// policy says so plainly. It follows the table rather than second-guessing it: an operator who
+/// turned Debug on to be helped with a problem wants the detail to reach the people helping.
 /// </para>
 ///
 /// <para><strong>The place-marker, and what is dropped.</strong></para>

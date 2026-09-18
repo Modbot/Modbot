@@ -13,9 +13,10 @@ namespace Modbot.Cloud.Engine;
 /// cannot reach, and so an operator whose container was thrown away still has the log.
 /// </para>
 /// <para>
-/// <strong>The same lines the deployment keeps itself</strong>, unchanged: Information and above,
-/// outbound API traffic left out, secret-looking properties already replaced before they left. It is
-/// on by default and the operator can turn it off.
+/// <strong>The same lines the deployment keeps itself</strong>, unchanged: whatever level it records
+/// at — Information and above unless its <c>LOG_LEVEL</c> asks for more — outbound API traffic left
+/// out, secret-looking properties already replaced before they left. It is on by default and the
+/// operator can turn it off.
 /// </para>
 /// <para>
 /// <strong>Partitioned by month on <see cref="ReceivedAt"/></strong>, which is Cloud's own clock.
