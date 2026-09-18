@@ -62,14 +62,16 @@ public static class AccountEndpoints
                 await accounts.SetPasswordAsync(user, body.NewPassword, ct);
 
                 // Every other session ends. This one is re-issued below, stamped with the same
-                // instant as the cut-off, which the session check treats as surviving it.
+                // instant as the cut-off, which the session check treats as surviving it. If it was
+                // a kept session it stays one, and its thirty days start again from here -- the
+                // person has just typed their current password.
                 var cutOff = await accounts.EndSessionsAsync(user, ct);
 
                 await facts.RecordAsync(FactType.PasswordChanged, user, actor, null, ct);
 
                 await transaction.CommitAsync(ct);
 
-                await ModbotAuth.SignInAsync(http, user, cutOff);
+                await ModbotAuth.ReissueAsync(http, user, cutOff);
 
                 return Results.NoContent();
             })
@@ -128,10 +130,11 @@ public static class AccountEndpoints
                 await transaction.CommitAsync(ct);
 
                 // Re-issued so the name in the cookie is the new one. Same signed-in-at, so the
-                // session's age -- and its standing against any cut-off -- does not change.
+                // session's age -- and its standing against any cut-off -- does not change, and a
+                // kept session keeps the days it had left rather than starting over on a rename.
                 var signedInAt = ModbotAuth.SignedInAtOf(http.User);
                 if (signedInAt is { } at)
-                    await ModbotAuth.SignInAsync(http, user, at);
+                    await ModbotAuth.ReissueAsync(http, user, at);
 
                 return Results.Ok(SessionUser.From(user));
             })
