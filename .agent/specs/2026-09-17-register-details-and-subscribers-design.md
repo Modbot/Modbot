@@ -166,9 +166,16 @@ an address logs the address and never the answer.
 **Called by a Modbot server, not by a browser**, when somebody ticks *Receive emails from Modbot
 about new features and updates* while registering their account. It carries the server's own
 registry credential — the same `Authorization: Bearer <serverId>.<secret>` its reports and its log
-batches carry — because it is the same kind of call: a deployment telling Cloud something. A server
-that never registered with Cloud, or that runs with `MODBOT_CLOUD_DISABLED=1`, sends nothing and the
-tick box simply does nothing, which is the correct behaviour for an optional service.
+batches carry — **when it has one**. A server that runs with `MODBOT_CLOUD_DISABLED=1` never shows
+the tick box at all, which is the correct behaviour for an optional service.
+
+**A credential is not required, and that is deliberate** (changed 2026-09-17, before either side
+shipped). The commonest time this box is ticked is while the *first* account on a brand-new Modbot
+is being made, which is before that deployment has registered with Cloud and therefore before it has
+a credential to send. Requiring one would refuse precisely the opt-ins this endpoint exists to
+collect. So the endpoint takes an unauthenticated call, and the per-caller limit keys on the calling
+address instead of the server id. A caller that does hold a credential is still recognised and is
+limited by server, which is the stronger key of the two.
 
 - **One row per address**, trimmed and folded to lower case. Ticking the box again — on the same
   Modbot or another one — moves `last_seen_at` and adds nothing.
@@ -177,7 +184,8 @@ tick box simply does nothing, which is the correct behaviour for an optional ser
 - **Validation is loose**: an `@` with something either side, a dot in the domain, no spaces. The
   same rule accounts use, and for the same reason — an address is checked by sending mail to it, and
   every clever pattern turns away somebody's real address.
-- **Limits: 60 an hour per calling server and 5 an hour per address.** Both, because either alone
+- **Limits: 60 an hour per caller — the server id when it sent one, otherwise where the call came
+  from — and 5 an hour per address.** Both, because either alone
   leaves Cloud usable as a way to mail a stranger: per server stops one deployment pouring in a
   list, per address stops the same address being pushed in from many deployments.
 - The answer is always `202`, whether or not the address was already there. Anything else would be a

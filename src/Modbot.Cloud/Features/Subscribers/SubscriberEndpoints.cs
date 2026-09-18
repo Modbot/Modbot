@@ -67,7 +67,12 @@ public static class SubscriberEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        app.MapPost("/api/v1/subscribers", SubscribeAsync).RequireServer();
+        // Not RequireServer. A person ticks this box while creating the first account on a
+        // brand-new Modbot, which is before that Modbot has registered with Cloud and so before
+        // it has a credential to send. Refusing those would lose exactly the opt-ins this is for.
+        // A caller that does hold one is still recognised, and is limited by server rather than
+        // by address; one that does not is limited by where it came from.
+        app.MapPost("/api/v1/subscribers", SubscribeAsync);
 
         // Open, and about one token only. Nothing in the request names an address.
         app.MapPost("/api/v1/subscribers/unsubscribe", UnsubscribeAsync);
@@ -83,10 +88,14 @@ public static class SubscriberEndpoints
         HttpContext http,
         CancellationToken ct)
     {
-        var server = await ServerAccess.RequiredAsync(http);
+        // A registered server names itself; an unregistered one is known only by its address.
+        var server = await ServerAccess.ReadAsync(http);
+        var caller = server is not null
+            ? "server:" + server.Id.ToString()
+            : "from:" + (ClientAddress.From(http)?.ToString() ?? "unknown");
 
-        if (limits.Servers.TryTake(server.Id.ToString()) is { } byServer)
-            return CloudError.TooMany(http, byServer, "Too many addresses from this server.");
+        if (limits.Servers.TryTake(caller) is { } byCaller)
+            return CloudError.TooMany(http, byCaller, "Too many addresses from this server.");
 
         // Loose on purpose: an address is checked by sending mail to it, not by a pattern
         // (Cloud accounts and registry spec 2.2).

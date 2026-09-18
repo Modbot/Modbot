@@ -14,24 +14,31 @@ public sealed class SubscriberTests(PostgresFixture db)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>
+    /// A person ticks the box while making the first account on a brand-new Modbot, which has not
+    /// registered with Cloud yet and so has no credential to send. That opt-in is the main one
+    /// there is, so it is taken; a caller holding a credential is recognised all the same.
+    /// </summary>
     [Fact]
-    public async Task Only_a_registered_server_can_put_an_address_on_the_list()
+    public async Task A_server_with_no_credential_yet_can_still_put_an_address_on_the_list()
     {
         await using var host = await CloudTestHost.StartAsync(db);
 
         using var anonymous = await host.SendAsync(
             HttpMethod.Post, "/api/v1/subscribers", new { email = "someone@example.com", source = "account" });
-        Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, anonymous.StatusCode);
 
-        // The key my.modbot.co holds is not a way in either.
+        // The key my.modbot.co holds is not a credential for this, but it is not a refusal either:
+        // the address goes on the list and the caller is limited by where it came from.
         using var proxy = await host.SendAsync(
             HttpMethod.Post,
             "/api/v1/subscribers",
-            new { email = "someone@example.com", source = "account" },
+            new { email = "someone-else@example.com", source = "account" },
             bearer: CloudTestHost.ProxyKey);
-        Assert.Equal(HttpStatusCode.Unauthorized, proxy.StatusCode);
+        Assert.Equal(HttpStatusCode.Accepted, proxy.StatusCode);
 
-        Assert.Empty(await ListAsync(host));
+        var listed = await ListAsync(host);
+        Assert.Equal(2, listed.Count);
     }
 
     [Fact]
