@@ -245,6 +245,25 @@ public enum ModbotPermissions : long
     /// </remarks>
     ImportOldData = 1L << 30,
 
+    // --- Notes (notes design §4) ----------------------------------------------------------
+
+    /// <summary>
+    /// Write a note about a person, and take one back.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="Warn"/>, <see cref="Kick"/> or
+    /// <see cref="EditClassifications"/>. A note is not a warning and does nothing in VRChat; it
+    /// puts one moderator's words about a named person into the log every other moderator reads
+    /// before deciding what to do about them, and it stays there. That is the same power
+    /// <see cref="ImportOldData"/> was given a flag of its own for, and the volunteer who should
+    /// be able to write one is not automatically the one who should be able to ban.
+    /// <para>
+    /// Reading notes is not this flag: a note is a fact, and <see cref="ViewAuditLog"/> already
+    /// decides who may read the facts it is stored as. Not added to the built-in roles.
+    /// </para>
+    /// </remarks>
+    WriteNotes = 1L << 31,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

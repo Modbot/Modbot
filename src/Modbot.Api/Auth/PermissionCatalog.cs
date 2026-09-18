@@ -25,7 +25,7 @@ public static class PermissionCatalog
     public static IReadOnlyList<PermissionInfo> All { get; } =
     [
         Describe(ModbotPermissions.ViewMembers, "See members", "The member list and who is in the group.", "Reading"),
-        Describe(ModbotPermissions.ViewProfile, "See profiles", "A member's history, notes and past actions.", "Reading"),
+        Describe(ModbotPermissions.ViewProfile, "See profiles", "A member's profile, their history and their past actions.", "Reading"),
         Describe(ModbotPermissions.ViewAnalytics, "See analytics", "Charts and daily totals.", "Reading"),
         Describe(ModbotPermissions.ViewLiveInstances, "See live instances", "Open instances right now and who is in each.", "Reading"),
         Describe(ModbotPermissions.ViewCalendar, "See calendar", "Planned events and where each is published.", "Reading"),
@@ -45,6 +45,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.BulkAction, "Act on many at once", "Kick, ban or warn a whole list in one go.", "Moderation"),
         Describe(ModbotPermissions.ReviewTickets, "Review tickets", "Close the reviews that open when a moderator's pattern looks unusual, and dismiss moderation flags.", "Moderation"),
         Describe(ModbotPermissions.EditClassifications, "Edit the reason list", "Change the reasons moderators pick from when they act.", "Moderation"),
+        Describe(ModbotPermissions.WriteNotes, "Write notes", "Write a note about somebody, and take one back. Reading notes needs the audit log.", "Moderation"),
         Describe(ModbotPermissions.ManageDiscordLinks, "Manage Discord links", "Unlink a member's Discord and VRChat accounts. Removes the roles Modbot gave them.", "Moderation"),
         Describe(ModbotPermissions.EditAgeVerification, "Edit 18+ verified", "Set or clear the 18+ verified mark on a VRChat user by hand. Syncs can only set it.", "Moderation"),
         Describe(ModbotPermissions.ManageCalendar, "Manage calendar", "Create, change and cancel events, and the calendar feed link.", "Administration"),
