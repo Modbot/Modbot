@@ -26,6 +26,12 @@ namespace Modbot.Api.Features.Logs;
 /// Paged by row id rather than by page number. The table is written to constantly, so a page number
 /// would show the same line twice as soon as anything arrived between one page and the next.
 /// </para>
+/// <para>
+/// The list is <em>ordered</em> by that same row id, and that is not incidental: a cursor must
+/// narrow on every column the list is sorted by, or the rows it cannot compare fall through the
+/// gap. Ordering by <c>at</c> while paging on <c>id</c> did exactly that. See
+/// <see cref="Lists.ListCursor"/> for the rule and the lists that follow it.
+/// </para>
 /// </remarks>
 public static class LogEndpoints
 {
@@ -85,9 +91,14 @@ public static class LogEndpoints
                 if (before is { } cursor)
                     query = query.Where(e => e.Id < cursor);
 
+                // Ordered by id, which is the one thing `before` narrows on. It used to order by
+                // the time the line carries and page on the id, which are two different orders:
+                // a line written late but stamped early sits above the cursor's row in the sort
+                // and below it in the filter, so it was never shown on either page. The id is the
+                // order the lines were written, which for a log is the honest one -- the time is
+                // whatever the writer put on it, and a batch can hand them over out of order.
                 var lines = await query
-                    .OrderByDescending(e => e.At)
-                    .ThenByDescending(e => e.Id)
+                    .OrderByDescending(e => e.Id)
                     .Take(size + 1)
                     .Select(e => new LogLine(
                         e.Id, e.At, e.Level, e.Message, e.Template, e.Source, e.Area, e.Exception, e.Properties))
