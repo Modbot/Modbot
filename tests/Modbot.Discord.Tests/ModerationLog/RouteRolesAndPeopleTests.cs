@@ -117,7 +117,8 @@ public class RouteRolesAndPeopleTests
 
         Assert.Equal(1, pass.Posted);
         var embed = Assert.Single(Assert.Single(gateway.Posts).Embeds);
-        Assert.Contains(TeaSpoon, embed.Fields.Single(f => f.Name == "Who").Value, StringComparison.Ordinal);
+        // No profile stored for TeaSpoon, so the author line falls back to the raw id.
+        Assert.Equal(TeaSpoon, embed.AuthorName);
     }
 
     [Fact]
@@ -136,7 +137,8 @@ public class RouteRolesAndPeopleTests
         // Wren is a Moderator now and nothing says otherwise; TeaSpoon is not.
         Assert.Equal(1, pass.Posted);
         var embed = Assert.Single(Assert.Single(gateway.Posts).Embeds);
-        Assert.Contains(TeaSpoon, embed.Fields.Single(f => f.Name == "Who").Value, StringComparison.Ordinal);
+        // No profile stored for TeaSpoon, so the author line falls back to the raw id.
+        Assert.Equal(TeaSpoon, embed.AuthorName);
     }
 
     [Fact]
@@ -250,11 +252,12 @@ public class RouteRolesAndPeopleTests
         var pass = await RunAsync(services, gateway, ct);
 
         Assert.Equal(4, pass.Posted);
-        var who = Assert.Single(gateway.Posts).Embeds.Select(e => e.Fields.Single(f => f.Name == "Who").Value).ToList();
-        Assert.Contains(who, w => w.Contains(TeaSpoon, StringComparison.Ordinal));
-        Assert.Contains(who, w => w.Contains(DiscordOnly, StringComparison.Ordinal));
-        Assert.Contains(who, w => w.Contains(JessieVRChat, StringComparison.Ordinal));
-        Assert.Contains(who, w => w.Contains(JessieDiscord, StringComparison.Ordinal));
+        // No profiles stored for any of these subjects, so each author line falls back to the raw id.
+        var who = Assert.Single(gateway.Posts).Embeds.Select(e => e.AuthorName).ToList();
+        Assert.Contains(TeaSpoon, who);
+        Assert.Contains(DiscordOnly, who);
+        Assert.Contains(JessieVRChat, who);
+        Assert.Contains(JessieDiscord, who);
     }
 
     private static Task<long> DiscordJoinAsync(TestServices services, string discordId, CancellationToken ct)

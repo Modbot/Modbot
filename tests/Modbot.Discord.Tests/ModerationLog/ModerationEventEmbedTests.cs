@@ -19,23 +19,37 @@ public class ModerationEventEmbedTests
         "User jessie was preemptively banned by E-Ray.");
 
     [Fact]
-    public void ABan_IsTitledInPlainWords_WithWhoByAndWhen()
+    public void ABan_IsTitledInPlainWords_WithTheSubjectAsAuthor()
     {
         var embed = ModerationEventEmbed.For(Ban(), "https://modbot.example.com");
 
         Assert.Equal("Banned", embed.Title);
 
-        var who = Assert.Single(embed.Fields, f => f.Name == "Who");
-        Assert.Contains("**jessie**", who.Value, StringComparison.Ordinal);
-        Assert.Contains("`usr_c9094d86-1846-43eb-b79d-7e3dc318f42a`", who.Value, StringComparison.Ordinal);
+        // The subject heads the card as the author line, not a field.
+        Assert.Equal("jessie", embed.AuthorName);
+        Assert.Equal(
+            "https://modbot.example.com/audit?subject=usr_c9094d86-1846-43eb-b79d-7e3dc318f42a",
+            embed.AuthorUrl);
+        Assert.DoesNotContain(embed.Fields, f => f.Name == "Who");
 
         var by = Assert.Single(embed.Fields, f => f.Name == "By");
-        Assert.Contains("**E-Ray**", by.Value, StringComparison.Ordinal);
+        Assert.Equal(
+            "[E-Ray](https://modbot.example.com/audit?subject=usr_2a323be9-ac4e-4502-af07-357d79c48ccf)",
+            by.Value);
 
         var when = Assert.Single(embed.Fields, f => f.Name == "When");
         // Discord's own timestamp markup: the reader's time zone, not the server's.
         Assert.Contains($"<t:{At.ToUnixTimeSeconds()}:f>", when.Value, StringComparison.Ordinal);
         Assert.Equal(At, embed.Timestamp);
+    }
+
+    [Fact]
+    public void TheBy_HasNoLink_WhenThereIsNoPublicAddress()
+    {
+        var embed = ModerationEventEmbed.For(Ban(), null);
+
+        var by = Assert.Single(embed.Fields, f => f.Name == "By");
+        Assert.Equal("E-Ray", by.Value);
     }
 
     [Fact]
@@ -54,24 +68,34 @@ public class ModerationEventEmbedTests
         var embed = ModerationEventEmbed.For(Ban(), null);
 
         Assert.Null(embed.Url);
+        Assert.Null(embed.AuthorUrl);
     }
 
     [Fact]
-    public void AnUnknownName_FallsBackToTheId()
+    public void AnUnknownName_FallsBackToTheRawId_OnTheAuthorLine()
     {
         var embed = ModerationEventEmbed.For(Ban(subjectName: null), null);
 
-        var who = Assert.Single(embed.Fields, f => f.Name == "Who");
-        Assert.Equal("`usr_c9094d86-1846-43eb-b79d-7e3dc318f42a`", who.Value);
+        Assert.Equal("usr_c9094d86-1846-43eb-b79d-7e3dc318f42a", embed.AuthorName);
     }
 
     [Fact]
-    public void NamesAreEscaped_SoMarkdownInADisplayNameRendersAsTyped()
+    public void TheAuthorName_IsNotEscaped_BecauseTheAuthorLineIsNotMarkdown()
     {
         var embed = ModerationEventEmbed.For(Ban(subjectName: "**@everyone**"), null);
 
-        var who = Assert.Single(embed.Fields, f => f.Name == "Who");
-        Assert.Contains(@"\*\*\@everyone\*\*", who.Value, StringComparison.Ordinal);
+        // The author line is a slot Discord prints literally, so nothing is backslash-escaped --
+        // escaping it would leave the backslashes on screen.
+        Assert.Equal("**@everyone**", embed.AuthorName);
+    }
+
+    [Fact]
+    public void TheAuthorName_StripsControlCharacters()
+    {
+        var embed = ModerationEventEmbed.For(Ban(subjectName: "jessie\nthe\tbanned"), null);
+
+        Assert.DoesNotContain('\n', embed.AuthorName!);
+        Assert.DoesNotContain('\t', embed.AuthorName!);
     }
 
     [Fact]

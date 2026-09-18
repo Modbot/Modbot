@@ -157,7 +157,7 @@ public class InstanceCardTests
     }
 
     [Fact]
-    public void AnOpenInstance_LinksTheTitleAndCarriesAJoinButtonAndTheWorldsPicture()
+    public void AnOpenInstance_LinksTheTitleAndCarriesAJoinButton()
     {
         var instance = Instance();
         var world = new VRChatWorld { WorldId = "wrld_a", Name = "VRChat Home", ImageUrl = "https://api.vrchat.cloud/api/1/file/file_a/1/file" };
@@ -165,7 +165,6 @@ public class InstanceCardTests
         var card = InstanceCard.For(instance, world, Now);
 
         Assert.Equal(InstanceCard.JoinLink(instance), card.Url);
-        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_a/1/file", card.ImageUrl);
 
         var join = Assert.Single(InstanceCard.Links(instance));
         Assert.Equal("Join", join.Label);
@@ -173,11 +172,33 @@ public class InstanceCardTests
     }
 
     [Fact]
-    public void AWorldWithOnlyAThumbnail_UsesTheThumbnail()
+    public void WithNoPictureArgument_TheCardsImageIsNull_BecauseThePosterSuppliesIt()
+    {
+        var world = new VRChatWorld { WorldId = "wrld_a", ImageUrl = "https://api.vrchat.cloud/api/1/file/file_a/1/file" };
+
+        Assert.Null(InstanceCard.For(Instance(), world, Now).ImageUrl);
+    }
+
+    [Fact]
+    public void PictureOf_ReturnsTheWorldsStoredImage()
+    {
+        var world = new VRChatWorld { WorldId = "wrld_a", ImageUrl = "https://api.vrchat.cloud/api/1/file/file_a/1/file" };
+
+        Assert.Equal("https://api.vrchat.cloud/api/1/file/file_a/1/file", InstanceCard.PictureOf(world));
+    }
+
+    [Fact]
+    public void PictureOf_AWorldWithOnlyAThumbnail_UsesTheThumbnail()
     {
         var world = new VRChatWorld { WorldId = "wrld_a", ThumbnailImageUrl = "https://api.vrchat.cloud/api/1/image/file_a/1/256" };
 
-        Assert.Equal("https://api.vrchat.cloud/api/1/image/file_a/1/256", InstanceCard.For(Instance(), world, Now).ImageUrl);
+        Assert.Equal("https://api.vrchat.cloud/api/1/image/file_a/1/256", InstanceCard.PictureOf(world));
+    }
+
+    [Fact]
+    public void PictureOf_ANullWorld_IsNull()
+    {
+        Assert.Null(InstanceCard.PictureOf(null));
     }
 
     [Fact]
