@@ -82,8 +82,12 @@ which is how a group learns you were there even if no moderator interacted with 
   them and when you deleted them. An edit keeps the old text. A delete keeps the message.
 - Your Discord account id, username and nickname, your roles, and when you joined.
 - **Voice presence, not voice.** When you joined, moved between and left a voice channel, and how
-  many minutes that adds up to. **Modbot does not record, listen to or transcribe audio.** There is
-  no code in it that touches a microphone or a voice stream, in Discord or in VRChat.
+  many minutes that adds up to. **Modbot does not record or transcribe audio.** Nothing in Modbot
+  touches a voice stream, in Discord or in VRChat, and nothing anywhere in Modbot keeps or sends a
+  recording of anybody's voice. The one microphone Modbot can open is on a moderator's own PC, is
+  off unless that person switches it on, and is described under
+  [What does the companion send?](#what-does-the-companion-send) — nothing it hears is recorded,
+  kept or sent.
 - If you linked your Discord and VRChat accounts through Modbot, the link between them.
 
 ## Is any of that sent anywhere else?
@@ -265,6 +269,17 @@ they moved to — and **the recording never leaves that PC**: not to us, not to 
 the Modbot server they paired with. There is no way for the client to upload one. A saved clip is a
 file in their own Videos folder, and if it ever becomes evidence on a case it is because they chose
 that file in a browser, the same as any other attachment.
+
+**It does not send anything your microphone heard, ever.** Since 19 September 2026 the client *can*
+open a microphone: if the person using that PC switches **Listening** on in its settings, saying
+"Modbot, clip that" out loud saves a clip, which is there for the times they are wearing a headset
+and cannot reach a keyboard. That is off unless they switch it on, it only opens the microphone
+while VRChat is running, and it shares the microphone the way a voice chat program does rather than
+taking it. **Nothing it hears is recorded, kept or sent**: the sound is checked against four short
+phrases and thrown away as it arrives. Nothing is written to a file, nothing reaches us, Modbot
+Cloud or the Modbot server they paired with, and the thing doing the checking is a small phrase
+matcher that has no ability to produce a transcript of anything. The client shows on screen that
+the microphone is open for as long as it is open.
 
 **How to turn it off — on that PC, by the person using it.** Your server cannot do it for them.
 Either:

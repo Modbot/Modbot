@@ -19,6 +19,12 @@ namespace Modbot.Companion.Sounds;
 /// volume rather than inside <see cref="BleepRule"/>, which is about pacing -- the same thing not
 /// sounding twice, and a quiet gap between sounds -- and not about whether a kind is wanted at all
 /// (notification filters design 2026-09-19 §5).</para>
+/// <para><strong>The moderator's own file, when they chose one.</strong> The client still ships no
+/// audio file; it makes one, and plays a <c>.wav</c> of the moderator's instead when the
+/// Notifications card names one (<see cref="SoundFile"/>). One file is read, by the exact path they
+/// typed, and only the first time it is needed — after that the samples are held. A file that has
+/// gone missing, or that this account may not read, plays the built-in sound and leaves one
+/// sentence in <see cref="LastProblem"/> for the settings screen.</para>
 /// <para><strong>A failure is not a fault.</strong> No output device, a device that went away
 /// mid-sound, an audio library that will not load: it is written down and everything else carries
 /// on. This is the least important thing the client does.</para>
@@ -35,6 +41,12 @@ public sealed class NotificationSound
 
     /// <summary>Made once. The samples are the same every time, and there are only a few thousand.</summary>
     private readonly Lazy<VoiceClip> _clip = new(() => Bleep.Make());
+
+    /// <summary>The moderator's own file as samples, and the path it was read from.</summary>
+    private readonly Lock _ownSound = new();
+
+    private string? _ownSoundPath;
+    private VoiceClip? _ownSoundClip;
 
     private int _playing;
 
@@ -65,6 +77,12 @@ public sealed class NotificationSound
 
     /// <summary>True while a sound is being played.</summary>
     public bool IsPlaying => Volatile.Read(ref _playing) == 1;
+
+    /// <summary>
+    /// What went wrong with the moderator's own sound file most recently, in one sentence, or null.
+    /// Shown on the Notifications card; the built-in sound plays either way.
+    /// </summary>
+    public string? LastProblem { get; private set; }
 
     /// <summary>
     /// Says that something happened. Returns at once; the sound, if the rule allows one, plays on
@@ -101,7 +119,7 @@ public sealed class NotificationSound
         try
         {
             var device = OutputDeviceChoice.Resolve(_outputDeviceId(), _devices).Device;
-            await _player.PlayAsync(_clip.Value.WithGain(settings.Gain), device, cancellationToken).ConfigureAwait(false);
+            await _player.PlayAsync(Clip(settings).WithGain(settings.Gain), device, cancellationToken).ConfigureAwait(false);
             return true;
         }
         catch (OperationCanceledException)
@@ -116,6 +134,36 @@ public sealed class NotificationSound
         finally
         {
             Volatile.Write(ref _playing, 0);
+        }
+    }
+
+    /// <summary>
+    /// Which samples are played: the moderator's own file when they named one and it can be read,
+    /// and the one the client makes otherwise.
+    /// </summary>
+    /// <remarks>
+    /// The file is read the first time it is wanted and then held, so forty sounds in an evening is
+    /// one read. A path that changes is read again; a path that could not be read is not tried
+    /// again until it changes, because a sound is not worth hitting a missing disk for every time.
+    /// </remarks>
+    private VoiceClip Clip(NotificationSettings settings)
+    {
+        var wanted = settings.SoundOrNone;
+
+        lock (_ownSound)
+        {
+            if (!string.Equals(_ownSoundPath, wanted, StringComparison.Ordinal))
+            {
+                _ownSoundPath = wanted;
+                var read = SoundFile.Read(wanted);
+                _ownSoundClip = read.Clip;
+                LastProblem = read.Problem;
+
+                if (read.Problem is { } problem)
+                    _log?.Invoke($"{problem} Modbot's own sound is being played instead.");
+            }
+
+            return _ownSoundClip ?? _clip.Value;
         }
     }
 }

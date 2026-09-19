@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Modbot.Companion.CloudBackup;
 using Modbot.Companion.Clips;
+using Modbot.Companion.Listening;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Sounds;
@@ -44,7 +45,9 @@ namespace Modbot.Companion.Presentation;
 /// minutes of the screen while VRChat runs — off unless somebody turns it on. Both are written
 /// whole the same way too. There is also <c>desktopNotifyOverlay</c>
 /// (<c>{ "on": false, "spot": "bottomright", "seconds": 6 }</c>), the notification overlay on a
-/// monitor, written whole the same way.</para>
+/// monitor; and <c>listenForPhrase</c> (<c>{ "on": false }</c>), whether the client listens for a
+/// spoken phrase while VRChat runs — off unless somebody turns it on. Both are written whole the
+/// same way.</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
 /// opens in your browser when you press the button; no server is told what it is. The switches decide
 /// what the client does; they are not reported anywhere.</para>
@@ -151,6 +154,16 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public DesktopNotifySettings DesktopNotifyOverlay { get; init; } = DesktopNotifySettings.Default;
 
     /// <summary>
+    /// Listening for a spoken phrase while VRChat runs, so a clip can be saved from inside a
+    /// headset. Saved as the <c>listenForPhrase</c> object.
+    /// </summary>
+    /// <remarks>
+    /// Off is the default and a missing object means off, so a client that is updated into a
+    /// version that can listen does not open a microphone. See the listening design spec, §4.
+    /// </remarks>
+    public ListeningSettings Listening { get; init; } = ListeningSettings.Default;
+
+    /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
     /// servers and opens that server's own pairing page.
     /// </summary>
@@ -179,6 +192,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string ClipsField = "clips";
 
     public const string DesktopNotifyOverlayField = "desktopNotifyOverlay";
+
+    public const string ListeningField = "listenForPhrase";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -228,7 +243,23 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             Notifications = FromShape(shape?.Notifications),
             Clips = FromShape(shape?.Clips),
             DesktopNotifyOverlay = DesktopNotifySettings.FromJson(shape?.DesktopNotifyOverlay),
+            Listening = FromShape(shape?.Listening),
         };
+    }
+
+    private static ListeningSettings FromShape(ListeningShape? listening) => listening is null
+        ? ListeningSettings.Default
+        : new ListeningSettings(listening.On ?? false);
+
+    /// <summary>
+    /// Writes the whole <c>listenForPhrase</c> object, keeping every other field in the file. The
+    /// same rules as <see cref="SaveClips"/>: a file that cannot be read as JSON is left alone.
+    /// </summary>
+    public static bool SaveListening(string path, ListeningSettings listening)
+    {
+        ArgumentNullException.ThrowIfNull(listening);
+
+        return SaveField(path, ListeningField, new JsonObject { ["on"] = listening.On });
     }
 
     /// <summary>
@@ -376,7 +407,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         : new NotificationSettings(
             notifications.Bleep ?? true,
             NotificationSettings.ClampVolume(notifications.Volume ?? NotificationSettings.DefaultVolume),
-            Math.Clamp(notifications.TrayNoticesShown ?? 0, 0, NotificationSettings.TrayNoticesToShow));
+            Math.Clamp(notifications.TrayNoticesShown ?? 0, 0, NotificationSettings.TrayNoticesToShow),
+            string.IsNullOrWhiteSpace(notifications.Sound) ? null : notifications.Sound.Trim());
 
     /// <summary>
     /// Writes the whole <c>notifications</c> object, keeping every other field in the file. The
@@ -392,6 +424,11 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             ["volume"] = NotificationSettings.ClampVolume(notifications.Volume),
             ["trayNoticesShown"] = Math.Clamp(notifications.TrayNoticesShown, 0, NotificationSettings.TrayNoticesToShow),
         };
+
+        // Left out when there is none, so the file says nothing rather than saying "" — the same
+        // rule the clips folder follows.
+        if (notifications.SoundOrNone is { } sound)
+            shape["sound"] = sound;
 
         return SaveField(path, NotificationsField, shape);
     }
@@ -492,7 +529,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters,
         [property: JsonPropertyName("notifications")] NotificationsShape? Notifications,
         [property: JsonPropertyName("clips")] ClipsShape? Clips,
-        [property: JsonPropertyName("desktopNotifyOverlay")] JsonObject? DesktopNotifyOverlay);
+        [property: JsonPropertyName("desktopNotifyOverlay")] JsonObject? DesktopNotifyOverlay,
+        [property: JsonPropertyName("listenForPhrase")] ListeningShape? Listening);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,
@@ -515,11 +553,15 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     private sealed record NotificationsShape(
         [property: JsonPropertyName("bleep")] bool? Bleep,
         [property: JsonPropertyName("volume")] int? Volume,
-        [property: JsonPropertyName("trayNoticesShown")] int? TrayNoticesShown);
+        [property: JsonPropertyName("trayNoticesShown")] int? TrayNoticesShown,
+        [property: JsonPropertyName("sound")] string? Sound);
 
     private sealed record ClipsShape(
         [property: JsonPropertyName("on")] bool? On,
         [property: JsonPropertyName("minutes")] int? Minutes,
         [property: JsonPropertyName("folder")] string? Folder,
         [property: JsonPropertyName("keepGigabytes")] int? KeepGigabytes);
+
+    private sealed record ListeningShape(
+        [property: JsonPropertyName("on")] bool? On);
 }

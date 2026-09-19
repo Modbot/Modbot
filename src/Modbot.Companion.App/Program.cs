@@ -5,6 +5,8 @@ using Avalonia.Threading;
 using Modbot.Companion.CloudBackup;
 using Modbot.Companion.Clips;
 using Modbot.Companion.Credits;
+using Modbot.Companion.Listening;
+using Modbot.Companion.App.Listening;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.LogReading;
@@ -38,9 +40,10 @@ namespace Modbot.Companion.App;
 /// <para><strong>What it writes to your disk.</strong> Its own folder under your user profile,
 /// holding three things: which servers you paired with and their tokens (the tokens encrypted to
 /// your Windows account), observations queued to send, and the plain-English record of what has
-/// been sent — and, once you turn the voice on, the downloaded voice under <c>voices</c>, and, once
+/// been sent — and, once you turn the voice on, the downloaded voice under <c>voices</c>; once
 /// you turn Clips on, two rolling recordings under <c>clips</c> that are deleted as they are
-/// replaced and when recording stops. Plus
+/// replaced and when recording stops; and, once you turn Listening on, the small phrase model under
+/// <c>phrases</c>. No sound from your microphone is ever written anywhere. Plus
 /// one registry key under your own account saying that <c>modbot-companion://</c>
 /// links open this program, which is how pairing from the browser reaches it, and — in an installed
 /// copy, unless you turn it off — one value under your own account's startup list so Modbot starts
@@ -53,9 +56,12 @@ namespace Modbot.Companion.App;
 /// unless you turn that off in <c>settings.json</c> or with <c>MODBOT_CLOUD_DISABLED</c> (see
 /// <c>CloudEventBackup</c> and <c>CloudSettings</c>). And once, if you turn the voice on: one
 /// download of the voice from GitHub, with nothing attached (see <c>VoiceDownload</c>); what the
-/// voice then says is made and played on this PC and goes nowhere.
-/// Never chat, never a recorded clip or any other picture of your screen, never keystrokes, never
-/// your friends list and never a list of your processes.</para>
+/// voice then says is made and played on this PC and goes nowhere. And once, if you turn Listening
+/// on: one download of the phrase model from GitHub, with nothing attached (see
+/// <c>PhraseDownload</c>).
+/// Never chat, never a recorded clip or any other picture of your screen, never a recording of
+/// anything your microphone heard, never keystrokes, never your friends list and never a list of
+/// your processes.</para>
 /// <para><strong>It never reads the keyboard.</strong> Turning the desktop overlay on asks Windows
 /// for exactly one keyboard combination, by name, so that panel can be brought up while VRChat has
 /// the keyboard (<c>DesktopOverlayShortcut</c>). Windows then sends one message when those keys are
@@ -94,6 +100,34 @@ namespace Modbot.Companion.App;
 /// One file — <c>ScreenRecording.cs</c> — is allowed to record, one file — <c>ClipsFolder.cs</c> —
 /// is allowed to name your Videos folder, and <c>CompanionSourceGuardTests</c> fails the build if
 /// any other file the client ships learns either trick.</para>
+/// <para><strong>It can listen for one phrase, and only when you switch that on.</strong> Until
+/// 2026-09-19 this program could not open a microphone at all, and the build failed if any code
+/// that could appeared in it. That ban is now narrowed by exactly one file, because a moderator
+/// wearing a headset cannot reach a keyboard and asked to be able to say <strong>"Modbot, clip
+/// that"</strong> instead. The Settings page has a <strong>Listening</strong> switch. It is
+/// <strong>off</strong> in a fresh install and off in an updated one, and while it is off no
+/// microphone is opened and nothing is asked of Windows' audio system at all.
+/// <list type="bullet">
+/// <item><description><strong>Nothing is recorded, kept or sent.</strong> Sound arrives in
+/// fractions of a second, is checked against four short phrases, and is thrown away. It is never
+/// written to a file, never held for more than a moment, and never sent anywhere — there is no
+/// upload path in this program and it did not gain one. This is not a transcriber: the thing doing
+/// the checking is a three-megabyte phrase matcher that can only answer "was one of those four
+/// things just said".</description></item>
+/// <item><description><strong>The microphone is shared, never taken.</strong> Windows is asked for
+/// the default microphone in shared mode — the same way VRChat and Discord ask for it — so VRChat
+/// keeps working exactly as it did. Exclusive mode, the mode that would lock other programs out, is
+/// never asked for.</description></item>
+/// <item><description><strong>When.</strong> Only while VRChat is running, the same rule the
+/// recorder uses, so the microphone is not open whenever this program is. VRChat closing closes it.
+/// While it is open this program says so at the top of every page of its own window.</description></item>
+/// <item><description><strong>What it does.</strong> Saves a clip, the same as pressing
+/// <strong>Save a clip</strong>, and says out loud whether that worked. If Clips is off or nothing
+/// is being recorded, it says that instead of appearing to work.</description></item>
+/// </list>
+/// One file — <c>PhraseListening.cs</c> — is allowed to open a microphone, and
+/// <c>CompanionSourceGuardTests</c> fails the build if any other file the client ships names a
+/// recording API at all.</para>
 /// <para><strong>It is always visible while it runs.</strong> Closing the window leaves a tray
 /// icon; the program never becomes invisible, and pausing stops transmission immediately and shows
 /// that it has.</para>
@@ -328,6 +362,31 @@ internal sealed class CompanionHost : IOverlayListener
     /// saying "Clip not saved" about one that did land is the worse mistake.
     /// </summary>
     private static readonly TimeSpan ClipSaveAnswerWait = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// The listener, built only while Listening is on and VRChat is running; null otherwise, which
+    /// means no microphone is open.
+    /// </summary>
+    private PhraseListening? _listener;
+
+    /// <summary>The one rule that stops one spoken sentence becoming three clips.</summary>
+    private PhraseHeard? _phraseRule;
+
+    /// <summary>The one download of the phrase model, while it is running.</summary>
+    private Task<PhraseDownloadResult>? _phraseDownload;
+
+    private bool _phrasePresent;
+    private bool _phraseFailed;
+    private double _phraseProgress;
+    private string? _listeningProblem;
+    private string? _listeningLastHeard;
+
+    /// <summary>
+    /// True when the Save a clip that is waiting for an answer was asked for out loud. A moderator
+    /// who spoke to their PC has no screen to read, so the answer is spoken or played back to them
+    /// (listening design §6); one that was pressed on a screen already has the screen.
+    /// </summary>
+    private bool _clipAskedBySpeaking;
 
     private bool _voiceTicking;
     private NotificationSound? _bleep;
@@ -797,6 +856,7 @@ internal sealed class CompanionHost : IOverlayListener
             {
                 _clipSave = new ClipSave(_clock.UtcNow, true);
                 _clipAskedAt = null;
+                AnswerOutLoud(true);
                 return;
             }
 
@@ -804,6 +864,7 @@ internal sealed class CompanionHost : IOverlayListener
             {
                 _clipSave = new ClipSave(_clock.UtcNow, false);
                 _clipAskedAt = null;
+                AnswerOutLoud(false);
                 return;
             }
         }
@@ -813,6 +874,7 @@ internal sealed class CompanionHost : IOverlayListener
 
         _clipSave = new ClipSave(_clock.UtcNow, false);
         _clipAskedAt = null;
+        AnswerOutLoud(false);
     }
 
     /// <summary>
@@ -880,7 +942,10 @@ internal sealed class CompanionHost : IOverlayListener
     private void SaveClip()
     {
         if (_state is null || _recorder is null || _clipLibrary is null)
+        {
+            AnswerOutLoud(false);
             return;
+        }
 
         var settings = _state.Settings.Clips;
         var folder = ClipsFolder.Check(ClipsFolder.Resolve(settings.Folder, fallback: _directory));
@@ -893,6 +958,7 @@ internal sealed class CompanionHost : IOverlayListener
             // settings screen to read it on.
             _clipSave = new ClipSave(_clock.UtcNow, false);
             _clipAskedAt = null;
+            AnswerOutLoud(false);
             Render();
             return;
         }
@@ -923,6 +989,275 @@ internal sealed class CompanionHost : IOverlayListener
         _recorder.AskToSave(Path.Combine(folder.Path, name));
 
         _journal?.RecordNote("this PC", $"Saved a clip of the last few minutes as {name}. It is on this PC only.");
+        Render();
+    }
+
+    /// <summary>
+    /// Makes the listener match what the Listening card and VRChat are doing right now.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Off means no microphone is open.</strong> With the switch off there is no
+    /// listener object, no phrase model loaded and no thread — and, most of the point, nothing
+    /// asked of Windows' audio system at all. The same shape as the recorder and the overlay
+    /// switches, and here it is the whole of the promise: a microphone that is not open cannot hear
+    /// anything.</para>
+    /// <para><strong>"While VRChat is running" is the log, not the process list.</strong> The
+    /// reading half already knows (<see cref="ListeningRule"/>). Run on every render, so VRChat
+    /// closing closes the microphone within a second.</para>
+    /// <para>Every failure here — no model, no microphone, one another program has taken for
+    /// itself — becomes a line on the settings screen. None of them stops the client reading
+    /// VRChat's log or reporting presence.</para>
+    /// </remarks>
+    private void ApplyListening()
+    {
+        if (_state is null)
+            return;
+
+        var settings = _state.Settings.Listening;
+        var folder = PhraseModel.PhrasesFolder(_directory);
+
+        // Asked once rather than every second: the answer only changes when the download finishes,
+        // and that path sets it itself.
+        if (settings.On && !_phrasePresent && _phraseDownload is null && !_phraseFailed)
+        {
+            _phrasePresent = PhraseModel.Default.IsPresent(folder);
+            if (!_phrasePresent)
+                StartPhraseDownload(folder);
+        }
+
+        if (_phraseDownload is { IsCompleted: true } finished)
+        {
+            _phraseDownload = null;
+            FinishPhraseDownload(finished);
+        }
+
+        var wanted = ListeningRule.Decide(
+            settings,
+            _state.LogHealth.Evaluate(_clock.UtcNow, CompanionAppState.LogSilenceThreshold),
+            PhraseListening.Supported,
+            _phrasePresent,
+            _phraseDownload is not null,
+            _listener?.IsListening);
+
+        if (ListeningRule.ShouldListen(wanted))
+        {
+            if (_listener is null)
+            {
+                _phraseRule ??= new PhraseHeard(_clock);
+                _listener = new PhraseListening(HeardFromAnotherThread, LogListening);
+
+                if (!_listener.Start(PhraseModel.Default, folder))
+                {
+                    _listeningProblem = _listener.LastProblem;
+                    wanted = ListeningState.NotOnThisMachine;
+                }
+            }
+        }
+        else if (_listener is not null)
+        {
+            // Kept, because the listener is about to go and what it had to say about itself is the
+            // only thing on the settings screen explaining why nothing is being listened for.
+            _listeningProblem ??= _listener.LastProblem;
+            _listeningLastHeard ??= _listener.LastHeard;
+
+            _listener.Stop();
+            _listener.Dispose();
+            _listener = null;
+            _phraseRule?.Forget();
+        }
+
+        _state.Listening = new ListeningStatus(
+            settings,
+            wanted,
+            PhraseModel.Default.Spoken,
+            _phraseProgress,
+            PhraseModel.Default.Size,
+            _listener?.LastHeard ?? _listeningLastHeard,
+            _listener?.LastProblem ?? _listeningProblem,
+            PhraseListening.Supported);
+    }
+
+    /// <summary>
+    /// The one download of the phrase model, started only because somebody turned listening on.
+    /// </summary>
+    private void StartPhraseDownload(string folder)
+    {
+        var model = PhraseModel.Default;
+        _phraseProgress = 0;
+        _listeningProblem = null;
+
+        Log.Information(
+            "Downloading the phrase model {Name} from {Url} ({Size:N0} bytes)", model.Name, model.Url, model.Size);
+
+        var progress = new Progress<double>(p => _phraseProgress = p);
+        _phraseDownload = Task.Run(() => new PhraseDownload(_http!).RunAsync(model, folder, progress));
+    }
+
+    private void FinishPhraseDownload(Task<PhraseDownloadResult> finished)
+    {
+        PhraseDownloadResult result;
+        try
+        {
+            result = finished.GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _phraseFailed = true;
+            _listeningProblem = $"The phrase model could not be downloaded: {ex.Message}";
+            Log.Warning(ex, "The phrase model download failed");
+            return;
+        }
+
+        if (result.Ready)
+        {
+            _phrasePresent = true;
+            _phraseProgress = 1;
+            Log.Information("The phrase model is ready ({Outcome})", result.Outcome);
+            return;
+        }
+
+        _phraseFailed = true;
+        _listeningProblem = result.Outcome switch
+        {
+            PhraseDownloadOutcome.WrongFile => $"The download was not the expected file and was thrown away. {result.Detail}",
+            PhraseDownloadOutcome.Unreachable => $"The phrase model could not be downloaded. {result.Detail}",
+            _ => $"Listening could not be set up. {result.Detail}",
+        };
+
+        Log.Warning("The phrase model download failed: {Outcome} {Detail}", result.Outcome, result.Detail);
+    }
+
+    /// <summary>
+    /// The listener heard a phrase, on its own thread. Brought onto the window's thread, because
+    /// everything below saves a clip and redraws.
+    /// </summary>
+    private void HeardFromAnotherThread(string said)
+        => Dispatcher.UIThread.Post(() => CrashGuard.Run("acting on a phrase", () => HeardAPhrase(said)));
+
+    private static void LogListening(string line, Exception? ex)
+    {
+        if (ex is null)
+            Log.Information("Listening: {Line}", line);
+        else
+            Log.Warning(ex, "Listening: {Line}", line);
+    }
+
+    /// <summary>
+    /// Somebody said "Modbot, clip that": save a clip, and answer them.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>It never looks like it worked when it did not.</strong> Inside a headset there
+    /// is no settings screen and no file explorer, so a phrase that quietly did nothing would leave
+    /// a moderator believing they had kept a moment. Every reason a clip cannot be saved is
+    /// answered out loud instead (listening design §6), and a save that goes ahead is answered once
+    /// the recorder has actually written the file, through the same wait the button uses.</para>
+    /// <para><strong>One sentence, one clip.</strong> <see cref="PhraseHeard"/> refuses a second
+    /// match within a few seconds, which covers the matcher offering the same words twice and a
+    /// moderator repeating themselves.</para>
+    /// <para>It is written into the client's own journal every time, so the Events page shows every
+    /// occasion the microphone acted on something — including the ones where nothing was
+    /// saved.</para>
+    /// </remarks>
+    private void HeardAPhrase(string said)
+    {
+        if (_state is null || _phraseRule?.Ask() is not true)
+            return;
+
+        var clips = _state.Clips;
+
+        if (clips.CanSave)
+        {
+            _journal?.RecordNote(
+                "this PC",
+                $"Heard “{said}” and saved a clip. Nothing of what was said was recorded or sent.");
+
+            _clipAskedBySpeaking = true;
+            SaveClip();
+            return;
+        }
+
+        var why = clips.State switch
+        {
+            ClipRecordingState.Off => "Clips are switched off, so there was nothing to save.",
+            ClipRecordingState.Waiting => "VRChat is not running, so there was nothing to save.",
+            ClipRecordingState.NoWindow => "Modbot has not found VRChat's window yet, so there was nothing to save.",
+            ClipRecordingState.FolderUnusable => "The clips folder cannot be used, so nothing was saved.",
+            ClipRecordingState.NotOnThisMachine => "This PC cannot record, so nothing was saved.",
+            _ => "Recording has stopped, so nothing was saved.",
+        };
+
+        _journal?.RecordNote("this PC", $"Heard “{said}”, but no clip could be saved. {why}");
+        Log.Information("Heard a phrase but no clip could be saved: {Why}", why);
+        AnswerOutLoud(false, why);
+        Render();
+    }
+
+    /// <summary>
+    /// Answers a moderator who asked for a clip out loud, and nobody else.
+    /// </summary>
+    /// <remarks>
+    /// <para>The voice says the sentence when the voice is on and reporting is not paused. When it
+    /// is not, a saved clip gets the notification sound — as long as the sound itself is switched
+    /// on — and a clip that was <em>not</em> saved gets nothing, because one short sound cannot say
+    /// which of six reasons it was, and a sound that meant both "kept" and "not kept" would be
+    /// worse than silence. The reason is on the Clips card, on the overlay's own Save a clip
+    /// control for eight seconds, and in the Events page either way.</para>
+    /// <para>A Save a clip that was <em>pressed</em> is never answered here: whoever pressed it is
+    /// looking at the thing they pressed.</para>
+    /// </remarks>
+    private void AnswerOutLoud(bool saved, string? instead = null)
+    {
+        if (!_clipAskedBySpeaking)
+            return;
+
+        _clipAskedBySpeaking = false;
+
+        var sentence = instead ?? (saved ? "Clip saved." : "The clip could not be saved.");
+
+        if (_voice?.Announcer.Answer(sentence) is true)
+            return;
+
+        if (saved && _state?.Settings.Notifications.Bleep is true)
+            _bleep?.Ask(NotificationKind.Test);
+    }
+
+    /// <summary>
+    /// The Listening card changed. Saved as the whole <c>listenForPhrase</c> object, then acted on
+    /// at once: turning it off closes the microphone now rather than at the next restart.
+    /// </summary>
+    private void SetListening(ListeningSettings listening)
+    {
+        ArgumentNullException.ThrowIfNull(listening);
+
+        if (_state is null || _state.Settings.Listening == listening)
+            return;
+
+        var before = _state.Settings.Listening;
+        _state.Settings = _state.Settings with { Listening = listening };
+
+        if (!CompanionSettings.SaveListening(_settingsPath, listening))
+            Log.Warning("Could not save the listening settings to {Path}", _settingsPath);
+
+        // A new switch-on gets a fresh go at a download that failed last time, and a clean card.
+        if (!before.On && listening.On)
+        {
+            _phraseFailed = false;
+            _listeningProblem = null;
+        }
+
+        if (!listening.On && _listener is not null)
+        {
+            _listener.Stop();
+            _listener.Dispose();
+            _listener = null;
+        }
+
+        Log.Information(
+            listening.On
+                ? "Listening for a phrase is on: the microphone opens while VRChat runs"
+                : "Listening for a phrase is off: no microphone is opened");
+
+        ApplyListening();
         Render();
     }
 
@@ -1969,6 +2304,11 @@ internal sealed class CompanionHost : IOverlayListener
         // not leave minutes of somebody's screen behind on the disk.
         _recorder?.Dispose();
         _recorder = null;
+
+        // Closes the microphone. A client that is going away must not leave one open, and a client
+        // that has quit must never be the reason a moderator's microphone is busy.
+        _listener?.Dispose();
+        _listener = null;
     }
 
     /// <summary>
@@ -2076,6 +2416,12 @@ internal sealed class CompanionHost : IOverlayListener
         // running", and this is the place that already knows, once a second.
         CrashGuard.Run("keeping the last few minutes", ApplyClips);
 
+        // Same place and same rule: the microphone is open only while VRChat is running, and this
+        // is the loop that already knows whether it is.
+        CrashGuard.Run("listening for a phrase", ApplyListening);
+
+        _state.SoundProblem = _bleep?.LastProblem;
+
         if (_voice is not null)
             _state.Voice = _voice.Status();
 
@@ -2111,6 +2457,7 @@ internal sealed class CompanionHost : IOverlayListener
                 SetDesktopNotifyOverlay = SetDesktopNotifyOverlay,
                 SetClips = SetClips,
                 SaveClip = SaveClip,
+                SetListening = SetListening,
             });
     }
 

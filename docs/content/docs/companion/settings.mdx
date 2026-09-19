@@ -4,7 +4,8 @@ description: Every setting in the companion, including starting with Windows, th
 ---
 
 The client's **Settings** page has the start-with-Windows switch, the **Tell me about** card, the
-**Voice** card and the VRChat log folder. Everything else is set in the client's settings file or in environment variables on
+**Voice** card, the [**Clips**](/companion/clips) card, the [**Listening**](/companion/listening)
+card and the VRChat log folder. Everything else is set in the client's settings file or in environment variables on
 your PC: the pairing page, update checks, Modbot Cloud backup, and how much the client writes to
 its own log.
 
@@ -226,7 +227,12 @@ the file:
 | `notifications.bleep` | `true` | Whether a short sound plays when you are told something. See [Notification sound](#notification-sound). |
 | `notifications.volume` | `70` | The sound's own volume, 0 to 100, separate from the voice's. |
 | `notifications.trayNoticesShown` | `0` | How many times you have been told the client is still in the tray. It stops after three. |
+<<<<<<< HEAD
 | `notificationFilters.popUp` | `["flagged join", "problem"]` | Which kinds raise a notification, in the headset and on a monitor alike. See [Tell me about](#tell-me-about). |
+=======
+| `notifications.sound` | absent | A `.wav` file of your own to play instead of Modbot's sound. Absent means Modbot's own. See [Notification sound](#notification-sound). |
+| `notificationFilters.popUp` | `["flagged join", "problem"]` | Which kinds raise a pop-up on the notification overlay. See [Tell me about](#tell-me-about). |
+>>>>>>> worktree-agent-a25fbc44f5de62d20
 | `notificationFilters.sound` | `["flagged join", "problem"]` | Which kinds play the sound. |
 | `notificationFilters.voice` | `["joined", "left", "flagged join", "problem"]` | Which kinds the voice says. |
 | `voice.on` | `false` | The **Voice on** switch. See [Voice](#voice). |
@@ -242,6 +248,7 @@ the file:
 | `clips.minutes` | `3` | How many minutes are kept, 2 to 5. Anything else is brought inside that range. |
 | `clips.folder` | absent | Where saved clips are written. Absent means your Videos folder plus `Modbot Clips`. |
 | `clips.keepGigabytes` | `5` | How much room saved clips may take before the oldest are deleted, 1 to 200. There is no control for this on the screen. |
+| `listenForPhrase.on` | `false` | The **Listen for "Modbot, clip that"** switch. Off until you turn it on; no microphone is opened while it is off. See [Listening](/companion/listening). |
 
 For example:
 
@@ -419,6 +426,34 @@ a rush of arrivals is one sound rather than ten.
 
 `trayNoticesShown` counts how many times closing the window with the X has told you the client is
 still running in the tray. After three it stops. Set it back to `0` to be told again.
+
+### What it sounds like
+
+Two struck notes, made by the client rather than read from a file, so there is no audio file in the
+download whose origin anybody has to check. The first is A above middle C, the second a perfect
+fifth above it, struck while the first is still ringing; each comes up softly and decays with a
+tail, with a few quiet overtones so it reads as an instrument. The whole thing is under half a
+second.
+
+It changed on 19 September 2026. Before that it was two bare sine tones, 880 then 1245 hertz, each
+switched on and off in six milliseconds — a smoke alarm rather than a notification, and a moderator
+hearing it forty times an evening said so.
+
+### Using a sound of your own
+
+**Settings** → **Notifications** → **Sound file**. Point it at a `.wav` file on your PC and that
+plays instead. Leave it empty, or press **Use Modbot's sound**, to go back.
+
+- **`.wav` only.** A WAV file is a header and the samples, which the client can read in sixty lines
+  and no extra library. Any program on your machine will save one.
+- **Plain WAV**, 8, 16, 24 or 32-bit, mono or stereo, at any sample rate. An MP3 renamed to `.wav`
+  is refused rather than played as noise.
+- **At most 10 seconds** is played, and files over 16 MB are refused.
+- **A file that has gone missing, or that cannot be read, plays Modbot's own sound** and says why on
+  the **Notifications** card. Press **Test** to see it.
+
+The file is read once and then held, so forty sounds in an evening is one read. It is never copied
+anywhere and no server is told it exists.
 
 ## Tell me about
 

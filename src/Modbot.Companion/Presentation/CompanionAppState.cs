@@ -2,6 +2,7 @@ using Modbot.Companion.Clips;
 using Modbot.Companion.Credits;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
+using Modbot.Companion.Listening;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Pipeline;
@@ -198,13 +199,23 @@ public sealed record CompanionAppSnapshot(
     NotifyOverlayStatus? NotifyOverlay = null,
     NotificationFilters? NotificationFilters = null,
     ClipsStatus? Clips = null,
-    DesktopNotifySettings? DesktopNotifyOverlay = null)
+    DesktopNotifySettings? DesktopNotifyOverlay = null,
+    ListeningStatus? Listening = null)
 {
     /// <summary>The notification overlay on a monitor, never null: off with the defaults until settings have been read.</summary>
     public DesktopNotifySettings DesktopNotifyOrDefault => DesktopNotifyOverlay ?? DesktopNotifySettings.Default;
 
     /// <summary>The Clips card, never null: off with the default settings until the host has said.</summary>
     public ClipsStatus ClipsOrNone => Clips ?? ClipsStatus.None;
+
+    /// <summary>The Listening card, never null: off with the default settings until the host has said.</summary>
+    public ListeningStatus ListeningOrNone => Listening ?? ListeningStatus.None;
+
+    /// <summary>
+    /// What went wrong with the moderator's own notification sound file, in one sentence, or null.
+    /// Added after the positional list so nothing that builds this record has to change.
+    /// </summary>
+    public string? SoundProblem { get; init; }
 
     /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
     public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
@@ -376,6 +387,18 @@ public sealed class CompanionAppState
     /// </summary>
     public ClipsStatus Clips { get; set; } = ClipsStatus.None;
 
+    /// <summary>
+    /// Listening for a spoken phrase, as of the last render; set by the host that owns the
+    /// listener. Off until it says otherwise, which is also what a client that cannot listen shows.
+    /// </summary>
+    public ListeningStatus Listening { get; set; } = ListeningStatus.None;
+
+    /// <summary>
+    /// What went wrong with the moderator's own notification sound file, or null. Set by the host
+    /// that owns the sound; the built-in sound plays either way.
+    /// </summary>
+    public string? SoundProblem { get; set; }
+
     /// <summary>Started with <c>MODBOT_DEBUG_MODE=1</c>: the window gets a Debug page.</summary>
     public bool DebugMode { get; set; }
 
@@ -434,11 +457,27 @@ public sealed class CompanionAppState
             NotifyOverlay with { Settings = Settings.NotifyOverlay },
             Settings.NotificationFilters,
             Clips with { Settings = Settings.Clips },
-            Settings.DesktopNotifyOverlay);
+            Settings.DesktopNotifyOverlay,
+            Listening with { Settings = Settings.Listening })
+        {
+            SoundProblem = SoundProblem,
+        };
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)
     {
+        // A microphone that is open says so, on every page, for as long as it is open. Nothing
+        // else in this client needs that, and this does: a program listening quietly is the thing
+        // a moderator is right to be afraid of, so it is never quiet about it. It goes away by
+        // itself the moment VRChat closes or the switch is turned off.
+        if (Listening.IsListening)
+        {
+            yield return new CompanionWarning(
+                WarningSeverity.Info,
+                "Modbot is listening for “Modbot, clip that”. Nothing is recorded or sent; the "
+                + "microphone closes when VRChat does.");
+        }
+
         if (ReadingFault is { } fault)
         {
             yield return new CompanionWarning(

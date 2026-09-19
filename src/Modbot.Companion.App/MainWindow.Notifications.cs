@@ -13,6 +13,11 @@ namespace Modbot.Companion.App;
 /// <para>The bleep has its own switch and its own volume, kept apart from the voice's: a moderator
 /// who wants a sound when somebody flagged walks in, and not a talking PC, is the ordinary case.
 /// Which device it plays through is the voice's choice and is not repeated here.</para>
+/// <para>The sound file box is the way out of Modbot's own sound. Nobody's taste is everybody's,
+/// and a notification somebody cannot change is one they end up switching off altogether; an empty
+/// box is Modbot's own sound, and a path is a <c>.wav</c> of theirs
+/// (<see cref="Modbot.Companion.Sounds.SoundFile"/>). A file that has gone or cannot be read plays
+/// Modbot's sound and says so.</para>
 /// <para>Restarting stops reporting for a few seconds, so the button asks twice: the first press
 /// arms it, the second does it, and it disarms itself if it is left alone. It reads nothing and
 /// sends nothing; the whole of what it does is on <see cref="Modbot.Companion.Startup.CompanionRestart"/>.</para>
@@ -25,6 +30,10 @@ public sealed partial class MainWindow
     private readonly Slider _bleepVolume = new();
     private readonly TextBlock _bleepVolumeValue = Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextDimBrush, wrap: false, mono: true);
     private readonly Button _bleepTest = Ui.Button("Test");
+    private readonly TextBox _bleepFileBox = Ui.Input();
+    private readonly Button _bleepFileSave = Ui.Button("Save");
+    private readonly Button _bleepFileReset = Ui.Button("Use Modbot's sound");
+    private readonly TextBlock _bleepFileProblem = Ui.Faint("");
     private readonly Button _restart = Ui.Button("Restart Modbot Companion");
     private readonly TextBlock _restartLine = Ui.Faint("");
 
@@ -56,6 +65,15 @@ public sealed partial class MainWindow
 
         _bleepTest.Click += (_, _) => _actions.TestBleep();
 
+        _bleepFileProblem.Foreground = Ui.T.DangerBrush;
+        _bleepFileBox.FontFamily = Ui.Mono;
+
+        _bleepFileSave.Click += (_, _) => _actions.SetNotifications(
+            _snapshot.NotificationsOrDefault with { Sound = _bleepFileBox.Text });
+
+        _bleepFileReset.Click += (_, _) => _actions.SetNotifications(
+            _snapshot.NotificationsOrDefault with { Sound = null });
+
         _restart.Click += async (_, _) => await CrashGuard.RunAsync("restarting Modbot", RestartPressedAsync);
         _restartDisarm.Tick += (_, _) => DisarmRestart();
     }
@@ -83,13 +101,27 @@ public sealed partial class MainWindow
 
         _bleepVolumeValue.Text = $"{(int)_bleepVolume.Value}";
         _bleepTest.IsEnabled = _snapshot.VoiceOrNone.HasOutput;
+
+        // Only refilled while nobody is typing in it: the window redraws on a timer.
+        if (!_bleepFileBox.IsFocused)
+            _bleepFileBox.Text = notifications.Sound ?? "";
     }
 
-    /// <summary>The Notifications card: the sound, how loud, and a Test button.</summary>
+    /// <summary>The Notifications card: the sound, how loud, a Test button and a sound of your own.</summary>
     private Control NotificationsCard()
     {
-        foreach (var control in new Control[] { _bleepOn, _bleepVolume, _bleepVolumeValue, _bleepTest })
+        foreach (var control in new Control[]
+        {
+            _bleepOn, _bleepVolume, _bleepVolumeValue, _bleepTest,
+            _bleepFileBox, _bleepFileSave, _bleepFileReset, _bleepFileProblem,
+        })
+        {
             DetachFromParent(control);
+        }
+
+        // An error says what failed, and nothing else on this card needs a sentence.
+        _bleepFileProblem.Text = _snapshot.SoundProblem ?? "";
+        _bleepFileProblem.IsVisible = _bleepFileProblem.Text.Length > 0;
 
         return new StackPanel
         {
@@ -103,6 +135,21 @@ public sealed partial class MainWindow
                     Spacing = 8,
                     Children = { _bleepVolume, _bleepVolumeValue },
                 }),
+                Ui.Field("Sound file", new StackPanel
+                {
+                    Spacing = 8,
+                    Children =
+                    {
+                        _bleepFileBox,
+                        new StackPanel
+                        {
+                            Orientation = Orientation.Horizontal,
+                            Spacing = 8,
+                            Children = { _bleepFileSave, _bleepFileReset },
+                        },
+                    },
+                }),
+                _bleepFileProblem,
                 new StackPanel
                 {
                     Orientation = Orientation.Horizontal,

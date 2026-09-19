@@ -28,6 +28,16 @@ public enum AnnouncementKind
     /// <summary>Something the moderator needs to hear about the companion itself. The whole sentence.</summary>
     Problem,
 
+    /// <summary>
+    /// The answer to something the moderator asked for out loud. The whole sentence.
+    /// </summary>
+    /// <remarks>
+    /// Said before anything else, because somebody is standing there waiting for it. A moderator
+    /// who says "Modbot, clip that" inside a headset has no screen to look at, so this line is the
+    /// only way they learn whether it worked (listening design §6).
+    /// </remarks>
+    Answer,
+
     /// <summary>The Test button. The whole sentence.</summary>
     Test,
 }
@@ -108,7 +118,8 @@ public sealed class AnnouncementQueue
     /// Takes the next sentence to say, or null when nothing worth saying is waiting.
     /// </summary>
     /// <remarks>
-    /// Problems first, then flagged joins, a test line and a stopped log, then joins, leaves and
+    /// An answer to something somebody said out loud first, because they are waiting for it. Then
+    /// problems, then flagged joins, a test line and a stopped log, then joins, leaves and
     /// people who were already there, then avatar changes. Joins are taken all together and said
     /// as one sentence, and so are leaves and "already there"; the other kinds are said one at a
     /// time, in the order they arrived.
@@ -119,7 +130,7 @@ public sealed class AnnouncementQueue
         {
             DropStale();
 
-            foreach (var kind in new[] { AnnouncementKind.Problem, AnnouncementKind.FlaggedJoin, AnnouncementKind.Test, AnnouncementKind.LogStopped })
+            foreach (var kind in new[] { AnnouncementKind.Answer, AnnouncementKind.Problem, AnnouncementKind.FlaggedJoin, AnnouncementKind.Test, AnnouncementKind.LogStopped })
             {
                 var index = _pending.FindIndex(a => a.Kind == kind);
                 if (index < 0)

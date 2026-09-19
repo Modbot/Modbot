@@ -325,11 +325,18 @@ account of that, and the documentation page says the same thing in a moderator's
   the thing that changed on 2026-09-19, and the reason it matters is that VRChat's own default is
   borderless fullscreen, which means "the window" and "the monitor" would otherwise be the same
   rectangle at exactly the wrong moment.
-- **No sound, at all.** The ban on every microphone, line-in and loopback API is untouched and still
-  total. What a moderator asked for was to be able to show what happened; a recording of everybody's
-  voice in an instance is a different and much larger thing to take off a PC, and keeping that ban
-  total is most of what keeps this one narrow. `NothingTheClientShipsCanRecordSound` still passes
-  over every file the client ships, this one included.
+- **No sound, at all.** What a moderator asked for was to be able to show what happened; a recording
+  of everybody's voice in an instance is a different and much larger thing to take off a PC.
+  `TheOnlyFileThatCanListenIsPhraseListeningCs` passes over every file the client ships, this one
+  included, so nothing in a clip is ever a recording of anybody's voice.
+
+  This sentence used to read *"the ban on every microphone, line-in and loopback API is untouched
+  and still total"*, and that stopped being true later the same day: the listening design
+  (2026-09-19) narrowed it by one file so a moderator in a headset can say "Modbot, clip that". What
+  survives, and is what this bullet is actually about, is that **a clip records no sound** and that
+  **nothing anywhere in the client can keep or send a recording of a voice** — the one file allowed
+  to open a microphone cannot write a file and cannot reach the network, and a guard fails the build
+  if that changes. The recorder is untouched by any of it.
 - **No keyboard**, no clipboard, no list of other programs and no list of their windows. Finding
   VRChat's window is one named ask for one named window — `FindWindowW` with VRChat's class and
   title — and never a walk over what else is open.
@@ -464,7 +471,7 @@ moves.
 | `src/Modbot.Companion.App/MainWindow.cs` "What it does not read" card | **UI text** | "It does not capture the screen, read your screenshots folder…" | Says it records VRChat's window and whatever is drawn over it, only with Clips on, only while VRChat runs, never the sound, and that nothing leaves the PC |
 | `tests/…/Guards/CompanionSourceGuardTests.cs` `NothingTheClientShipsCanCaptureAScreen` | test | total ban | Replaced by `TheOnlyFileThatCanRecordIsScreenRecordingCs`: exactly one file, and the ban list grew to cover the routes that file uses |
 | `tests/…/Guards/CompanionSourceGuardTests.cs` `ScreenshotFolders` | test | banned `MyVideos` with Pictures, Documents, Desktop | `MyVideos` moved to its own rule, `TheOnlyFileThatNamesYourVideosFolderIsClipsFolderCs`; the rest still banned everywhere |
-| `tests/…/Guards/CompanionSourceGuardTests.cs` `NothingTheClientShipsCanRecordSound` | test | total ban | **unchanged**, with a comment saying why it did not move when the other did |
+| `tests/…/Guards/CompanionSourceGuardTests.cs` `NothingTheClientShipsCanRecordSound` | test | total ban | Unchanged by *this* spec. Narrowed later the same day by the listening design (2026-09-19) to `TheOnlyFileThatCanListenIsPhraseListeningCs`: one file may open a microphone, nothing may keep or send what it hears, and a clip still records no sound |
 | `docs/content/docs/companion/install.mdx` | docs | "It does not read chat, your friends list, the screen…" | Names Clips, off by default, and links the new page |
 | `docs/content/docs/companion/clips.mdx` | docs | — | New page: the whole of it, for a suspicious reader |
 | `docs/content/docs/companion/settings.mdx` | docs | — | The `clips` rows added at the end of the settings-file table |

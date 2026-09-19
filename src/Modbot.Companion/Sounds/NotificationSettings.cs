@@ -19,10 +19,18 @@ namespace Modbot.Companion.Sounds;
 /// How many times the moderator has been told that closing the window leaves Modbot running in the
 /// tray. Counted rather than switched off by hand, so nobody has to find a control for it.
 /// </param>
+/// <param name="Sound">
+/// A <c>.wav</c> file on this PC to play instead of the one the client makes, or null for the one
+/// the client makes. Nobody's taste in notification sounds is everybody's, and a sound somebody
+/// cannot change is a sound they end up switching off; this is the way out (<see cref="SoundFile"/>).
+/// A file that has gone missing or cannot be read plays the built-in sound and says so on the
+/// settings screen.
+/// </param>
 public sealed record NotificationSettings(
     bool Bleep = true,
     int Volume = NotificationSettings.DefaultVolume,
-    int TrayNoticesShown = 0)
+    int TrayNoticesShown = 0,
+    string? Sound = null)
 {
     public const int DefaultVolume = 70;
 
@@ -51,4 +59,10 @@ public sealed record NotificationSettings(
     /// <summary>The same settings with one more tray notice counted.</summary>
     public NotificationSettings WithTrayNoticeShown()
         => this with { TrayNoticesShown = Math.Min(TrayNoticesShown + 1, TrayNoticesToShow) };
+
+    /// <summary>
+    /// The moderator's own sound file with the spaces taken off, or null when there is none. Blank
+    /// and "not set" are the same answer everywhere, so they are made the same answer here.
+    /// </summary>
+    public string? SoundOrNone => string.IsNullOrWhiteSpace(Sound) ? null : Sound.Trim();
 }

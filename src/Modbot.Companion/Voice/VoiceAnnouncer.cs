@@ -183,6 +183,32 @@ public sealed class VoiceAnnouncer : IObservationSink
     /// <summary>The Test button: one line, whether or not the voice is on.</summary>
     public void Test() => _queue.Add(AnnouncementKind.Test, TestLine);
 
+    /// <summary>
+    /// The answer to something the moderator asked for out loud, said before anything else that is
+    /// waiting.
+    /// </summary>
+    /// <remarks>
+    /// <para>Not filtered by the Notifications card. Those filters are about what the client
+    /// volunteers; this is a reply to a person who just spoke, and refusing to answer them because
+    /// of a tick box they set for arrivals would read as broken — the same reasoning that makes the
+    /// Test button always speak.</para>
+    /// <para>It still needs the voice to be switched on, and it is still silent while reporting is
+    /// paused, because both of those are the moderator saying they want a quiet PC. The caller is
+    /// told which it was so it can make a sound instead (listening design §6).</para>
+    /// </remarks>
+    /// <returns>True when the line will be said; false when the voice is off or paused.</returns>
+    public bool Answer(string sentence)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sentence);
+
+        var settings = _settings();
+        if (!settings.On || Paused)
+            return false;
+
+        _queue.Add(AnnouncementKind.Answer, sentence);
+        return true;
+    }
+
     /// <summary>Forgets everything waiting. Used when the voice is turned off or paused.</summary>
     public void Clear() => _queue.Clear();
 

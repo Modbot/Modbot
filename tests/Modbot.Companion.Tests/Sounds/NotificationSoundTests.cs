@@ -110,6 +110,59 @@ public class NotificationSoundTests
         Assert.Contains("could not be played", _log[0], StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ASoundFileThatIsNotThereFallsBackToModbotsOwnSoundAndSaysSo()
+    {
+        _settings = _settings with { Sound = Path.Combine(Path.GetTempPath(), "modbot-no-such-sound.wav") };
+
+        var sound = Sound();
+
+        Assert.True(await sound.PlayAsync(NotificationKind.Test, cancellationToken: TestContext.Current.CancellationToken));
+
+        // It still made a sound -- the one the client makes itself.
+        Assert.Single(_player.Played);
+        Assert.Equal(Bleep.Make().Samples.Length, _player.Played[0].Clip.Samples.Length);
+
+        // And it said why, once, for the settings screen and for the client's own log.
+        Assert.NotNull(sound.LastProblem);
+        Assert.Single(_log);
+        Assert.Contains("Modbot's own sound", _log[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ASoundFileThatCannotBeReadFallsBackToo()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"modbot-not-a-sound-{Guid.NewGuid():n}.wav");
+        await File.WriteAllTextAsync(path, "this is not a sound file at all", TestContext.Current.CancellationToken);
+
+        try
+        {
+            _settings = _settings with { Sound = path };
+
+            var sound = Sound();
+
+            Assert.True(await sound.PlayAsync(NotificationKind.Test, cancellationToken: TestContext.Current.CancellationToken));
+
+            Assert.Equal(Bleep.Make().Samples.Length, _player.Played[0].Clip.Samples.Length);
+            Assert.NotNull(sound.LastProblem);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task NoSoundFileMeansNoProblemAndNoFileIsOpened()
+    {
+        var sound = Sound();
+
+        Assert.True(await sound.PlayAsync(NotificationKind.Test, cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Null(sound.LastProblem);
+        Assert.Empty(_log);
+    }
+
     private sealed record PlayedClip(VoiceClip Clip, OutputDevice? Device);
 
     private sealed class FakePlayer : IVoicePlayer
