@@ -1,4 +1,5 @@
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 
 namespace Modbot.Analytics.Giveaways;
 
@@ -56,6 +57,15 @@ public sealed class GiveawayCandidate
 
     /// <summary>The day VRChat says the account was made, when Modbot has read the profile.</summary>
     public DateOnly? VRChatJoined { get; set; }
+
+    /// <summary>
+    /// The trust rank as stored. Null when nobody has read the account's tags yet, which is
+    /// "unknown" rather than "Visitor".
+    /// </summary>
+    public TrustRank? TrustRank { get; set; }
+
+    /// <summary>Modbot has seen them as 18+ verified at least once. The sticky flag.</summary>
+    public bool Is18PlusVerified { get; set; }
 
     /// <summary>They hold a Modbot account: one of the people running the giveaway.</summary>
     public bool Staff { get; set; }

@@ -11,6 +11,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Giveaways;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 using Modbot.VRChat.Sync;
 
 namespace Modbot.Api.Features.Giveaways;
@@ -159,6 +160,7 @@ public static class GiveawayEndpoints
                 return Results.Ok(new GiveawayBuilderView(
                     GiveawayRuleKinds.Asking,
                     GiveawayWeights.All,
+                    [.. TrustRanks.LadderRanks.Select(r => r.ToString())],
                     groupRoles,
                     discordRoles,
                     settings?.ModerationFactRetentionDays ?? 0,

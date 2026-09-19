@@ -7,6 +7,11 @@
  */
 import type { TrustRank } from './trustRank'
 
+// Type only, so nothing is imported at run time: `giveaways.ts` imports `http` from this file, and
+// a real import either way round would be a cycle. The rule tree is defined there because that is
+// where the rule builder lives; auto-invites store the same tree (auto-invites design §3).
+import type { GiveawayRule } from './giveaways.ts'
+
 /** Where the wizard should resume. Mirrors the server's OnboardingStep. */
 export type OnboardingStep =
   | 'Administrator'
@@ -2189,6 +2194,30 @@ export type RepeatOffenderRules = {
   lastRunAt: string | null
 }
 
+/** Settings → Auto-invites. `rules` is the same tree the giveaway rule builder reads and writes. */
+export type AutoInvites = {
+  enabled: boolean
+  minutesInInstance: number
+  minimumMinutesInInstance: number
+  inviteAgainAfterDays: number
+  rules: GiveawayRule
+  ruleKinds: string[]
+  trustRanks: string[]
+  groupRoles: { id: string; name: string }[]
+  discordRoles: { id: string; name: string }[]
+  moderationFactRetentionDays: number
+  presenceFactRetentionDays: number
+  invitesSent: number
+  lastInviteAt: string | null
+}
+
+export type AutoInvitesInput = {
+  enabled: boolean
+  minutesInInstance: number
+  inviteAgainAfterDays: number
+  rules: GiveawayRule
+}
+
 export type SubjectHistory = {
   subjectId: string
   known: boolean
@@ -4151,6 +4180,11 @@ export const api = {
   /** Rebuilds every person's counts before it answers, because both are rules they are computed under. */
   setRepeatOffenderRules: (threshold: number, types: string[]) =>
     put<RepeatOffenderRules>('/api/settings/repeat-offenders', { threshold, types }),
+
+  autoInvites: () => request<AutoInvites>('/api/settings/auto-invites'),
+
+  /** Refuses fewer than the minimum minutes, and refuses a rule tree the server cannot read. */
+  setAutoInvites: (body: AutoInvitesInput) => put<AutoInvites>('/api/settings/auto-invites', body),
 
   /** One person's history block. The id goes in the query string, never the path (spec 3.1.1). */
   subjectHistory: (id: string) =>

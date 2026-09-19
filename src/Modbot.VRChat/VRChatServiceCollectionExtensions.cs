@@ -168,6 +168,19 @@ public static class VRChatServiceCollectionExtensions
         // place: the endpoint classes and the interactive priority are decided beside the syncs.
         services.AddSingleton<Moderation.GroupJoinRequests>();
 
+        // Auto-invites (auto-invites design). Scoped, not singleton like the three above, because
+        // both hold a ModbotContext for the pass: the sender writes the row that remembers an
+        // invite and measures the thirty seconds from it, and the decider reads who is standing in
+        // the group's instances. The loop runs whatever the switch says and the pass reads the
+        // switch first, so turning the feature on takes effect on the next pass rather than on a
+        // restart.
+        services.AddScoped<Invites.GroupInvites>();
+        services.AddScoped<Invites.GroupAutoInvites>();
+
+        services.AddHostedService(provider => new Invites.GroupAutoInviteService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IDelayScheduler>()));
+
         // What an AutoMod rule set to act may do in the group (AutoMod design §5), through the
         // same wrapper. Scoped: it reads the settings row for the group and the signed-in account.
         services.AddScoped<Core.Moderation.IVRChatModerationActions, Moderation.AutoModVRChatActions>();

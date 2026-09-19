@@ -904,6 +904,48 @@ public class Settings
     /// </remarks>
     public string? EvidenceDiskWarningShown { get; set; }
 
+    // ── Auto-invites (auto-invites design) ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Whether Modbot invites people to the group once they have spent long enough in one of its
+    /// instances and pass <see cref="GroupAutoInviteRules"/>. Off by default.
+    /// </summary>
+    /// <remarks>
+    /// Off is the only safe default. Invites go out in the group's name, to named people, and
+    /// cannot be taken back; a deployment that upgraded into this switched on would start
+    /// inviting strangers without anybody deciding to.
+    /// </remarks>
+    public bool GroupAutoInviteEnabled { get; set; }
+
+    /// <summary>
+    /// How many minutes somebody must have been in the instance before they can be invited.
+    /// <strong>Never fewer than <see cref="MinimumAutoInviteMinutes"/>.</strong>
+    /// </summary>
+    /// <remarks>
+    /// A column rather than a rule in <see cref="GroupAutoInviteRules"/>, because the rule tree
+    /// has "none of" in it: anything it can say it can also invert, and a floor a rule builder can
+    /// turn upside down is not a floor (auto-invites design §4.1). Every path that reads or writes
+    /// it clamps.
+    /// </remarks>
+    public int GroupAutoInviteMinutesInInstance { get; set; } = MinimumAutoInviteMinutes;
+
+    /// <summary>The smallest <see cref="GroupAutoInviteMinutesInInstance"/> anybody may set.</summary>
+    public const int MinimumAutoInviteMinutes = 5;
+
+    /// <summary>
+    /// How many days before the same person may be invited again. Somebody who declined, or who
+    /// left the instance and came back, is not asked again inside it.
+    /// </summary>
+    public int GroupAutoInviteAgainAfterDays { get; set; } = 30;
+
+    /// <summary>
+    /// Who qualifies, as a rule tree in the shape <c>GiveawayRules</c> reads and writes
+    /// (auto-invites design §3). Empty "all of" means everybody who gets past the checks that are
+    /// not rules.
+    /// </summary>
+    [Column(TypeName = "jsonb")]
+    public string GroupAutoInviteRules { get; set; } = "{\"kind\":\"allOf\",\"rules\":[]}";
+
     // ── VRChat picture cache (VRChat files design §5) ───────────────────────────────────────
 
     /// <summary>

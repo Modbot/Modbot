@@ -165,6 +165,7 @@ public sealed record GiveawayRoleView(string Id, string Name);
 public sealed record GiveawayBuilderView(
     IReadOnlyList<string> RuleKinds,
     IReadOnlyList<string> Weightings,
+    IReadOnlyList<string> TrustRanks,
     IReadOnlyList<GiveawayRoleView> GroupRoles,
     IReadOnlyList<GiveawayRoleView> DiscordRoles,
     int ModerationFactRetentionDays,

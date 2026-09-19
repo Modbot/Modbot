@@ -226,6 +226,12 @@ public static class VRChatRateLimits
     public const string GroupsRequestsAnswerLane = "groups.requests.answer";
 
     /// <summary>
+    /// Inviting somebody to the group. Its own queue so that an invite waiting thirty seconds for
+    /// its token holds nothing else up, and nothing else holds it up either.
+    /// </summary>
+    public const string GroupInvitesLane = "groups.invites";
+
+    /// <summary>
     /// The backstop for what a moderator presses. Never entered as a queue -- a backstop is only
     /// ever an ancestor -- but every class names a lane, and this one names its own so nothing
     /// reads it as belonging to the group queue.
@@ -343,10 +349,19 @@ public static class VRChatRateLimits
                 HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
                 ResourceScoped: true),
 
-            // No prior data; spec 4.3.4 matches it to the conservative neighbour.
+            // One invite every thirty seconds, across the whole deployment -- the maintainer's
+            // answer to spec 4.3.4's standing question for POST /groups/{groupId}/invites, given
+            // on 2026-09-19 when auto-invites were asked for. It replaces the conservative
+            // neighbour's 1-per-3.5s this carried while nothing used the class.
+            //
+            // Backstop `global`, not `interactive`: an invite is timer-driven work nobody is
+            // waiting on, and the room spec 4.2 reserves is for the moderator who is (auto-invites
+            // design §5.1). Deliberately not in `Scheduled` -- adding a bucket that spends one
+            // token every thirty seconds to that sum would shrink the moderators' room to pay for
+            // it, and the global bucket's own ceiling still bounds everything drawing from it.
             [VRChatEndpointClass.GroupsInvites] = new(
-                VRChatEndpointClass.GroupsInvites, GroupLane,
-                HardMaxPerSecond: PerSeconds(3.5), DefaultCeilingPerSecond: CeilingFor(PerSeconds(3.5)),
+                VRChatEndpointClass.GroupsInvites, GroupInvitesLane,
+                HardMaxPerSecond: PerSeconds(30), DefaultCeilingPerSecond: CeilingFor(PerSeconds(30)),
                 ResourceScoped: true),
 
             // Interactive and low-volume. Paced under the interactive backstop -- it is what spec

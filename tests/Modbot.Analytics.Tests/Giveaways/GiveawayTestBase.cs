@@ -7,6 +7,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Giveaways;
 using Modbot.Core.Security;
+using Modbot.Core.Users;
 using Modbot.TestSupport;
 
 namespace Modbot.Analytics.Tests.Giveaways;
@@ -92,7 +93,9 @@ public abstract class GiveawayTestBase : IAsyncLifetime
         bool link = false,
         bool banned = false,
         bool leftGroup = false,
-        bool leftDiscord = false)
+        bool leftDiscord = false,
+        TrustRank? trustRank = null,
+        bool verified18Plus = false)
     {
         await using var context = Database.NewContext();
 
@@ -103,6 +106,8 @@ public abstract class GiveawayTestBase : IAsyncLifetime
                 UserId = vrchat,
                 DisplayName = name ?? vrchat,
                 DateJoined = accountDays is { } days ? DateOnly.FromDateTime(Now.AddDays(-days).UtcDateTime) : null,
+                TrustRank = trustRank,
+                Is18PlusVerified = verified18Plus,
                 FirstSeenAt = Now,
                 LastSeenAt = Now,
             });

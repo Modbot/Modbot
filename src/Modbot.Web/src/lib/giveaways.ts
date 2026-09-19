@@ -125,6 +125,8 @@ export type GiveawayRole = { id: string; name: string }
 export type GiveawayBuilder = {
   ruleKinds: string[]
   weightings: string[]
+  /** The trust ranks a rule may ask for, lowest first, as the server names them. */
+  trustRanks?: string[]
   groupRoles: GiveawayRole[]
   discordRoles: GiveawayRole[]
   moderationFactRetentionDays: number
@@ -182,6 +184,8 @@ export {
   RULE_LABEL,
   RULE_UNIT,
   STATE_LABEL,
+  TRUST_RANK_LABEL,
+  TRUST_RANKS,
   WEIGHTING_LABEL,
   blankGiveaway,
   fromLocalInput,
@@ -191,6 +195,7 @@ export {
   localInputValue,
   measured,
   takesAmount,
+  takesRank,
   takesRole,
   takesWindow,
   toLocalInput,

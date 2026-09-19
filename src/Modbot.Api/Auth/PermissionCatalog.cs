@@ -57,6 +57,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ManageSettings, "Change settings", "VRChat account, group, proxy, retention, evidence storage, AI and integrations.", "Administration"),
         Describe(ModbotPermissions.ManageApiKeys, "Manage API keys and webhooks", "Create and revoke API keys, and set up webhooks.", "Administration"),
         Describe(ModbotPermissions.UseVRChatProxy, "Use the VRChat proxy", "Send requests to VRChat's API through Modbot as the service account.", "Administration"),
+        Describe(ModbotPermissions.ManageAutoInvites, "Set up auto-invites", "Decide who Modbot invites to the group on its own, and switch it on or off.", "Administration"),
         Describe(ModbotPermissions.ImportOldData, "Import old data", "Upload another platform's records and write them into the log as history.", "Administration"),
         Describe(ModbotPermissions.ManageDiscordSync, "Manage role and ban sync", "Pair group roles with Discord roles, choose which side decides, and switch ban sync on.", "Administration"),
         Describe(ModbotPermissions.RunDiscordSync, "Run role and ban sync", "Copy the roles and bans that are already different between the two platforms.", "Administration"),

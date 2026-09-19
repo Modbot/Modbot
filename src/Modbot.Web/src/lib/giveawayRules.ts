@@ -52,7 +52,22 @@ export const RULE_LABEL: Record<string, string> = {
   discordRole: 'Holds the Discord role',
   noTrouble: 'No bans, kicks or flags',
   vrchatAccountDays: 'VRChat account at least',
+  trustRankAtLeast: 'Trust rank at least',
+  age18Plus: '18+ verified',
 }
+
+/** The words VRChat's nameplate shows for each trust rank a rule can ask for. */
+export const TRUST_RANK_LABEL: Record<string, string> = {
+  Visitor: 'Visitor',
+  NewUser: 'New User',
+  User: 'User',
+  KnownUser: 'Known User',
+  TrustedUser: 'Trusted User',
+  Legend: 'Legend',
+}
+
+/** The ranks in ladder order, for a server that did not send its own list. */
+export const TRUST_RANKS = Object.keys(TRUST_RANK_LABEL)
 
 /** The unit shown after a rule's number, or an empty string for a rule with none. */
 export const RULE_UNIT: Record<string, string> = {
@@ -82,6 +97,11 @@ export function takesWindow(kind: string): boolean {
 
 export function takesRole(kind: string): boolean {
   return kind === 'groupRole' || kind === 'discordRole'
+}
+
+/** Whether a rule names a trust rank. Uses the same field a role does, with its own picker. */
+export function takesRank(kind: string): boolean {
+  return kind === 'trustRankAtLeast'
 }
 
 /** Whether a rule's answer comes from polled presence reports rather than exactly-timed facts. */

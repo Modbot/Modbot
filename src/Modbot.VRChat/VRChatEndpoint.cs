@@ -51,6 +51,25 @@ public static class VRChatEndpointClass
     /// <summary>Group info and group roles both land here (spec 4.2).</summary>
     public const string GroupsRead = "groups.read";
 
+    /// <summary>
+    /// Inviting somebody to the managed group — <c>POST /groups/{groupId}/invites</c>
+    /// (auto-invites design §5).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>One request every thirty seconds, across the whole deployment.</strong> That is the
+    /// maintainer's answer to spec 4.3.4's standing question, given on 2026-09-19, and not a
+    /// number read off a neighbour. It is also the user-facing limit of the feature: no group is
+    /// invited into faster than that, whatever is happening in its instances.
+    /// </para>
+    /// <para>
+    /// Counted against <see cref="Global"/> rather than <see cref="Interactive"/>. Nobody is
+    /// waiting on an invite: a timer decided to send it. The room spec 4.2 reserves is for the
+    /// moderator who <em>is</em> waiting, and letting a loop that runs forever draw from it would
+    /// put Modbot's own invites in front of a moderator's ban — the contention spec 4.3.5 was
+    /// written to end.
+    /// </para>
+    /// </remarks>
     public const string GroupsInvites = "groups.invites";
 
     /// <summary>

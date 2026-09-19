@@ -136,6 +136,39 @@ public static class TrustRanks
         _ => "#CCCCCC",
     };
 
+    /// <summary>
+    /// Whether this rank is one of the ladder's own steps — Visitor up to Legend.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TrustRank.Nuisance"/> and <see cref="TrustRank.VRChatTeam"/> are numbered above
+    /// Legend because they override the ladder on a nameplate, not because they sit on top of it.
+    /// Anything comparing ranks with "at least" has to know the difference, or "Trusted User or
+    /// better" quietly includes every known troll.
+    /// </remarks>
+    public static bool OnTheLadder(TrustRank rank) => rank is >= TrustRank.Visitor and <= TrustRank.Legend;
+
+    /// <summary>
+    /// Whether the rank somebody holds is at least <paramref name="needed"/>.
+    /// </summary>
+    /// <remarks>
+    /// False for a rank nobody has read yet — an account Modbot has never fetched is unknown, not
+    /// a Visitor — and false for Nuisance and VRChat Team, which are not steps on the ladder
+    /// (<see cref="OnTheLadder"/>).
+    /// </remarks>
+    public static bool Meets(TrustRank? held, TrustRank needed)
+        => held is { } rank && OnTheLadder(rank) && OnTheLadder(needed) && rank >= needed;
+
+    /// <summary>The ladder's own steps, lowest first — the ranks a rule may ask for.</summary>
+    public static IReadOnlyList<TrustRank> LadderRanks { get; } =
+    [
+        TrustRank.Visitor,
+        TrustRank.NewUser,
+        TrustRank.User,
+        TrustRank.KnownUser,
+        TrustRank.TrustedUser,
+        TrustRank.Legend,
+    ];
+
     /// <summary>Parses a stored or transmitted rank name; unknown text is <see cref="TrustRank.Visitor"/>.</summary>
     public static TrustRank Parse(string? name) =>
         name is not null && Enum.TryParse<TrustRank>(name, ignoreCase: true, out var rank) && Enum.IsDefined(rank)
