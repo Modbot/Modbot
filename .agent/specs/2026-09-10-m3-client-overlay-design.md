@@ -178,6 +178,25 @@ has no business observing a moderator's personal VRChat use, and it does not.
 
 #### 3.1.1 "Screenshots" here means capture, not a file a human chose to attach
 
+> **Narrowed on 2026-09-19 by `.agent/specs/2026-09-19-companion-clips-design.md`. Read that
+> alongside this.** The rule below said screen capture was forbidden permanently. It is no longer
+> permanent and no longer total: with a **Clips** switch a person turned on themselves, and only
+> while VRChat is running, the client keeps the last two to five minutes of the picture on one
+> monitor, on that person's own disk, and writes a clip out when they press Save. One named file may
+> record and no other may, and the build fails if a second one learns to.
+>
+> **What this section still says, unchanged, is the half about images leaving a machine.** Nothing
+> the client records is ever uploaded: not to a paired server, not to Modbot Cloud. The client has no
+> file-upload path and did not gain one. Attaching evidence to a case is still a human, in the web
+> UI, in a browser, choosing a file — the right-hand column of the table below is untouched. So are
+> the bans on reading VRChat's screenshot folder or any other folder of images, on recording sound,
+> on the keyboard, the clipboard and the process list.
+>
+> The recording is not silent, not ambient and not on a schedule: it is off in a fresh install, off
+> in an updated one, shown on the settings screen while it runs, and stopped the moment VRChat
+> closes. The clips design spec §2 carries the whole argument for why that is a narrowing of this
+> rule rather than an abandonment of it.
+
 Modbot stores screenshots and video as moderation evidence — see
 `.agent/specs/2026-09-13-evidence-storage-design.md`. That is not a contradiction of the row above,
 and the line between the two is drawn here explicitly so that a future contributor resolves the
@@ -201,8 +220,11 @@ client — correctly. Nothing in the evidence design changes that:
 - **VRChat's own screenshot folder is explicitly out of bounds**, even though the client already has
   the filesystem access to read it and it is the obvious place a well-meaning feature would reach for.
   "Auto-attach the screenshot you just took" is precisely the design this rule exists to forbid.
-- **No screen, window, or headset-view capture, in any component, for any reason**, including
-  anything framed as a convenience for the moderator.
+- ~~**No screen, window, or headset-view capture, in any component, for any reason**, including
+  anything framed as a convenience for the moderator.~~ **Narrowed on 2026-09-19**: one named file
+  records one monitor, off unless a person switches it on, only while VRChat is running, and nothing
+  it records leaves the PC. See the note at the top of this section and the clips design spec. No
+  headset-view capture; no window capture; no second file.
 - Evidence upload happens where the moderator can see what they are sending: a browser, a file
   picker, a preview, and a confirm button. §3.3's *"visible, not ambient"* is the same principle —
   the difference between the two halves of this table is whether the human is in the loop for each
@@ -937,10 +959,11 @@ turns out to want one.
 ## 10. Non-goals
 
 - Any form of game modification, injection, hooking or memory reading.
-- Capturing chat, voice, screenshots, keystrokes, or the process list. **This is not narrowed by
-  Modbot storing uploaded evidence** — the client has no upload path and no access to any image on
-  the disk, including VRChat's own screenshot folder. See §3.1.1 for the line and why it is where it
-  is.
+- Capturing chat, voice, keystrokes, or the process list. **This is not narrowed by Modbot storing
+  uploaded evidence** — the client has no upload path and no access to any image on the disk,
+  including VRChat's own screenshot folder. See §3.1.1 for the line and why it is where it is.
+  Recording the screen came out of this list on 2026-09-19 and is now bounded rather than forbidden;
+  **voice is not, and did not move** (clips design spec §5).
 - Observing VRChat activity outside the managed group's instances.
 - Acting on VRChat's API as the moderator's own account — all API traffic goes through the server's
   single account and `IVRChatGate` (foundation §2.3).

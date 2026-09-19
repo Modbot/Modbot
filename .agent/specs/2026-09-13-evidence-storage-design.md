@@ -1155,13 +1155,23 @@ Tasks, not changes. Nothing here is implemented by this document.
 
 ## 19. Non-goals
 
-- **The client never uploads anything.** M3 §3.1 stands unchanged and unamended: the Windows client
-  and the SteamVR overlay read VRChat's log directory and nothing else, and they have no file-upload
-  path. Evidence is attached through the web UI by a human, on a machine, deliberately. Reading
-  VRChat's own screenshot folder — which is right there, and tempting — is explicitly forbidden.
-- **No automatic capture of anything.** Modbot never records a moderator's screen, never records
+- **The client never uploads anything.** This is still true and is the part of M3 §3.1 that has not
+  moved: the client and the SteamVR overlay have no file-upload path, and the device token a paired
+  client holds is ingest-scoped — it can submit presence facts and nothing else. Evidence is attached
+  through the web UI by a human, on a machine, deliberately. Reading VRChat's own screenshot folder —
+  which is right there, and tempting — is explicitly forbidden. (M3 §3.1 *was* amended on 2026-09-19,
+  but only about recording; see the note in §19 below and the clips design spec §6.)
+- **No automatic capture of anything.** ~~Modbot never records a moderator's screen~~, never records
   audio, and never captures a video of an instance. The only bytes that enter the system are ones a
   human chose to attach, plus the profile images of §12.3.
+
+  **Narrowed on 2026-09-19 by `.agent/specs/2026-09-19-companion-clips-design.md`.** The client can
+  now keep the last two to five minutes of one monitor, with a switch a person turned on themselves
+  and only while VRChat is running, and write a clip out when they press Save. **The sentence
+  immediately above is still exactly true of this spec**: those bytes do not enter the system. A clip
+  is a file on the moderator's PC; the client has no upload path and did not gain one, and a clip
+  becomes evidence only the way every other file does — a human, in the web UI, choosing it. Audio is
+  still never recorded, by anything, anywhere.
 - **No content analysis.** Modbot does not run detection, classification, or recognition over
   evidence. A file is stored and served; it is not interpreted. (M8's flagging works on facts, not on
   media, and that is unchanged.)

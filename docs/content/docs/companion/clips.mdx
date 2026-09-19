@@ -1,0 +1,137 @@
+---
+title: Clips
+description: Keep the last few minutes of your screen while VRChat is running, and save them as a video file when something happens. Off unless you switch it on.
+---
+
+Something happens in an instance and it is over before you could have started recording. **Clips**
+is the answer to that: while it is on, the companion keeps the last few minutes of your screen, and
+**Save a clip** writes those minutes out as a video file on your PC.
+
+<Callout type="warn" title="This reverses something the companion used to promise">
+Until 19 September 2026 the companion said, in its own source and on this site, that it **never**
+captured the screen, by any route, for any reason. That is no longer true, and this page is the
+honest replacement rather than a patch over it. What has **not** changed is the other half of that
+promise: nothing the companion records ever leaves your PC. There is no upload path in the client
+and it did not gain one.
+</Callout>
+
+## It is off until you switch it on
+
+A fresh install has it off. An existing companion updated into a version that can record has it off.
+While it is off there is no recorder at all — no recording, no video encoder, no extra thread, and
+nothing written anywhere.
+
+**Settings** → **Clips** → **Keep the last few minutes** is the whole of the consent.
+
+## What is recorded
+
+- The picture on **one monitor**, shrunk to at most 1280 pixels wide, at **15 frames a second**.
+  A 2560×1440 monitor records at 1280×720; a 1920×1080 one at 960×540. It is deliberately modest:
+  your frame rate in VRChat matters more than how sharp the clip is.
+
+## What is not recorded
+
+- **No sound, at all.** Not your microphone, not your speakers, not VRChat's voice chat. The
+  companion has no ability to record sound and the build fails if any code that could appears in it.
+  That has not changed and is not going to.
+- **Not the keyboard, not the clipboard, not a list of the programs you are running.**
+- **Nothing read out of a folder.** Not your Pictures, not your Documents, not your Desktop, not
+  VRChat's own screenshot folder. The companion still never opens an image it did not make.
+- **Nothing at all while VRChat is not running.** See below.
+
+## It records only while VRChat is running
+
+The companion knows VRChat is running because lines are arriving in
+[VRChat's own log](/companion/install#what-it-reads) — the same file it already reads. It never goes
+looking for a running program; it cannot, and that ban has not moved.
+
+So: VRChat closes, recording stops and what was kept is deleted. VRChat opens, recording starts
+again. The **Clips** card says which of those is happening — *Off*, *Waiting for VRChat*, or
+*Recording*.
+
+If VRChat is running but the companion has stopped understanding its log, it keeps recording. Lines
+are arriving, so you are in a world, and a client that needs updating should not also quietly lose
+the recording you switched on.
+
+## How many minutes
+
+Between **2 and 5**, on the slider. Anything else in the settings file is brought inside that range,
+so a typo cannot put an hour and a half of video on your disk.
+
+A saved clip covers **at least half** the length you chose, and up to all of it. The companion keeps
+two overlapping recordings and hands you the longer one; that is what removes the case where you
+press Save a moment after a recording started and get nothing. Save twice within a minute and the
+second clip is short, because the first save is what started it.
+
+## Where clips are written
+
+By default, your own **Videos** folder plus **Modbot Clips** — Windows is asked where that is, so a
+profile on another drive or a Windows in another language lands in the right place.
+
+Change it in **Settings** → **Clips** → **Folder**. Leave it blank for the usual place. A folder
+that cannot be written to — a read-only drive, a USB stick that is not plugged in, a typo — is shown
+as a message on that card. Nothing else in the companion stops: it carries on reading VRChat's log
+and reporting to your servers exactly as before.
+
+While it is recording, the two rolling recordings live in the companion's own folder,
+`%APPDATA%\Modbot\clips`, never in your Videos folder. They are deleted as they are replaced, when
+VRChat closes, and when you quit the companion.
+
+## What stops the folder filling your disk
+
+Video is large, so three things bound it:
+
+1. **The rolling recordings are not clips.** There are only ever two, each replaced as it fills, and
+   all of them deleted when recording stops. At five minutes they come to about 110 MB together.
+2. **The clips folder has a limit** — **5 GB** by default. Before a clip is saved, the oldest clips
+   are deleted until the folder plus the new one fits. Set it with `keepGigabytes` in
+   [`settings.json`](/companion/settings); there is no control for it on the screen.
+3. **The newest clip is never deleted to make room.** A limit smaller than one clip will not delete
+   the thing you just saved.
+
+Only `.mp4` files the companion wrote are ever counted or deleted. Your own videos sitting in the
+same folder are not Modbot's to touch.
+
+## What leaves your PC: nothing
+
+**No clip, no frame of one, and not even the fact that a clip exists is sent anywhere.** Not to the
+Modbot server you paired with. Not to Modbot Cloud. Not to us.
+
+The companion has no way to upload a file and did not gain one for this. The token it holds after
+pairing can submit what it observes and read what the overlay needs, and nothing else — it cannot
+attach anything to anything.
+
+So a clip is a file on your PC, and it stays one until you do something with it.
+
+## Attaching a clip to a ban, a kick or a case
+
+Exactly the way you attach anything else: open the case in Modbot's web app and
+[choose the file](/moderation/evidence). `video/mp4` is already an accepted kind of evidence, so a
+saved clip needs nothing special.
+
+The companion names each clip after the moment it was saved and the instance you were in, so the
+right one is easy to find, and it writes a line into the companion's own **Events** page saying a
+clip was saved and that it is on this PC only.
+
+<Callout title="The companion does not do this for you">
+There is no "record automatically when you ban somebody". A ban or a kick taken in Modbot never
+reaches the companion — the only things a server pushes to a client are who joined and who left —
+and giving a background client a credential that could upload video into your group's evidence
+store would make a stolen token far more dangerous than it is. Pressing **Save a clip** is the
+deliberate act, and choosing the file in a browser is the other one.
+</Callout>
+
+## What it costs while you are playing
+
+The companion records at a low frame rate and a small size, uses your graphics card's own video
+encoder when it has one, and does the work on a thread below everything else. On a machine that can
+run VRChat this should be a percent or two of your graphics card's encoder and about as much of one
+processor core.
+
+That is an estimate, not a measurement. If it costs you frames, switch it off; the switch takes
+effect immediately and nothing else about the companion changes.
+
+## Windows only
+
+There is no recording on the Linux companion. The **Clips** card says so rather than failing
+quietly, and everything else on Linux works exactly as it does on Windows.

@@ -195,16 +195,42 @@ public class CompanionSourceGuardTests
     }
 
     /// <summary>Anything that would capture what is on a screen, by any route.</summary>
+    /// <remarks>
+    /// The list grew on 2026-09-19 with the routes the clips recorder itself uses — the desktop
+    /// duplication and the encoder — so that the way in which the ban was narrowed cannot be used a
+    /// second time by a second file. Exactly one file is allowed to match this, and
+    /// <see cref="TheOnlyFileThatCanRecordIsScreenRecordingCs"/> names it.
+    /// </remarks>
     private static readonly Regex ScreenCapture = new(
         @"\b(CopyFromScreen|BitBlt|PrintWindow|GetDC|GraphicsCaptureItem|GraphicsCapturePicker"
-        + @"|Direct3D11CaptureFrame|DwmGetWindow|RenderTargetBitmap|CaptureScreen|Screenshot)\b",
+        + @"|Direct3D11CaptureFrame|DwmGetWindow|RenderTargetBitmap|CaptureScreen|Screenshot"
+        + @"|DuplicateOutput|IDXGIOutputDuplication|AcquireNextFrame|MFCreateSinkWriterFromURL"
+        + @"|IMFSinkWriter|MFCreateSinkWriterFromMediaSink)\b",
         RegexOptions.Compiled);
 
     /// <summary>Anywhere a screenshot would be sitting on disk waiting to be read.</summary>
+    /// <remarks>
+    /// The Videos folder came out of this list on 2026-09-19 and got a rule of its own
+    /// (<see cref="TheOnlyFileThatNamesYourVideosFolderIsClipsFolderCs"/>), because one file now
+    /// writes clips there. Pictures, Documents, the Desktop and VRChat's own screenshot folder are
+    /// still banned everywhere, that file included: writing a clip a moderator asked for is a
+    /// different act from reading pictures they did not.
+    /// </remarks>
     private static readonly Regex ScreenshotFolders = new(
-        @"(SpecialFolder\s*\.\s*(MyPictures|MyVideos|MyDocuments|Desktop)"
+        @"(SpecialFolder\s*\.\s*(MyPictures|MyDocuments|Desktop)"
         + @"|VRChat[\\/]{1,2}Screenshots|VRChat[\\/]{1,2}Pictures|""Screenshots"")",
         RegexOptions.Compiled);
+
+    /// <summary>The moderator's own video folder, which one file writes saved clips into.</summary>
+    private static readonly Regex VideosFolder = new(
+        @"SpecialFolder\s*\.\s*MyVideos\b",
+        RegexOptions.Compiled);
+
+    /// <summary>The one file allowed to record a picture of a screen.</summary>
+    private const string RecordingFile = "ScreenRecording.cs";
+
+    /// <summary>The one file allowed to name the moderator's own Videos folder.</summary>
+    private const string ClipsFolderFile = "ClipsFolder.cs";
 
     [Fact]
     public void TheGuardsAreActuallyLookingAtSomething()
@@ -217,8 +243,11 @@ public class CompanionSourceGuardTests
 
         // And the bans catch what they are aimed at, rather than being regexes that match nothing.
         Assert.Matches(ScreenCapture, "var bitmap = Graphics.CopyFromScreen(0, 0, 0, 0, size);");
+        Assert.Matches(ScreenCapture, "var duplication = output1.DuplicateOutput(device);");
         Assert.Matches(ScreenshotFolders, @"Path.Combine(pictures, ""VRChat\Screenshots"")");
         Assert.Matches(ScreenshotFolders, "Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)");
+        Assert.Matches(VideosFolder, "Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)");
+        Assert.DoesNotMatch(ScreenshotFolders, "Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)");
         Assert.Matches(SoundCapture, "using var capture = new WasapiCapture(device);");
         Assert.Matches(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)");
         Assert.Matches(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active)");
@@ -227,26 +256,58 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void NothingTheClientShipsCanCaptureAScreen()
+    public void TheOnlyFileThatCanRecordIsScreenRecordingCs()
     {
-        // M3 3.1.1 draws this line explicitly, and it is the one capability that would make the
-        // client's resemblance to an infostealer complete rather than superficial. Screenshots are
-        // in the never-transmitted column beside chat, keystrokes and the process list.
+        // This ban used to be total. M3 3.1.1 said screen capture was forbidden permanently, and
+        // that was the right rule for a client that had no reason to want it. On 2026-09-19 a
+        // moderator asked to be able to keep the last few minutes and save them when something
+        // happens, and the rule was narrowed rather than dropped: the capability exists, in one
+        // file, off unless a person switches it on, with nothing it records ever leaving the PC.
+        // The clips design spec carries the whole argument.
         //
-        // Attaching evidence to a moderation case is a real feature -- it just is not this
-        // program's. A moderator does it in the web UI, in a browser, by choosing a file: a
-        // deliberate human action in an application people already trust with a file dialog.
-        // The distinction is the whole point, so it is a test rather than a paragraph.
-        var offenders = EverythingTheClientShips()
+        // The shape of the narrowing matters as much as the narrowing. A capability in one named
+        // file is answerable -- "show me where this program records" has a one-word answer. A
+        // capability anywhere is not. So the ban stands everywhere else, this list of routes grew
+        // to include the ones the new file uses, and a second file learning any of them fails the
+        // build.
+        var recording = EverythingTheClientShips()
             .Where(f => ScreenCapture.IsMatch(File.ReadAllText(f)))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
 
-        Assert.True(
-            offenders.Count == 0,
-            "The client must never capture the screen; found capture APIs in "
-            + string.Join(", ", offenders));
+        Assert.Equal([RecordingFile], recording);
+
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
+
+        // The same plain-language disclosure every reading and sending file carries, and the two
+        // claims that make this one bounded: no sound, and nothing sent.
+        Assert.Contains("<remarks>", source, StringComparison.Ordinal);
+        Assert.Matches(Discloses, source);
+        Assert.Contains("No sound", source, StringComparison.Ordinal);
+        Assert.Contains("What leaves the machine: nothing", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheRecorderIsOnlyEverBuiltInOnePlaceAndIsOffUntilItIsSwitchedOn()
+    {
+        // "What does this program start, and when" has to stay answerable now that one of the
+        // answers is a screen recorder. One place builds it, that place is the same one that owns
+        // every other switch, and the settings it reads default to off -- so an existing client
+        // updated into a version that can record does not start recording.
+        var building = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("new ScreenRecording(", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal(["Program.cs"], building);
+
+        var settings = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "src", "Modbot.Companion", "Clips", "ClipSettings.cs"));
+
+        Assert.Contains("bool On = false", settings, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -265,6 +326,23 @@ public class CompanionSourceGuardTests
             offenders.Count == 0,
             "The client reads VRChat's log directory and nothing else; found picture or screenshot "
             + "paths in " + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void TheOnlyFileThatNamesYourVideosFolderIsClipsFolderCs()
+    {
+        // Saved clips go into the machine's own Videos folder, so exactly one file asks Windows
+        // where that is -- to write into it, never to read what is already there. Pictures,
+        // Documents, the Desktop and VRChat's own screenshot folder stay banned everywhere by the
+        // rule above, this file included, because a folder a moderator asked Modbot to write into
+        // is a different thing from a folder full of things they did not.
+        var naming = EverythingTheClientShips()
+            .Where(f => VideosFolder.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([ClipsFolderFile], naming);
     }
 
     [Fact]
@@ -319,9 +397,14 @@ public class CompanionSourceGuardTests
     public void NothingTheClientShipsCanRecordSound()
     {
         // The voice gave the client an audio library, and an audio library has a recording half.
-        // The client plays; it never listens. Voice chat is in the never-transmitted column beside
-        // screenshots, keystrokes and the process list (M3 10), and the way to keep it there is to
-        // make the recording APIs fail the build rather than a review.
+        // The client plays; it never listens. Voice chat is in the never-recorded column beside
+        // keystrokes and the process list (M3 10), and the way to keep it there is to make the
+        // recording APIs fail the build rather than a review.
+        //
+        // This ban did NOT move when the screen one did. Clips are silent on purpose: what a
+        // moderator asked for was to be able to show what happened, and a recording of everyone's
+        // voice in the instance is a different and much larger thing to take off a PC. Keeping the
+        // sound ban total is most of what keeps the clips one narrow.
         var offenders = EverythingTheClientShips()
             .Where(f => SoundCapture.IsMatch(File.ReadAllText(f)))
             .Select(Path.GetFileName)

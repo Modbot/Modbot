@@ -1,3 +1,4 @@
+using Modbot.Companion.Clips;
 using Modbot.Companion.Credits;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
@@ -195,8 +196,12 @@ public sealed record CompanionAppSnapshot(
     NotificationSettings? Notifications = null,
     DesktopOverlayStatus? DesktopOverlay = null,
     NotifyOverlayStatus? NotifyOverlay = null,
-    NotificationFilters? NotificationFilters = null)
+    NotificationFilters? NotificationFilters = null,
+    ClipsStatus? Clips = null)
 {
+    /// <summary>The Clips card, never null: off with the default settings until the host has said.</summary>
+    public ClipsStatus ClipsOrNone => Clips ?? ClipsStatus.None;
+
     /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
     public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
 
@@ -291,6 +296,13 @@ public sealed class CompanionAppState
     /// </summary>
     public CreditsList Credits { get; set; } = CreditsList.Empty;
 
+    /// <summary>
+    /// Keeping the last few minutes of the screen, as of the last render; set by the host that owns
+    /// the recorder. Off until it says otherwise, which is also what a client that cannot record
+    /// shows.
+    /// </summary>
+    public ClipsStatus Clips { get; set; } = ClipsStatus.None;
+
     /// <summary>Started with <c>MODBOT_DEBUG_MODE=1</c>: the window gets a Debug page.</summary>
     public bool DebugMode { get; set; }
 
@@ -347,7 +359,8 @@ public sealed class CompanionAppState
             Settings.Notifications,
             DesktopOverlay,
             NotifyOverlay with { Settings = Settings.NotifyOverlay },
-            Settings.NotificationFilters);
+            Settings.NotificationFilters,
+            Clips with { Settings = Settings.Clips });
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

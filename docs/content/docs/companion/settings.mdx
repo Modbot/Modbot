@@ -230,6 +230,10 @@ the file:
 | `voice.name` | `Bella` | Which of the download's ten voices speaks. A name that is not one of them falls back to Bella. |
 | `cloud.endpoint` | `https://cloud.modbot.co` | Where Modbot Cloud backup goes. `MODBOT_CLOUD_ENDPOINT` wins over it. See [Modbot Cloud backup](#turning-it-off-or-sending-it-somewhere-else). |
 | `cloud.disabled` | `false` | `true` turns Modbot Cloud backup off. `MODBOT_CLOUD_DISABLED` wins over it. |
+| `clips.on` | `false` | The **Keep the last few minutes** switch. Off until you turn it on; nothing is recorded while it is off. See [Clips](/companion/clips). |
+| `clips.minutes` | `3` | How many minutes are kept, 2 to 5. Anything else is brought inside that range. |
+| `clips.folder` | absent | Where saved clips are written. Absent means your Videos folder plus `Modbot Clips`. |
+| `clips.keepGigabytes` | `5` | How much room saved clips may take before the oldest are deleted, 1 to 200. There is no control for this on the screen. |
 
 For example:
 

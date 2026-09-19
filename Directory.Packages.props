@@ -15,8 +15,12 @@
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.22" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.22" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.22" />
-    <!-- Direct3D 11 interop for the shared texture SteamVR's compositor opens. -->
+    <!-- Direct3D 11 interop for the shared texture SteamVR's compositor opens, and — from the same
+         3.8.3 line, so one set of native bindings serves both — the desktop duplication and Media
+         Foundation the clips recorder uses (clips design spec §3). Both are MIT and ship nothing
+         native: Direct3D, DXGI and Media Foundation all come from Windows itself. -->
     <PackageVersion Include="Vortice.Direct3D11" Version="3.8.3" />
+    <PackageVersion Include="Vortice.MediaFoundation" Version="3.8.3" />
     <!-- The overlay on WiVRn and Monado (overlay-on-OpenXR spec, 3.2): an OpenXR session with
          XR_EXTX_overlay, drawn through Vulkan. Both bindings are MIT and ship nothing native; the
          loader and Vulkan come from the machine. -->

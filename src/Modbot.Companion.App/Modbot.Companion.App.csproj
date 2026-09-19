@@ -23,6 +23,12 @@
     <PackageReference Include="Silk.NET.OpenAL" />
     <PackageReference Include="Silk.NET.OpenAL.Extensions.Enumeration" />
     <PackageReference Include="Silk.NET.OpenAL.Soft.Native" />
+    <!-- Keeping the last few minutes of a monitor, in ScreenRecording.cs and nowhere else: the
+         desktop's own picture from DXGI, and Windows' own H.264 encoder from Media Foundation. The
+         source guard holds that one file to it. Neither package ships a native library; both call
+         what Windows already has, and on Linux nothing here is ever reached. -->
+    <PackageReference Include="Vortice.Direct3D11" />
+    <PackageReference Include="Vortice.MediaFoundation" />
   </ItemGroup>
 
   <!-- Where an installed client looks for newer versions of itself. Modbot Cloud by default: it

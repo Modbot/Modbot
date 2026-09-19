@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Modbot.Companion.CloudBackup;
+using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Sounds;
@@ -38,8 +39,10 @@ namespace Modbot.Companion.Presentation;
 /// window that sits over VRChat on a monitor, written whole the same way the voice is. There is
 /// also <c>notificationFilters</c>
 /// (<c>{ "popUp": ["flagged join"], "sound": ["flagged join"], "voice": ["joined", "left"] }</c>),
-/// which kinds of event raise a notification by each of the three ways, written whole the same way
-/// too.</para>
+/// which kinds of event raise a notification by each of the three ways; and <c>clips</c>
+/// (<c>{ "on": false, "minutes": 3, "folder": "…", "keepGigabytes": 5 }</c>), keeping the last few
+/// minutes of the screen while VRChat runs — off unless somebody turns it on. Both are written
+/// whole the same way too.</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
 /// opens in your browser when you press the button; no server is told what it is. The switches decide
 /// what the client does; they are not reported anywhere.</para>
@@ -128,6 +131,17 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public NotificationSettings Notifications { get; init; } = NotificationSettings.Default;
 
     /// <summary>
+    /// Keeping the last few minutes of the screen while VRChat runs: off until turned on, then how
+    /// many minutes, where saved clips go and how much room they may take. Saved as the
+    /// <c>clips</c> object.
+    /// </summary>
+    /// <remarks>
+    /// Off is the default and a missing object means off, so a client that is updated into a
+    /// version that can record does not start recording. See the clips design spec, §2.
+    /// </remarks>
+    public ClipSettings Clips { get; init; } = ClipSettings.Default;
+
+    /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
     /// servers and opens that server's own pairing page.
     /// </summary>
@@ -152,6 +166,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string EventsFiltersField = "eventsFilters";
 
     public const string NotificationsField = "notifications";
+
+    public const string ClipsField = "clips";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -199,7 +215,39 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             DesktopOverlay = FromShape(shape?.DesktopOverlay),
             EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
             Notifications = FromShape(shape?.Notifications),
+            Clips = FromShape(shape?.Clips),
         };
+    }
+
+    private static ClipSettings FromShape(ClipsShape? clips) => clips is null
+        ? ClipSettings.Default
+        : new ClipSettings(
+            clips.On ?? false,
+            ClipSettings.ClampMinutes(clips.Minutes ?? ClipSettings.DefaultMinutes),
+            string.IsNullOrWhiteSpace(clips.Folder) ? null : clips.Folder.Trim(),
+            ClipSettings.ClampKeepGigabytes(clips.KeepGigabytes ?? ClipSettings.DefaultKeepGigabytes));
+
+    /// <summary>
+    /// Writes the whole <c>clips</c> object, keeping every other field in the file. The same rules
+    /// as <see cref="SaveVoice"/>: a file that cannot be read as JSON is left alone. The folder is
+    /// left out when it is the usual one, so the file says nothing rather than pinning a path that
+    /// would then stop following the machine.
+    /// </summary>
+    public static bool SaveClips(string path, ClipSettings clips)
+    {
+        ArgumentNullException.ThrowIfNull(clips);
+
+        var shape = new JsonObject
+        {
+            ["on"] = clips.On,
+            ["minutes"] = ClipSettings.ClampMinutes(clips.Minutes),
+            ["keepGigabytes"] = ClipSettings.ClampKeepGigabytes(clips.KeepGigabytes),
+        };
+
+        if (!string.IsNullOrWhiteSpace(clips.Folder))
+            shape["folder"] = clips.Folder.Trim();
+
+        return SaveField(path, ClipsField, shape);
     }
 
     /// <summary>
@@ -419,7 +467,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("notificationFilters")] JsonObject? NotificationFilters,
         [property: JsonPropertyName("desktopOverlay")] DesktopOverlayShape? DesktopOverlay,
         [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters,
-        [property: JsonPropertyName("notifications")] NotificationsShape? Notifications);
+        [property: JsonPropertyName("notifications")] NotificationsShape? Notifications,
+        [property: JsonPropertyName("clips")] ClipsShape? Clips);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,
@@ -443,4 +492,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("bleep")] bool? Bleep,
         [property: JsonPropertyName("volume")] int? Volume,
         [property: JsonPropertyName("trayNoticesShown")] int? TrayNoticesShown);
+
+    private sealed record ClipsShape(
+        [property: JsonPropertyName("on")] bool? On,
+        [property: JsonPropertyName("minutes")] int? Minutes,
+        [property: JsonPropertyName("folder")] string? Folder,
+        [property: JsonPropertyName("keepGigabytes")] int? KeepGigabytes);
 }

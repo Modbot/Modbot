@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Modbot.Companion.CloudBackup;
+using Modbot.Companion.Clips;
 using Modbot.Companion.Credits;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
@@ -37,7 +38,9 @@ namespace Modbot.Companion.App;
 /// <para><strong>What it writes to your disk.</strong> Its own folder under your user profile,
 /// holding three things: which servers you paired with and their tokens (the tokens encrypted to
 /// your Windows account), observations queued to send, and the plain-English record of what has
-/// been sent — and, once you turn the voice on, the downloaded voice under <c>voices</c>. Plus
+/// been sent — and, once you turn the voice on, the downloaded voice under <c>voices</c>, and, once
+/// you turn Clips on, two rolling recordings under <c>clips</c> that are deleted as they are
+/// replaced and when recording stops. Plus
 /// one registry key under your own account saying that <c>modbot-companion://</c>
 /// links open this program, which is how pairing from the browser reaches it, and — in an installed
 /// copy, unless you turn it off — one value under your own account's startup list so Modbot starts
@@ -51,16 +54,41 @@ namespace Modbot.Companion.App;
 /// <c>CloudEventBackup</c> and <c>CloudSettings</c>). And once, if you turn the voice on: one
 /// download of the voice from GitHub, with nothing attached (see <c>VoiceDownload</c>); what the
 /// voice then says is made and played on this PC and goes nowhere.
-/// Never chat, screenshots, keystrokes, your friends list or a list of your processes.</para>
+/// Never chat, never a recorded clip or any other picture of your screen, never keystrokes, never
+/// your friends list and never a list of your processes.</para>
 /// <para><strong>It never reads the keyboard.</strong> Turning the desktop overlay on asks Windows
 /// for exactly one keyboard combination, by name, so that panel can be brought up while VRChat has
 /// the keyboard (<c>DesktopOverlayShortcut</c>). Windows then sends one message when those keys are
 /// pressed and says nothing about any other key. There is no keyboard hook here and there will not
 /// be one; <c>CompanionSourceGuardTests</c> fails the build if one appears.</para>
-/// <para><strong>It never captures the screen.</strong> Not the desktop, not a window, not
-/// VRChat's screenshot folder, not any other folder. Attaching evidence to a moderation case is a
-/// deliberate human action taken in Modbot's web interface, in a browser, by choosing a file —
-/// which is why this program needs no such capability and does not have one.</para>
+/// <para><strong>It can record one monitor, and only when you switch that on.</strong> Until
+/// 2026-09-19 this paragraph said the program never captured a screen by any route. That is no
+/// longer true, and the honest replacement is this. The Settings page has a <strong>Clips</strong>
+/// switch. It is <strong>off</strong> in a fresh install and off in an updated one, and while it is
+/// off nothing is captured and no recorder is even built.
+/// <list type="bullet">
+/// <item><description><strong>What is recorded.</strong> The picture on one monitor, shrunk to at
+/// most 1280 pixels wide, at 15 frames a second. <strong>No sound at all</strong> — the ban on every
+/// microphone, line-in and loopback API stands untouched, so voice chat is still never recorded.
+/// Not the keyboard, not the clipboard, not another program's window list, and nothing read out of
+/// VRChat's screenshot folder or any other folder.</description></item>
+/// <item><description><strong>When.</strong> Only while VRChat is running, which this program knows
+/// because lines are arriving in VRChat's own log — never by looking for a running program. VRChat
+/// closing stops the recording and deletes what was kept.</description></item>
+/// <item><description><strong>Where it goes.</strong> Two files under <c>%APPDATA%\Modbot\clips</c>,
+/// each holding at most the two to five minutes you chose, each replaced by a fresh one as it fills,
+/// and both deleted when recording stops or this program quits. Pressing <strong>Save a clip</strong>
+/// moves the older of the two into your Videos folder under <c>Modbot Clips</c>, or wherever you
+/// pointed it.</description></item>
+/// <item><description><strong>What leaves the machine: nothing.</strong> No clip, no frame, and no
+/// fact that a clip exists is sent to a paired server, to Modbot Cloud, or anywhere else. There is
+/// no upload path in this program and it did not gain one. Attaching a clip to a moderation case is
+/// still a deliberate human action taken in Modbot's web interface, in a browser, by choosing a
+/// file.</description></item>
+/// </list>
+/// One file — <c>ScreenRecording.cs</c> — is allowed to record, one file — <c>ClipsFolder.cs</c> —
+/// is allowed to name your Videos folder, and <c>CompanionSourceGuardTests</c> fails the build if
+/// any other file the client ships learns either trick.</para>
 /// <para><strong>It is always visible while it runs.</strong> Closing the window leaves a tray
 /// icon; the program never becomes invisible, and pausing stops transmission immediately and shows
 /// that it has.</para>
@@ -253,6 +281,22 @@ internal sealed class CompanionHost : IOverlayListener
     private CloudCredits? _credits;
     private CloudEventBackup? _cloudBackup;
     private VoiceHost? _voice;
+
+    /// <summary>The recorder, built only while Clips is on and VRChat is running; null otherwise.</summary>
+    private ScreenRecording? _recorder;
+
+    /// <summary>The clips folder's contents, for the settings screen and for making room.</summary>
+    private ClipLibrary? _clipLibrary;
+
+    /// <summary>Set once the recorder has failed to start this run, so it is not retried every second.</summary>
+    private bool _clipsFailed;
+
+    /// <summary>What the recorder said before it went, so the settings screen keeps saying it.</summary>
+    private string? _clipsProblem;
+
+    /// <summary>The last clip saved this run, kept for the same reason.</summary>
+    private string? _clipsLastSaved;
+
     private bool _voiceTicking;
     private NotificationSound? _bleep;
     private IClassicDesktopStyleApplicationLifetime? _desktop;
@@ -590,7 +634,182 @@ internal sealed class CompanionHost : IOverlayListener
             Log.Warning("Could not save the notification filters to {Path}", _settingsPath);
         else if (!CompanionSettings.SaveVoice(_settingsPath, voice))
             Log.Warning("Could not save the voice settings to {Path}", _settingsPath);
+        Render();
+    }
 
+    /// Makes the recorder match what the Clips card and VRChat are doing right now.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Off means nothing is built.</strong> With the switch off there is no recorder
+    /// object, no Direct3D device, no encoder and no thread — the same shape as the overlay
+    /// switches, and for the same reason: off is a moderator saying they do not want it, so the
+    /// honest answer is to do none of the work.</para>
+    /// <para><strong>"While VRChat is running" is the log, not the process list.</strong> The
+    /// reading half already knows, because lines are either arriving or they are not
+    /// (<see cref="ClipRecordingRule"/>). Run on every render, so VRChat starting or stopping is
+    /// followed within a second and nothing has to be restarted by hand.</para>
+    /// <para>Every failure here — no Direct3D, no encoder, a folder that cannot be written to —
+    /// becomes a line on the settings screen. None of them stops the client reading VRChat's log or
+    /// reporting presence, which is the job that cannot be filled in later.</para>
+    /// </remarks>
+    private void ApplyClips()
+    {
+        if (_state is null)
+            return;
+
+        // A recorder whose thread died — no encoder, a monitor unplugged mid-session — has said so
+        // in one sentence. Noticed here so it is not started again every second for the rest of the
+        // evening; switching the card off and on again is a fresh go.
+        if (_recorder is { IsRecording: false, LastProblem: { } died })
+        {
+            _clipsFailed = true;
+            _clipsProblem = died;
+        }
+
+        var settings = _state.Settings.Clips;
+        var folder = settings.On
+            ? ClipsFolder.Check(ClipsFolder.Resolve(settings.Folder, fallback: _directory))
+            : new ClipsFolderCheck(ClipsFolder.Resolve(settings.Folder, fallback: _directory), null);
+
+        var wanted = ClipRecordingRule.Decide(
+            settings,
+            _state.LogHealth.Evaluate(_clock.UtcNow, CompanionAppState.LogSilenceThreshold),
+            folder,
+            ScreenRecording.Supported,
+            _clipsFailed);
+
+        if (ClipRecordingRule.ShouldRecord(wanted))
+        {
+            if (_recorder is null)
+            {
+                _recorder = new ScreenRecording(
+                    _clock,
+                    Path.Combine(_directory, "clips"),
+                    (line, ex) =>
+                    {
+                        if (ex is null)
+                            Log.Information("Clips: {Line}", line);
+                        else
+                            Log.Warning(ex, "Clips: {Line}", line);
+                    });
+
+                if (!_recorder.Start(settings.Length))
+                {
+                    _clipsFailed = true;
+                    _clipsProblem = _recorder.LastProblem;
+                    wanted = ClipRecordingState.NotOnThisMachine;
+                }
+            }
+        }
+        else if (_recorder is not null)
+        {
+            // Kept, because the recorder is about to go and what it had to say about itself is the
+            // only thing on the settings screen explaining why nothing is being recorded.
+            _clipsProblem ??= _recorder.LastProblem;
+            _clipsLastSaved ??= _recorder.LastSaved;
+
+            _recorder.Stop();
+            _recorder.Dispose();
+            _recorder = null;
+        }
+
+        var clips = _clipLibrary ??= new ClipLibrary(_clock);
+        var saved = folder.IsUsable ? clips.List(folder.Path) : [];
+
+        _state.Clips = new ClipsStatus(
+            settings,
+            wanted,
+            folder,
+            saved.Count,
+            saved.Sum(c => c.Bytes),
+            _recorder?.LastSaved ?? _clipsLastSaved,
+            _recorder?.LastProblem ?? _clipsProblem);
+    }
+
+    /// <summary>
+    /// The Clips card changed. Saved as the whole <c>clips</c> object, then acted on at once: a
+    /// length or a folder that changed rebuilds the recorder rather than waiting for a restart.
+    /// </summary>
+    private void SetClips(ClipSettings clips)
+    {
+        ArgumentNullException.ThrowIfNull(clips);
+
+        if (_state is null)
+            return;
+
+        var clamped = clips.Clamped();
+        if (_state.Settings.Clips == clamped)
+            return;
+
+        var before = _state.Settings.Clips;
+        _state.Settings = _state.Settings with { Clips = clamped };
+
+        if (!CompanionSettings.SaveClips(_settingsPath, clamped))
+            Log.Warning("Could not save the Clips settings to {Path}", _settingsPath);
+
+        // A recorder already running was built around the old length; the switch going off, or any
+        // of the numbers changing, means the one that is running is the wrong one.
+        if (_recorder is not null
+            && (before.On != clamped.On || before.Minutes != clamped.Minutes || before.Folder != clamped.Folder))
+        {
+            _recorder.Stop();
+            _recorder.Dispose();
+            _recorder = null;
+        }
+
+        // A new switch-on gets a fresh go at a machine that failed last time, and a clean card.
+        if (!before.On && clamped.On)
+        {
+            _clipsFailed = false;
+            _clipsProblem = null;
+        }
+
+        Log.Information(
+            clamped.On
+                ? "Keeping the last few minutes is on: {Minutes} minutes into {Folder}"
+                : "Keeping the last few minutes is off",
+            clamped.Minutes,
+            ClipsFolder.Resolve(clamped.Folder, fallback: _directory));
+
+        ApplyClips();
+        Render();
+    }
+
+    /// <summary>
+    /// <strong>Save a clip</strong>: the last few minutes are written into the clips folder, and
+    /// the oldest clips there are deleted if that would put the folder over its limit.
+    /// </summary>
+    /// <remarks>
+    /// Nothing is sent anywhere. The clip is a file on this PC, and attaching it to a case is a
+    /// separate, deliberate act in Modbot's web interface — the client has no way to upload one
+    /// (clips design spec §6).
+    /// </remarks>
+    private void SaveClip()
+    {
+        if (_state is null || _recorder is null || _clipLibrary is null)
+            return;
+
+        var settings = _state.Settings.Clips;
+        var folder = ClipsFolder.Check(ClipsFolder.Resolve(settings.Folder, fallback: _directory));
+
+        if (!folder.IsUsable)
+        {
+            Log.Warning("A clip could not be saved: {Problem}", folder.Problem);
+            Render();
+            return;
+        }
+
+        // Room is made before the clip is written rather than after, so the disk never has to hold
+        // the folder's limit plus one more clip at the same moment.
+        _clipLibrary.MakeRoom(folder.Path, settings.KeepBytes, aboutToAdd: 0);
+
+        // The instance goes into the file name so a moderator can find the right clip afterwards.
+        // VRChat's ids follow no structure (foundation 3.1.1), so it is filtered down to characters
+        // a file name may hold rather than trusted.
+        var name = _clipLibrary.NameFor(CurrentInstance?.InstanceId);
+        _recorder.AskToSave(Path.Combine(folder.Path, name));
+
+        _journal?.RecordNote("this PC", $"Saved a clip of the last few minutes as {name}. It is on this PC only.");
         Render();
     }
 
@@ -1505,6 +1724,11 @@ internal sealed class CompanionHost : IOverlayListener
         // that is going away.
         _desktopOverlayShortcut?.Dispose();
         _voice?.Dispose();
+
+        // Stops the recording and deletes the two rolling files: a client that is going away must
+        // not leave minutes of somebody's screen behind on the disk.
+        _recorder?.Dispose();
+        _recorder = null;
     }
 
     /// <summary>
@@ -1608,6 +1832,10 @@ internal sealed class CompanionHost : IOverlayListener
         _state.NotifyOverlay = DescribeNotifyOverlay();
         _state.LiveWords = _overlay?.LiveWords() ?? _state.LiveWords;
 
+        // Started and stopped here rather than on its own timer: the rule is "while VRChat is
+        // running", and this is the place that already knows, once a second.
+        CrashGuard.Run("keeping the last few minutes", ApplyClips);
+
         if (_voice is not null)
             _state.Voice = _voice.Status();
 
@@ -1641,6 +1869,8 @@ internal sealed class CompanionHost : IOverlayListener
                 SetDesktopOverlay = SetDesktopOverlay,
                 ShowDesktopOverlay = ShowDesktopOverlay,
                 SetNotifyOverlay = SetNotifyOverlay,
+                SetClips = SetClips,
+                SaveClip = SaveClip,
             });
     }
 
