@@ -27,10 +27,12 @@ namespace Modbot.Api.Features.Logs;
 /// would show the same line twice as soon as anything arrived between one page and the next.
 /// </para>
 /// <para>
-/// The list is <em>ordered</em> by that same row id, and that is not incidental: a cursor must
-/// narrow on every column the list is sorted by, or the rows it cannot compare fall through the
-/// gap. Ordering by <c>at</c> while paging on <c>id</c> did exactly that. See
-/// <see cref="Lists.ListCursor"/> for the rule and the lists that follow it.
+/// The list is <em>ordered</em> by that same row id, and that is not incidental: paging on one
+/// column while ordering by another drops rows between the pages. Ordering by <c>at</c> while
+/// paging on <c>id</c> did exactly that — a line written late but stamped early sat above the
+/// boundary row in the sort and below it in the filter, so it appeared on neither page. For a log
+/// the row id is also the more honest order: it is the order the lines were written, where the
+/// timestamp is whatever the writer put on them.
 /// </para>
 /// </remarks>
 public static class LogEndpoints

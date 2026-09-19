@@ -5,16 +5,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { CaseFileCell } from '@/components/CaseFileCell'
+import { Pager } from '@/components/Pager'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { UnwrittenCaseFiles } from '@/components/UnwrittenCaseFiles'
-import { Pager } from '@/components/Pager'
 import { FactTime, SourceBadge, SubjectLink } from '@/components/facts'
 import { RepeatOffendersTab } from '@/pages/RepeatOffenders'
 import { useCaseFiles } from '@/lib/caseFiles'
 import { useDemo } from '@/lib/demo'
-import { useListPosition } from '@/lib/listPosition'
 import { ago, formatDay } from '@/lib/format'
+import { useListPage } from '@/lib/listPage'
 import { can, canAny } from '@/lib/permissions'
 import {
   api,
@@ -126,13 +126,7 @@ type CaseColumn = {
 
 const PAGE_SIZE = 50
 
-/**
- * The group's ban list, as the ban sweep last read it.
- *
- * Paged by cursor, with the page in the address. The sweep rewrites this table while somebody is
- * reading it, and a ban lands above the rows already read, which is exactly the case a numbered
- * page gets wrong: one row slides onto the next page and is read twice, or off it and never.
- */
+/** The group's ban list, as the ban sweep last read it. */
 function GroupBans({
   me,
   onOpenSubject,
@@ -144,7 +138,8 @@ function GroupBans({
   const [status, setStatus] = useState<NonNullable<GroupBanQuery['status']>>('current')
 
   // Which page of the list, in the address, so a link lands on the rows it was copied from.
-  const at = useListPosition()
+  const at = useListPage()
+  const { page, restart } = at
   const [list, setList] = useState<GroupBanList | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -156,15 +151,23 @@ function GroupBans({
   const live = useLiveVersion(changesBans)
 
   useEffect(() => {
-    const timer = setTimeout(() => setSearch(typed.trim()), 300)
+    // Only when the words actually change: the first run of this must not throw away the page a
+    // pasted link asked for.
+    const next = typed.trim()
+    if (next === search) return
+
+    const timer = setTimeout(() => {
+      setSearch(next)
+      restart()
+    }, 300)
     return () => clearTimeout(timer)
-  }, [typed])
+  }, [typed, search, restart])
 
   useEffect(() => {
     let cancelled = false
 
     api
-      .groupBans({ search, status, cursor: at.cursor, pageSize: PAGE_SIZE })
+      .groupBans({ search, status, page, pageSize: PAGE_SIZE })
       .then((next) => {
         if (cancelled) return
         setList(next)
@@ -182,7 +185,7 @@ function GroupBans({
     return () => {
       cancelled = true
     }
-  }, [search, status, at.cursor, lifted, live])
+  }, [search, status, page, lifted, live])
 
   const cases = useCaseFiles(list?.bans.map((b) => b.userId) ?? [], can(me, 'ViewProfile'))
 
@@ -192,6 +195,7 @@ function GroupBans({
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
+  const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const showCases = can(me, 'ViewProfile')
   // Lifting a ban, and re-banning somebody whose ban was lifted, both live in this column.
   const canAct = canAny(me, ['Ban', 'Unban'])
@@ -233,10 +237,7 @@ function GroupBans({
           >
             <Input
               value={typed}
-              onChange={(e) => {
-                setTyped(e.target.value)
-                at.restart()
-              }}
+              onChange={(e) => setTyped(e.target.value)}
               placeholder="Search by name or id"
               className="h-8 w-64"
               aria-label="Search bans"
@@ -245,7 +246,7 @@ function GroupBans({
               value={status}
               onChange={(next) => {
                 setStatus(next as typeof status)
-                at.restart()
+                restart()
               }}
               aria-label="Status"
             >
@@ -351,7 +352,7 @@ function GroupBans({
             </div>
           )}
 
-          <Pager at={at} next={list.next} previous={list.previous} />
+          <Pager at={at} pages={pages} />
         </CardContent>
       </Card>
     </>

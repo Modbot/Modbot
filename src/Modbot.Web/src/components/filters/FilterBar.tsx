@@ -80,8 +80,13 @@ export function FilterBar({
         </Button>
       )}
 
-      <span className="flex-1" />
-      {children}
+      {/* The right end, as one item rather than a spacer and a row of loose ones. A bare
+          `flex-1` spacer between them is a flex item of its own: when the bar wraps it can land
+          at the start of a line and grow to the whole width, leaving a blank row with the search
+          box indented after it and Clear stranded above. Wrapped together, the group either
+          shares the line and is pushed right, or takes a line of its own and starts at the left
+          edge like everything else. */}
+      <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">{children}</div>
     </div>
   )
 }

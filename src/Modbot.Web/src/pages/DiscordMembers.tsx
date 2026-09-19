@@ -12,8 +12,8 @@ import { Pager } from '@/components/Pager'
 import { api, ApiError, type CurrentUser, type DiscordMemberList, type DiscordMemberQuery } from '@/lib/api'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { ago, formatDay } from '@/lib/format'
+import { useListPage } from '@/lib/listPage'
 import { useListSelection } from '@/lib/listSelection'
-import { useListPosition } from '@/lib/listPosition'
 import { DISCORD_MEMBER_DEFAULTS, discordMemberQueryFrom } from '@/lib/pageFilters'
 import { can } from '@/lib/permissions'
 import { useShortcuts } from '@/lib/shortcuts'
@@ -29,10 +29,6 @@ import { Empty } from '@/pages/Members'
  * opens the Discord person popup; the linked VRChat name in it opens the VRChat one.
  *
  * Search, filters and paging all run on the server, like the group's list.
- *
- * Paged by cursor, and the page is in the address. The bot rewrites this list on every sign-in
- * and keeps it current between, so a numbered page two is measured from a different list each
- * time it is asked for.
  */
 
 const PAGE_SIZE = 50
@@ -45,7 +41,8 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
   const [sort, setSort] = useState<NonNullable<DiscordMemberQuery['sort']>>('joined')
 
   // Which page of the list, in the address, so a link lands on the rows it was copied from.
-  const at = useListPosition()
+  const at = useListPage()
+  const { page, restart } = at
   const [list, setList] = useState<DiscordMemberList | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -53,7 +50,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
   const [chips, setChipsOnly] = useFilters('discord-members', DISCORD_MEMBER_DEFAULTS)
   const setChips = (next: FilterChip[]) => {
     setChipsOnly(next)
-    at.restart()
+    restart()
   }
   const filter = useMemo(() => discordMemberQueryFrom(chips), [chips])
 
@@ -62,15 +59,23 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
   const live = useLiveVersion(changesDiscordMembers)
 
   useEffect(() => {
-    const timer = setTimeout(() => setSearch(typed.trim()), 300)
+    // Only when the words actually change: the first run of this must not throw away the page a
+    // pasted link asked for.
+    const next = typed.trim()
+    if (next === search) return
+
+    const timer = setTimeout(() => {
+      setSearch(next)
+      restart()
+    }, 300)
     return () => clearTimeout(timer)
-  }, [typed])
+  }, [typed, search, restart])
 
   useEffect(() => {
     let cancelled = false
 
     api
-      .discordMembers({ ...filter, search, sort, cursor: at.cursor, pageSize: PAGE_SIZE })
+      .discordMembers({ ...filter, search, sort, page, pageSize: PAGE_SIZE })
       .then((next) => {
         if (cancelled) return
         setList(next)
@@ -88,7 +93,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
     return () => {
       cancelled = true
     }
-  }, [search, filter, sort, at.cursor, live])
+  }, [search, filter, sort, page, live])
 
   const properties = useMemo<FilterProperty[]>(
     () => [
@@ -149,6 +154,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
   if (error) return <Empty>{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
+  const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const showLeft = filter.state !== 'in-server'
   const now = Date.parse(list.coverage.now)
 
@@ -168,10 +174,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
         <Input
           ref={searchBox}
           value={typed}
-          onChange={(e) => {
-            setTyped(e.target.value)
-            at.restart()
-          }}
+          onChange={(e) => setTyped(e.target.value)}
           placeholder="Search by name or id"
           className="h-7 w-56"
           aria-label="Search Discord members"
@@ -181,7 +184,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
           value={sort}
           onChange={(v) => {
             setSort(v as typeof sort)
-            at.restart()
+            restart()
           }}
           aria-label="Sort"
         >
@@ -298,7 +301,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
             </div>
           )}
 
-          <Pager at={at} next={list.next} previous={list.previous} />
+          <Pager at={at} pages={pages} />
         </CardContent>
       </Card>
     </div>
