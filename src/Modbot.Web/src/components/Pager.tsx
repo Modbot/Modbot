@@ -1,28 +1,63 @@
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import type { ListPosition } from '@/lib/listPosition'
+import { GAP, pageNumbers, type ListPage } from '@/lib/listPage'
 
 /**
- * The two controls under a list that pages by cursor.
+ * The numbers under a list, and the two steps either side of them.
  *
- * Three pages had their own copy of this footer, each recomputing a page number from a total.
- * There is no page number to compute now: a cursor list knows the page before and the page after
- * and nothing else, so the controls say only that. The count of matching rows, where a list still
- * has one, belongs at the top of the list with the filters, not down here.
+ * Every list page had its own copy of this footer, each recomputing the number of pages from a
+ * total and each drawing Previous and Next with a sentence between them. They are one control
+ * now, so a page turn looks and behaves the same on every list.
+ *
+ * A long list shows the ends and the page being read with its neighbours, with gaps for the rest
+ * (`lib/listPage.ts`): a hundred numbers in a row is a wall, not a control.
+ *
+ * @param at Where the list is, from `useListPage()`.
+ * @param pages How many pages there are, from the total and the page size.
  */
-export function Pager({ at, next, previous }: { at: ListPosition; next: string | null; previous: string | null }) {
-  if (!next && !previous) return null
+export function Pager({ at, pages }: { at: ListPage; pages: number }) {
+  const { page, goTo, restart } = at
+
+  // A filter narrowing under somebody on page nine leaves them past the end of the list, looking
+  // at nothing, with no number left to press to get back.
+  useEffect(() => {
+    if (page > pages) restart()
+  }, [page, pages, restart])
+
+  if (pages <= 1) return null
 
   return (
-    <div
-      className="flex items-center gap-2 border-t px-3 py-2"
+    <nav
+      aria-label="Pages"
+      className="flex flex-wrap items-center gap-1 border-t px-3 py-2"
       style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
     >
-      <Button variant="outline" size="xs" disabled={!previous} onClick={() => at.turnTo(previous)}>
+      <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => goTo(page - 1)}>
         Previous
       </Button>
-      <Button variant="outline" size="xs" disabled={!next} onClick={() => at.turnTo(next)}>
+
+      {pageNumbers(page, pages).map((slot, i) =>
+        slot === GAP ? (
+          <span key={`gap-${i}`} aria-hidden="true" className="px-1 text-muted-foreground">
+            …
+          </span>
+        ) : (
+          <Button
+            key={slot}
+            variant={slot === page ? 'secondary' : 'ghost'}
+            size="xs"
+            aria-label={`Page ${slot}`}
+            aria-current={slot === page ? 'page' : undefined}
+            onClick={() => goTo(slot)}
+          >
+            {slot.toLocaleString()}
+          </Button>
+        ),
+      )}
+
+      <Button variant="outline" size="xs" disabled={page >= pages} onClick={() => goTo(page + 1)}>
         Next
       </Button>
-    </div>
+    </nav>
   )
 }

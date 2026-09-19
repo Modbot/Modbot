@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { SubjectLink } from '@/components/facts'
@@ -8,6 +7,8 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { api, ApiError, type PeopleList, type PeopleQuery } from '@/lib/api'
 import { ago, howLong } from '@/lib/format'
 import { changesMembers } from '@/lib/liveRules'
+import { Pager } from '@/components/Pager'
+import { useListPage } from '@/lib/listPage'
 import { useListSelection } from '@/lib/listSelection'
 import { useShortcuts } from '@/lib/shortcuts'
 import { openPerson } from '@/lib/subject'
@@ -36,7 +37,8 @@ export function People() {
   const [search, setSearch] = useState('')
   const [membership, setMembership] = useState<NonNullable<PeopleQuery['membership']>>('all')
   const [sort, setSort] = useState<NonNullable<PeopleQuery['sort']>>('seen')
-  const [page, setPage] = useState(1)
+  const at = useListPage()
+  const { page, restart } = at
   const [list, setList] = useState<PeopleList | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,12 +47,17 @@ export function People() {
   const live = useLiveVersion(changesMembers)
 
   useEffect(() => {
+    // Only when the words actually change: the first run of this must not throw away the page a
+    // pasted link asked for.
+    const next = typed.trim()
+    if (next === search) return
+
     const timer = setTimeout(() => {
-      setSearch(typed.trim())
-      setPage(1)
+      setSearch(next)
+      restart()
     }, 300)
     return () => clearTimeout(timer)
-  }, [typed])
+  }, [typed, search, restart])
 
   useEffect(() => {
     let cancelled = false
@@ -110,7 +117,7 @@ export function People() {
           value={membership}
           onChange={(v) => {
             setMembership(v as typeof membership)
-            setPage(1)
+            restart()
           }}
           aria-label="Membership"
         >
@@ -124,7 +131,7 @@ export function People() {
           value={sort}
           onChange={(v) => {
             setSort(v as typeof sort)
-            setPage(1)
+            restart()
           }}
           aria-label="Sort"
         >
@@ -228,22 +235,7 @@ export function People() {
             </div>
           )}
 
-          {pages > 1 && (
-            <div
-              className="flex items-center gap-2 border-t px-3 py-2"
-              style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-            >
-              <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                Previous
-              </Button>
-              <span className="text-muted-foreground">
-                Page {list.page} of {pages}
-              </span>
-              <Button variant="outline" size="xs" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-                Next
-              </Button>
-            </div>
-          )}
+          <Pager at={at} pages={pages} />
         </CardContent>
       </Card>
     </div>
