@@ -78,7 +78,9 @@ public static class AutoModEndpoints
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) => Results.Ok(await ViewAsync(db, ai, clock, ct)))
             .WithName("GetAutoMod")
-            .WithSummary("The AutoMod switch, term lists, AI topics, the AI tools and the daily AI call limit")
+            .WithSummary("Get AutoMod settings")
+            .WithDescription(
+                "The AutoMod switch, term lists, AI topics, the AI tools and the daily AI call limit.")
             .Produces<AutoModResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -130,7 +132,9 @@ public static class AutoModEndpoints
                 return Results.Ok(await ViewAsync(db, ai, clock, ct));
             })
             .WithName("SetAutoMod")
-            .WithSummary("Switch AutoMod on or off, set the daily AI call limit and switch AI tools")
+            .WithSummary("Update AutoMod settings")
+            .WithDescription(
+                "Switch AutoMod on or off, set the daily AI call limit and switch AI tools.")
             .Produces<AutoModResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -150,7 +154,8 @@ public static class AutoModEndpoints
                 return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("GetTermList")
-            .WithSummary("One term list with its terms")
+            .WithSummary("Get term list")
+            .WithDescription("One term list with its terms.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden)
@@ -190,7 +195,8 @@ public static class AutoModEndpoints
                 return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("CreateTermList")
-            .WithSummary("Create a local term list")
+            .WithSummary("Add term list")
+            .WithDescription("Create a local term list.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -235,7 +241,10 @@ public static class AutoModEndpoints
                 return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("UpdateTermList")
-            .WithSummary("Change a term list. A Hub list keeps its name and terms; only its switches, targets, action and switched-off terms change.")
+            .WithSummary("Update term list")
+            .WithDescription(
+                "Change a term list. A Hub list keeps its name and terms; only its switches, targets, "
+                + "action and switched-off terms change.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -267,7 +276,8 @@ public static class AutoModEndpoints
                 return Results.NoContent();
             })
             .WithName("DeleteTermList")
-            .WithSummary("Delete a term list. Its flags stay.")
+            .WithSummary("Delete term list")
+            .WithDescription("Delete a term list. Its flags stay.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden)
@@ -291,7 +301,8 @@ public static class AutoModEndpoints
                     error));
             })
             .WithName("ListHubTermLists")
-            .WithSummary("The term lists Modbot Hub offers")
+            .WithSummary("List Hub term lists")
+            .WithDescription("The term lists Modbot Hub offers.")
             .Produces<HubIndexResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -349,7 +360,8 @@ public static class AutoModEndpoints
                 return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("AddHubTermList")
-            .WithSummary("Add a term list from Modbot Hub")
+            .WithSummary("Add Hub term list")
+            .WithDescription("Add a term list from Modbot Hub.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict)
@@ -374,7 +386,8 @@ public static class AutoModEndpoints
                 return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("RefreshHubTermList")
-            .WithSummary("Fetch a Hub list again. A newer version waits to be applied.")
+            .WithSummary("Refresh Hub term list")
+            .WithDescription("Fetch a Hub list again. A newer version waits to be applied.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -416,7 +429,8 @@ public static class AutoModEndpoints
                 return Results.Ok(await DetailAsync(db, list, ct));
             })
             .WithName("ApplyHubTermListUpdate")
-            .WithSummary("Put the newer version of a Hub list into use")
+            .WithSummary("Apply Hub list update")
+            .WithDescription("Put the newer version of a Hub list into use.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -464,7 +478,8 @@ public static class AutoModEndpoints
                 return Results.Ok(await TopicViewAsync(db, topic, ct));
             })
             .WithName("CreateAiTopic")
-            .WithSummary("Create an AI topic")
+            .WithSummary("Add AI topic")
+            .WithDescription("Create an AI topic.")
             .Produces<TopicView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -509,7 +524,8 @@ public static class AutoModEndpoints
                 return Results.Ok(await TopicViewAsync(db, topic, ct));
             })
             .WithName("UpdateAiTopic")
-            .WithSummary("Change an AI topic")
+            .WithSummary("Update AI topic")
+            .WithDescription("Change an AI topic.")
             .Produces<TopicView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -539,7 +555,8 @@ public static class AutoModEndpoints
                 return Results.NoContent();
             })
             .WithName("DeleteAiTopic")
-            .WithSummary("Delete an AI topic. Its flags stay.")
+            .WithSummary("Delete AI topic")
+            .WithDescription("Delete an AI topic. Its flags stay.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden)
@@ -578,7 +595,9 @@ public static class AutoModEndpoints
                     result.WouldGroupRemove));
             })
             .WithName("TryAutoMod")
-            .WithSummary("Check some text against every rule. Nothing is recorded and nothing is done.")
+            .WithSummary("Try some text")
+            .WithDescription(
+                "Check some text against every rule. Nothing is recorded and nothing is done.")
             .Produces<TryResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -606,7 +625,8 @@ public static class AutoModEndpoints
                     await RunsAsync(db, id, ct)));
             })
             .WithName("GetRuleTestSet")
-            .WithSummary("A rule's sample texts and its last runs")
+            .WithSummary("Get rule test set")
+            .WithDescription("A rule's sample texts and its last runs.")
             .Produces<RuleTestsResponse>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden)
@@ -646,7 +666,8 @@ public static class AutoModEndpoints
                 return Results.Ok(SampleView(sample));
             })
             .WithName("AddTestSample")
-            .WithSummary("Add a sample text to a rule's test set")
+            .WithSummary("Add test sample")
+            .WithDescription("Add a sample text to a rule's test set.")
             .Produces<TestSampleView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -675,7 +696,8 @@ public static class AutoModEndpoints
                 return Results.Ok(SampleView(sample));
             })
             .WithName("UpdateTestSample")
-            .WithSummary("Change a sample text")
+            .WithSummary("Update test sample")
+            .WithDescription("Change a sample text.")
             .Produces<TestSampleView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -695,7 +717,8 @@ public static class AutoModEndpoints
                 return removed == 0 ? NotFound("No such sample.") : Results.NoContent();
             })
             .WithName("DeleteTestSample")
-            .WithSummary("Remove a sample text")
+            .WithSummary("Delete test sample")
+            .WithDescription("Remove a sample text.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden)
@@ -720,7 +743,9 @@ public static class AutoModEndpoints
                 return run is null ? NotFound("No such rule.") : Results.Ok(RunView(run));
             })
             .WithName("RunRuleTestSet")
-            .WithSummary("Check every sample against the rule as it stands now. AI topics cost a real request.")
+            .WithSummary("Run rule tests")
+            .WithDescription(
+                "Check every sample against the rule as it stands now. AI topics cost a real request.")
             .Produces<TestRunView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -742,7 +767,8 @@ public static class AutoModEndpoints
                     [.. versions.Select(v => new RuleVersionView(v.Version, v.ChangedAt, v.ChangedByUsername, v.Name, v.Text))]));
             })
             .WithName("ListRuleVersions")
-            .WithSummary("Every version of a rule's text, newest first")
+            .WithSummary("List rule versions")
+            .WithDescription("Every version of a rule's text, newest first.")
             .Produces<RuleVersionList>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -803,7 +829,8 @@ public static class AutoModEndpoints
                     : Results.Ok(await TopicViewAsync(db, topic!, ct));
             })
             .WithName("EndRuleTrial")
-            .WithSummary("End a rule's trial. From now on it really acts.")
+            .WithSummary("End rule trial")
+            .WithDescription("End a rule's trial. From now on it really acts.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
@@ -855,7 +882,8 @@ public static class AutoModEndpoints
                     : Results.Ok(await TopicViewAsync(db, topic!, ct));
             })
             .WithName("ResumeRule")
-            .WithSummary("Let a paused rule act again")
+            .WithSummary("Resume rule")
+            .WithDescription("Let a paused rule act again.")
             .Produces<TermListDetail>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)

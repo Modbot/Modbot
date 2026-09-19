@@ -61,9 +61,10 @@ public static class InsightEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("ListInsights")
-            .WithSummary("AI-written summaries of the group's own figures, newest first")
+            .WithSummary("List insights")
             .WithDescription(
-                "Each carries the figures the model was given, so every sentence can be checked. "
+                "AI-written summaries of the group's own figures, newest first. "
+                + "Each carries the figures the model was given, so every sentence can be checked. "
                 + "Figures are counts and world names only. Failed attempts are not listed.")
             .Produces<InsightPage>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -77,7 +78,8 @@ public static class InsightEndpoints
                 CancellationToken ct) => Results.Ok(await ViewAsync(db, ai, ct)))
             .RequiresFlag(ModbotPermissions.ManageSettings)
             .WithName("GetAiInsightsSettings")
-            .WithSummary("When each kind of insight is written, and where it goes")
+            .WithSummary("Get AI insight settings")
+            .WithDescription("When each kind of insight is written, and where it goes.")
             .Produces<AiInsightsSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -129,7 +131,8 @@ public static class InsightEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageSettings)
             .WithName("SetAiInsightsSettings")
-            .WithSummary("Save when each kind of insight is written, and where it goes")
+            .WithSummary("Update AI insight settings")
+            .WithDescription("Save when each kind of insight is written, and where it goes.")
             .Produces<AiInsightsSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -160,9 +163,10 @@ public static class InsightEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageSettings)
             .WithName("GenerateInsight")
-            .WithSummary("Write one insight of this kind now, for the stretch ending yesterday")
+            .WithSummary("Write an insight")
             .WithDescription(
-                "Waits for the model. Answers 200 with the stored insight whether the model wrote "
+                "Write one insight of this kind now, for the stretch ending yesterday. "
+                + "Waits for the model. Answers 200 with the stored insight whether the model wrote "
                 + "something or the call failed -- `text` or `error` says which. Never posted to Discord. "
                 + "409 when AI is off or the spend limit for insights is reached.")
             .Produces<InsightView>()

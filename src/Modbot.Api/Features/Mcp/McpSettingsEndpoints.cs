@@ -57,7 +57,8 @@ public static class McpSettingsEndpoints
                 CancellationToken ct) =>
                 Results.Ok(await ViewAsync(http, db, registry, ct)))
             .WithName("GetMcpSettings")
-            .WithSummary("The MCP server's switch, address and tools")
+            .WithSummary("Get MCP settings")
+            .WithDescription("The MCP server's switch, address and tools.")
             .Produces<McpSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -97,7 +98,8 @@ public static class McpSettingsEndpoints
                 return Results.Ok(await ViewAsync(http, db, registry, ct));
             })
             .WithName("SetMcpSettings")
-            .WithSummary("Turn the MCP server on or off")
+            .WithSummary("Update MCP settings")
+            .WithDescription("Turn the MCP server on or off.")
             .Produces<McpSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -124,7 +126,8 @@ public static class McpSettingsEndpoints
                 return Results.Ok(new McpConnectionsResponse([.. grants.Select(View)]));
             })
             .WithName("ListMcpConnections")
-            .WithSummary("The AI apps connected to your account through the MCP server")
+            .WithSummary("List MCP connections")
+            .WithDescription("The AI apps connected to your account through the MCP server.")
             .Produces<McpConnectionsResponse>();
 
         connections.MapDelete("/{id:guid}", async (
@@ -164,7 +167,8 @@ public static class McpSettingsEndpoints
                 return Results.NoContent();
             })
             .WithName("RevokeMcpConnection")
-            .WithSummary("Disconnect an AI app. Its tokens stop working on their next request.")
+            .WithSummary("Disconnect an AI app")
+            .WithDescription("Disconnect an AI app. Its tokens stop working on their next request.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 

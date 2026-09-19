@@ -170,7 +170,7 @@ public static class EventPollEndpoint
             })
             .WithTags("Events")
             .WithName("PollEvents")
-            .WithSummary("Long polling for the live event stream")
+            .WithSummary("Event polling")
             .WithDescription(
                 "Authenticate with `Authorization: Bearer mbk_...`. Returns events after `cursor` at once "
                 + "when there are any, up to `limit` (default 100, at most 500); otherwise waits up to "

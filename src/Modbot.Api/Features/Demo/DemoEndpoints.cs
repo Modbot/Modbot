@@ -59,7 +59,8 @@ public static class DemoEndpoints
             .WithTags("Demo")
             .ExcludeFromDescription()
             .WithName("GetDemoStatus")
-            .WithSummary("Whether this deployment is a demo, and what it is doing")
+            .WithSummary("Get demo status")
+            .WithDescription("Whether this deployment is a demo, and what it is doing.")
             .Produces<DemoStatusResponse>()
 
             // Unauthenticated for the same reason the onboarding status is: the web app asks it
@@ -85,7 +86,8 @@ public static class DemoEndpoints
             .WithTags("Demo")
             .ExcludeFromDescription()
             .WithName("ResetDemo")
-            .WithSummary("Wipe the demo and fill it in again")
+            .WithSummary("Reset the demo")
+            .WithDescription("Wipe the demo and fill it in again.")
             .RequireAuthorization();
 
         return app;

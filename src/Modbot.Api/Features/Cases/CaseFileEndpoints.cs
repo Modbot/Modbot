@@ -55,9 +55,10 @@ public static class CaseFileEndpoints
                     .ListAsync(userId?.Trim(), includeWithdrawn ?? false, offset ?? 0, limit ?? 100, ct)))
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("ListCaseFiles")
-            .WithSummary("Case files, newest first -- everyone's, or one person's")
+            .WithSummary("List case files")
             .WithDescription(
-                "Withdrawn case files are left out unless includeWithdrawn is true. Nothing is "
+                "Case files, newest first -- everyone's, or one person's. "
+                + "Withdrawn case files are left out unless includeWithdrawn is true. Nothing is "
                 + "ever deleted, so a withdrawn one is still there to read; it just no longer "
                 + "counts as the write-up of its ban.")
             .Produces<CaseFileListResponse>()
@@ -73,9 +74,10 @@ public static class CaseFileEndpoints
                     .MissingAsync(days ?? CaseFileService.DefaultMissingDays, limit ?? 100, ct)))
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("ListUnwrittenCaseFiles")
-            .WithSummary("Bans in the last N days with no case file, newest first")
+            .WithSummary("List unwritten case files")
             .WithDescription(
-                "Read from the recorded ban facts, so it covers the window Modbot's audit-log sync "
+                "Bans in the last N days with no case file, newest first. "
+                + "Read from the recorded ban facts, so it covers the window Modbot's audit-log sync "
                 + "covers and nothing before it. A ban is covered when a case file that stands "
                 + "names its audit entry, or was written for the same person on or after it. A "
                 + "withdrawn case file covers nothing. This is the list the accountability "
@@ -91,7 +93,8 @@ public static class CaseFileEndpoints
                 Results.Ok(await new CaseFileService(db, clock).LookupAsync(userIds ?? [], ct)))
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("LookupCaseFiles")
-            .WithSummary("Whether each of these people has a case file -- the badge beside a ban")
+            .WithSummary("Check for case files")
+            .WithDescription("Whether each of these people has a case file -- the badge beside a ban.")
             .Produces<IReadOnlyList<CaseFileLookup>>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -115,9 +118,11 @@ public static class CaseFileEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetCaseFile")
-            .WithSummary("One case file: reasons, the written reason, the evidence, and the profile at the time")
+            .WithSummary("Get case file")
             .WithDescription(
-                "`evidence` is null unless the caller holds ViewEvidence. `snapshot.explanation` "
+                "One case file: reasons, the written reason, the evidence, and the profile at the "
+                + "time. "
+                + "`evidence` is null unless the caller holds ViewEvidence. `snapshot.explanation` "
                 + "says when the profile was captured and how old it was then; the snapshot never "
                 + "changes afterwards except for the one permitted recapture, which "
                 + "`snapshot.canCaptureAgain` offers when a fresher profile has arrived. "
@@ -149,7 +154,7 @@ public static class CaseFileEndpoints
             })
             .RequiresFlag(ModbotPermissions.Ban)
             .WithName("CreateCaseFile")
-            .WithSummary("Write the case file for a ban")
+            .WithSummary("Add case file")
             .WithDescription(
                 "Names the person and, optionally, the audit entry the ban came from; otherwise "
                 + "the newest recorded ban of that person is used, or the ban list's row. Takes "
@@ -185,9 +190,10 @@ public static class CaseFileEndpoints
                 return await Attempt(async () => Results.Ok(await service.UpdateAsync(id, body, caller, ct)));
             })
             .WithName("UpdateCaseFile")
-            .WithSummary("Change the reasons or the written reason")
+            .WithSummary("Update case file")
             .WithDescription(
-                "The author, or anyone who may ban. The change is a fact carrying before and "
+                "Change the reasons or the written reason. "
+                + "The author, or anyone who may ban. The change is a fact carrying before and "
                 + "after, so the edit history reads back from the log alone. The profile snapshot "
                 + "and the evidence are not touched by this.")
             .Produces<CaseFileView>()
@@ -218,9 +224,10 @@ public static class CaseFileEndpoints
                 return await Attempt(async () => Results.Ok(await service.WithdrawAsync(id, body, caller, ct)));
             })
             .WithName("WithdrawCaseFile")
-            .WithSummary("Mark a case file withdrawn, with a note")
+            .WithSummary("Withdraw case file")
             .WithDescription(
-                "Case files are never deleted. A withdrawn one stays readable, stops counting as "
+                "Mark a case file withdrawn, with a note. "
+                + "Case files are never deleted. A withdrawn one stays readable, stops counting as "
                 + "the write-up of its ban, and cannot be edited again -- write a new one instead.")
             .Produces<CaseFileView>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -249,7 +256,7 @@ public static class CaseFileEndpoints
                 return await Attempt(async () => Results.Ok(await service.CaptureAgainAsync(id, caller, ct)));
             })
             .WithName("CaptureCaseFileProfileAgain")
-            .WithSummary("Take the profile snapshot again, once, after a fresher profile has arrived")
+            .WithSummary("Capture profile again")
             .WithDescription(
                 "Allowed once per case file, and only when VRChat has answered with a newer "
                 + "profile since the snapshot was taken. The snapshot it replaces is kept in full "

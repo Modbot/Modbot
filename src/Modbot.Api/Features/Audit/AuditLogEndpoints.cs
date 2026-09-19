@@ -105,9 +105,10 @@ public static class AuditLogEndpoints
                 return Results.Ok(await new AuditQuery(db).PageAsync(request, ct));
             })
             .WithName("GetAuditLog")
-            .WithSummary("The merged fact timeline: who did what to whom, and when")
+            .WithSummary("List audit log")
             .WithDescription(
-                "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and "
+                "The merged fact timeline: who did what to whom, and when. "
+                + "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and "
                 + "membership history; ViewOperationalLog covers Modbot's own record — logins, "
                 + "settings changes, sync failures. The two are separate permissions and the "
                 + "filter is applied server-side on every query: asking for a type you cannot "
@@ -148,9 +149,10 @@ public static class AuditLogEndpoints
                 return entry is null ? Results.NotFound() : Results.Ok(entry);
             })
             .WithName("GetAuditEntry")
-            .WithSummary("One entry of the timeline, by its id")
+            .WithSummary("Get audit log entry")
             .WithDescription(
-                "For a link to a single entry. An entry of a type this account may not read "
+                "One entry of the timeline, by its id. "
+                + "For a link to a single entry. An entry of a type this account may not read "
                 + "answers 404, the same as one that does not exist.")
             .Produces<AuditEntry>()
             .Produces(StatusCodes.Status403Forbidden)
@@ -182,7 +184,7 @@ public static class AuditLogEndpoints
                     AuditVisibility.CanSee(held, AuditCategory.Operational)));
             })
             .WithName("GetAuditFilters")
-            .WithSummary("What this caller may filter by")
+            .WithSummary("Get audit log filters")
             .WithDescription(
                 "The type list is already narrowed to the caller's permissions, so the SPA offers "
                 + "only what the server would answer. The actor list is the recent actors in the "
@@ -203,9 +205,10 @@ public static class AuditLogEndpoints
                     ct)))
             .RequiresFlag(ModbotPermissions.ViewAuditLog)
             .WithName("GetBanList")
-            .WithSummary("Bans Modbot has recorded — not the group's ban list")
+            .WithSummary("List recorded bans")
             .WithDescription(
-                "Derived from ban and unban facts, which come from VRChat's group audit log. It "
+                "Bans Modbot has recorded — not the group's ban list. "
+                + "Derived from ban and unban facts, which come from VRChat's group audit log. It "
                 + "therefore covers the period since this deployment first synced, bounded by "
                 + "whatever VRChat's own audit-log retention still held at that moment — a group "
                 + "with three years of bans and a week-old Modbot has a week of them here.\n\n"

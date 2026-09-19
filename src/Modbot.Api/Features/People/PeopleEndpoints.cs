@@ -100,7 +100,7 @@ public static class PeopleEndpoints
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithTags("People")
             .WithName("GetPeople")
-            .WithSummary("Everyone Modbot has a record of, member or not")
+            .WithSummary("List people")
             .WithDescription(
                 "Every VRChat account Modbot has ever seen: members, people who left, people it "
                 + "only ever saw in an instance or in the audit log. `search` matches the display "

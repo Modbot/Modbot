@@ -123,7 +123,8 @@ public static class DiscordListEndpoints
                     channels));
             })
             .WithName("ListDiscordChannels")
-            .WithSummary("The Discord server's channels and what the bot may do in each")
+            .WithSummary("List Discord channels")
+            .WithDescription("The Discord server's channels and what the bot may do in each.")
             .Produces<DiscordChannelsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -160,7 +161,8 @@ public static class DiscordListEndpoints
                     roles));
             })
             .WithName("ListDiscordRoles")
-            .WithSummary("The Discord server's roles and whether the bot could hand each out")
+            .WithSummary("List Discord roles")
+            .WithDescription("The Discord server's roles and whether the bot could hand each out.")
             .Produces<DiscordRolesResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 

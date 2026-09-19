@@ -90,9 +90,10 @@ public static class MemberEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetMembers")
-            .WithSummary("The group's member list, as last swept, with search")
+            .WithSummary("List members")
             .WithDescription(
-                "Current members by default; `status=left` shows people a full sweep no longer "
+                "The group's member list, as last swept, with search. "
+                + "Current members by default; `status=left` shows people a full sweep no longer "
                 + "listed, `status=all` both. `search` matches the display name and the id, "
                 + "case-insensitively. `role` is a role id and may be repeated: people holding any "
                 + "of them. `notRole`, also repeatable, leaves out people holding any of those; "
@@ -125,7 +126,7 @@ public static class MemberEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetMembership")
-            .WithSummary("One person's membership and ban standing")
+            .WithSummary("Get membership")
             .WithDescription(
                 "Whether they are a member now, with which roles and since when; whether the ban "
                 + "list holds them; and how fresh both answers are. `known` is false when no "
@@ -147,7 +148,7 @@ public static class MemberEndpoints
             .RequiresFlag(ModbotPermissions.ViewAuditLog)
             .WithTags("Members")
             .WithName("GetGroupBans")
-            .WithSummary("The group's ban list, as last swept, with search")
+            .WithSummary("List group bans")
             .WithDescription(
                 "This is the group's ban list -- everyone VRChat says is banned right now, "
                 + "whenever the ban was issued -- read by the ban sweep. Who banned them and why "

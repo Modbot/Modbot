@@ -61,9 +61,10 @@ public static class AnalyticsEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetGroupAnalytics")
-            .WithSummary("My Group: is the community growing or shrinking, and what changed?")
+            .WithSummary("Get group analytics")
             .WithDescription(
-                "Member count over time, joins and leaves per day, net change, roles, how long "
+                "My Group: is the community growing or shrinking, and what changed? "
+                + "Member count over time, joins and leaves per day, net change, roles, how long "
                 + "current members have been members, and whether invites turn into joins. Daily "
                 + "series come from modbot_daily_total, which is never aged out; the headcount, "
                 + "role changes, tenure and invite follow-up come from the fact log, which a "
@@ -89,7 +90,7 @@ public static class AnalyticsEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetGroupMemberCount")
-            .WithSummary("My Group: the member count and online member count, reading by reading.")
+            .WithSummary("Get member count")
             .WithDescription(
                 "Every reading the group-info sync took of VRChat's memberCount and "
                 + "onlineMemberCount, about one every five minutes, over the last `day`, `week` "
@@ -119,9 +120,10 @@ public static class AnalyticsEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetServerAnalytics")
-            .WithSummary("My Server: is the Discord server healthy, and who keeps it going?")
+            .WithSummary("Get server analytics")
             .WithDescription(
-                "Discord's member count, joins and leaves, messages and voice minutes per day, people "
+                "My Server: is the Discord server healthy, and who keeps it going? "
+                + "Discord's member count, joins and leaves, messages and voice minutes per day, people "
                 + "active each day and over the week and thirty days before it, the busiest channels and "
                 + "hours (UTC), moderation actions, the people who sent the most, new members who "
                 + "stayed after 7 and 30 days, and member health now: how many members were active in "
@@ -147,9 +149,10 @@ public static class AnalyticsEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetTeamAnalytics")
-            .WithSummary("My Team: who is doing the moderation work, and when is nobody covering?")
+            .WithSummary("Get team analytics")
             .WithDescription(
-                "Actions per moderator broken down by kind and over time, from daily totals; and "
+                "My Team: who is doing the moderation work, and when is nobody covering? "
+                + "Actions per moderator broken down by kind and over time, from daily totals; and "
                 + "coverage gaps -- stretches when people were in a group instance and no moderator "
                 + "was, computed from the companion's presence reports. A moderator is present "
                 + "when a paired client is reporting from the instance or when somebody recognised as "
@@ -175,9 +178,10 @@ public static class AnalyticsEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetWorldsAnalytics")
-            .WithSummary("Worlds: which of our worlds actually get used?")
+            .WithSummary("Get world analytics")
             .WithDescription(
-                "Time people were seen in each world, distinct visitors and instances opened, plus "
+                "Worlds: which of our worlds actually get used? "
+                + "Time people were seen in each world, distinct visitors and instances opened, plus "
                 + "visitors per day per world from daily totals. Time and visitors come from presence "
                 + "reports, which exist only while a moderator's companion is in the instance.")
             .Produces<WorldsAnalytics>()
@@ -200,9 +204,10 @@ public static class AnalyticsEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetInstancesAnalytics")
-            .WithSummary("Instances: when is the community actually active?")
+            .WithSummary("Get instance analytics")
             .WithDescription(
-                "Instances opened and closed per day (daily totals), most open at once and the most "
+                "Instances: when is the community actually active? "
+                + "Instances opened and closed per day (daily totals), most open at once and the most "
                 + "people seen in one instance per day, how long instances typically stay open, and "
                 + "an hour-of-week heatmap of arrivals and openings. Hours are UTC; the page shifts "
                 + "them to the viewer's time zone.")

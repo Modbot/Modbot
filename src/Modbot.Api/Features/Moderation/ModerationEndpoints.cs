@@ -48,7 +48,7 @@ public static class ModerationEndpoints
 
         Map(group, ModerationActionService.Kick, ModbotPermissions.Kick)
             .WithName("KickPerson")
-            .WithSummary("Remove a person from the group")
+            .WithSummary("Kick a person")
             .WithDescription(
                 "Only somebody who is in the group can be kicked out of it; VRChat answers a kick "
                 + "of anybody else with \"they are not in the group\". Nothing is recorded as done "
@@ -58,7 +58,7 @@ public static class ModerationEndpoints
 
         Map(group, ModerationActionService.Ban, ModbotPermissions.Ban)
             .WithName("BanPerson")
-            .WithSummary("Ban a person from the group")
+            .WithSummary("Ban a person")
             .WithDescription(
                 "Works on anybody, member or not: VRChat's group ban takes a user id, so somebody "
                 + "who has never joined can be kept out before they arrive. A person Modbot has "
@@ -69,7 +69,7 @@ public static class ModerationEndpoints
 
         Map(group, ModerationActionService.Unban, ModbotPermissions.Unban)
             .WithName("UnbanPerson")
-            .WithSummary("Lift a person's ban")
+            .WithSummary("Unban a person")
             .WithDescription(
                 "There has to be a ban to lift; VRChat answers an unban of anybody who is not "
                 + "banned with \"they are not banned\". Nothing is recorded as done unless VRChat "

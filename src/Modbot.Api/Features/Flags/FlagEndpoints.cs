@@ -165,7 +165,9 @@ public static class FlagEndpoints
                     tools.Opinion));
             })
             .WithName("ListModerationFlags")
-            .WithSummary("The newest flags: open, dismissed or confirmed, and filtered by language")
+            .WithSummary("List flags")
+            .WithDescription(
+                "The newest flags: open, dismissed or confirmed, and filtered by language.")
             .Produces<FlagList>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ViewProfile);
@@ -202,7 +204,8 @@ public static class FlagEndpoints
                 return Results.Ok(View(flag, await RuleTextAsync(db, [flag], ct)));
             })
             .WithName("DismissModerationFlag")
-            .WithSummary("Dismiss a flag. The same rule and term never flags this person again.")
+            .WithSummary("Dismiss flag")
+            .WithDescription("Dismiss a flag. The same rule and term never flags this person again.")
             .Produces<FlagView>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict)
@@ -239,9 +242,10 @@ public static class FlagEndpoints
                 return Results.Ok(View(flag, await RuleTextAsync(db, [flag], ct)));
             })
             .WithName("OpenModerationFlagReview")
-            .WithSummary("Open a review for a flag, so the team's review flow decides it")
+            .WithSummary("Open flag review")
             .WithDescription(
-                "Closing that review as wrong dismisses the flag; closing it as right confirms it. "
+                "Open a review for a flag, so the team's review flow decides it. "
+                + "Closing that review as wrong dismisses the flag; closing it as right confirms it. "
                 + "Both feed the rule's counts on Settings → AutoMod.")
             .Produces<FlagView>()
             .Produces(StatusCodes.Status404NotFound)
@@ -295,7 +299,7 @@ public static class FlagEndpoints
                 return Results.Ok(View(flag, await RuleTextAsync(db, [flag], ct)));
             })
             .WithName("AskAiAboutModerationFlag")
-            .WithSummary("Ask the AI whether to keep or dismiss a flag")
+            .WithSummary("Ask AI about flag")
             .WithDescription(
                 "Advice only: the answer goes on the flag and on its review, and nothing is done with "
                 + "it. Needs AI on and the opinion tool switched on under Settings → AutoMod; the "

@@ -57,7 +57,8 @@ public static class ResetEndpoints
                 return Results.Ok(new ResetView(link is not null && reason is null, reason, user?.Username));
             })
             .WithName("DescribeResetLink")
-            .WithSummary("Whether a reset link can still be used, and for which account")
+            .WithSummary("Check a reset link")
+            .WithDescription("Whether a reset link can still be used, and for which account.")
             .Produces<ResetView>();
 
         reset.MapPost("/{token}", async (
@@ -100,8 +101,10 @@ public static class ResetEndpoints
                 return Results.NoContent();
             })
             .WithName("UseResetLink")
-            .WithSummary("Set a new password with a reset link")
-            .WithDescription("Spends the link and ends every session the account had. Sign in with the new password afterwards.")
+            .WithSummary("Use a reset link")
+            .WithDescription(
+                "Set a new password with a reset link. "
+                + "Spends the link and ends every session the account had. Sign in with the new password afterwards.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest);
 
@@ -122,7 +125,8 @@ public static class ResetEndpoints
                     publicAddress is null ? NoPublicAddress : null));
             })
             .WithName("GetForgotPasswordWays")
-            .WithSummary("Whether this deployment can send reset links, and how")
+            .WithSummary("Get password reset ways")
+            .WithDescription("Whether this deployment can send reset links, and how.")
             .Produces<ForgotPasswordWays>();
 
         forgot.MapPost("/", async (
@@ -207,7 +211,7 @@ public static class ResetEndpoints
                 return answer;
             })
             .WithName("ForgotPassword")
-            .WithSummary("Ask for a reset link to be sent")
+            .WithSummary("Ask for a reset link")
             .WithDescription(
                 "Always answers the same sentence, so it cannot be used to find out which usernames "
                 + "exist. Sends by email when SMTP is set up and the account has an address, otherwise "

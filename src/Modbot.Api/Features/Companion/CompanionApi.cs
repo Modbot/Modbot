@@ -88,7 +88,7 @@ public static class CompanionApi
 
         companion.MapPost("/pair", PairHandler.HandleAsync)
             .WithName("PairClient")
-            .WithSummary("Trade a one-time pairing code for a device token")
+            .WithSummary("Pair a client")
             .WithDescription(
                 "Unauthenticated because the client has no credential yet — the code is the "
                 + "credential. It is single-use, expires in minutes, and is issued only to a "
@@ -110,7 +110,7 @@ public static class CompanionApi
                     ? Results.Ok(new ServerTimeResponse(clock.UtcNow))
                     : CompanionApiErrors.VersionUnsupported(apiVersion))
             .WithName("GetClientServerTime")
-            .WithSummary("The server's current instant, for the client's clock offset")
+            .WithSummary("Get server time")
             .WithDescription(
                 "Timed at both ends by the client, which halves the round trip to estimate its "
                 + "own offset and reports presence already corrected.\n\n"
@@ -124,9 +124,10 @@ public static class CompanionApi
 
         companion.MapPost("/events", EventsHandler.HandleAsync)
             .WithName("SubmitClientEvents")
-            .WithSummary("Submit a batch of presence observations")
+            .WithSummary("Send client events")
             .WithDescription(
-                "Partial acceptance is the normal case, not an error: four to six moderators in "
+                "Submit a batch of presence observations. "
+                + "Partial acceptance is the normal case, not an error: four to six moderators in "
                 + "one instance all see the same join and all report it, so a batch where a "
                 + "quarter of the events were already known is a completely successful "
                 + "request.\n\n"
@@ -143,9 +144,10 @@ public static class CompanionApi
 
         companion.MapGet("/context", ContextHandler.ContextAsync)
             .WithName("GetClientInstanceContext")
-            .WithSummary("Roster for one instance, with flags and prior-action counts")
+            .WithSummary("Get instance roster")
             .WithDescription(
-                "Fills the overlay's local cache. The overlay renders from that cache and never "
+                "Roster for one instance, with flags and prior-action counts. "
+                + "Fills the overlay's local cache. The overlay renders from that cache and never "
                 + "from a live request, so a slow or unreachable server produces stale data with "
                 + "its age shown rather than a blank panel.\n\n"
                 + "Derived entirely from this deployment's own fact log: no VRChat call is made "
@@ -157,7 +159,7 @@ public static class CompanionApi
 
         companion.MapGet("/user/{subjectId}", ContextHandler.UserAsync)
             .WithName("GetClientUserSummary")
-            .WithSummary("Profile summary for one person, sized for a headset card")
+            .WithSummary("Get person summary")
             .WithDescription(
                 "Deliberately not the full web profile: prior actions, roles, join date and "
                 + "current flags, and nothing that needs scrolling in a headset.\n\n"
@@ -169,9 +171,10 @@ public static class CompanionApi
 
         companion.MapGet("/alerts", AlertsEndpoint.WaitAsync)
             .WithName("WaitForClientAlert")
-            .WithSummary("Long poll: a flagged user joined this moderator's instance")
+            .WithSummary("Wait for an alert")
             .WithDescription(
-                "The only push in the protocol, and the only case that earns it — by the time a "
+                "Long poll: a flagged user joined this moderator's instance. "
+                + "The only push in the protocol, and the only case that earns it — by the time a "
                 + "thirty-second poll notices, the moment has passed.\n\n"
                 + "A long poll rather than a websocket: one endpoint, one concern, and it "
                 + "degrades to a slow poll rather than to nothing when a proxy or captive portal "
@@ -189,9 +192,10 @@ public static class CompanionApi
         // poll stays for clients built before this.
         companion.MapGet("/ws", CompanionLiveEndpoints.SocketAsync)
             .WithName("ClientLiveSocket")
-            .WithSummary("Live updates for the instance this device is in, over a WebSocket")
+            .WithSummary("Client live socket")
             .WithDescription(
-                "Authenticate with the device token in the Authorization header. `instanceId` names "
+                "Live updates for the instance this device is in, over a WebSocket. "
+                + "Authenticate with the device token in the Authorization header. `instanceId` names "
                 + "the instance the client is standing in; `after` is the cursor to carry on from. "
                 + "Send `{\"op\":\"subscribe\",\"instanceId\":\"...\"}` on walking into another.")
             .Produces<CompanionError>(StatusCodes.Status400BadRequest)
@@ -200,7 +204,7 @@ public static class CompanionApi
 
         companion.MapGet("/poll", CompanionLiveEndpoints.PollAsync)
             .WithName("ClientLivePoll")
-            .WithSummary("Live updates by long polling, the backup for the WebSocket")
+            .WithSummary("Client live polling")
             .WithDescription(
                 "The same events as the WebSocket: those after `after`, at once when there are any, "
                 + "otherwise after waiting up to `wait` seconds for one. Send the returned `cursor` "

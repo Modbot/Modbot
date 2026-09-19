@@ -149,7 +149,8 @@ public static class AiCallLogEndpoints
                     keepDays));
             })
             .WithName("GetAiCallLog")
-            .WithSummary("AI calls, newest first, with counts and what went wrong")
+            .WithSummary("List AI calls")
+            .WithDescription("AI calls, newest first, with counts and what went wrong.")
             .Produces<AiCallLogPage>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ViewOperationalLog);
@@ -169,7 +170,8 @@ public static class AiCallLogEndpoints
                 return Results.Ok(new AiCallDetail(View(call, prices), call.Prompt, call.Answer));
             })
             .WithName("GetAiCall")
-            .WithSummary("One AI call, with what the model was sent and what it answered")
+            .WithSummary("Get AI call")
+            .WithDescription("One AI call, with what the model was sent and what it answered.")
             .Produces<AiCallDetail>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)

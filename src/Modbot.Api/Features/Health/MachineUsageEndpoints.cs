@@ -59,9 +59,10 @@ public static class MachineUsageEndpoints
                     sampler?.Points ?? [])))
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetMachineUsage")
-            .WithSummary("Processor use, memory and disk activity over the last half hour")
+            .WithSummary("Get machine usage")
             .WithDescription(
-                "Every figure is this server's own use of the machine, not the whole machine's: "
+                "Processor use, memory and disk activity over the last half hour. "
+                + "Every figure is this server's own use of the machine, not the whole machine's: "
                 + "in a container that is what the operator sized and pays for, and it is the only "
                 + "thing Modbot can measure without being told about its host.\n\n"
                 + "A figure is null on a host where it cannot be read honestly — the disk counters "

@@ -65,7 +65,8 @@ public static class UpdateSettingsEndpoints
                 [FromServices] UpdateChecker checker,
                 CancellationToken ct) => Results.Ok(Seen(await checker.ReadAsync(ct))))
             .WithName("GetUpdateCheck")
-            .WithSummary("The newest Modbot release, and whether this server looks for it")
+            .WithSummary("Get update check")
+            .WithDescription("The newest Modbot release, and whether this server looks for it.")
             .Produces<UpdateView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -100,7 +101,8 @@ public static class UpdateSettingsEndpoints
                 return Results.Ok(Seen(after));
             })
             .WithName("SetUpdateCheck")
-            .WithSummary("Turn update checking on or off")
+            .WithSummary("Set update checking")
+            .WithDescription("Turn update checking on or off.")
             .Produces<UpdateView>()
             .Produces(StatusCodes.Status403Forbidden);
 

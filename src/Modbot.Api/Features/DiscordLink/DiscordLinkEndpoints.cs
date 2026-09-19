@@ -84,7 +84,8 @@ public static class DiscordLinkEndpoints
                 return Results.Ok(await StatusAsync(db, cookies.ReadSession(http.Request, now), now, ct));
             })
             .WithName("GetDiscordLinkPage")
-            .WithSummary("Who is signed in with Discord on the link page, and how far they are")
+            .WithSummary("Get link page status")
+            .WithDescription("Who is signed in with Discord on the link page, and how far they are.")
             .Produces<LinkPageStatus>();
 
         group.MapGet("/sign-in", async (
@@ -106,7 +107,8 @@ public static class DiscordLinkEndpoints
                     DiscordOAuth.AuthorizeUrlFor(client.ClientId, client.RedirectUrl, attempt.State, attempt.Verifier));
             })
             .WithName("StartDiscordSignIn")
-            .WithSummary("Send the browser to Discord to sign in")
+            .WithSummary("Start Discord sign-in")
+            .WithDescription("Send the browser to Discord to sign in.")
             .Produces(StatusCodes.Status302Found);
 
         group.MapGet("/callback", async (
@@ -158,9 +160,10 @@ public static class DiscordLinkEndpoints
                 return Results.Redirect(PagePath);
             })
             .WithName("FinishDiscordSignIn")
-            .WithSummary("Where Discord sends the browser back after sign-in")
+            .WithSummary("Finish Discord sign-in")
             .WithDescription(
-                "Checks the state value against the page's sign-in cookie, exchanges the code with the "
+                "Where Discord sends the browser back after sign-in. "
+                + "Checks the state value against the page's sign-in cookie, exchanges the code with the "
                 + "PKCE verifier, reads users/@me once and revokes the token. Always redirects to /link.")
             .Produces(StatusCodes.Status302Found);
 
@@ -200,8 +203,10 @@ public static class DiscordLinkEndpoints
                 return Results.Ok(await StatusAsync(db, session, now, ct));
             })
             .WithName("StartDiscordLinkVRChat")
-            .WithSummary("Name a VRChat account and get the code to put in its bio")
-            .WithDescription("Allowed before Discord sign-in. The code lasts 30 minutes; naming an account again replaces it.")
+            .WithSummary("Name your VRChat account")
+            .WithDescription(
+                "Name a VRChat account and get the code to put in its bio. "
+                + "Allowed before Discord sign-in. The code lasts 30 minutes; naming an account again replaces it.")
             .Produces<LinkPageStatus>()
             .Produces(StatusCodes.Status400BadRequest);
 
@@ -286,9 +291,10 @@ public static class DiscordLinkEndpoints
                     await StatusAsync(db, session, now, ct)));
             })
             .WithName("CheckDiscordLinkBio")
-            .WithSummary("Read the VRChat bio and save the link if the code is there")
+            .WithSummary("Check the VRChat bio")
             .WithDescription(
-                "Needs Discord sign-in. One profile fetch through the gate on users.read. Six checks per "
+                "Read the VRChat bio and save the link if the code is there. "
+                + "Needs Discord sign-in. One profile fetch through the gate on users.read. Six checks per "
                 + "code, one every ten seconds per Discord account, thirty a minute across the deployment.")
             .Produces<LinkPageCheckResult>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -315,7 +321,8 @@ public static class DiscordLinkEndpoints
                 return Results.Ok(await StatusAsync(db, session, now, ct));
             })
             .WithName("UnlinkOwnDiscordLink")
-            .WithSummary("End the signed-in Discord account's link. History is kept.")
+            .WithSummary("Unlink your account")
+            .WithDescription("End the signed-in Discord account's link. History is kept.")
             .Produces<LinkPageStatus>()
             .Produces(StatusCodes.Status401Unauthorized);
 
@@ -327,7 +334,8 @@ public static class DiscordLinkEndpoints
                 return Results.NoContent();
             })
             .WithName("SignOutOfDiscordLinkPage")
-            .WithSummary("Forget the Discord sign-in on the link page")
+            .WithSummary("Sign out of Discord")
+            .WithDescription("Forget the Discord sign-in on the link page.")
             .Produces(StatusCodes.Status204NoContent);
 
         return app;

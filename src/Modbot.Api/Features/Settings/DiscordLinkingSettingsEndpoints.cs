@@ -68,7 +68,8 @@ public static class DiscordLinkingSettingsEndpoints
                 [FromServices] ModbotContext db,
                 CancellationToken ct) => Results.Ok(View(await db.GetSettingsAsync(ct))))
             .WithName("GetDiscordLinkingSettings")
-            .WithSummary("Account linking settings. The client secret is never returned.")
+            .WithSummary("Get linking settings")
+            .WithDescription("Account linking settings. The client secret is never returned.")
             .Produces<DiscordLinkingSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -117,7 +118,8 @@ public static class DiscordLinkingSettingsEndpoints
                 return Results.Ok(View(settings));
             })
             .WithName("SetDiscordLinkingSettings")
-            .WithSummary("Save the account linking settings")
+            .WithSummary("Update linking settings")
+            .WithDescription("Save the account linking settings.")
             .Produces<DiscordLinkingSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

@@ -33,9 +33,10 @@ public static class CreditsEndpoints
                     : await showcase.ReadAsync(ct));
             })
             .WithName("GetCreditsShowcase")
-            .WithSummary("Contributors, sponsors and early adopters, from Modbot Cloud")
+            .WithSummary("Get credits")
             .WithDescription(
-                "`available` is false when this Modbot has Modbot Cloud turned off, or could not "
+                "Contributors, sponsors and early adopters, from Modbot Cloud. "
+                + "`available` is false when this Modbot has Modbot Cloud turned off, or could not "
                 + "reach it. The Credits page shows nothing rather than an error: none of this "
                 + "changes what Modbot does.")
             .Produces<Showcase>();

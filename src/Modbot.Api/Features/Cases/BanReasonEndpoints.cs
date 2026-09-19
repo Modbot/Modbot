@@ -52,9 +52,10 @@ public static class BanReasonEndpoints
                     held.HasFlag(ModbotPermissions.Administrator) || held.HasFlag(ModbotPermissions.EditClassifications)));
             })
             .WithName("GetBanReasons")
-            .WithSummary("The reasons a moderator picks from when writing up a ban")
+            .WithSummary("List ban reasons")
             .WithDescription(
-                "In button order, switched-off ones included with isActive false. Seeded with a "
+                "The reasons a moderator picks from when writing up a ban. "
+                + "In button order, switched-off ones included with isActive false. Seeded with a "
                 + "plain default set the first time anybody asks, so the first case file can be "
                 + "written without inventing a list first.")
             .Produces<BanReasonListResponse>();
@@ -111,7 +112,8 @@ public static class BanReasonEndpoints
             })
             .RequiresFlag(ModbotPermissions.EditClassifications)
             .WithName("CreateBanReason")
-            .WithSummary("Add a reason to the end of the list")
+            .WithSummary("Add ban reason")
+            .WithDescription("Add a reason to the end of the list.")
             .Produces<BanReasonView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -176,7 +178,8 @@ public static class BanReasonEndpoints
             })
             .RequiresFlag(ModbotPermissions.EditClassifications)
             .WithName("ReorderBanReasons")
-            .WithSummary("Put the reasons in this order")
+            .WithSummary("Reorder ban reasons")
+            .WithDescription("Put the reasons in this order.")
             .Produces<BanReasonListResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -241,9 +244,10 @@ public static class BanReasonEndpoints
             })
             .RequiresFlag(ModbotPermissions.EditClassifications)
             .WithName("UpdateBanReason")
-            .WithSummary("Reword a reason, or switch it on or off")
+            .WithSummary("Update ban reason")
             .WithDescription(
-                "There is no delete: case files cite reasons by id, and one that pointed at a "
+                "Reword a reason, or switch it on or off. "
+                + "There is no delete: case files cite reasons by id, and one that pointed at a "
                 + "reason nobody can name any more would have lost its classification. Switch it "
                 + "off instead; it stays on the case files that picked it and leaves the buttons.")
             .Produces<BanReasonView>()

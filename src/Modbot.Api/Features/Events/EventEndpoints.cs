@@ -58,7 +58,7 @@ public static class EventEndpoints
             })
             .WithTags("Events")
             .WithName("ListEventTypes")
-            .WithSummary("The event types this caller may be sent")
+            .WithSummary("List event types")
             .WithDescription(
                 "Every fact type this build knows and the caller's permissions reach. A type not "
                 + "listed can still arrive -- an upstream event Modbot has no name for yet -- and a "
@@ -87,9 +87,10 @@ public static class EventEndpoints
             })
             .WithTags("Events")
             .WithName("CreateEventTicket")
-            .WithSummary("A one-use ticket for opening the event WebSocket from a browser")
+            .WithSummary("Create event ticket")
             .WithDescription(
-                "Lasts sixty seconds and works once. It stands for whoever asked for it: a session, "
+                "A one-use ticket for opening the event WebSocket from a browser. "
+                + "Lasts sixty seconds and works once. It stands for whoever asked for it: a session, "
                 + "or the key in the Authorization header.")
             .Produces<EventTicketResponse>()
             .Produces(StatusCodes.Status401Unauthorized)
@@ -169,7 +170,7 @@ public static class EventEndpoints
             })
             .WithTags("Events")
             .WithName("EventSocket")
-            .WithSummary("The live event WebSocket")
+            .WithSummary("Event socket")
             .WithDescription(
                 // Markdown: the reference renders descriptions, so code goes in backticks and a
                 // placeholder in angle brackets would vanish as an unknown HTML tag.

@@ -86,7 +86,8 @@ public static class RoleEndpoints
             })
             .WithTags("Roles")
             .WithName("ListRoles")
-            .WithSummary("Every role, and the permission catalogue")
+            .WithSummary("List roles")
+            .WithDescription("Every role, and the permission catalogue.")
             .Produces<RolesResponse>()
             .Produces(StatusCodes.Status401Unauthorized)
             .RequireAuthorization();
@@ -142,7 +143,8 @@ public static class RoleEndpoints
                 return Results.Ok(RoleView.From(role, 0));
             })
             .WithName("CreateRole")
-            .WithSummary("Create a role")
+            .WithSummary("Add role")
+            .WithDescription("Create a role.")
             .Produces<RoleView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -214,8 +216,10 @@ public static class RoleEndpoints
                 return Results.Ok(RoleView.From(role, count));
             })
             .WithName("UpdateRole")
-            .WithSummary("Change a role's name, description or permissions")
-            .WithDescription("Takes effect for everyone holding the role on their next request.")
+            .WithSummary("Update role")
+            .WithDescription(
+                "Change a role's name, description or permissions. "
+                + "Takes effect for everyone holding the role on their next request.")
             .Produces<RoleView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -264,7 +268,8 @@ public static class RoleEndpoints
                 return Results.NoContent();
             })
             .WithName("DeleteRole")
-            .WithSummary("Delete a role nobody holds")
+            .WithSummary("Delete role")
+            .WithDescription("Delete a role nobody holds.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

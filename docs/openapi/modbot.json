@@ -63,7 +63,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "End the current session",
+        "summary": "End the session",
+        "description": "End the current session.",
         "operationId": "Logout",
         "responses": {
           "204": {
@@ -78,8 +79,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Who the session belongs to",
-        "description": "The SPA calls this on load to decide what to show: the sign-in form, the link-your-VRChat-account page, or the app. Reachable before the VRChat link is done, because it is how the SPA finds out the link is not done.",
+        "summary": "Get current user",
+        "description": "Who the session belongs to. The SPA calls this on load to decide what to show: the sign-in form, the link-your-VRChat-account page, or the app. Reachable before the VRChat link is done, because it is how the SPA finds out the link is not done.",
         "operationId": "GetCurrentUser",
         "responses": {
           "200": {
@@ -111,7 +112,8 @@
         "tags": [
           "Roles"
         ],
-        "summary": "Every role, and the permission catalogue",
+        "summary": "List roles",
+        "description": "Every role, and the permission catalogue.",
         "operationId": "ListRoles",
         "responses": {
           "200": {
@@ -141,8 +143,8 @@
         "tags": [
           "Roles"
         ],
-        "summary": "Create a role",
-        "description": "Needs the `ManageRoles` permission.",
+        "summary": "Add role",
+        "description": "Create a role.\n\nNeeds the `ManageRoles` permission.",
         "operationId": "CreateRole",
         "requestBody": {
           "content": {
@@ -207,8 +209,8 @@
         "tags": [
           "Server"
         ],
-        "summary": "What this Modbot is: its group, its version and who runs it",
-        "description": "Unauthenticated, readable from any origin, and answers 200 with nulls on a deployment that has not been set up yet.\n\nownerEmail is the address of the oldest enabled account holding Administrator that has one. It is null when the operator has turned off `server.showOwnerEmail`.",
+        "summary": "Get server details",
+        "description": "What this Modbot is: its group, its version and who runs it. Unauthenticated, readable from any origin, and answers 200 with nulls on a deployment that has not been set up yet.\n\nownerEmail is the address of the oldest enabled account holding Administrator that has one. It is null when the operator has turned off `server.showOwnerEmail`.",
         "operationId": "GetServer",
         "responses": {
           "200": {
@@ -230,8 +232,8 @@
         "tags": [
           "Search"
         ],
-        "summary": "People, Discord people and worlds by name or id, for the command palette",
-        "description": "`q` is matched against display names and ids, case-insensitively. People and Discord people need See members; worlds need See analytics. A kind the caller may not see comes back as an empty list. At most `limit` of each kind (default 8, max 25).",
+        "summary": "Search people and worlds",
+        "description": "People, Discord people and worlds by name or id, for the command palette. `q` is matched against display names and ids, case-insensitively. People and Discord people need See members; worlds need See analytics. A kind the caller may not see comes back as an empty list. At most `limit` of each kind (default 8, max 25).",
         "operationId": "Search",
         "parameters": [
           {
@@ -284,8 +286,8 @@
         "tags": [
           "Live"
         ],
-        "summary": "A one-use ticket for opening the live updates WebSocket from a browser",
-        "description": "Lasts sixty seconds and works once. It stands for whoever asked for it.",
+        "summary": "Create live ticket",
+        "description": "A one-use ticket for opening the live updates WebSocket from a browser. Lasts sixty seconds and works once. It stands for whoever asked for it.",
         "operationId": "CreateLiveTicket",
         "responses": {
           "200": {
@@ -320,7 +322,7 @@
         "tags": [
           "Live"
         ],
-        "summary": "The live updates WebSocket",
+        "summary": "Live updates socket",
         "description": "Authenticate with `?ticket=` from POST /api/live/tickets, or `Authorization: Bearer mbk_...`. `?after=` is the cursor to carry on from; without it the stream starts from now. Events arrive as `{\"kind\":\"event\",\"event\":{...}}`. See https://docs.modbot.co/api/live-updates/.",
         "operationId": "LiveSocket",
         "parameters": [
@@ -352,7 +354,7 @@
         "tags": [
           "Live"
         ],
-        "summary": "Long polling for live updates, the backup for the WebSocket",
+        "summary": "Live updates polling",
         "description": "Returns events after `after` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No `after` means from now. Send the returned `cursor` back as `after`; `more` means poll again straight away. See https://docs.modbot.co/api/live-updates/.",
         "operationId": "PollLive",
         "parameters": [
@@ -441,7 +443,7 @@
         "tags": [
           "Events"
         ],
-        "summary": "The event types this caller may be sent",
+        "summary": "List event types",
         "description": "Every fact type this build knows and the caller's permissions reach. A type not listed can still arrive -- an upstream event Modbot has no name for yet -- and a prefix such as vrchat.group.* covers it.",
         "operationId": "ListEventTypes",
         "responses": {
@@ -477,8 +479,8 @@
         "tags": [
           "Events"
         ],
-        "summary": "A one-use ticket for opening the event WebSocket from a browser",
-        "description": "Lasts sixty seconds and works once. It stands for whoever asked for it: a session, or the key in the Authorization header.",
+        "summary": "Create event ticket",
+        "description": "A one-use ticket for opening the event WebSocket from a browser. Lasts sixty seconds and works once. It stands for whoever asked for it: a session, or the key in the Authorization header.",
         "operationId": "CreateEventTicket",
         "responses": {
           "200": {
@@ -513,7 +515,7 @@
         "tags": [
           "Events"
         ],
-        "summary": "The live event WebSocket",
+        "summary": "Event socket",
         "description": "Authenticate with `Authorization: Bearer mbk_...`, or `?ticket=` from POST /api/events/tickets. Send `{\"op\":\"subscribe\",\"types\":[...],\"subjects\":[...],\"cursor\":\"...\"}` within ten seconds; events arrive as `{\"kind\":\"event\",\"event\":{...}}`. See https://docs.modbot.co/api/events-websocket/.",
         "operationId": "EventSocket",
         "parameters": [
@@ -543,7 +545,7 @@
         "tags": [
           "Events"
         ],
-        "summary": "Long polling for the live event stream",
+        "summary": "Event polling",
         "description": "Authenticate with `Authorization: Bearer mbk_...`. Returns events after `cursor` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor means from now. Send the returned `cursor` back; `more` means poll again straight away. `types` and `subjects` repeat or are comma-separated. See https://docs.modbot.co/api/long-polling/.",
         "operationId": "PollEvents",
         "parameters": [
@@ -652,8 +654,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Allow or refuse webhooks to private addresses",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update webhook settings",
+        "description": "Allow or refuse webhooks to private addresses.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetWebhookSettings",
         "requestBody": {
           "content": {
@@ -698,7 +700,7 @@
         "tags": [
           "Members"
         ],
-        "summary": "The group's ban list, as last swept, with search",
+        "summary": "List group bans",
         "description": "This is the group's ban list -- everyone VRChat says is banned right now, whenever the ban was issued -- read by the ban sweep. Who banned them and why is the audit log's to say, at /api/audit/bans. Bans that stand by default; `status=lifted` shows bans a full sweep no longer listed, `status=all` both.\n\nNeeds the `ViewAuditLog` permission.",
         "operationId": "GetGroupBans",
         "parameters": [
@@ -774,7 +776,7 @@
         "tags": [
           "People"
         ],
-        "summary": "Everyone Modbot has a record of, member or not",
+        "summary": "List people",
         "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false for the group's ban list as it stands, `everBanned` true or false for a ban at any time, lifted or not; `profile` is `fetched` or `not-fetched`. `eighteenPlus` is true or false for Modbot's 18+ mark. `trustRank` is a trust rank name and may be repeated: people holding any of them, and never anybody whose tags have not been read. `platform` is the platform they last used, matched case-insensitively against whatever VRChat sent, and may be repeated. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without. `flagged` is true or false for having ever been flagged by a moderation rule, dismissed or not. `seenFrom` and `seenTo` narrow the list to people Modbot last saw inside that stretch. Sorted by when Modbot last saw them, most recent first, unless `sort=name` or `sort=known` (longest known first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetPeople",
         "parameters": [
@@ -945,8 +947,8 @@
         "tags": [
           "Version"
         ],
-        "summary": "Server and API version",
-        "description": "Unauthenticated so a client can negotiate compatibility before it holds credentials. Clients compare their own supported range against apiVersionMinimum..apiVersion and use the highest both support.",
+        "summary": "Get version",
+        "description": "Server and API version. Unauthenticated so a client can negotiate compatibility before it holds credentials. Clients compare their own supported range against apiVersionMinimum..apiVersion and use the highest both support.",
         "operationId": "GetVersion",
         "responses": {
           "200": {
@@ -968,7 +970,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Change your own password",
+        "summary": "Change your password",
         "description": "Ends every other session you have. The one you did this from stays signed in.",
         "operationId": "ChangePassword",
         "requestBody": {
@@ -1011,7 +1013,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Change your own username",
+        "summary": "Change your username",
         "description": "Same rule as everywhere: two names that differ only in case are one name.",
         "operationId": "ChangeUsername",
         "requestBody": {
@@ -1071,7 +1073,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Set the email address and Discord user id a reset link can reach you at",
+        "summary": "Set your contact details",
+        "description": "Set the email address and Discord user id a reset link can reach you at.",
         "operationId": "SetOwnContact",
         "requestBody": {
           "content": {
@@ -1120,7 +1123,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "End every session you have, including this one",
+        "summary": "Sign out everywhere",
+        "description": "End every session you have, including this one.",
         "operationId": "SignOutEverywhere",
         "responses": {
           "204": {
@@ -1142,7 +1146,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Whether your VRChat account is linked, and any link in progress",
+        "summary": "Get VRChat link",
+        "description": "Whether your VRChat account is linked, and any link in progress.",
         "operationId": "GetVRChatLink",
         "responses": {
           "200": {
@@ -1171,8 +1176,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Say which VRChat account is yours and get a code to put in its bio",
-        "description": "The code is good for 30 minutes and for six checks. Starting again replaces it.",
+        "summary": "Start VRChat link",
+        "description": "Say which VRChat account is yours and get a code to put in its bio. The code is good for 30 minutes and for six checks. Starting again replaces it.",
         "operationId": "StartVRChatLink",
         "requestBody": {
           "content": {
@@ -1221,8 +1226,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Read the bio and confirm the link if the code is there",
-        "description": "One profile fetch through the gate on users.profile. Six checks per code, at most one every ten seconds. A failed fetch -- rate limit, Cloudflare, network -- is reported in words and never retried.",
+        "summary": "Check VRChat link",
+        "description": "Read the bio and confirm the link if the code is there. One profile fetch through the gate on users.profile. Six checks per code, at most one every ten seconds. A failed fetch -- rate limit, Cloudflare, network -- is reported in words and never retried.",
         "operationId": "CheckVRChatLink",
         "responses": {
           "200": {
@@ -1271,8 +1276,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Every staff account, with roles and state",
-        "description": "Needs the `ManageUsers` permission.",
+        "summary": "List users",
+        "description": "Every staff account, with roles and state.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "ListUsers",
         "responses": {
           "200": {
@@ -1308,8 +1313,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Create an account with a temporary password",
-        "description": "The administrator passes the password on. Until the person changes it, this is an account two people can act as -- prefer an invite link, which is why the users page offers that first.\n\nNeeds the `ManageUsers` permission.",
+        "summary": "Add user",
+        "description": "Create an account with a temporary password. The administrator passes the password on. Until the person changes it, this is an account two people can act as -- prefer an invite link, which is why the users page offers that first.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "CreateUser",
         "requestBody": {
           "content": {
@@ -1374,8 +1379,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Replace an account's roles",
-        "description": "Takes effect on that person's next request, not their next sign-in.\n\nNeeds the `ManageUsers` permission.",
+        "summary": "Set user roles",
+        "description": "Replace an account's roles. Takes effect on that person's next request, not their next sign-in.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "SetUserRoles",
         "parameters": [
           {
@@ -1451,8 +1456,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Disable an account and end its sessions",
-        "description": "Never delete: facts reference the account. Refused for your own account and for the last enabled administrator.\n\nNeeds the `ManageUsers` permission.",
+        "summary": "Disable user",
+        "description": "Disable an account and end its sessions. Never delete: facts reference the account. Refused for your own account and for the last enabled administrator.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "DisableUser",
         "parameters": [
           {
@@ -1595,8 +1600,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Re-enable a disabled account",
-        "description": "Needs the `ManageUsers` permission.",
+        "summary": "Enable user",
+        "description": "Re-enable a disabled account.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "EnableUser",
         "parameters": [
           {
@@ -1652,8 +1657,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Set the email address and Discord user id a reset link can be sent to",
-        "description": "Needs the `ManageUsers` permission.",
+        "summary": "Set user contact details",
+        "description": "Set the email address and Discord user id a reset link can be sent to.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "SetUserContact",
         "parameters": [
           {
@@ -1729,8 +1734,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Make a one-time password reset link for this account",
-        "description": "Shown once. The server keeps only a hash, so copy it now. Good for 24 hours, and using it ends every session the account has.\n\nNeeds the `ManageUsers` permission.",
+        "summary": "Create a reset link",
+        "description": "Make a one-time password reset link for this account. Shown once. The server keeps only a hash, so copy it now. Good for 24 hours, and using it ends every session the account has.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "CreateResetLink",
         "parameters": [
           {
@@ -1796,8 +1801,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Make a one-time invite link carrying these roles",
-        "description": "Shown once; the server keeps only a hash. Good for 72 hours.\n\nNeeds the `ManageUsers` permission.",
+        "summary": "Create an invite",
+        "description": "Make a one-time invite link carrying these roles. Shown once; the server keeps only a hash. Good for 72 hours.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "CreateInvite",
         "requestBody": {
           "content": {
@@ -1850,8 +1855,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Invite links that have not been used or expired",
-        "description": "Needs the `ManageUsers` permission.",
+        "summary": "List invites",
+        "description": "Invite links that have not been used or expired.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "ListInvites",
         "responses": {
           "200": {
@@ -1889,8 +1894,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Take back an unused invite link",
-        "description": "Needs the `ManageUsers` permission.",
+        "summary": "Revoke an invite",
+        "description": "Take back an unused invite link.\n\nNeeds the `ManageUsers` permission.",
         "operationId": "RevokeInvite",
         "parameters": [
           {
@@ -1949,7 +1954,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Whether an invite link can still be used, and what it offers",
+        "summary": "Check an invite link",
+        "description": "Whether an invite link can still be used, and what it offers.",
         "operationId": "DescribeInvite",
         "parameters": [
           {
@@ -1979,8 +1985,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Create an account from an invite link and sign in",
-        "description": "The link is spent the moment this succeeds. The new account still has to link its VRChat account.",
+        "summary": "Accept an invite",
+        "description": "Create an account from an invite link and sign in. The link is spent the moment this succeeds. The new account still has to link its VRChat account.",
         "operationId": "AcceptInvite",
         "parameters": [
           {
@@ -2042,7 +2048,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Whether a reset link can still be used, and for which account",
+        "summary": "Check a reset link",
+        "description": "Whether a reset link can still be used, and for which account.",
         "operationId": "DescribeResetLink",
         "parameters": [
           {
@@ -2072,8 +2079,8 @@
         "tags": [
           "Users"
         ],
-        "summary": "Set a new password with a reset link",
-        "description": "Spends the link and ends every session the account had. Sign in with the new password afterwards.",
+        "summary": "Use a reset link",
+        "description": "Set a new password with a reset link. Spends the link and ends every session the account had. Sign in with the new password afterwards.",
         "operationId": "UseResetLink",
         "parameters": [
           {
@@ -2118,7 +2125,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Whether this deployment can send reset links, and how",
+        "summary": "Get password reset ways",
+        "description": "Whether this deployment can send reset links, and how.",
         "operationId": "GetForgotPasswordWays",
         "responses": {
           "200": {
@@ -2138,7 +2146,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Ask for a reset link to be sent",
+        "summary": "Ask for a reset link",
         "description": "Always answers the same sentence, so it cannot be used to find out which usernames exist. Sends by email when SMTP is set up and the account has an address, otherwise by Discord direct message; sends nothing when neither applies or no public address is saved.",
         "operationId": "ForgotPassword",
         "requestBody": {
@@ -2171,8 +2179,8 @@
         "tags": [
           "Roles"
         ],
-        "summary": "Change a role's name, description or permissions",
-        "description": "Takes effect for everyone holding the role on their next request.\n\nNeeds the `ManageRoles` permission.",
+        "summary": "Update role",
+        "description": "Change a role's name, description or permissions. Takes effect for everyone holding the role on their next request.\n\nNeeds the `ManageRoles` permission.",
         "operationId": "UpdateRole",
         "parameters": [
           {
@@ -2256,8 +2264,8 @@
         "tags": [
           "Roles"
         ],
-        "summary": "Delete a role nobody holds",
-        "description": "Needs the `ManageRoles` permission.",
+        "summary": "Delete role",
+        "description": "Delete a role nobody holds.\n\nNeeds the `ManageRoles` permission.",
         "operationId": "DeleteRole",
         "parameters": [
           {
@@ -2326,8 +2334,8 @@
         "tags": [
           "API keys"
         ],
-        "summary": "Every API key, with its owner and state. Never the key itself.",
-        "description": "Needs the `ManageApiKeys` permission.",
+        "summary": "List API keys",
+        "description": "Every API key, with its owner and state. Never the key itself.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "ListApiKeys",
         "responses": {
           "200": {
@@ -2360,8 +2368,8 @@
         "tags": [
           "API keys"
         ],
-        "summary": "Make a key for yourself",
-        "description": "The response carries the key. It is shown this once: only its hash is stored. The key can hold no permission you do not hold, and on every request it is narrowed again to what your account holds at that moment.\n\nNeeds the `ManageApiKeys` permission.",
+        "summary": "Add API key",
+        "description": "Make a key for yourself. The response carries the key. It is shown this once: only its hash is stored. The key can hold no permission you do not hold, and on every request it is narrowed again to what your account holds at that moment.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "CreateApiKey",
         "requestBody": {
           "content": {
@@ -2416,8 +2424,8 @@
         "tags": [
           "API keys"
         ],
-        "summary": "Revoke a key. It stops working on its next request.",
-        "description": "Needs the `ManageApiKeys` permission.",
+        "summary": "Revoke API key",
+        "description": "Revoke a key. It stops working on its next request.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "RevokeApiKey",
         "parameters": [
           {
@@ -2820,8 +2828,8 @@
         "tags": [
           "VRChat proxy"
         ],
-        "summary": "The VRChat proxy's switch and address",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get proxy settings",
+        "description": "The VRChat proxy's switch and address.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetVRChatProxySettings",
         "responses": {
           "200": {
@@ -2854,8 +2862,8 @@
         "tags": [
           "VRChat proxy"
         ],
-        "summary": "Turn the VRChat proxy on or off",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update proxy settings",
+        "description": "Turn the VRChat proxy on or off.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetVRChatProxySettings",
         "requestBody": {
           "content": {
@@ -2900,7 +2908,7 @@
         "tags": [
           "Files"
         ],
-        "summary": "A picture or video from VRChat",
+        "summary": "Get VRChat file",
         "description": "Fetches a VRChat file address through Modbot and returns the bytes. VRChat's file addresses need the account's session cookie and redirect to a delivery host, so a browser cannot load one directly. Only addresses on vrchat.cloud are accepted, only pictures and video are returned, and the answer is cached on disk because a VRChat file address names a version and never changes.",
         "operationId": "GetVRChatFile",
         "parameters": [
@@ -3003,7 +3011,7 @@
         "tags": [
           "Imports"
         ],
-        "summary": "Upload old data and start importing it",
+        "summary": "Start an import",
         "description": "The body is the file: a JSON array of records, or one record per line. Send it as the body with Content-Type application/json and the source as a query parameter, or as a multipart form with a file part and a source field. At most 64 MB. The import runs in the background; ask GET /api/imports/{id} how it is going. dryRun=true reads and counts without writing anything. seenBy is the source every record is filed under unless the record sets its own: one of AuditLog, SyncDiff, Client, Discord, Manual or Modbot, and Manual when nothing says otherwise. The format is documented at docs.modbot.co/self-hosting/importing-old-data.\n\nNeeds the `ImportOldData` permission.",
         "operationId": "StartImport",
         "parameters": [
@@ -3087,8 +3095,8 @@
         "tags": [
           "Imports"
         ],
-        "summary": "The latest fifty imports, newest first",
-        "description": "Needs the `ImportOldData` permission.",
+        "summary": "List imports",
+        "description": "The latest fifty imports, newest first.\n\nNeeds the `ImportOldData` permission.",
         "operationId": "ListImports",
         "responses": {
           "200": {
@@ -3123,8 +3131,8 @@
         "tags": [
           "Imports"
         ],
-        "summary": "One import: its status, counts and rejection reasons",
-        "description": "Counts move while the import runs, so asking again shows progress.\n\nNeeds the `ImportOldData` permission.",
+        "summary": "Get import",
+        "description": "One import: its status, counts and rejection reasons. Counts move while the import runs, so asking again shows progress.\n\nNeeds the `ImportOldData` permission.",
         "operationId": "GetImport",
         "parameters": [
           {
@@ -3180,8 +3188,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Retention, measured storage, and what this deployment is running on",
-        "description": "capacityBytes is an optional what-if input. It is not stored: nothing in Modbot behaves differently for having been told, so it is answered against rather than persisted.",
+        "summary": "Get data settings",
+        "description": "Retention, measured storage, and what this deployment is running on. capacityBytes is an optional what-if input. It is not stored: nothing in Modbot behaves differently for having been told, so it is answered against rather than persisted.",
         "operationId": "GetDataSettings",
         "parameters": [
           {
@@ -3230,7 +3238,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Set retention windows, or turn them off",
+        "summary": "Set retention",
         "description": "Zero means keep forever, which is the default for both classes. Turning a window on schedules destruction of data that cannot be recovered or filled in later.",
         "operationId": "SetRetention",
         "requestBody": {
@@ -3286,8 +3294,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "What removing everything about one person would destroy, and what it would keep",
-        "description": "Counts only; nothing is changed. Every number is counted from the same tables the purge writes to. A field Modbot cannot answer for a platform is null rather than zero: a Discord account has no group ban list and no case files.\n\nNeeds the `Administrator` permission.",
+        "summary": "Preview a purge",
+        "description": "What removing everything about one person would destroy, and what it would keep. Counts only; nothing is changed. Every number is counted from the same tables the purge writes to. A field Modbot cannot answer for a platform is null rather than zero: a Discord account has no group ban list and no case files.\n\nNeeds the `Administrator` permission.",
         "operationId": "PreviewPurge",
         "parameters": [
           {
@@ -3346,7 +3354,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Remove everything Modbot stores about one person",
+        "summary": "Purge a person",
         "description": "Irreversible. `confirmation` must equal `subjectId` exactly.\n\nErased: every fact where they are the subject, the counted-only daily totals dimensioned on them, the rows saying a record about them was imported, their Discord messages including earlier texts of edited ones, and their standing giveaway entries. Their place in a past draw keeps its position and weight and loses its name and ids, so an old result still checks out.\n\nKept: facts where they were the actor rather than the subject — somebody else's moderation history — case files about them with their evidence and profile snapshots (evidence storage design §15.1), the current-state rows the next sync would write again, and the fact that this purge happened.\n\nA purge of somebody Modbot has never seen removes nothing and is not an error.\n\nNeeds the `Administrator` permission.",
         "operationId": "PurgePerson",
         "requestBody": {
@@ -3402,8 +3410,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "The address people use to reach this Modbot, and the platform's suggestion",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get public address",
+        "description": "The address people use to reach this Modbot, and the platform's suggestion.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetPublicAddress",
         "responses": {
           "200": {
@@ -3436,7 +3444,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Save the public address, or clear it",
+        "summary": "Set public address",
         "description": "Just the start of the address -- https://modbot.example.com -- with no path. Clearing it stops reset links being sent until it is set again.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetPublicAddress",
         "requestBody": {
@@ -3492,8 +3500,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "What this server tells anyone who asks about it",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get server settings",
+        "description": "What this server tells anyone who asks about it.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetServerSettings",
         "responses": {
           "200": {
@@ -3526,8 +3534,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Turn the owner's email address on or off on the server page",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update server settings",
+        "description": "Turn the owner's email address on or off on the server page.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetServerSettings",
         "requestBody": {
           "content": {
@@ -3572,8 +3580,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Whether the group's public instances are listed on modbot.co",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get instance listing",
+        "description": "Whether the group's public instances are listed on modbot.co.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetPublicInstances",
         "responses": {
           "200": {
@@ -3606,8 +3614,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Turn the modbot.co listing on or off",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Set instance listing",
+        "description": "Turn the modbot.co listing on or off.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetPublicInstances",
         "requestBody": {
           "content": {
@@ -3652,8 +3660,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "The repeat offender threshold and the kinds of action that count",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get repeat offender rules",
+        "description": "The repeat offender threshold and the kinds of action that count.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetRepeatOffenderRules",
         "responses": {
           "200": {
@@ -3686,8 +3694,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Change the threshold or the kinds of action that count",
-        "description": "Both are rules the standings are computed under, so every person's counts are rebuilt from the fact log before this answers.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Update repeat offender rules",
+        "description": "Change the threshold or the kinds of action that count. Both are rules the standings are computed under, so every person's counts are rebuilt from the fact log before this answers.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetRepeatOffenderRules",
         "requestBody": {
           "content": {
@@ -3742,8 +3750,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Whether this server reports to Modbot Cloud, and how the last report went",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get Cloud status",
+        "description": "Whether this server reports to Modbot Cloud, and how the last report went.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetCloudStatus",
         "responses": {
           "200": {
@@ -3778,8 +3786,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "A code to type into Modbot Cloud to claim this server",
-        "description": "The code is shown once and is not stored here. Modbot Cloud is told only its SHA-256, over this server's own authenticated connection, so Cloud never calls back to an address it was given.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Create a link code",
+        "description": "A code to type into Modbot Cloud to claim this server. The code is shown once and is not stored here. Modbot Cloud is told only its SHA-256, over this server's own authenticated connection, so Cloud never calls back to an address it was given.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "CreateCloudLinkCode",
         "responses": {
           "200": {
@@ -3827,8 +3835,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "The newest Modbot release, and whether this server looks for it",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get update check",
+        "description": "The newest Modbot release, and whether this server looks for it.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetUpdateCheck",
         "responses": {
           "200": {
@@ -3861,8 +3869,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Turn update checking on or off",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Set update checking",
+        "description": "Turn update checking on or off.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetUpdateCheck",
         "requestBody": {
           "content": {
@@ -3907,8 +3915,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Send a test message with the saved SMTP settings",
-        "description": "Counts against the daily email limit as other email, and is queued when the limit is used up.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Send a test email",
+        "description": "Send a test message with the saved SMTP settings. Counts against the daily email limit as other email, and is queued when the limit is used up.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SendTestEmail",
         "requestBody": {
           "content": {
@@ -3963,8 +3971,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "The daily email limit, how much of it is used, and the email queue",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get email settings",
+        "description": "The daily email limit, how much of it is used, and the email queue.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetEmailSettings",
         "responses": {
           "200": {
@@ -3999,8 +4007,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Set the most emails sent in any 24 hours",
-        "description": "At least 20. 20 of the limit are always kept for account email -- reset links, invite links, sign-in and security notices -- and other email may use only the rest. Email over its share is queued and sent when the 24 hours have room again.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Set the email limit",
+        "description": "Set the most emails sent in any 24 hours. At least 20. 20 of the limit are always kept for account email -- reset links, invite links, sign-in and security notices -- and other email may use only the rest. Email over its share is queued and sent when the 24 hours have room again.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetEmailLimit",
         "requestBody": {
           "content": {
@@ -4055,8 +4063,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "The AI endpoint, model and on/off switch. The API key is never returned.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get AI settings",
+        "description": "The AI endpoint, model and on/off switch. The API key is never returned.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAiSettings",
         "responses": {
           "200": {
@@ -4089,8 +4097,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Save the AI endpoint, key, model and on/off switch",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update AI settings",
+        "description": "Save the AI endpoint, key, model and on/off switch.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetAiSettings",
         "requestBody": {
           "content": {
@@ -4145,8 +4153,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Confirm what member text is sent to the AI provider. Once, before AI can be switched on.",
-        "description": "M8 §4.5. Recorded as a fact naming the account that confirmed it, the endpoint shown at the time, and the lines they confirmed. Confirming again does nothing.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Confirm AI sending",
+        "description": "Confirm what member text is sent to the AI provider. Once, before AI can be switched on. M8 §4.5. Recorded as a fact naming the account that confirmed it, the endpoint shown at the time, and the lines they confirmed. Confirming again does nothing.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "AcknowledgeAiSending",
         "requestBody": {
           "content": {
@@ -4191,8 +4199,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Send one short chat message through the endpoint on the form",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Test AI settings",
+        "description": "Send one short chat message through the endpoint on the form.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "TestAiSettings",
         "requestBody": {
           "content": {
@@ -4247,8 +4255,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "The models the endpoint on the form lists",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "List available models",
+        "description": "The models the endpoint on the form lists.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ListAiModels",
         "requestBody": {
           "content": {
@@ -4303,8 +4311,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Chat's on/off switch, model, extra instructions, limits and tools",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get AI chat settings",
+        "description": "Chat's on/off switch, model, extra instructions, limits and tools.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAiChatSettings",
         "responses": {
           "200": {
@@ -4337,8 +4345,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Save Chat's settings",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update AI chat settings",
+        "description": "Save Chat's settings.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetAiChatSettings",
         "requestBody": {
           "content": {
@@ -4393,8 +4401,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "The AutoMod switch, term lists, AI topics, the AI tools and the daily AI call limit",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get AutoMod settings",
+        "description": "The AutoMod switch, term lists, AI topics, the AI tools and the daily AI call limit.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAutoMod",
         "responses": {
           "200": {
@@ -4427,8 +4435,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Switch AutoMod on or off, set the daily AI call limit and switch AI tools",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update AutoMod settings",
+        "description": "Switch AutoMod on or off, set the daily AI call limit and switch AI tools.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetAutoMod",
         "requestBody": {
           "content": {
@@ -4483,8 +4491,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "One term list with its terms",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get term list",
+        "description": "One term list with its terms.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetTermList",
         "parameters": [
           {
@@ -4538,8 +4546,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Change a term list. A Hub list keeps its name and terms; only its switches, targets, action and switched-off terms change.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update term list",
+        "description": "Change a term list. A Hub list keeps its name and terms; only its switches, targets, action and switched-off terms change.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "UpdateTermList",
         "parameters": [
           {
@@ -4613,8 +4621,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Delete a term list. Its flags stay.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Delete term list",
+        "description": "Delete a term list. Its flags stay.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "DeleteTermList",
         "parameters": [
           {
@@ -4663,8 +4671,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Create a local term list",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Add term list",
+        "description": "Create a local term list.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "CreateTermList",
         "requestBody": {
           "content": {
@@ -4719,8 +4727,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "The term lists Modbot Hub offers",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "List Hub term lists",
+        "description": "The term lists Modbot Hub offers.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ListHubTermLists",
         "responses": {
           "200": {
@@ -4755,8 +4763,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Add a term list from Modbot Hub",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Add Hub term list",
+        "description": "Add a term list from Modbot Hub.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "AddHubTermList",
         "requestBody": {
           "content": {
@@ -4821,8 +4829,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Fetch a Hub list again. A newer version waits to be applied.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Refresh Hub term list",
+        "description": "Fetch a Hub list again. A newer version waits to be applied.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "RefreshHubTermList",
         "parameters": [
           {
@@ -4888,8 +4896,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Put the newer version of a Hub list into use",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Apply Hub list update",
+        "description": "Put the newer version of a Hub list into use.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ApplyHubTermListUpdate",
         "parameters": [
           {
@@ -4955,8 +4963,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Create an AI topic",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Add AI topic",
+        "description": "Create an AI topic.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "CreateAiTopic",
         "requestBody": {
           "content": {
@@ -5011,8 +5019,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Change an AI topic",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update AI topic",
+        "description": "Change an AI topic.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "UpdateAiTopic",
         "parameters": [
           {
@@ -5086,8 +5094,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Delete an AI topic. Its flags stay.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Delete AI topic",
+        "description": "Delete an AI topic. Its flags stay.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "DeleteAiTopic",
         "parameters": [
           {
@@ -5136,8 +5144,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Check some text against every rule. Nothing is recorded and nothing is done.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Try some text",
+        "description": "Check some text against every rule. Nothing is recorded and nothing is done.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "TryAutoMod",
         "requestBody": {
           "content": {
@@ -5192,8 +5200,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "A rule's sample texts and its last runs",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get rule test set",
+        "description": "A rule's sample texts and its last runs.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetRuleTestSet",
         "parameters": [
           {
@@ -5257,8 +5265,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Add a sample text to a rule's test set",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Add test sample",
+        "description": "Add a sample text to a rule's test set.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "AddTestSample",
         "parameters": [
           {
@@ -5342,8 +5350,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Change a sample text",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update test sample",
+        "description": "Change a sample text.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "UpdateTestSample",
         "parameters": [
           {
@@ -5426,8 +5434,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Remove a sample text",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Delete test sample",
+        "description": "Remove a sample text.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "DeleteTestSample",
         "parameters": [
           {
@@ -5485,8 +5493,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Check every sample against the rule as it stands now. AI topics cost a real request.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Run rule tests",
+        "description": "Check every sample against the rule as it stands now. AI topics cost a real request.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "RunRuleTestSet",
         "parameters": [
           {
@@ -5560,8 +5568,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Every version of a rule's text, newest first",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "List rule versions",
+        "description": "Every version of a rule's text, newest first.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ListRuleVersions",
         "parameters": [
           {
@@ -5615,8 +5623,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "End a rule's trial. From now on it really acts.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "End rule trial",
+        "description": "End a rule's trial. From now on it really acts.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "EndRuleTrial",
         "parameters": [
           {
@@ -5690,8 +5698,8 @@
         "tags": [
           "AutoMod settings"
         ],
-        "summary": "Let a paused rule act again",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Resume rule",
+        "description": "Let a paused rule act again.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ResumeRule",
         "parameters": [
           {
@@ -5765,8 +5773,8 @@
         "tags": [
           "Moderation"
         ],
-        "summary": "The newest flags: open, dismissed or confirmed, and filtered by language",
-        "description": "Needs the `ViewProfile` permission.",
+        "summary": "List flags",
+        "description": "The newest flags: open, dismissed or confirmed, and filtered by language.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "ListModerationFlags",
         "parameters": [
           {
@@ -5817,8 +5825,8 @@
         "tags": [
           "Moderation"
         ],
-        "summary": "Dismiss a flag. The same rule and term never flags this person again.",
-        "description": "Needs the `ReviewTickets` permission.",
+        "summary": "Dismiss flag",
+        "description": "Dismiss a flag. The same rule and term never flags this person again.\n\nNeeds the `ReviewTickets` permission.",
         "operationId": "DismissModerationFlag",
         "parameters": [
           {
@@ -5884,8 +5892,8 @@
         "tags": [
           "Moderation"
         ],
-        "summary": "Open a review for a flag, so the team's review flow decides it",
-        "description": "Closing that review as wrong dismisses the flag; closing it as right confirms it. Both feed the rule's counts on Settings → AutoMod.\n\nNeeds the `ReviewTickets` permission.",
+        "summary": "Open flag review",
+        "description": "Open a review for a flag, so the team's review flow decides it. Closing that review as wrong dismisses the flag; closing it as right confirms it. Both feed the rule's counts on Settings → AutoMod.\n\nNeeds the `ReviewTickets` permission.",
         "operationId": "OpenModerationFlagReview",
         "parameters": [
           {
@@ -5951,7 +5959,7 @@
         "tags": [
           "Moderation"
         ],
-        "summary": "Ask the AI whether to keep or dismiss a flag",
+        "summary": "Ask AI about flag",
         "description": "Advice only: the answer goes on the flag and on its review, and nothing is done with it. Needs AI on and the opinion tool switched on under Settings → AutoMod; the proposed action comes only when that tool is on too.\n\nNeeds the `ReviewTickets` permission.",
         "operationId": "AskAiAboutModerationFlag",
         "parameters": [
@@ -6018,8 +6026,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "AI spend by feature, estimates, spend limits, and model prices",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get AI spend limits",
+        "description": "AI spend by feature, estimates, spend limits, and model prices.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAiLimits",
         "responses": {
           "200": {
@@ -6052,8 +6060,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Replace the AI spend limits",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update AI spend limits",
+        "description": "Replace the AI spend limits.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetAiLimits",
         "requestBody": {
           "content": {
@@ -6108,8 +6116,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Replace the prices the operator entered",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update AI prices",
+        "description": "Replace the prices the operator entered.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetAiPrices",
         "requestBody": {
           "content": {
@@ -6164,8 +6172,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Fetch model prices from OpenRouter now",
-        "description": "Answers 502 with the reason when OpenRouter could not be reached or refused. Never retried.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Fetch AI prices",
+        "description": "Fetch model prices from OpenRouter now. Answers 502 with the reason when OpenRouter could not be reached or refused. Never retried.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "FetchAiPrices",
         "responses": {
           "200": {
@@ -6203,8 +6211,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "OpenRouter's models, their prices, and what a thousand calls would cost",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get AI model catalogue",
+        "description": "OpenRouter's models, their prices, and what a thousand calls would cost.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAiCatalog",
         "parameters": [
           {
@@ -6258,8 +6266,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "AI calls, newest first, with counts and what went wrong",
-        "description": "Needs the `ViewOperationalLog` permission.",
+        "summary": "List AI calls",
+        "description": "AI calls, newest first, with counts and what went wrong.\n\nNeeds the `ViewOperationalLog` permission.",
         "operationId": "GetAiCallLog",
         "parameters": [
           {
@@ -6352,8 +6360,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "One AI call, with what the model was sent and what it answered",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get AI call",
+        "description": "One AI call, with what the model was sent and what it answered.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAiCall",
         "parameters": [
           {
@@ -6409,8 +6417,8 @@
         "tags": [
           "Discord"
         ],
-        "summary": "The Discord server's channels and what the bot may do in each",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "List Discord channels",
+        "description": "The Discord server's channels and what the bot may do in each.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ListDiscordChannels",
         "responses": {
           "200": {
@@ -6445,8 +6453,8 @@
         "tags": [
           "Discord"
         ],
-        "summary": "The Discord server's roles and whether the bot could hand each out",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "List Discord roles",
+        "description": "The Discord server's roles and whether the bot could hand each out.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ListDiscordRoles",
         "responses": {
           "200": {
@@ -6481,7 +6489,7 @@
         "tags": [
           "Discord"
         ],
-        "summary": "The channels events are sent to, and what each can be set to",
+        "summary": "List Discord routes",
         "description": "Every route, in list order, with the event types that may be chosen (grouped, labelled), the group's VRChat roles as last read, Modbot's roles, and names for the people routes already name.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "ListDiscordRoutes",
         "responses": {
@@ -6515,8 +6523,8 @@
         "tags": [
           "Discord"
         ],
-        "summary": "Start sending events to a channel",
-        "description": "A channel and at least one event type are needed. Sending starts from the moment it is saved; nothing that happened before is posted.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Add Discord route",
+        "description": "Start sending events to a channel. A channel and at least one event type are needed. Sending starts from the moment it is saved; nothing that happened before is posted.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "CreateDiscordRoute",
         "requestBody": {
           "content": {
@@ -6571,8 +6579,8 @@
         "tags": [
           "Discord"
         ],
-        "summary": "Change a channel's events or filters, or turn it on or off",
-        "description": "Fields left out are left as they are. A list sent empty clears that filter.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Update Discord route",
+        "description": "Change a channel's events or filters, or turn it on or off. Fields left out are left as they are. A list sent empty clears that filter.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "UpdateDiscordRoute",
         "parameters": [
           {
@@ -6646,8 +6654,8 @@
         "tags": [
           "Discord"
         ],
-        "summary": "Stop sending events to a channel and forget the rule",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Delete Discord route",
+        "description": "Stop sending events to a channel and forget the rule.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "DeleteDiscordRoute",
         "parameters": [
           {
@@ -6696,8 +6704,8 @@
         "tags": [
           "Discord"
         ],
-        "summary": "People to pick for a channel's filters, by name or id",
-        "description": "Searches the VRChat profiles Modbot has stored, the same way the member list searches: case-insensitively on the display name and the id. Also searches the Discord server's members and the Discord accounts members linked, by name and id. `platform` says which list an id goes in.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Search people for filters",
+        "description": "People to pick for a channel's filters, by name or id. Searches the VRChat profiles Modbot has stored, the same way the member list searches: case-insensitively on the display name and the id. Also searches the Discord server's members and the Discord accounts members linked, by name and id. `platform` says which list an id goes in.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SearchDiscordRoutePeople",
         "parameters": [
           {
@@ -6741,7 +6749,7 @@
         "tags": [
           "Discord"
         ],
-        "summary": "The Discord server's members, current and past, with search",
+        "summary": "List Discord members",
         "description": "Members in the server by default; `state=left` shows people who left, `state=all` both. `search` matches the display name, username, global name, nickname and the id, case-insensitively. `role` is a Discord role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. `bot`, `pending`, `timedOut` and `boosting` are true or false. `joinedFrom` and `joinedTo` narrow to people who joined inside that stretch. `linked=linked` shows only people with a linked VRChat account and `linked=not-linked` only people without; both need See profiles, as does `linkedVRChat` on each member. Newest joiners first unless `sort=oldest` or `sort=name`. `roles` lists the server's roles with how many current members hold each.\n\n`coverage.listedAt` is null until the bot has read the whole member list once; the list is partial until then.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetDiscordMembers",
         "parameters": [
@@ -6912,8 +6920,8 @@
         "tags": [
           "Discord"
         ],
-        "summary": "One member of the Discord server, current or past",
-        "description": "Needs the `ViewMembers` permission.",
+        "summary": "Get Discord member",
+        "description": "One member of the Discord server, current or past.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetDiscordMember",
         "parameters": [
           {
@@ -6968,7 +6976,7 @@
         "tags": [
           "Discord"
         ],
-        "summary": "One Discord member's stored messages, newest first, deleted ones included",
+        "summary": "List Discord member messages",
         "description": "Messages in the server in settings, newest first. A deleted message is returned with `deletedAt` set and an edited one with `editedAt`; `text` is the text as it reads now. Pass `at` with a message id instead of `page` to get the page that message is on, which is what a link to one message opens. Needs Read Discord messages.\n\nNeeds the `ReadDiscordMessages` permission.",
         "operationId": "GetDiscordMemberMessages",
         "parameters": [
@@ -7045,8 +7053,8 @@
         "tags": [
           "Discord"
         ],
-        "summary": "Messages and voice minutes per day, and joins and leaves, for one Discord member",
-        "description": "Needs the `ViewProfile` permission.",
+        "summary": "Get Discord member activity",
+        "description": "Messages and voice minutes per day, and joins and leaves, for one Discord member.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetDiscordMemberMetrics",
         "parameters": [
           {
@@ -7091,8 +7099,8 @@
         "tags": [
           "Insights"
         ],
-        "summary": "AI-written summaries of the group's own figures, newest first",
-        "description": "Each carries the figures the model was given, so every sentence can be checked. Figures are counts and world names only. Failed attempts are not listed.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "List insights",
+        "description": "AI-written summaries of the group's own figures, newest first. Each carries the figures the model was given, so every sentence can be checked. Figures are counts and world names only. Failed attempts are not listed.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "ListInsights",
         "parameters": [
           {
@@ -7166,8 +7174,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "When each kind of insight is written, and where it goes",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get AI insight settings",
+        "description": "When each kind of insight is written, and where it goes.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAiInsightsSettings",
         "responses": {
           "200": {
@@ -7200,8 +7208,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Save when each kind of insight is written, and where it goes",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update AI insight settings",
+        "description": "Save when each kind of insight is written, and where it goes.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetAiInsightsSettings",
         "requestBody": {
           "content": {
@@ -7256,8 +7264,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Write one insight of this kind now, for the stretch ending yesterday",
-        "description": "Waits for the model. Answers 200 with the stored insight whether the model wrote something or the call failed -- `text` or `error` says which. Never posted to Discord. 409 when AI is off or the spend limit for insights is reached.\n\nNeeds the `ManageSettings` permission.",
+        "summary": "Write an insight",
+        "description": "Write one insight of this kind now, for the stretch ending yesterday. Waits for the model. Answers 200 with the stored insight whether the model wrote something or the call failed -- `text` or `error` says which. Never posted to Discord. 409 when AI is off or the spend limit for insights is reached.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GenerateInsight",
         "parameters": [
           {
@@ -7322,8 +7330,8 @@
         "tags": [
           "Alerts"
         ],
-        "summary": "Times something ran far outside this deployment's own normal, newest first",
-        "description": "Recent alerts nobody has hidden by default; `all=true` lists every alert kept. Each carries the figure, what normal looks like, the window, and where in Modbot to look. Counts and places only -- never a person.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "List alerts",
+        "description": "Times something ran far outside this deployment's own normal, newest first. Recent alerts nobody has hidden by default; `all=true` lists every alert kept. Each carries the figure, what normal looks like, the window, and where in Modbot to look. Counts and places only -- never a person.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "ListAlerts",
         "parameters": [
           {
@@ -7379,8 +7387,8 @@
         "tags": [
           "Alerts"
         ],
-        "summary": "Hide one alert's card",
-        "description": "The alert itself is kept, and so is the fact it wrote.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "Dismiss alert",
+        "description": "Hide one alert's card. The alert itself is kept, and so is the fact it wrote.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "DismissAlert",
         "parameters": [
           {
@@ -7436,8 +7444,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "What is watched for unusual activity, and where alerts go",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get AI alert settings",
+        "description": "What is watched for unusual activity, and where alerts go.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAiAlertSettings",
         "responses": {
           "200": {
@@ -7470,8 +7478,8 @@
         "tags": [
           "AI settings"
         ],
-        "summary": "Save what is watched, how sensitive each watcher is, and where alerts go",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update AI alert settings",
+        "description": "Save what is watched, how sensitive each watcher is, and where alerts go.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetAiAlertSettings",
         "requestBody": {
           "content": {
@@ -7526,7 +7534,8 @@
         "tags": [
           "Notifications"
         ],
-        "summary": "This account's notifications, and the critical ones still waiting to be seen",
+        "summary": "List notifications",
+        "description": "This account's notifications, and the critical ones still waiting to be seen.",
         "operationId": "ListNotifications",
         "responses": {
           "200": {
@@ -7558,7 +7567,8 @@
         "tags": [
           "Notifications"
         ],
-        "summary": "Marks one notification seen by this account",
+        "summary": "Mark notification seen",
+        "description": "Marks one notification seen by this account.",
         "operationId": "MarkNotificationSeen",
         "parameters": [
           {
@@ -7604,7 +7614,8 @@
         "tags": [
           "Notifications"
         ],
-        "summary": "Where this account's notifications go",
+        "summary": "Get notification choices",
+        "description": "Where this account's notifications go.",
         "operationId": "GetNotificationChoices",
         "responses": {
           "200": {
@@ -7634,7 +7645,8 @@
         "tags": [
           "Notifications"
         ],
-        "summary": "Sets where this account's notifications go",
+        "summary": "Update notification choices",
+        "description": "Sets where this account's notifications go.",
         "operationId": "SetNotificationChoices",
         "requestBody": {
           "content": {
@@ -7686,8 +7698,8 @@
         "tags": [
           "Discord account link"
         ],
-        "summary": "The link between a VRChat user and a Discord account, if any, found from either side",
-        "description": "Needs the `ViewProfile` permission.",
+        "summary": "Get account link",
+        "description": "The link between a VRChat user and a Discord account, if any, found from either side.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetDiscordLinkForPerson",
         "parameters": [
           {
@@ -7748,8 +7760,8 @@
         "tags": [
           "Discord account link"
         ],
-        "summary": "End a member's link. The roles Modbot gave are taken away; history is kept.",
-        "description": "Needs the `ManageDiscordLinks` permission.",
+        "summary": "Unlink an account",
+        "description": "End a member's link. The roles Modbot gave are taken away; history is kept.\n\nNeeds the `ManageDiscordLinks` permission.",
         "operationId": "UnlinkDiscordLink",
         "parameters": [
           {
@@ -7798,8 +7810,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Account linking settings. The client secret is never returned.",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get linking settings",
+        "description": "Account linking settings. The client secret is never returned.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetDiscordLinkingSettings",
         "responses": {
           "200": {
@@ -7832,8 +7844,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Save the account linking settings",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update linking settings",
+        "description": "Save the account linking settings.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetDiscordLinkingSettings",
         "requestBody": {
           "content": {
@@ -7888,8 +7900,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Role pairs, the sync switches, and what the bot may do in the server",
-        "description": "Needs the `ManageDiscordSync` permission.",
+        "summary": "Get Discord sync",
+        "description": "Role pairs, the sync switches, and what the bot may do in the server.\n\nNeeds the `ManageDiscordSync` permission.",
         "operationId": "GetDiscordSync",
         "responses": {
           "200": {
@@ -7922,8 +7934,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Save the sync switches",
-        "description": "Needs the `ManageDiscordSync` permission.",
+        "summary": "Update Discord sync",
+        "description": "Save the sync switches.\n\nNeeds the `ManageDiscordSync` permission.",
         "operationId": "SetDiscordSync",
         "requestBody": {
           "content": {
@@ -7978,8 +7990,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Pair a group role with a Discord role",
-        "description": "Needs the `ManageDiscordSync` permission.",
+        "summary": "Add role pair",
+        "description": "Pair a group role with a Discord role.\n\nNeeds the `ManageDiscordSync` permission.",
         "operationId": "AddDiscordRolePair",
         "requestBody": {
           "content": {
@@ -8034,8 +8046,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Change a role pair",
-        "description": "Needs the `ManageDiscordSync` permission.",
+        "summary": "Update role pair",
+        "description": "Change a role pair.\n\nNeeds the `ManageDiscordSync` permission.",
         "operationId": "SetDiscordRolePair",
         "parameters": [
           {
@@ -8109,8 +8121,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Stop pairing two roles. Neither role is changed.",
-        "description": "Needs the `ManageDiscordSync` permission.",
+        "summary": "Delete role pair",
+        "description": "Stop pairing two roles. Neither role is changed.\n\nNeeds the `ManageDiscordSync` permission.",
         "operationId": "DeleteDiscordRolePair",
         "parameters": [
           {
@@ -8156,8 +8168,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "What the two syncs would change right now. Changes nothing.",
-        "description": "Needs the `ManageDiscordSync` permission.",
+        "summary": "Preview Discord sync",
+        "description": "What the two syncs would change right now. Changes nothing.\n\nNeeds the `ManageDiscordSync` permission.",
         "operationId": "PreviewDiscordSync",
         "responses": {
           "200": {
@@ -8192,8 +8204,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Copy the roles and bans that are already different",
-        "description": "Needs the `RunDiscordSync` permission.",
+        "summary": "Run Discord sync",
+        "description": "Copy the roles and bans that are already different.\n\nNeeds the `RunDiscordSync` permission.",
         "operationId": "RunDiscordSync",
         "responses": {
           "200": {
@@ -8228,8 +8240,8 @@
         "tags": [
           "Audit"
         ],
-        "summary": "The merged fact timeline: who did what to whom, and when",
-        "description": "One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`account` is one Modbot account's whole history: facts about it — sign-ins, role changes, its password being reset — and facts it did, including every kick and ban pressed in Modbot. Both halves at once, because the log records the first against the subject and the second against the actor, and either alone is half the story. It narrows what you may already see: a caller with only ViewAuditLog gets the account's moderation actions, one with only ViewOperationalLog gets its sign-ins and role changes.\n\n`world` and `instance` narrow to one world or one VRChat instance number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
+        "summary": "List audit log",
+        "description": "The merged fact timeline: who did what to whom, and when. One log, discriminated by source (spec 5.9). ViewAuditLog covers moderation and membership history; ViewOperationalLog covers Modbot's own record — logins, settings changes, sync failures. The two are separate permissions and the filter is applied server-side on every query: asking for a type you cannot see omits it rather than refusing the request.\n\nFacts carry occurredAt and, when the time is an inference rather than a statement, occurredBefore. `precision` says which, so a window is never rendered as an instant.\n\n`account` is one Modbot account's whole history: facts about it — sign-ins, role changes, its password being reset — and facts it did, including every kick and ban pressed in Modbot. Both halves at once, because the log records the first against the subject and the second against the actor, and either alone is half the story. It narrows what you may already see: a caller with only ViewAuditLog gets the account's moderation actions, one with only ViewOperationalLog gets its sign-ins and role changes.\n\n`world` and `instance` narrow to one world or one VRChat instance number; `category` to Moderation or Operational; `precision` to Exact or Window; `hasActor` to facts somebody is named for, or not; `q` finds a word in the payload, the subject id or the actor id.\n\nPaged by keyset. Send the returned `next` back as beforeOccurredAt + beforeId; both are required.",
         "operationId": "GetAuditLog",
         "parameters": [
           {
@@ -8412,8 +8424,8 @@
         "tags": [
           "Audit"
         ],
-        "summary": "One entry of the timeline, by its id",
-        "description": "For a link to a single entry. An entry of a type this account may not read answers 404, the same as one that does not exist.",
+        "summary": "Get audit log entry",
+        "description": "One entry of the timeline, by its id. For a link to a single entry. An entry of a type this account may not read answers 404, the same as one that does not exist.",
         "operationId": "GetAuditEntry",
         "parameters": [
           {
@@ -8470,7 +8482,7 @@
         "tags": [
           "Audit"
         ],
-        "summary": "What this caller may filter by",
+        "summary": "Get audit log filters",
         "description": "The type list is already narrowed to the caller's permissions, so the SPA offers only what the server would answer. The actor list is the recent actors in the visible history — a filter control, deliberately not a member list.",
         "operationId": "GetAuditFilters",
         "responses": {
@@ -8506,8 +8518,8 @@
         "tags": [
           "Audit"
         ],
-        "summary": "Bans Modbot has recorded — not the group's ban list",
-        "description": "Derived from ban and unban facts, which come from VRChat's group audit log. It therefore covers the period since this deployment first synced, bounded by whatever VRChat's own audit-log retention still held at that moment — a group with three years of bans and a week-old Modbot has a week of them here.\n\n`coverage` carries that window and callers must show it. A full ban list needs a sweep of groups.bans, which is not built.\n\nNeeds the `ViewAuditLog` permission.",
+        "summary": "List recorded bans",
+        "description": "Bans Modbot has recorded — not the group's ban list. Derived from ban and unban facts, which come from VRChat's group audit log. It therefore covers the period since this deployment first synced, bounded by whatever VRChat's own audit-log retention still held at that moment — a group with three years of bans and a week-old Modbot has a week of them here.\n\n`coverage` carries that window and callers must show it. A full ban list needs a sweep of groups.bans, which is not built.\n\nNeeds the `ViewAuditLog` permission.",
         "operationId": "GetBanList",
         "parameters": [
           {
@@ -8575,8 +8587,8 @@
         "tags": [
           "Analytics"
         ],
-        "summary": "My Group: is the community growing or shrinking, and what changed?",
-        "description": "Member count over time, joins and leaves per day, net change, roles, how long current members have been members, and whether invites turn into joins. Daily series come from modbot_daily_total, which is never aged out; the headcount, role changes, tenure and invite follow-up come from the fact log, which a retention window can shorten. `coverage` reports both ranges.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "Get group analytics",
+        "description": "My Group: is the community growing or shrinking, and what changed? Member count over time, joins and leaves per day, net change, roles, how long current members have been members, and whether invites turn into joins. Daily series come from modbot_daily_total, which is never aged out; the headcount, role changes, tenure and invite follow-up come from the fact log, which a retention window can shorten. `coverage` reports both ranges.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetGroupAnalytics",
         "parameters": [
           {
@@ -8658,7 +8670,7 @@
         "tags": [
           "Analytics"
         ],
-        "summary": "My Group: the member count and online member count, reading by reading.",
+        "summary": "Get member count",
         "description": "Every reading the group-info sync took of VRChat's memberCount and onlineMemberCount, about one every five minutes, over the last `day`, `week` (the default), `month` or `all` recorded time. Long ranges are thinned to at most about 500 points: the window is cut into equal steps and the last reading in each is kept, so every point is a number VRChat reported at the time given. Time from before the first stored reading comes from group-info facts, one point per day. Readings older than the presence retention window are deleted when one is set.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetGroupMemberCount",
         "parameters": [
@@ -8713,8 +8725,8 @@
         "tags": [
           "Analytics"
         ],
-        "summary": "My Server: is the Discord server healthy, and who keeps it going?",
-        "description": "Discord's member count, joins and leaves, messages and voice minutes per day, people active each day and over the week and thirty days before it, the busiest channels and hours (UTC), moderation actions, the people who sent the most, new members who stayed after 7 and 30 days, and member health now: how many members were active in the last thirty days and who went quiet. Active means sent a message or spent time in voice; bots are left out. Series come from daily totals.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "Get server analytics",
+        "description": "My Server: is the Discord server healthy, and who keeps it going? Discord's member count, joins and leaves, messages and voice minutes per day, people active each day and over the week and thirty days before it, the busiest channels and hours (UTC), moderation actions, the people who sent the most, new members who stayed after 7 and 30 days, and member health now: how many members were active in the last thirty days and who went quiet. Active means sent a message or spent time in voice; bots are left out. Series come from daily totals.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetServerAnalytics",
         "parameters": [
           {
@@ -8796,8 +8808,8 @@
         "tags": [
           "Analytics"
         ],
-        "summary": "My Team: who is doing the moderation work, and when is nobody covering?",
-        "description": "Actions per moderator broken down by kind and over time, from daily totals; and coverage gaps -- stretches when people were in a group instance and no moderator was, computed from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "Get team analytics",
+        "description": "My Team: who is doing the moderation work, and when is nobody covering? Actions per moderator broken down by kind and over time, from daily totals; and coverage gaps -- stretches when people were in a group instance and no moderator was, computed from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetTeamAnalytics",
         "parameters": [
           {
@@ -8879,8 +8891,8 @@
         "tags": [
           "Analytics"
         ],
-        "summary": "Worlds: which of our worlds actually get used?",
-        "description": "Time people were seen in each world, distinct visitors and instances opened, plus visitors per day per world from daily totals. Time and visitors come from presence reports, which exist only while a moderator's companion is in the instance.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "Get world analytics",
+        "description": "Worlds: which of our worlds actually get used? Time people were seen in each world, distinct visitors and instances opened, plus visitors per day per world from daily totals. Time and visitors come from presence reports, which exist only while a moderator's companion is in the instance.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetWorldsAnalytics",
         "parameters": [
           {
@@ -8962,8 +8974,8 @@
         "tags": [
           "Analytics"
         ],
-        "summary": "Instances: when is the community actually active?",
-        "description": "Instances opened and closed per day (daily totals), most open at once and the most people seen in one instance per day, how long instances typically stay open, and an hour-of-week heatmap of arrivals and openings. Hours are UTC; the page shifts them to the viewer's time zone.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "Get instance analytics",
+        "description": "Instances: when is the community actually active? Instances opened and closed per day (daily totals), most open at once and the most people seen in one instance per day, how long instances typically stay open, and an hour-of-week heatmap of arrivals and openings. Hours are UTC; the page shifts them to the viewer's time zone.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetInstancesAnalytics",
         "parameters": [
           {
@@ -9045,8 +9057,8 @@
         "tags": [
           "Health"
         ],
-        "summary": "Whether Modbot is reaching VRChat, and whether that is a problem",
-        "description": "`status` is the load-bearing field. RateLimited and WafBlocked both stop traffic and look identical from outside, and they mean opposite things: a cold stop is spec 4.3.1 working as designed and recovers on its own, while a WAF block needs an egress proxy and will not clear by itself.\n\nAvailable to any signed-in account. A moderator whose action did nothing needs to be able to tell waiting from broken.",
+        "summary": "Get VRChat gate health",
+        "description": "Whether Modbot is reaching VRChat, and whether that is a problem. `status` is the load-bearing field. RateLimited and WafBlocked both stop traffic and look identical from outside, and they mean opposite things: a cold stop is spec 4.3.1 working as designed and recovers on its own, while a WAF block needs an egress proxy and will not clear by itself.\n\nAvailable to any signed-in account. A moderator whose action did nothing needs to be able to tell waiting from broken.",
         "operationId": "GetGateHealth",
         "responses": {
           "200": {
@@ -9078,8 +9090,8 @@
         "tags": [
           "Health"
         ],
-        "summary": "Processor use, memory and disk activity over the last half hour",
-        "description": "Every figure is this server's own use of the machine, not the whole machine's: in a container that is what the operator sized and pays for, and it is the only thing Modbot can measure without being told about its host.\n\nA figure is null on a host where it cannot be read honestly — the disk counters are Linux-only, and a memory limit exists only where something sets one. Null means unavailable, never zero.\n\nReadings are kept in memory only. Nothing here is stored, and the window is empty for the first few seconds after a restart: processor use and disk activity are rates, and a rate needs two readings.\n\nNeeds the `ViewOperationalLog` permission.",
+        "summary": "Get machine usage",
+        "description": "Processor use, memory and disk activity over the last half hour. Every figure is this server's own use of the machine, not the whole machine's: in a container that is what the operator sized and pays for, and it is the only thing Modbot can measure without being told about its host.\n\nA figure is null on a host where it cannot be read honestly — the disk counters are Linux-only, and a memory limit exists only where something sets one. Null means unavailable, never zero.\n\nReadings are kept in memory only. Nothing here is stored, and the window is empty for the first few seconds after a restart: processor use and disk activity are rates, and a rate needs two readings.\n\nNeeds the `ViewOperationalLog` permission.",
         "operationId": "GetMachineUsage",
         "responses": {
           "200": {
@@ -9114,8 +9126,8 @@
         "tags": [
           "Logs"
         ],
-        "summary": "Modbot's own log, newest first",
-        "description": "`level` is the lowest level shown, so `Warning` gives warnings, errors and fatal lines. `text` matches the message and the exception, anywhere in either.\n\nOutbound API traffic is not in this table. It is written to `modbot_log_http_*.jsonl` and to Seq, and there is far too much of it to keep for six months in the database.\n\nNeeds the `ViewOperationalLog` permission.",
+        "summary": "List log lines",
+        "description": "Modbot's own log, newest first. `level` is the lowest level shown, so `Warning` gives warnings, errors and fatal lines. `text` matches the message and the exception, anywhere in either.\n\nOutbound API traffic is not in this table. It is written to `modbot_log_http_*.jsonl` and to Seq, and there is far too much of it to keep for six months in the database.\n\nNeeds the `ViewOperationalLog` permission.",
         "operationId": "GetLogs",
         "parameters": [
           {
@@ -9220,8 +9232,8 @@
         "tags": [
           "Logs"
         ],
-        "summary": "The sources and areas that have written a line, and how many are stored",
-        "description": "Needs the `ViewOperationalLog` permission.",
+        "summary": "Get log filters",
+        "description": "The sources and areas that have written a line, and how many are stored.\n\nNeeds the `ViewOperationalLog` permission.",
         "operationId": "GetLogFilters",
         "responses": {
           "200": {
@@ -9256,8 +9268,8 @@
         "tags": [
           "Logs"
         ],
-        "summary": "How long stored log lines are kept, and whether they go to Modbot Cloud",
-        "description": "Needs the `ViewOperationalLog` permission.",
+        "summary": "Get log settings",
+        "description": "How long stored log lines are kept, and whether they go to Modbot Cloud.\n\nNeeds the `ViewOperationalLog` permission.",
         "operationId": "GetLogSettings",
         "responses": {
           "200": {
@@ -9290,8 +9302,8 @@
         "tags": [
           "Logs"
         ],
-        "summary": "Set how long stored log lines are kept, and whether they go to Modbot Cloud",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update log settings",
+        "description": "Set how long stored log lines are kept, and whether they go to Modbot Cloud.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetLogSettings",
         "requestBody": {
           "content": {
@@ -9346,8 +9358,8 @@
         "tags": [
           "Health"
         ],
-        "summary": "What Modbot watches about itself, who is emailed, and what is wrong now",
-        "description": "Needs the `ViewOperationalLog` permission.",
+        "summary": "Get health alerts",
+        "description": "What Modbot watches about itself, who is emailed, and what is wrong now.\n\nNeeds the `ViewOperationalLog` permission.",
         "operationId": "GetHealthAlerts",
         "responses": {
           "200": {
@@ -9380,8 +9392,8 @@
         "tags": [
           "Health"
         ],
-        "summary": "Choose what Modbot watches about itself and who is emailed",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update health alerts",
+        "description": "Choose what Modbot watches about itself and who is emailed.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetHealthAlerts",
         "requestBody": {
           "content": {
@@ -9436,8 +9448,8 @@
         "tags": [
           "Credits"
         ],
-        "summary": "Contributors, sponsors and early adopters, from Modbot Cloud",
-        "description": "`available` is false when this Modbot has Modbot Cloud turned off, or could not reach it. The Credits page shows nothing rather than an error: none of this changes what Modbot does.",
+        "summary": "Get credits",
+        "description": "Contributors, sponsors and early adopters, from Modbot Cloud. `available` is false when this Modbot has Modbot Cloud turned off, or could not reach it. The Credits page shows nothing rather than an error: none of this changes what Modbot does.",
         "operationId": "GetCreditsShowcase",
         "responses": {
           "200": {
@@ -9469,8 +9481,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "The configured evidence backend, its health, and what it is holding",
-        "description": "Counts and bytes come from the blob record rather than from listing the store, because LIST is slow everywhere and billed on some providers. The S3 secret is never returned; secretStored says only whether one is on file.",
+        "summary": "Get evidence settings",
+        "description": "The configured evidence backend, its health, and what it is holding. Counts and bytes come from the blob record rather than from listing the store, because LIST is slow everywhere and billed on some providers. The S3 secret is never returned; secretStored says only whether one is on file.",
         "operationId": "GetEvidenceSettings",
         "responses": {
           "200": {
@@ -9505,7 +9517,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Run the setup check without saving anything",
+        "summary": "Test evidence store",
         "description": "Writes a test file, reads it back, compares the bytes, promotes it to its content-addressed key, reads it again, deletes it, and writes the store store marker. Nothing is persisted. Leave secretAccessKey empty to test with the credential already on file.",
         "operationId": "TestEvidenceStore",
         "requestBody": {
@@ -9551,7 +9563,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Save a backend, once it has passed the round trip",
+        "summary": "Set evidence backend",
         "description": "The round trip runs first and the row changes only if it passed, so a backend that cannot store evidence cannot be selected. Choosing the filesystem backend on a directory Modbot cannot prove survives a restart returns requiresAcknowledgement with the warning to show; echo that text back in acknowledgeWarning to proceed, and it is recorded verbatim against your name. Switching backends while objects are stored is refused: changing the setting does not move them.",
         "operationId": "SetEvidenceBackend",
         "requestBody": {
@@ -9597,8 +9609,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Per-file, per-report and per-deployment caps, and direct delivery",
-        "description": "No round trip: none of these repoints a store. Zero means no limit on the two totals; the per-file cap is enforced three times and cannot be zero.",
+        "summary": "Set evidence limits",
+        "description": "Per-file, per-report and per-deployment caps, and direct delivery. No round trip: none of these repoints a store. Zero means no limit on the two totals; the per-file cap is enforced three times and cannot be zero.",
         "operationId": "SetEvidenceLimits",
         "requestBody": {
           "content": {
@@ -9653,7 +9665,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Re-read the store marker now",
+        "summary": "Check the store marker",
         "description": "The same three-valued probe startup takes. A store that answers with somebody else's store marker, or with none, locks; a store that does not answer at all does not, because silence is not evidence of loss.",
         "operationId": "ProbeEvidenceStore",
         "responses": {
@@ -9689,8 +9701,8 @@
         "tags": [
           "Evidence"
         ],
-        "summary": "Phase 1: reserve an upload and find out where the bytes go",
-        "description": "Returns the cap in force, the accepted formats so the client can filter before a byte moves, and a target. On a store that can be written to directly the target is a presigned PUT straight to the bucket; otherwise it is Modbot's own transfer endpoint. That is a capability difference, not a failure.\n\nNeeds the `UploadEvidence` permission.",
+        "summary": "Start an upload",
+        "description": "Phase 1: reserve an upload and find out where the bytes go. Returns the cap in force, the accepted formats so the client can filter before a byte moves, and a target. On a store that can be written to directly the target is a presigned PUT straight to the bucket; otherwise it is Modbot's own transfer endpoint. That is a capability difference, not a failure.\n\nNeeds the `UploadEvidence` permission.",
         "operationId": "BeginEvidenceUpload",
         "requestBody": {
           "content": {
@@ -9755,8 +9767,8 @@
         "tags": [
           "Evidence"
         ],
-        "summary": "Phase 2: send the bytes, as a raw body",
-        "description": "The body is the file and nothing else — no form encoding. The cap is enforced against bytes actually seen rather than against Content-Length, because Content-Length is a claim and a chunked body makes none. Retrying the same upload id overwrites its staging object rather than accumulating a second one.\n\nNeeds the `UploadEvidence` permission.",
+        "summary": "Send the bytes",
+        "description": "Phase 2: send the bytes, as a raw body. The body is the file and nothing else — no form encoding. The cap is enforced against bytes actually seen rather than against Content-Length, because Content-Length is a claim and a chunked body makes none. Retrying the same upload id overwrites its staging object rather than accumulating a second one.\n\nNeeds the `UploadEvidence` permission.",
         "operationId": "TransferEvidence",
         "parameters": [
           {
@@ -9831,8 +9843,8 @@
         "tags": [
           "Evidence"
         ],
-        "summary": "Phase 3: hash it, decide what it is, and attach it",
-        "description": "Modbot reads the staged bytes back, hashes them, decides the content type from the bytes themselves — never from the filename and never from what the client claimed — checks the size that was actually stored, promotes the object to its content-addressed key and only then writes the metadata. SVG and HTML are refused outright. Idempotent on the upload id.\n\nNeeds the `UploadEvidence` permission.",
+        "summary": "Finish the upload",
+        "description": "Phase 3: hash it, decide what it is, and attach it. Modbot reads the staged bytes back, hashes them, decides the content type from the bytes themselves — never from the filename and never from what the client claimed — checks the size that was actually stored, promotes the object to its content-addressed key and only then writes the metadata. SVG and HTML are refused outright. Idempotent on the upload id.\n\nNeeds the `UploadEvidence` permission.",
         "operationId": "CommitEvidenceUpload",
         "parameters": [
           {
@@ -9937,8 +9949,8 @@
         "tags": [
           "Evidence"
         ],
-        "summary": "What is attached to a case file",
-        "description": "Answered entirely from the blob record, so listing evidence costs the store no request and no egress. Destroyed items are listed too, because a case file that looks like it never had evidence is indistinguishable from one nobody ever documented.\n\nNeeds the `ViewEvidence` permission.",
+        "summary": "List evidence",
+        "description": "What is attached to a case file. Answered entirely from the blob record, so listing evidence costs the store no request and no egress. Destroyed items are listed too, because a case file that looks like it never had evidence is indistinguishable from one nobody ever documented.\n\nNeeds the `ViewEvidence` permission.",
         "operationId": "ListEvidence",
         "parameters": [
           {
@@ -9985,8 +9997,8 @@
         "tags": [
           "Evidence"
         ],
-        "summary": "Everything about a piece of evidence except its bytes",
-        "description": "Needs the `ViewEvidence` permission.",
+        "summary": "Get evidence details",
+        "description": "Everything about a piece of evidence except its bytes.\n\nNeeds the `ViewEvidence` permission.",
         "operationId": "GetEvidenceMetadata",
         "parameters": [
           {
@@ -10043,7 +10055,7 @@
         "tags": [
           "Evidence"
         ],
-        "summary": "The bytes, as an attachment",
+        "summary": "Download evidence",
         "description": "Served with Content-Disposition: attachment, the content type Modbot determined from the bytes themselves, X-Content-Type-Options: nosniff and a sandbox CSP. On a store that can presign and with direct delivery on, this redirects to a five-minute URL and the bucket serves the bytes; otherwise they stream through Modbot and are re-hashed on the way past. Range requests are answered where the backend supports them, because that is what makes video seeking work.\n\nNeeds the `ViewEvidence` permission.",
         "operationId": "GetEvidence",
         "parameters": [
@@ -10116,7 +10128,7 @@
         "tags": [
           "Evidence"
         ],
-        "summary": "Delete the bytes permanently, keeping the record that they existed",
+        "summary": "Destroy evidence",
         "description": "Refcounted: content addressing means two case files can cite one object, so the reports still referencing these bytes are named back rather than having their evidence quietly removed. There is no undo — no backend Modbot supports could implement one — and what survives is the hash, the size, the type, who destroyed it and why.\n\nNeeds the `DestroyEvidence` permission.",
         "operationId": "DestroyEvidence",
         "parameters": [
@@ -10204,7 +10216,7 @@
         "tags": [
           "VRChat users"
         ],
-        "summary": "What Modbot has stored about one VRChat user, and how old it is",
+        "summary": "Get VRChat profile",
         "description": "The profile as of `lastRefreshedAt`, never fresher. `stale` says whether it is older than the sync's own threshold. `eighteenPlus` is Modbot's sticky flag: true once the person has ever been seen as 18+ verified, cleared only by a moderator -- it can disagree with `ageVerificationStatusLastSeen`, and that is the point. `refresh.pending` is true while a refresh is queued or in flight; poll this endpoint until `lastRefreshedAt` moves or `refresh.pending` clears.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetVRChatUserProfile",
         "parameters": [
@@ -10260,8 +10272,8 @@
         "tags": [
           "VRChat users"
         ],
-        "summary": "How long this person has been seen in world, where, and how often",
-        "description": "Computed from the companion's presence reports, so it only covers time a moderator's client was in the same instance. Somebody who has never shared an instance with the client reads as nothing here, which is not the same as never having been in one — and the screen says so.\n\nGated on ViewProfile rather than ViewAnalytics: this is one person's own record rather than an aggregate, and it sits beside the rest of their profile.\n\nNeeds the `ViewProfile` permission.",
+        "summary": "Get time in world",
+        "description": "How long this person has been seen in world, where, and how often. Computed from the companion's presence reports, so it only covers time a moderator's client was in the same instance. Somebody who has never shared an instance with the client reads as nothing here, which is not the same as never having been in one — and the screen says so.\n\nGated on ViewProfile rather than ViewAnalytics: this is one person's own record rather than an aggregate, and it sits beside the rest of their profile.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetVRChatUserMetrics",
         "parameters": [
           {
@@ -10316,7 +10328,7 @@
         "tags": [
           "VRChat users"
         ],
-        "summary": "Ask for this person's profile to be refreshed as soon as possible",
+        "summary": "Refresh a profile",
         "description": "Queues one request at the 'opened in Modbot' tier, behind only people seen in an instance right now. Answers immediately; the refresh happens on the users lane at its own pace. A profile fetched within the fresh-enough gap is not queued again, so a screen may call this on every open without spending the lane.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "RequestVRChatUserRefresh",
         "parameters": [
@@ -10372,7 +10384,7 @@
         "tags": [
           "VRChat users"
         ],
-        "summary": "Set or clear the 18+ verified flag by hand",
+        "summary": "Set 18+ flag",
         "description": "The only way the flag is ever cleared: a sync sets it and never clears it, because VRChat users can hide their verification again and hidden is not unverified. Recorded as a fact naming the account that made the change and carrying the reason given. Setting it again to the value it already has changes nothing and records nothing.\n\nNeeds the `EditAgeVerification` permission.",
         "operationId": "SetVRChatUserAgeVerified",
         "parameters": [
@@ -10438,7 +10450,7 @@
         "tags": [
           "VRChat users"
         ],
-        "summary": "This person's profile as it stood after each recorded change, newest first",
+        "summary": "Get profile history",
         "description": "Replayed from the profile facts: the newest version is the profile as stored now, and each earlier one has that change's old values put back. `factId` is the audit log entry that recorded the change. The oldest version is marked `baseline` when it is the first sighting Modbot recorded.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetVRChatUserHistory",
         "parameters": [
@@ -10494,7 +10506,7 @@
         "tags": [
           "VRChat users"
         ],
-        "summary": "The bodies VRChat last sent for this person, as stored",
+        "summary": "Get raw profile",
         "description": "The public profile and the full user object, each as VRChat returned it on the last successful read. The user object is stored without instance locations, the account's private note and the friend key, which Modbot never keeps.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetVRChatUserRaw",
         "parameters": [
@@ -10550,7 +10562,7 @@
         "tags": [
           "People"
         ],
-        "summary": "One person's VRChat, Discord and Modbot accounts, from any one of them",
+        "summary": "Look up a person",
         "description": "Give exactly one of `vrchatUserId`, `discordUserId` or `accountId`. The answer carries every account Modbot can tie to it, each with `foundBy` saying what tied it: `asked` for the one you gave, `link` for the proved Discord account link, `account` for an id recorded on a Modbot account.\n\nNothing is guessed. Accounts are tied only by the proved link and by the ids written on a Modbot account; display names are never compared and an id's shape is never read. An account that ties to nothing answers with itself and nulls, which is the honest answer rather than an error.\n\nEach part needs the permission that already shows it elsewhere: the Discord side and the VRChat display name need ViewProfile, the Discord display name needs ViewMembers, and the Modbot account needs ViewOperationalLog or ManageUsers. A part you may not see is left null; `canSeeAccount` says whether a null Modbot account means there is none or that you may not be told.",
         "operationId": "GetPerson",
         "parameters": [
@@ -10617,8 +10629,8 @@
         "tags": [
           "Places"
         ],
-        "summary": "One world: what its page said, the instances that have run in it, and how busy it was",
-        "description": "Read from Modbot's own tables; nothing here calls VRChat. `known` is false when Modbot has only ever seen the id. `name` is null when the world page has not been read yet — ordinary for a few minutes after a new world turns up, and permanent for a private or deleted one. Time and visitors come from the desktop client's presence reports and exist only while a moderator's client was in the instance; instances opened come from the group's own instance list and are complete.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "Get world",
+        "description": "One world: what its page said, the instances that have run in it, and how busy it was. Read from Modbot's own tables; nothing here calls VRChat. `known` is false when Modbot has only ever seen the id. `name` is null when the world page has not been read yet — ordinary for a few minutes after a new world turns up, and permanent for a private or deleted one. Time and visitors come from the desktop client's presence reports and exist only while a moderator's client was in the instance; instances opened come from the group's own instance list and are complete.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetWorld",
         "parameters": [
           {
@@ -10673,8 +10685,8 @@
         "tags": [
           "Places"
         ],
-        "summary": "One instance: where it was, when, how busy, who was in it and what happened there",
-        "description": "The id is Modbot's own, not VRChat's number — VRChat hands the same number out again after an instance closes, so two evenings under one number are two instances.\n\nWho was in the instance and the facts recorded there need ViewAuditLog as well: that is moderation history (spec 5.9.4), while the instance's own shape is not. Without it `canSeeWhoWasThere` is false and both lists are empty.\n\nNeeds the `ViewAnalytics` permission.",
+        "summary": "Get instance",
+        "description": "One instance: where it was, when, how busy, who was in it and what happened there. The id is Modbot's own, not VRChat's number — VRChat hands the same number out again after an instance closes, so two evenings under one number are two instances.\n\nWho was in the instance and the facts recorded there need ViewAuditLog as well: that is moderation history (spec 5.9.4), while the instance's own shape is not. Without it `canSeeWhoWasThere` is false and both lists are empty.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetInstance",
         "parameters": [
           {
@@ -10730,7 +10742,7 @@
         "tags": [
           "Live"
         ],
-        "summary": "The group's open instances right now, and who is in each",
+        "summary": "List live instances",
         "description": "Read from Modbot's own tables; nothing here calls VRChat. Every open group instance is listed with its head count whether or not a moderator is in it. `people` is filled only while a moderator's client is watching; otherwise `lastSeen` holds who was there when watching last stopped, at `lastWatchedAt`.\n\nNeeds the `ViewLiveInstances` permission.",
         "operationId": "GetLiveInstances",
         "responses": {
@@ -10766,8 +10778,8 @@
         "tags": [
           "Chat"
         ],
-        "summary": "Whether Chat answers, the model it uses, and your conversations, newest first",
-        "description": "Needs the `UseAiChat` permission.",
+        "summary": "Get chat",
+        "description": "Whether Chat answers, the model it uses, and your conversations, newest first.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "GetChat",
         "responses": {
           "200": {
@@ -10802,8 +10814,8 @@
         "tags": [
           "Chat"
         ],
-        "summary": "One of your conversations, the version being read, in order",
-        "description": "Needs the `UseAiChat` permission.",
+        "summary": "Get conversation",
+        "description": "One of your conversations, the version being read, in order.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "GetChatConversation",
         "parameters": [
           {
@@ -10857,8 +10869,8 @@
         "tags": [
           "Chat"
         ],
-        "summary": "Delete one of your conversations",
-        "description": "Needs the `UseAiChat` permission.",
+        "summary": "Delete conversation",
+        "description": "Delete one of your conversations.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "DeleteChatConversation",
         "parameters": [
           {
@@ -10907,8 +10919,8 @@
         "tags": [
           "Chat"
         ],
-        "summary": "Rename one of your conversations",
-        "description": "Needs the `UseAiChat` permission.",
+        "summary": "Rename conversation",
+        "description": "Rename one of your conversations.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "RenameChatConversation",
         "parameters": [
           {
@@ -10984,8 +10996,8 @@
         "tags": [
           "Chat"
         ],
-        "summary": "Read another version of a message, and the reply that followed it",
-        "description": "Needs the `UseAiChat` permission.",
+        "summary": "Read another version",
+        "description": "Read another version of a message, and the reply that followed it.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "ReadChatVersion",
         "parameters": [
           {
@@ -11051,8 +11063,8 @@
         "tags": [
           "Chat"
         ],
-        "summary": "What this conversation has used and cost, every version of it included",
-        "description": "Needs the `UseAiChat` permission.",
+        "summary": "Get conversation spend",
+        "description": "What this conversation has used and cost, every version of it included.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "GetChatConversationSpend",
         "parameters": [
           {
@@ -11108,8 +11120,8 @@
         "tags": [
           "Chat"
         ],
-        "summary": "Ask a question; the reply streams back as server-sent events",
-        "description": "Events: `conversation` {id, title, updatedAt}, sent again at the end when the model named it; `message` for each stored message, the question first; `text` {text} as the reply is written; `tool` {callId, name, label} as a tool starts; `done` {outcome, error} last. Refused before streaming with 400 for an empty or too long message, 404 for a conversation or message that is not yours, 409 when Chat is off or the conversation is full, and 429 when a spend limit is reached.\n\nNeeds the `UseAiChat` permission.",
+        "summary": "Send chat message",
+        "description": "Ask a question; the reply streams back as server-sent events. Events: `conversation` {id, title, updatedAt}, sent again at the end when the model named it; `message` for each stored message, the question first; `text` {text} as the reply is written; `tool` {callId, name, label} as a tool starts; `done` {outcome, error} last. Refused before streaming with 400 for an empty or too long message, 404 for a conversation or message that is not yours, 409 when Chat is off or the conversation is full, and 429 when a spend limit is reached.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "SendChatMessage",
         "requestBody": {
           "content": {
@@ -11187,8 +11199,8 @@
         "tags": [
           "MCP"
         ],
-        "summary": "What an AI app is asking for, for the sign-in page",
-        "description": "Needs the `UseAiChat` permission.",
+        "summary": "Get sign-in request",
+        "description": "What an AI app is asking for, for the sign-in page.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "DescribeMcpSignIn",
         "responses": {
           "200": {
@@ -11231,8 +11243,8 @@
         "tags": [
           "MCP"
         ],
-        "summary": "Allow or refuse an AI app's sign-in",
-        "description": "Needs the `UseAiChat` permission.",
+        "summary": "Answer sign-in request",
+        "description": "Allow or refuse an AI app's sign-in.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "AnswerMcpSignIn",
         "requestBody": {
           "content": {
@@ -11287,8 +11299,8 @@
         "tags": [
           "MCP"
         ],
-        "summary": "The MCP server's switch, address and tools",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Get MCP settings",
+        "description": "The MCP server's switch, address and tools.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetMcpSettings",
         "responses": {
           "200": {
@@ -11321,8 +11333,8 @@
         "tags": [
           "MCP"
         ],
-        "summary": "Turn the MCP server on or off",
-        "description": "Needs the `ManageSettings` permission.",
+        "summary": "Update MCP settings",
+        "description": "Turn the MCP server on or off.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetMcpSettings",
         "requestBody": {
           "content": {
@@ -11367,7 +11379,8 @@
         "tags": [
           "MCP"
         ],
-        "summary": "The AI apps connected to your account through the MCP server",
+        "summary": "List MCP connections",
+        "description": "The AI apps connected to your account through the MCP server.",
         "operationId": "ListMcpConnections",
         "responses": {
           "200": {
@@ -11399,7 +11412,8 @@
         "tags": [
           "MCP"
         ],
-        "summary": "Disconnect an AI app. Its tokens stop working on their next request.",
+        "summary": "Disconnect an AI app",
+        "description": "Disconnect an AI app. Its tokens stop working on their next request.",
         "operationId": "RevokeMcpConnection",
         "parameters": [
           {
@@ -11445,8 +11459,8 @@
         "tags": [
           "Webhooks"
         ],
-        "summary": "Every webhook, with its delivery state. Never the secret.",
-        "description": "Needs the `ManageApiKeys` permission.",
+        "summary": "List webhooks",
+        "description": "Every webhook, with its delivery state. Never the secret.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "ListWebhooks",
         "responses": {
           "200": {
@@ -11479,7 +11493,7 @@
         "tags": [
           "Webhooks"
         ],
-        "summary": "Set up a webhook",
+        "summary": "Add webhook",
         "description": "The response carries the signing secret. It is shown this once.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "CreateWebhook",
         "requestBody": {
@@ -11535,8 +11549,8 @@
         "tags": [
           "Webhooks"
         ],
-        "summary": "Change a webhook, or turn it on or off",
-        "description": "Needs the `ManageApiKeys` permission.",
+        "summary": "Update webhook",
+        "description": "Change a webhook, or turn it on or off.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "UpdateWebhook",
         "parameters": [
           {
@@ -11610,8 +11624,8 @@
         "tags": [
           "Webhooks"
         ],
-        "summary": "Delete a webhook and its delivery log",
-        "description": "Needs the `ManageApiKeys` permission.",
+        "summary": "Delete webhook",
+        "description": "Delete a webhook and its delivery log.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "DeleteWebhook",
         "parameters": [
           {
@@ -11660,8 +11674,8 @@
         "tags": [
           "Webhooks"
         ],
-        "summary": "Make a new signing secret. The old one stops being used at once.",
-        "description": "Needs the `ManageApiKeys` permission.",
+        "summary": "Replace webhook secret",
+        "description": "Make a new signing secret. The old one stops being used at once.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "RollWebhookSecret",
         "parameters": [
           {
@@ -11717,8 +11731,8 @@
         "tags": [
           "Webhooks"
         ],
-        "summary": "Send a modbot.webhook.test event now and say what came back",
-        "description": "Needs the `ManageApiKeys` permission.",
+        "summary": "Test webhook",
+        "description": "Send a modbot.webhook.test event now and say what came back.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "TestWebhook",
         "parameters": [
           {
@@ -11774,8 +11788,8 @@
         "tags": [
           "Webhooks"
         ],
-        "summary": "The last attempts to deliver to a webhook, newest first",
-        "description": "Needs the `ManageApiKeys` permission.",
+        "summary": "List webhook deliveries",
+        "description": "The last attempts to deliver to a webhook, newest first.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "ListWebhookDeliveries",
         "parameters": [
           {
@@ -11834,8 +11848,8 @@
         "tags": [
           "Repeat offenders"
         ],
-        "summary": "People acted on more than once, most recent action first",
-        "description": "Per person: instance kicks, warns, bans, removals from the group and join requests turned away, all time and over the last 30 and 90 days; how many different moderators acted; the first and last action; and a status decided by the rule in `rule`. Rebuilt from the fact log on the daily totals schedule -- `lastRunAt` says when.\n\nNeeds the `ViewProfile` permission.",
+        "summary": "List repeat offenders",
+        "description": "People acted on more than once, most recent action first. Per person: instance kicks, warns, bans, removals from the group and join requests turned away, all time and over the last 30 and 90 days; how many different moderators acted; the first and last action; and a status decided by the rule in `rule`. Rebuilt from the fact log on the daily totals schedule -- `lastRunAt` says when.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "ListRepeatOffenders",
         "parameters": [
           {
@@ -11913,8 +11927,8 @@
         "tags": [
           "Repeat offenders"
         ],
-        "summary": "One person's count of being acted on -- the History block on their pane",
-        "description": "The id goes in the query string, never the path: VRChat ids are opaque and a legacy one can contain anything. `known` is false when nobody has ever acted on them.\n\nNeeds the `ViewProfile` permission.",
+        "summary": "Get a person's history",
+        "description": "One person's count of being acted on -- the History block on their pane. The id goes in the query string, never the path: VRChat ids are opaque and a legacy one can contain anything. `known` is false when nobody has ever acted on them.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetSubjectHistory",
         "parameters": [
           {
@@ -11969,8 +11983,8 @@
         "tags": [
           "Reviews"
         ],
-        "summary": "Reviews of a moderator's pattern: open by default, or closed, or all",
-        "description": "Detection opens a review when one moderator keeps acting on one person across instances where nobody else has, or does far more in a day than the rest of the team. Every review carries the numbers it was opened on and the fact ids behind them. It is a question for a person, never a finding: closing one records who answered and what they said, and is itself a fact.\n\nNeeds the `ReviewTickets` permission.",
+        "summary": "List reviews",
+        "description": "Reviews of a moderator's pattern: open by default, or closed, or all. Detection opens a review when one moderator keeps acting on one person across instances where nobody else has, or does far more in a day than the rest of the team. Every review carries the numbers it was opened on and the fact ids behind them. It is a question for a person, never a finding: closing one records who answered and what they said, and is itself a fact.\n\nNeeds the `ReviewTickets` permission.",
         "operationId": "ListReviews",
         "parameters": [
           {
@@ -12024,8 +12038,8 @@
         "tags": [
           "Reviews"
         ],
-        "summary": "How many reviews are waiting -- the number on the nav badge",
-        "description": "Needs the `ReviewTickets` permission.",
+        "summary": "Count open reviews",
+        "description": "How many reviews are waiting -- the number on the nav badge.\n\nNeeds the `ReviewTickets` permission.",
         "operationId": "CountOpenReviews",
         "responses": {
           "200": {
@@ -12060,7 +12074,7 @@
         "tags": [
           "Reviews"
         ],
-        "summary": "Close a review with a note saying what you concluded",
+        "summary": "Close a review",
         "description": "The note is required and is kept with the review and in the fact log against your account. Closing does not judge the moderator either way; it records that a person looked. Detection will not reopen a closed review on the same facts -- only on new ones after it was closed.\n\nNeeds the `ReviewTickets` permission.",
         "operationId": "CloseReview",
         "parameters": [
@@ -12147,8 +12161,8 @@
         "tags": [
           "Members"
         ],
-        "summary": "The group's member list, as last swept, with search",
-        "description": "Current members by default; `status=left` shows people a full sweep no longer listed, `status=all` both. `search` matches the display name and the id, case-insensitively. `role` is a role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. Sorted by join date, newest first, unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without; both need See profiles, as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list to people who joined inside that stretch, which is what an unusual-activity alert links to; `seenFrom` and `seenTo` do the same for when Modbot last saw them. `eighteenPlus` and `representing` are true or false; `profile` is `fetched` or `not-fetched`.\n\n`roles` lists the group's roles with how many current members hold each.\n\n`coverage.firstSweepComplete` is false until the first full sweep has finished; the list is partial until then. Names and pictures come from the profile sync and are null for people it has not fetched yet.\n\nNeeds the `ViewMembers` permission.",
+        "summary": "List members",
+        "description": "The group's member list, as last swept, with search. Current members by default; `status=left` shows people a full sweep no longer listed, `status=all` both. `search` matches the display name and the id, case-insensitively. `role` is a role id and may be repeated: people holding any of them. `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. Sorted by join date, newest first, unless `sort=name` or `sort=seen`. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without; both need See profiles, as does `linkedDiscord` on each row. `joinedFrom` and `joinedTo` narrow the list to people who joined inside that stretch, which is what an unusual-activity alert links to; `seenFrom` and `seenTo` do the same for when Modbot last saw them. `eighteenPlus` and `representing` are true or false; `profile` is `fetched` or `not-fetched`.\n\n`roles` lists the group's roles with how many current members hold each.\n\n`coverage.firstSweepComplete` is false until the first full sweep has finished; the list is partial until then. Names and pictures come from the profile sync and are null for people it has not fetched yet.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetMembers",
         "parameters": [
           {
@@ -12327,7 +12341,7 @@
         "tags": [
           "Members"
         ],
-        "summary": "One person's membership and ban standing",
+        "summary": "Get membership",
         "description": "Whether they are a member now, with which roles and since when; whether the ban list holds them; and how fresh both answers are. `known` is false when no sweep has ever listed them as a member.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetMembership",
         "parameters": [
@@ -12383,8 +12397,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "The reasons a moderator picks from when writing up a ban",
-        "description": "In button order, switched-off ones included with isActive false. Seeded with a plain default set the first time anybody asks, so the first case file can be written without inventing a list first.",
+        "summary": "List ban reasons",
+        "description": "The reasons a moderator picks from when writing up a ban. In button order, switched-off ones included with isActive false. Seeded with a plain default set the first time anybody asks, so the first case file can be written without inventing a list first.",
         "operationId": "GetBanReasons",
         "responses": {
           "200": {
@@ -12414,8 +12428,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Add a reason to the end of the list",
-        "description": "Needs the `EditClassifications` permission.",
+        "summary": "Add ban reason",
+        "description": "Add a reason to the end of the list.\n\nNeeds the `EditClassifications` permission.",
         "operationId": "CreateBanReason",
         "requestBody": {
           "content": {
@@ -12470,8 +12484,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Put the reasons in this order",
-        "description": "Needs the `EditClassifications` permission.",
+        "summary": "Reorder ban reasons",
+        "description": "Put the reasons in this order.\n\nNeeds the `EditClassifications` permission.",
         "operationId": "ReorderBanReasons",
         "requestBody": {
           "content": {
@@ -12526,8 +12540,8 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Reword a reason, or switch it on or off",
-        "description": "There is no delete: case files cite reasons by id, and one that pointed at a reason nobody can name any more would have lost its classification. Switch it off instead; it stays on the case files that picked it and leaves the buttons.\n\nNeeds the `EditClassifications` permission.",
+        "summary": "Update ban reason",
+        "description": "Reword a reason, or switch it on or off. There is no delete: case files cite reasons by id, and one that pointed at a reason nobody can name any more would have lost its classification. Switch it off instead; it stays on the case files that picked it and leaves the buttons.\n\nNeeds the `EditClassifications` permission.",
         "operationId": "UpdateBanReason",
         "parameters": [
           {
@@ -12603,8 +12617,8 @@
         "tags": [
           "Case files"
         ],
-        "summary": "Case files, newest first -- everyone's, or one person's",
-        "description": "Withdrawn case files are left out unless includeWithdrawn is true. Nothing is ever deleted, so a withdrawn one is still there to read; it just no longer counts as the write-up of its ban.\n\nNeeds the `ViewProfile` permission.",
+        "summary": "List case files",
+        "description": "Case files, newest first -- everyone's, or one person's. Withdrawn case files are left out unless includeWithdrawn is true. Nothing is ever deleted, so a withdrawn one is still there to read; it just no longer counts as the write-up of its ban.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "ListCaseFiles",
         "parameters": [
           {
@@ -12677,7 +12691,7 @@
         "tags": [
           "Case files"
         ],
-        "summary": "Write the case file for a ban",
+        "summary": "Add case file",
         "description": "Names the person and, optionally, the audit entry the ban came from; otherwise the newest recorded ban of that person is used, or the ban list's row. Takes the profile snapshot from what Modbot has stored, then asks the profile sync for a fresher copy -- never the other way round, because the write-up must not wait on VRChat. One case file per ban: a second is refused with 409 naming the first. Recorded as a fact against your account.\n\nNeeds the `Ban` permission.",
         "operationId": "CreateCaseFile",
         "requestBody": {
@@ -12763,8 +12777,8 @@
         "tags": [
           "Case files"
         ],
-        "summary": "Bans in the last N days with no case file, newest first",
-        "description": "Read from the recorded ban facts, so it covers the window Modbot's audit-log sync covers and nothing before it. A ban is covered when a case file that stands names its audit entry, or was written for the same person on or after it. A withdrawn case file covers nothing. This is the list the accountability \"bans without a report\" signal reads.\n\nNeeds the `ViewProfile` permission.",
+        "summary": "List unwritten case files",
+        "description": "Bans in the last N days with no case file, newest first. Read from the recorded ban facts, so it covers the window Modbot's audit-log sync covers and nothing before it. A ban is covered when a case file that stands names its audit entry, or was written for the same person on or after it. A withdrawn case file covers nothing. This is the list the accountability \"bans without a report\" signal reads.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "ListUnwrittenCaseFiles",
         "parameters": [
           {
@@ -12825,8 +12839,8 @@
         "tags": [
           "Case files"
         ],
-        "summary": "Whether each of these people has a case file -- the badge beside a ban",
-        "description": "Needs the `ViewProfile` permission.",
+        "summary": "Check for case files",
+        "description": "Whether each of these people has a case file -- the badge beside a ban.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "LookupCaseFiles",
         "parameters": [
           {
@@ -12876,8 +12890,8 @@
         "tags": [
           "Case files"
         ],
-        "summary": "One case file: reasons, the written reason, the evidence, and the profile at the time",
-        "description": "`evidence` is null unless the caller holds ViewEvidence. `snapshot.explanation` says when the profile was captured and how old it was then; the snapshot never changes afterwards except for the one permitted recapture, which `snapshot.canCaptureAgain` offers when a fresher profile has arrived. `evidenceDelivery` repeats what the Settings evidence card says about how bytes travel, so the attach control can say the same thing.\n\nNeeds the `ViewProfile` permission.",
+        "summary": "Get case file",
+        "description": "One case file: reasons, the written reason, the evidence, and the profile at the time. `evidence` is null unless the caller holds ViewEvidence. `snapshot.explanation` says when the profile was captured and how old it was then; the snapshot never changes afterwards except for the one permitted recapture, which `snapshot.canCaptureAgain` offers when a fresher profile has arrived. `evidenceDelivery` repeats what the Settings evidence card says about how bytes travel, so the attach control can say the same thing.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetCaseFile",
         "parameters": [
           {
@@ -12931,8 +12945,8 @@
         "tags": [
           "Case files"
         ],
-        "summary": "Change the reasons or the written reason",
-        "description": "The author, or anyone who may ban. The change is a fact carrying before and after, so the edit history reads back from the log alone. The profile snapshot and the evidence are not touched by this.",
+        "summary": "Update case file",
+        "description": "Change the reasons or the written reason. The author, or anyone who may ban. The change is a fact carrying before and after, so the edit history reads back from the log alone. The profile snapshot and the evidence are not touched by this.",
         "operationId": "UpdateCaseFile",
         "parameters": [
           {
@@ -13028,8 +13042,8 @@
         "tags": [
           "Case files"
         ],
-        "summary": "Mark a case file withdrawn, with a note",
-        "description": "Case files are never deleted. A withdrawn one stays readable, stops counting as the write-up of its ban, and cannot be edited again -- write a new one instead.",
+        "summary": "Withdraw case file",
+        "description": "Mark a case file withdrawn, with a note. Case files are never deleted. A withdrawn one stays readable, stops counting as the write-up of its ban, and cannot be edited again -- write a new one instead.",
         "operationId": "WithdrawCaseFile",
         "parameters": [
           {
@@ -13125,7 +13139,7 @@
         "tags": [
           "Case files"
         ],
-        "summary": "Take the profile snapshot again, once, after a fresher profile has arrived",
+        "summary": "Capture profile again",
         "description": "Allowed once per case file, and only when VRChat has answered with a newer profile since the snapshot was taken. The snapshot it replaces is kept in full in the fact that records this, so the first capture is never lost.",
         "operationId": "CaptureCaseFileProfileAgain",
         "parameters": [
@@ -13202,7 +13216,7 @@
         "tags": [
           "Moderation"
         ],
-        "summary": "Remove a person from the group",
+        "summary": "Kick a person",
         "description": "Only somebody who is in the group can be kicked out of it; VRChat answers a kick of anybody else with \"they are not in the group\". Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once: send the same key again and you get the first answer back, not a second kick.\n\nNeeds the `Kick` permission.",
         "operationId": "KickPerson",
         "requestBody": {
@@ -13278,7 +13292,7 @@
         "tags": [
           "Moderation"
         ],
-        "summary": "Ban a person from the group",
+        "summary": "Ban a person",
         "description": "Works on anybody, member or not: VRChat's group ban takes a user id, so somebody who has never joined can be kept out before they arrive. A person Modbot has never seen is recorded as a person by the ban, and their profile is fetched afterwards. A reason is required, and the ban's case file is written from it and the note. Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once.\n\nNeeds the `Ban` permission.",
         "operationId": "BanPerson",
         "requestBody": {
@@ -13354,7 +13368,7 @@
         "tags": [
           "Moderation"
         ],
-        "summary": "Lift a person's ban",
+        "summary": "Unban a person",
         "description": "There has to be a ban to lift; VRChat answers an unban of anybody who is not banned with \"they are not banned\". Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once.\n\nNeeds the `Unban` permission.",
         "operationId": "UnbanPerson",
         "requestBody": {
@@ -13430,8 +13444,8 @@
         "tags": [
           "Notes"
         ],
-        "summary": "One person's notes, newest first",
-        "description": "platform is VRChat or Discord and defaults to VRChat. Notes that were taken back are listed too and say so; standing counts only the ones that still stand.\n\nNeeds the `ViewAuditLog` permission.",
+        "summary": "List notes",
+        "description": "One person's notes, newest first. platform is VRChat or Discord and defaults to VRChat. Notes that were taken back are listed too and say so; standing counts only the ones that still stand.\n\nNeeds the `ViewAuditLog` permission.",
         "operationId": "ListNotes",
         "parameters": [
           {
@@ -13502,7 +13516,7 @@
         "tags": [
           "Notes"
         ],
-        "summary": "Write a note about a person",
+        "summary": "Add a note",
         "description": "The text is stored and shown as text, never as markup, and is at most 2000 characters. The note is one fact in the moderation log, so it shows in the person's history and can be read by anyone who may read that log.\n\nNeeds the `WriteNotes` permission.",
         "operationId": "WriteNote",
         "requestBody": {
@@ -13568,7 +13582,7 @@
         "tags": [
           "Notes"
         ],
-        "summary": "Take a note back, so it no longer stands",
+        "summary": "Take back a note",
         "description": "Nothing is deleted. The note stays in the log and a second entry records that it was taken back, by whom and when. Open to whoever wrote it, and to anyone who may write notes. Taking back a note that is already taken back changes nothing.",
         "operationId": "TakeBackNote",
         "parameters": [
@@ -13636,7 +13650,7 @@
         "tags": [
           "Requests"
         ],
-        "summary": "The people waiting to be let into the group",
+        "summary": "List join requests",
         "description": "Read from VRChat when you ask, not from a stored copy, so it is the queue as it stands. `page` and `pageSize` page it; `hasMore` is true when the page came back full, because VRChat sends no total for this list. Each row carries what Modbot already knows about the person: their profile, whether the group has banned them before, and whether they have been a member before.\n\nNeeds the `ViewJoinRequests` permission.",
         "operationId": "GetJoinRequests",
         "parameters": [
@@ -13731,8 +13745,8 @@
         "tags": [
           "Requests"
         ],
-        "summary": "Let somebody into the group",
-        "description": "Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once. `gone` is true when the request had already been answered in VRChat: nothing failed, the row was out of date.\n\nNeeds the `AnswerJoinRequests` permission.",
+        "summary": "Approve join request",
+        "description": "Let somebody into the group. Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once. `gone` is true when the request had already been answered in VRChat: nothing failed, the row was out of date.\n\nNeeds the `AnswerJoinRequests` permission.",
         "operationId": "ApproveJoinRequest",
         "requestBody": {
           "content": {
@@ -13807,7 +13821,7 @@
         "tags": [
           "Requests"
         ],
-        "summary": "Turn a join request down",
+        "summary": "Reject join request",
         "description": "The person may ask again; Modbot never blocks them from asking, which is what Ban is for. Nothing is recorded as done unless VRChat accepted it, and `gone` is true when the request had already been answered in VRChat.\n\nNeeds the `AnswerJoinRequests` permission.",
         "operationId": "RejectJoinRequest",
         "requestBody": {
@@ -13883,8 +13897,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "Every event, with its occurrences in the range, where it is published and how that went",
-        "description": "Needs the `ViewCalendar` permission.",
+        "summary": "Get calendar",
+        "description": "Every event, with its occurrences in the range, where it is published and how that went.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "GetCalendar",
         "parameters": [
           {
@@ -13947,8 +13961,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "One event",
-        "description": "Needs the `ViewCalendar` permission.",
+        "summary": "Get calendar event",
+        "description": "One event.\n\nNeeds the `ViewCalendar` permission.",
         "operationId": "GetCalendarEvent",
         "parameters": [
           {
@@ -14002,7 +14016,7 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "Change an event",
+        "summary": "Update calendar event",
         "description": "Publishing follows on its own. Several changes close together are sent to VRChat as one.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "UpdateCalendarEvent",
         "parameters": [
@@ -14087,8 +14101,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "Delete an event. It is taken off everywhere it was published.",
-        "description": "Needs the `ManageCalendar` permission.",
+        "summary": "Delete calendar event",
+        "description": "Delete an event. It is taken off everywhere it was published.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "DeleteCalendarEvent",
         "parameters": [
           {
@@ -14137,8 +14151,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "Plan an event",
-        "description": "Needs the `ManageCalendar` permission.",
+        "summary": "Add calendar event",
+        "description": "Plan an event.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "CreateCalendarEvent",
         "requestBody": {
           "content": {
@@ -14193,8 +14207,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "Cancel an event. It is taken off VRChat's calendar and ended in Discord.",
-        "description": "Needs the `ManageCalendar` permission.",
+        "summary": "Cancel calendar event",
+        "description": "Cancel an event. It is taken off VRChat's calendar and ended in Discord.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "CancelCalendarEvent",
         "parameters": [
           {
@@ -14243,8 +14257,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "Worlds Modbot knows, most recently seen first, to pick an event's world from",
-        "description": "Needs the `ManageCalendar` permission.",
+        "summary": "List worlds for events",
+        "description": "Worlds Modbot knows, most recently seen first, to pick an event's world from.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "ListCalendarWorlds",
         "responses": {
           "200": {
@@ -14282,8 +14296,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "The calendar feed's link, or nulls when none has been made",
-        "description": "Needs the `ManageCalendar` permission.",
+        "summary": "Get calendar feed link",
+        "description": "The calendar feed's link, or nulls when none has been made.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "GetCalendarFeed",
         "responses": {
           "200": {
@@ -14316,8 +14330,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "Make a new calendar feed link. The old one stops working at once.",
-        "description": "Needs the `ManageCalendar` permission.",
+        "summary": "Replace calendar feed link",
+        "description": "Make a new calendar feed link. The old one stops working at once.\n\nNeeds the `ManageCalendar` permission.",
         "operationId": "RegenerateCalendarFeed",
         "responses": {
           "200": {
@@ -14352,7 +14366,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "The calendar feed as iCalendar. No sign-in: the token in the address is the key.",
+        "summary": "Get calendar feed file",
+        "description": "The calendar feed as iCalendar. No sign-in: the token in the address is the key.",
         "operationId": "GetCalendarFeedFile",
         "parameters": [
           {
@@ -14394,7 +14409,8 @@
         "tags": [
           "Calendar"
         ],
-        "summary": "Sends a person on to the open instance of an event, for a Discord event's location",
+        "summary": "Join an event",
+        "description": "Sends a person on to the open instance of an event, for a Discord event's location.",
         "operationId": "JoinCalendarEvent",
         "parameters": [
           {
@@ -14430,8 +14446,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "Every giveaway, newest first, with its rules, its post and its draws",
-        "description": "Needs the `ViewGiveaways` permission.",
+        "summary": "List giveaways",
+        "description": "Every giveaway, newest first, with its rules, its post and its draws.\n\nNeeds the `ViewGiveaways` permission.",
         "operationId": "ListGiveaways",
         "parameters": [
           {
@@ -14483,8 +14499,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "Plan a giveaway",
-        "description": "Needs the `RunGiveaways` permission.",
+        "summary": "Add giveaway",
+        "description": "Plan a giveaway.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "CreateGiveaway",
         "requestBody": {
           "content": {
@@ -14539,8 +14555,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "One giveaway",
-        "description": "Needs the `ViewGiveaways` permission.",
+        "summary": "Get giveaway",
+        "description": "One giveaway.\n\nNeeds the `ViewGiveaways` permission.",
         "operationId": "GetGiveaway",
         "parameters": [
           {
@@ -14594,8 +14610,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "Change a giveaway",
-        "description": "Needs the `RunGiveaways` permission.",
+        "summary": "Update giveaway",
+        "description": "Change a giveaway.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "UpdateGiveaway",
         "parameters": [
           {
@@ -14679,8 +14695,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "Delete a giveaway. Its Discord post is taken down; its draws stay in the audit log.",
-        "description": "Needs the `RunGiveaways` permission.",
+        "summary": "Delete giveaway",
+        "description": "Delete a giveaway. Its Discord post is taken down; its draws stay in the audit log.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "DeleteGiveaway",
         "parameters": [
           {
@@ -14729,7 +14745,7 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "One draw's frozen entrant list, in the order it was drawn from",
+        "summary": "List draw entrants",
         "description": "The list the draw actually ran on, with every weight. With the draw's seed this is everything needed to work the result out again.\n\nNeeds the `ViewGiveaways` permission.",
         "operationId": "ListGiveawayEntrants",
         "parameters": [
@@ -14819,8 +14835,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "The rule kinds, the weightings and the roles a rule can name",
-        "description": "Needs the `RunGiveaways` permission.",
+        "summary": "Get giveaway builder",
+        "description": "The rule kinds, the weightings and the roles a rule can name.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "GetGiveawayBuilder",
         "responses": {
           "200": {
@@ -14855,8 +14871,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "How many people match a rule tree right now, and the first page of them",
-        "description": "Figures counted from presence reports are close rather than exact; `fromPolledData` says when that is so, and `closeCalls` counts the people near a threshold. A rule reaching further back than the facts Modbot still keeps comes back in `unanswerable` instead of an answer.\n\nNeeds the `RunGiveaways` permission.",
+        "summary": "Preview giveaway rules",
+        "description": "How many people match a rule tree right now, and the first page of them. Figures counted from presence reports are close rather than exact; `fromPolledData` says when that is so, and `closeCalls` counts the people near a threshold. A rule reaching further back than the facts Modbot still keeps comes back in `unanswerable` instead of an answer.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "PreviewGiveawayRules",
         "requestBody": {
           "content": {
@@ -14911,8 +14927,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "Open a giveaway for entries",
-        "description": "Needs the `RunGiveaways` permission.",
+        "summary": "Open giveaway",
+        "description": "Open a giveaway for entries.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "OpenGiveaway",
         "parameters": [
           {
@@ -14971,8 +14987,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "Close a giveaway to entries",
-        "description": "Needs the `RunGiveaways` permission.",
+        "summary": "Close giveaway",
+        "description": "Close a giveaway to entries.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "CloseGiveaway",
         "parameters": [
           {
@@ -15031,8 +15047,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "Draw a giveaway. Drawing again makes a new draw beside the old one.",
-        "description": "Freezes the entrant list with every weight, reveals the seed that was promised, and picks the winners from the two. The rules are checked again here, so somebody who qualified when they entered and does not now is shown as such rather than dropped.\n\nNeeds the `RunGiveaways` permission.",
+        "summary": "Draw giveaway",
+        "description": "Draw a giveaway. Drawing again makes a new draw beside the old one. Freezes the entrant list with every weight, reveals the seed that was promised, and picks the winners from the two. The rules are checked again here, so somebody who qualified when they entered and does not now is shown as such rather than dropped.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "DrawGiveaway",
         "parameters": [
           {
@@ -15098,8 +15114,8 @@
         "tags": [
           "Giveaways"
         ],
-        "summary": "Cancel a giveaway. Its Discord post says so and nobody else can enter.",
-        "description": "Needs the `RunGiveaways` permission.",
+        "summary": "Cancel giveaway",
+        "description": "Cancel a giveaway. Its Discord post says so and nobody else can enter.\n\nNeeds the `RunGiveaways` permission.",
         "operationId": "CancelGiveaway",
         "parameters": [
           {

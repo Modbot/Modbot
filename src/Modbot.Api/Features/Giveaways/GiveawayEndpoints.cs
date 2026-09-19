@@ -70,7 +70,8 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewGiveaways)
             .WithName("ListGiveaways")
-            .WithSummary("Every giveaway, newest first, with its rules, its post and its draws")
+            .WithSummary("List giveaways")
+            .WithDescription("Every giveaway, newest first, with its rules, its post and its draws.")
             .Produces<GiveawayListView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -91,7 +92,8 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewGiveaways)
             .WithName("GetGiveaway")
-            .WithSummary("One giveaway")
+            .WithSummary("Get giveaway")
+            .WithDescription("One giveaway.")
             .Produces<GiveawayView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -126,7 +128,7 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewGiveaways)
             .WithName("ListGiveawayEntrants")
-            .WithSummary("One draw's frozen entrant list, in the order it was drawn from")
+            .WithSummary("List draw entrants")
             .WithDescription(
                 "The list the draw actually ran on, with every weight. With the draw's seed this is "
                 + "everything needed to work the result out again.")
@@ -164,7 +166,8 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("GetGiveawayBuilder")
-            .WithSummary("The rule kinds, the weightings and the roles a rule can name")
+            .WithSummary("Get giveaway builder")
+            .WithDescription("The rule kinds, the weightings and the roles a rule can name.")
             .Produces<GiveawayBuilderView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -206,9 +209,10 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("PreviewGiveawayRules")
-            .WithSummary("How many people match a rule tree right now, and the first page of them")
+            .WithSummary("Preview giveaway rules")
             .WithDescription(
-                "Figures counted from presence reports are close rather than exact; `fromPolledData` "
+                "How many people match a rule tree right now, and the first page of them. "
+                + "Figures counted from presence reports are close rather than exact; `fromPolledData` "
                 + "says when that is so, and `closeCalls` counts the people near a threshold. A rule "
                 + "reaching further back than the facts Modbot still keeps comes back in "
                 + "`unanswerable` instead of an answer.")
@@ -263,7 +267,8 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("CreateGiveaway")
-            .WithSummary("Plan a giveaway")
+            .WithSummary("Add giveaway")
+            .WithDescription("Plan a giveaway.")
             .Produces<GiveawayView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -327,7 +332,8 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("UpdateGiveaway")
-            .WithSummary("Change a giveaway")
+            .WithSummary("Update giveaway")
+            .WithDescription("Change a giveaway.")
             .Produces<GiveawayView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -370,7 +376,8 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("OpenGiveaway")
-            .WithSummary("Open a giveaway for entries")
+            .WithSummary("Open giveaway")
+            .WithDescription("Open a giveaway for entries.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
@@ -408,7 +415,8 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("CloseGiveaway")
-            .WithSummary("Close a giveaway to entries")
+            .WithSummary("Close giveaway")
+            .WithDescription("Close a giveaway to entries.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
@@ -435,9 +443,10 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("DrawGiveaway")
-            .WithSummary("Draw a giveaway. Drawing again makes a new draw beside the old one.")
+            .WithSummary("Draw giveaway")
             .WithDescription(
-                "Freezes the entrant list with every weight, reveals the seed that was promised, "
+                "Draw a giveaway. Drawing again makes a new draw beside the old one. "
+                + "Freezes the entrant list with every weight, reveals the seed that was promised, "
                 + "and picks the winners from the two. The rules are checked again here, so "
                 + "somebody who qualified when they entered and does not now is shown as such "
                 + "rather than dropped.")
@@ -478,7 +487,8 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("CancelGiveaway")
-            .WithSummary("Cancel a giveaway. Its Discord post says so and nobody else can enter.")
+            .WithSummary("Cancel giveaway")
+            .WithDescription("Cancel a giveaway. Its Discord post says so and nobody else can enter.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -518,7 +528,9 @@ public static class GiveawayEndpoints
             })
             .RequiresFlag(ModbotPermissions.RunGiveaways)
             .WithName("DeleteGiveaway")
-            .WithSummary("Delete a giveaway. Its Discord post is taken down; its draws stay in the audit log.")
+            .WithSummary("Delete giveaway")
+            .WithDescription(
+                "Delete a giveaway. Its Discord post is taken down; its draws stay in the audit log.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);

@@ -62,9 +62,10 @@ public static class NoteEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAuditLog)
             .WithName("ListNotes")
-            .WithSummary("One person's notes, newest first")
+            .WithSummary("List notes")
             .WithDescription(
-                "platform is VRChat or Discord and defaults to VRChat. Notes that were taken back "
+                "One person's notes, newest first. "
+                + "platform is VRChat or Discord and defaults to VRChat. Notes that were taken back "
                 + "are listed too and say so; standing counts only the ones that still stand.")
             .Produces<NoteListResponse>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -98,7 +99,7 @@ public static class NoteEndpoints
             })
             .RequiresFlag(ModbotPermissions.WriteNotes)
             .WithName("WriteNote")
-            .WithSummary("Write a note about a person")
+            .WithSummary("Add a note")
             .WithDescription(
                 $"The text is stored and shown as text, never as markup, and is at most "
                 + $"{NoteService.MaxTextLength} characters. The note is one fact in the moderation "
@@ -132,7 +133,7 @@ public static class NoteEndpoints
                 }
             })
             .WithName("TakeBackNote")
-            .WithSummary("Take a note back, so it no longer stands")
+            .WithSummary("Take back a note")
             .WithDescription(
                 "Nothing is deleted. The note stays in the log and a second entry records that it "
                 + "was taken back, by whom and when. Open to whoever wrote it, and to anyone who "

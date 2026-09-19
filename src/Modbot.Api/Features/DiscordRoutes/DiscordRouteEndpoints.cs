@@ -166,7 +166,7 @@ public static class DiscordRouteEndpoints
                     people));
             })
             .WithName("ListDiscordRoutes")
-            .WithSummary("The channels events are sent to, and what each can be set to")
+            .WithSummary("List Discord routes")
             .WithDescription(
                 "Every route, in list order, with the event types that may be chosen (grouped, "
                 + "labelled), the group's VRChat roles as last read, Modbot's roles, and names for "
@@ -201,9 +201,10 @@ public static class DiscordRouteEndpoints
                 return Results.Ok(DiscordRouteView.From(route));
             })
             .WithName("CreateDiscordRoute")
-            .WithSummary("Start sending events to a channel")
+            .WithSummary("Add Discord route")
             .WithDescription(
-                "A channel and at least one event type are needed. Sending starts from the moment "
+                "Start sending events to a channel. "
+                + "A channel and at least one event type are needed. Sending starts from the moment "
                 + "it is saved; nothing that happened before is posted.")
             .Produces<DiscordRouteView>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -236,8 +237,10 @@ public static class DiscordRouteEndpoints
                 return Results.Ok(DiscordRouteView.From(route));
             })
             .WithName("UpdateDiscordRoute")
-            .WithSummary("Change a channel's events or filters, or turn it on or off")
-            .WithDescription("Fields left out are left as they are. A list sent empty clears that filter.")
+            .WithSummary("Update Discord route")
+            .WithDescription(
+                "Change a channel's events or filters, or turn it on or off. "
+                + "Fields left out are left as they are. A list sent empty clears that filter.")
             .Produces<DiscordRouteView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -265,7 +268,8 @@ public static class DiscordRouteEndpoints
                 return Results.NoContent();
             })
             .WithName("DeleteDiscordRoute")
-            .WithSummary("Stop sending events to a channel and forget the rule")
+            .WithSummary("Delete Discord route")
+            .WithDescription("Stop sending events to a channel and forget the rule.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -352,9 +356,10 @@ public static class DiscordRouteEndpoints
                 return Results.Ok(new DiscordRoutePeopleResponse(found));
             })
             .WithName("SearchDiscordRoutePeople")
-            .WithSummary("People to pick for a channel's filters, by name or id")
+            .WithSummary("Search people for filters")
             .WithDescription(
-                "Searches the VRChat profiles Modbot has stored, the same way the member list "
+                "People to pick for a channel's filters, by name or id. "
+                + "Searches the VRChat profiles Modbot has stored, the same way the member list "
                 + "searches: case-insensitively on the display name and the id. Also searches the "
                 + "Discord server's members and the Discord accounts members linked, by name and id. "
                 + "`platform` says which list an id goes in.")

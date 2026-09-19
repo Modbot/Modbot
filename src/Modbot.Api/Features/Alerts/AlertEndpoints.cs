@@ -61,9 +61,10 @@ public static class AlertEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("ListAlerts")
-            .WithSummary("Times something ran far outside this deployment's own normal, newest first")
+            .WithSummary("List alerts")
             .WithDescription(
-                "Recent alerts nobody has hidden by default; `all=true` lists every alert kept. "
+                "Times something ran far outside this deployment's own normal, newest first. "
+                + "Recent alerts nobody has hidden by default; `all=true` lists every alert kept. "
                 + "Each carries the figure, what normal looks like, the window, and where in Modbot "
                 + "to look. Counts and places only -- never a person.")
             .Produces<AlertPage>()
@@ -98,8 +99,10 @@ public static class AlertEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("DismissAlert")
-            .WithSummary("Hide one alert's card")
-            .WithDescription("The alert itself is kept, and so is the fact it wrote.")
+            .WithSummary("Dismiss alert")
+            .WithDescription(
+                "Hide one alert's card. "
+                + "The alert itself is kept, and so is the fact it wrote.")
             .Produces<AlertView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -112,7 +115,8 @@ public static class AlertEndpoints
                 CancellationToken ct) => Results.Ok(await ViewAsync(db, ai, ct)))
             .RequiresFlag(ModbotPermissions.ManageSettings)
             .WithName("GetAiAlertSettings")
-            .WithSummary("What is watched for unusual activity, and where alerts go")
+            .WithSummary("Get AI alert settings")
+            .WithDescription("What is watched for unusual activity, and where alerts go.")
             .Produces<AlertSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -156,7 +160,9 @@ public static class AlertEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageSettings)
             .WithName("SetAiAlertSettings")
-            .WithSummary("Save what is watched, how sensitive each watcher is, and where alerts go")
+            .WithSummary("Update AI alert settings")
+            .WithDescription(
+                "Save what is watched, how sensitive each watcher is, and where alerts go.")
             .Produces<AlertSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

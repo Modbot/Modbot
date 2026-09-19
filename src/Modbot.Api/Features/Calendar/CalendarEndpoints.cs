@@ -91,7 +91,10 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("GetCalendar")
-            .WithSummary("Every event, with its occurrences in the range, where it is published and how that went")
+            .WithSummary("Get calendar")
+            .WithDescription(
+                "Every event, with its occurrences in the range, where it is published and how that "
+                + "went.")
             .Produces<CalendarView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -114,7 +117,8 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("GetCalendarEvent")
-            .WithSummary("One event")
+            .WithSummary("Get calendar event")
+            .WithDescription("One event.")
             .Produces<CalendarEventView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -161,7 +165,8 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("CreateCalendarEvent")
-            .WithSummary("Plan an event")
+            .WithSummary("Add calendar event")
+            .WithDescription("Plan an event.")
             .Produces<CalendarEventView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -226,7 +231,7 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("UpdateCalendarEvent")
-            .WithSummary("Change an event")
+            .WithSummary("Update calendar event")
             .WithDescription("Publishing follows on its own. Several changes close together are sent to VRChat as one.")
             .Produces<CalendarEventView>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -266,7 +271,8 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("CancelCalendarEvent")
-            .WithSummary("Cancel an event. It is taken off VRChat's calendar and ended in Discord.")
+            .WithSummary("Cancel calendar event")
+            .WithDescription("Cancel an event. It is taken off VRChat's calendar and ended in Discord.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -308,7 +314,8 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("DeleteCalendarEvent")
-            .WithSummary("Delete an event. It is taken off everywhere it was published.")
+            .WithSummary("Delete calendar event")
+            .WithDescription("Delete an event. It is taken off everywhere it was published.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -327,7 +334,9 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("ListCalendarWorlds")
-            .WithSummary("Worlds Modbot knows, most recently seen first, to pick an event's world from")
+            .WithSummary("List worlds for events")
+            .WithDescription(
+                "Worlds Modbot knows, most recently seen first, to pick an event's world from.")
             .Produces<IReadOnlyList<CalendarWorldView>>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -343,7 +352,8 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("GetCalendarFeed")
-            .WithSummary("The calendar feed's link, or nulls when none has been made")
+            .WithSummary("Get calendar feed link")
+            .WithDescription("The calendar feed's link, or nulls when none has been made.")
             .Produces<CalendarFeedView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -382,7 +392,8 @@ public static class CalendarEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageCalendar)
             .WithName("RegenerateCalendarFeed")
-            .WithSummary("Make a new calendar feed link. The old one stops working at once.")
+            .WithSummary("Replace calendar feed link")
+            .WithDescription("Make a new calendar feed link. The old one stops working at once.")
             .Produces<CalendarFeedView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -417,7 +428,9 @@ public static class CalendarEndpoints
             })
             .AllowAnonymous()
             .WithName("GetCalendarFeedFile")
-            .WithSummary("The calendar feed as iCalendar. No sign-in: the token in the address is the key.")
+            .WithSummary("Get calendar feed file")
+            .WithDescription(
+                "The calendar feed as iCalendar. No sign-in: the token in the address is the key.")
             .Produces<string>(StatusCodes.Status200OK, "text/calendar")
             .Produces(StatusCodes.Status404NotFound);
 
@@ -431,7 +444,9 @@ public static class CalendarEndpoints
             })
             .AllowAnonymous()
             .WithName("JoinCalendarEvent")
-            .WithSummary("Sends a person on to the open instance of an event, for a Discord event's location")
+            .WithSummary("Join an event")
+            .WithDescription(
+                "Sends a person on to the open instance of an event, for a Discord event's location.")
             .Produces(StatusCodes.Status302Found)
             .Produces(StatusCodes.Status404NotFound);
 

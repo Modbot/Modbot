@@ -15,9 +15,10 @@ public static class SelectGroupEndpoint
             // The setup wizard's own steps, for the web app only: left out of the public API reference.
             .ExcludeFromDescription()
             .WithName("ListManageableGroups")
-            .WithSummary("Groups where the VRChat account holds moderator permissions (spec 7.1, step 4)")
+            .WithSummary("List manageable groups")
             .WithDescription(
-                "Returns qualifying groups plus the total the account belongs to, so a short "
+                "Groups where the VRChat account holds moderator permissions (spec 7.1, step 4). "
+                + "Returns qualifying groups plus the total the account belongs to, so a short "
                 + "list can say how many were filtered out and requiredPermissions can name what "
                 + "they were missing. An empty list with a non-zero total is a permissions "
                 + "problem with a specific fix, not an absence — and telling the two apart is "
@@ -35,9 +36,10 @@ public static class SelectGroupEndpoint
             // The setup wizard's own steps, for the web app only: left out of the public API reference.
             .ExcludeFromDescription()
             .WithName("SelectManagedGroup")
-            .WithSummary("Choose the group this deployment manages (spec 2.4, 7.1 step 4)")
+            .WithSummary("Choose the group")
             .WithDescription(
-                "One deployment, one group. Re-runnable later from settings, though changing it "
+                "Choose the group this deployment manages (spec 2.4, 7.1 step 4). "
+                + "One deployment, one group. Re-runnable later from settings, though changing it "
                 + "on a running deployment points every sync at different data.\n\n"
                 + OnboardingAccess.Rule)
             .Produces<SelectGroupResponse>()

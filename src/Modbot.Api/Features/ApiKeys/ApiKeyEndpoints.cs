@@ -84,7 +84,8 @@ public static class ApiKeyEndpoints
                     PermissionCatalog.All.Where(p => ModbotAuth.Allows(held, (ModbotPermissions)p.Value)).ToList()));
             })
             .WithName("ListApiKeys")
-            .WithSummary("Every API key, with its owner and state. Never the key itself.")
+            .WithSummary("List API keys")
+            .WithDescription("Every API key, with its owner and state. Never the key itself.")
             .Produces<ApiKeysResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -158,9 +159,10 @@ public static class ApiKeyEndpoints
                 return Results.Ok(new CreatedApiKey(View(key, names, now), secret));
             })
             .WithName("CreateApiKey")
-            .WithSummary("Make a key for yourself")
+            .WithSummary("Add API key")
             .WithDescription(
-                "The response carries the key. It is shown this once: only its hash is stored. The "
+                "Make a key for yourself. "
+                + "The response carries the key. It is shown this once: only its hash is stored. The "
                 + "key can hold no permission you do not hold, and on every request it is narrowed "
                 + "again to what your account holds at that moment.")
             .Produces<CreatedApiKey>()
@@ -204,7 +206,8 @@ public static class ApiKeyEndpoints
                 return Results.NoContent();
             })
             .WithName("RevokeApiKey")
-            .WithSummary("Revoke a key. It stops working on its next request.")
+            .WithSummary("Revoke API key")
+            .WithDescription("Revoke a key. It stops working on its next request.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);

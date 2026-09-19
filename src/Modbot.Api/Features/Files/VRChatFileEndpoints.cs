@@ -60,7 +60,7 @@ public static class VRChatFileEndpoints
                 [FromServices] ModbotContext db,
                 CancellationToken ct) => await ServeAsync(http, url, gate, cache, db, ct))
             .WithName("GetVRChatFile")
-            .WithSummary("A picture or video from VRChat")
+            .WithSummary("Get VRChat file")
             .WithDescription(
                 "Fetches a VRChat file address through Modbot and returns the bytes. VRChat's "
                 + "file addresses need the account's session cookie and redirect to a delivery "

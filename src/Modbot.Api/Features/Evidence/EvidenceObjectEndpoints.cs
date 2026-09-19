@@ -62,9 +62,10 @@ public static class EvidenceObjectEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewEvidence)
             .WithName("ListEvidence")
-            .WithSummary("What is attached to a case file")
+            .WithSummary("List evidence")
             .WithDescription(
-                "Answered entirely from the blob record, so listing evidence costs the store "
+                "What is attached to a case file. "
+                + "Answered entirely from the blob record, so listing evidence costs the store "
                 + "no request and no egress. Destroyed items are listed too, because a case file "
                 + "that looks like it never had evidence is indistinguishable from one nobody ever "
                 + "documented.")
@@ -82,7 +83,8 @@ public static class EvidenceObjectEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewEvidence)
             .WithName("GetEvidenceMetadata")
-            .WithSummary("Everything about a piece of evidence except its bytes")
+            .WithSummary("Get evidence details")
+            .WithDescription("Everything about a piece of evidence except its bytes.")
             .Produces<EvidenceObjectView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -233,7 +235,7 @@ public static class EvidenceObjectEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewEvidence)
             .WithName("GetEvidence")
-            .WithSummary("The bytes, as an attachment")
+            .WithSummary("Download evidence")
             .WithDescription(
                 "Served with Content-Disposition: attachment, the content type Modbot determined "
                 + "from the bytes themselves, X-Content-Type-Options: nosniff and a sandbox CSP. On "
@@ -286,7 +288,7 @@ public static class EvidenceObjectEndpoints
             })
             .RequiresFlag(ModbotPermissions.DestroyEvidence)
             .WithName("DestroyEvidence")
-            .WithSummary("Delete the bytes permanently, keeping the record that they existed")
+            .WithSummary("Destroy evidence")
             .WithDescription(
                 "Refcounted: content addressing means two case files can cite one object, so the "
                 + "reports still referencing these bytes are named back rather than having their "

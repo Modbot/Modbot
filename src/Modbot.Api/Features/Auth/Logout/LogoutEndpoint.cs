@@ -19,7 +19,8 @@ public static class LogoutEndpoint
             })
             .WithTags("Auth")
             .WithName("Logout")
-            .WithSummary("End the current session")
+            .WithSummary("End the session")
+            .WithDescription("End the current session.")
             .Produces(StatusCodes.Status204NoContent)
             .AllowAnonymous();
 

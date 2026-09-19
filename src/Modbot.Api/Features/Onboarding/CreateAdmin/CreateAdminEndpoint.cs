@@ -15,9 +15,10 @@ public static class CreateAdminEndpoint
             // The setup wizard's own steps, for the web app only: left out of the public API reference.
             .ExcludeFromDescription()
             .WithName("CreateAdministrator")
-            .WithSummary("Create the first staff account (spec 7.1, step 1)")
+            .WithSummary("Create the first account")
             .WithDescription(
-                "The first account created gets Administrator and is signed in immediately, so "
+                "Create the first staff account (spec 7.1, step 1). "
+                + "The first account created gets Administrator and is signed in immediately, so "
                 + "the wizard can continue into the steps that require authentication.\n\n"
                 + OnboardingAccess.Rule)
             .Produces<Modbot.Api.Features.Auth.SessionUser>()

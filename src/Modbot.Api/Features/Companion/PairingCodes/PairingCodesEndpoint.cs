@@ -68,7 +68,7 @@ public static class PairingCodesEndpoint
                 return Results.Ok(new IssuedPairingCode(code, issued.ExpiresAt));
             })
             .WithName("IssuePairingCode")
-            .WithSummary("Generate a one-time code for pairing a Windows client")
+            .WithSummary("Make a pairing code")
             .WithDescription(
                 "Short, single-use, and valid for five minutes — long enough to click through "
                 + "from the pairing page to the client, short enough that a code left in a "
@@ -91,7 +91,7 @@ public static class PairingCodesEndpoint
                     .ToList());
             })
             .WithName("ListPairedDevices")
-            .WithSummary("Which clients are paired, and when each last reported")
+            .WithSummary("List paired clients")
             .WithDescription(
                 "Never returns a token or a token hash. The list answers two operational "
                 + "questions: which moderators are actually reporting, and how much of the "
@@ -117,7 +117,7 @@ public static class PairingCodesEndpoint
                 return Results.NoContent();
             })
             .WithName("RevokeClientDevice")
-            .WithSummary("Revoke one device token")
+            .WithSummary("Revoke a device")
             .WithDescription(
                 "Immediate: the client is refused at its next request and stops visibly rather "
                 + "than retrying.\n\n"

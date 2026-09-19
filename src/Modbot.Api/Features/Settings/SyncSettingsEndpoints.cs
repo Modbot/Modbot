@@ -274,9 +274,10 @@ public static class SyncSettingsEndpoints
             // How Modbot paces its VRChat requests: an administrator's internal, left out of the
             // public API reference.
             .ExcludeFromDescription()
-            .WithSummary("How often the producers poll, and what each endpoint class is budgeted")
+            .WithSummary("Get sync settings")
             .WithDescription(
-                "Every rate is shown three ways: spec 4.2's hard cap, the operator's configured "
+                "How often the producers poll, and what each endpoint class is budgeted. "
+                + "Every rate is shown three ways: spec 4.2's hard cap, the operator's configured "
                 + "estimate of VRChat's limit, and the effective rate that results. Only the "
                 + "middle one is writable, and only downward.")
             .Produces<SyncSettingsResponse>()
@@ -324,9 +325,10 @@ public static class SyncSettingsEndpoints
             // How Modbot paces its VRChat requests: an administrator's internal, left out of the
             // public API reference.
             .ExcludeFromDescription()
-            .WithSummary("Lower a sync rate or a poll interval")
+            .WithSummary("Update sync settings")
             .WithDescription(
-                "Partial: every field is optional and an omitted one is left alone. A rate above "
+                "Lower a sync rate or a poll interval. "
+                + "Partial: every field is optional and an omitted one is left alone. A rate above "
                 + "spec 4.2's cap is stored at the cap and named in `adjustments` — the write "
                 + "succeeds, gently, rather than failing. A rate of zero or below is rejected "
                 + "outright: it is not a gentler setting, it is a bucket that never issues again. "

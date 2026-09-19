@@ -76,7 +76,7 @@ public static class AccountEndpoints
                 return Results.NoContent();
             })
             .WithName("ChangePassword")
-            .WithSummary("Change your own password")
+            .WithSummary("Change your password")
             .WithDescription("Ends every other session you have. The one you did this from stays signed in.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest)
@@ -139,7 +139,7 @@ public static class AccountEndpoints
                 return Results.Ok(SessionUser.From(user));
             })
             .WithName("ChangeUsername")
-            .WithSummary("Change your own username")
+            .WithSummary("Change your username")
             .WithDescription("Same rule as everywhere: two names that differ only in case are one name.")
             .Produces<SessionUser>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -168,7 +168,8 @@ public static class AccountEndpoints
                     : Results.Ok(SessionUser.From(user));
             })
             .WithName("SetOwnContact")
-            .WithSummary("Set the email address and Discord user id a reset link can reach you at")
+            .WithSummary("Set your contact details")
+            .WithDescription("Set the email address and Discord user id a reset link can reach you at.")
             .Produces<SessionUser>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
@@ -196,7 +197,8 @@ public static class AccountEndpoints
                 return Results.NoContent();
             })
             .WithName("SignOutEverywhere")
-            .WithSummary("End every session you have, including this one")
+            .WithSummary("Sign out everywhere")
+            .WithDescription("End every session you have, including this one.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status401Unauthorized);
 

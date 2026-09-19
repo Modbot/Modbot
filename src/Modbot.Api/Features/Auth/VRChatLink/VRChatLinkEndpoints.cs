@@ -85,7 +85,8 @@ public static class VRChatLinkEndpoints
                 return user is null ? Results.Unauthorized() : Results.Ok(StatusOf(user, clock.UtcNow));
             })
             .WithName("GetVRChatLink")
-            .WithSummary("Whether your VRChat account is linked, and any link in progress")
+            .WithSummary("Get VRChat link")
+            .WithDescription("Whether your VRChat account is linked, and any link in progress.")
             .Produces<VRChatLinkStatus>()
             .Produces(StatusCodes.Status401Unauthorized);
 
@@ -120,8 +121,10 @@ public static class VRChatLinkEndpoints
                 return Results.Ok(StatusOf(user, now));
             })
             .WithName("StartVRChatLink")
-            .WithSummary("Say which VRChat account is yours and get a code to put in its bio")
-            .WithDescription("The code is good for 30 minutes and for six checks. Starting again replaces it.")
+            .WithSummary("Start VRChat link")
+            .WithDescription(
+                "Say which VRChat account is yours and get a code to put in its bio. "
+                + "The code is good for 30 minutes and for six checks. Starting again replaces it.")
             .Produces<VRChatLinkStatus>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);
@@ -230,9 +233,10 @@ public static class VRChatLinkEndpoints
                     StatusOf(user, now)));
             })
             .WithName("CheckVRChatLink")
-            .WithSummary("Read the bio and confirm the link if the code is there")
+            .WithSummary("Check VRChat link")
             .WithDescription(
-                "One profile fetch through the gate on users.profile. Six checks per code, at most one "
+                "Read the bio and confirm the link if the code is there. "
+                + "One profile fetch through the gate on users.profile. Six checks per code, at most one "
                 + "every ten seconds. A failed fetch -- rate limit, Cloudflare, network -- is reported "
                 + "in words and never retried.")
             .Produces<LinkCheckResult>()

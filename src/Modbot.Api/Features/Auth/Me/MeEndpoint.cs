@@ -32,9 +32,10 @@ public static class MeEndpoint
             })
             .WithTags("Auth")
             .WithName("GetCurrentUser")
-            .WithSummary("Who the session belongs to")
+            .WithSummary("Get current user")
             .WithDescription(
-                "The SPA calls this on load to decide what to show: the sign-in form, the "
+                "Who the session belongs to. "
+                + "The SPA calls this on load to decide what to show: the sign-in form, the "
                 + "link-your-VRChat-account page, or the app. Reachable before the VRChat link "
                 + "is done, because it is how the SPA finds out the link is not done.")
             .Produces<SessionUser>()

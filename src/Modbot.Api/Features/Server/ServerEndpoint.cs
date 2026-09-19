@@ -90,9 +90,10 @@ public static class ServerEndpoint
             })
             .WithTags("Server")
             .WithName("GetServer")
-            .WithSummary("What this Modbot is: its group, its version and who runs it")
+            .WithSummary("Get server details")
             .WithDescription(
-                "Unauthenticated, readable from any origin, and answers 200 with nulls on a "
+                "What this Modbot is: its group, its version and who runs it. "
+                + "Unauthenticated, readable from any origin, and answers 200 with nulls on a "
                 + "deployment that has not been set up yet.\n\n"
                 + "ownerEmail is the address of the oldest enabled account holding Administrator "
                 + "that has one. It is null when the operator has turned off "

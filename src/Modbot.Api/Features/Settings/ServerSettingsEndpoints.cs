@@ -40,7 +40,8 @@ public static class ServerSettingsEndpoints
                 return Results.Ok(new ServerSettingsView(settings.ServerShowOwnerEmail));
             })
             .WithName("GetServerSettings")
-            .WithSummary("What this server tells anyone who asks about it")
+            .WithSummary("Get server settings")
+            .WithDescription("What this server tells anyone who asks about it.")
             .Produces<ServerSettingsView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -81,7 +82,8 @@ public static class ServerSettingsEndpoints
                 return Results.Ok(new ServerSettingsView(body.ShowOwnerEmail));
             })
             .WithName("SetServerSettings")
-            .WithSummary("Turn the owner's email address on or off on the server page")
+            .WithSummary("Update server settings")
+            .WithDescription("Turn the owner's email address on or off on the server page.")
             .Produces<ServerSettingsView>()
             .Produces(StatusCodes.Status403Forbidden);
 
