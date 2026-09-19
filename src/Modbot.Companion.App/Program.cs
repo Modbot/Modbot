@@ -1148,7 +1148,6 @@ internal sealed class CompanionHost : IOverlayListener
     /// </remarks>
     private void StartOverlay()
     {
-        if (_state?.Settings.OverlayOn is not false)
         {
             try
             {
@@ -1344,23 +1343,6 @@ internal sealed class CompanionHost : IOverlayListener
     }
 
     /// <summary>
-    /// Makes the overlay match what the two switches now say: it runs when either panel wants it,
-    /// and it is rebuilt so the halves that are built are the halves that were asked for.
-    /// </summary>
-    /// <remarks>
-    /// Rebuilding costs a reconnection of the live link, which is why it happens when somebody
-    /// presses a switch and never on a timer.
-    /// </remarks>
-    private void ApplyOverlaySwitches()
-    {
-        if (_state is null || _overlaySwitch is null)
-            return;
-
-        _overlaySwitch.Set(false);
-        _overlaySwitch.Set(_state.Settings.OverlayOn || _state.Settings.DesktopOverlay.On);
-    }
-
-    /// <summary>
     /// The SteamVR page's <strong>Overlay on</strong> switch: saved, then acted on at once rather
     /// than at the next restart.
     /// </summary>
@@ -1374,7 +1356,7 @@ internal sealed class CompanionHost : IOverlayListener
         if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayOnField, on))
             Log.Warning("Could not save the overlay switch to {Path}", _settingsPath);
 
-        ApplyOverlaySwitches();
+        _overlaySwitch?.Set(on);
         Render();
     }
 
@@ -1382,10 +1364,10 @@ internal sealed class CompanionHost : IOverlayListener
     /// The Settings page's Desktop overlay card: saved, then acted on at once.
     /// </summary>
     /// <remarks>
-    /// Turning it on or off rebuilds the overlay, because the window is one of the two places a
-    /// screen goes and the drive loop is handed both when it is built. A change to the shortcut or
-    /// the opacity alone does not: the shortcut is asked for again, and the window is told its new
-    /// opacity, with the loop left alone.
+    /// Turning it on or off is its own switch, which builds or takes down the window and the
+    /// keyboard shortcut and leaves the two headset panels alone. A change to the shortcut or the
+    /// opacity alone does neither: the shortcut is asked for again, and the window is told its new
+    /// opacity.
     /// </remarks>
     private void SetDesktopOverlay(DesktopOverlaySettings desktopOverlay)
     {
@@ -1400,7 +1382,7 @@ internal sealed class CompanionHost : IOverlayListener
 
         if (before.On != desktopOverlay.On)
         {
-            ApplyOverlaySwitches();
+            _desktopSwitch?.Set(desktopOverlay.On);
         }
         else if (_desktopOverlay is not null)
         {

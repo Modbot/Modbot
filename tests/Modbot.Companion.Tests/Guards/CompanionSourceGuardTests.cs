@@ -458,8 +458,14 @@ public class CompanionSourceGuardTests
 
         Assert.Contains("new OverlaySwitch(StartOverlay, StopOverlay", program, StringComparison.Ordinal);
         Assert.Contains("new OverlaySwitch(StartNotifyOverlay, StopNotifyOverlay", program, StringComparison.Ordinal);
+        Assert.Contains("new OverlaySwitch(StartDesktopOverlay, StopDesktopOverlay", program, StringComparison.Ordinal);
 
-        foreach (var direct in new[] { "StartOverlay();", "StopOverlay();", "StartNotifyOverlay();", "StopNotifyOverlay();" })
+        foreach (var direct in new[]
+                 {
+                     "StartOverlay();", "StopOverlay();",
+                     "StartNotifyOverlay();", "StopNotifyOverlay();",
+                     "StartDesktopOverlay();", "StopDesktopOverlay();",
+                 })
             Assert.DoesNotContain(direct, program, StringComparison.Ordinal);
     }
 
