@@ -30,12 +30,12 @@ export function InstanceTable({
       <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
         <thead className="text-left text-muted-foreground">
           <tr>
-            {showWorld && <th className="py-1 pr-3 font-medium">World</th>}
-            <th className="py-1 pr-3 font-medium">Instance</th>
-            <th className="py-1 pr-3 text-right font-medium">People</th>
-            <th className="py-1 pr-3 text-right font-medium">Most at once</th>
-            <th className="py-1 pr-3 text-right font-medium">Open for</th>
-            <th className="py-1 font-medium">Started</th>
+            {showWorld && <th className="py-1 pr-3 font-medium whitespace-nowrap">World</th>}
+            <th className="py-1 pr-3 font-medium whitespace-nowrap">Instance</th>
+            <th className="py-1 pr-3 text-right font-medium whitespace-nowrap">People</th>
+            <th className="py-1 pr-3 text-right font-medium whitespace-nowrap">Most at once</th>
+            <th className="py-1 pr-3 text-right font-medium whitespace-nowrap">Open for</th>
+            <th className="py-1 font-medium whitespace-nowrap">Started</th>
           </tr>
         </thead>
         <tbody>
@@ -74,14 +74,16 @@ export function InstanceTable({
                 >
                   {instanceNumber(r.vrChatInstanceId)}
                 </button>
-                <div className="text-muted-foreground" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+                {/* "Group members · EU" over three lines makes every row in the table three lines
+                    tall on a phone. The table already scrolls; the row need not also be a stack. */}
+                <div className="whitespace-nowrap text-muted-foreground" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
                   {[access(r.groupAccessType), r.region?.toUpperCase()].filter(Boolean).join(' · ') || '—'}
                 </div>
               </td>
               <td className="py-1 pr-3 text-right tabular-nums">{r.closedAt ? '—' : (r.peopleNow ?? 0)}</td>
               <td className="py-1 pr-3 text-right tabular-nums">{r.peakPeople ?? '—'}</td>
               <td className="py-1 pr-3 text-right tabular-nums">{minutes(r.minutesOpen)}</td>
-              <td className="py-1 text-muted-foreground">
+              <td className="py-1 whitespace-nowrap text-muted-foreground">
                 <div>{dateTime(r.openedAt)}</div>
                 <div style={{ fontSize: 'var(--text-tiny, 11px)' }}>
                   {!r.closedAt
