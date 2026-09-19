@@ -154,6 +154,12 @@ Checked in code, before the rules and before any VRChat call:
 - **Modbot's own account** — the account the gate signs in as is never a subject of anything
   Modbot does to people, as `AutoModVRChatActions` already refuses.
 
+**The moderator whose companion is reporting is not a separate case.** They are in the group — VRChat
+requires membership to hold a group role, so anybody who can moderate the group is a member of it —
+and the membership check above is what keeps them out. There is deliberately **no rule about staff**:
+somebody holding a Modbot account who is *not* in the group is a volunteer who has linked their
+VRChat account and not joined yet, and they are exactly who this feature is for.
+
 None of these are configurable. A group that wants a banned person back has a person who can press
 a button.
 
@@ -255,6 +261,12 @@ already excluded by §4.2 and never reaches this check.
 from the database who is in the group's instances right now, in one query, and picks the person who
 has been there longest. A restart mid-pass loses the pass, and the next one thirty seconds later
 reaches the same answer.
+
+**Who a pass picks is settled, not incidental.** The people who qualify are ordered by the moment
+they were first seen this stay — longest here first — and a genuine tie, two people the facts place
+at the same instant, is broken by their id. Ordering by the whole minutes the fact records would
+have left everybody who arrived in the same minute sorted by whatever order the rows came back in,
+so which of them was invited first could differ between two passes that saw exactly the same thing.
 
 The two things that *must* survive a restart both do, because both are rows:
 

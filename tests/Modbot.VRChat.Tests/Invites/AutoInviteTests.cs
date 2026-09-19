@@ -123,9 +123,29 @@ public class AutoInviteTests(PostgresFixture fixture) : AutoInviteTestBase(fixtu
     {
         await AddCompanionAsync();
         await OpenInstanceAsync();
-        await SignedInAsAsync(Stranger);
         await AddPersonAsync(Stranger, accountDays: 400);
         await WatchedArrivalAsync(Stranger, Clock.UtcNow.AddMinutes(-10));
+        await SwitchOnAsync();
+
+        // After SwitchOnAsync, which sets the usual service account: here the one standing in the
+        // instance is the account the gate signs in as, which Modbot must not invite to its own
+        // group.
+        await SignedInAsAsync(Stranger);
+
+        Assert.False(await RunAsync());
+        Assert.Empty(VRChat.Groups.InvitedUserIds);
+    }
+
+    [Fact]
+    public async Task TheModeratorWhoseCompanionIsReportingIsNotInvited()
+    {
+        // They are in the group already, which is why. Nothing about running a companion or
+        // holding a Modbot account keeps somebody out on its own -- a volunteer who has linked
+        // their VRChat account but not joined the group yet is exactly who this feature is for.
+        await AddCompanionAsync();
+        await OpenInstanceAsync();
+        await AddPersonAsync(Moderator, accountDays: 900, trustRank: TrustRank.TrustedUser);
+        await WatchedArrivalAsync(Moderator, Clock.UtcNow.AddHours(-2));
         await SwitchOnAsync();
 
         Assert.False(await RunAsync());
@@ -204,18 +224,20 @@ public class AutoInviteTests(PostgresFixture fixture) : AutoInviteTestBase(fixtu
             await WatchedArrivalAsync(id, Clock.UtcNow.AddMinutes(-10));
         }
 
+        // All three arrived at the same instant, so the id breaks the tie and the order is the
+        // same on every run rather than whatever the rows came back in.
         Assert.True(await RunAsync());
-        Assert.Single(VRChat.Groups.InvitedUserIds);
+        Assert.Equal(["usr_a"], VRChat.Groups.InvitedUserIds);
 
         // Immediately again, and twenty-nine seconds later: still one.
         Assert.False(await RunAsync());
         Clock.Advance(TimeSpan.FromSeconds(29));
         Assert.False(await RunAsync());
-        Assert.Single(VRChat.Groups.InvitedUserIds);
+        Assert.Equal(["usr_a"], VRChat.Groups.InvitedUserIds);
 
         Clock.Advance(TimeSpan.FromSeconds(1));
         Assert.True(await RunAsync());
-        Assert.Equal(2, VRChat.Groups.InvitedUserIds.Count);
+        Assert.Equal(["usr_a", "usr_b"], VRChat.Groups.InvitedUserIds);
     }
 
     [Fact]
@@ -258,10 +280,10 @@ public class AutoInviteTests(PostgresFixture fixture) : AutoInviteTestBase(fixtu
         await OpenInstanceAsync();
         await AddPersonAsync(Stranger, accountDays: 400);
 
-        // They have been there for hours; the moderator walked in one minute ago. Modbot knows
-        // only that they are here, so the five minutes runs from the moment watching began.
-        await WatchedArrivalAsync(
-            Stranger, Clock.UtcNow.AddMinutes(-1), watchFrom: Clock.UtcNow.AddMinutes(-1));
+        // They have been there for hours; the moderator walked in one minute ago and their client
+        // reported everybody present as "already here". Modbot knows only that they are here, so
+        // the five minutes runs from the moment watching began.
+        await WatchedAlreadyHereAsync(Stranger, Clock.UtcNow.AddMinutes(-1));
 
         await SwitchOnAsync();
 
@@ -373,13 +395,5 @@ public class AutoInviteTests(PostgresFixture fixture) : AutoInviteTestBase(fixtu
                 Source = FactSource.AuditLog,
             },
             Ct);
-    }
-
-    private async Task SignedInAsAsync(string userId)
-    {
-        await using var context = Database.NewContext();
-        var settings = await context.GetSettingsAsync(Ct);
-        settings.VRChatSessionUserId = userId;
-        await context.SaveChangesAsync(Ct);
     }
 }
