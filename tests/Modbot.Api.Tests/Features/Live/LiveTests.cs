@@ -195,7 +195,10 @@ public class LiveTests
 
         var watcher = Assert.Single(instance.Watching);
         Assert.Equal(moderator, watcher.UserId);
-        Assert.Equal(t.AddMinutes(10), watcher.Since);
+
+        // The first thing this client reported, not the moderator's own join inside the same
+        // burst: a fact here from a client is that client being here (watching design §2).
+        Assert.Equal(t.AddMinutes(10).AddSeconds(-1), watcher.Since);
 
         var ada = Assert.Single(instance.People, p => p.UserId == "usr_ada");
         Assert.Null(ada.ArrivedAt);
