@@ -16455,6 +16455,15 @@
             "items": {
               "$ref": "#/components/schemas/AuditEntry"
             }
+          },
+          "reportedBy": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AuditReporter"
+            }
           }
         }
       },
@@ -16520,6 +16529,30 @@
           },
           "coverage": {
             "$ref": "#/components/schemas/AuditCoverage"
+          }
+        }
+      },
+      "AuditReporter": {
+        "required": [
+          "accountId",
+          "name",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
