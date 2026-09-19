@@ -63,7 +63,15 @@ public static class OverlayView
         };
     }
 
-    public static Control Build(OverlayScreen screen)
+    /// <summary>How big the group's icon is drawn, in panel pixels.</summary>
+    private const double IconSize = 28;
+
+    /// <param name="icon">
+    /// The group's picture for an address, or null when there is none yet. The companion's own
+    /// cache — the same one the window's server cards draw from — so nothing here fetches anything
+    /// and a picture that has not arrived leaves the name standing on its own.
+    /// </param>
+    public static Control Build(OverlayScreen screen, Func<string?, IImage?>? icon = null)
     {
         ArgumentNullException.ThrowIfNull(screen);
 
@@ -89,6 +97,11 @@ public static class OverlayView
         }
 
         var stack = new StackPanel { Spacing = 12 };
+
+        // Whose community this is, said once at the top rather than repeated on every card below.
+        // The name and the icon, because that is what a moderator knows their group by; the
+        // server's address is a fallback and never the first thing said.
+        stack.Children.Add(GroupLine(screen, icon));
 
         if (screen.Health is { Length: > 0 } health)
             stack.Children.Add(HealthBanner(health));
@@ -162,6 +175,47 @@ public static class OverlayView
     }
 
     /// <summary>
+    /// Whose community this panel is speaking for: the group's icon and the group's name.
+    /// </summary>
+    /// <remarks>
+    /// A moderator knows their community by its name and its picture, not by the address of the
+    /// machine their server happens to run on. The address is what this falls back to when a
+    /// pairing was made before servers gave their group's name, and it is never the first choice.
+    /// </remarks>
+    private static Control GroupLine(OverlayScreen screen, Func<string?, IImage?>? icon)
+    {
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Height = IconSize,
+        };
+
+        if (icon?.Invoke(screen.GroupIconUrl) is { } picture)
+        {
+            row.Children.Add(new Border
+            {
+                Width = IconSize,
+                Height = IconSize,
+                CornerRadius = new CornerRadius(IconSize / 2),
+                ClipToBounds = true,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = new Image { Source = picture, Stretch = Stretch.UniformToFill },
+            });
+        }
+
+        var name = Text(
+            screen.GroupLabel ?? "Not in a group instance",
+            T.Density.TextBase,
+            screen.GroupLabel is null ? T.TextDimBrush : T.TextBrush,
+            FontWeight.SemiBold);
+        name.VerticalAlignment = VerticalAlignment.Center;
+        row.Children.Add(name);
+
+        return row;
+    }
+
+    /// <summary>
     /// The tabs across the top: the three screens, with the one showing marked. The Person tab is
     /// there only while a person is open, because a tab that opens nothing is a dead control.
     /// </summary>
@@ -214,19 +268,6 @@ public static class OverlayView
     {
         var rows = new StackPanel { Spacing = 2 };
 
-        rows.Children.Add(new DockPanel
-        {
-            LastChildFill = false,
-            Children =
-            {
-                Dock(Text(
-                    screen.GroupLabel is null ? "Not in a group instance" : screen.GroupLabel,
-                    T.Density.TextSmall,
-                    T.TextDimBrush,
-                    FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
-            },
-        });
-
         var events = screen.EventsOrNone;
         if (events.Count == 0)
         {
@@ -272,11 +313,14 @@ public static class OverlayView
             flagged ? FontWeight.SemiBold : FontWeight.Normal);
         who.VerticalAlignment = VerticalAlignment.Center;
 
+        // Trimmed rather than allowed to push the clock off the end of the row.
+        who.MaxWidth = 200;
+
         var line = new StackPanel
         {
             Tag = @event.Person is { } person ? new OverlayTarget.Person(person.SubjectId) : null,
             Orientation = Orientation.Horizontal,
-            Spacing = 12,
+            Spacing = 10,
             Height = T.Density.RowHeight,
             Children = { what, who },
         };
@@ -437,13 +481,15 @@ public static class OverlayView
     {
         var rows = new StackPanel { Spacing = 2 };
 
+        var here = screen.Roster.Value?.Members.Count ?? 0;
+
         rows.Children.Add(new DockPanel
         {
             LastChildFill = false,
             Children =
             {
                 Dock(Text(
-                    screen.GroupLabel is null ? "Not in a group instance" : screen.GroupLabel,
+                    here == 1 ? "1 here" : here + " here",
                     T.Density.TextSmall,
                     T.TextDimBrush,
                     FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
@@ -541,11 +587,15 @@ public static class OverlayView
             member.Standing == RosterStanding.Flagged ? FontWeight.SemiBold : FontWeight.Normal);
         name.VerticalAlignment = VerticalAlignment.Center;
 
+        // A long name trims rather than shoving what follows it off the end of the row. That is
+        // what used to send a person's flags drifting away from the person they belong to.
+        name.MaxWidth = 220;
+
         var line = new StackPanel
         {
             Tag = new OverlayTarget.Person(member.SubjectId),
             Orientation = Orientation.Horizontal,
-            Spacing = 12,
+            Spacing = 10,
             Height = T.Density.RowHeight,
             Children = { badge, name },
         };
@@ -559,14 +609,36 @@ public static class OverlayView
         }
 
         if (member.Flags.Count > 0)
-        {
-            line.Children.Add(Text(
-                string.Join(" · ", member.Flags),
-                T.Density.TextSmall,
-                T.DangerBrush));
-        }
+            line.Children.Add(FlagChip(string.Join(" · ", member.Flags)));
 
         return line;
+    }
+
+    /// <summary>
+    /// What is known against a person — "1 prior action", a flag's name — as a mark on their own
+    /// row.
+    /// </summary>
+    /// <remarks>
+    /// A tinted chip rather than loose red words, so it reads as belonging to the row it sits on.
+    /// It used to be plain text at the end of a horizontal row, which put it wherever the name
+    /// happened to leave it — usually far to the right, next to nobody.
+    /// </remarks>
+    private static Control FlagChip(string caption)
+    {
+        var label = Text(caption, T.Density.TextSmall, T.DangerBrush, FontWeight.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.MaxWidth = 200;
+
+        return new Border
+        {
+            Background = new SolidColorBrush(T.Palette.Danger, 0.16),
+            BorderBrush = T.DangerBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(8, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = label,
+        };
     }
 
     /// <summary>

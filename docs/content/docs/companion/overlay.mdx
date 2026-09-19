@@ -51,11 +51,12 @@ The placement settings stay on the page, so you can arrange where the panel will
 turn it on. What goes away is only what has nothing to report while it is off: how long it has
 been attached, how many frames it has drawn, and what it is showing.
 
-There are three panels and each has its own switch: this one, the
-[notification overlay](/companion/settings#notification-overlay), and the
-[desktop overlay](/companion/settings#desktop-overlay). None of them can take another down. The
-live connection to your group's server is held open while any of the three is on and closes when
-the last one goes off.
+There are four panels and each has its own switch: this one, the
+[notification overlay](/companion/settings#notification-overlay), the
+[desktop overlay](/companion/settings#desktop-overlay), and the
+[notification overlay on a monitor](/companion/settings#notification-overlay-on-a-monitor). None of
+them can take another down. The live connection to your group's server is held open while any of
+the four is on and closes when the last one goes off.
 
 The rest of the client is unaffected either way: it goes on reading VRChat's log and reporting
 presence to every server you paired with.
@@ -66,11 +67,16 @@ survives both restarts and updates.
 
 ## What it shows
 
+### Whose group it is
+
+Across the top, above the tabs: your group's icon and your group's name, as the server gave them
+when you paired. If a pairing was made before servers said their group's name, the server's address
+is shown instead.
+
 ### The roster
 
-A list of who is in the instance right now, as your group's server knows it. At the top it names
-the server the list comes from (its address, as shown on your **Servers** page), and how fresh the
-list is.
+A list of who is in the instance right now, as your group's server knows it. At the top it says how
+many people are here and how fresh the list is.
 
 People are sorted so the rows that matter come first:
 
@@ -89,8 +95,8 @@ yet, it says **No roster loaded for this instance.**
 ### Flagged user card
 
 When someone your group has kicked or banned before joins the instance you are in, a card appears
-above the roster: **Flagged user joined**, followed by the server's address, then the person's
-display name and a line such as `1 prior moderation action`.
+above the roster: **Flagged user joined**, followed by your group's name, then the person's display
+name and a line such as `1 prior moderation action`.
 
 The server sends this card to the other paired moderators in that instance, not to the moderator
 whose client reported the join first.

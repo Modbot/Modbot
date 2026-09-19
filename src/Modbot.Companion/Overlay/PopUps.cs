@@ -50,7 +50,15 @@ public sealed class PopUps
 
     public PopUps(IModbotClock clock) => _clock = clock;
 
-    /// <summary>How long a new pop-up stays. Set from settings, and changed while running.</summary>
+    /// <summary>
+    /// How long a pop-up is kept at all. Set from settings, and changed while running.
+    /// </summary>
+    /// <remarks>
+    /// There is more than one surface a pop-up can appear on — the headset's notification overlay
+    /// and the one on a monitor — and each has its own number of seconds. This is the longest of
+    /// them, so a card is dropped only once nobody wants it any more; a surface that shows it for
+    /// less says so when it asks (<see cref="Current(TimeSpan)"/>).
+    /// </remarks>
     public TimeSpan Dwell { get; set; } = NotifyOverlaySettings.Default.Dwell;
 
     /// <summary>At most this many are drawn at once.</summary>
@@ -106,13 +114,22 @@ public sealed class PopUps
     /// What to draw now, newest first, with anything whose time is up already dropped. Empty means
     /// the notification overlay draws nothing at all.
     /// </summary>
-    public IReadOnlyList<PopUp> Current()
+    public IReadOnlyList<PopUp> Current() => Current(Dwell);
+
+    /// <summary>
+    /// The same, for a surface that shows a pop-up for its own number of seconds.
+    /// </summary>
+    /// <remarks>
+    /// Asking for longer than <see cref="Dwell"/> gets <see cref="Dwell"/>: what has already been
+    /// dropped is gone, and nothing is queued.
+    /// </remarks>
+    public IReadOnlyList<PopUp> Current(TimeSpan dwell)
     {
         lock (_gate)
         {
             var now = _clock.UtcNow;
             _shown.RemoveAll(s => now - s.ShownAt >= Dwell);
-            return [.. _shown.Select(s => s.PopUp)];
+            return [.. _shown.Where(s => now - s.ShownAt < dwell).Select(s => s.PopUp)];
         }
     }
 

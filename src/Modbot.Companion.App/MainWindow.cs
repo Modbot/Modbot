@@ -956,11 +956,7 @@ public sealed partial class MainWindow : Window
     /// place, named by the group the server manages. An event seen in a group nobody manages has
     /// the time and the sentence and nothing else, which is the truth of it.
     /// </summary>
-    /// <remarks>
-    /// Shared with the desktop overlay, which shows the last few of these under the panel: one row
-    /// builder, so the two screens cannot come to say different things about one event.
-    /// </remarks>
-    internal static Border EventRow(JournalRow row, bool first, IReadOnlyDictionary<string, string> groups)
+    private static Border EventRow(JournalRow row, bool first, IReadOnlyDictionary<string, string> groups)
     {
         var sent = row.ServerState is JournalEntryKind.Sent || row.CloudState is JournalEntryKind.Sent;
 
@@ -1117,6 +1113,7 @@ public sealed partial class MainWindow : Window
             "Settings"));
 
         _body.Children.Add(Ui.Card(DesktopOverlayCard(), "Desktop overlay"));
+        _body.Children.Add(Ui.Card(DesktopNotifyCard(), "Notification overlay"));
         _body.Children.Add(Ui.Card(NotificationsCard(), "Notifications"));
         _body.Children.Add(Ui.Card(NotificationFiltersCard(), "Tell me about"));
 
@@ -1146,6 +1143,7 @@ public sealed partial class MainWindow : Window
             _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
 
             RefreshDesktopOverlayControls();
+            RefreshDesktopNotifyControls();
             RefreshVoiceControls(_snapshot.VoiceOrNone);
             RefreshNotificationControls(_snapshot.NotificationsOrDefault);
             RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
@@ -1695,6 +1693,12 @@ public sealed record MainWindowActions(
 
     /// <summary>The Notification overlay card changed: the whole settings record as it now reads.</summary>
     public Action<NotifyOverlaySettings> SetNotifyOverlay { get; init; } = _ => { };
+
+    /// <summary>
+    /// The Settings page's notification overlay card changed: the switch, the corner and the
+    /// seconds as the controls now read. Added the same way.
+    /// </summary>
+    public Action<DesktopNotifySettings> SetDesktopNotifyOverlay { get; init; } = _ => { };
 
     /// <summary>
     /// The Clips card changed: the switch, the minutes and the folder as the controls now read.

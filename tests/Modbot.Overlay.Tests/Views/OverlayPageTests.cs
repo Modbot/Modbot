@@ -73,6 +73,28 @@ public class OverlayPageTests
     }
 
     [Fact]
+    public void ATapOnTheEventsTabIsTheEventsTabAndNotWhateverIsUnderIt()
+    {
+        // The same lookup the mouse over VRChat and a controller's ray both use, at the middle of
+        // the drawn tab. The tab is the only way to the Events screen now that the feed under the
+        // window over VRChat is gone.
+        var target = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Size, Size);
+            var root = OverlayView.Build(Screen(OverlayPage.Instance));
+            renderer.Render(root);
+
+            var tab = OverlayTargets
+                .Find(root)
+                .First(t => t.Target is OverlayTarget.GoTo { Page: OverlayPage.Events });
+
+            return OverlayTargets.At(root, tab.Bounds.Center);
+        });
+
+        Assert.Equal(new OverlayTarget.GoTo(OverlayPage.Events), target);
+    }
+
+    [Fact]
     public void ThereIsNoPersonTabUntilSomebodyIsOpen()
     {
         // A tab that opens a blank card is a dead control.

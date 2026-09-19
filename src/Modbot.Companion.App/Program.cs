@@ -268,6 +268,12 @@ internal sealed class CompanionHost : IOverlayListener
     private DesktopOverlayWindow? _desktopOverlay;
     private DesktopOverlayShortcut? _desktopOverlayShortcut;
 
+    /// <summary>
+    /// The notification overlay on a monitor: its own window, in a corner, shown when there is
+    /// something to say and hidden again when there is not. Nothing to do with the window above.
+    /// </summary>
+    private DesktopNotifyWindow? _desktopNotify;
+
     private OverlaySample? _pinnedSample;
     private DateTimeOffset? _overlayAttachedAt;
     private DateTimeOffset? _overlayLastDrewAt;
@@ -345,6 +351,9 @@ internal sealed class CompanionHost : IOverlayListener
     /// <summary>The switch for the window that sits over VRChat on a monitor. Independent of both.</summary>
     private OverlaySwitch? _desktopSwitch;
 
+    /// <summary>The switch for the notification overlay on a monitor. Independent of the other three.</summary>
+    private OverlaySwitch? _desktopNotifySwitch;
+
     public MainWindow Window { get; } = new();
 
     public void Start(IClassicDesktopStyleApplicationLifetime desktop, string? startupMessage)
@@ -395,12 +404,14 @@ internal sealed class CompanionHost : IOverlayListener
         }
 
         // Off in settings means a panel is never built in the first place, and its own switch
-        // brings it up or takes it down without a restart. Three panels -- the main headset one,
-        // the notification one, and the window over VRChat on a monitor -- so three switches, and
-        // none of them can take another down.
+        // brings it up or takes it down without a restart. Four panels -- the main headset one,
+        // the notification one, the window over VRChat on a monitor and the notification overlay
+        // beside it -- so four switches, and none of them can take another down.
         _popUps = new PopUps(_clock)
         {
-            Dwell = _state.Settings.NotifyOverlay.Dwell,
+            // The longest any surface keeps a card, so one is dropped only once nobody wants it;
+            // each surface asks for its own number of seconds when it draws.
+            Dwell = LongestPopUp(),
 
             // The Notifications card's Pop-up column, read at the moment of showing so a tick
             // changed mid-session takes effect at once.
@@ -409,9 +420,12 @@ internal sealed class CompanionHost : IOverlayListener
         _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, _state.Settings.OverlayOn);
         _notifySwitch = new OverlaySwitch(StartNotifyOverlay, StopNotifyOverlay, _state.Settings.NotifyOverlay.On);
         _desktopSwitch = new OverlaySwitch(StartDesktopOverlay, StopDesktopOverlay, _state.Settings.DesktopOverlay.On);
+        _desktopNotifySwitch = new OverlaySwitch(
+            StartDesktopNotifyOverlay, StopDesktopNotifyOverlay, _state.Settings.DesktopNotifyOverlay.On);
         _overlaySwitch.StartIfOn();
         _notifySwitch.StartIfOn();
         _desktopSwitch.StartIfOn();
+        _desktopNotifySwitch.StartIfOn();
 
         InstallTray(desktop);
         ListenForLinks();
@@ -1255,6 +1269,11 @@ internal sealed class CompanionHost : IOverlayListener
 
         if (_overlayHost is not null)
         {
+            // The group's picture out of the companion's own cache, so the panel in the headset
+            // names the community the same way the window over VRChat does. The panel fetches
+            // nothing.
+            _overlayHost.GroupIcon = url => Window.Pictures?.For(url);
+
             // A controller's doing goes to the drive loop (taps, scrolling) and to settings (where
             // the panel was left), so it is where it was left next time.
             _overlayHost.Tapped += target => _overlay?.Tap(target);
@@ -1339,7 +1358,7 @@ internal sealed class CompanionHost : IOverlayListener
         }
 
         if (_popUps is not null)
-            _popUps.Dwell = settings.Dwell;
+            _popUps.Dwell = LongestPopUp();
 
         StartDriver();
         WireOverlayLoops();
@@ -1355,7 +1374,11 @@ internal sealed class CompanionHost : IOverlayListener
         _notifyLastDrewAt = null;
         _notifyFramesSeen = 0;
         _notifyAttachTriedAt = DateTimeOffset.MinValue;
-        _popUps?.ClearAll();
+
+        // Only when nothing else is showing them. The notification overlay on a monitor reads the
+        // same stack, and taking the headset's panel down must not wipe its cards.
+        if (_desktopNotify is null)
+            _popUps?.ClearAll();
 
         StopDriverIfNobodyWantsIt();
 
@@ -1390,7 +1413,7 @@ internal sealed class CompanionHost : IOverlayListener
         _overlay.SaveClipAsked += SaveClip;
 
         foreach (var connection in _state?.Connections ?? [])
-            _overlay.Add(connection.Pairing, connection.ServerId);
+            _overlay.Add(connection.Pairing, connection.Pairing.OverlayLabel);
 
         _overlayLoop.Start();
     }
@@ -1398,8 +1421,13 @@ internal sealed class CompanionHost : IOverlayListener
     /// <summary>Stops the loop once neither panel is up, and lets go of what it held.</summary>
     private void StopDriverIfNobodyWantsIt()
     {
-        if (_overlayHost is not null || _notifyHost is not null || _desktopOverlay is not null)
+        if (_overlayHost is not null
+            || _notifyHost is not null
+            || _desktopOverlay is not null
+            || _desktopNotify is not null)
+        {
             return;
+        }
 
         _overlayLoop.Stop();
         _overlay?.Dispose();
@@ -1499,13 +1527,28 @@ internal sealed class CompanionHost : IOverlayListener
     {
         var settings = _state!.Settings.DesktopOverlay;
 
-        _desktopOverlay = new DesktopOverlayWindow { PlaceNear = Window };
+        _desktopOverlay = new DesktopOverlayWindow
+        {
+            PlaceNear = Window,
+
+            // The group's picture out of the companion's own cache — the same one the window's
+            // server cards draw from. The overlay fetches nothing.
+            GroupIcon = url => Window.Pictures?.For(url),
+        };
+
         _desktopOverlay.Apply(settings);
         _desktopOverlay.PanelTapped += target => _overlay?.Tap(target);
         _desktopOverlay.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
 
         _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
         _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
+
+        // The loop that fills the panel and answers its taps. It used to be started only by the
+        // two headset panels, so a moderator who plays on a monitor and has both of those off got
+        // a window with nothing in it whose every tap — the Events tab included — landed on a
+        // loop that was not there.
+        StartDriver();
+        WireOverlayLoops();
     }
 
     /// <summary>Closes the window and gives the shortcut back to whoever wants it next.</summary>
@@ -1520,6 +1563,94 @@ internal sealed class CompanionHost : IOverlayListener
             _desktopOverlay.Close();
             _desktopOverlay = null;
         }
+
+        StopDriverIfNobodyWantsIt();
+    }
+
+    /// <summary>
+    /// Brings up the notification overlay on a monitor: its own window, in the corner the
+    /// moderator chose, shown when there is something to say.
+    /// </summary>
+    /// <remarks>
+    /// It shares the drive loop with the other panels, because a flagged person arriving is the
+    /// thing it exists to say and the live link is where that is heard. It goes on working when
+    /// every other panel is off, which is the point of it having its own switch.
+    /// </remarks>
+    private void StartDesktopNotifyOverlay()
+    {
+        var settings = _state!.Settings.DesktopNotifyOverlay;
+
+        _desktopNotify = new DesktopNotifyWindow { PlaceNear = Window };
+        _desktopNotify.Apply(settings);
+
+        if (_popUps is not null)
+            _popUps.Dwell = LongestPopUp();
+
+        StartDriver();
+        WireOverlayLoops();
+    }
+
+    /// <summary>Takes it down, leaving every other panel as it was.</summary>
+    private void StopDesktopNotifyOverlay()
+    {
+        if (_desktopNotify is not null)
+        {
+            _desktopNotify.Clear();
+            _desktopNotify.Close();
+            _desktopNotify = null;
+        }
+
+        StopDriverIfNobodyWantsIt();
+    }
+
+    /// <summary>
+    /// The Settings page's notification overlay card: saved, then acted on at once.
+    /// </summary>
+    /// <remarks>
+    /// The corner follows even while it is switched off — the settings are the truth, and the
+    /// window is put where they say when it next has something to show.
+    /// </remarks>
+    private void SetDesktopNotifyOverlay(DesktopNotifySettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (_state is null)
+            return;
+
+        var clamped = settings.Clamped();
+        if (_state.Settings.DesktopNotifyOverlay == clamped)
+            return;
+
+        var wasOn = _state.Settings.DesktopNotifyOverlay.On;
+        _state.Settings = _state.Settings with { DesktopNotifyOverlay = clamped };
+
+        if (!CompanionSettings.SaveDesktopNotifyOverlay(_settingsPath, clamped))
+            Log.Warning("The notification overlay's settings could not be saved to {Path}", _settingsPath);
+
+        if (_popUps is not null)
+            _popUps.Dwell = LongestPopUp();
+
+        _desktopNotify?.Apply(clamped);
+
+        if (wasOn != clamped.On)
+            _desktopNotifySwitch?.Set(clamped.On);
+
+        Render();
+    }
+
+    /// <summary>
+    /// The longest any surface keeps a pop-up, which is how long one is kept at all.
+    /// </summary>
+    /// <remarks>
+    /// There are two surfaces now — the headset's notification overlay and the one on a monitor —
+    /// and each has its own number of seconds. Dropping a card at the shorter of them would take
+    /// it off the other one early.
+    /// </remarks>
+    private TimeSpan LongestPopUp()
+    {
+        var headset = _state?.Settings.NotifyOverlay.Dwell ?? NotifyOverlaySettings.Default.Dwell;
+        var desktop = _state?.Settings.DesktopNotifyOverlay.Dwell ?? DesktopNotifySettings.Default.Dwell;
+        return headset > desktop ? headset : desktop;
     }
 
     /// <summary>
@@ -1535,7 +1666,7 @@ internal sealed class CompanionHost : IOverlayListener
         if (_desktopOverlay is null)
             return;
 
-        _desktopOverlay.Press(escape: false);
+        _desktopOverlay.Press();
         Render();
     }
 
@@ -1579,7 +1710,7 @@ internal sealed class CompanionHost : IOverlayListener
             Log.Warning("The notification overlay's settings could not be saved to {Path}", _settingsPath);
 
         if (_popUps is not null)
-            _popUps.Dwell = clamped.Dwell;
+            _popUps.Dwell = LongestPopUp();
 
         _notifyHost?.Place(clamped.ToPlacement());
 
@@ -1714,9 +1845,22 @@ internal sealed class CompanionHost : IOverlayListener
             await _overlay.TickAsync();
 
             // The pop-ups, after the tick that may have made one: what is still within its time,
-            // newest first. Empty draws nothing at all.
-            if (_notifyHost is not null && _popUps is not null)
-                _notifyHost.Update(new NotificationScreen(_popUps.Current()));
+            // newest first. Empty draws nothing at all. Each surface asks for its own number of
+            // seconds, because a moderator can want one to linger and the other to be brief.
+            if (_popUps is not null)
+            {
+                if (_notifyHost is not null)
+                {
+                    _notifyHost.Update(new NotificationScreen(
+                        _popUps.Current(_state?.Settings.NotifyOverlay.Dwell ?? NotifyOverlaySettings.Default.Dwell)));
+                }
+
+                if (_desktopNotify is not null)
+                {
+                    _desktopNotify.Update(new NotificationScreen(
+                        _popUps.Current(_state?.Settings.DesktopNotifyOverlay.Dwell ?? DesktopNotifySettings.Default.Dwell)));
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1800,6 +1944,7 @@ internal sealed class CompanionHost : IOverlayListener
         // Gives the keyboard shortcut back to Windows rather than leaving it claimed by a process
         // that is going away.
         _desktopOverlayShortcut?.Dispose();
+        _desktopNotify?.Clear();
         _voice?.Dispose();
 
         // Stops the recording and deletes the two rolling files: a client that is going away must
@@ -1928,7 +2073,6 @@ internal sealed class CompanionHost : IOverlayListener
             _desktopOverlay?.IsVisible is true);
 
         var snapshot = _state.Snapshot();
-        _desktopOverlay?.Refresh(snapshot);
 
         Window.Render(
             snapshot,
@@ -1946,6 +2090,7 @@ internal sealed class CompanionHost : IOverlayListener
                 SetDesktopOverlay = SetDesktopOverlay,
                 ShowDesktopOverlay = ShowDesktopOverlay,
                 SetNotifyOverlay = SetNotifyOverlay,
+                SetDesktopNotifyOverlay = SetDesktopNotifyOverlay,
                 SetClips = SetClips,
                 SaveClip = SaveClip,
             });
@@ -2208,7 +2353,7 @@ internal sealed class CompanionHost : IOverlayListener
             Disconnect(pairing.ServerId);
             _state.UnusablePairings.RemoveAll(p => p.ServerId == pairing.ServerId);
             Connect(pairing);
-            _overlay?.Add(pairing, pairing.ServerId);
+            _overlay?.Add(pairing, pairing.OverlayLabel);
         }
 
         _state.LastPairing = new PairingNotice(

@@ -62,8 +62,8 @@ public static class DesktopOverlayKeys
     /// </summary>
     /// <remarks>
     /// Refused: nothing at all, a chord, more than one ordinary key, a key nobody has, no
-    /// modifier, and <c>escape</c> — which already closes the overlay, and a key that both opens
-    /// and closes it would never be able to do the second thing.
+    /// modifier, and <c>escape</c> — which is how VRChat opens its own menu, so claiming it across
+    /// the whole machine would take the game's menu key away from the game.
     /// </remarks>
     public static ShortcutKeys? Read(string? shortcut)
     {
@@ -171,17 +171,18 @@ public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacit
     public byte Alpha => (byte)(ClampOpacity(Opacity) * 255 / 100);
 
     /// <summary>
-    /// Whether the window should be up after a key press.
+    /// Whether the window should be up after the shortcut is pressed.
     /// </summary>
     /// <remarks>
-    /// Three rules in one line. The shortcut turns it over, so the same keys that bring it up take
-    /// it away. Escape only ever closes, because a key that closed and opened would leave a
-    /// moderator pressing Escape to get out of a game menu and landing in the overlay. And
-    /// switched off it is never up, whatever was pressed.
+    /// Two rules in one line. The shortcut turns it over, so the same keys that bring it up take
+    /// it away; and switched off it is never up, whatever was pressed.
+    /// <para><strong>Escape is not one of the ways it closes.</strong> Escape is how VRChat opens
+    /// its own menu, so a moderator pressing it means the menu, and a window that took the press
+    /// instead put itself in a fight with the game it is sitting on top of. The window closes on
+    /// the shortcut and on its own Close button.</para>
     /// </remarks>
     /// <param name="showing">Whether the window is up now.</param>
-    /// <param name="escape">Whether the press was Escape rather than the shortcut.</param>
-    public bool NextShowing(bool showing, bool escape) => On && !escape && !showing;
+    public bool NextShowing(bool showing) => On && !showing;
 }
 
 /// <summary>How the shortcut got on with the operating system.</summary>

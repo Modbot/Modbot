@@ -23,11 +23,16 @@ namespace Modbot.Overlay.Views;
 /// </remarks>
 public static class NotificationView
 {
-    private static DesignTokens T => DesignTokens.Vr;
-
-    public static Control Build(NotificationScreen screen)
+    /// <param name="tokens">
+    /// The palette and the density to draw at. The headset's by default; the notification overlay
+    /// on a monitor passes the desktop's, because VR text is sized for a panel a metre away and a
+    /// card that size on a screen would cover a corner of the game.
+    /// </param>
+    public static Control Build(NotificationScreen screen, DesignTokens? tokens = null)
     {
         ArgumentNullException.ThrowIfNull(screen);
+
+        var t = tokens ?? DesignTokens.Vr;
 
         // Nothing to say, nothing drawn. Not a faint outline, not an empty card.
         if (screen.IsEmpty)
@@ -35,7 +40,7 @@ public static class NotificationView
 
         var stack = new StackPanel { Spacing = 10 };
         foreach (var popUp in screen.PopUps)
-            stack.Children.Add(Card(popUp));
+            stack.Children.Add(Card(popUp, t));
 
         return new Border
         {
@@ -47,36 +52,36 @@ public static class NotificationView
         };
     }
 
-    private static Control Card(PopUp popUp)
+    private static Control Card(PopUp popUp, DesignTokens t)
     {
         var lines = new StackPanel { Spacing = 4 };
 
-        lines.Children.Add(Text(popUp.Heading, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold));
-        lines.Children.Add(Text(popUp.Body, T.Density.TextBase * 1.3, T.TextBrush, FontWeight.SemiBold));
+        lines.Children.Add(Text(popUp.Heading, t.Density.TextSmall, t.TextDimBrush, FontWeight.SemiBold));
+        lines.Children.Add(Text(popUp.Body, t.Density.TextBase * 1.3, t.TextBrush, FontWeight.SemiBold));
 
         if (popUp.Detail is { Length: > 0 } detail)
-            lines.Children.Add(Text(detail, T.Density.TextSmall, Edge(popUp.Tone)));
+            lines.Children.Add(Text(detail, t.Density.TextSmall, Edge(popUp.Tone, t)));
 
         return new Border
         {
-            Background = T.SurfaceBrush,
-            BorderBrush = Edge(popUp.Tone),
+            Background = t.SurfaceBrush,
+            BorderBrush = Edge(popUp.Tone, t),
 
             // A thicker left edge rather than a full border: the eye finds it at a glance without
             // the card becoming a box inside a box.
-            BorderThickness = new Thickness(6, T.Density.Hairline, T.Density.Hairline, T.Density.Hairline),
-            CornerRadius = T.CornerRadius,
+            BorderThickness = new Thickness(6, t.Density.Hairline, t.Density.Hairline, t.Density.Hairline),
+            CornerRadius = t.CornerRadius,
             Padding = new Thickness(16, 12),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Child = lines,
         };
     }
 
-    private static IBrush Edge(PopUpTone tone) => tone switch
+    private static IBrush Edge(PopUpTone tone, DesignTokens t) => tone switch
     {
-        PopUpTone.Flagged => T.DangerBrush,
-        PopUpTone.Problem => T.WarnBrush,
-        _ => T.AccentForegroundBrush,
+        PopUpTone.Flagged => t.DangerBrush,
+        PopUpTone.Problem => t.WarnBrush,
+        _ => t.AccentForegroundBrush,
     };
 
     private static TextBlock Text(string content, double size, IBrush brush, FontWeight weight = FontWeight.Normal) => new()

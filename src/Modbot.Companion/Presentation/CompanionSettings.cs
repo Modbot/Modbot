@@ -42,7 +42,9 @@ namespace Modbot.Companion.Presentation;
 /// which kinds of event raise a notification by each of the three ways; and <c>clips</c>
 /// (<c>{ "on": false, "minutes": 3, "folder": "…", "keepGigabytes": 5 }</c>), keeping the last few
 /// minutes of the screen while VRChat runs — off unless somebody turns it on. Both are written
-/// whole the same way too.</para>
+/// whole the same way too. There is also <c>desktopNotifyOverlay</c>
+/// (<c>{ "on": false, "spot": "bottomright", "seconds": 6 }</c>), the notification overlay on a
+/// monitor, written whole the same way.</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
 /// opens in your browser when you press the button; no server is told what it is. The switches decide
 /// what the client does; they are not reported anywhere.</para>
@@ -142,6 +144,13 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public ClipSettings Clips { get; init; } = ClipSettings.Default;
 
     /// <summary>
+    /// The notification overlay on a monitor: off until turned on, then which corner of the screen
+    /// it sits in and how long one notification stays. Saved as the <c>desktopNotifyOverlay</c>
+    /// object.
+    /// </summary>
+    public DesktopNotifySettings DesktopNotifyOverlay { get; init; } = DesktopNotifySettings.Default;
+
+    /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
     /// servers and opens that server's own pairing page.
     /// </summary>
@@ -168,6 +177,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string NotificationsField = "notifications";
 
     public const string ClipsField = "clips";
+
+    public const string DesktopNotifyOverlayField = "desktopNotifyOverlay";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -216,7 +227,19 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
             Notifications = FromShape(shape?.Notifications),
             Clips = FromShape(shape?.Clips),
+            DesktopNotifyOverlay = DesktopNotifySettings.FromJson(shape?.DesktopNotifyOverlay),
         };
+    }
+
+    /// <summary>
+    /// Writes the whole <c>desktopNotifyOverlay</c> object, keeping every other field in the file.
+    /// The same rules as <see cref="SaveNotifyOverlay"/>: a file that cannot be read as JSON is
+    /// left alone.
+    /// </summary>
+    public static bool SaveDesktopNotifyOverlay(string path, DesktopNotifySettings desktopNotifyOverlay)
+    {
+        ArgumentNullException.ThrowIfNull(desktopNotifyOverlay);
+        return SaveField(path, DesktopNotifyOverlayField, desktopNotifyOverlay.ToJson());
     }
 
     private static ClipSettings FromShape(ClipsShape? clips) => clips is null
@@ -468,7 +491,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("desktopOverlay")] DesktopOverlayShape? DesktopOverlay,
         [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters,
         [property: JsonPropertyName("notifications")] NotificationsShape? Notifications,
-        [property: JsonPropertyName("clips")] ClipsShape? Clips);
+        [property: JsonPropertyName("clips")] ClipsShape? Clips,
+        [property: JsonPropertyName("desktopNotifyOverlay")] JsonObject? DesktopNotifyOverlay);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,

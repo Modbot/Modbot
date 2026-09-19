@@ -5,6 +5,11 @@
 **Supersedes nothing.** Narrows *overlay OpenXR and interaction design* (2026-09-16) §4.2, which
 assumed one panel per process.
 
+**Widened 2026-09-19.** The split described here — a panel you read and a notification you are
+told — turned out to be the right split on a monitor as well as in a headset, and the desktop only
+had the reading half. There are now two notification surfaces, and §2.5 says what that changes
+here. The desktop half itself lives in *desktop overlay design* §7.
+
 ---
 
 ## 1. What a moderator gets
@@ -101,6 +106,26 @@ overlays off.
 
 Both switches are independent, and each builds or tears down only its own half.
 
+### 2.5 There are two of these now, and `PopUps` is still one
+
+A moderator on a monitor wants the same thing for the same reason, so there is a second
+notification surface: a small window in a corner of the screen (desktop overlay design §7). It has
+its own switch, its own corner and its own seconds, and it is a window rather than an overlay
+texture — but it is not a second decision about what is worth saying.
+
+Both surfaces read the same `PopUps`, and `PopUps` asks the Pop-up column of the Notifications card
+once, at the moment of showing. **The desktop window is the Pop-up way of being told, on a monitor;
+it is not a fourth way.** A moderator who asked to be shown a card when a flagged person arrives
+asked once, not once per screen they happen to be looking at, and a fourth column would make every
+one of them tick the same boxes twice. One decision, several surfaces — the rule §2.3 already set
+for the alert card and the pop-up, applied one surface further.
+
+The one thing that is genuinely per-surface is how long a card stays, because a corner of a monitor
+and a corner of somebody's vision are not the same place. `PopUps.Dwell` therefore means *how long
+a card is kept at all* — the longest any surface wants — and each surface asks `Current(dwell)`
+with its own number of seconds. Nothing is queued and nothing is duplicated; a card that has been
+dropped is gone for everybody.
+
 ## 3. The main overlay's screens
 
 Three, moved between by a row of tabs across the top of the panel:
@@ -114,6 +139,11 @@ Three, moved between by a row of tabs across the top of the panel:
 `OverlayScreen` carries `Page`, and `OverlayTarget.GoTo` is what a tab press means. Tapping a
 roster row still opens a person, and now also moves to the Person page; **Back** returns to
 Instance.
+
+Above the tabs, on every screen, the panel says **whose community it is**: the group's icon and the
+group's name, once. It used to say the group's label three times — in the window's own strip, in
+the roster's header and in the events screen's header — and the label it was handed was the paired
+server's address. The desktop overlay design §4.1 has the whole of that.
 
 ### 3.1 What the Person screen does *not* have
 

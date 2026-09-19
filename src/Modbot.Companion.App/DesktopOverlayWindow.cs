@@ -3,7 +3,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Modbot.Companion.Journal;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
 using Modbot.Overlay.Driving;
@@ -32,24 +31,29 @@ namespace Modbot.Companion.App;
 /// fullscreen is the one case that cannot work, because the game owns the display and nothing
 /// short of drawing inside its own graphics device would appear there; that is a thing this client
 /// must never do. The desktop overlay design spec (2026-09-18, §3.4) has the detail.</para>
+/// <para><strong>Only the panel.</strong> There used to be a feed of the client's own recent events
+/// pinned under it, which made the window tall, made the panel small, and told a moderator about
+/// things after the moment had passed. Being told as it happens is the notification overlay's job
+/// now — its own window, in a corner, which this one neither owns nor summons (§7).</para>
 /// </remarks>
 internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 {
-    /// <summary>Wide enough for a roster row's name, flags and count without wrapping.</summary>
-    private const double PanelWidth = 460;
+    /// <summary>Wide enough for a roster row's name, rank and flags without trimming any of them.</summary>
+    private const double PanelWidth = 520;
 
     private const double PanelHeight = 720;
 
     /// <summary>How far in from the screen's edge it sits.</summary>
     private const int EdgeMargin = 32;
 
-    /// <summary>How many of the client's own recent events are shown under the panel.</summary>
-    private const int RecentEvents = 5;
+    /// <summary>How big the group's icon is drawn in the strip along the top.</summary>
+    private const double IconSize = 22;
 
     private readonly ContentControl _panel = new();
-    private readonly StackPanel _recent = new() { Spacing = 0 };
-    private readonly Border _recentCard;
-    private readonly TextBlock _where = Ui.Faint("");
+    private readonly Image _groupIcon = new() { Width = IconSize, Height = IconSize, Stretch = Stretch.UniformToFill };
+    private readonly Border _groupIconFrame;
+    private readonly TextBlock _groupName = Ui.Text(
+        "", Ui.T.Density.TextBase, Ui.T.TextBrush, FontWeight.SemiBold, wrap: false);
 
     private OverlayScreen? _drawn;
     private DesktopOverlaySettings _settings = DesktopOverlaySettings.Default;
@@ -79,15 +83,15 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Background = GroundBrush();
 
-        _recentCard = new Border
+        _groupIconFrame = new Border
         {
-            Background = Ui.T.SurfaceBrush,
-            BorderBrush = Ui.T.BorderBrush,
-            BorderThickness = new Thickness(Ui.T.Density.Hairline),
-            CornerRadius = new CornerRadius(10),
+            Width = IconSize,
+            Height = IconSize,
+            CornerRadius = new CornerRadius(IconSize / 2),
             ClipToBounds = true,
-            Margin = new Thickness(12, 0, 12, 12),
-            Child = _recent,
+            VerticalAlignment = VerticalAlignment.Center,
+            IsVisible = false,
+            Child = _groupIcon,
         };
 
         var body = new ScrollViewer
@@ -99,13 +103,18 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         var head = Head();
         DockPanel.SetDock(head, Dock.Top);
-        DockPanel.SetDock(_recentCard, Dock.Bottom);
 
-        Content = new DockPanel { Children = { head, _recentCard, body } };
+        Content = new DockPanel { Children = { head, body } };
 
         _panel.PointerPressed += OnPanelPressed;
+        // The wheel moves the roster, which is the list the panel itself pages through. On the
+        // other two screens it is left to the window's own scrolling, because taking it there
+        // would be a wheel that does nothing over a card that is taller than the window.
         _panel.PointerWheelChanged += (_, e) =>
         {
+            if (_drawn is not { Page: OverlayPage.Instance })
+                return;
+
             RosterScrolled?.Invoke(e.Delta.Y > 0 ? -1 : 1);
             e.Handled = true;
         };
@@ -114,27 +123,44 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     }
 
     /// <summary>
-    /// The strip along the top: the product's name, where the panel is looking, and the way to
-    /// move the window. Dragging it is why it exists — the window has no border to drag.
+    /// The strip along the top: whose community this is, and the way to move the window.
     /// </summary>
+    /// <remarks>
+    /// <para>The group's icon and the group's name, because that is what a moderator knows their
+    /// community by. It used to say the product's name and then the address of the machine the
+    /// server runs on, which told them nothing they did not already know and nothing they wanted.
+    /// The address is only what the name falls back to.</para>
+    /// <para>Dragging the strip is why it exists — the window has no border to drag — so the drag
+    /// starts on the strip itself and never on the Close button, which used to swallow the press
+    /// that was meant to close the window.</para>
+    /// </remarks>
     private Control Head()
     {
-        var name = Ui.Text("Modbot", Ui.T.Density.TextBase, Ui.T.TextBrush, FontWeight.SemiBold, wrap: false);
-        name.VerticalAlignment = VerticalAlignment.Center;
-
-        _where.VerticalAlignment = VerticalAlignment.Center;
+        _groupName.VerticalAlignment = VerticalAlignment.Center;
 
         var close = Ui.Button("Close");
         close.Click += (_, _) => Dismiss();
 
-        var row = new DockPanel { LastChildFill = false };
-        DockPanel.SetDock(name, Dock.Left);
-        DockPanel.SetDock(close, Dock.Right);
-        row.Children.Add(name);
-        row.Children.Add(close);
-        row.Children.Add(_where);
+        var handle = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            Background = Brushes.Transparent,
+            Children = { _groupIconFrame, _groupName },
+        };
 
-        var head = new Border
+        handle.PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed)
+                BeginMoveDrag(e);
+        };
+
+        var row = new DockPanel { LastChildFill = true };
+        DockPanel.SetDock(close, Dock.Right);
+        row.Children.Add(close);
+        row.Children.Add(handle);
+
+        return new Border
         {
             Padding = new Thickness(12, 8),
             Background = Ui.T.Surface2Brush,
@@ -142,14 +168,6 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             BorderThickness = new Thickness(0, 0, 0, Ui.T.Density.Hairline),
             Child = row,
         };
-
-        head.PointerPressed += (_, e) =>
-        {
-            if (e.GetCurrentPoint(head).Properties.IsLeftButtonPressed)
-                BeginMoveDrag(e);
-        };
-
-        return head;
     }
 
     /// <summary>
@@ -164,16 +182,32 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             return false;
 
         _drawn = screen;
-        _where.Text = screen.GroupLabel ?? "Not in a group instance";
+        _groupName.Text = screen.GroupLabel ?? "Not in a group instance";
+        _groupName.Foreground = screen.GroupLabel is null ? Ui.T.TextDimBrush : Ui.T.TextBrush;
+
+        var picture = GroupIcon?.Invoke(screen.GroupIconUrl);
+        _groupIcon.Source = picture;
+        _groupIconFrame.IsVisible = picture is not null;
 
         // The idle screen draws nothing at all in a headset, where the panel hangs in the world.
         // In a window there is a window either way, so it says so rather than going blank.
         _panel.Content = screen.IsIdle
-            ? OverlayView.Build(screen with { ShowIdleCard = true })
-            : OverlayView.Build(screen);
+            ? OverlayView.Build(screen with { ShowIdleCard = true }, GroupIcon)
+            : OverlayView.Build(screen, GroupIcon);
 
         return true;
     }
+
+    /// <summary>
+    /// The group's picture for an address, from the companion's own cache, or null while there is
+    /// none.
+    /// </summary>
+    /// <remarks>
+    /// The same cache the window's own server cards draw from. This window fetches nothing and is
+    /// told nothing by a server; a picture that has not arrived leaves the group's name standing
+    /// on its own.
+    /// </remarks>
+    public Func<string?, IImage?>? GroupIcon { get; set; }
 
     /// <summary>
     /// The drive loop does not decide whether this window is up; the moderator's shortcut does.
@@ -200,35 +234,13 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             Dismiss();
     }
 
-    /// <summary>The last few things the client did, under the panel. The Events page's own rows.</summary>
-    public void Refresh(CompanionAppSnapshot snapshot)
-    {
-        ArgumentNullException.ThrowIfNull(snapshot);
-
-        if (!IsVisible)
-            return;
-
-        var groups = snapshot.Servers.ToDictionary(s => s.ServerId, s => s.GroupName, StringComparer.Ordinal);
-        var rows = snapshot.Events.Take(RecentEvents).ToList();
-
-        _recentCard.IsVisible = rows.Count > 0;
-        _recent.Children.Clear();
-
-        var first = true;
-        foreach (var row in rows)
-        {
-            _recent.Children.Add(MainWindow.EventRow(row, first, groups));
-            first = false;
-        }
-    }
-
     /// <summary>
-    /// The shortcut, or Escape: the window goes by the rule on the settings record, which is where
-    /// it is tested.
+    /// The shortcut: the window goes by the rule on the settings record, which is where it is
+    /// tested.
     /// </summary>
-    public void Press(bool escape)
+    public void Press()
     {
-        if (_settings.NextShowing(IsVisible, escape))
+        if (_settings.NextShowing(IsVisible))
             Summon();
         else
             Dismiss();
@@ -298,14 +310,19 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         e.Handled = true;
     }
 
+    /// <summary>
+    /// The roster's own keys, and deliberately not Escape.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Escape belongs to VRChat.</strong> It is how the game's own menu is opened, and a
+    /// moderator pressing it while this window has the keyboard means the menu. The window used to
+    /// close on it, which put the two in a fight the game could not win. The shortcut that opened
+    /// the window closes it, and so does the Close button.
+    /// </remarks>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         switch (e.Key)
         {
-            case Key.Escape:
-                Press(escape: true);
-                e.Handled = true;
-                break;
             case Key.J or Key.Down:
                 RosterScrolled?.Invoke(1);
                 e.Handled = true;

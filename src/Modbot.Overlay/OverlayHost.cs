@@ -2,6 +2,7 @@ using System.Numerics;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Media;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.Interaction;
@@ -107,6 +108,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     /// <summary>Scrolling on the roster, in whole rows; negative is up.</summary>
     public event Action<int>? RosterScrolled;
+
+    /// <summary>
+    /// The group's picture for an address, from the companion's own cache, or null while there is
+    /// none. Nothing here fetches anything: the panel asks for what the client is already holding,
+    /// and a picture that has not arrived leaves the group's name standing on its own.
+    /// </summary>
+    public Func<string?, IImage?>? GroupIcon { get; set; }
 
     /// <summary>Puts the panel somewhere, as the settings page does. UI thread only.</summary>
     public void Place(OverlayPlacement placement)
@@ -298,7 +306,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         _drawn = next;
         _compositor.Invalidate();
 
-        var root = OverlayView.Build(next);
+        var root = OverlayView.Build(next, GroupIcon);
         if (!_compositor.DrawIfChanged(root))
             return false;
 

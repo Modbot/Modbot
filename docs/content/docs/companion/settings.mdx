@@ -215,10 +215,13 @@ the file:
 | `desktopOverlay.on` | `false` | Whether the window over VRChat is available. See [Desktop overlay](#desktop-overlay). |
 | `desktopOverlay.shortcut` | `mod+alt+m` | The keys that bring it up, `mod` meaning Ctrl. A combination the client cannot ask Windows for falls back to the default. |
 | `desktopOverlay.opacity` | `90` | 20 to 100. |
+| `desktopNotifyOverlay.on` | `false` | Whether notifications appear in a corner of your screen. See [Notification overlay on a monitor](#notification-overlay-on-a-monitor). |
+| `desktopNotifyOverlay.spot` | `bottomright` | Which corner: `topleft`, `topmiddle`, `topright`, `bottomleft`, `bottommiddle` or `bottomright`. |
+| `desktopNotifyOverlay.seconds` | `6` | How long one notification stays, 2 to 30. |
 | `notifications.bleep` | `true` | Whether a short sound plays when you are told something. See [Notification sound](#notification-sound). |
 | `notifications.volume` | `70` | The sound's own volume, 0 to 100, separate from the voice's. |
 | `notifications.trayNoticesShown` | `0` | How many times you have been told the client is still in the tray. It stops after three. |
-| `notificationFilters.popUp` | `["flagged join", "problem"]` | Which kinds raise a pop-up on the notification overlay. See [Tell me about](#tell-me-about). |
+| `notificationFilters.popUp` | `["flagged join", "problem"]` | Which kinds raise a notification, in the headset and on a monitor alike. See [Tell me about](#tell-me-about). |
 | `notificationFilters.sound` | `["flagged join", "problem"]` | Which kinds play the sound. |
 | `notificationFilters.voice` | `["joined", "left", "flagged join", "problem"]` | Which kinds the voice says. |
 | `voice.on` | `false` | The **Voice on** switch. See [Voice](#voice). |
@@ -252,7 +255,8 @@ Things to know:
   includes Cloud backup and starting with Windows being on. The environment variables still apply.
 - When you flip a switch, the client changes only that switch's field and leaves the rest of the
   file as it was; a change on the Voice card rewrites the whole `voice` object, and the same goes
-  for `notifyOverlay`, `desktopOverlay` and `notifications`. It never writes the `cloud` field.
+  for `notifyOverlay`, `desktopOverlay`, `desktopNotifyOverlay` and `notifications`. It never
+  writes the `cloud` field.
 - If the file is broken, the client does not overwrite it. A switch you flip then only lasts until
   the client restarts.
 
@@ -352,7 +356,9 @@ before it fades. At most three pop-ups are drawn at once; older ones fall off th
 ## Desktop overlay
 
 The same roster, events and person card as the headset panel, in a window that sits over VRChat on
-a monitor. Press the shortcut to bring it up and again to send it away; Escape also closes it.
+a monitor. Press the shortcut to bring it up and press it again to send it away, or use the
+**Close** button on the window. Escape does not close it, because Escape is how VRChat opens its
+own menu.
 
 The shortcut is asked of Windows by name, so it works while VRChat has the keyboard. Another
 program may already own the combination, and then the **Desktop overlay** card on the **Settings**
@@ -371,6 +377,25 @@ written for a key that prints a character.
 
 VRChat in exclusive fullscreen will hide the window. Run VRChat in borderless windowed mode if you
 want the overlay over it.
+
+## Notification overlay on a monitor
+
+Notifications in a corner of your screen, on top of whatever is there: a flagged arrival, a Modbot
+fault, and anything else you have ticked in the **Pop-up** column of [Tell me about](#tell-me-about).
+It has its own switch, and it is separate from the window above — the shortcut does not open it and
+closing that window does not take it away.
+
+`spot` is which corner it sits in, on the screen the Modbot window is on. `seconds` is how long one
+notification stays. Nothing is drawn while there is nothing to say, and it never takes the keyboard
+or the mouse from VRChat: a click where it is goes through to the game.
+
+```json
+"desktopNotifyOverlay": {
+  "on": false,
+  "spot": "bottomright",
+  "seconds": 6
+}
+```
 
 ## Notification sound
 
@@ -393,8 +418,12 @@ still running in the tray. After three it stops. Set it back to `0` to be told a
 ## Tell me about
 
 The **Tell me about** card on the **Settings** page is one row per kind of event and one tick per
-way of being told: a pop-up on the [notification overlay](/companion/overlay), the
-[notification sound](#notification-sound), and the [voice](#voice).
+way of being told: a pop-up, the [notification sound](#notification-sound), and the
+[voice](#voice).
+
+**Pop-up** covers both notification overlays — the one in the headset and the
+[one in a corner of your screen](#notification-overlay-on-a-monitor) — because they are the same
+choice made once. Each has its own switch, so you can have either, both or neither.
 
 | Kind | Pop-up | Sound | Voice | What it is |
 |---|---|---|---|---|
@@ -411,7 +440,7 @@ reading of VRChat's log — the same events the **Events** page lists, under the
 **Flagged join** comes from your group's server, and **Problem** from the client itself.
 
 Each way keeps its own switch and its own volume: turning a kind on here does nothing while the
-sound is off, the voice is off, or the notification overlay is off. Your own arrivals and
+sound is off, the voice is off, or both notification overlays are off. Your own arrivals and
 departures are never announced, whatever is ticked.
 
 The card writes the `notificationFilters` object:
