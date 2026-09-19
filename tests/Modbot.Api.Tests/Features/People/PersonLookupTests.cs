@@ -38,9 +38,9 @@ public class PersonLookupTests
 
     private static string Ask(string? vrchat = null, string? discord = null, Guid? account = null)
     {
-        if (vrchat is not null) return $"/api/people?vrchatUserId={Uri.EscapeDataString(vrchat)}";
-        if (discord is not null) return $"/api/people?discordUserId={Uri.EscapeDataString(discord)}";
-        return $"/api/people?accountId={account}";
+        if (vrchat is not null) return $"/api/people/lookup?vrchatUserId={Uri.EscapeDataString(vrchat)}";
+        if (discord is not null) return $"/api/people/lookup?discordUserId={Uri.EscapeDataString(discord)}";
+        return $"/api/people/lookup?accountId={account}";
     }
 
     private static async Task SeedAsync(ReadSurfaceTestHost host, Action<ModbotContext> seed)
@@ -327,10 +327,10 @@ public class PersonLookupTests
 
         var cookie = await host.SignedInAsync(Reads, Ct);
 
-        var none = await host.GetAsync("/api/people", cookie, Ct);
+        var none = await host.GetAsync("/api/people/lookup", cookie, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, none.StatusCode);
 
-        var both = await host.GetAsync("/api/people?vrchatUserId=usr_a&discordUserId=d_a", cookie, Ct);
+        var both = await host.GetAsync("/api/people/lookup?vrchatUserId=usr_a&discordUserId=d_a", cookie, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, both.StatusCode);
     }
 
