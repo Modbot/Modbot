@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Activity;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -84,9 +85,64 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
             tenure,
             withKnownTenure,
             invites,
+            await PeaksAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }
+
+    /// <summary>
+    /// The highest member count and the highest online count inside the window, each with the
+    /// moment it was read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// From <c>group_member_count</c>, the readings the member count chart draws — not from the
+    /// daily totals, which hold the last reading of a day and would put a peak at midnight. A tie
+    /// goes to the earliest reading, so the same window always names the same moment.
+    /// </para>
+    /// <para>
+    /// Days with a reading come back beside the peaks. The sync reads every five minutes, so a
+    /// window Modbot was running through has every day; a window it was not — the deployment is
+    /// younger than the range, or an operator's presence retention window has deleted the older
+    /// readings — has gaps, and a peak drawn across them is the highest Modbot saw rather than the
+    /// highest there was.
+    /// </para>
+    /// </remarks>
+    private async Task<MemberCountPeaks> PeaksAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        const string Sql = """
+            SELECT COUNT(*)::int AS readings,
+                   COUNT(DISTINCT (c.counted_at AT TIME ZONE 'UTC')::date)::int AS days,
+                   MAX(c.member_count)::int,
+                   (array_agg(c.counted_at ORDER BY c.member_count DESC, c.counted_at))[1],
+                   MAX(c.online_member_count)::int,
+                   (array_agg(c.counted_at ORDER BY c.online_member_count DESC, c.counted_at))[1]
+            FROM group_member_count c
+            WHERE c.counted_at >= @from AND c.counted_at < @to
+            """;
+
+        var windowDays = to.DayNumber - from.DayNumber + 1;
+
+        var rows = await _sql.ReadAsync(
+            Sql,
+            r => r.GetInt32(0) == 0
+                ? MemberCountPeaks.Empty(windowDays)
+                : new MemberCountPeaks(
+                    Peak(r, 2, 3),
+                    Peak(r, 4, 5),
+                    new MemberCountCoverage(windowDays, r.GetInt32(1), r.GetInt32(0))),
+            ct,
+            ("from", AnalyticsSql.DayStart(from)),
+            ("to", AnalyticsSql.DayEnd(to)));
+
+        return rows.Count > 0 ? rows[0] : MemberCountPeaks.Empty(windowDays);
+    }
+
+    /// <summary>A peak and its moment, or null where the column is null or the count never rose above nought.</summary>
+    private static PeakCount? Peak(System.Data.Common.DbDataReader reader, int value, int at)
+        => reader.IsDBNull(value) || reader.IsDBNull(at) || reader.GetInt32(value) <= 0
+            ? null
+            : new PeakCount(reader.GetInt32(value), AnalyticsSql.InstantOf(reader, at));
 
     /// <summary>
     /// The group's headcount as VRChat reported it, one point per day it was observed changing.

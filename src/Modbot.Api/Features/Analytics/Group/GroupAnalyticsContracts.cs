@@ -1,4 +1,24 @@
+using Modbot.Analytics.Activity;
+
 namespace Modbot.Api.Features.Analytics.Group;
+
+/// <summary>
+/// The highest the group's two counts reached inside the window, and when.
+/// </summary>
+/// <remarks>
+/// Both come from the readings the group-info sync keeps, which are VRChat's own numbers at the
+/// moment it asked — so the peak is a number VRChat reported, not one Modbot worked out.
+/// <paramref name="Coverage"/> says how many of the window's days carry a reading at all, because
+/// the highest number in a window nobody was reading is the highest Modbot happened to see.
+/// </remarks>
+/// <param name="Members">The most members VRChat ever reported inside the window.</param>
+/// <param name="Online">The most members online in VRChat at one moment inside the window.</param>
+public sealed record MemberCountPeaks(PeakCount? Members, PeakCount? Online, MemberCountCoverage Coverage)
+{
+    /// <summary>No readings in the window: both peaks absent rather than nought.</summary>
+    public static MemberCountPeaks Empty(int windowDays)
+        => new(null, null, MemberCountCoverage.Nothing with { WindowDays = windowDays });
+}
 
 /// <param name="Id">The role id VRChat uses. Opaque.</param>
 /// <param name="IsModerationRole">Whether the role carries a permission that acts on other people (see <c>ModerationRoles</c>).</param>
@@ -72,6 +92,7 @@ public sealed record GroupMemberCountSeries(
 /// How many current members the tenure buckets cover. Only people whose join Modbot recorded
 /// have a join date; members from before recording began are not in any bucket.
 /// </param>
+/// <param name="Peaks">The highest the two counts reached inside the window, and when.</param>
 public sealed record GroupAnalytics(
     DateOnly From,
     DateOnly To,
@@ -86,5 +107,6 @@ public sealed record GroupAnalytics(
     IReadOnlyList<TenureBucket> Tenure,
     int MembersWithKnownTenure,
     InviteFunnel Invites,
+    MemberCountPeaks Peaks,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);

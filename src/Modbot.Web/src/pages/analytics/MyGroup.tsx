@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { Badge } from '@/components/ui/badge'
-import { DailyBars, DailyLine, Legend, RankedList, compactNumber, longDay, percent } from '@/components/charts'
-import { api } from '@/lib/api'
+import { DailyBars, DailyLine, Legend, RankedList, compactNumber, dateTime, longDay, percent } from '@/components/charts'
+import { api, type MemberCountPeaks } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { InsightsPanel } from './InsightsPanel'
 import { MemberCountChart } from './MemberCountChart'
@@ -55,6 +55,8 @@ export function MyGroup() {
             <Stat label="Left" value={compactNumber(left)} />
             <Stat label="Net change" value={`${joined - left >= 0 ? '+' : ''}${compactNumber(joined - left)}`} />
           </div>
+
+          <Peaks peaks={data.peaks} />
 
           <InsightsPanel />
 
@@ -178,5 +180,42 @@ export function MyGroup() {
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * The highest the two counts reached in the range, each with the reading that reached it.
+ *
+ * Both are numbers VRChat reported, taken from the five-minute readings rather than from the daily
+ * totals -- a daily total holds the last reading of a day and would put every peak at midnight. The
+ * coverage line says how many of the range's days carry a reading at all, because a high water mark
+ * across days nobody was reading is the highest Modbot saw and not the highest there was.
+ */
+function Peaks({ peaks }: { peaks: MemberCountPeaks }) {
+  const { coverage } = peaks
+
+  return (
+    <>
+      {coverage.readings === 0 ? (
+        <PageMessage>No member count readings in this range.</PageMessage>
+      ) : coverage.thin ? (
+        <PageMessage>
+          Readings on {coverage.daysWithReadings} of {coverage.windowDays} days in this range.
+        </PageMessage>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Stat
+          label="Most members"
+          value={peaks.members ? compactNumber(peaks.members.value) : '—'}
+          note={peaks.members ? dateTime(peaks.members.at) : undefined}
+        />
+        <Stat
+          label="Most online at once"
+          value={peaks.online ? compactNumber(peaks.online.value) : '—'}
+          note={peaks.online ? dateTime(peaks.online.at) : undefined}
+        />
+      </div>
+    </>
   )
 }

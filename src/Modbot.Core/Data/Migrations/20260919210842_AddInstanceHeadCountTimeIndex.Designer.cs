@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260919210842_AddInstanceHeadCountTimeIndex")]
+    partial class AddInstanceHeadCountTimeIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2863,47 +2866,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_giveaway_post_message");
 
                     b.ToTable("giveaway_post", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.GroupAutoInvite", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasColumnType("text")
-                        .HasColumnName("user_id");
-
-                    b.Property<int>("Attempts")
-                        .HasColumnType("integer")
-                        .HasColumnName("attempts");
-
-                    b.Property<DateTimeOffset>("FirstInvitedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("first_invited_at");
-
-                    b.Property<string>("InstanceId")
-                        .HasColumnType("text")
-                        .HasColumnName("instance_id");
-
-                    b.Property<DateTimeOffset>("InvitedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("invited_at");
-
-                    b.Property<string>("Problem")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("problem");
-
-                    b.Property<bool?>("Worked")
-                        .HasColumnType("boolean")
-                        .HasColumnName("worked");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_group_auto_invite");
-
-                    b.HasIndex("InvitedAt")
-                        .IsDescending()
-                        .HasDatabaseName("ix_group_auto_invite_invited_at");
-
-                    b.ToTable("group_auto_invite", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.GroupBan", b =>
@@ -5839,29 +5801,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<Guid?>("EvidenceStoreId")
                         .HasColumnType("uuid")
                         .HasColumnName("evidence_store_id");
-
-                    b.Property<int>("GroupAutoInviteAgainAfterDays")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(30)
-                        .HasColumnName("group_auto_invite_again_after_days");
-
-                    b.Property<bool>("GroupAutoInviteEnabled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("group_auto_invite_enabled");
-
-                    b.Property<int>("GroupAutoInviteMinutesInInstance")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(5)
-                        .HasColumnName("group_auto_invite_minutes_in_instance");
-
-                    b.Property<string>("GroupAutoInviteRules")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValue("{\"kind\":\"allOf\",\"rules\":[]}")
-                        .HasColumnName("group_auto_invite_rules");
 
                     b.Property<DateTimeOffset?>("GroupInfoPolledAt")
                         .HasColumnType("timestamp with time zone")

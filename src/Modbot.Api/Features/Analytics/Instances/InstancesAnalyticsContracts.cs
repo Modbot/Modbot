@@ -1,3 +1,5 @@
+using Modbot.Analytics.Activity;
+
 namespace Modbot.Api.Features.Analytics.Instances;
 
 /// <summary>
@@ -49,6 +51,75 @@ public sealed record InstanceRow(
     int? PeakPeople,
     decimal MinutesOpen);
 
+/// <summary>
+/// The instance that held the most people at one moment inside the window.
+/// </summary>
+/// <param name="Id">Modbot's own id, so the row opens the instance popup.</param>
+/// <param name="WorldName">Null while the world has only ever been seen as an id.</param>
+/// <param name="VRChatInstanceId">VRChat's number for it — what a moderator saw in game.</param>
+/// <param name="People">How many were in it at that moment, as VRChat's own count reported.</param>
+/// <param name="At">The moment. The earliest one, where the instance reached that number twice.</param>
+public sealed record BusiestInstance(
+    Guid Id,
+    string WorldId,
+    string? WorldName,
+    string? VRChatInstanceId,
+    DateTimeOffset OpenedAt,
+    int People,
+    DateTimeOffset At);
+
+/// <summary>
+/// How full the group's instances ever got inside the window, and when.
+/// </summary>
+/// <remarks>
+/// Every number here comes from VRChat's own head counts rather than from the companion's presence
+/// reports, so it covers instances no moderator was standing in. <paramref name="Coverage"/> says
+/// how much of the window Modbot had a count for, because a peak from two hours of counting in a
+/// week is not the week's peak.
+/// </remarks>
+/// <param name="MostPeopleAtOnce">The most people in the group's instances at one moment, all added together.</param>
+/// <param name="MostInstancesAtOnce">The most instances being counted at one moment.</param>
+/// <param name="BusiestDay">The day with the most people-minutes.</param>
+/// <param name="BusiestHour">The single clock hour with the most people-minutes.</param>
+/// <param name="BusiestInstance">The fullest one instance ever got.</param>
+/// <param name="MostPeopleAtOncePerDay">The daily peak, as a line.</param>
+/// <param name="PeopleMinutesPerDay">People-minutes per day, as a line.</param>
+public sealed record InstancePeaks(
+    PeakCount? MostPeopleAtOnce,
+    PeakCount? MostInstancesAtOnce,
+    BusiestDay? BusiestDay,
+    BusiestHour? BusiestHour,
+    BusiestInstance? BusiestInstance,
+    IReadOnlyList<DayValue> MostPeopleAtOncePerDay,
+    IReadOnlyList<DayValue> PeopleMinutesPerDay,
+    InstanceCoverage Coverage)
+{
+    /// <summary>Nothing recorded: every peak absent rather than nought (see <c>Peaks</c>).</summary>
+    public static InstancePeaks Empty(int windowDays) => new(
+        null, null, null, null, null, [], [],
+        InstanceCoverage.Nothing with { WindowDays = windowDays });
+}
+
+/// <summary>One moment of the staircase: how many people were in the group's instances, and in how many.</summary>
+/// <param name="Instances">Instances with a head count at that moment — not instances open, which the page's own charts answer.</param>
+public sealed record ActivityPoint(DateTimeOffset At, int People, int Instances);
+
+/// <summary>
+/// People in the group's instances over a range of readings, thinned to a drawable number of points.
+/// </summary>
+/// <param name="Range"><c>day</c>, <c>week</c>, <c>month</c> or <c>all</c>.</param>
+/// <param name="StepSeconds">
+/// The window was cut into steps this long and the last reading in each kept, so the series is never
+/// more than about five hundred points.
+/// </param>
+public sealed record InstanceActivitySeries(
+    string Range,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    int StepSeconds,
+    IReadOnlyList<ActivityPoint> Points,
+    DateTimeOffset GeneratedAt);
+
 /// <param name="Opened">Instances opened per day (daily totals).</param>
 /// <param name="Closed">Instances closed per day (daily totals).</param>
 /// <param name="MostOpenAtOnce">
@@ -57,10 +128,19 @@ public sealed record InstanceRow(
 /// </param>
 /// <param name="MostPeopleInOne">The most people known to be in a single instance at once, per day. From presence reports.</param>
 /// <param name="TypicalMinutesOpen">Median time from open to close, for instances with both on record.</param>
+/// <param name="TypicalMinutesOpenPerDay">
+/// The same median, day by day, over instances that opened and closed on that day. One number for a
+/// window says whether evenings are long; a line says whether they are getting longer.
+/// </param>
 /// <param name="InstancesWithBothEnds">How many instances that median is over.</param>
 /// <param name="InstancesOpened">Instances opened inside the window.</param>
 /// <param name="OpenNow">Instances the group has open right now, busiest first.</param>
 /// <param name="Recent">The most recent instances in the window, newest first.</param>
+/// <param name="Peaks">How full it ever got, and how much of the window Modbot was counting.</param>
+/// <param name="PresenceReports">
+/// How many presence facts the window holds. The heatmap and <paramref name="MostPeopleInOne"/> rest
+/// on these, so the page marks them thin below a handful — the same test the Worlds page applies.
+/// </param>
 public sealed record InstancesAnalytics(
     DateOnly From,
     DateOnly To,
@@ -69,10 +149,13 @@ public sealed record InstancesAnalytics(
     IReadOnlyList<DayValue> MostOpenAtOnce,
     IReadOnlyList<DayValue> MostPeopleInOne,
     decimal? TypicalMinutesOpen,
+    IReadOnlyList<DayValue> TypicalMinutesOpenPerDay,
     int InstancesWithBothEnds,
     int InstancesOpened,
     IReadOnlyList<InstanceRow> OpenNow,
     IReadOnlyList<InstanceRow> Recent,
     HourOfWeek HourOfWeek,
+    InstancePeaks Peaks,
+    long PresenceReports,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);

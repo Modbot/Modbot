@@ -60,12 +60,48 @@ week has no figures for last month, and a short retention window shortens the fa
 
 ### Presence reports
 
-Some figures (time spent in worlds, visitors, how many people were in an instance, coverage gaps)
-come from **presence reports**: who the [companion](/companion/install) saw in an
-instance while a moderator with the client was there. VRChat does not report this any other way.
+Some figures (time spent in worlds, visitors, who was in an instance, coverage gaps) come from
+**presence reports**: who the [companion](/companion/install) saw in an instance while a moderator
+with the client was there. VRChat does not report *who* is in an instance any other way.
 
-So these figures only cover instances where a moderator with a paired companion was present. A
-world nobody with the client visited looks empty, however busy it really was.
+**Modbot only knows who was in an instance while a moderator's companion was reporting from it.**
+Nobody with the client in the instance means no presence reports at all, and every figure built on
+them then reads as nought however busy the instance really was. That is not a fault and it is not
+an estimate: it is the limit of what VRChat will tell anybody.
+
+What this means for a figure drawn over a range:
+
+- A world nobody with the client visited looks empty.
+- "The most people seen in one instance" is the most **seen**, which is at most the most there were.
+- A busy Saturday nobody covered leaves no trace, so it cannot pull an average or a peak up.
+
+Where a page's figures rest on presence reports, it counts them for you and says so when they are
+thin: **No presence reports in this range**, or **Only 84 presence reports in this range**. Treat
+anything below a few hundred as a sample rather than a measurement.
+
+### Head counts
+
+Some figures (**People in instances**, and the peaks on the [Instances](#instances) page) come from
+**head counts** instead, and these are not limited by who was in the instance. Modbot reads each of
+the group's open instances' own page about every thirty seconds and keeps VRChat's own count of how
+many people are in it.
+
+No moderator and no companion is involved, so head counts cover instances nobody from the team was
+standing in. What they cannot tell you is *who* those people were — only how many. That is why the
+two sources sit side by side rather than one replacing the other.
+
+A count is stored only when the number **changes**, so an instance that sits at twelve people all
+evening is one stored reading, not a thousand. Charts drawn from head counts are therefore a
+staircase: each reading holds until the next one.
+
+Head counts start when Modbot starts reading an instance, so they can still be incomplete:
+
+- An instance that opened before Modbot was set up, or while the group's instance list could not be
+  read, has no counts for that part of its life.
+- If VRChat rate limits Modbot, reading stops until the limit clears and nothing is counted in
+  between. [Health](/self-hosting/health) shows when that is happening.
+
+The Instances page measures exactly this and says so — see [Coverage](#coverage) below.
 
 ## My Group
 
@@ -76,6 +112,23 @@ The stats along the top:
 - **Members**: the group's member count as VRChat last reported it, with the date it was read.
 - **Joined** and **Left**: joins and leaves recorded in the range.
 - **Net change**: joined minus left in the range.
+
+Then the two peaks, each with the moment it happened, in your own time zone:
+
+- **Most members**: the highest member count VRChat reported in the range.
+- **Most online at once**: the highest number of the group's members who were in VRChat at the same
+  moment, anywhere — not only in your instances.
+
+Both are read from the five-minute member count readings, so the moment shown is a real reading and
+not a day. Where the same number was reached more than once, the **earliest** time is shown, so the
+figure does not move about between two loads of the same page.
+
+**What the peaks rest on.** Modbot can only find a peak among the readings it has. If the range
+reaches back further than Modbot has been running, or [retention](/self-hosting/data-retention) has
+deleted the older readings, the peak is the highest Modbot saw and not necessarily the highest there
+was. When fewer than half the days in the range carry a reading, the page says so above the stats —
+**Readings on 2 of 30 days in this range** — and with no readings at all, **No member count readings
+in this range**.
 
 Below them, the [**Insights**](/ai/insights) panel appears if AI insights are set up.
 
@@ -198,15 +251,76 @@ and outlasts a short retention window.
 The stats along the top are **Opened** and **Closed** (instances in the range), **Typical time open**
 and **Most open at once**.
 
+### Peaks
+
+Under them is a second row of peaks, each with the moment it happened, in your own time zone. All
+four are built from [head counts](#head-counts) — VRChat's own numbers — so they cover instances
+nobody from the team was standing in.
+
+| Stat | What it counts |
+|---|---|
+| **Most people at once** | The most people in all of the group's instances added together, at one moment. |
+| **Fullest instance** | The most people in a single instance at one moment, with the world it was in. |
+| **Busiest day** | The day with the most **people-time**, shown as hours. |
+| **Busiest hour** | The single clock hour with the most people-time, on a real date — not "Saturdays at 8". |
+
+**People-time** is people added up over the minutes they were there: one person for an hour and
+sixty people for one minute are both one hour. Busiest is measured that way rather than by the peak,
+because a night that touched forty people for five minutes is not a busier night than one that held
+twenty for six hours. For "Saturdays at 8" — the same hour across weeks — use **When the community
+is active** below.
+
+Where the same height was reached twice, the **earliest** moment is shown, so the figure does not
+move about between two loads of the same page. A range with nothing recorded shows a dash rather
+than a zero: nothing was recorded is not the same statement as the peak was nought.
+
+### Coverage
+
+A peak is only as good as the time Modbot was counting. Two hours of counting in a week gives a
+peak that is real and is **not** the week's peak, and nothing about the number itself says which one
+you are looking at. So the page measures it.
+
+Modbot compares two amounts of time inside the range:
+
+- how long the group's instances were **open**, added up across instances, and
+- how much of that time it actually **had a head count** for — an instance counts from its first
+  stored reading onwards, and one Modbot never read contributes nothing.
+
+When the second is less than half the first, the page says so above the stats: **Head counts cover
+19% of the time instances were open**. With no head counts at all in the range, it says **No head
+counts in this range**.
+
+The peaks are still shown when coverage is thin. They are marked, not hidden — a real peak from a
+short window is still worth seeing, as long as you know that is what it is.
+
+### Panels
+
 | Panel | What it shows | Comes from |
 |---|---|---|
 | **Open right now** | Group instances open at this moment. Shown only when there are some, and ignores the range. | Modbot's instance list |
 | **Recent instances** | The most recent instances. | Modbot's instance list |
+| **People in instances** | People in all of the group's instances, moment by moment, with how many instances they were spread across drawn over it in green on its own scale at the right. Hover a point for both numbers and the time. | Head counts |
 | **When the community is active** | A week-by-hour grid. Switch between **People arriving** and **Instances opened**. Hours are shown in your own time zone (named in the title), rounded to whole hours. | Fact log (arrivals from presence reports) |
 | **Opened and closed per day** | Instances opened and closed each day. | Daily totals |
 | **Most open at once, per day** | The most group instances open at the same time each day. | Fact log |
-| **Most people in one instance, per day** | The biggest crowd seen in a single instance each day. | Presence reports |
+| **Most people at once, per day** | The most people in all of the group's instances at one moment, each day. | Head counts |
+| **Busy time per day** | People-time per day, in hours. A long steady evening reads higher than a short rush. | Head counts |
+| **Typical time open, per day** | The middle time from open to close, over the instances that closed that day. The stat at the top is the same figure for the whole range. | Fact log |
+| **Most people seen in one instance, per day** | The biggest crowd a moderator's companion **saw** in a single instance each day. | Presence reports |
+
+**People in instances** has range buttons of its own: **Day**, **Week** (the default), **Month** and
+**All**, because it is drawn from readings taken every thirty seconds rather than from whole days.
+Long ranges show up to about 500 readings spread evenly across the range, and every point is a
+number VRChat reported at the time shown. The line is a staircase because a count is stored only
+when it changes: each reading holds until the next.
+
+**Most people at once, per day** and **Most people seen in one instance, per day** look similar and
+are not the same figure. The first is every instance added together, from VRChat's own counts, and
+is complete whether or not anyone was watching. The second is one instance at a time, from what a
+companion actually saw, and is nought on a day nobody with the client was around. If the range has
+fewer than 200 presence reports the page says so, and with none it says so in that panel too.
 
 VRChat only records an instance closing when a moderator closes it. An instance that emptied out on
 its own has no close on record, so Modbot treats it as open until the last thing seen in it (a kick,
-a warning or a presence report). That is why **Closed** is often lower than **Opened**.
+a warning or a presence report). That is why **Closed** is often lower than **Opened**, and why
+**Typical time open** only covers instances with both ends on record.

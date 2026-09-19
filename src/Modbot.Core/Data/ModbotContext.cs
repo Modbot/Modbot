@@ -792,9 +792,16 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .HasForeignKey(e => e.InstanceId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // "How full was this instance, and when", in order -- the only question asked of it.
+            // "How full was this instance, and when", in order -- the question the Live page and the
+            // instance popup ask.
             entity.HasIndex(e => new { e.InstanceId, e.CountedAt })
                 .HasDatabaseName("ix_instance_head_count_instance");
+
+            // "Every count taken between these two moments", whichever instance -- the Instances
+            // page's activity line and its peaks. The table grows with every change in every open
+            // instance forever, so that read must be an index range and never a scan.
+            entity.HasIndex(e => e.CountedAt)
+                .HasDatabaseName("ix_instance_head_count_time");
         });
 
         builder.Entity<GroupMemberCount>(entity =>
