@@ -1,59 +1,51 @@
 ---
 title: Paging through a list
-description: How to read a long list from the Modbot API one page at a time without missing a row or reading one twice.
+description: How to read a long list from the Modbot API one page at a time.
 ---
 
 Most lists in the Modbot API are too long to send in one answer, so they come back a page at a
-time. This page explains how to ask for the next page, and why a page number is not the way to do
-it.
+time.
 
-## Send back the cursor you were given
+## Ask for a page
 
-Ask for the first page with no position at all:
+Ask for the first page, or any other, with `page` and `pageSize`:
 
 ```bash
 curl -H "Authorization: Bearer mbk_..." \
-  "https://modbot.example.com/api/members?pageSize=50"
+  "https://modbot.example.com/api/members?page=1&pageSize=50"
 ```
 
-The answer carries the rows and two pieces of text:
+The answer carries the rows and three numbers:
 
 ```json
 {
   "members": [ ... ],
   "total": 4812,
   "page": 1,
-  "pageSize": 50,
-  "next": "next!joined!=2026-03-10T12:00:00.0000000+00:00!usr_c0ffee",
-  "previous": null
+  "pageSize": 50
 }
 ```
 
-- **`next`** is the following page. Send it back as `cursor`.
-- **`previous`** is the page before. Send it back the same way.
+- **`total`** is how many rows match your filters, across every page.
+- **`page`** is the page you asked for.
+- **`pageSize`** is how many rows a page holds — what you asked for, held inside what the endpoint
+  will serve.
 
-Either can be `null`, which means there is no page that way. On the first page, `previous` is
-always `null`.
+How many pages there are is `total` divided by `pageSize`, rounded up. To read a whole list, count
+up to that.
 
 ```bash
 curl -H "Authorization: Bearer mbk_..." \
-  --get --data-urlencode "cursor=next!joined!=2026-03-10T12:00:00.0000000+00:00!usr_c0ffee" \
-  --data-urlencode "pageSize=50" \
-  "https://modbot.example.com/api/members"
+  "https://modbot.example.com/api/members?page=2&pageSize=50"
 ```
 
-To read a whole list, keep going until `next` is `null`.
+Pages count from **1**. A page past the end of the list comes back with no rows and the same
+`total`, not an error. A page number of `0` or less is the first page.
 
-<Callout type="warn">
-  **A cursor is Modbot's to write.** Send it back exactly as it came and do not build one, take it
-  apart, or store it for later. What is inside it can change between Modbot releases.
-</Callout>
+Send the **same filters, search and sort** with every page. A page number says how far into a list
+you are; it does not remember which list.
 
-Send the **same filters** with every page. A cursor says where in a list you are; it does not
-remember which list. Changing the search, the filters or the sort halfway through gives you a page
-of a different list.
-
-## Why not a page number
+## What a page number can get wrong
 
 These lists are being written to while you read them. The member sweep finishes, somebody is
 banned, the Discord bot reads the whole member list again.
@@ -63,57 +55,35 @@ ask. So:
 
 - Somebody joins while you are between page one and page two. Everything shifts down one, and the
   last person on page one is now the first person on page two. **You read them twice.**
-- Somebody leaves instead. Everything shifts up one. **One person is never on any page you read.**
+- Somebody leaves instead. Everything shifts up one. **One person is not on any page you read.**
 
-Neither is visible in the answer. Page two looks exactly like page two.
+Neither is visible in the answer. If you are reading a whole list to compare it with your own copy,
+read it by id afterwards rather than trusting that every row appeared exactly once, or read it at a
+quiet moment.
 
-A cursor names the last row you were shown and asks for what comes after it, so neither can happen.
-Rows added above where you are do not move you, and rows removed do not either.
-
-## What a cursor cannot do
-
-**There are no page numbers.** Modbot knows the page after the one you have and the page before it.
-It does not know that you are on page 40, because working that out means counting every row above
-you, which is the expensive thing cursors exist to avoid.
-
-**`total` is still there** on the lists that can afford it — the member list, the group's ban list,
-the Discord member list and the repeat-offender list all tell you how many rows match your filters,
-across every page. The audit log and the log do not, on purpose: they are far too big to count on
-every request.
-
-## An old or broken cursor
-
-If a cursor cannot be read — it was written under a different sort, it lost a character on the way,
-it came from an older Modbot — the **first page comes back**. There is no error. A saved link
-should show you the list, not an error page.
-
-That means a cursor is never worth retrying, and never worth reporting as a failure. If you get the
-first page back when you expected the fourth, check that you sent the same `sort` you sent when you
-got the cursor.
-
-## Page numbers still work, for now
-
-The lists below accepted `page` and `pageSize`, or `offset` and `limit`, before cursors existed,
-and they still do. A request that sends a page number gets what it always got, plus a `next` cursor
-it can move to. If you send both a `cursor` and a page number, the cursor wins and `page` comes back
-as `1`.
-
-They will not be removed without notice, but they can read a row twice or miss one, exactly as
-described above. Move to `cursor` when you can.
+What cannot happen is two rows swapping places on a list that is **not** being written to: every
+sort these lists offer ends in the person's id, which is unique, so tied rows always come back in
+the same order.
 
 ## Which lists page which way
 
 | Endpoint | How it pages |
 |---|---|
-| [`GET /api/members`](/api/reference) | `cursor`; `page` and `pageSize` still accepted |
-| `GET /api/bans` | `cursor`; `page` and `pageSize` still accepted |
-| `GET /api/discord/members` | `cursor`; `page` and `pageSize` still accepted |
-| `GET /api/repeat-offenders` | `cursor`; `offset` and `limit` still accepted |
-| `GET /api/audit` | `beforeOccurredAt` and `beforeId`, sent back together from `next` |
-| `GET /api/logs` | `before`, the `next` from the last answer |
-| `GET /api/events/poll` | `cursor`, the one from the last answer — see [long polling](/api/long-polling) |
+| [`GET /api/members`](/api/reference) | `page` and `pageSize` |
+| `GET /api/bans` | `page` and `pageSize` |
+| `GET /api/discord/members` | `page` and `pageSize` |
+| `GET /api/people` | `page` and `pageSize` |
+| `GET /api/discord/members/{id}/messages` | `page` and `pageSize`, or `at` with a message id for the page holding it |
+| `GET /api/repeat-offenders` | `offset` and `limit` |
 | `GET /api/audit/bans` | `offset` and `limit` |
 | `GET /api/cases` | `offset` and `limit` |
+| `GET /api/audit` | `beforeOccurredAt` and `beforeId`, sent back together from the last answer |
+| `GET /api/logs` | `before`, the last row id from the last answer |
+| `GET /api/events/poll` | `cursor`, the one from the last answer — see [long polling](/api/long-polling) |
+
+The audit log and Modbot's own log page from the last row you were shown rather than by number,
+because both are far too big to count on every request and neither has a `total` to work a page
+count out of. For those two, keep sending what the last answer gave you until it gives you nothing.
 
 The lists not named here are short enough to come back whole, with a cap on how many rows they will
 ever return.
@@ -121,5 +91,5 @@ ever return.
 ## In the web app
 
 The page you are on is part of the address, beside the filters. A link you copy from the member
-list opens on the rows you were looking at; refreshing keeps you there; and the browser's Back
+list opens on the page you were looking at, refreshing keeps you there, and the browser's Back
 button undoes a page turn rather than leaving the screen.

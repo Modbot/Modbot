@@ -1,260 +1,252 @@
 # List paging design
 
 **Date:** 2026-09-18
-**Status:** built, except where §6 says otherwise
+**Status:** built
 
-How a list page turns to the next page, and how a link to a page of a list keeps working.
+How a list page turns to another page, and how a link to a page of a list keeps working.
 
 ---
 
-## 1. The two problems
+## 1. The decision
 
-**A page number is measured from a list that is moving.** Every list on these screens is written to
-while somebody is reading it: the member sweep finishes, a ban lands, the Discord bot reads the
-whole member list again on every sign-in. "Skip a hundred rows and give me fifty" is measured from
-wherever the list starts *now*. A row added above the boundary pushes one row down onto the next
-page, where the reader sees it twice; a row removed pulls one up off the next page, where nobody
-ever sees it. Neither is visible to the reader — the second page looks like a second page.
+**Numbered pages, with the page number in the address.** Every list in the app that pages does it
+the same way: the server takes `page` and `pageSize`, answers with `total`, `page` and `pageSize`
+beside the rows, and the browser works out how many pages there are and draws the numbers.
+
+This was decided twice in one day, and the second answer is the one that stands. §7 says what the
+first one was and why it was taken out; it is written down so that nobody reads the arguments for
+keyset paging and reintroduces it.
+
+---
+
+## 2. The problem it solves
 
 **A page could not be linked to.** Nothing about a list's position reached the address. A moderator
 who found something on the third page of the ban list could not send anybody the third page of the
 ban list, could not reload onto it, and could not press Back to undo a page turn — Back left the
 screen entirely, because the filters replace their history entry rather than pushing one.
 
-The audit log had already solved the first problem for itself (`AuditQuery`, spec 5.9). This
-generalises what it did, and adds the second.
+**There was no way to reach a page except through the pages before it.** The footers said
+*"Page 3 of 97"* between a Previous and a Next button. The one figure on the screen a reader might
+want to act on — 97 — was the one thing they could not act on.
 
 ---
 
-## 2. What a cursor is
+## 3. What the page number rests on
 
-A cursor names a row and a direction: *the rows after this one*, or *the rows before it*. Given a
-list ordered by something, "after this row" is a comparison, and a comparison does not care how
-many rows are above it or how many arrived since.
+A page number is "skip this many rows, then give me this many". That is a sound answer only while
+the ordering is **total**: every row has exactly one place, and two reads of the same list put the
+rows in the same places. An ordering with ties leaves the tied rows in whatever order the database
+happened to return them, and then two rows can swap between one page and the next — so one is shown
+twice and the other not at all, on a list nobody has touched.
 
-It is a piece of text the server writes and the caller hands back. It carries four things:
-
-| Part | |
-|---|---|
-| Direction | `next` or `back`. |
-| Sort | Which of the list's orderings it was written under. |
-| Value | The ordering value of the row the page starts from, as text. |
-| Id | That row's id, which is unique in the list. |
-
-They are joined with `!`, each part percent-encoded, so no part can contain the separator. A row
-with **no** value to order on — no join date, no fetched profile — writes `-` in the value's place;
-a row whose value is present writes `=` and then the value. The two are kept apart because "this
-person has no name yet" and "this person's name is the empty string" are different places in the
-order.
-
-```
-next!joined!=2026-03-10T12%3A00%3A00.0000000%2B00%3A00!usr_abc
-next!joined!-!usr_abc
-back!name!=Alice%20Wonder!usr_abc
-```
-
-It is readable on purpose: a moderator, or whoever reads a script later, can see in the address bar
-where a link points. Nothing promises the shape will not change, and the API documentation says so
-— **send back what you were given; do not build one.**
-
-The code is `src/Modbot.Api/Lists/ListCursor.cs`.
-
-### 2.1 Why both halves are required
-
-A cursor on the ordering value alone silently drops every row that shares the boundary value. These
-lists tie constantly: a sweep stamps a whole batch of rows with one moment, and an imported group
-has every member joining at the same instant. `AuditQuery` states the same rule for the same reason
-— VRChat's audit entries share timestamps freely.
-
-The corollary bit `/api/logs`, which ordered by `at` and paged on `id`. Those are two different
-orders, so a line written late but stamped early sat above the cursor's row in the sort and below it
-in the filter, and was shown on neither page. It is now ordered by the id it pages on. For a log
-that is also the more honest order: the id is the order the lines were written, and the timestamp is
-whatever the writer put on them.
-
-### 2.2 Why the sort is carried
-
-The member list can be ordered three ways, the Discord list three. A cursor holding a display name,
-read back while the list is ordered by join date, would compare a name against a date and return an
-arbitrary slice. Carrying the ordering's name turns that into a first page instead of a wrong
-answer — which matters because it is reachable by an ordinary action: change the sort with a page
-still in the address.
-
-### 2.3 What happens to a cursor that will not read
-
-**The first page, never an error.** A cursor that is malformed, truncated, written under another
-ordering, or left over from a build that ordered the list differently is treated as no cursor at
-all. A bookmark from six months ago should show the list.
-
-This follows the audit log's existing rule for an unrecognised filter value (`ParseEnums`): a stale
-link shows the timeline rather than an error page. Nothing is widened by it, because the permission
-check runs regardless of what the cursor said.
-
----
-
-## 3. Which way the pages go
-
-A cursor list can offer Next and Previous and nothing else. It cannot offer "page 40", because it
-does not know how many rows are above any row without counting them.
-
-Previous is a real cursor, not the browser's Back button: it reverses the ordering, reads a page,
-and turns the rows back round. That is what makes a pasted link to page three usable — the reader
-arriving on it has no history to go back through.
-
-`ListPaging.ReadAsync` does the part that is the same everywhere: read one row more than was asked
-for, so "is there another page" costs nothing extra; drop the extra; turn the rows round when
-reading backwards; and decide which of the two cursors to hand back.
-
-The other half — the ordering, and the comparison for "after this row" — stays in each list. A
-shared expression builder covering nullable values, mixed directions and three different tie-break
-types would be more code than the comparisons it replaced, and none of it readable. Each list's
-comparison is four to eight lines of ordinary LINQ beside the ordering it mirrors.
-
----
-
-## 4. The address
-
-The position travels in one query parameter, `cursor`, beside the filter chips that produce it
-(`lib/filters.ts` writes those as repeated `f`). One parameter is enough because the direction is
-inside the cursor: the browser never reads one, builds one, or decides which way it points. It
-carries the server's text to the address and back.
-
-```
-/members?f=status:is:current&f=role:is:grol_mod&cursor=next!joined!%3D2026-03-10T12%3A00%3A00Z!usr_abc
-```
-
-**Turning a page pushes a history entry. Changing a filter replaces one.** So Back walks back
-through the pages that were turned, and a filter change does not bury the screen under history.
-Changing a filter, the search box, or the sort also drops the cursor: the list being paged is a
-different list now, and page three of it means nothing.
-
-One piece of client code does all of this — `src/Modbot.Web/src/lib/listPosition.ts`, whose pure
-half is tested with Node alone, as `filters.ts` is. Every list page uses `useListPosition()` rather
-than a `page` of its own, so turning a page, sharing the link and pressing Back mean the same thing
-on every list.
-
-### 4.1 What the controls say now
-
-The three list footers each said `Page N of M` between a Previous and a Next button, each
-recomputing `M` from a total. There is no `M` any more, so they are one shared `Pager` with two
-buttons and no label. The count that people actually read — *"4,812 people"* — was never in the
-footer; it is beside the filters, and it stays (§5).
-
----
-
-## 5. What happens to the totals
-
-A cursor page does not need a count and the audit log has always refused to compute one: counting a
-filtered slice of the partitioned fact log on every page turn is a scan of every partition.
-
-The member list, the group ban list, the Discord member list and the repeat-offender list are a
-different size — thousands of rows behind an index — and each shows its total on screen. **Those
-totals stay.** `total` is still counted on every read and is still the whole filtered list, not the
-page. Dropping it would take away the only figure on the screen that says how big the answer is, to
-save a count that was already being paid.
-
-`page` and `pageSize` are still in each answer. `pageSize` means what it always did. `page` is the
-page number a caller asked for with `page`, and is `1` for anybody paging by cursor, because there
-is no page number to report. The API reference says so on the field.
-
----
-
-## 6. Which lists moved
-
-### Moved to cursor paging
+Every ordering these lists offer ends in an id that is unique within the list:
 
 | List | Ordered by | Tie-break | Sorts |
 |---|---|---|---|
 | `GET /api/members` | join date, newest first | user id | `joined`, `name`, `seen` |
 | `GET /api/bans` (the group's ban list) | ban date, newest first | user id | one |
 | `GET /api/discord/members` | join date, newest first | user id | `joined`, `oldest`, `name` |
+| `GET /api/people` | last seen, newest first | user id | `seen`, `name`, `known` |
 | `GET /api/repeat-offenders` | last action, newest first | subject id | one |
 
-In every one of them, rows with nothing to order on — no join date, no fetched profile — sort to
-the end of the list, as they did before, and the cursor's missing-value mark is what lets a page
-boundary land among them.
+Rows with nothing to order on — no join date, no fetched profile — sort to the end of the list,
+which is also where they page.
 
-### Already cursor-paged, left alone
+`tests/Modbot.Api.Tests/Features/Members/MemberPagingTests.cs` and its Discord counterpart walk each
+list twice, once whole and once two rows at a time, and assert the two reads are the same sequence.
+They seed ties on purpose, because a sweep stamps a batch of rows with one moment and the Discord
+bot re-reads the whole server on every sign-in.
 
-- `GET /api/audit` — the pattern everything else follows. Its cursor is two named parameters
-  (`beforeOccurredAt` and `beforeId`) rather than one piece of text. That is a published contract
-  that works, and rewriting it would break every caller to gain nothing but a spelling.
+### 3.1 What a page number still gets wrong, and why that is accepted
 
-### Already cursor-paged, fixed
+A list that is written to while somebody reads it can still repeat a row or hide one: a member joins
+above the boundary between reading page one and page two, everything shifts down, and the last row
+of page one is the first row of page two.
 
-- `GET /api/logs` — ordered by `at` while paging on `id`, so lines fell between the pages (§2.1).
-  Now ordered by the id it pages on. No change to any parameter or answer.
+That is real, and it is a trade rather than a fault to be fixed at any price. Against it:
 
-### Not moved, and why
+- a numbered page can be linked to, refreshed onto and jumped into;
+- these lists already count their `total` on every read, so the count a page number needs is
+  already paid for;
+- a moderator who wants the oldest member is far better served by pressing the last page than by
+  pressing Next ninety-four times.
 
-- **`GET /api/audit/bans`** — the fact-derived ban list. It is not a query over rows: it reads
-  every ban and every unban fact, groups them per subject in memory, works out each subject's
-  current state, sorts the result and skips into it. There is no row in a table to name, so there
-  is nothing for a cursor to point at. Keyset-paging it would mean first building the current-state
-  tables spec 5.2 describes, which is a different piece of work. It keeps `offset` and `limit`.
-  Worth knowing: its in-memory sort has no tie-break at all, so two subjects sharing a timestamp
-  are in an arbitrary order and its offset paging can already repeat or skip one of them. That is a
-  real fault, and the fix for it is the same fix — real rows.
-
-- **`GET /api/cases`** — orders by `createdAt` with the case file's `uuid` as the tie-break. This
-  codebase has no keyset comparison on a `uuid` and no precedent for translating one; `string.Compare`
-  on a text column is what every comparison here uses. Case files are written one at a time by a
-  moderator rather than swept in batches, and no screen pages the list (the pane asks for twenty
-  and stops), so an offset does not drift under anybody today. It is the next one to move, and
-  moving it means deciding what it orders on.
-
-- **`GET /api/insights`** — takes `before` as a `createdAt` alone while ordering by `createdAt` and
-  then `id`, which is the same half-cursor fault as the log had. Fixing it properly means changing
-  the shape of `before`, and it is a published parameter feeding a panel that asks for ten rows. It
-  is recorded here rather than fixed quietly.
-
-- **`GET /api/discord/members/{id}/messages`** — pages by number on purpose: its `at` parameter
-  takes a message id and answers with *the page containing it*, which is a page number by
-  definition. Message history is also append-only at one end and read from an anchor, not scrolled
-  from the top.
-
-- **`GET /api/giveaways/{id}/draws/{drawId}/entrants`** — a draw is frozen when it is made and its
-  entrants are ordered by a rank that is unique within it. An offset into a list that cannot change
-  cannot skip or repeat anything.
-
-- **Lists with no paging at all** — Flags, Reviews, Giveaways, Calendar, Live, Users, Roles and the
-  analytics tables each read one capped batch and draw it. There was no paging to move. Several of
-  them also have no tie-break in their ordering, which does not bite while nothing pages them and
-  will the moment something does.
+The shift is also one row, briefly, on a list whose rows a moderator is scanning rather than
+processing exactly once. The place where "exactly once" matters is the fact log, and the audit log
+pages by its own cursor for exactly that reason (§6).
 
 ---
 
-## 7. The old parameters
+## 4. The address
 
-`page`, `pageSize`, `offset` and `limit` still work everywhere they worked before, and every one of
-these endpoints is in `docs/openapi/modbot.json`, which is a published contract: API keys and
-scripts already call them.
+The page travels in one query parameter, `page`, beside the filter chips (`lib/filters.ts` writes
+those as repeated `f`).
 
-A caller that sends `page` still skips rows and still gets `total`, `page` and `pageSize` back — and
-now also gets a `next` to move to. A caller that sends `cursor` wins: the cursor is used, `page`
-comes back as `1`, and the skip is not applied. Sending both is not an error; it just means the
-page number is ignored.
+```
+/members?f=status:is:current&f=role:is:grol_mod&page=3
+```
 
-They stay for at least one release. The API documentation says plainly what a page number can do
-wrong on a list that is being written to, so a script author has a reason to move rather than an
-instruction.
+Page one is written as **nothing at all**, so a plain list has a plain address and there is one
+spelling for the first page rather than two.
+
+Only plain digits are read as a page number. `Number` would read `1e3` as a thousand and `" 4 "` as
+four, and this never writes either, so a hand-edited address means what it looks like or means page
+one. Anything else — `page=0`, `page=-3`, `page=three`, a link from an older build — is page one
+rather than an error, following the audit log's existing rule for an unrecognised filter value
+(`ParseEnums`): a saved link should show the list.
+
+**Turning a page pushes a history entry. Changing a filter replaces one.** So Back walks back
+through the pages that were turned, and a filter change does not bury the screen under history.
+Changing a filter, the search box or the sort also goes back to page one: the list being paged is a
+different list now, and page three of it means nothing.
+
+One piece of client code does all of this — `src/Modbot.Web/src/lib/listPage.ts`, whose pure half is
+tested with Node alone, as `filters.ts` is. Every list page uses `useListPage()` rather than a
+`page` of its own, so turning a page, sharing the link and pressing Back mean the same thing on
+every list.
+
+The search box needs one piece of care: its debounced effect runs once on mount, and going back to
+page one there would throw away the page a pasted link asked for. It resets the page only when the
+typed words actually differ from the words being searched.
+
+---
+
+## 5. The control
+
+One `Pager` (`src/Modbot.Web/src/components/Pager.tsx`), under every list that pages. Previous, the
+numbers, Next. It draws nothing at all when there is only one page.
+
+**A long list shows both ends and where the reader is**: the first page, the last page, the page
+being read and two neighbours either side, with a gap standing for the numbers left out.
+
+```
+1 … 7 8 9 10 11 … 200
+```
+
+A hundred numbers in a row is a wall, not a control. The first and last are always there because
+"start again" and "the far end" are the two jumps people actually make; the neighbours are there
+because the next page is the next thing anybody wants. A gap that would hide a **single** number is
+replaced by that number — `1 2 3 4 5 6 7 … 200` rather than `1 … 3 4 5 6 7 … 200` — because the gap
+is no narrower than the number it hides and one press further away.
+
+That is at most nine things wide, which fits a phone without the row wrapping more than once.
+
+**A page past the end of the list.** The server answers a page past the end with no rows, the whole
+list's `total`, and the page number that was asked for; it does not clamp, because then the address
+and the answer would disagree. The pager does the clamping instead: when the page it is on is past
+the last page — a filter narrowed the list under somebody on page nine — it goes back to page one
+rather than leaving them looking at nothing with no number left to press.
+
+### 5.1 What the footer does not say
+
+The count people actually read — *"4,812 people"* — is beside the filters at the top of the list,
+not in the footer, and it stays there. The footer is a control; it carries no sentence.
+
+---
+
+## 6. Which lists page which way
+
+### Numbered pages
+
+`GET /api/members`, `GET /api/bans`, `GET /api/discord/members` and `GET /api/people` take `page`
+and `pageSize` and answer with `total`, `page` and `pageSize`. All four are drawn by the shared
+pager.
+
+`GET /api/repeat-offenders` takes `offset` and `limit` and answers with `total` and `offset`. It is
+the same shape of answer by another spelling, and it is left alone because nothing pages it: the
+screen asks for two hundred rows and draws them. It gets numbered pages when something needs them,
+not before.
+
+### Paged by cursor, on purpose
+
+- **`GET /api/audit`** — the fact log. Its cursor is two named parameters (`beforeOccurredAt` and
+  `beforeId`). It refuses to count a filtered slice, because that is a scan of every partition, so
+  there is no `total` to turn into a number of pages even if somebody wanted one. It is also the
+  list where reading a row exactly once genuinely matters.
+- **`GET /api/logs`** — Modbot's own log, paged by row id (`before`). The table is written to
+  constantly and nothing links to a page of it.
+- **`GET /api/events/poll`** — a long poll, not a list.
+
+### Offset and limit, unmoved
+
+- **`GET /api/audit/bans`** — the fact-derived ban list. It is not a query over rows: it reads
+  every ban and every unban fact, groups them per subject in memory, works out each subject's
+  current state, sorts the result and skips into it. Worth knowing: that in-memory sort has **no
+  tie-break at all**, so two subjects sharing a timestamp are in an arbitrary order and its paging
+  can already repeat or skip one of them. That is a real fault, and the fix is the current-state
+  tables spec 5.2 describes, not a change to how it pages.
+- **`GET /api/cases`** — orders by `createdAt` with the case file's `uuid` as the tie-break, which
+  is total, so its offset paging is sound. No screen pages it; the pane asks for twenty and stops.
+- **`GET /api/insights`** — takes `before` as a `createdAt` alone while ordering by `createdAt` and
+  then `id`, so it can drop an insight that shares a timestamp with the boundary row. It is a
+  published parameter feeding a panel that asks for ten rows. Recorded here rather than fixed
+  quietly.
+- **`GET /api/discord/members/{id}/messages`** — pages by number on purpose: its `at` parameter
+  takes a message id and answers with *the page containing it*, which is a page number by
+  definition.
+- **`GET /api/giveaways/{id}/draws/{drawId}/entrants`** — a draw is frozen when it is made and its
+  entrants are ordered by a rank unique within it, so an offset cannot skip or repeat anything. Its
+  Previous and Next live inside a dialog that several draws can open at once, so they stay local to
+  that panel rather than moving into the address.
+
+### Not paged at all
+
+Flags, Reviews, Giveaways, Calendar, Live, Users, Roles and the analytics tables each read one
+capped batch and draw it. Several of them have no tie-break in their ordering, which does not bite
+while nothing pages them and will the moment something does.
+
+---
+
+## 7. Cursors were tried, and taken out
+
+Earlier the same day, "pagination with cursors and pagination in query string" was read as a request
+for keyset paging, and the member list, the group's ban list, the Discord member list and the
+repeat-offender list were converted to it: a `ListCursor` type, a shared `ListPaging.ReadAsync`, a
+`cursor` parameter, `next` and `previous` beside the rows, and a Pager with two buttons and no
+numbers.
+
+It was taken out the same day, before it had ever been in a release. The reasons, so that the next
+reader has them:
+
+1. **It was not what was asked for.** The maintainer's words: *"I think we should just have pages
+   for everything and not cursors."*
+2. **It removed the thing people wanted.** A cursor list cannot offer page 40, because it does not
+   know how many rows are above any row without counting them. Next and Previous were all that was
+   left, which is fewer ways to move than the lists had before.
+3. **Two ways to page is worse than one.** `page` had been kept working alongside `cursor` for
+   compatibility, so every one of these endpoints had two positions, a rule for which won, and a
+   `page` field that answered `1` and meant nothing. That is machinery to keep working and explain
+   forever, for a contract no caller had yet.
+4. **What it bought was small here.** Keyset paging earns its keep where a row must be read exactly
+   once, or where counting is too expensive to do. These lists are thousands of rows behind an
+   index, they count their total on every read anyway, and a moderator is scanning them rather than
+   processing each row once.
+
+The correct observation inside the conversion is kept, because it was never about cursors:
+**`/api/logs` was ordered by `at` while paging on `id`**, so a line written late but stamped early
+sat above the boundary row in the sort and below it in the filter, and appeared on neither page. It
+is now ordered by the id it pages on, which for a log is also the more honest order — the id is the
+order the lines were written, and the timestamp is whatever the writer put on them. That reasoning
+lives in `LogEndpoints`' own comment.
 
 ---
 
 ## 8. Tests
 
-- `tests/Modbot.Api.Tests/Lists/ListCursorTests.cs` — the text: a cursor reads back as itself, an
-  id with anything in it survives, a missing value is not an empty one, nonsense and a cursor from
-  another ordering both read as nothing.
-- `tests/Modbot.Api.Tests/Features/Members/MemberPagingTests.cs` — the pages join up; a member
-  joining between two reads is neither repeated nor skipped; a member leaving between two reads
-  does not pull a row out of sight; everybody joining at the same instant still pages through;
-  people with no join date page at the end; an unreadable cursor shows the list; `page` still works
-  and hands back a cursor; a cursor beats a page number. The group ban list gets the insertion case
-  and the unreadable case of its own.
-- `tests/Modbot.Api.Tests/Features/DiscordMembers/DiscordMemberPagingTests.cs` — all three
-  orderings forwards and back, the tie when everybody joined at once, and a cursor read under the
-  wrong sort.
-- `src/Modbot.Web/tests/listPosition.test.ts` — the address: a cursor round-trips, an empty one
-  reads as the first page, clearing it leaves the filters alone, turning a page keeps the rest of
-  the address.
+- `tests/Modbot.Api.Tests/Features/Members/MemberPagingTests.cs` — the member list walked whole and
+  in twos in each of its three orderings, and the two reads compared; everybody joining at the same
+  instant still paging through without a repeat; people with no join date paging at the end; a page
+  past the end answering empty with the whole list's total; `page=0` and a negative answering the
+  first page; a page size beyond the cap cut down to it. The group's ban list gets the same walk
+  with ties on both boundaries.
+- `tests/Modbot.Api.Tests/Features/DiscordMembers/DiscordMemberPagingTests.cs` — the same walk in
+  all three orderings, newest-first and oldest-first being each other reversed, everybody joining
+  at once, and a page past the end.
+- `tests/Modbot.Api.Tests/Features/Members/MembersTests.cs` — already held the first of these:
+  pages counted from one, with the total being the whole filtered list.
+- `src/Modbot.Web/tests/listPage.test.ts` — the address: a page number round-trips, page one is
+  written as nothing, anything that is not plain digits reads as page one, turning a page keeps the
+  filters and the rest of the address. And the numbers themselves: a short list showing all of
+  them, a long list showing both ends and the reader's neighbours, a gap of one being that number,
+  and a page past the end drawing the end of the list.
