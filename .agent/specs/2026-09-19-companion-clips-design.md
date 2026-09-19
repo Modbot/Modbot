@@ -1,8 +1,24 @@
 # Clips: keeping the last few minutes on a moderator's PC
 
-**Status:** built, 2026-09-19.
+**Status:** built, 2026-09-19. Changed the same day; see below.
 **Reverses:** M3 client and overlay design §3.1.1 ("Screen capture — forbidden, permanently") and
 §10, and evidence storage design §19 ("No automatic capture of anything").
+
+## What changed on 2026-09-19, later the same day
+
+This spec was written for a recorder that duplicated a whole monitor and had one control, on the
+settings page. Three things were asked for straight afterwards, and three sections of it are now
+wrong where they stand. They have been rewritten in place rather than left next to a contradiction.
+
+| What changed | Where | Why |
+|---|---|---|
+| **A clip is VRChat's window, not the monitor.** | §3.1, §3.3, §5 | The monitor was named in §3.3 as the design's weak point and as the next thing to do to it. It is done. A moderator's monitor has their private messages on it; a clip made to show what somebody did in VRChat has no business carrying those. |
+| **Linux was looked at properly and left alone.** | new §3.6 | The old answer was "Windows only" with no reasoning behind it. The reasoning is now written down, because "we did not try" and "we tried and it cannot be done well" are different claims and only one of them is true. |
+| **A clip can be saved from inside VR.** | new §11, §10 | §10 called the missing control *"the biggest gap"* and said the feature was awkward until it was closed. The overlay panel already had a tap path; it now has a control on it. |
+
+Everything §2 says about what the client promises, and everything §6 says about nothing leaving the
+machine, is unchanged. Recording a window rather than a monitor narrows what is captured; it does
+not widen anything.
 
 ---
 
@@ -47,7 +63,7 @@ What survives, unchanged:
 - **The keyboard, the clipboard and the process list are all still untouched.**
 
 What changes: **with a switch a person turned on themselves, while VRChat is running, the client
-keeps the last few minutes of the picture on one monitor, on that person's own disk.**
+keeps the last few minutes of VRChat's own window, on that person's own disk.**
 
 The narrowing is shaped so it stays answerable. "Show me where this program records" has a one-word
 answer — `ScreenRecording.cs` — and `CompanionSourceGuardTests` fails the build if any second file
@@ -59,16 +75,23 @@ the client ships learns to. That is the same shape as the existing carve-outs fo
 
 ## 3. How it records, and what was rejected
 
-### 3.1 Chosen: DXGI desktop duplication, into Windows' own H.264 encoder
+### 3.1 Chosen: DXGI desktop duplication, cut down to VRChat's window, into Windows' own H.264 encoder
 
-- **Capture.** `IDXGIOutput1::DuplicateOutput` on the monitor the client's graphics adapter drives.
-  Windows hands over a copy of a frame the desktop compositor has already drawn, on the GPU, only
-  when something changed. Nothing is drawn, no other program's window is read or asked about, and no
-  window list is enumerated.
-- **Shrinking.** The frame is copied into a texture with a mip chain, the graphics card generates
-  the chain itself (`GenerateMips`), and the first level no wider than 1280 pixels is the one used.
-  A 2560×1440 monitor records at 1280×720; a 1920×1080 one at 960×540. Odd sizes are trimmed to even
-  because H.264 will not take odd ones.
+- **Capture.** `IDXGIOutput1::DuplicateOutput` on the monitor VRChat's window is on. Windows hands
+  over a copy of a frame the desktop compositor has already drawn, on the GPU, only when something
+  changed. Nothing is drawn, and no window list is enumerated.
+- **Which monitor.** The one whose rectangle holds the middle of VRChat's window, rather than the
+  first output on the adapter. That closes the "may record the wrong monitor" gap this spec used to
+  list under §10.
+- **Which part of it.** VRChat's window. `FindWindowW` by class and title gives one named window;
+  `GetClientRect` and `ClientToScreen` give where its picture is; the copy off the duplicated
+  desktop is that box and nothing else. The box is clamped to the monitor's own picture before it
+  is used, because the numbers come from Windows about another program's window and a box running
+  past the end of a texture is a crash on somebody's PC rather than a wrong pixel.
+- **Shrinking.** The window's box is copied into a texture with a mip chain, the graphics card
+  generates the chain itself (`GenerateMips`), and the first level no wider than 1280 pixels is the
+  one used. A 2560×1440 window records at 1280×720; a 1920×1080 one at 960×540. Odd sizes are
+  trimmed to even because H.264 will not take odd ones.
 - **Encoding and writing.** Media Foundation's sink writer, with
   `MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS` set, so the graphics card's own encoder (Quick Sync,
   NVENC, AMF) is used when the machine has one and Microsoft's software encoder when it does not.
@@ -88,6 +111,31 @@ which at 960×540 and 15 frames a second is small enough to be the right trade (
 Saving twice inside a minute gives a shorter second clip, because the first save is what started
 that file. That is stated on the documentation page rather than hidden.
 
+#### 3.1.1 What a crop can and cannot keep out, honestly
+
+A crop takes a rectangle out of a picture the desktop already drew. Whatever the desktop drew
+*inside* that rectangle is in the clip. So:
+
+- **Outside VRChat's window: never in the clip.** A second monitor, a Discord window beside the
+  game, the taskbar, a browser on the other half of the screen — none of it, at any time.
+- **Drawn on top of VRChat while VRChat is in front: in the clip.** A chat program's in-game
+  overlay, Steam's overlay, a Windows notification, a window somebody pinned always-on-top, and
+  Modbot's own panel over the game. These are a small and mostly deliberate set.
+- **While VRChat is not the window in front: nothing new is copied at all.** The last picture of
+  VRChat is written again, at the same rate, until VRChat is back.
+
+That third rule is what makes the crop worth having rather than merely cheaper. VRChat's own
+default is borderless fullscreen, so its window covers the whole monitor, and a plain crop would
+therefore record the whole monitor any time the moderator alt-tabbed — which is constantly, and is
+exactly when their private messages are on the screen. Holding the last frame instead costs a few
+frozen seconds in a clip and removes the entire category.
+
+The cost of holding is stated rather than hidden: a moderator who is in Discord the whole time gets
+a clip that is a still picture. That is a bad clip, and it is not somebody else's messages.
+
+**What a crop still cannot do that window capture could**: an overlay drawn over VRChat is in the
+clip. §3.3 says why that was not worth the price this time.
+
 ### 3.2 Rejected: a bundled ffmpeg run as a process
 
 `CompanionSourceGuardTests` bans `System.Diagnostics.Process` anywhere the client ships, and that ban
@@ -98,26 +146,43 @@ an LGPL/GPL binary in a Velopack installer and carrying its licensing.
 
 **The Process ban is untouched by this change.**
 
-### 3.3 Rejected: Windows.Graphics.Capture, capturing VRChat's window only
+### 3.3 Rejected, twice: Windows.Graphics.Capture
 
-This is the better answer on privacy, and it is not here yet. Window capture would record VRChat and
-nothing else on the screen, rather than the whole monitor.
+`Windows.Graphics.Capture` captures a window itself rather than the part of the screen it sits in,
+so an overlay drawn over VRChat is *not* in the result. It is the only route that is correct under
+that case, and it was looked at again on 2026-09-19 with the crop in hand. It is still not here,
+for a different and better-understood reason than the first time.
 
-Two things stopped it. First, `Windows.Graphics.Capture` is a WinRT API and reaching it from C#
-needs a Windows-version target framework (`net10.0-windows10.0.x`). `Modbot.Companion.App` is a plain
-`net10.0` project on purpose, because the same project publishes the Linux client. Second, reaching
-it through raw COM instead — activation factories, `IGraphicsCaptureItemInterop`,
-`IDirect3DDxgiInterfaceAccess`, hand-written vtables — is several hundred lines of interop where a
-wrong slot is memory corruption at run time rather than a compile error, and none of it can be tested
-without a screen.
+**The target framework is the whole of it.** Reaching a WinRT API from C# needs a Windows-version
+target framework — `net10.0-windows10.0.19041.0` or later. `Modbot.Companion.App` is a plain
+`net10.0` project because the same project publishes the Linux client. The three ways out each
+fail on something concrete:
 
-Desktop duplication is roughly eighty lines against a typed, managed API that is already in the
-repository for the SteamVR overlay.
+- **Multi-target, or switch the framework on the runtime identifier.** The release workflow does
+  build Windows and Linux as separate jobs, so a `RuntimeIdentifier`-conditional framework would
+  produce the right thing in CI. It would also mean that a plain `dotnet build -c Release` — the
+  check every agent runs before pushing, and the one a contributor runs on their own machine —
+  builds the *Linux* flavour, with every line of capture code behind `#if WINDOWS` and therefore
+  never compiled. Code that the ordinary build does not compile is code nobody finds out about
+  until a release, and this is code that touches COM and a graphics device.
+- **A separate Windows-only assembly.** A `net10.0` executable cannot reference a
+  `net10.0-windows` one at all, so this is the previous option with an extra project. It also puts
+  the recording outside `Modbot.Companion` and `Modbot.Companion.App`, which is precisely the two
+  directories `CompanionSourceGuardTests` scans — the guard that makes "show me where this program
+  records" have a one-word answer. Moving the capability outside the guard to get the capability is
+  the wrong trade.
+- **Raw COM: `RoGetActivationFactory`, `IGraphicsCaptureItemInterop`, `Direct3D11CaptureFramePool`,
+  `IDirect3DDxgiInterfaceAccess`, hand-written vtables.** Several hundred lines where a wrong slot
+  is memory corruption at run time rather than a compile error, and none of it can be run once
+  before shipping, because there is no screen in CI.
 
-**This is the next thing to do to this feature**, and the reason is worth stating: a moderator's
-monitor has their private messages on it. What bounds the current design instead is that the
-recording only runs while VRChat is running, that it is off until switched on, and that nothing
-recorded ever leaves the PC.
+Against that: the crop is about forty lines of ordinary Win32 on top of the duplication that was
+already working, its rules are arithmetic that `ClipWindowRuleTests` checks without a screen, and
+the one case it gets wrong — something drawn over VRChat — is a small, mostly deliberate set
+(§3.1.1).
+
+**It stays the better answer and it stays written down.** If the client ever needs a Windows-only
+assembly for another reason, this moves into it.
 
 ### 3.4 Rejected: one encoder feeding a keyframe-aware buffer in memory
 
@@ -139,6 +204,57 @@ There is no usable pure-managed H.264 encoder for .NET. The alternatives are mot
 roughly ten times the size for worse pictures, and all of it on the CPU — or OpenH264, which is a
 native library with its own binary-distribution licensing. Windows already has an encoder, usually on
 the GPU.
+
+### 3.6 Rejected: recording on Linux
+
+Recording is Windows-only, and this section exists because "we did not try" and "we tried and it
+cannot be done well" are different claims. The second one is the true one.
+
+**Capturing is possible.** VRChat runs under Proton, so its window is X11 or XWayland, and there
+are two real routes: `XComposite` plus `XGetImage` or the shared-memory extension for one window
+on X11, and the `org.freedesktop.portal.ScreenCast` portal over D-Bus, feeding a PipeWire stream,
+on Wayland. Both are work — two display servers, two code paths, a permission dialog on one of them
+that has no equivalent anywhere else in this client — but neither is the blocker.
+
+**Encoding is the blocker, and it has no way out.** Windows was easy because Windows *has* an
+encoder: Media Foundation's sink writer is part of the operating system, is reached through a typed
+managed API, and uses the graphics card's own encoder when there is one. Linux has no such thing
+within reach:
+
+- **Running ffmpeg as a process** is what everybody does, and this client may not.
+  `CompanionSourceGuardTests` bans `System.Diagnostics.Process` across every file the client ships,
+  with no exception — the one carve-out is that Velopack's library starts Modbot's own updater, and
+  even there the client's own code never names `Process`. That ban is one of the handful of things
+  separating this program from what it is shaped like (§3.2). It was not widened for Windows and it
+  is not being widened for Linux.
+- **Linking libavcodec, or libva, by hand** avoids the process ban and buys three new problems:
+  shipping a GPL or LGPL native library in the Linux package and carrying its licensing, several
+  hundred lines of hand-written interop against a C API with no compile-time safety, and a
+  dependency on whatever those libraries happen to be on the machine.
+- **A managed encoder** does not exist (§3.5), and that answer is not platform-specific.
+
+**So: whole screen instead?** No. The encoder problem is the same whether one window or one screen
+is being encoded, so "whole screen if you cannot do window-only" does not help — it was never the
+capture half that was blocking.
+
+**The decision.** Linux keeps saying *"Keeping the last few minutes only works on Windows."* A
+half-working recorder that produced corrupt files, or one that silently did nothing, would be worse
+than one honest sentence, and everything else on the Linux client works exactly as it does on
+Windows. `RecordingIsWindowsOnlyAndSaysSoRatherThanFailingQuietly` keeps that sentence in place and
+keeps `ffmpeg` and `libavcodec` out of the client.
+
+**What it would take, if somebody wants it later**, in order of what has to be decided rather than
+written:
+
+1. A decision about the encoder that is not "start a process". Realistically: a small vendored
+   native library with its own licence review and its own entry in `THIRD-PARTY-NOTICES.md`, plus
+   interop that nothing in CI can run.
+2. An X11 path, XComposite for a single window, which covers Proton on X11 and XWayland.
+3. A Wayland path through the screencast portal, including what the client does about a permission
+   dialog the first time — a thing no other part of this client has ever needed.
+4. A machine with a headset, VRChat under Proton, and somebody willing to watch the frame rate.
+
+Item 1 is the one that decides it, and nothing about it has changed since this spec was written.
 
 ---
 
@@ -177,17 +293,29 @@ and the cost moves to the CPU column above. It does not fail.
 
 ## 5. What is recorded, and what is not
 
-**Recorded:** the picture on one monitor, at most 1280 pixels wide, 15 frames a second, while VRChat
-is running and while the switch is on.
+**Recorded:** VRChat's own window, at most 1280 pixels wide, 15 frames a second, while VRChat is
+running, while the switch is on, and while VRChat is the window in front. Anything drawn on top of
+VRChat while that is true is inside its window and is therefore in the clip; §3.1.1 is the honest
+account of that, and the documentation page says the same thing in a moderator's words.
 
 **Not recorded, and each for a reason:**
 
+- **Nothing outside VRChat's window.** Not another monitor, not a window beside the game, not the
+  taskbar. And nothing at all while the moderator is working in another program: the last picture
+  of VRChat is written again instead, so a clip cannot pick up whatever they alt-tabbed to. This is
+  the thing that changed on 2026-09-19, and the reason it matters is that VRChat's own default is
+  borderless fullscreen, which means "the window" and "the monitor" would otherwise be the same
+  rectangle at exactly the wrong moment.
 - **No sound, at all.** The ban on every microphone, line-in and loopback API is untouched and still
   total. What a moderator asked for was to be able to show what happened; a recording of everybody's
   voice in an instance is a different and much larger thing to take off a PC, and keeping that ban
   total is most of what keeps this one narrow. `NothingTheClientShipsCanRecordSound` still passes
   over every file the client ships, this one included.
-- **No keyboard**, no clipboard, no list of other programs.
+- **No keyboard**, no clipboard, no list of other programs and no list of their windows. Finding
+  VRChat's window is one named ask for one named window — `FindWindowW` with VRChat's class and
+  title — and never a walk over what else is open.
+  `TheOnlyFileThatAsksWindowsAboutVRChatsWindowIsScreenRecordingCs` holds that to one file, the same
+  shape as the recording itself.
 - **Nothing read out of any folder.** VRChat's screenshot folder, Pictures, Documents and the Desktop
   are still banned everywhere in the client, including inside the file that records.
 - **Nothing while VRChat is not running.** The client knows VRChat is running because lines are
@@ -198,6 +326,27 @@ is running and while the switch is on.
 A log the client has stopped understanding still counts as VRChat running. Lines are arriving, so the
 moderator is in a world, and somebody whose client needs updating should not also quietly lose the
 recording they switched on.
+
+### 5.1 What a window that will not stay still does
+
+Recording a window rather than a monitor brings four cases a monitor never had. None of them may
+end as a corrupt file, because a clip nobody can open is worse than no clip.
+
+| What happens | What the recorder does |
+|---|---|
+| **VRChat is not running yet.** The log has started moving but no window exists. | Nothing is recorded and no encoder is opened. The settings screen and the overlay both say *Waiting for VRChat's window*, and **Save a clip** cannot be pressed. It is its own state rather than a failure, because the recorder is the thing that asks Windows for the window, and taking it down for not having found one would rebuild it once a second for as long as VRChat took to draw. |
+| **The window closes part way through.** | The last picture is written again. The recorder is not stopped by this; VRChat's log going quiet is what stops it, which then deletes the two rolling files. One rule about the recorder's life, in the place that already had it. |
+| **It is minimised, or dragged onto another screen.** | The last picture again. A minimised window has no picture, and a window on another monitor is not in the duplication being read. |
+| **Its size changes** — alt-tab, a resolution change, a window dragged bigger. | The clip keeps its size and the picture is shrunk to fit inside it, with whatever is left over black. The encoder is told a frame size once and a video file cannot change size part way through, so the alternative was closing both files and opening two new ones, which throws away the minutes a moderator is about to want. A resize costs a smaller picture; it never costs the file. |
+
+`ClipWindowRuleTests` checks all of this without a screen, which is the reason the decisions live in
+`ClipWindowRule` rather than inside the capture loop.
+
+**One thing that is not handled, and cannot be from here.** Windows reports a window's size in the
+DPI context of the asking program. Modbot's window is per-monitor DPI aware, as Avalonia's Windows
+backend sets up, so the numbers and the duplicated desktop are both in real pixels — but if that
+ever stopped being true on some machine, the box would be the wrong size. It would be a wrong crop
+and never a crash, because the box is clamped to the monitor before it is used (§3.1).
 
 ---
 
@@ -293,7 +442,7 @@ moves.
 | `src/Modbot.Companion.App/Program.cs` "What it writes to your disk" | class doc | listed three things plus the voice | also names the two rolling files under `clips` and that they are deleted |
 | `src/Modbot.Companion.App/Program.cs` "What leaves the machine" | class doc | "Never chat, screenshots, keystrokes…" | "never a recorded clip or any other picture of your screen" — still never |
 | `src/Modbot.Companion.App/MainWindow.cs` class doc | class doc | "There is no screen capture… and will not get" | Rewritten: what the Clips card does, that no clip is uploaded, that attaching is still a file chosen in a browser |
-| `src/Modbot.Companion.App/MainWindow.cs` "What it does not read" card | **UI text** | "It does not capture the screen, read your screenshots folder…" | Says it records one monitor only with Clips on, only while VRChat runs, never the sound, and that nothing leaves the PC |
+| `src/Modbot.Companion.App/MainWindow.cs` "What it does not read" card | **UI text** | "It does not capture the screen, read your screenshots folder…" | Says it records VRChat's window and whatever is drawn over it, only with Clips on, only while VRChat runs, never the sound, and that nothing leaves the PC |
 | `tests/…/Guards/CompanionSourceGuardTests.cs` `NothingTheClientShipsCanCaptureAScreen` | test | total ban | Replaced by `TheOnlyFileThatCanRecordIsScreenRecordingCs`: exactly one file, and the ban list grew to cover the routes that file uses |
 | `tests/…/Guards/CompanionSourceGuardTests.cs` `ScreenshotFolders` | test | banned `MyVideos` with Pictures, Documents, Desktop | `MyVideos` moved to its own rule, `TheOnlyFileThatNamesYourVideosFolderIsClipsFolderCs`; the rest still banned everywhere |
 | `tests/…/Guards/CompanionSourceGuardTests.cs` `NothingTheClientShipsCanRecordSound` | test | total ban | **unchanged**, with a comment saying why it did not move when the other did |
@@ -310,17 +459,110 @@ moves.
 The landing site is the one row where the answer is "no change", and it is in the table so that
 somebody checking can see it was looked at rather than missed.
 
+### 9.1 And what the window change moved again, the same day
+
+| Where | What it says now |
+|---|---|
+| `src/Modbot.Companion.App/ScreenRecording.cs` class doc | Records VRChat's window; names what can still end up in one — things drawn over VRChat — and says the last picture is held while the moderator is in another program |
+| `src/Modbot.Companion.App/Program.cs` §"It can record VRChat's window" | The same, in the program's own front-door disclosure, including that no list of programs or of their windows is ever asked for |
+| `src/Modbot.Companion.App/MainWindow.cs` class doc and the "What it does not read" card | The same again, in a moderator's words |
+| `tests/…/Guards/CompanionSourceGuardTests.cs` | New: `TheOnlyFileThatAsksWindowsAboutVRChatsWindowIsScreenRecordingCs`, and `RecordingIsWindowsOnlyAndSaysSoRatherThanFailingQuietly`, which also keeps `ffmpeg` and `libavcodec` out of the client |
+| `docs/content/docs/companion/clips.mdx` | Rewritten: what is recorded on each platform, what can still end up in a clip, and how to save one from inside VR |
+| `docs/content/docs/companion/install.mdx`, `privacy.mdx`, `security.mdx`, `PRIVACY_POLICY.md` | "One of your monitors" becomes "VRChat's window", everywhere it appeared |
+| `docs/content/docs/not-built-yet.mdx` | Three rows removed — saving from inside VR, choosing the monitor, and recording the window — because all three are built |
+
 ---
 
 ## 10. What is not built
 
-- **Saving a clip from inside VR.** The button is on the Settings page. A moderator in a headset
-  cannot reach it. The two ways in are a control on the overlay panel or a second global keyboard
-  combination; the second would reverse a smaller promise of its own ("the one keyboard combination
-  the client asks Windows for"), and both deserve their own decision rather than riding along here.
-  **This is the biggest gap and the feature is awkward until it is closed.**
-- **Window-only capture** (§3.3) and **the in-memory buffer** (§3.4).
+- **Window capture proper** (§3.3): a clip is a crop of the screen where VRChat's window is, so
+  something drawn over the game is in it. §3.1.1 is honest about that and so is the documentation
+  page.
+- **Recording on Linux** (§3.6). Decided rather than pending: the encoder has no route that does
+  not break the ban on starting a process or ship a native library the client has no business
+  carrying.
+- **The in-memory buffer** (§3.4).
 - **Any tie to a ban or kick** (§6).
-- **Choosing which monitor.** The first output on the client's graphics adapter. A machine with
-  several monitors may record the wrong one, and there is no way to say which.
-- **Any measurement at all.** §4 is estimates. Nothing in this feature has been run.
+- **A second control for the notification overlay.** Save a clip is on the main panel and on the
+  window over VRChat; the pop-up overlay takes no input at all and was not given any.
+- **Any measurement at all.** §4 is estimates. Nothing in this feature has been run — the window
+  crop included, which is new code against a graphics API and has never met a real machine.
+
+---
+
+## 11. Saving a clip from inside VR
+
+§10 used to say this was the biggest gap. The button lived on the settings page, and a moderator in
+a headset cannot reach a settings page — which meant the feature worked for exactly the people who
+were least likely to need it.
+
+### 11.1 Where the control is, and why there
+
+**On the overlay panel, under the tabs, above whichever screen is showing.** It is drawn on the
+headset panel and on the window over VRChat, because both are the same controls built by
+`OverlayView` and both hand taps to the same drive loop.
+
+Under the tabs rather than on a page of its own, because a moderator reaches for this in the middle
+of something happening and that is the worst possible moment to have to navigate. From the roster,
+from the events list, from a person's card, it is one press. `SaveClipControlTests` checks that on
+each screen, checks it is big enough for a hand in a headset, and checks it is near the top of the
+panel rather than under a list that can grow past the edge.
+
+**It is also drawn when the panel is otherwise blank.** Outside a group instance the panel shows
+nothing at all, deliberately — a card reading "not in a group instance" would be in a moderator's
+face for most of their VRChat time. Save a clip is the one exception, because the recorder runs
+wherever VRChat does and a moment worth keeping can happen in a public instance as easily as a
+group one. It is only ever there because somebody switched Clips on themselves.
+
+### 11.2 No second keyboard shortcut
+
+The client asks Windows for exactly one keyboard combination, by name, and says so in its own
+documentation as part of the argument that it does not read the keyboard. A second one would be a
+small reversal of a real promise, bought for a control that already exists on a panel the moderator
+is looking at. Not worth it, and not built.
+
+### 11.3 It never looks like it worked when it did not
+
+This is most of the work. Inside a headset there is no settings screen, no file explorer and no
+notification; a control that appeared to work and quietly did nothing would leave a moderator
+believing they had kept a moment, and finding out an hour later is the whole failure.
+
+So `ClipButtonRule` turns the Clips card into one caption and one yes-or-no:
+
+| When | What it says | Can it be pressed |
+|---|---|---|
+| Clips is off | nothing is drawn at all | — |
+| Keeping the last few minutes | **Save a clip** | yes |
+| VRChat is not running | Waiting for VRChat | no |
+| VRChat is running, its window not found yet | Waiting for VRChat's window | no |
+| The folder cannot be written to | The folder cannot be used | no |
+| This machine cannot record | Not available on this machine | no |
+| The recorder failed | Recording stopped | no |
+| A clip just landed | **Clip saved**, for eight seconds | yes |
+| The save produced no file | **Clip not saved**, for eight seconds | yes |
+
+Two things about that table are load-bearing. The first is that a state that cannot save carries
+**no tap target at all** — the control is drawn, but nothing in it can be hit, so a press lands on
+nothing rather than on a control that has to decide to ignore it. The drive loop refuses it a
+second time anyway (`OverlayDriverClipTests`), because the panel redraws a few times a second and a
+tap can arrive from a frame drawn just before VRChat closed.
+
+The second is the confirmation, and that it can be a **no**. The recorder writes the file on its own
+thread on its next frame, so the answer arrives a moment after the press; the companion watches for
+a new file name, for a complaint the recorder had not made before, and — if neither arrives within
+ten seconds — calls it a failure. Ten seconds is generous on purpose: saying "Clip not saved" about
+one that did land is the worse of the two mistakes.
+
+The words are the same words the Clips card on the settings screen uses, so one thing has one name
+in both places.
+
+### 11.4 The overlay still cannot be told what to do
+
+The tap goes to `OverlayDriver`, which raises `SaveClipAsked` and does nothing else. It owns no
+recorder, no folder and no limit, and there is no path from a server to that event. The companion
+— the half that owns all three — does the saving, through the same `SaveClip` that the settings
+button calls, so there is one rule about making room, one naming scheme and one line in the
+client's own journal however it was asked for.
+
+That keeps the overlay what it has always been: it shows things, it reports taps, and the one thing
+a tap can now cause is a file being written on the moderator's own disk.

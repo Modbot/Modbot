@@ -21,11 +21,20 @@ namespace Modbot.Companion.App;
 /// rather than an open one are in the clips design spec and are enforced here and in
 /// <c>CompanionSourceGuardTests</c>: one file may record, and no other file the client ships may
 /// name a capture API.</para>
-/// <para><strong>What it records.</strong> The picture on one monitor — the one chosen on the
-/// settings screen — shrunk to at most 1280 pixels wide, at 15 frames a second. No sound: the ban on
-/// every recording API for microphones, line-in and loopback stands untouched, so voice chat stays in
-/// the never-recorded column. No keyboard, no clipboard, no other program's window list, no file
-/// anywhere else on the disk.</para>
+/// <para><strong>What it records: VRChat's window.</strong> Not the monitor. This file asks Windows
+/// for VRChat's own window by name, takes the part of the screen that window is drawn in, and
+/// records that, shrunk to at most 1280 pixels wide, at 15 frames a second. It does not ask Windows
+/// for a list of the programs that are running or a list of their windows, and it never has.</para>
+/// <para><strong>What can still end up in a clip.</strong> Windows hands this file a copy of what
+/// the desktop already drew, and what the desktop drew inside VRChat's rectangle is whatever is on
+/// top of it — a chat program's in-game overlay, a notification, Modbot's own panel over the game.
+/// Those are in the clip. What is not is everything outside that rectangle, and everything on the
+/// screen while VRChat is behind another program: while a moderator is working in something else,
+/// the last picture of VRChat is written again rather than what they have moved to. So a clip is
+/// VRChat and what was drawn over VRChat, and it is never the rest of their screen.</para>
+/// <para><strong>No sound.</strong> The ban on every recording API for microphones, line-in and
+/// loopback stands untouched, so voice chat stays in the never-recorded column. No keyboard, no
+/// clipboard, no file anywhere else on the disk.</para>
 /// <para><strong>When it records.</strong> Only while the Clips switch is on — off unless a person
 /// turned it on — and only while VRChat is running, which the client knows because lines are
 /// arriving in VRChat's log (<see cref="ClipRecordingRule"/>). VRChat closing stops it and deletes
@@ -51,9 +60,6 @@ internal sealed class ScreenRecording : IDisposable
     /// <summary>How long one frame lasts, in the hundred-nanosecond units Media Foundation counts in.</summary>
     private const long FrameDuration = 10_000_000L / FramesPerSecond;
 
-    /// <summary>The widest the recorded picture may be. Anything wider is halved until it fits.</summary>
-    private const int MaxWidth = 1280;
-
     /// <summary>Bits a second given to the encoder. About 11 MB a minute.</summary>
     private const int Bitrate = 1_500_000;
 
@@ -66,7 +72,21 @@ internal sealed class ScreenRecording : IDisposable
     /// <summary>DXGI's "somebody else took the duplication, or the mode changed". Start again.</summary>
     private const int AccessLost = unchecked((int)0x887A0026);
 
+    /// <summary>How often Windows is asked again for VRChat's window while there is not one.</summary>
+    private static readonly TimeSpan LookAgainEvery = TimeSpan.FromMilliseconds(500);
+
     private static bool _mediaFoundationStarted;
+
+    /// <summary>
+    /// The earliest frame at which the recorder may follow VRChat onto another monitor. Touched
+    /// only by the recording thread.
+    /// </summary>
+    /// <remarks>
+    /// A window that is genuinely on no monitor — dragged off the edge and left there — would
+    /// otherwise cost a duplication taken and thrown away fifteen times a second for as long as it
+    /// stayed there. Once a second is fast enough to follow a window somebody just dragged.
+    /// </remarks>
+    private long _followTheWindowAtFrame;
 
     private readonly IModbotClock _clock;
     private readonly string _temporaryFolder;
@@ -89,6 +109,13 @@ internal sealed class ScreenRecording : IDisposable
     /// <summary>Whether the thread is up and frames are going into a file.</summary>
     public bool IsRecording { get; private set; }
 
+    /// <summary>
+    /// Whether Windows has handed over VRChat's window. False while VRChat is starting, and while
+    /// it is running without one; the settings screen and the overlay say so rather than offering a
+    /// Save that would keep nothing.
+    /// </summary>
+    public bool WindowFound { get; private set; }
+
     /// <summary>Whether this machine could record at all. Windows only; Linux has no path here.</summary>
     public static bool Supported => OperatingSystem.IsWindows();
 
@@ -101,7 +128,7 @@ internal sealed class ScreenRecording : IDisposable
     }
 
     /// <summary>
-    /// Starts keeping the last <paramref name="length"/> of the chosen monitor. Returns false, having
+    /// Starts keeping the last <paramref name="length"/> of VRChat's window. Returns false, having
     /// changed nothing, when this machine cannot do it; the reason is in <see cref="LastProblem"/>.
     /// </summary>
     public bool Start(TimeSpan length)
@@ -142,6 +169,7 @@ internal sealed class ScreenRecording : IDisposable
         thread.Join(TimeSpan.FromSeconds(5));
         _thread = null;
         IsRecording = false;
+        WindowFound = false;
         EmptyTemporaryFolder();
     }
 
@@ -180,6 +208,9 @@ internal sealed class ScreenRecording : IDisposable
         public int Index;
     }
 
+    /// <summary>One monitor's place on the desktop, so a window can be found inside its picture.</summary>
+    private readonly record struct Monitor(int Left, int Top, int Width, int Height);
+
     private void Run(TimeSpan length)
     {
         if (!OperatingSystem.IsWindows())
@@ -188,8 +219,8 @@ internal sealed class ScreenRecording : IDisposable
         ID3D11Device? device = null;
         ID3D11DeviceContext? context = null;
         IDXGIOutputDuplication? duplication = null;
-        ID3D11Texture2D? mips = null;
-        ID3D11ShaderResourceView? mipView = null;
+        ID3D11Texture2D? windowCopy = null;
+        ID3D11ShaderResourceView? windowView = null;
         ID3D11Texture2D? staging = null;
         var legs = new Leg[2];
 
@@ -207,12 +238,19 @@ internal sealed class ScreenRecording : IDisposable
                 out _,
                 out context).CheckError();
 
-            duplication = Duplicate(device!);
+            // Nothing is recorded until Windows has handed over VRChat's window, because a clip is
+            // that window and its size is what the encoder has to be told once and for good.
+            var found = WaitForTheGameWindow();
+            if (_stopping || found is not { } start)
+                return;
 
-            var screen = duplication.Description.ModeDescription;
-            var (width, height, mipLevel) = Shrink((int)screen.Width, (int)screen.Height);
+            var (width, height) = ClipWindowRule.RecordedSize(start.Window.Width, start.Window.Height);
 
-            (mips, mipView, staging) = MakeTextures(device!, (int)screen.Width, (int)screen.Height, width, height);
+            // The monitor VRChat is on, rather than whichever monitor happens to be first.
+            Monitor monitor;
+            (duplication, monitor) = Duplicate(device!, start.CentreX, start.CentreY);
+
+            staging = MakeStaging(device!, width, height);
 
             var framesPerLeg = Math.Max(2, (long)(length.TotalSeconds * FramesPerSecond));
 
@@ -231,11 +269,14 @@ internal sealed class ScreenRecording : IDisposable
             }
 
             IsRecording = true;
-            _log($"Keeping the last {length.TotalMinutes:0} minutes of {width}×{height} at {FramesPerSecond} frames a second", null);
+            _log($"Keeping the last {length.TotalMinutes:0} minutes of VRChat's window at {width}×{height}, {FramesPerSecond} frames a second", null);
 
             var pixels = new byte[width * height * 4];
+            var filled = (Width: 0, Height: 0);
             var clock = Stopwatch.StartNew();
             long frame = 0;
+            var lookAgainAt = TimeSpan.Zero;
+            var window = start;
 
             while (!_stopping)
             {
@@ -246,7 +287,35 @@ internal sealed class ScreenRecording : IDisposable
                 if (wait > TimeSpan.Zero)
                     Thread.Sleep(wait < TimeSpan.FromMilliseconds(2) ? 1 : (int)wait.TotalMilliseconds);
 
-                if (!Grab(duplication!, context!, device!, mips!, mipView!, staging!, mipLevel, width, height, pixels, ref duplication))
+                // Where VRChat's window is now: moved, resized, minimised, behind something else,
+                // or gone. Asked again only every half second while there is none, so a VRChat that
+                // has closed does not cost a search fifteen times a second.
+                if (window.Window.Found || clock.Elapsed >= lookAgainAt)
+                {
+                    window = VRChatWindow.Look(window.Handle);
+                    if (!window.Window.Found)
+                        lookAgainAt = clock.Elapsed + LookAgainEvery;
+                }
+
+                WindowFound = window.Window.Found;
+
+                var grabbed = Grab(
+                    duplication!,
+                    context!,
+                    device!,
+                    ref monitor,
+                    window,
+                    frame,
+                    width,
+                    height,
+                    pixels,
+                    ref windowCopy,
+                    ref windowView,
+                    staging!,
+                    ref filled,
+                    ref duplication);
+
+                if (!grabbed)
                 {
                     frame++;
                     continue;
@@ -281,6 +350,7 @@ internal sealed class ScreenRecording : IDisposable
         finally
         {
             IsRecording = false;
+            WindowFound = false;
 
             foreach (var leg in legs)
             {
@@ -289,12 +359,35 @@ internal sealed class ScreenRecording : IDisposable
             }
 
             staging?.Dispose();
-            mipView?.Dispose();
-            mips?.Dispose();
+            windowView?.Dispose();
+            windowCopy?.Dispose();
             duplication?.Dispose();
             context?.Dispose();
             device?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Waits for VRChat's window to appear, giving up only when the recorder is being stopped.
+    /// </summary>
+    /// <remarks>
+    /// VRChat's log starts moving a moment before, or a moment after, its window exists, and
+    /// neither order is worth treating as a fault. Nothing is recorded in the meantime.
+    /// </remarks>
+    private GameWindowLook? WaitForTheGameWindow()
+    {
+        while (!_stopping)
+        {
+            var look = VRChatWindow.Look(0);
+            WindowFound = look.Window.Found;
+
+            if (look.Window.HasPicture)
+                return look;
+
+            Thread.Sleep(LookAgainEvery);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -311,67 +404,59 @@ internal sealed class ScreenRecording : IDisposable
     }
 
     /// <summary>
-    /// The duplication of the first monitor on the adapter this device is on. Windows hands over a
-    /// copy of what the desktop compositor already drew; nothing here draws, reads or asks about
-    /// another program's window.
+    /// The duplication of the monitor VRChat's window is on, and where that monitor sits on the
+    /// desktop. Windows hands over a copy of what the desktop compositor already drew; nothing here
+    /// draws, and nothing asks for a list of anybody's windows.
     /// </summary>
-    private static IDXGIOutputDuplication Duplicate(ID3D11Device device)
+    /// <remarks>
+    /// The monitor is chosen by which one holds the middle of VRChat's window, so a moderator with
+    /// two screens gets the one the game is on rather than whichever the graphics card lists first.
+    /// A window whose middle is on no monitor — dragged off the edge — falls back to the first.
+    /// </remarks>
+    private static (IDXGIOutputDuplication Duplication, Monitor Monitor) Duplicate(
+        ID3D11Device device,
+        int pointX,
+        int pointY)
     {
         using var dxgi = device.QueryInterface<IDXGIDevice>();
         using var adapter = dxgi.GetAdapter();
 
-        adapter.EnumOutputs(0, out var output).CheckError();
+        var monitors = new List<IDXGIOutput>();
 
-        using (output)
+        for (uint index = 0; adapter.EnumOutputs(index, out var output).Success && output is not null; index++)
+            monitors.Add(output);
+
+        if (monitors.Count == 0)
+            throw new InvalidOperationException("This machine has no monitor Modbot can record.");
+
+        try
         {
-            using var output1 = output.QueryInterface<IDXGIOutput1>();
-            return output1.DuplicateOutput(device);
+            var chosen = monitors.FirstOrDefault(Holds) ?? monitors[0];
+            var area = chosen.Description.DesktopCoordinates;
+
+            using var output1 = chosen.QueryInterface<IDXGIOutput1>();
+
+            return (
+                output1.DuplicateOutput(device),
+                new Monitor(area.Left, area.Top, area.Right - area.Left, area.Bottom - area.Top));
+        }
+        finally
+        {
+            foreach (var monitor in monitors)
+                monitor.Dispose();
+        }
+
+        bool Holds(IDXGIOutput output)
+        {
+            var area = output.Description.DesktopCoordinates;
+            return pointX >= area.Left && pointX < area.Right
+                && pointY >= area.Top && pointY < area.Bottom;
         }
     }
 
-    /// <summary>
-    /// How big the recorded picture is: the monitor halved until it is no wider than
-    /// <see cref="MaxWidth"/>, and then trimmed to even numbers, because H.264 will not take odd ones.
-    /// </summary>
-    private static (int Width, int Height, int MipLevel) Shrink(int screenWidth, int screenHeight)
-    {
-        var level = 0;
-        while (level < 6 && (screenWidth >> level) > MaxWidth)
-            level++;
-
-        var width = Math.Max(2, (screenWidth >> level) & ~1);
-        var height = Math.Max(2, (screenHeight >> level) & ~1);
-        return (width, height, level);
-    }
-
-    /// <summary>
-    /// The two textures the shrinking uses: one with a chain of smaller copies the graphics card
-    /// makes itself, and one the processor can read the finished size out of.
-    /// </summary>
-    private static (ID3D11Texture2D Mips, ID3D11ShaderResourceView View, ID3D11Texture2D Staging) MakeTextures(
-        ID3D11Device device,
-        int screenWidth,
-        int screenHeight,
-        int width,
-        int height)
-    {
-        var mips = device.CreateTexture2D(new Texture2DDescription
-        {
-            Width = (uint)screenWidth,
-            Height = (uint)screenHeight,
-            MipLevels = 0,
-            ArraySize = 1,
-            Format = Format.B8G8R8A8_UNorm,
-            SampleDescription = new SampleDescription(1, 0),
-            Usage = ResourceUsage.Default,
-            BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget,
-            CPUAccessFlags = CpuAccessFlags.None,
-            MiscFlags = ResourceOptionFlags.GenerateMips,
-        });
-
-        var view = device.CreateShaderResourceView(mips);
-
-        var staging = device.CreateTexture2D(new Texture2DDescription
+    /// <summary>The texture the processor reads the finished frame out of.</summary>
+    private static ID3D11Texture2D MakeStaging(ID3D11Device device, int width, int height)
+        => device.CreateTexture2D(new Texture2DDescription
         {
             Width = (uint)width,
             Height = (uint)height,
@@ -385,27 +470,96 @@ internal sealed class ScreenRecording : IDisposable
             MiscFlags = ResourceOptionFlags.None,
         });
 
-        return (mips, view, staging);
+    /// <summary>
+    /// A texture the size of VRChat's window, with a chain of smaller copies the graphics card
+    /// makes itself. Remade when the window's size changes, which is the cheap half of a resize —
+    /// the encoder is never disturbed, so the clip carries on being one file.
+    /// </summary>
+    private static void MakeWindowCopy(
+        ID3D11Device device,
+        int width,
+        int height,
+        ref ID3D11Texture2D? texture,
+        ref ID3D11ShaderResourceView? view)
+    {
+        if (texture is not null && texture.Description.Width == (uint)width && texture.Description.Height == (uint)height)
+            return;
+
+        view?.Dispose();
+        texture?.Dispose();
+
+        texture = device.CreateTexture2D(new Texture2DDescription
+        {
+            Width = (uint)width,
+            Height = (uint)height,
+            MipLevels = 0,
+            ArraySize = 1,
+            Format = Format.B8G8R8A8_UNorm,
+            SampleDescription = new SampleDescription(1, 0),
+            Usage = ResourceUsage.Default,
+            BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget,
+            CPUAccessFlags = CpuAccessFlags.None,
+            MiscFlags = ResourceOptionFlags.GenerateMips,
+        });
+
+        view = device.CreateShaderResourceView(texture);
     }
 
     /// <summary>
-    /// One frame: ask Windows for the desktop's own picture, let the graphics card shrink it, and
-    /// copy the small result into <paramref name="pixels"/>. False means there was nothing new, which
-    /// is ordinary — a still screen produces no frames at all.
+    /// One frame: ask Windows for the desktop's own picture, take the part of it VRChat is drawn
+    /// in, let the graphics card shrink that, and copy the small result into
+    /// <paramref name="pixels"/>.
     /// </summary>
+    /// <remarks>
+    /// True means the caller should write a frame — either the one just copied, or the last one
+    /// again when there was nothing new or VRChat is not the window in front. False means the
+    /// duplication had to be taken again and this turn produced nothing, which is ordinary.
+    /// </remarks>
     private bool Grab(
         IDXGIOutputDuplication duplication,
         ID3D11DeviceContext context,
         ID3D11Device device,
-        ID3D11Texture2D mips,
-        ID3D11ShaderResourceView mipView,
-        ID3D11Texture2D staging,
-        int mipLevel,
+        ref Monitor monitor,
+        GameWindowLook window,
+        long frame,
         int width,
         int height,
         byte[] pixels,
+        ref ID3D11Texture2D? windowCopy,
+        ref ID3D11ShaderResourceView? windowView,
+        ID3D11Texture2D staging,
+        ref (int Width, int Height) filled,
         ref IDXGIOutputDuplication? live)
     {
+        // VRChat minimised, closed, or behind whatever the moderator has alt-tabbed to. The last
+        // picture of VRChat is written again: the clip keeps its steady rate and holds nothing of
+        // what they moved to.
+        if (ClipWindowRule.Decide(window.Window) is ClipFrame.HoldLastPicture)
+            return true;
+
+        var box = ClipWindowRule.BoxOnMonitor(
+            window.Left, window.Top, window.Window.Width, window.Window.Height,
+            monitor.Left, monitor.Top, monitor.Width, monitor.Height);
+
+        if (box.Width < 2 || box.Height < 2)
+        {
+            // None of VRChat's window is on the monitor being read — it has been dragged to
+            // another screen. Follow it, at most once a second, so a window that is genuinely on
+            // no monitor does not cost a duplication fifteen times a second.
+            if (frame >= _followTheWindowAtFrame)
+            {
+                _followTheWindowAtFrame = frame + FramesPerSecond;
+
+                // Let go of the old one before asking for the new one, so a machine that refuses
+                // the second ask ends with nothing held rather than with something disposed.
+                live = null;
+                duplication.Dispose();
+                (live, monitor) = Duplicate(device, window.CentreX, window.CentreY);
+            }
+
+            return true;
+        }
+
         var result = duplication.AcquireNextFrame(0, out _, out var desktop);
 
         if (result.Code == WaitTimeout)
@@ -418,9 +572,12 @@ internal sealed class ScreenRecording : IDisposable
         if (result.Code == AccessLost)
         {
             // A full-screen game starting, a resolution change, or another program taking the
-            // duplication. Ask again; this is ordinary and happens several times an evening.
+            // duplication. Ask again; this is ordinary and happens several times an evening. The
+            // monitor is worked out again with it, because a resolution or arrangement change is
+            // one of the things that causes this.
+            live = null;
             duplication.Dispose();
-            live = Duplicate(device);
+            (live, monitor) = Duplicate(device, window.CentreX, window.CentreY);
             return false;
         }
 
@@ -428,24 +585,41 @@ internal sealed class ScreenRecording : IDisposable
 
         try
         {
-            using var frame = desktop.QueryInterface<ID3D11Texture2D>();
+            using var desktopPicture = desktop.QueryInterface<ID3D11Texture2D>();
 
-            context.CopySubresourceRegion(mips, 0, 0, 0, 0, frame, 0);
-            context.GenerateMips(mipView);
+            MakeWindowCopy(device, box.Width, box.Height, ref windowCopy, ref windowView);
+
             context.CopySubresourceRegion(
-                staging, 0, 0, 0, 0, mips, (uint)mipLevel,
-                new Vortice.Mathematics.Box(0, 0, 0, width, height, 1));
+                windowCopy!, 0, 0, 0, 0, desktopPicture, 0,
+                new Vortice.Mathematics.Box(box.X, box.Y, 0, box.X + box.Width, box.Y + box.Height, 1));
+
+            context.GenerateMips(windowView!);
+
+            var level = ClipWindowRule.FitLevel(box.Width, box.Height, width, height);
+            var (fitWidth, fitHeight) = ClipWindowRule.FittedSize(box.Width, box.Height, width, height, level);
+
+            context.CopySubresourceRegion(
+                staging, 0, 0, 0, 0, windowCopy!, (uint)level,
+                new Vortice.Mathematics.Box(0, 0, 0, fitWidth, fitHeight, 1));
+
+            // A window that is now smaller fills less of the frame. What is left is painted black
+            // rather than left holding the edges of the picture that was there before.
+            if (filled.Width != fitWidth || filled.Height != fitHeight)
+            {
+                Array.Clear(pixels);
+                filled = (fitWidth, fitHeight);
+            }
 
             var mapped = context.Map(staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
             try
             {
-                var row = width * 4;
-                for (var y = 0; y < height; y++)
+                var row = fitWidth * 4;
+                for (var y = 0; y < fitHeight; y++)
                 {
                     Marshal.Copy(
                         mapped.DataPointer + (y * (int)mapped.RowPitch),
                         pixels,
-                        y * row,
+                        y * width * 4,
                         row);
                 }
             }
@@ -495,6 +669,14 @@ internal sealed class ScreenRecording : IDisposable
     private void Harvest(Leg[] legs, long frame, string destination, int width, int height, long framesPerLeg)
     {
         var oldest = legs[0].StartedAtFrame <= legs[1].StartedAtFrame ? legs[0] : legs[1];
+
+        if (oldest.Writer is null || oldest.Path.Length == 0)
+        {
+            // Asked for before anything was being kept. Nothing to move, and saying so beats
+            // moving a file that is not there.
+            LastProblem = "Nothing has been recorded yet.";
+            return;
+        }
 
         try
         {
@@ -645,4 +827,119 @@ internal sealed class ScreenRecording : IDisposable
 
     /// <summary>The moment a clip was saved, for whoever wants to name it. Never the system clock.</summary>
     public DateTimeOffset Now => _clock.UtcNow;
+
+    /// <summary>VRChat's window as Windows last described it, and where it is on the desktop.</summary>
+    /// <param name="Handle">What Windows calls that window, or zero when there is none.</param>
+    /// <param name="Window">Whether it is there, in front, minimised, and how big its picture is.</param>
+    /// <param name="Left">Where its picture starts across the whole desktop.</param>
+    /// <param name="Top">Where its picture starts down the whole desktop.</param>
+    internal readonly record struct GameWindowLook(
+        nint Handle,
+        GameWindow Window,
+        int Left,
+        int Top)
+    {
+        public int CentreX => Left + (Window.Width / 2);
+
+        public int CentreY => Top + (Window.Height / 2);
+    }
+
+    /// <summary>
+    /// The one place in Modbot's client that asks Windows about another program's window.
+    /// </summary>
+    /// <remarks>
+    /// <para>It asks for <em>one named window</em> — VRChat's — and never for a list. The client
+    /// does not enumerate windows and does not enumerate processes, and
+    /// <c>CompanionSourceGuardTests</c> fails the build if any other file the client ships learns
+    /// any of these calls.</para>
+    /// <para>What comes back is where VRChat is drawn and whether it is the window in front. That
+    /// is what keeps a clip to VRChat: the recorder copies that rectangle and nothing else, and
+    /// writes the last picture of VRChat again while the moderator is working somewhere else.</para>
+    /// </remarks>
+    private static class VRChatWindow
+    {
+        /// <summary>The window class every Unity game's main window has.</summary>
+        private const string UnityWindowClass = "UnityWndClass";
+
+        /// <summary>VRChat's own window title.</summary>
+        private const string Title = "VRChat";
+
+        /// <summary>Where VRChat's window is right now. A handle of zero asks Windows for it afresh.</summary>
+        public static GameWindowLook Look(nint known)
+        {
+            if (!OperatingSystem.IsWindows())
+                return new GameWindowLook(0, GameWindow.Missing, 0, 0);
+
+            var handle = known != 0 && IsWindow(known) ? known : Find();
+
+            if (handle == 0)
+                return new GameWindowLook(0, GameWindow.Missing, 0, 0);
+
+            if (!GetClientRect(handle, out var client))
+                return new GameWindowLook(handle, GameWindow.Missing with { Found = true }, 0, 0);
+
+            var corner = new Point { X = client.Left, Y = client.Top };
+            if (!ClientToScreen(handle, ref corner))
+                return new GameWindowLook(handle, GameWindow.Missing with { Found = true }, 0, 0);
+
+            return new GameWindowLook(
+                handle,
+                new GameWindow(
+                    Found: true,
+                    InFront: GetForegroundWindow() == handle,
+                    Minimised: IsIconic(handle),
+                    Width: client.Right - client.Left,
+                    Height: client.Bottom - client.Top),
+                corner.X,
+                corner.Y);
+        }
+
+        /// <summary>
+        /// VRChat's window, by class and title, and then by title alone. Two named asks, never a
+        /// walk over what else is open.
+        /// </summary>
+        private static nint Find()
+        {
+            var handle = FindWindowW(UnityWindowClass, Title);
+            return handle != 0 ? handle : FindWindowW(null, Title);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Rect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Point
+        {
+            public int X;
+            public int Y;
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern nint FindWindowW(string? lpClassName, string? lpWindowName);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsWindow(nint hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsIconic(nint hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern nint GetForegroundWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetClientRect(nint hWnd, out Rect lpRect);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool ClientToScreen(nint hWnd, ref Point lpPoint);
+    }
 }

@@ -42,9 +42,11 @@ internal enum Page
 /// and a program that is never invisible while it runs.</para>
 /// <para><strong>What this window can record, and what it cannot.</strong> The Settings page has a
 /// Clips card. Switched on — and it is off until somebody switches it on — the client keeps the last
-/// two to five minutes of the picture on one monitor, in memory and in two files of its own, while
-/// VRChat is running, and writes them out when <strong>Save a clip</strong> is pressed. That is the
-/// whole of it: no sound, no keyboard, no clipboard, no list of other programs, and nothing read
+/// two to five minutes of <strong>VRChat's window</strong>, in two files of its own, while VRChat is
+/// running, and writes them out when <strong>Save a clip</strong> is pressed, here or on the overlay
+/// panel. Whatever is drawn over VRChat while somebody is in it is inside that window and is in the
+/// clip; the rest of their screen never is. That is the whole of it: no sound, no keyboard, no
+/// clipboard, no list of other programs or of their windows, and nothing read
 /// from VRChat's screenshot folder or any other folder on the machine. No clip is ever uploaded —
 /// this program has no path to a server that could take one, and did not gain one. Attaching a clip
 /// to a case is still what it always was: a moderator, in the web UI, in a browser, choosing a file.
@@ -841,8 +843,9 @@ public sealed partial class MainWindow : Window
             Ui.Dim(
                 "Modbot reads VRChat's log directory and nothing else on this machine. It does "
                 + "not read your screenshots folder, the clipboard or the keyboard, and it does "
-                + "not look at what other programs are running. It records the picture on one "
-                + "monitor only while Clips is switched on in Settings, only while VRChat is "
+                + "not look at what other programs are running. It records VRChat's window, and "
+                + "whatever is drawn over it, only while Clips is switched on in Settings, only "
+                + "while VRChat is "
                 + "running, and never the sound. Nothing it records leaves this PC: attaching a "
                 + "clip or any other evidence to a case is something you do in Modbot's web "
                 + "interface, in a browser, by choosing a file."),

@@ -1,3 +1,4 @@
+using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
 
 namespace Modbot.Overlay.Views;
@@ -48,6 +49,10 @@ public enum OverlayPage
 /// <param name="Cursor">Where a controller points at the panel, or null when none does.</param>
 /// <param name="Page">Which of the three screens the panel is on.</param>
 /// <param name="Events">What the live link has heard for this instance, newest first.</param>
+/// <param name="Clips">
+/// What the Save a clip control says, and whether it can be pressed. Nothing is drawn for it while
+/// Clips is switched off, which is what a fresh install has.
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -59,7 +64,8 @@ public sealed record OverlayScreen(
     int RosterSkip = 0,
     PanelCursor? Cursor = null,
     OverlayPage Page = OverlayPage.Instance,
-    IReadOnlyList<LiveEvent>? Events = null)
+    IReadOnlyList<LiveEvent>? Events = null,
+    ClipButton Clips = default)
 {
     /// <summary>What the live link has heard, never null.</summary>
     public IReadOnlyList<LiveEvent> EventsOrNone => Events ?? [];
@@ -88,6 +94,7 @@ public sealed record OverlayScreen(
         ArgumentNullException.ThrowIfNull(other);
 
         return GroupLabel == other.GroupLabel
+            && Clips == other.Clips
             && ShowIdleCard == other.ShowIdleCard
             && RosterSkip == other.RosterSkip
             && Cursor == other.Cursor

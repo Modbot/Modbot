@@ -104,12 +104,23 @@ A yellow banner at the top appears only when reporting has really stopped:
 - *Cannot reach …. Showing what was last known.* The server could not be reached and the roster is
   no longer fresh.
 
+### Save a clip
+
+With [Clips](/companion/clips) switched on, a wide control sits under the tabs: **Save a clip**.
+Pressing it keeps the last few minutes of VRChat as a video file on your own PC. When nothing is
+being kept it says why instead — *Waiting for VRChat*, *The folder cannot be used* — and cannot be
+pressed; after a clip is written it says **Clip saved** for a few seconds. With Clips switched off
+there is no control at all.
+
 ### Idle screen
 
 When you are not in a group instance that one of your paired servers manages (including public,
 friends-only and private instances), the panel shows nothing at all, and the client contacts no
 server for it. The **idle** sample on the [debug page](/companion/settings#debug-mode) draws a
 card reading **Not in a group instance** in the panel's place, so you can see where it sits.
+
+**Save a clip** is the one thing still shown there, when Clips is on, because the companion records
+wherever VRChat is running and a moment worth keeping can happen in a public instance too.
 
 ## Holding it
 
@@ -122,7 +133,7 @@ The panel can be moved with a controller:
 | Thumbstick up or down while holding | Pushes the panel away or pulls it closer. |
 | Thumbstick left or right while holding | Makes it narrower or wider. |
 | Grip twice quickly on the panel | Puts it back in front of your head. |
-| Pull the trigger on the panel | Taps what you are pointing at: the alert card to dismiss it, a person's row to open their card, the card to close it. |
+| Pull the trigger on the panel | Taps what you are pointing at: the alert card to dismiss it, a person's row to open their card, the card to close it, **Save a clip** to keep the last few minutes. |
 | Thumbstick up or down over the list | Scrolls the roster. |
 
 Where you leave the panel, its size, opacity and curve are saved and used next time. The
@@ -168,9 +179,10 @@ server or quit the client.
 - **The roster follows the instance.** While you are in a group instance the companion keeps a
   [live connection](/api/live-updates) to that group's server; a join or a leave re-reads the
   roster at once, and it is re-read every 20 seconds regardless.
-- **Nothing on the panel moderates.** The trigger dismisses a card, opens a person's card and
-  closes it again, and that is all: there are no ban, kick or warn buttons, and the client's token
-  could not do those things anyway. To act on something, use the web app.
+- **Nothing on the panel moderates.** The trigger dismisses a card, opens a person's card, closes
+  it again, and — if you have [Clips](/companion/clips) switched on — saves a clip to your own PC.
+  That is all: there are no ban, kick or warn buttons, and the client's token could not do those
+  things anyway. To act on something, use the web app.
 - **The panel starts 0.45 metres wide** in the headset and is drawn at 1024 by 1024 pixels.
 - **Long names are cut to one line**, so a display name full of line breaks cannot push the rest of
   the panel out of view.

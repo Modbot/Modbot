@@ -38,6 +38,15 @@ public abstract record OverlayTarget
 
     /// <summary>The events list. Scrolling while pointing here moves the list.</summary>
     public sealed record Events : OverlayTarget;
+
+    /// <summary>Save a clip: keep the last few minutes as a file on this PC.</summary>
+    /// <remarks>
+    /// The one target that does something rather than showing something, and it is still not an
+    /// action on a person: it writes a file on the moderator's own machine and sends nothing
+    /// anywhere. The loop hands it straight back to the companion, which owns the recorder; the
+    /// overlay has no recorder, no folder and no way to reach either (clips design spec §11).
+    /// </remarks>
+    public sealed record SaveClip : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>

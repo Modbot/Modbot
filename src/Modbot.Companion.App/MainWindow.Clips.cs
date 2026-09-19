@@ -158,6 +158,7 @@ public sealed partial class MainWindow
         ClipRecordingState.Recording => clips.LastSaved is { } saved
             ? $"Recording. Last clip: {saved}"
             : "Recording",
+        ClipRecordingState.NoWindow => "Waiting for VRChat's window",
         ClipRecordingState.NotOnThisMachine => "Not available on this machine",
         ClipRecordingState.FolderUnusable => "The folder cannot be used",
         _ => "Stopped",

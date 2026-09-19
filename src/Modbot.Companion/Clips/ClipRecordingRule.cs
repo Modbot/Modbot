@@ -20,6 +20,12 @@ public enum ClipRecordingState
     /// <summary>On, but the folder cannot be written to. The settings screen says which folder and why.</summary>
     FolderUnusable,
 
+    /// <summary>
+    /// On, VRChat is running, but Windows has not handed over VRChat's window yet. A clip is that
+    /// window, so until there is one there is nothing to keep.
+    /// </summary>
+    NoWindow,
+
     /// <summary>On, VRChat is running, and setting the recorder up failed. Said once, in the window.</summary>
     Failed,
 }
@@ -40,6 +46,11 @@ public enum ClipRecordingState
 /// <para>A log the client has stopped understanding still counts as VRChat running: lines are
 /// arriving, the moderator is in a world, and a moderator whose client needs updating should not
 /// also quietly lose the recording they switched on.</para>
+/// <para><strong>Finding VRChat's window is a separate question.</strong> Since 2026-09-19 a clip
+/// is VRChat's own window rather than the whole monitor, so the recorder has to be handed that
+/// window before there is anything to keep. Not having it yet is its own state rather than a
+/// failure: the recorder stays up and asks again, because VRChat's window turns up a moment after
+/// its log starts moving.</para>
 /// </remarks>
 public static class ClipRecordingRule
 {
@@ -49,12 +60,17 @@ public static class ClipRecordingRule
     /// <param name="folder">Whether the clips folder can be written to.</param>
     /// <param name="supported">Whether this machine can record at all.</param>
     /// <param name="failed">Whether setting the recorder up has already failed this run.</param>
+    /// <param name="windowFound">
+    /// Whether the recorder has VRChat's window. Null means there is no recorder to ask yet, which
+    /// is the moment one is about to be built.
+    /// </param>
     public static ClipRecordingState Decide(
         ClipSettings settings,
         LogHealthStatus log,
         ClipsFolderCheck folder,
         bool supported,
-        bool failed = false)
+        bool failed = false,
+        bool? windowFound = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
@@ -70,13 +86,23 @@ public static class ClipRecordingRule
         if (failed)
             return ClipRecordingState.Failed;
 
-        return log is LogHealthStatus.Idle
-            ? ClipRecordingState.Waiting
-            : ClipRecordingState.Recording;
+        if (log is LogHealthStatus.Idle)
+            return ClipRecordingState.Waiting;
+
+        return windowFound == false ? ClipRecordingState.NoWindow : ClipRecordingState.Recording;
     }
 
-    /// <summary>Whether the picture should actually be going into a file in this state.</summary>
-    public static bool ShouldRecord(ClipRecordingState state) => state is ClipRecordingState.Recording;
+    /// <summary>
+    /// Whether the recorder should be up in this state.
+    /// </summary>
+    /// <remarks>
+    /// True for <see cref="ClipRecordingState.NoWindow"/> as well as
+    /// <see cref="ClipRecordingState.Recording"/>: the recorder is what asks Windows for VRChat's
+    /// window, so taking it down for not having found one yet would tear it down and build it again
+    /// every second for as long as the window was missing.
+    /// </remarks>
+    public static bool ShouldRecord(ClipRecordingState state)
+        => state is ClipRecordingState.Recording or ClipRecordingState.NoWindow;
 }
 
 /// <summary>What the Clips card shows. Set by whatever owns the recorder.</summary>

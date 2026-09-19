@@ -248,12 +248,14 @@ it registered from.
 
 **It does not send a recording of anyone's screen, ever.** Since 19 September 2026 the client *can*
 record: if the person using that PC switches **Clips** on in its settings, it keeps the last two to
-five minutes of the picture on one of their monitors while VRChat is running, so they can save those
-minutes as a video file when something happens. That is off unless they switch it on, it records no
-sound at all, it records nothing while VRChat is not running, and **the recording never leaves that
-PC** — not to us, not to Modbot Cloud, not to the Modbot server they paired with. There is no way for
-the client to upload one. A saved clip is a file in their own Videos folder, and if it ever becomes
-evidence on a case it is because they chose that file in a browser, the same as any other attachment.
+five minutes of **VRChat's own window** while VRChat is running, so they can save those minutes as a
+video file when something happens. That is off unless they switch it on, it records no sound at all,
+it records nothing while VRChat is not running, it records nothing outside VRChat's window — while
+they are working in another program it holds the last picture of VRChat rather than recording what
+they moved to — and **the recording never leaves that PC**: not to us, not to Modbot Cloud, not to
+the Modbot server they paired with. There is no way for the client to upload one. A saved clip is a
+file in their own Videos folder, and if it ever becomes evidence on a case it is because they chose
+that file in a browser, the same as any other attachment.
 
 **How to turn it off — on that PC, by the person using it.** Your server cannot do it for them.
 Either:
