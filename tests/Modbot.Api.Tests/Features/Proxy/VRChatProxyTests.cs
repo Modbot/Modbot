@@ -66,10 +66,11 @@ public class VRChatProxyTests
         Assert.False(before.GetProperty("publicAddressSet").GetBoolean());
 
         // The whole settings resource, as the real client always sends it (VRChatProxySettingsUpdate
-        // has no optional fields): leaving imagesProxied out would read as turning it off too, since
-        // it defaults to true, and record a second, unwanted fact for that switch.
+        // has no optional fields). The picture switch is sent as it already stands, so only the
+        // proxy's own switch moves and only that switch's fact is written -- this test is about
+        // one switch, and sending the other one's opposite would quietly make it about two.
         var after = await ApiTestHost.BodyOf(
-            await host.SendJsonAsync(HttpMethod.Put, SettingsPath, new { enabled = true, imagesProxied = true }, cookie, Ct), Ct);
+            await host.SendJsonAsync(HttpMethod.Put, SettingsPath, new { enabled = true, imagesProxied = false }, cookie, Ct), Ct);
         Assert.True(after.GetProperty("enabled").GetBoolean());
 
         var fact = Assert.Single(await host.FactsAsync(FactType.SettingsChanged, "settings", Ct));

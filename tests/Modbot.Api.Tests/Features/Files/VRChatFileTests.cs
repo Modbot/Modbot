@@ -43,6 +43,19 @@ public class VRChatFileTests : IDisposable
         VRChatFileEndpoints.Path + "?url=" + Uri.EscapeDataString(url);
 
     /// <summary>Turns the operator's picture switch off.</summary>
+    /// <summary>
+    /// Turns the operator's picture switch on. It ships off, so every test that expects Modbot to
+    /// fetch a picture has to say so first; off is a redirect to VRChat, not a fetch.
+    /// </summary>
+    private static async Task ProxyPicturesAsync(ApiTestHost host, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var settings = await db.GetSettingsAsync(ct);
+        settings.VRChatImagesProxied = true;
+        await db.SaveChangesAsync(ct);
+    }
+
     private static async Task StopProxyingPicturesAsync(ApiTestHost host, CancellationToken ct)
     {
         using var scope = host.Services.CreateScope();
@@ -74,6 +87,7 @@ public class VRChatFileTests : IDisposable
 
         await using var host = await StartAsync(new FakeVRChatGate().SignedInAs().Serves([1, 2, 3], "image/png"));
         await GiveCacheRoomAsync(host, 1_000_000, ct);
+        await ProxyPicturesAsync(host, ct);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
         var response = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
@@ -106,6 +120,7 @@ public class VRChatFileTests : IDisposable
 
         await using var host = await StartAsync(new FakeVRChatGate().SignedInAs().Serves([1], "image/png"));
         await GiveCacheRoomAsync(host, 1_000_000, ct);
+        await ProxyPicturesAsync(host, ct);
 
         var signedOut = await host.Client.GetAsync(Ask(Address), ct);
         Assert.Equal(HttpStatusCode.Unauthorized, signedOut.StatusCode);
@@ -151,6 +166,7 @@ public class VRChatFileTests : IDisposable
         var gate = new FakeVRChatGate().SignedInAs().Serves([7, 7, 7], "image/jpeg");
         await using var host = await StartAsync(gate);
         await GiveCacheRoomAsync(host, 1_000_000, ct);
+        await ProxyPicturesAsync(host, ct);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
 
@@ -176,6 +192,7 @@ public class VRChatFileTests : IDisposable
         var gate = new FakeVRChatGate().SignedInAs().Serves([1], "image/png");
         await using var host = await StartAsync(gate);
         await GiveCacheRoomAsync(host, 0, ct);
+        await ProxyPicturesAsync(host, ct);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
 
@@ -198,6 +215,7 @@ public class VRChatFileTests : IDisposable
 
         await using var host = await StartAsync(new FakeVRChatGate().Refuses(
             VRChatFileOutcome.NoSession, "VRChat is off in the demo."));
+        await ProxyPicturesAsync(host, ct);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
         var response = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
@@ -218,6 +236,7 @@ public class VRChatFileTests : IDisposable
         var gate = new FakeVRChatGate().Refuses(VRChatFileOutcome.NoSession, "VRChat is off in the demo.");
         await using var host = await StartAsync(gate);
 
+        await ProxyPicturesAsync(host, ct);
         var cache = host.Services.GetRequiredService<VRChatFileCache>();
         await cache.StoreAsync(Address, new VRChatFile([4, 2], "image/png"), 1_000_000, ct);
 
@@ -237,6 +256,7 @@ public class VRChatFileTests : IDisposable
 
         await using var host = await StartAsync(new FakeVRChatGate().SignedInAs().Refuses(
             VRChatFileOutcome.NotShowable, "That is not a picture."));
+        await ProxyPicturesAsync(host, ct);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
         var response = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
@@ -252,6 +272,7 @@ public class VRChatFileTests : IDisposable
 
         await using var host = await StartAsync(new FakeVRChatGate().SignedInAs().Refuses(
             VRChatFileOutcome.TooBig, "Too big."));
+        await ProxyPicturesAsync(host, ct);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
         var response = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
@@ -268,6 +289,7 @@ public class VRChatFileTests : IDisposable
 
         await using var host = await StartAsync(new FakeVRChatGate().SignedInAs().Serves([1, 2], "image/png"));
         await GiveCacheRoomAsync(host, 1_000_000, ct);
+        await ProxyPicturesAsync(host, ct);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
         await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
@@ -281,11 +303,12 @@ public class VRChatFileTests : IDisposable
     }
 
     /// <summary>
-    /// With the switch off this server does not serve VRChat pictures, and does not ask VRChat
-    /// for one either.
+    /// With the switch off this server does not fetch VRChat pictures. It does not refuse either:
+    /// the browser is sent to VRChat for the picture, which is the operator saying "not through
+    /// me" rather than "no picture".
     /// </summary>
     [Fact]
-    public async Task WithTheSwitchOffNoPictureIsServed()
+    public async Task WithTheSwitchOffTheBrowserIsSentToVRChat()
     {
         var ct = TestContext.Current.CancellationToken;
         await ApiTestHost.ResetDeploymentAsync(_db, ct);
@@ -297,16 +320,18 @@ public class VRChatFileTests : IDisposable
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
         var response = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(Address, response.Headers.Location?.ToString());
         Assert.Empty(gate.Fetched);
     }
 
     /// <summary>
-    /// Off means off, not "serve the ones already held": a cached picture is refused the same way,
-    /// so turning the switch off takes the pictures off every screen rather than some of them.
+    /// Off means off, not "serve the ones already held": a picture already on disk is sent to
+    /// VRChat the same way, so turning the switch off is one answer for every picture rather than
+    /// two depending on what this server happens to have fetched before.
     /// </summary>
     [Fact]
-    public async Task WithTheSwitchOffACachedPictureIsRefusedToo()
+    public async Task WithTheSwitchOffEvenAHeldPictureIsNotServed()
     {
         var ct = TestContext.Current.CancellationToken;
         await ApiTestHost.ResetDeploymentAsync(_db, ct);
@@ -314,6 +339,7 @@ public class VRChatFileTests : IDisposable
         var gate = new FakeVRChatGate().Serves([1, 2, 3]);
         await using var host = await StartAsync(gate);
         await GiveCacheRoomAsync(host, 1024 * 1024, ct);
+        await ProxyPicturesAsync(host, ct);
 
         var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
         var first = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
@@ -322,6 +348,7 @@ public class VRChatFileTests : IDisposable
         await StopProxyingPicturesAsync(host, ct);
 
         var second = await host.Client.SendAsync(host.Authenticated(HttpMethod.Get, Ask(Address), cookie), ct);
-        Assert.Equal(HttpStatusCode.NotFound, second.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, second.StatusCode);
+        Assert.Equal(Address, second.Headers.Location?.ToString());
     }
 }
