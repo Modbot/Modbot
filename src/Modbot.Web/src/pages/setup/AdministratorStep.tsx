@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { ApiError, api } from '@/lib/api'
+import { usernameProblem } from '@/lib/username'
 import { ErrorText, Field, Tickbox, WizardBody, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
@@ -19,8 +20,14 @@ export function AdministratorStep({ eyebrow, status, run, refresh }: StepProps) 
     run(async () => {
       setError(null)
 
-      // Also checked on the server, which is the check that matters. This one exists so the
+      // Also checked on the server, which is the check that matters. These exist so the
       // answer arrives before a round trip rather than after it.
+      const problem = usernameProblem(username)
+      if (problem) {
+        setError(problem)
+        return false
+      }
+
       if (password !== confirm) {
         setError('The passwords do not match.')
         return false

@@ -49,6 +49,7 @@ public class UsersTests
             (HttpMethod.Put, $"/api/users/{target.Id}/roles", new { roleIds = Array.Empty<Guid>() }),
             (HttpMethod.Post, $"/api/users/{target.Id}/disable", null),
             (HttpMethod.Post, $"/api/users/{target.Id}/enable", null),
+            (HttpMethod.Post, $"/api/users/{target.Id}/delete", new { username = target.Username }),
             (HttpMethod.Put, $"/api/users/{target.Id}/contact", new { email = "a@b.c" }),
             (HttpMethod.Post, $"/api/users/{target.Id}/reset-link", null),
             (HttpMethod.Post, "/api/invites", new { roleIds = Array.Empty<Guid>() }),

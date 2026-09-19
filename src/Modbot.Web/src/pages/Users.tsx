@@ -15,6 +15,7 @@ import {
   type UserSummary,
 } from '@/lib/api'
 import { formatDay } from '@/lib/format'
+import { usernameProblem } from '@/lib/username'
 import { cn } from '@/lib/utils'
 import { ErrorText, Field, Note } from '@/pages/setup/WizardChrome'
 
@@ -78,8 +79,8 @@ export function Users({ me }: { me: CurrentUser }) {
             {users.map((u) => (
               <TableRow
                 key={u.id}
-                className={cn('cursor-pointer', u.isDisabled && 'text-muted-foreground')}
-                onClick={() => setSelected(u.id)}
+                className={cn(!u.isDeleted && 'cursor-pointer', u.isDisabled && 'text-muted-foreground')}
+                onClick={() => !u.isDeleted && setSelected(u.id)}
               >
                 <TableCell className="font-medium">
                   {u.username}
@@ -108,7 +109,11 @@ export function Users({ me }: { me: CurrentUser }) {
                 </TableCell>
                 <TableCell>{u.lastLoginAt ? formatDay(u.lastLoginAt) : 'Never'}</TableCell>
                 <TableCell className="text-right">
-                  {u.isDisabled && <Badge variant="destructive">Disabled</Badge>}
+                  {u.isDeleted ? (
+                    <Badge variant="destructive">Deleted</Badge>
+                  ) : (
+                    u.isDisabled && <Badge variant="destructive">Disabled</Badge>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -192,6 +197,15 @@ function AddSomeone({
     event.preventDefault()
     setBusy(true)
     setError(null)
+
+    if (way === 'password') {
+      const problem = usernameProblem(username)
+      if (problem) {
+        setError(problem)
+        setBusy(false)
+        return
+      }
+    }
 
     const action =
       way === 'link'
@@ -356,6 +370,7 @@ function UserDrawer({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [resetLink, setResetLink] = useState<LinkCreated | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const run = (name: string, action: () => Promise<unknown>) => {
     setBusy(name)
@@ -460,11 +475,80 @@ function UserDrawer({
             </Button>
           )}
           {!user.isDisabled && <p className="text-muted-foreground">Disabling ends their sessions straight away.</p>}
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={busy !== null || user.id === me.id}
+            title={user.id === me.id ? 'You cannot delete your own account.' : undefined}
+            onClick={() => setDeleting(true)}
+          >
+            Delete this account
+          </Button>
         </section>
 
         <ErrorText>{error}</ErrorText>
       </div>
+
+      <Dialog open={deleting} onOpenChange={setDeleting}>
+        <DialogContent title={`Delete ${user.username}`}>
+          <DeleteAccount
+            user={user}
+            onDone={() => {
+              setDeleting(false)
+              onClose()
+              onChanged()
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </aside>
+  )
+}
+
+/**
+ * Deleting is not undoable, so it asks for the username in full rather than for a click on a
+ * second button: typing a name is a thing you cannot do by accident on the wrong row.
+ *
+ * The server checks the typed name too — this only stops the button being pressed.
+ */
+function DeleteAccount({ user, onDone }: { user: UserSummary; onDone: () => void }) {
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const matches = typed.trim().toLocaleUpperCase() === user.username.toLocaleUpperCase()
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    setError(null)
+    api
+      .deleteUser(user.id, typed)
+      .then(onDone)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not delete the account.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <Field label={`Type ${user.username} to confirm`} htmlFor={`delete-${user.id}`}>
+        <Input
+          id={`delete-${user.id}`}
+          autoComplete="off"
+          autoFocus
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+        />
+      </Field>
+
+      <ErrorText>{error}</ErrorText>
+
+      <div className="flex justify-end">
+        <Button type="submit" variant="destructive" size="sm" disabled={!matches || busy}>
+          {busy ? 'Deleting…' : 'Delete this account'}
+        </Button>
+      </div>
+    </form>
   )
 }
 

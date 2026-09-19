@@ -164,6 +164,7 @@ export type UserSummary = {
   roles: RoleRef[]
   permissionNames: string[]
   isDisabled: boolean
+  isDeleted: boolean
   vrChatLinked: boolean
   vrChatUserId: string | null
   vrChatDisplayName: string | null
@@ -3527,6 +3528,9 @@ export const api = {
   disableUser: (id: string) => post<UserSummary>(`/api/users/${id}/disable`),
 
   enableUser: (id: string) => post<UserSummary>(`/api/users/${id}/enable`),
+
+  deleteUser: (id: string, username: string) =>
+    post<UserSummary>(`/api/users/${id}/delete`, { username }),
 
   setUserContact: (id: string, body: { email?: string; discordUserId?: string }) =>
     put<UserSummary>(`/api/users/${id}/contact`, body),

@@ -18,8 +18,11 @@ namespace Modbot.Api.Features.Users;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Accounts are never deleted, only disabled: facts reference the actor's id, and deleting the
-/// account would orphan the attribution that spec 5.9.1 exists to preserve.
+/// <strong>An account row is never removed.</strong> Facts reference the actor's id, and taking
+/// the row away would orphan the attribution that spec 5.9.1 exists to preserve. Disabling shuts
+/// somebody out and can be undone; deleting empties the account of everything that says who it
+/// belonged to and cannot be. Both leave every record the account is named on exactly where it was
+/// (username rules and deleting accounts design §3).
 /// </para>
 /// <para>
 /// Two guards run on anything that narrows an account. <strong>The last administrator</strong>:
@@ -136,6 +139,9 @@ public static class UserEndpoints
                 if (user is null)
                     return Results.NotFound();
 
+                if (user.IsDeleted)
+                    return Results.BadRequest(new { error = Deleted });
+
                 if (await MayNotAssignAsync(accounts, http, body.RoleIds ?? [], ct) is { } refused)
                     return refused;
 
@@ -230,6 +236,74 @@ public static class UserEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
+        group.MapPost("/{id:guid}/delete", async (
+                Guid id,
+                [FromBody] DeleteUserRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] UserAccountService accounts,
+                [FromServices] AccountFacts facts,
+                [FromServices] AdministratorContact contact,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var user = await accounts.FindAsync(id, ct);
+                if (user is null)
+                    return Results.NotFound();
+
+                if (user.IsDeleted)
+                    return Results.Ok(UserSummary.From(user));
+
+                if (ModbotAuth.UserIdOf(http.User) == id)
+                    return Results.BadRequest(new { error = "You cannot delete your own account." });
+
+                if (!await accounts.AnAdministratorWouldRemainAsync((id, false, ModbotPermissions.None), ct))
+                    return Results.BadRequest(new { error = LastAdministrator });
+
+                // Matched the way every other username is matched -- case and surrounding spaces
+                // do not count, the characters do. Somebody who types "Alice" for alice has still
+                // read the name and meant it; somebody who types "Alicia" has not.
+                if (UserAccountService.Normalize(body.Username ?? string.Empty) != user.UsernameNormalized)
+                    return Results.BadRequest(new { error = "That is not this account's username." });
+
+                var was = user.Username;
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                var now = await accounts.DeleteAsync(user, ct);
+
+                // The names go in the fact because this is the last time either is written down.
+                // The audit log is the record of what happened, and "somebody was deleted" with
+                // nobody named is not a record of anything.
+                await facts.RecordAsync(
+                    FactType.UserDeleted,
+                    user,
+                    Actor.Of(http),
+                    new JsonObject { ["was"] = was, ["now"] = now },
+                    ct);
+
+                await transaction.CommitAsync(ct);
+
+                // The address VRChat sees belongs to the oldest enabled administrator with one. If
+                // that was this account, the next client build should read the next one along.
+                contact.Invalidate();
+
+                return Results.Ok(UserSummary.From(user));
+            })
+            .WithName("DeleteUser")
+            .WithSummary("Delete an account, keeping everything it did")
+            .WithDescription(
+                "The account's username, email, password, Discord id, VRChat link and roles are "
+                + "replaced or cleared, and it is left under a deleted_user_ name. Facts, case "
+                + "files, notes and moderation actions keep pointing at it. The request must carry "
+                + "the account's username, typed out. Refused for your own account and for the "
+                + "last enabled administrator.")
+            .Produces<UserSummary>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         group.MapPost("/{id:guid}/enable", async (
                 Guid id,
                 [FromServices] ModbotContext db,
@@ -241,6 +315,9 @@ public static class UserEndpoints
                 var user = await accounts.FindAsync(id, ct);
                 if (user is null)
                     return Results.NotFound();
+
+                if (user.IsDeleted)
+                    return Results.BadRequest(new { error = Deleted });
 
                 if (!user.IsDisabled)
                     return Results.Ok(UserSummary.From(user));
@@ -278,6 +355,9 @@ public static class UserEndpoints
                 if (user is null)
                     return Results.NotFound();
 
+                if (user.IsDeleted)
+                    return Results.BadRequest(new { error = Deleted });
+
                 return await ApplyContactAsync(db, facts, contact, accounts, user, body, Actor.Of(http), ct) is { } problem
                     ? Results.BadRequest(new { error = problem })
                     : Results.Ok(UserSummary.From(user));
@@ -301,6 +381,9 @@ public static class UserEndpoints
                 var user = await accounts.FindAsync(id, ct);
                 if (user is null)
                     return Results.NotFound();
+
+                if (user.IsDeleted)
+                    return Results.BadRequest(new { error = Deleted });
 
                 if (user.IsDisabled)
                     return Results.BadRequest(new { error = "That account is disabled. Enable it first." });
@@ -345,6 +428,12 @@ public static class UserEndpoints
 
     internal const string LastAdministrator =
         "That would leave nobody who can administer Modbot.";
+
+    /// <summary>
+    /// What everything but the list says about a deleted account. There is nobody behind the row
+    /// any more, so there is nothing to enable, write to, rename or send a reset link for.
+    /// </summary>
+    internal const string Deleted = "That account has been deleted.";
 
     /// <summary>
     /// Sets the contact fields from a request, recording which changed. Returns the sentence to

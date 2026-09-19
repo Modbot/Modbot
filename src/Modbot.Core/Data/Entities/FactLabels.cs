@@ -117,6 +117,7 @@ public static class FactLabels
         [FactType.UserInviteRevoked] = "Invite link taken back",
         [FactType.UserDisabled] = "Account disabled",
         [FactType.UserEnabled] = "Account enabled",
+        [FactType.UserDeleted] = "Account deleted",
         [FactType.UserRolesChanged] = "Roles changed",
         [FactType.ResetLinkCreated] = "Reset link created",
         [FactType.ResetLinkUsed] = "Reset link used",

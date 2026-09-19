@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type InviteView } from '@/lib/api'
 import { openRegisterOnce } from '@/lib/myModbot'
+import { usernameProblem } from '@/lib/username'
 import { Brand, ErrorText, Field, Note, Tickbox, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 
 /**
@@ -37,6 +38,11 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
+    const problem = usernameProblem(username)
+    if (problem) {
+      setError(problem)
+      return
+    }
     if (password !== confirm) {
       setError('The passwords do not match.')
       return

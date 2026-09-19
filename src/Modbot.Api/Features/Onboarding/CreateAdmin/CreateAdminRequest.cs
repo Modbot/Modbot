@@ -1,3 +1,5 @@
+using Modbot.Core.Users;
+
 namespace Modbot.Api.Features.Onboarding.CreateAdmin;
 
 /// <param name="Username">How this person signs in. Matched case-insensitively.</param>
@@ -37,21 +39,16 @@ public static class PasswordRules
 {
     public const int MinimumLength = 12;
 
-    public const int MaximumUsernameLength = 64;
+    public const int MaximumUsernameLength = UsernameRules.MaximumLength;
 
     public static string? Validate(string? username, string? password, string? confirmation)
         => ValidateUsername(username) ?? ValidatePassword(password, confirmation);
 
-    public static string? ValidateUsername(string? username)
-    {
-        if (string.IsNullOrWhiteSpace(username))
-            return "A username is required.";
-
-        if (username.Trim().Length > MaximumUsernameLength)
-            return $"That username is longer than {MaximumUsernameLength} characters.";
-
-        return null;
-    }
+    /// <summary>
+    /// The username rule, which lives in <c>Modbot.Core</c> beside the email one because the same
+    /// check has to hold wherever a username is set, including from outside this slice.
+    /// </summary>
+    public static string? ValidateUsername(string? username) => UsernameRules.Validate(username);
 
     public static string? ValidatePassword(string? password, string? confirmation)
     {

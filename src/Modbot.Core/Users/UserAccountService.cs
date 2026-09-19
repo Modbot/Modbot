@@ -84,6 +84,12 @@ public sealed class UserAccountService
         ArgumentException.ThrowIfNullOrWhiteSpace(email);
         ArgumentNullException.ThrowIfNull(roleIds);
 
+        // Every slice that makes an account checks the username first and hands the person a
+        // sentence. This is the backstop for a fifth caller that forgets, and it throws rather
+        // than returning a message because by here there is no form left to put one on.
+        if (!UsernameRules.LooksLike(username))
+            throw new ArgumentException(UsernameRules.WrongCharacters, nameof(username));
+
         var roles = await RolesAsync(roleIds, ct);
 
         var user = new ModbotUser
@@ -107,6 +113,73 @@ public sealed class UserAccountService
         await _db.SaveChangesAsync(ct);
 
         return user;
+    }
+
+    /// <summary>
+    /// Deletes an account by emptying it: everything that says who it belonged to is replaced,
+    /// and everything it did is left alone. Returns the name it is left under.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The row, the id and the roles-history stay, because facts, case files, notes, alerts and
+    /// moderation actions all point at the id and would lose their author if the row went (spec
+    /// 5.9.1). What goes is the username, the email address, the password, the Discord id and the
+    /// whole VRChat link — the fields that make the row a person rather than a number.
+    /// </para>
+    /// <para>
+    /// <strong>Only this row.</strong> The tables that copied the username down at the time of an
+    /// event keep what they copied: those rows say what was true then, and rewriting them would
+    /// make Modbot's own history disagree with VRChat's and with everybody's memory of it.
+    /// </para>
+    /// <para>
+    /// Roles are cleared, so a deleted account holds no permissions whatever anybody does to the
+    /// row afterwards. Sessions end on the spot and the password becomes one nobody typed, so
+    /// there is no way back in.
+    /// </para>
+    /// <para>
+    /// Writes no fact — the fact writer lives a layer up, as everywhere else here — so the caller
+    /// records the deletion in the same transaction.
+    /// </para>
+    /// </remarks>
+    public async Task<string> DeleteAsync(ModbotUser user, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+
+        var name = DeletedAccount.NameFor(user.Id);
+
+        // The short name is a hash of an id that is already unique, so this only ever fires on a
+        // collision nobody will see. The long form carries the whole id and so cannot collide.
+        var normalized = Normalize(name);
+        if (await _db.Users.AnyAsync(u => u.UsernameNormalized == normalized && u.Id != user.Id, ct))
+        {
+            name = DeletedAccount.LongNameFor(user.Id);
+            normalized = Normalize(name);
+        }
+
+        user.Username = name;
+        user.UsernameNormalized = normalized;
+        user.Email = null;
+        user.DiscordUserId = null;
+        user.PasswordHash = _hasher.HashPassword(user, DeletedAccount.UnguessablePassword());
+
+        user.VRChatUserId = null;
+        user.VRChatDisplayName = null;
+        user.VRChatLinkedAt = null;
+        user.VRChatLinkCode = null;
+        user.VRChatLinkCodeExpiresAt = null;
+        user.VRChatLinkPendingUserId = null;
+        user.VRChatLinkChecks = 0;
+        user.VRChatLinkLastCheckAt = null;
+
+        user.Roles.Clear();
+
+        user.IsDisabled = true;
+        user.DeletedAt = _clock.UtcNow;
+        user.SessionsValidAfter = _clock.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        return name;
     }
 
     /// <summary>
@@ -249,9 +322,16 @@ public sealed class UserAccountService
     /// both case-insensitively. Null when neither matches.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// One field on the form and one query here (design §4.6). Two queries -- username first, then
     /// email -- would take measurably longer for an address than for a username, and the time a
     /// sign-in takes is visible to whoever is trying names.
+    /// </para>
+    /// <para>
+    /// <strong><see cref="UsernameRules"/> is not applied here and must never be.</strong> This
+    /// matches what was typed against what is stored; an account made before that rule existed may
+    /// hold a space, a dot or an accent in its name, and it signs in the same as any other.
+    /// </para>
     /// </remarks>
     public Task<ModbotUser?> FindBySignInAsync(string usernameOrEmail, CancellationToken ct = default)
     {
