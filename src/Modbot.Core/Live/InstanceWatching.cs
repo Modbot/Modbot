@@ -66,13 +66,25 @@ public sealed record InstancePeople(
 /// built as "last fact per person wins" therefore kept everyone the last moderator saw "present"
 /// for as long as it looked back, long after the instance had closed. So a roster is only believed
 /// while somebody is watching, and only from facts reported during the current watch.</para>
-/// <para><strong>When a watch starts.</strong> When a moderator's own arrival or "already here"
-/// reaches the server for this instance -- a fact whose subject is the VRChat account linked to the
-/// Modbot account the reporting device belongs to. A moderator seen by somebody else's client is
-/// in the instance, but is not watching it.</para>
-/// <para><strong>When it ends</strong>, whichever comes first: their own leave; their client
-/// saying VRChat's log stopped; their presence turning up in a different instance; the instance closing.
-/// </para>
+/// <para><strong>When a watch starts.</strong> When a paired client reports anything at all in this
+/// instance. A client only ever reports what its own moderator's VRChat log shows, and that log only
+/// shows the instance they are standing in, so a fact here from a client <em>is</em> that client
+/// being here. The watch is credited to the moderator the client belongs to.</para>
+/// <para><strong>Why it is the client and not the subject.</strong> Until 2026-09-19 a watch needed
+/// a fact whose subject was the reporting moderator themselves -- their own arrival or "already
+/// here". That fact is sent exactly once per stay, in the arrival burst, and a client that starts
+/// while VRChat is already in an instance never sends it: the burst is in the part of the log it
+/// replays to learn where it is, and replayed lines are read but not reported. Such a client then
+/// reports every later arrival and departure from inside the instance while the server holds no
+/// fact about the moderator at all, and the instance read as unwatched with its own moderators
+/// standing in it -- head count eight, "nobody watching". Watching answers "can the people list be
+/// trusted", and the answer turns on a client reporting from inside the instance, not on whose
+/// account the reports happen to be about. The team analytics coverage query has counted cover this
+/// way since it was written.</para>
+/// <para><strong>When it ends</strong>, whichever comes first: that client reporting its own
+/// moderator's leave; that client saying VRChat's log stopped; that client reporting from a
+/// different instance; the moderator's presence turning up in a different instance; the instance
+/// closing.</para>
 /// <para><strong>Overlapping watches are one watch.</strong> Moderator A arrives at eight, B at
 /// half past, A leaves at nine: the instance has been watched without a break since eight, and the
 /// roster is built from everything reported since eight.</para>
@@ -94,8 +106,8 @@ public static class InstanceWatching
     public static readonly TimeSpan ArrivalBurstAllowance = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// The moderators whose own presence is among these facts for this instance -- the only people
-    /// whose facts elsewhere can matter. Callers use it to decide what else to load.
+    /// The moderators whose clients reported something in this instance -- the only people whose
+    /// facts elsewhere can matter. Callers use it to decide what else to load.
     /// </summary>
     public static IReadOnlyList<string> PossibleWatchers(
         InstanceKey instance,
@@ -105,12 +117,31 @@ public static class InstanceWatching
         ArgumentNullException.ThrowIfNull(marks);
         ArgumentNullException.ThrowIfNull(deviceOwners);
 
-        return marks
-            .Where(m => instance.Holds(m) && IsPresent(m.Type) && IsOwn(m, deviceOwners))
-            .Select(m => m.SubjectId)
+        return ClientsHere(instance, marks, deviceOwners)
+            .Select(device => deviceOwners[device])
             .Distinct(StringComparer.Ordinal)
             .ToList();
     }
+
+    /// <summary>
+    /// The paired clients that reported anything in this instance, in the order they first did.
+    /// </summary>
+    /// <remarks>
+    /// A client Modbot cannot name an owner for is left out: there would be nobody to credit the
+    /// watch to, and nothing to compare a leave against. Pairing requires a linked VRChat account,
+    /// so in practice every live client has one.
+    /// </remarks>
+    private static List<Guid> ClientsHere(
+        InstanceKey instance,
+        IEnumerable<PresenceMark> marks,
+        IReadOnlyDictionary<Guid, string> deviceOwners)
+        => marks
+            .Where(instance.Holds)
+            .Select(m => m.DeviceId)
+            .OfType<Guid>()
+            .Where(deviceOwners.ContainsKey)
+            .Distinct()
+            .ToList();
 
     /// <param name="instance">The instance being asked about.</param>
     /// <param name="marks">
@@ -135,34 +166,53 @@ public static class InstanceWatching
 
         var stretches = new List<(string UserId, DateTimeOffset Start, DateTimeOffset? End)>();
 
-        foreach (var moderator in PossibleWatchers(instance, inInstance, deviceOwners))
+        // One stretch per client, not per moderator: a moderator running two PCs in one instance is
+        // watching it twice over, and the two stretches start and end independently.
+        foreach (var client in ClientsHere(instance, inInstance, deviceOwners))
         {
+            var moderator = deviceOwners[client];
             DateTimeOffset? start = null;
 
             foreach (var mark in ordered)
             {
-                if (!string.Equals(mark.SubjectId, moderator, StringComparison.Ordinal))
-                    continue;
-
                 if (closedAt is { } closed && mark.At > closed)
                     break;
 
-                var here = instance.Holds(mark);
+                var reportedByThisClient = mark.DeviceId == client;
+                var aboutTheModerator = string.Equals(mark.SubjectId, moderator, StringComparison.Ordinal);
 
-                if (here && IsPresent(mark.Type) && IsOwn(mark, deviceOwners))
+                if (!reportedByThisClient && !aboutTheModerator)
+                    continue;
+
+                if (instance.Holds(mark))
                 {
-                    start ??= mark.At;
+                    // Somebody else's client saying the moderator is here says where the moderator
+                    // is, not where this client is, and only this client's own reports can tell us
+                    // that.
+                    if (!reportedByThisClient)
+                        continue;
+
+                    // The moderator's own leave, and the log going dark, are this client saying it
+                    // can no longer see the instance. Anybody else's leave is just news from inside
+                    // it, and the client is still there to report it.
+                    var stops = mark.Type is FactType.InstanceLogStopped
+                        || (mark.Type is FactType.InstanceLeft && aboutTheModerator);
+
+                    if (!stops)
+                    {
+                        start ??= mark.At;
+                        continue;
+                    }
+                }
+                else if (!reportedByThisClient && !IsPresent(mark.Type))
+                {
+                    // Elsewhere: this client reporting from another instance is it having moved,
+                    // and so is the moderator's presence turning up in one. Their leave somewhere
+                    // else says nothing about here.
                     continue;
                 }
 
-                if (start is not { } began)
-                    continue;
-
-                var ends = here
-                    ? mark.Type is FactType.InstanceLeft or FactType.InstanceLogStopped
-                    : IsPresent(mark.Type);
-
-                if (ends)
+                if (start is { } began)
                 {
                     stretches.Add((moderator, began, mark.At));
                     start = null;
@@ -196,9 +246,12 @@ public static class InstanceWatching
 
         if (current.End is null)
         {
+            // One line per moderator, however many of their clients are in the instance, dated at
+            // the earliest of them -- a reader wants to know who is here, not how many PCs they run.
             var watching = stretches
                 .Where(s => s.End is null)
-                .Select(s => new Watcher(s.UserId, names.GetValueOrDefault(s.UserId), s.Start))
+                .GroupBy(s => s.UserId, StringComparer.Ordinal)
+                .Select(g => new Watcher(g.Key, names.GetValueOrDefault(g.Key), g.Min(s => s.Start)))
                 .OrderBy(w => w.Since)
                 .ToList();
 
@@ -269,11 +322,6 @@ public static class InstanceWatching
 
     private static bool IsPresent(string type) =>
         type is FactType.InstanceJoined or FactType.InstancePresenceObserved;
-
-    private static bool IsOwn(PresenceMark mark, IReadOnlyDictionary<Guid, string> deviceOwners) =>
-        mark.DeviceId is { } device
-        && deviceOwners.TryGetValue(device, out var owner)
-        && string.Equals(owner, mark.SubjectId, StringComparison.Ordinal);
 
     private static DateTimeOffset Later(DateTimeOffset a, DateTimeOffset b) => a >= b ? a : b;
 }
