@@ -162,6 +162,7 @@ public static class AuditVisibility
         [FactType.UserInviteRevoked] = AuditCategory.Operational,
         [FactType.UserDisabled] = AuditCategory.Operational,
         [FactType.UserEnabled] = AuditCategory.Operational,
+        [FactType.UserDeleted] = AuditCategory.Operational,
         [FactType.UserRolesChanged] = AuditCategory.Operational,
         [FactType.ResetLinkCreated] = AuditCategory.Operational,
         [FactType.ResetLinkUsed] = AuditCategory.Operational,

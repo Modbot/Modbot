@@ -7,6 +7,7 @@ import { NotificationChoicesCard } from '@/components/account/NotificationChoice
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
 import { ApiError, api, type CurrentUser } from '@/lib/api'
 import { registerLink } from '@/lib/myModbot'
+import { usernameProblem } from '@/lib/username'
 import { ErrorText, Field, Note } from '@/pages/setup/WizardChrome'
 
 /**
@@ -92,6 +93,11 @@ function ChangeUsername({ me, onChanged }: { me: CurrentUser; onChanged: () => v
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
+    const problem = usernameProblem(username)
+    if (problem) {
+      setError(problem)
+      return
+    }
     setBusy(true)
     setDone(false)
     setError(null)

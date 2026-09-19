@@ -14,6 +14,7 @@ public sealed record UserSummary(
     IReadOnlyList<RoleRef> Roles,
     IReadOnlyList<string> PermissionNames,
     bool IsDisabled,
+    bool IsDeleted,
     bool VRChatLinked,
     string? VRChatUserId,
     string? VRChatDisplayName,
@@ -32,6 +33,7 @@ public sealed record UserSummary(
             user.Roles.Select(r => new RoleRef(r.Role.Id, r.Role.Name)).OrderBy(r => r.Name).ToList(),
             PermissionCatalog.NamesOf(user.EffectivePermissions),
             user.IsDisabled,
+            user.IsDeleted,
             user.IsVRChatLinked,
             user.VRChatUserId,
             user.VRChatDisplayName,
@@ -54,6 +56,16 @@ public sealed record CreateUserRequest(
     string? DiscordUserId = null);
 
 public sealed record SetRolesRequest(IReadOnlyList<Guid> RoleIds);
+
+/// <summary>
+/// Delete this account. <paramref name="Username"/> is the account's own username, typed out by
+/// the person doing it.
+/// </summary>
+/// <remarks>
+/// Checked on the server and not only in the browser: a confirmation that lives in the page is a
+/// confirmation anybody calling the API straight has already passed.
+/// </remarks>
+public sealed record DeleteUserRequest(string Username);
 
 /// <summary>
 /// Null leaves a field alone; an empty string clears it. The same rule the integrations step

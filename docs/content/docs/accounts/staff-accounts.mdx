@@ -1,6 +1,6 @@
 ---
 title: Staff accounts, invites and password resets
-description: How to add your moderators, link their VRChat accounts, disable them, and get them back in when they forget a password.
+description: How to add your moderators, link their VRChat accounts, disable or delete them, and get them back in when they forget a password.
 ---
 
 Modbot has its own accounts, separate from VRChat and Discord. Each person on your team signs in
@@ -28,10 +28,12 @@ The table lists every staff account with its **Username**, the linked **VRChat a
 marked **Disabled**. Your own row says "you".
 
 Click a row to open that person's panel, where you can change their roles, their contact details,
-make a password reset link, and disable or enable the account.
+make a password reset link, disable or enable the account, and delete it.
 
-Accounts are never deleted. Every action Modbot records points at the account that did it, and
-deleting the account would break that record. When somebody leaves the team, disable them.
+Everything an account did stays in Modbot for good, whether the account is disabled or deleted.
+Every action Modbot records points at the account that did it, and taking that away would break the
+record. Deleting an account empties it instead: the username, email, password, Discord user id,
+VRChat link and roles all go, and the case files, notes and actions it is named on stay.
 
 ## Adding somebody
 
@@ -77,8 +79,11 @@ not force the change.
 
 ### Username, email and password rules
 
-- A username can be up to 64 characters. Two usernames that differ only in upper and lower case
-  count as the same name, so `Gunner24` and `gunner24` cannot both exist.
+- A username can only have letters, numbers and underscores in it, and can be up to 64
+  characters. Two usernames that differ only in upper and lower case count as the same name, so
+  `Gunner24` and `gunner24` cannot both exist.
+- Accounts made before that rule may have other characters in their names. They keep working and
+  keep signing in; the rule only applies when a username is set or changed.
 - An email address is required on every account. Two accounts cannot share one, and upper and lower
   case do not make two addresses different.
 - A password must be at least 12 characters.
@@ -171,17 +176,35 @@ In the person's panel, under **Access**:
 A disabled account also cannot use password reset links, and any Discord bot commands it tries are
 refused.
 
+## Deleting an account
+
+Also under **Access**: **Delete this account**. Modbot asks you to type the account's username
+before the button will work.
+
+Deleting cannot be undone. The account keeps its place in history and loses everything else:
+
+- its username becomes something like `deleted_user_9fb1c47a`,
+- its email address, password, Discord user id, VRChat link and roles are cleared,
+- every session ends straight away and it can never sign in again,
+- the deletion is recorded in the audit log, naming who did it.
+
+Everything the account did stays: its case files, notes, alerts, moderation actions and audit
+entries all still point at it, and the name it went by at the time still appears on them. Those
+records say what happened on the day, and Modbot does not rewrite them.
+
+You cannot delete your own account, and you cannot delete the last enabled administrator.
+
 ## The last administrator
 
-Modbot will not let you disable an account, or change its roles, if that would leave no enabled
-account that holds **Administrator**. You see "That would leave nobody who can administer Modbot."
+Modbot will not let you disable or delete an account, or change its roles, if that would leave no
+enabled account that holds **Administrator**. You see "That would leave nobody who can administer Modbot."
 A deployment with no administrator has no way back except editing the database, so make sure a
 second person holds Administrator before you step away.
 
 <Callout type="warn">
-Anyone with **Manage users** can disable any account other than their own, administrators
-included, and can take roles away from people, as long as one enabled administrator is left. Give
-that permission to people you trust with the whole team.
+Anyone with **Manage users** can disable or delete any account other than their own,
+administrators included, and can take roles away from people, as long as one enabled administrator
+is left. Give that permission to people you trust with the whole team.
 </Callout>
 
 ## Email and Discord user id
@@ -354,7 +377,7 @@ can read on the [Audit log](/moderation/audit-log) page:
 - accounts created (and whether by invite or temporary password), invite links made, used and taken
   back,
 - roles changed, and roles created, changed or deleted,
-- accounts disabled and enabled,
+- accounts disabled, enabled and deleted,
 - usernames changed (old and new name), passwords changed, contact details changed (which fields,
   not the values),
 - reset links made (whether you or the person asked, and how it was sent) and used,

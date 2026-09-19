@@ -82,10 +82,30 @@ public class ModbotUser
     public DateTimeOffset? VRChatLinkLastCheckAt { get; set; }
 
     /// <summary>
-    /// Disabled rather than deleted: facts reference the actor, and deleting the account would
-    /// orphan the attribution that spec 5.9.1 exists to preserve.
+    /// Shut out, and able to be let back in. The ordinary way to stop somebody signing in.
     /// </summary>
+    /// <remarks>
+    /// This used to be the only way an account could go, because facts reference the actor and
+    /// removing the row would orphan the attribution spec 5.9.1 exists to preserve. That still
+    /// holds — the row is never removed — but it is no longer a reason to refuse deleting, because
+    /// <see cref="DeletedAt"/> deletes by emptying the account of everything that says who it
+    /// belonged to while the row, the id and every record pointing at it stay exactly where they
+    /// were (username rules and deleting accounts design §3).
+    /// </remarks>
     public bool IsDisabled { get; set; }
+
+    /// <summary>
+    /// When this account was deleted. Null for a live account.
+    /// </summary>
+    /// <remarks>
+    /// A deleted account is disabled too, and stays disabled: this is what tells the users page
+    /// and the endpoints that it is not an account anybody can enable, rename, write to or make a
+    /// reset link for, because there is nobody left behind it.
+    /// </remarks>
+    public DateTimeOffset? DeletedAt { get; set; }
+
+    /// <summary>Whether this account has been deleted.</summary>
+    public bool IsDeleted => DeletedAt is not null;
 
     /// <summary>
     /// Sessions started before this instant are dead. Moved forward by disabling the account,

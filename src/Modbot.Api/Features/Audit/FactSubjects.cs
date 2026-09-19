@@ -59,6 +59,7 @@ public static class FactSubjects
         [FactType.UserCreated] = SubjectKind.Account,
         [FactType.UserDisabled] = SubjectKind.Account,
         [FactType.UserEnabled] = SubjectKind.Account,
+        [FactType.UserDeleted] = SubjectKind.Account,
         [FactType.UserRolesChanged] = SubjectKind.Account,
         [FactType.SignedOutEverywhere] = SubjectKind.Account,
         [FactType.UpdatesSubscribed] = SubjectKind.Account,

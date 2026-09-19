@@ -1513,6 +1513,83 @@
         ]
       }
     },
+    "/api/users/{id}/delete": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Delete an account, keeping everything it did",
+        "description": "The account's username, email, password, Discord id, VRChat link and roles are replaced or cleared, and it is left under a deleted_user_ name. Facts, case files, notes and moderation actions keep pointing at it. The request must carry the account's username, typed out. Refused for your own account and for the last enabled administrator.\n\nNeeds the `ManageUsers` permission.",
+        "operationId": "DeleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/users/{id}/enable": {
       "post": {
         "tags": [
@@ -19894,6 +19971,17 @@
           }
         }
       },
+      "DeleteUserRequest": {
+        "required": [
+          "username"
+        ],
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          }
+        }
+      },
       "DeploymentSummary": {
         "required": [
           "version",
@@ -31951,6 +32039,7 @@
           "roles",
           "permissionNames",
           "isDisabled",
+          "isDeleted",
           "vrChatLinked",
           "vrChatUserId",
           "vrChatDisplayName",
@@ -31981,6 +32070,9 @@
             }
           },
           "isDisabled": {
+            "type": "boolean"
+          },
+          "isDeleted": {
             "type": "boolean"
           },
           "vrChatLinked": {

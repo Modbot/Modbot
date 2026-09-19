@@ -358,6 +358,14 @@ public static class FactType
     public const string UserInviteRevoked = "modbot.user.invite.revoke";
     public const string UserDisabled = "modbot.user.disable";
     public const string UserEnabled = "modbot.user.enable";
+
+    /// <summary>
+    /// The account was deleted: emptied of everything identifying it and left under a
+    /// <c>deleted_user_…</c> name. Payload carries the name it went by and the name it was left
+    /// under, because the fact is the last place either one is written down.
+    /// </summary>
+    public const string UserDeleted = "modbot.user.delete";
+
     public const string UserRolesChanged = "modbot.user.roles.change";
     public const string ResetLinkCreated = "modbot.user.password.reset.create";
     public const string ResetLinkUsed = "modbot.user.password.reset.use";
