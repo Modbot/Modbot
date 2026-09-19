@@ -83,6 +83,7 @@ public static class ClipButtonRule
     {
         ClipRecordingState.Waiting => "Waiting for VRChat",
         ClipRecordingState.NoWindow => "Waiting for VRChat's window",
+        ClipRecordingState.NothingRecordedYet => "Nothing recorded yet",
         ClipRecordingState.NotOnThisMachine => "Not available on this machine",
         ClipRecordingState.FolderUnusable => "The folder cannot be used",
         _ => "Recording stopped",

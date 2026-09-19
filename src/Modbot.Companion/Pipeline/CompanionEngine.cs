@@ -101,6 +101,13 @@ public sealed class CompanionEngine
     /// </remarks>
     public InstanceLocation? CurrentInstance => _observer.CurrentInstance;
 
+    /// <summary>
+    /// The readable name of the world the moderator is in, or null while it is not known. Nothing
+    /// is transmitted to obtain it and nothing is decided by it — it names a saved clip so the
+    /// right one can be found afterwards. See <see cref="PresenceObserver.CurrentWorldName"/>.
+    /// </summary>
+    public string? CurrentWorldName => _observer.CurrentWorldName;
+
     /// <summary>The moderator's own VRChat id as the log last said, or null while unknown. See <see cref="PresenceObserver.ModeratorId"/>.</summary>
     public string? ModeratorId => _observer.ModeratorId;
 

@@ -129,6 +129,7 @@ public class ClipRecordingRuleTests
 
         Assert.False((ClipsStatus.None with { State = ClipRecordingState.Waiting }).CanSave);
         Assert.False((ClipsStatus.None with { State = ClipRecordingState.NoWindow }).CanSave);
+        Assert.False((ClipsStatus.None with { State = ClipRecordingState.NothingRecordedYet }).CanSave);
         Assert.True((ClipsStatus.None with { State = ClipRecordingState.Recording }).CanSave);
     }
 
@@ -154,6 +155,7 @@ public class ClipRecordingRuleTests
         // having found one would tear it down and build it again once a second for as long as
         // VRChat took to draw its window.
         Assert.True(ClipRecordingRule.ShouldRecord(ClipRecordingState.NoWindow));
+        Assert.True(ClipRecordingRule.ShouldRecord(ClipRecordingState.NothingRecordedYet));
         Assert.True(ClipRecordingRule.ShouldRecord(ClipRecordingState.Recording));
 
         foreach (var stopped in new[]
@@ -177,7 +179,57 @@ public class ClipRecordingRuleTests
             LogHealthStatus.Healthy,
             Good,
             supported: true,
-            windowFound: true);
+            windowFound: true,
+            pictureTaken: true);
+
+        Assert.Equal(ClipRecordingState.Recording, state);
+    }
+
+    [Fact]
+    public void AWindowWithNoPictureCapturedFromItYetIsNotRecording()
+    {
+        // The rule that stops a black file being handed to somebody. The recorder can have
+        // VRChat's window, a graphics device and an encoder and still have copied nothing —
+        // VRChat has not been the window in front since it started — and saving then would give a
+        // file of the right length with nothing in it.
+        var state = ClipRecordingRule.Decide(
+            ClipSettings.Default with { On = true },
+            LogHealthStatus.Healthy,
+            Good,
+            supported: true,
+            windowFound: true,
+            pictureTaken: false);
+
+        Assert.Equal(ClipRecordingState.NothingRecordedYet, state);
+        Assert.False((ClipsStatus.None with { State = state }).CanSave);
+    }
+
+    [Fact]
+    public void NotHavingTheWindowBeatsNotHavingAPicture()
+    {
+        // Both are true while VRChat is starting, and the window is the one a moderator can do
+        // something about waiting for.
+        var state = ClipRecordingRule.Decide(
+            ClipSettings.Default with { On = true },
+            LogHealthStatus.Healthy,
+            Good,
+            supported: true,
+            windowFound: false,
+            pictureTaken: false);
+
+        Assert.Equal(ClipRecordingState.NoWindow, state);
+    }
+
+    [Fact]
+    public void ARecorderThatHasNotBeenBuiltYetIsNotAccusedOfHavingNoPicture()
+    {
+        // Null means there is no recorder to ask, which is the moment one is about to be built.
+        // Saying "nothing recorded yet" then would flash a failure at somebody on the way in.
+        var state = ClipRecordingRule.Decide(
+            ClipSettings.Default with { On = true },
+            LogHealthStatus.Healthy,
+            Good,
+            supported: true);
 
         Assert.Equal(ClipRecordingState.Recording, state);
     }

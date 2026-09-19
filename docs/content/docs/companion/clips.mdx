@@ -80,7 +80,7 @@ looking for a running program; it cannot, and that ban has not moved.
 
 So: VRChat closes, recording stops and what was kept is deleted. VRChat opens, recording starts
 again. The **Clips** card says which of those is happening — *Off*, *Waiting for VRChat*,
-*Waiting for VRChat's window*, or *Recording*.
+*Waiting for VRChat's window*, *Nothing recorded yet*, or *Recording*.
 
 Because a clip is VRChat's window, the companion also has to be handed that window before there is
 anything to keep. That takes a second or two after VRChat starts, and the card says
@@ -94,6 +94,27 @@ written.
 If VRChat is running but the companion has stopped understanding its log, it keeps recording. Lines
 are arriving, so you are in a world, and a client that needs updating should not also quietly lose
 the recording you switched on.
+
+## When a clip cannot be made
+
+The companion will not hand you a file with nothing in it. Until it has captured one real picture
+of VRChat's window, there is nothing to save — it has not opened a recording, has not written a
+frame, and says **Nothing recorded yet** on the **Clips** card and on the overlay. **Save a clip**
+cannot be pressed while it says that.
+
+That is the honest answer to a case that is easy to hit: the rule above is that nothing new is
+recorded while you are working in another program, so if VRChat has not been the window in front
+since you switched Clips on, nothing has been captured at all. Alt-tab to VRChat for a moment and
+it starts.
+
+It clears itself. If it does not — if it stays on *Nothing recorded yet* while you are playing —
+the companion's own log file says what it is seeing: which graphics card and screen it is
+recording, where VRChat's window is, how many pictures it has copied. It is at
+`%APPDATA%\Modbot\logs`, and it is the thing to attach to a bug report.
+
+A save that fails for any other reason — a folder that cannot be written to, a recording that
+stopped — says so too, on the card and on the overlay, rather than leaving you with a file you
+find out about later.
 
 ## Saving a clip from inside VR
 
@@ -112,6 +133,7 @@ and the panel is exactly as it was.
 | **Save a clip** | The last few minutes are being kept. Press it. |
 | *Waiting for VRChat* | VRChat is not running, so there is nothing to keep. |
 | *Waiting for VRChat's window* | VRChat is starting. This clears itself in a second or two. |
+| *Nothing recorded yet* | No picture of VRChat has been captured. See [when a clip cannot be made](#when-a-clip-cannot-be-made). |
 | *The folder cannot be used* | Clips cannot be written where they are pointed. The **Clips** card on the Settings page says why. |
 | *Not available on this machine* | Recording does not work here. See [Windows only](#windows-only). |
 | *Recording stopped* | Something went wrong. The **Clips** card says what. |
@@ -152,6 +174,25 @@ While it is recording, the two rolling recordings live in the companion's own fo
 `%APPDATA%\Modbot\clips`, never in your Videos folder. They are deleted as they are replaced, when
 VRChat closes, and when you quit the companion.
 
+## What a clip is called
+
+```
+The Black Cat_98874_2026-09-19 18-02-29.mp4
+```
+
+The world, the instance number, and the date and time you saved it — your own local time, so it
+matches when you remember it happening. Underscores between them, and `.mp4` at the end.
+
+- **The world** is its readable name, the one VRChat shows you. If the companion has not been told
+  it yet, the world's id stands in; outside an instance the name is just the date and time.
+- **The instance number** is the number VRChat puts at the front of an instance's id — `98874`
+  above. A group that has set its instance to something readable gets that instead.
+- **Anything a file name cannot hold is taken out** of the finished name, so a world named with a
+  slash or a colon in it still saves. Non-Latin world names are kept as they are; they are
+  perfectly legal in a file name.
+- **Two clips saved in the same second** in the same instance do not land on each other — the
+  second gets ` (2)`.
+
 ## What stops the folder filling your disk
 
 Video is large, so three things bound it:
@@ -184,9 +225,9 @@ Exactly the way you attach anything else: open the case in Modbot's web app and
 [choose the file](/moderation/evidence). `video/mp4` is already an accepted kind of evidence, so a
 saved clip needs nothing special.
 
-The companion names each clip after the moment it was saved and the instance you were in, so the
-right one is easy to find, and it writes a line into the companion's own **Events** page saying a
-clip was saved and that it is on this PC only.
+The companion names each clip after [the world, the instance and the moment](#what-a-clip-is-called),
+so the right one is easy to find, and it writes a line into the companion's own **Events** page
+saying a clip was saved and that it is on this PC only.
 
 <Callout title="The companion does not do this for you">
 There is no "record automatically when you ban somebody". A ban or a kick taken in Modbot never

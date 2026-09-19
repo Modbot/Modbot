@@ -49,6 +49,7 @@ public class ClipButtonRuleTests
     [Theory]
     [InlineData(ClipRecordingState.Waiting, "Waiting for VRChat")]
     [InlineData(ClipRecordingState.NoWindow, "Waiting for VRChat's window")]
+    [InlineData(ClipRecordingState.NothingRecordedYet, "Nothing recorded yet")]
     [InlineData(ClipRecordingState.FolderUnusable, "The folder cannot be used")]
     [InlineData(ClipRecordingState.NotOnThisMachine, "Not available on this machine")]
     [InlineData(ClipRecordingState.Failed, "Recording stopped")]

@@ -32,6 +32,17 @@ namespace Modbot.Companion.App;
 /// screen while VRChat is behind another program: while a moderator is working in something else,
 /// the last picture of VRChat is written again rather than what they have moved to. So a clip is
 /// VRChat and what was drawn over VRChat, and it is never the rest of their screen.</para>
+/// <para><strong>It never hands over a file with nothing in it.</strong> Having a window, a
+/// graphics device and an encoder does not mean a picture has been captured — the rule while
+/// VRChat is not the window in front is to write the last picture of it again, and before the
+/// first one there is no last picture. Writing then would give a file that opens, runs for the
+/// right number of minutes and is black, which a moderator would find out about at the moment they
+/// needed it. So no encoder is opened and no frame written until the first real picture lands
+/// (<see cref="AnyPictureTaken"/>), a save asked for before then is refused in words, and both the
+/// settings screen and the overlay say <em>Nothing recorded yet</em> rather than offering a Save.
+/// What it is doing instead — which graphics card and screen, where VRChat's window is, how many
+/// pictures have been copied and how many frames held — goes into the client's own log file, so a
+/// clip that still comes out wrong can be read about rather than guessed at.</para>
 /// <para><strong>No sound.</strong> The ban on every recording API for microphones, line-in and
 /// loopback stands untouched, so voice chat stays in the never-recorded column. No keyboard, no
 /// clipboard, no file anywhere else on the disk.</para>
@@ -72,8 +83,29 @@ internal sealed class ScreenRecording : IDisposable
     /// <summary>DXGI's "somebody else took the duplication, or the mode changed". Start again.</summary>
     private const int AccessLost = unchecked((int)0x887A0026);
 
+    /// <summary>
+    /// DXGI's "this screen cannot be handed over at all". A machine where the screen VRChat is on
+    /// belongs to a graphics card that will not duplicate it.
+    /// </summary>
+    private const int CannotBeHandedOver = unchecked((int)0x887A0004);
+
     /// <summary>How often Windows is asked again for VRChat's window while there is not one.</summary>
     private static readonly TimeSpan LookAgainEvery = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>
+    /// How long Windows is given to hand over a picture while there has not been one yet.
+    /// </summary>
+    /// <remarks>
+    /// Normally the answer is wanted straight away: nothing has changed on the screen since the
+    /// last frame is an ordinary answer and the last picture is written again. But the first
+    /// picture is not ordinary — nothing can be saved until it lands, and asking with no patience
+    /// at all fifteen times a second is how a recorder spends its first seconds finding nothing.
+    /// So it waits, but only until it has one.
+    /// </remarks>
+    private const int WaitForTheFirstPictureMs = 250;
+
+    /// <summary>How often the log is told how the recording is actually going.</summary>
+    private static readonly TimeSpan SayHowItIsGoingEvery = TimeSpan.FromMinutes(1);
 
     private static bool _mediaFoundationStarted;
 
@@ -87,6 +119,23 @@ internal sealed class ScreenRecording : IDisposable
     /// stayed there. Once a second is fast enough to follow a window somebody just dragged.
     /// </remarks>
     private long _followTheWindowAtFrame;
+
+    /// <summary>
+    /// How the recording is actually going, so a bug report can be read rather than guessed at.
+    /// Touched only by the recording thread, and written to the client's own log file.
+    /// </summary>
+    /// <remarks>
+    /// A clip that turns out black is the one failure a moderator cannot see happening, and the
+    /// difference between its causes — VRChat never in front, Windows handing over nothing, the
+    /// window on a screen that is not being read — is invisible in the file itself. These are what
+    /// tells them apart afterwards.
+    /// </remarks>
+    private long _picturesCopied;
+    private long _framesHeld;
+    private long _framesWritten;
+    private long _nothingChanged;
+    private long _screenTakenAway;
+    private long _windowOffThisScreen;
 
     private readonly IModbotClock _clock;
     private readonly string _temporaryFolder;
@@ -115,6 +164,22 @@ internal sealed class ScreenRecording : IDisposable
     /// Save that would keep nothing.
     /// </summary>
     public bool WindowFound { get; private set; }
+
+    /// <summary>
+    /// Whether one picture of VRChat's window has ever been captured this run.
+    /// </summary>
+    /// <remarks>
+    /// <para>This is the difference between a clip and a black file. Having a window, a graphics
+    /// device and an encoder does not mean a picture has been copied: VRChat may not have been the
+    /// window in front since recording started, in which case the rule is to write the last
+    /// picture of VRChat again — and there is no last picture, so what would be written is an
+    /// empty buffer, fifteen times a second, for as long as it went on. The file that came out of
+    /// that would open, would run for the right number of minutes, and would be black.</para>
+    /// <para>So nothing is written at all until this is true, no encoder is even opened until this
+    /// is true, and a save asked for while it is false is refused and says so. A moderator finding
+    /// out at the moment they need the clip is the outcome the whole feature exists to avoid.</para>
+    /// </remarks>
+    public bool AnyPictureTaken { get; private set; }
 
     /// <summary>Whether this machine could record at all. Windows only; Linux has no path here.</summary>
     public static bool Supported => OperatingSystem.IsWindows();
@@ -170,6 +235,7 @@ internal sealed class ScreenRecording : IDisposable
         _thread = null;
         IsRecording = false;
         WindowFound = false;
+        AnyPictureTaken = false;
         EmptyTemporaryFolder();
     }
 
@@ -211,6 +277,19 @@ internal sealed class ScreenRecording : IDisposable
     /// <summary>One monitor's place on the desktop, so a window can be found inside its picture.</summary>
     private readonly record struct Monitor(int Left, int Top, int Width, int Height);
 
+    /// <summary>What one turn of the loop produced.</summary>
+    private enum Grabbed
+    {
+        /// <summary>A fresh picture of VRChat's window is in hand.</summary>
+        Picture,
+
+        /// <summary>Nothing new. The picture already in hand stands, if there is one.</summary>
+        Held,
+
+        /// <summary>The duplication had to be taken again; this turn produced nothing at all.</summary>
+        Nothing,
+    }
+
     private void Run(TimeSpan length)
     {
         if (!OperatingSystem.IsWindows())
@@ -222,21 +301,15 @@ internal sealed class ScreenRecording : IDisposable
         ID3D11Texture2D? windowCopy = null;
         ID3D11ShaderResourceView? windowView = null;
         ID3D11Texture2D? staging = null;
-        var legs = new Leg[2];
+
+        // Null until the first picture of VRChat's window lands. No encoder is opened and no file
+        // is created before then, so a rolling file can never begin with frames of nothing.
+        Leg[]? legs = null;
 
         try
         {
             StartMediaFoundationOnce();
             Directory.CreateDirectory(_temporaryFolder);
-
-            D3D11.D3D11CreateDevice(
-                adapter: null,
-                DriverType.Hardware,
-                DeviceCreationFlags.BgraSupport,
-                [FeatureLevel.Level_11_1, FeatureLevel.Level_11_0],
-                out device,
-                out _,
-                out context).CheckError();
 
             // Nothing is recorded until Windows has handed over VRChat's window, because a clip is
             // that window and its size is what the encoder has to be told once and for good.
@@ -246,27 +319,35 @@ internal sealed class ScreenRecording : IDisposable
 
             var (width, height) = ClipWindowRule.RecordedSize(start.Window.Width, start.Window.Height);
 
-            // The monitor VRChat is on, rather than whichever monitor happens to be first.
-            Monitor monitor;
-            (duplication, monitor) = Duplicate(device!, start.CentreX, start.CentreY);
+            // The graphics card that drives the screen VRChat is on, rather than whichever card
+            // Windows lists first. On a laptop with two of them those are routinely not the same
+            // card, and a duplication asked of the wrong one gives nothing that can be recorded.
+            var (adapter, screen) = ChooseTheScreen(start.CentreX, start.CentreY);
+
+            using (adapter)
+            {
+                D3D11.D3D11CreateDevice(
+                    adapter,
+                    adapter is null ? DriverType.Hardware : DriverType.Unknown,
+                    DeviceCreationFlags.BgraSupport,
+                    [FeatureLevel.Level_11_1, FeatureLevel.Level_11_0],
+                    out device,
+                    out _,
+                    out context).CheckError();
+            }
+
+            _log(
+                $"Recording on {screen.AdapterName ?? "the graphics card Windows chose"}, "
+                + $"screen {screen.OutputName ?? "whichever that card lists first"}. "
+                + $"VRChat's window is {start.Window.Width}×{start.Window.Height} at ({start.Left}, {start.Top})",
+                null);
+
+            var monitor = screen.Area;
+            duplication = Duplicate(device!, ref monitor, start.CentreX, start.CentreY);
 
             staging = MakeStaging(device!, width, height);
 
             var framesPerLeg = Math.Max(2, (long)(length.TotalSeconds * FramesPerSecond));
-
-            for (var index = 0; index < legs.Length; index++)
-            {
-                legs[index] = new Leg
-                {
-                    Index = index,
-
-                    // The two are staggered by half the chosen length, so whichever has been
-                    // running longer always holds between half and all of it.
-                    RotateAtFrame = index == 0 ? framesPerLeg / 2 : framesPerLeg,
-                };
-
-                Recycle(legs[index], width, height, 0);
-            }
 
             IsRecording = true;
             _log($"Keeping the last {length.TotalMinutes:0} minutes of VRChat's window at {width}×{height}, {FramesPerSecond} frames a second", null);
@@ -276,6 +357,7 @@ internal sealed class ScreenRecording : IDisposable
             var clock = Stopwatch.StartNew();
             long frame = 0;
             var lookAgainAt = TimeSpan.Zero;
+            var sayHowItIsGoingAt = SayHowItIsGoingEvery;
             var window = start;
 
             while (!_stopping)
@@ -315,17 +397,67 @@ internal sealed class ScreenRecording : IDisposable
                     ref filled,
                     ref duplication);
 
-                if (!grabbed)
+                if (grabbed is Grabbed.Picture && !AnyPictureTaken)
+                {
+                    AnyPictureTaken = true;
+                    _log($"The first picture of VRChat's window landed after {clock.Elapsed.TotalSeconds:0.0} seconds", null);
+                }
+
+                if (clock.Elapsed >= sayHowItIsGoingAt)
+                {
+                    sayHowItIsGoingAt = clock.Elapsed + SayHowItIsGoingEvery;
+                    SayHowItIsGoing(window);
+                }
+
+                var wanted = TakeSaveRequest();
+
+                // Answered now rather than left waiting. A save that sat in hand until a picture
+                // finally arrived would leave the panel saying nothing had happened and then put
+                // a file on the disk minutes later.
+                if (wanted is not null && !AnyPictureTaken)
+                {
+                    LastProblem = "Nothing has been recorded from VRChat's window yet.";
+                    _log("A clip was asked for before any picture of VRChat's window had been captured", null);
+                    wanted = null;
+                }
+
+                if (grabbed is Grabbed.Nothing)
+                {
+                    // This turn produced nothing to save from. The ask goes back rather than being
+                    // dropped; the next turn is a fifteenth of a second away.
+                    if (wanted is not null)
+                        AskToSave(wanted);
+
+                    frame++;
+                    continue;
+                }
+
+                // Nothing is written until there is something real to write. Until the first
+                // picture lands, what would go into the file is an empty buffer — a clip that
+                // opens, runs for the right number of minutes, and is black.
+                if (!AnyPictureTaken)
                 {
                     frame++;
                     continue;
                 }
 
+                // The two rolling files start at the first picture rather than at the first turn
+                // of the loop.
+                legs ??=
+                [
+                    // The two are staggered by half the chosen length, so whichever has been
+                    // running longer always holds between half and all of it.
+                    OpenLeg(0, frame, frame + (framesPerLeg / 2), width, height),
+                    OpenLeg(1, frame, frame + framesPerLeg, width, height),
+                ];
+
                 foreach (var leg in legs)
                     WriteFrame(leg, frame, pixels);
 
-                if (TakeSaveRequest() is { } destination)
-                    Harvest(legs, frame, destination, width, height, framesPerLeg);
+                _framesWritten++;
+
+                if (wanted is not null)
+                    Harvest(legs, frame, wanted, width, height, framesPerLeg);
 
                 foreach (var leg in legs)
                 {
@@ -351,10 +483,18 @@ internal sealed class ScreenRecording : IDisposable
         {
             IsRecording = false;
             WindowFound = false;
+            AnyPictureTaken = false;
 
-            foreach (var leg in legs)
+            _log(
+                $"Recording ended: {_picturesCopied} pictures copied, {_framesHeld} frames held, "
+                + $"{_framesWritten} frames written, {_nothingChanged} turns with nothing changed on screen, "
+                + $"{_screenTakenAway} times the screen was taken away, "
+                + $"{_windowOffThisScreen} turns with VRChat's window off this screen",
+                null);
+
+            if (legs is not null)
             {
-                if (leg is not null)
+                foreach (var leg in legs)
                     Finish(leg, discard: true);
             }
 
@@ -403,18 +543,108 @@ internal sealed class ScreenRecording : IDisposable
         _mediaFoundationStarted = true;
     }
 
+    /// <summary>Which graphics card and which screen VRChat's window is on, and where it sits.</summary>
+    /// <param name="AdapterName">The graphics card's own name, for the log file.</param>
+    /// <param name="OutputName">Windows' own name for the screen, for the log file.</param>
+    /// <param name="Area">Where that screen sits on the whole desktop.</param>
+    private readonly record struct ScreenChoice(string AdapterName, string OutputName, Monitor Area);
+
     /// <summary>
-    /// The duplication of the monitor VRChat's window is on, and where that monitor sits on the
-    /// desktop. Windows hands over a copy of what the desktop compositor already drew; nothing here
-    /// draws, and nothing asks for a list of anybody's windows.
+    /// The graphics card driving the screen VRChat's window is on, and where that screen sits.
     /// </summary>
     /// <remarks>
-    /// The monitor is chosen by which one holds the middle of VRChat's window, so a moderator with
-    /// two screens gets the one the game is on rather than whichever the graphics card lists first.
-    /// A window whose middle is on no monitor — dragged off the edge — falls back to the first.
+    /// <para><strong>Why the card is chosen rather than taken.</strong> A screen can only be handed
+    /// over by the card it is plugged into. Modbot used to make a graphics device with no card
+    /// named — Windows picks one, usually the first — and then look for VRChat's screen among that
+    /// card's screens. On a machine with one card those are the same thing. On a laptop with two,
+    /// which is most gaming laptops and therefore a lot of moderators, they are routinely not:
+    /// asking the wrong card gives either no screens at all or one Windows refuses to duplicate,
+    /// and what came out was a failure at best and an empty picture at worst.</para>
+    /// <para>So every card's screens are looked at, the one holding the middle of VRChat's window
+    /// wins, and the graphics device is made on the card that owns it. A window whose middle is on
+    /// no screen — dragged off the edge and left there — falls back to the first screen there is.
+    /// Nothing here asks for a list of anybody's windows or of what is running; screens are not
+    /// programs.</para>
+    /// <para>The caller owns the card that comes back and must dispose it. Null means the cards
+    /// could not be listed at all, and then the device is made the old way and Windows chooses.</para>
     /// </remarks>
-    private static (IDXGIOutputDuplication Duplication, Monitor Monitor) Duplicate(
+    private (IDXGIAdapter1? Adapter, ScreenChoice Screen) ChooseTheScreen(int pointX, int pointY)
+    {
+        var fallback = default((uint Adapter, ScreenChoice Screen)?);
+
+        try
+        {
+            using var factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
+
+            for (uint index = 0; factory.EnumAdapters1(index, out var card).Success && card is not null; index++)
+            {
+                using (card)
+                {
+                    var cardName = card.Description1.Description;
+
+                    for (uint at = 0; card.EnumOutputs(at, out var output).Success && output is not null; at++)
+                    {
+                        using (output)
+                        {
+                            var told = output.Description;
+                            if (!told.AttachedToDesktop)
+                                continue;
+
+                            var area = told.DesktopCoordinates;
+                            var screen = new ScreenChoice(
+                                cardName,
+                                told.DeviceName,
+                                new Monitor(area.Left, area.Top, area.Right - area.Left, area.Bottom - area.Top));
+
+                            _log($"Found screen {told.DeviceName} on {cardName} at ({area.Left}, {area.Top}) {area.Right - area.Left}×{area.Bottom - area.Top}", null);
+
+                            fallback ??= (index, screen);
+
+                            if (pointX >= area.Left && pointX < area.Right
+                                && pointY >= area.Top && pointY < area.Bottom)
+                            {
+                                fallback = (index, screen);
+                                return (Card(factory, index), screen);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (fallback is { } only)
+            {
+                _log($"VRChat's window is not on any screen Modbot can see; falling back to {only.Screen.OutputName}", null);
+                return (Card(factory, only.Adapter), only.Screen);
+            }
+
+            throw new InvalidOperationException("This machine has no screen Modbot can record.");
+        }
+        catch (SharpGenException ex)
+        {
+            // Listing the cards is not itself the recording, so a machine that will not do it is
+            // given the old answer — Windows picks a card — rather than being stopped here.
+            _log("Windows would not list this machine's graphics cards", ex);
+            return (null, default);
+        }
+
+        static IDXGIAdapter1? Card(IDXGIFactory1 factory, uint index)
+            => factory.EnumAdapters1(index, out var card).Success ? card : null;
+    }
+
+    /// <summary>
+    /// The duplication of the monitor VRChat's window is on. Windows hands over a copy of what the
+    /// desktop compositor already drew; nothing here draws, and nothing asks for a list of
+    /// anybody's windows.
+    /// </summary>
+    /// <remarks>
+    /// The monitor is chosen by which one holds the middle of VRChat's window, among the monitors
+    /// the graphics device's own card drives — which is the card that screen is plugged into,
+    /// because <see cref="ChooseTheScreen"/> made the device on it. A window whose middle is on
+    /// none of them falls back to the first.
+    /// </remarks>
+    private IDXGIOutputDuplication Duplicate(
         ID3D11Device device,
+        ref Monitor monitor,
         int pointX,
         int pointY)
     {
@@ -434,16 +664,26 @@ internal sealed class ScreenRecording : IDisposable
             var chosen = monitors.FirstOrDefault(Holds) ?? monitors[0];
             var area = chosen.Description.DesktopCoordinates;
 
+            monitor = new Monitor(area.Left, area.Top, area.Right - area.Left, area.Bottom - area.Top);
+
             using var output1 = chosen.QueryInterface<IDXGIOutput1>();
 
-            return (
-                output1.DuplicateOutput(device),
-                new Monitor(area.Left, area.Top, area.Right - area.Left, area.Bottom - area.Top));
+            try
+            {
+                return output1.DuplicateOutput(device);
+            }
+            catch (SharpGenException ex) when (ex.ResultCode.Code == CannotBeHandedOver)
+            {
+                // Windows refuses this screen outright. A graphics card that does not own it, or a
+                // game holding the screen in the old exclusive full-screen way, both end here.
+                throw new InvalidOperationException(
+                    "Windows would not hand Modbot a picture of the screen VRChat is on.", ex);
+            }
         }
         finally
         {
-            foreach (var monitor in monitors)
-                monitor.Dispose();
+            foreach (var one in monitors)
+                one.Dispose();
         }
 
         bool Holds(IDXGIOutput output)
@@ -452,6 +692,33 @@ internal sealed class ScreenRecording : IDisposable
             return pointX >= area.Left && pointX < area.Right
                 && pointY >= area.Top && pointY < area.Bottom;
         }
+    }
+
+    /// <summary>
+    /// What the recorder is actually doing, once a minute, in the client's own log file.
+    /// </summary>
+    /// <remarks>
+    /// A clip that turns out black looks exactly like a clip that turned out fine until somebody
+    /// opens it, and the file itself says nothing about why. These counts do: no pictures copied
+    /// with VRChat never in front is one cause, no pictures copied with VRChat in front the whole
+    /// time is a different one, and pictures copied with the window off this screen is a third.
+    /// </remarks>
+    private void SayHowItIsGoing(GameWindowLook window)
+        => _log(
+            $"Keeping the last few minutes: {_picturesCopied} pictures copied, {_framesHeld} held, "
+            + $"{_framesWritten} written. VRChat's window "
+            + (window.Window.Found ? "is there" : "is not there")
+            + (window.Window.InFront ? ", in front" : ", not in front")
+            + (window.Window.Minimised ? ", minimised" : string.Empty)
+            + $", {window.Window.Width}×{window.Window.Height} at ({window.Left}, {window.Top})",
+            null);
+
+    /// <summary>One rolling file, opened and started.</summary>
+    private Leg OpenLeg(int index, long frame, long rotateAtFrame, int width, int height)
+    {
+        var leg = new Leg { Index = index, RotateAtFrame = rotateAtFrame };
+        Recycle(leg, width, height, frame);
+        return leg;
     }
 
     /// <summary>The texture the processor reads the finished frame out of.</summary>
@@ -511,11 +778,13 @@ internal sealed class ScreenRecording : IDisposable
     /// <paramref name="pixels"/>.
     /// </summary>
     /// <remarks>
-    /// True means the caller should write a frame — either the one just copied, or the last one
-    /// again when there was nothing new or VRChat is not the window in front. False means the
-    /// duplication had to be taken again and this turn produced nothing, which is ordinary.
+    /// <see cref="Grabbed.Picture"/> means a fresh picture of VRChat is in
+    /// <paramref name="pixels"/>. <see cref="Grabbed.Held"/> means there was nothing new to copy —
+    /// VRChat is not the window in front, or nothing moved on the screen — so the last picture
+    /// stands. <see cref="Grabbed.Nothing"/> means the duplication had to be taken again and this
+    /// turn produced nothing at all, which is ordinary.
     /// </remarks>
-    private bool Grab(
+    private Grabbed Grab(
         IDXGIOutputDuplication duplication,
         ID3D11DeviceContext context,
         ID3D11Device device,
@@ -533,9 +802,13 @@ internal sealed class ScreenRecording : IDisposable
     {
         // VRChat minimised, closed, or behind whatever the moderator has alt-tabbed to. The last
         // picture of VRChat is written again: the clip keeps its steady rate and holds nothing of
-        // what they moved to.
+        // what they moved to. Until there has been a first picture there is nothing to write
+        // again, which is what the caller checks before writing anything at all.
         if (ClipWindowRule.Decide(window.Window) is ClipFrame.HoldLastPicture)
-            return true;
+        {
+            _framesHeld++;
+            return Grabbed.Held;
+        }
 
         var box = ClipWindowRule.BoxOnMonitor(
             window.Left, window.Top, window.Window.Width, window.Window.Height,
@@ -543,6 +816,8 @@ internal sealed class ScreenRecording : IDisposable
 
         if (box.Width < 2 || box.Height < 2)
         {
+            _windowOffThisScreen++;
+
             // None of VRChat's window is on the monitor being read — it has been dragged to
             // another screen. Follow it, at most once a second, so a window that is genuinely on
             // no monitor does not cost a duplication fifteen times a second.
@@ -550,23 +825,38 @@ internal sealed class ScreenRecording : IDisposable
             {
                 _followTheWindowAtFrame = frame + FramesPerSecond;
 
+                _log(
+                    $"VRChat's window is {window.Window.Width}×{window.Window.Height} at "
+                    + $"({window.Left}, {window.Top}), off the screen being recorded at "
+                    + $"({monitor.Left}, {monitor.Top}) {monitor.Width}×{monitor.Height}; following it",
+                    null);
+
                 // Let go of the old one before asking for the new one, so a machine that refuses
                 // the second ask ends with nothing held rather than with something disposed.
                 live = null;
                 duplication.Dispose();
-                (live, monitor) = Duplicate(device, window.CentreX, window.CentreY);
+                live = Duplicate(device, ref monitor, window.CentreX, window.CentreY);
             }
 
-            return true;
+            _framesHeld++;
+            return Grabbed.Held;
         }
 
-        var result = duplication.AcquireNextFrame(0, out _, out var desktop);
+        // No patience at all once a picture has landed: nothing having changed on screen is an
+        // ordinary answer and the last picture is written again. Patience until then, because the
+        // first picture is the one nothing can be saved without.
+        var result = duplication.AcquireNextFrame(
+            AnyPictureTaken ? 0u : WaitForTheFirstPictureMs,
+            out _,
+            out var desktop);
 
         if (result.Code == WaitTimeout)
         {
             // Nothing moved on the screen. The frame already in hand is written again by the
             // caller's schedule, so the clip keeps running at a steady rate.
-            return true;
+            _nothingChanged++;
+            _framesHeld++;
+            return Grabbed.Held;
         }
 
         if (result.Code == AccessLost)
@@ -575,10 +865,11 @@ internal sealed class ScreenRecording : IDisposable
             // duplication. Ask again; this is ordinary and happens several times an evening. The
             // monitor is worked out again with it, because a resolution or arrangement change is
             // one of the things that causes this.
+            _screenTakenAway++;
             live = null;
             duplication.Dispose();
-            (live, monitor) = Duplicate(device, window.CentreX, window.CentreY);
-            return false;
+            live = Duplicate(device, ref monitor, window.CentreX, window.CentreY);
+            return Grabbed.Nothing;
         }
 
         result.CheckError();
@@ -634,7 +925,19 @@ internal sealed class ScreenRecording : IDisposable
             duplication.ReleaseFrame();
         }
 
-        return true;
+        // The first time this line is reached, a picture of VRChat's window exists. Before it,
+        // nothing may be written: there is nothing to write except an empty buffer.
+        _picturesCopied++;
+
+        if (_picturesCopied == 1)
+        {
+            _log(
+                $"Copying VRChat's window from ({box.X}, {box.Y}) {box.Width}×{box.Height} "
+                + $"on the screen at ({monitor.Left}, {monitor.Top}) {monitor.Width}×{monitor.Height}",
+                null);
+        }
+
+        return Grabbed.Picture;
     }
 
     /// <summary>Puts one frame into one rolling file.</summary>
@@ -678,9 +981,19 @@ internal sealed class ScreenRecording : IDisposable
             return;
         }
 
+        if (!AnyPictureTaken)
+        {
+            // Belt and braces: the caller already refuses a save with no picture behind it, and
+            // this is the second place that has to be true before a file with nothing in it can
+            // be handed to somebody as a clip.
+            LastProblem = "Nothing has been recorded from VRChat's window yet.";
+            return;
+        }
+
         try
         {
             var from = oldest.Path;
+            _log($"Saving a clip of {frame - oldest.StartedAtFrame + 1} frames", null);
             Finish(oldest, discard: false);
 
             if (Path.GetDirectoryName(destination) is { Length: > 0 } folder)

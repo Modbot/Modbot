@@ -319,4 +319,55 @@ public class InstanceSessionTrackerTests
         Assert.Equal("me, renamed", _tracker.LocalDisplayName);
         Assert.Equal(Local, _tracker.LocalUserId);
     }
+
+    // --- The world's readable name, for naming a saved clip -------------------------------------
+
+    [Fact]
+    public void TheWorldsReadableNameIsKeptForTheInstanceItArrivedIn()
+    {
+        Feed(Joining(), new WorldNameEvent(Tick(), "The Black Cat"));
+
+        Assert.Equal("The Black Cat", _tracker.WorldName);
+    }
+
+    [Fact]
+    public void ANewInstanceDoesNotKeepTheLastWorldsName()
+    {
+        // The name arrives on the line after Joining, so between the two there is no name. A name
+        // held over would put the last world's name on a clip recorded in this one.
+        Feed(Joining(), new WorldNameEvent(Tick(), "The Black Cat"));
+        Feed(Joining("wrld_other:2~group(grp_g)"));
+
+        Assert.Null(_tracker.WorldName);
+
+        Feed(new WorldNameEvent(Tick(), "Popcorn Palace"));
+        Assert.Equal("Popcorn Palace", _tracker.WorldName);
+    }
+
+    [Fact]
+    public void ThereIsNoWorldNameOnceTheModeratorHasLeft()
+    {
+        Feed(Joining(), new WorldNameEvent(Tick(), "The Black Cat"));
+        Feed(new LocalPlayerLeftRoomEvent(Tick()));
+
+        Assert.Null(_tracker.WorldName);
+        Assert.Null(_tracker.CurrentInstance);
+    }
+
+    [Fact]
+    public void AForgottenSessionForgetsTheWorldName()
+    {
+        Feed(Joining(), new WorldNameEvent(Tick(), "The Black Cat"));
+        _tracker.ForgetSession();
+
+        Assert.Null(_tracker.WorldName);
+    }
+
+    [Fact]
+    public void AWorldNameCompletesNoPresenceFact()
+    {
+        // It names a file. It says nothing about who is where, and it must not turn into an event
+        // that is reported to anybody.
+        Assert.Empty(Feed(Joining(), new WorldNameEvent(Tick(), "The Black Cat")));
+    }
 }

@@ -104,6 +104,12 @@ public sealed class PresenceObserver
     public InstanceLocation? CurrentInstance => LogIsLive ? _tracker.CurrentInstance : null;
 
     /// <summary>
+    /// The readable name of the world the moderator is in, or null when it is not known. Used to
+    /// name a saved clip and for nothing else; see <see cref="InstanceSessionTracker.WorldName"/>.
+    /// </summary>
+    public string? CurrentWorldName => LogIsLive ? _tracker.WorldName : null;
+
+    /// <summary>
     /// The moderator's own VRChat id, once the log has said which of the people in it is them, or
     /// null until then. The voice uses it to keep quiet about the moderator's own comings and goings.
     /// </summary>

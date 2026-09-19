@@ -112,36 +112,140 @@ public class ClipLibraryTests
         Assert.False(File.Exists(oldest));
     }
 
+    /// <summary>The moment the worked example in the clips design spec is named after.</summary>
+    private static ClipLibrary At(int hour = 18, int minute = 2, int second = 29)
+        => new(new FakeClock(new DateTimeOffset(
+            new DateTime(2026, 9, 19, hour, minute, second, DateTimeKind.Local).ToUniversalTime(),
+            TimeSpan.Zero)));
+
     [Fact]
-    public void AClipIsNamedAfterTheMomentItWasSaved()
+    public void AClipIsNamedAfterTheWorldTheInstanceAndTheMoment()
     {
-        var clock = new FakeClock(new DateTimeOffset(2026, 9, 19, 20, 27, 14, TimeSpan.Zero));
+        // The name a moderator asked for, and the one the clips design spec carries as its worked
+        // example: world, instance number, local date and time, joined with underscores.
+        var name = At().NameFor(
+            worldName: "The Black Cat",
+            worldId: "wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b",
+            instanceId: "98874~group(grp_x)~region(use)");
 
-        var name = new ClipLibrary(clock).NameFor();
-
-        Assert.EndsWith(ClipLibrary.ClipExtension, name, StringComparison.Ordinal);
-        Assert.StartsWith("2026-09-", name, StringComparison.Ordinal);
+        Assert.Equal("The Black Cat_98874_2026-09-19 18-02-29.mp4", name);
     }
 
     [Fact]
-    public void AnInstanceIdIsFilteredRatherThanTrustedAsAFileName()
+    public void WithoutAWorldNameTheWorldIdStandsIn()
     {
-        // VRChat's ids follow no structure and are never validated for shape (foundation 3.1.1), so
-        // anything that is not plainly safe in a file name becomes an underscore.
-        var name = new ClipLibrary(new FakeClock()).NameFor(@"12345~group(grp_x)/..\evil:name");
+        // VRChat says the world's readable name on its own line, and a moderator saving a clip
+        // before that line has arrived should still get a clip that names the world somehow.
+        var name = At().NameFor(
+            worldId: "wrld_4cf554b4",
+            instanceId: "98874");
+
+        Assert.Equal("wrld_4cf554b4_98874_2026-09-19 18-02-29.mp4", name);
+    }
+
+    [Fact]
+    public void WithNoWorldAndNoInstanceTheMomentIsTheWholeName()
+    {
+        // Outside an instance, or in one Modbot could not read. Still a clip.
+        Assert.Equal("2026-09-19 18-02-29.mp4", At().NameFor());
+    }
+
+    [Theory]
+    [InlineData("98874~group(grp_x)~region(use)", "98874")]
+    [InlineData("98874", "98874")]
+    [InlineData("  98874  ", "98874")]
+    [InlineData("front desk~group(grp_x)", "front desk")]
+    [InlineData("~group(grp_x)", "~group(grp_x)")]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    public void TheInstanceNumberIsWhateverIsInFrontOfTheQualifiers(string? instanceId, string expected)
+    {
+        // Never checked for shape. VRChat's ids follow no structure (foundation 3.1.1) and a group
+        // can set an instance id to any text it likes, so this takes what is in front of the first
+        // tilde and falls back to the whole id rather than asserting anything about it.
+        Assert.Equal(expected, ClipLibrary.InstanceNumber(instanceId));
+    }
+
+    [Fact]
+    public void TheWholeNameIsMadeSafeRatherThanItsPieces()
+    {
+        // A world name is whatever a person typed and an instance id carries brackets and tildes.
+        // The template is built first and made safe once, so nothing a world or an instance can
+        // hold leaves a name Windows will not take.
+        var name = At().NameFor(
+            worldName: @"Bad/World:Name?",
+            instanceId: @"12345~group(grp_x)/..\evil:name");
 
         foreach (var bad in Path.GetInvalidFileNameChars())
             Assert.DoesNotContain(bad, name);
 
+        foreach (var bad in "<>:\"/\\|?*")
+            Assert.DoesNotContain(bad, name);
+
         Assert.DoesNotContain("..", name, StringComparison.Ordinal);
+        Assert.EndsWith("2026-09-19 18-02-29.mp4", name, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AnInstanceMadeOnlyOfAwkwardCharactersJustLeavesTheMoment()
+    public void AWorldNameInSomebodyElsesAlphabetSurvives()
     {
-        var name = new ClipLibrary(new FakeClock()).NameFor("///");
+        // Plenty of VRChat worlds are named in scripts that are not Latin. They are legal in a
+        // Windows file name, so they are kept rather than turned into a row of underscores.
+        var name = At().NameFor(worldName: "ΛƧƬΛ なまえ", instanceId: "7");
 
-        Assert.EndsWith(ClipLibrary.ClipExtension, name, StringComparison.Ordinal);
+        Assert.Equal("ΛƧƬΛ なまえ_7_2026-09-19 18-02-29.mp4", name);
+    }
+
+    [Theory]
+    [InlineData("///")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("...")]
+    [InlineData("‮‭")]
+    public void ANameThatIsMadeSafeIntoNothingStillHasAName(string awkward)
+    {
+        // An empty name would make a file called ".mp4", which Windows hides and nobody finds.
+        var made = ClipLibrary.AsFileName(awkward);
+
+        Assert.NotEmpty(made);
+        Assert.Equal("Clip", made);
+    }
+
+    [Fact]
+    public void AClipNeverLandsOnOneThatIsAlreadyThere()
+    {
+        // Two saves in the same second, in the same instance. The one that would be lost is the
+        // first, which is the one the moderator pressed Save for.
+        var folder = Scratch();
+        var library = At();
+
+        var first = library.NameFor(worldName: "The Black Cat", instanceId: "98874", folder: folder);
+        Write(folder, first, 10);
+
+        var second = library.NameFor(worldName: "The Black Cat", instanceId: "98874", folder: folder);
+        Write(folder, second, 10);
+
+        var third = library.NameFor(worldName: "The Black Cat", instanceId: "98874", folder: folder);
+
+        Assert.Equal("The Black Cat_98874_2026-09-19 18-02-29.mp4", first);
+        Assert.Equal("The Black Cat_98874_2026-09-19 18-02-29 (2).mp4", second);
+        Assert.Equal("The Black Cat_98874_2026-09-19 18-02-29 (3).mp4", third);
+    }
+
+    [Fact]
+    public void AVeryLongWorldNameIsCutRatherThanCarried()
+    {
+        // A world name is somebody else's text and has no length anybody promised. The moment is
+        // the part that must survive, because it is what a moderator sorts by.
+        var name = At().NameFor(
+            worldName: new string('w', 500),
+            instanceId: new string('i', 500));
+
+        Assert.True(
+            name.Length - ClipLibrary.ClipExtension.Length <= ClipLibrary.MostNameCharacters,
+            $"A clip's name came to {name.Length} characters.");
+
+        Assert.EndsWith("2026-09-19 18-02-29.mp4", name, StringComparison.Ordinal);
     }
 
     private static string Scratch()

@@ -55,6 +55,7 @@ public sealed class InstanceSessionTracker
 
     private Phase _phase = Phase.Outside;
     private InstanceLocation? _instance;
+    private string? _worldName;
 
     /// <summary>
     /// The moderator's own VRChat id, learned once and remembered. Needed because their own join
@@ -70,6 +71,20 @@ public sealed class InstanceSessionTracker
 
     /// <summary>The instance the moderator is in, or <c>null</c> when that is not yet known.</summary>
     public InstanceLocation? CurrentInstance => _phase is Phase.Departed or Phase.Outside ? null : _instance;
+
+    /// <summary>
+    /// The readable name of the world the moderator is in — "The Black Cat" rather than
+    /// <c>wrld_4cf554b4-430c-…</c> — or <c>null</c> when VRChat has not said it.
+    /// </summary>
+    /// <remarks>
+    /// <para>Used for one thing: naming a saved clip, so the right one can be picked out of a
+    /// folder afterwards. It decides nothing. The world id is still the identity, and this is
+    /// never matched against, routed on, or sent anywhere.</para>
+    /// <para>It goes when the instance goes, for the same reason the instance does: a name held
+    /// over from the last world would put the wrong world's name on a clip, which is worse than a
+    /// clip with no world name on it at all.</para>
+    /// </remarks>
+    public string? WorldName => _phase is Phase.Departed or Phase.Outside ? null : _worldName;
 
     /// <summary>
     /// Drops everything learned about the session so far: which instance, who is in it, what they
@@ -95,6 +110,7 @@ public sealed class InstanceSessionTracker
 
         _phase = Phase.Outside;
         _instance = null;
+        _worldName = null;
         LocalUserId = null;
         LocalDisplayName = null;
     }
@@ -106,6 +122,7 @@ public sealed class InstanceSessionTracker
     public IEnumerable<ObservedPresence> Observe(VRChatLogEvent logEvent) => logEvent switch
     {
         JoiningInstanceEvent joining => EnterInstance(joining),
+        WorldNameEvent named => WorldNamed(named),
         PlayerJoinedEvent joined => PlayerJoined(joined),
         PlayerLeftEvent left => PlayerLeft(left),
         LocalPlayerLeftRoomEvent leftRoom => LocalLeftRoom(leftRoom),
@@ -155,6 +172,10 @@ public sealed class InstanceSessionTracker
         _displayNameToUserId.Clear();
         _userIdToAvatar.Clear();
 
+        // The world's readable name arrives on the line after this one. Whatever is held is last
+        // world's, so it goes now rather than being allowed to name this world by accident.
+        _worldName = null;
+
         if (InstanceLocation.TryParse(joining.Location, out var location))
         {
             _instance = location;
@@ -170,6 +191,16 @@ public sealed class InstanceSessionTracker
         }
 
         return leftovers;
+    }
+
+    /// <summary>
+    /// <c>Joining or Creating Room: &lt;world name&gt;</c>: the readable name of the world just
+    /// entered. Completes no presence fact and changes nothing about who is where.
+    /// </summary>
+    private IEnumerable<ObservedPresence> WorldNamed(WorldNameEvent named)
+    {
+        _worldName = named.WorldName;
+        return [];
     }
 
     private IEnumerable<ObservedPresence> PlayerJoined(PlayerJoinedEvent joined)

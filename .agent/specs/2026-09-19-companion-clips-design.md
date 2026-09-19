@@ -20,6 +20,18 @@ Everything §2 says about what the client promises, and everything §6 says abou
 machine, is unchanged. Recording a window rather than a monitor narrows what is captured; it does
 not widen anything.
 
+## What changed after the first real build, the same evening
+
+The feature was built and compile-checked and had never met a screen. It met one, and the clip that
+came out was **black**. A moderator also asked for the name to be something they could read.
+
+| What changed | Where | Why |
+|---|---|---|
+| **Nothing is written until a real picture has been captured.** | new §12 | The black clip's cause. §3.1.1's rule — write the last picture of VRChat again while VRChat is not the window in front — has no last picture before the first one, and the buffer it was writing instead was empty. |
+| **The graphics card is chosen, not taken.** | §3.1, §12.2 | A screen can only be handed over by the card it is plugged into, and the device was being made with no card named. On a two-card laptop those are routinely not the same card. |
+| **The recorder says what it is doing, in the log file.** | §12.3 | A black clip looks exactly like a good one until somebody opens it, and the file says nothing about why. |
+| **A clip is named after the world.** | new §13 | `The Black Cat_98874_2026-09-19 18-02-29.mp4`. The old name was the moment with the instance id stuck on the end, and the world name was being read out of VRChat's log and thrown away. |
+
 ---
 
 ## 1. What was asked for, and what this is
@@ -80,9 +92,10 @@ the client ships learns to. That is the same shape as the existing carve-outs fo
 - **Capture.** `IDXGIOutput1::DuplicateOutput` on the monitor VRChat's window is on. Windows hands
   over a copy of a frame the desktop compositor has already drawn, on the GPU, only when something
   changed. Nothing is drawn, and no window list is enumerated.
-- **Which monitor.** The one whose rectangle holds the middle of VRChat's window, rather than the
-  first output on the adapter. That closes the "may record the wrong monitor" gap this spec used to
-  list under §10.
+- **Which monitor, and which graphics card.** Every card's outputs are walked, the one whose
+  rectangle holds the middle of VRChat's window wins, and the Direct3D device is made **on the card
+  that owns it**. That closes the "may record the wrong monitor" gap this spec used to list under
+  §10, and it closes a second one found on the first real build — see §12.2.
 - **Which part of it.** VRChat's window. `FindWindowW` by class and title gives one named window;
   `GetClientRect` and `ClientToScreen` give where its picture is; the copy off the duplicated
   desktop is that box and nothing else. The box is clamped to the monitor's own picture before it
@@ -132,6 +145,12 @@ frozen seconds in a clip and removes the entire category.
 
 The cost of holding is stated rather than hidden: a moderator who is in Discord the whole time gets
 a clip that is a still picture. That is a bad clip, and it is not somebody else's messages.
+
+**And there is a fourth case the first three did not name**: a moderator who has been in Discord
+*the whole time since recording started*. There is then no last picture to hold, and what was being
+written instead was an empty buffer — a clip of the right length, entirely black. That is §12, and
+it is the reason this rule now has a condition on it: the hold only ever repeats a picture that
+exists.
 
 **What a crop still cannot do that window capture could**: an overlay drawn over VRChat is in the
 clip. §3.3 says why that was not worth the price this time.
@@ -471,6 +490,21 @@ somebody checking can see it was looked at rather than missed.
 | `docs/content/docs/companion/install.mdx`, `privacy.mdx`, `security.mdx`, `PRIVACY_POLICY.md` | "One of your monitors" becomes "VRChat's window", everywhere it appeared |
 | `docs/content/docs/not-built-yet.mdx` | Three rows removed — saving from inside VR, choosing the monitor, and recording the window — because all three are built |
 
+### 9.2 And what the first real build moved, the same evening
+
+| Where | What it says now |
+|---|---|
+| `src/Modbot.Companion.App/ScreenRecording.cs` class doc | A new paragraph: it never hands over a file with nothing in it, why that was possible, and that what it is doing goes into the client's log file |
+| `src/Modbot.Companion.App/ScreenRecording.cs` | `AnyPictureTaken`; no encoder and no frame before the first picture; the graphics card chosen rather than taken; the counts and the lines in §12.3 |
+| `src/Modbot.Companion/Clips/ClipRecordingRule.cs` | `NothingRecordedYet`, and `ShouldRecord` true in it |
+| `src/Modbot.Companion/Clips/ClipButton.cs`, `MainWindow.Clips.cs` | *Nothing recorded yet*, the same words on both screens |
+| `src/Modbot.Companion/Clips/ClipLibrary.cs` | `NameFor` takes the world, the world id, the instance and the folder; `InstanceNumber` and `AsFileName` are their own testable rules |
+| `src/Modbot.Companion/LogReading/` | `WorldNameEvent`, and the parser reading the line it used to skip |
+| `src/Modbot.Companion/Instances/InstanceSessionTracker.cs` | `WorldName`, cleared with the instance |
+| `tests/…/Guards/CompanionSourceGuardTests.cs` | New: `ARecorderWithNoPictureSaysSoRatherThanHandingOverABlackFile` |
+| `docs/content/docs/companion/clips.mdx` | *What a clip is called* and *When a clip cannot be made*, and the new row in the overlay table |
+| `docs/content/docs/companion/install.mdx` | The world's readable name added to the list of log lines the client recognises |
+
 ---
 
 ## 10. What is not built
@@ -485,8 +519,11 @@ somebody checking can see it was looked at rather than missed.
 - **Any tie to a ban or kick** (§6).
 - **A second control for the notification overlay.** Save a clip is on the main panel and on the
   window over VRChat; the pop-up overlay takes no input at all and was not given any.
-- **Any measurement at all.** §4 is estimates. Nothing in this feature has been run — the window
-  crop included, which is new code against a graphics API and has never met a real machine.
+- **Any measurement at all.** §4 is estimates, still. The feature has now been run once, which
+  produced §12 and nothing else: no frame rate, no encoder load, no disk figure has been measured.
+- **Any certainty about what a clip looks like on a second machine.** §12 names one cause of a
+  black picture, fixes it, and adds the logging that would name the others. Whether the next black
+  clip has the same cause is not knowable from here.
 
 ---
 
@@ -535,6 +572,7 @@ So `ClipButtonRule` turns the Clips card into one caption and one yes-or-no:
 | Keeping the last few minutes | **Save a clip** | yes |
 | VRChat is not running | Waiting for VRChat | no |
 | VRChat is running, its window not found yet | Waiting for VRChat's window | no |
+| Its window found, no picture of it captured yet | Nothing recorded yet | no |
 | The folder cannot be written to | The folder cannot be used | no |
 | This machine cannot record | Not available on this machine | no |
 | The recorder failed | Recording stopped | no |
@@ -566,3 +604,178 @@ client's own journal however it was asked for.
 
 That keeps the overlay what it has always been: it shows things, it reports taps, and the one thing
 a tap can now cause is a file being written on the moderator's own disk.
+
+---
+
+## 12. The black clip, and what was done about it
+
+The recorder was written, compile-checked and never run. The first time it ran on a real machine it
+produced a file of the right length whose picture was **black**, and this section is what that
+turned out to be, what was changed, and what a second black clip would now tell us.
+
+### 12.1 The cause: a held picture that never existed
+
+§3.1.1 says that while VRChat is not the window in front, **the last picture of VRChat is written
+again**. That rule is right and it stays. What it did not say is what happens when there is no last
+picture.
+
+The recorder allocated its frame buffer, opened both rolling files, and entered its loop. On every
+turn where VRChat was not the window in front — or where nothing had changed on screen, which
+`AcquireNextFrame` reports as a timeout and which is ordinary rather than a fault — it wrote the
+buffer it already had. Before the first real capture, that buffer is zeroes. Zeroes are black.
+
+So a moderator who switched Clips on from Modbot's own settings window, and pressed **Save a clip**
+from that same window without ever bringing VRChat to the front in between, got exactly what was
+reported: a clip, the right length, black from start to end. It is not an unlikely path. It is the
+path somebody takes the first time they try the feature.
+
+**Confidence: high, for this cause.** It is a straight reading of the code and it matches the
+report — a file produced, correct length, no error anywhere. It is *not* a claim that no other
+cause exists on any other machine; §12.2 fixes a second one that would also have produced a bad
+picture, and §12.3 is there because the remaining candidates cannot be told apart from here.
+
+**What was changed:**
+
+- The recorder carries `AnyPictureTaken`, false until one real capture has landed.
+- **No encoder is opened and no frame is written while it is false.** The two rolling files are
+  created at the first picture rather than at the first turn of the loop, so neither of them can
+  begin with frames of nothing.
+- **A save asked for while it is false is refused**, in words — *Nothing has been recorded from
+  VRChat's window yet* — rather than moving a file.
+- `ClipRecordingState` gained **`NothingRecordedYet`**, which the settings card and the overlay
+  control both show as *Nothing recorded yet*, and in which **Save a clip** cannot be pressed.
+  `ClipsStatus.CanSave` is false in it. The recorder stays up in it, for the same reason it stays
+  up while looking for the window.
+- `AcquireNextFrame` is given 250 ms of patience **while there has been no picture**, and none
+  afterwards. Asking with no patience fifteen times a second is how a recorder spends its first
+  seconds finding nothing; once a picture exists, "nothing changed" is an ordinary answer and the
+  last picture is written again.
+
+A clip that is a still picture is still a clip (§3.1.1). A clip that is *no* picture is not, and it
+is now the one thing this feature will not produce.
+
+### 12.2 The second fault: the graphics card was taken rather than chosen
+
+A screen can only be handed over by the card it is plugged into. The device was made with
+`D3D11CreateDevice(adapter: null)` — Windows picks one — and the monitor was then looked for among
+*that card's* outputs. On a machine with one card those are the same thing. On a laptop with two,
+which is most gaming laptops and therefore a lot of moderators, they are routinely not: the ask
+comes back with no outputs at all, or with an output the card will not duplicate
+(`DXGI_ERROR_UNSUPPORTED`).
+
+Now every card's outputs are walked first, the one holding the middle of VRChat's window wins, and
+the device is made on the card that owns it. A window on no screen at all falls back to the first
+screen there is. `DXGI_ERROR_UNSUPPORTED` from `DuplicateOutput` became one plain sentence —
+*Windows would not hand Modbot a picture of the screen VRChat is on* — rather than a raw result
+code, because it is also what exclusive fullscreen looks like.
+
+**On exclusive fullscreen, honestly:** VRChat's default is borderless fullscreen, which duplication
+handles. True exclusive fullscreen shows up as either repeated `DXGI_ERROR_ACCESS_LOST` — which the
+loop already recovers from by duplicating again, several times an evening, ordinarily — or as
+`DXGI_ERROR_UNSUPPORTED`, which now says so. Which of the two a given machine gives was not
+determined, because it cannot be determined without that machine. The counts in §12.3 are what
+would say.
+
+### 12.3 What the recorder now says about itself
+
+A black clip looks exactly like a good one until somebody opens it, and the file carries nothing
+about why. So the recorder writes into the client's own log file, at
+`%APPDATA%\Modbot\logs\client-<date>.log`:
+
+| When | What it says |
+|---|---|
+| Starting | every screen it can see, with its card, its name, its size and where it sits |
+| Starting | the card and screen chosen, and VRChat's window size and position |
+| Starting | the size the clip is being recorded at |
+| The first picture | how long it took, and the crop box and screen it came from |
+| Once a minute | pictures copied, frames held, frames written, and whether VRChat's window is there, in front, minimised, and where |
+| Following the window | the window's box, the screen's box, and that it is duplicating again |
+| A save | how many frames the saved file holds |
+| A save with no picture | that one was asked for before any picture had been captured |
+| Stopping | the totals, including turns where nothing changed and times the screen was taken away |
+
+**If a clip is still black, this is what to read.** Pictures copied at zero with VRChat never *in
+front* is §12.1 again and means the moderator was in another program throughout. Pictures copied at
+zero with VRChat *in front the whole time* is a capture fault — the screen chosen, or exclusive
+fullscreen, and the chosen-screen lines say which. Pictures copied climbing with the window
+repeatedly *off this screen* is a monitor arrangement the follow rule is losing. Pictures copied
+climbing and frames written climbing, with a black file anyway, is the one case none of this covers
+and would point at the encoder — the stride, or the colour conversion — which is the part §3.1 was
+already least sure of.
+
+### 12.4 What was looked at and left alone
+
+- **The crop's coordinate space.** `BoxOnMonitor` already subtracts the monitor's own origin before
+  clamping, so a second monitor to the left gives a box inside the duplicated picture rather than
+  negative coordinates. Checked against how `Grab` uses it; correct as it stood.
+- **The stride.** `MF_MT_DEFAULT_STRIDE` is positive, which is top-down, which is the order
+  Direct3D hands rows over in. A wrong sign here gives an upside-down picture, not a black one, so
+  it is not a candidate for what was reported and was not changed on suspicion.
+- **The formats.** The duplicated texture, the window copy, the staging texture and the encoder's
+  input are all BGRA. `MFVideoFormat_RGB32` ignores the alpha byte, so a desktop handing over zero
+  alpha cannot black a frame.
+
+---
+
+## 13. What a clip is called
+
+```
+The Black Cat_98874_2026-09-19 18-02-29.mp4
+```
+
+**The world, the instance number, and the local date and time, joined with underscores.** The old
+name was the moment with the instance id appended, which is sortable and unreadable: a moderator
+remembers the world they were in and roughly when, and remembers neither an instance number nor
+`wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b`.
+
+### 13.1 The world name was being read and thrown away
+
+VRChat writes `Joining or Creating Room: The Black Cat` one line after the `Joining <location>`
+line that carries the world's id. `BehaviourEventParser` had an explicit condition excluding that
+prefix — it exists because the line also begins with `Joining `, and without the exclusion it would
+be read as a location of `or Creating Room:`. So the name was in front of the parser and dropped.
+
+It is now `WorldNameEvent`, the exclusion having become a positive match tested before the location
+one. `InstanceSessionTracker` keeps it beside the instance, clears it when a new `Joining` line
+arrives — the name comes *after*, so anything held at that moment is the last world's — and answers
+null once the moderator has left. It reaches the naming through `PresenceObserver`,
+`CompanionEngine` and the app, the same path `CurrentInstance` already took.
+
+**It decides nothing.** The world id stays the identity. The name is never matched against, never
+routed on, and never sent anywhere; it names a file on the moderator's own disk. The three
+`Joining or Creating Room` lines in the real-log fixture took the recognised-event count from 88
+to 91.
+
+### 13.2 The instance number is taken, never checked
+
+It is what sits in front of the first `~`, because that is where VRChat puts it. Nothing checks
+that what was found looks like a number or like anything else: VRChat's ids follow no structure
+(foundation 3.1.1) and a group can set an instance id to any text it likes — `front desk` is a
+legal instance id. An id that begins with a tilde leaves nothing in front of it, and then the whole
+id stands in rather than nothing.
+
+### 13.3 The whole name is made safe, not the pieces
+
+The template is assembled first and run through one pass afterwards. That was the explicit ask and
+it is also the right shape: a world name is whatever a person typed, an instance id carries
+brackets and tildes, and sanitising halves separately leaves the joins to chance.
+
+- **The list of what cannot be in a file name is written out**, rather than asked of the operating
+  system. `Path.GetInvalidFileNameChars()` on Linux is `\0` and `/`, so a name built there could be
+  one Windows refuses — and the tests would pass on one machine and fail on another.
+- **Everything else is kept.** The old rule allowed ASCII letters, digits, spaces, hyphens and
+  underscores, which turns most of VRChat into underscores; `ΛƧƬΛ` is a perfectly legal Windows
+  file name. Control characters go, and so do the invisible ones that reorder text, because a file
+  whose name reads backwards in a folder is worth not allowing.
+- **Each removed character becomes an underscore**, a run of them collapses to one, and the result
+  never begins or ends with an underscore, a space or a dot.
+- **A name that comes out empty falls back to `Clip`.** An empty name makes a file called `.mp4`,
+  which Windows hides and nobody finds. The assembled name always carries the moment, so this is
+  reachable only through `AsFileName` directly — which is where it is tested.
+- **Lengths are capped**: 60 characters of world, 40 of instance number, 130 for the whole name
+  before the extension. The moment is what a moderator sorts by, so it is the part that survives.
+- **A name already taken gets `(2)`**, then `(3)`. Two saves in the same second in the same
+  instance would otherwise be one file, and the one lost would be the first — the one Save was
+  pressed for.
+
+`ClipLibrary` still owns making room in the folder, and still deletes only `.mp4` files it wrote.
