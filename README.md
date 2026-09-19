@@ -14,6 +14,8 @@ record for as long as you want, in one container and one PostgreSQL database on 
 [![Self-hosted](https://img.shields.io/badge/self--hosted-Docker%20%2B%20PostgreSQL-5b4bd6?style=for-the-badge)](docker-compose.yml)
 [![Docs](https://img.shields.io/badge/docs-read-5b4bd6?style=for-the-badge)](docs/content/docs/index.mdx)
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/modbot)
+
 </div>
 
 ---

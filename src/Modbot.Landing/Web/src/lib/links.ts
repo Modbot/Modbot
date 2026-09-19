@@ -14,3 +14,6 @@ export const SITE = 'https://modbot.co'
  */
 export const DOCS = 'https://docs.modbot.co'
 export const SELF_HOSTING_GUIDE = `${DOCS}/self-hosting/`
+
+/** Railway's one-click deploy for Modbot, behind their own button. */
+export const DEPLOY_ON_RAILWAY = 'https://railway.com/deploy/modbot'

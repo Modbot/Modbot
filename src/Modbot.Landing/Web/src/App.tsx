@@ -1,7 +1,7 @@
 import { buttonVariants } from '@/components/ui/button'
 import { Feature, SiteFooter, SiteHeader } from '@/components/Site'
 import { SourceBadge } from '@/components/SourceBadge'
-import { OPEN_MY_SERVER, SELF_HOSTING_GUIDE } from '@/lib/links'
+import { DEPLOY_ON_RAILWAY, OPEN_MY_SERVER, SELF_HOSTING_GUIDE } from '@/lib/links'
 import { cn } from '@/lib/utils'
 import { AppMock } from '@/mock/AppMock'
 import { AnalyticsPanel } from '@/visuals/AnalyticsPanel'
@@ -392,6 +392,15 @@ function SelfHost() {
               Read the self-hosting guide
             </a>
           </p>
+
+          {/*
+            Railway's own button, served from this site rather than from theirs: the page makes no
+            third-party request, which is the same promise the rest of this section makes. Its size
+            is the asset's own 183x40, so it is never scaled.
+          */}
+          <a href={DEPLOY_ON_RAILWAY} className="inline-flex w-fit rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+            <img src="/railway-button.svg" alt="Deploy on Railway" width={183} height={40} />
+          </a>
         </div>
       </div>
     </section>
