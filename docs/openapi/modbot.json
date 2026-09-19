@@ -13090,7 +13090,7 @@
           "Moderation"
         ],
         "summary": "Remove a person from the group",
-        "description": "Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once: send the same key again and you get the first answer back, not a second kick.\n\nNeeds the `Kick` permission.",
+        "description": "Only somebody who is in the group can be kicked out of it; VRChat answers a kick of anybody else with \"they are not in the group\". Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once: send the same key again and you get the first answer back, not a second kick.\n\nNeeds the `Kick` permission.",
         "operationId": "KickPerson",
         "requestBody": {
           "content": {
@@ -13166,7 +13166,7 @@
           "Moderation"
         ],
         "summary": "Ban a person from the group",
-        "description": "A reason is required, and the ban's case file is written from it and the note. Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once.\n\nNeeds the `Ban` permission.",
+        "description": "Works on anybody, member or not: VRChat's group ban takes a user id, so somebody who has never joined can be kept out before they arrive. A person Modbot has never seen is recorded as a person by the ban, and their profile is fetched afterwards. A reason is required, and the ban's case file is written from it and the note. Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once.\n\nNeeds the `Ban` permission.",
         "operationId": "BanPerson",
         "requestBody": {
           "content": {
@@ -13242,7 +13242,7 @@
           "Moderation"
         ],
         "summary": "Lift a person's ban",
-        "description": "Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once.\n\nNeeds the `Unban` permission.",
+        "description": "There has to be a ban to lift; VRChat answers an unban of anybody who is not banned with \"they are not banned\". Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once.\n\nNeeds the `Unban` permission.",
         "operationId": "UnbanPerson",
         "requestBody": {
           "content": {

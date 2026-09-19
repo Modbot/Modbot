@@ -109,6 +109,7 @@ export function ModerationActions({
             action={open}
             userId={person.userId ?? ''}
             name={name ?? person.userId ?? ''}
+            isMember={person.isMember}
             onClose={() => setOpen(null)}
             onDone={onDone}
           />
@@ -122,12 +123,15 @@ function ConfirmAction({
   action,
   userId,
   name,
+  isMember,
   onClose,
   onDone,
 }: {
   action: ModerationActionName
   userId: string
   name: string
+  /** What the member list last said. Undefined or null: Modbot has not read it. */
+  isMember?: boolean | null
   onClose: () => void
   onDone?: (result: ModerationActionResult) => void
 }) {
@@ -173,7 +177,7 @@ function ConfirmAction({
 
   return (
     <DialogContent
-      title={confirmTitle(action, name)}
+      title={confirmTitle(action, name, isMember)}
       subtitle={<span className="font-mono" title={userId}>{userId}</span>}
       className="max-w-[460px]"
     >

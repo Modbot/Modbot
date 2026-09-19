@@ -181,10 +181,26 @@ Modbot can do three things to a person in your VRChat group, each behind its own
 | Action | Needs | Where |
 |---|---|---|
 | **Kick** | **Kick** | The person popup, and the **Members** row menu. |
-| **Ban** | **Ban** | The person popup, and the **Members** row menu. |
+| **Ban** | **Ban** | The person popup, wherever it is opened from, and the **Members** row menu. |
 | **Unban** | **Unban** | The person popup, and the **Bans** page. |
 
 Somebody who is already banned is offered **Unban** instead of **Ban**.
+
+### Who each action works on
+
+**Ban works on anybody, whether or not they are in your group.** You do not have to wait for
+somebody to join before you can keep them out. If you have heard about a person from another
+group, from a Discord message or from a [flag](/moderation/flags), open them and ban them: VRChat
+bans an account, not a membership. Somebody Modbot has never seen before is added to its records
+by the ban, and their name and picture appear once the profile refresh reaches them.
+
+The other two only make sense in one direction:
+
+- **Kick** is offered only to somebody the member list says is in the group. There is nothing to
+  remove anybody else from, and VRChat answers a kick of somebody who is not in the group with
+  **They are not in the group.**
+- **Unban** is offered only against a ban that stands. VRChat answers an unban of somebody who is
+  not banned with **They are not banned.**
 
 Every action opens a confirmation naming the person, with the group's
 [ban reasons](/moderation/case-files#the-reason-list) and an optional note. A reason is required on

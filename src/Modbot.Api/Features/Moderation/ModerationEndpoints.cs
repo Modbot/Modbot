@@ -50,24 +50,31 @@ public static class ModerationEndpoints
             .WithName("KickPerson")
             .WithSummary("Remove a person from the group")
             .WithDescription(
-                "Nothing is recorded as done unless VRChat accepted it. A reason is optional "
-                + "unless the group has asked for one. The key makes one confirmation act once: "
-                + "send the same key again and you get the first answer back, not a second kick.");
+                "Only somebody who is in the group can be kicked out of it; VRChat answers a kick "
+                + "of anybody else with \"they are not in the group\". Nothing is recorded as done "
+                + "unless VRChat accepted it. A reason is optional unless the group has asked for "
+                + "one. The key makes one confirmation act once: send the same key again and you "
+                + "get the first answer back, not a second kick.");
 
         Map(group, ModerationActionService.Ban, ModbotPermissions.Ban)
             .WithName("BanPerson")
             .WithSummary("Ban a person from the group")
             .WithDescription(
-                "A reason is required, and the ban's case file is written from it and the note. "
-                + "Nothing is recorded as done unless VRChat accepted it. The key makes one "
-                + "confirmation act once.");
+                "Works on anybody, member or not: VRChat's group ban takes a user id, so somebody "
+                + "who has never joined can be kept out before they arrive. A person Modbot has "
+                + "never seen is recorded as a person by the ban, and their profile is fetched "
+                + "afterwards. A reason is required, and the ban's case file is written from it "
+                + "and the note. Nothing is recorded as done unless VRChat accepted it. The key "
+                + "makes one confirmation act once.");
 
         Map(group, ModerationActionService.Unban, ModbotPermissions.Unban)
             .WithName("UnbanPerson")
             .WithSummary("Lift a person's ban")
             .WithDescription(
-                "Nothing is recorded as done unless VRChat accepted it. A reason is optional "
-                + "unless the group has asked for one. The key makes one confirmation act once.");
+                "There has to be a ban to lift; VRChat answers an unban of anybody who is not "
+                + "banned with \"they are not banned\". Nothing is recorded as done unless VRChat "
+                + "accepted it. A reason is optional unless the group has asked for one. The key "
+                + "makes one confirmation act once.");
 
         return app;
     }
@@ -110,7 +117,7 @@ public static class ModerationEndpoints
 
                 var caller = new Caller(actor, http.User.Identity?.Name ?? string.Empty, ModbotAuth.PermissionsOf(http.User));
                 var cases = new CaseFileService(db, clock, facts, partitions, profiles, evidenceOptions, store, monitor);
-                var service = new ModerationActionService(db, clock, vrchat, facts, partitions, cases);
+                var service = new ModerationActionService(db, clock, vrchat, facts, partitions, cases, profiles);
 
                 try
                 {

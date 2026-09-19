@@ -41,6 +41,10 @@ const LABELS: Record<ModerationActionName, string> = {
  * Kick is left out for somebody who is not a member, because there is nothing to remove them from.
  * It stays for anyone whose membership Modbot has not read, since "not listed yet" is not the same
  * claim as "not there".
+ *
+ * **Ban is offered to everybody**, member or not. VRChat's group ban takes a user id rather than a
+ * membership, and keeping somebody out before they ever arrive — heard about from another group,
+ * from Discord, from a flag — is an ordinary thing for a moderator to want.
  */
 export function actionsFor(me: CurrentUser | null, person: PersonStanding): OfferedAction[] {
   if (!person.userId) return []
@@ -63,13 +67,24 @@ export function reasonRequired(action: ModerationActionName, groupRequiresOne: b
   return action === 'ban' || groupRequiresOne
 }
 
-/** The sentence that names what is about to happen, for the confirmation. */
-export function confirmTitle(action: ModerationActionName, name: string): string {
+/**
+ * The sentence that names what is about to happen, for the confirmation.
+ *
+ * "Ban X from the group?" asks about removing somebody, which is the wrong question for a person
+ * who was never in it: they are being kept out, not taken out. So a ban on somebody Modbot's
+ * member list says is not there asks "Ban X?" instead. Anyone whose membership Modbot has not read
+ * keeps the longer sentence, for the reason `actionsFor` keeps their kick.
+ */
+export function confirmTitle(
+  action: ModerationActionName,
+  name: string,
+  isMember?: boolean | null,
+): string {
   switch (action) {
     case 'kick':
       return `Kick ${name} from the group?`
     case 'ban':
-      return `Ban ${name} from the group?`
+      return isMember === false ? `Ban ${name}?` : `Ban ${name} from the group?`
     case 'unban':
       return `Unban ${name}?`
   }
