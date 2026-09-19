@@ -80,10 +80,16 @@ public static class OverlayView
         if (screen.Alert is { } alert)
             stack.Children.Add(AlertCard(alert, screen.GroupLabel));
 
-        if (screen.Person is { } person)
-            stack.Children.Add(PersonCard(person));
+        stack.Children.Add(Tabs(screen));
 
-        stack.Children.Add(RosterPanel(screen));
+        // One screen at a time. A panel that stacked all three would need scrolling to reach the
+        // bottom of, and scrolling in a headset is the thing to design out.
+        stack.Children.Add(screen.Page switch
+        {
+            OverlayPage.Events => EventsPanel(screen),
+            OverlayPage.Person when screen.Person is { } person => PersonCard(person),
+            _ => RosterPanel(screen),
+        });
 
         // Nothing behind the cards. The texture is square and the cards fill its top, so an
         // opaque ground would hang a dark slab over half the moderator's view; each card paints
@@ -135,8 +141,148 @@ public static class OverlayView
     }
 
     /// <summary>
+    /// The tabs across the top: the three screens, with the one showing marked. The Person tab is
+    /// there only while a person is open, because a tab that opens nothing is a dead control.
+    /// </summary>
+    private static Control Tabs(OverlayScreen screen)
+    {
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+
+        row.Children.Add(Tab("Instance", OverlayPage.Instance, screen.Page));
+        row.Children.Add(Tab("Events", OverlayPage.Events, screen.Page));
+
+        if (screen.Person is { } person)
+            row.Children.Add(Tab(person.DisplayName ?? person.SubjectId, OverlayPage.Person, screen.Page));
+
+        return row;
+    }
+
+    private static Control Tab(string caption, OverlayPage page, OverlayPage showing)
+    {
+        var chosen = page == showing;
+        var label = Text(caption, T.Density.TextBase, chosen ? T.TextBrush : T.TextDimBrush, chosen ? FontWeight.SemiBold : FontWeight.Normal);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+        label.MaxWidth = 220;
+
+        return new Border
+        {
+            Tag = new OverlayTarget.GoTo(page),
+            Background = chosen ? T.Surface2Brush : T.SurfaceBrush,
+            BorderBrush = chosen ? T.AccentForegroundBrush : T.BorderBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+
+            // A target a hand in a headset can actually land on.
+            MinWidth = 140,
+            MinHeight = T.Density.RowHeight,
+            Padding = new Thickness(16, 8),
+            Child = label,
+        };
+    }
+
+    /// <summary>
+    /// What the live link has heard for this instance, newest first: who joined, who left, who
+    /// was already here, and a watch ending.
+    /// </summary>
+    /// <remarks>
+    /// Drawn from what the drive loop already drained. Nothing is asked of a server to fill this
+    /// screen — opening it makes no request at all.
+    /// </remarks>
+    private static Control EventsPanel(OverlayScreen screen)
+    {
+        var rows = new StackPanel { Spacing = 2 };
+
+        rows.Children.Add(new DockPanel
+        {
+            LastChildFill = false,
+            Children =
+            {
+                Dock(Text(
+                    screen.GroupLabel is null ? "Not in a group instance" : screen.GroupLabel,
+                    T.Density.TextSmall,
+                    T.TextDimBrush,
+                    FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
+            },
+        });
+
+        var events = screen.EventsOrNone;
+        if (events.Count == 0)
+        {
+            rows.Children.Add(Text("Nothing yet.", T.Density.TextBase, T.TextDimBrush));
+        }
+        else
+        {
+            foreach (var @event in events.Take(MostEventRows))
+                rows.Children.Add(EventRow(@event));
+        }
+
+        return new Border
+        {
+            Tag = new OverlayTarget.Events(),
+            Background = T.SurfaceBrush,
+            BorderBrush = T.BorderBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(18, 14),
+            Child = rows,
+        };
+    }
+
+    /// <summary>How many event rows fit the panel. More than this and the oldest simply are not drawn.</summary>
+    private const int MostEventRows = 10;
+
+    private static Control EventRow(LiveEvent @event)
+    {
+        var flagged = @event.Flagged || @event.Kind == LiveEventKinds.FlaggedJoin;
+
+        var what = Text(
+            Words(@event.Kind),
+            T.Density.TextSmall,
+            flagged ? T.DangerBrush : T.TextDimBrush,
+            FontWeight.SemiBold);
+        what.VerticalAlignment = VerticalAlignment.Center;
+        what.Width = 110;
+
+        var who = Text(
+            @event.Person?.DisplayName ?? @event.Person?.SubjectId ?? "—",
+            T.Density.TextBase,
+            flagged ? T.TextBrush : T.TextDimBrush,
+            flagged ? FontWeight.SemiBold : FontWeight.Normal);
+        who.VerticalAlignment = VerticalAlignment.Center;
+
+        var line = new StackPanel
+        {
+            Tag = @event.Person is { } person ? new OverlayTarget.Person(person.SubjectId) : null,
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            Height = T.Density.RowHeight,
+            Children = { what, who },
+        };
+
+        // The clock the event arrived with, in the moderator's own time. It is the server's
+        // stamp, not this machine's.
+        var when = Text(@event.At.ToLocalTime().ToString("HH:mm"), T.Density.TextSmall, T.TextDimBrush);
+        when.VerticalAlignment = VerticalAlignment.Center;
+        line.Children.Add(when);
+
+        return line;
+    }
+
+    /// <summary>An event kind in plain words. An unknown kind is shown as it came, never guessed at.</summary>
+    private static string Words(string kind) => kind switch
+    {
+        LiveEventKinds.PersonJoined => "Joined",
+        LiveEventKinds.FlaggedJoin => "Flagged join",
+        LiveEventKinds.PersonLeft => "Left",
+        LiveEventKinds.PersonHere => "Already here",
+        LiveEventKinds.WatchStopped => "Watch ended",
+        _ => kind,
+    };
+
+    /// <summary>
     /// One person, opened from their roster row: what the roster already knew and what the
-    /// server's profile read added. Tapping the card closes it.
+    /// server's profile read added, with Back and Refresh under it.
     /// </summary>
     private static Control PersonCard(UserSummary person)
     {
@@ -170,9 +316,23 @@ public static class OverlayView
         if (person.JoinedAt is { } joined)
             lines.Children.Add(Text("Joined " + joined.ToString("yyyy-MM-dd"), T.Density.TextSmall, T.TextDimBrush));
 
+        // The only two things this panel can honestly do about a person: go back, and read their
+        // summary again. There is no ban, kick or warn here and there will not be one — the
+        // client's device token is ingest-scoped and could not carry one.
+        lines.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Margin = new Thickness(0, 8, 0, 0),
+            Children =
+            {
+                Press("Back", new OverlayTarget.ClosePerson()),
+                Press("Refresh", new OverlayTarget.RefreshPerson()),
+            },
+        });
+
         return new Border
         {
-            Tag = new OverlayTarget.ClosePerson(),
             Background = T.SurfaceBrush,
             BorderBrush = T.AccentForegroundBrush,
             BorderThickness = new Thickness(6, T.Density.Hairline, T.Density.Hairline, T.Density.Hairline),
@@ -386,6 +546,27 @@ public static class OverlayView
         }
 
         return line;
+    }
+
+    /// <summary>A control a controller can press, sized for a hand in a headset.</summary>
+    private static Control Press(string caption, OverlayTarget target)
+    {
+        var label = Text(caption, T.Density.TextBase, T.TextBrush, FontWeight.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+
+        return new Border
+        {
+            Tag = target,
+            Background = T.Surface2Brush,
+            BorderBrush = T.Border2Brush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            MinWidth = 140,
+            MinHeight = T.Density.RowHeight,
+            Padding = new Thickness(16, 8),
+            Child = label,
+        };
     }
 
     private static TextBlock Text(

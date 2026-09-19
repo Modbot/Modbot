@@ -46,6 +46,33 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime
     public static FallbackOverlayRuntime Create(int resolution = OverlayHost.DefaultResolution)
         => new(new OpenVrOverlayRuntime(), new OpenXrOverlayRuntime(resolution));
 
+    /// <summary>
+    /// One of Modbot's two panels, sharing what the VR runtimes insist on sharing and owning
+    /// everything else.
+    /// </summary>
+    /// <remarks>
+    /// <para>On OpenVR that is one attachment (<see cref="OpenVrSession"/>) with an overlay handle
+    /// each, because OpenVR's init is process-wide but overlays are not. On OpenXR it is one
+    /// session with a layer each, because a second session would mean a second Vulkan device and a
+    /// second frame thread for a second quad (two overlay modes design §4.3).</para>
+    /// <para>Either panel can be built, started, stopped and placed without the other existing at
+    /// all, which is what lets the two switches be independent.</para>
+    /// </remarks>
+    /// <param name="kind">Which panel.</param>
+    /// <param name="resolution">The main panel's texture, square.</param>
+    /// <param name="notificationResolution">The notification panel's. Smaller: a pop-up is three lines.</param>
+    public static FallbackOverlayRuntime CreateFor(
+        OverlayKind kind,
+        int resolution = OverlayHost.DefaultResolution,
+        int notificationResolution = OverlayHost.DefaultNotificationResolution)
+    {
+        var openXr = OpenXrOverlayRuntime.Shared(resolution, notificationResolution);
+
+        return new FallbackOverlayRuntime(
+            new OpenVrOverlayRuntime(kind),
+            kind is OverlayKind.Notification ? openXr.NotificationPanel : openXr);
+    }
+
     public OverlayRuntimeStatus Status { get; private set; } = new(OverlayRuntimeState.NotStarted, Detail: "No VR runtime has been looked for yet.");
 
     /// <summary>The runtime the overlay is showing through, or null while it is not showing.</summary>

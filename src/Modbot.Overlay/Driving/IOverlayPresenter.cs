@@ -26,3 +26,27 @@ public interface IOverlayPresenter
 
     void Hide();
 }
+
+/// <summary>
+/// Where a screen goes when there is no main panel to put it on: nowhere.
+/// </summary>
+/// <remarks>
+/// The drive loop runs whenever <em>either</em> overlay is on, because the notification overlay is
+/// fed by the same reads and the same live link as the main panel — a moderator who has switched
+/// the main panel off still wants to be told when a flagged person walks in (two overlay modes
+/// design §1). With the main panel off, this is what the screen is handed to.
+/// </remarks>
+public sealed class NoPanel : IOverlayPresenter
+{
+    public static NoPanel Instance { get; } = new();
+
+    public bool Update(OverlayScreen screen) => false;
+
+    public void Show()
+    {
+    }
+
+    public void Hide()
+    {
+    }
+}

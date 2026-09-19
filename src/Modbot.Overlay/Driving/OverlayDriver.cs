@@ -85,43 +85,70 @@ public sealed class OverlayDriver : IDisposable
     /// </remarks>
     public static readonly TimeSpan AlertCooldown = TimeSpan.FromMinutes(5);
 
-    private readonly IOverlayPresenter _presenter;
+    /// <summary>
+    /// How many live events the Events screen keeps. More than fits the panel, so scrolling has
+    /// somewhere to go, and far less than a session's worth: this is what just happened, not a
+    /// record. The record is the server's audit log.
+    /// </summary>
+    public const int MostEventsKept = 50;
+
     private readonly IOverlayReadClient _reads;
     private readonly ILiveSocketFactory? _sockets;
     private readonly IModbotClock _clock;
     private readonly IOverlayListener? _listener;
+    private readonly PopUps? _popUps;
     private readonly List<Server> _servers = [];
     private readonly Dictionary<string, DateTimeOffset> _lastAlerted = new(StringComparer.Ordinal);
+
+    // What the live link has heard for the instance the moderator is in, newest first.
+    private readonly List<LiveEvent> _events = [];
 
     private InstanceLocation? _instance;
     private FlaggedJoinAlert? _showing;
     private DateTimeOffset? _showingSince;
 
-    // What a tap on the panel opened: a person's card, and how far the roster is scrolled.
+    // What a tap on the panel opened: a person's card, which screen is showing, and how far the
+    // roster is scrolled.
     private UserSummary? _person;
     private string? _personWanted;
     private int _rosterSkip;
+    private OverlayPage _page = OverlayPage.Instance;
+
+    /// <summary>Which problem the notification overlay was last told about, so it is said once.</summary>
+    private string? _problemShown;
 
     /// <param name="listener">Told when an alert becomes a card and when a server rejects the token. Optional.</param>
     /// <param name="sockets">
     /// Opens the live WebSocket. Null means the link only ever long-polls, which is what the tests
     /// use and what a build without a socket would do.
     /// </param>
+    /// <param name="popUps">
+    /// The notification overlay's stack, when there is one. The loop puts a pop-up up for a
+    /// flagged arrival and for a Modbot fault; everything else stays on the main panel.
+    /// </param>
     public OverlayDriver(
         IOverlayPresenter presenter,
         IOverlayReadClient reads,
         IModbotClock clock,
         IOverlayListener? listener = null,
-        ILiveSocketFactory? sockets = null)
+        ILiveSocketFactory? sockets = null,
+        PopUps? popUps = null)
     {
         ArgumentNullException.ThrowIfNull(presenter);
 
-        _presenter = presenter;
+        Presenter = presenter;
         _reads = reads;
         _clock = clock;
         _listener = listener;
         _sockets = sockets;
+        _popUps = popUps;
     }
+
+    /// <summary>
+    /// Where the screen goes. Swapped when the main panel is switched on or off, because the loop
+    /// keeps running for the notification overlay either way (<see cref="NoPanel"/>).
+    /// </summary>
+    public IOverlayPresenter Presenter { get; set; }
 
     /// <summary>Adds a paired server the overlay may speak for.</summary>
     /// <param name="label">
@@ -168,12 +195,17 @@ public sealed class OverlayDriver : IDisposable
         _instance = instance;
 
         // A card about the instance you just left is worse than no card. Leaving clears it, and
-        // so does an open person card and the scroll position: another instance, another list.
+        // so does an open person card, the events list, the screen and the scroll position:
+        // another instance, another list.
         _showing = null;
         _showingSince = null;
         _person = null;
         _personWanted = null;
         _rosterSkip = 0;
+        _page = OverlayPage.Instance;
+        _events.Clear();
+        _problemShown = null;
+        _popUps?.ClearAll();
     }
 
     /// <summary>The moderator waved the card away. It does not come back.</summary>
@@ -189,9 +221,22 @@ public sealed class OverlayDriver : IDisposable
     /// <summary>How many roster rows are scrolled past.</summary>
     public int RosterSkip => _rosterSkip;
 
+    /// <summary>Which screen the main panel is on.</summary>
+    public OverlayPage Page => _page;
+
+    /// <summary>What the live link has heard here, newest first.</summary>
+    public IReadOnlyList<LiveEvent> Events => _events;
+
+    /// <summary>Shows one of the panel's screens, as a tab does.</summary>
+    public void GoTo(OverlayPage page)
+    {
+        // The Person screen with nobody open is a blank card. Asking for it shows the roster.
+        _page = page is OverlayPage.Person && _person is null ? OverlayPage.Instance : page;
+    }
+
     /// <summary>
-    /// A tap on the panel. The alert card dismisses, a roster row opens that person, the open
-    /// card closes, and a tap anywhere else closes an open card.
+    /// A tap on the panel. The alert card dismisses, a tab shows that screen, a roster or event
+    /// row opens that person, Back returns to the roster, and Refresh reads that person again.
     /// </summary>
     public void Tap(OverlayTarget? target)
     {
@@ -200,12 +245,21 @@ public sealed class OverlayDriver : IDisposable
             case OverlayTarget.DismissAlert:
                 Dismiss();
                 break;
+            case OverlayTarget.GoTo tab:
+                GoTo(tab.Page);
+                break;
             case OverlayTarget.Person person:
                 _ = OpenPersonAsync(person.SubjectId);
                 break;
-            default:
+            case OverlayTarget.RefreshPerson when _person is { } open:
+                _ = OpenPersonAsync(open.SubjectId);
+                break;
+            case OverlayTarget.ClosePerson:
                 _person = null;
                 _personWanted = null;
+                _page = OverlayPage.Instance;
+                break;
+            default:
                 break;
         }
     }
@@ -235,6 +289,7 @@ public sealed class OverlayDriver : IDisposable
             return;
 
         _personWanted = subjectId;
+        _page = OverlayPage.Person;
 
         var known = server.Cache.Context(_instance.InstanceId).Value?.Members.FirstOrDefault(m => m.SubjectId == subjectId);
         _person = known is null
@@ -278,7 +333,7 @@ public sealed class OverlayDriver : IDisposable
                 paired.Link.Follow(null);
 
             ExpireAlert();
-            return new OverlayTick(_presenter.Update(OverlayScreen.Idle), false, false);
+            return new OverlayTick(Presenter.Update(OverlayScreen.Idle), false, false);
         }
 
         foreach (var other in _servers.Where(s => s != server))
@@ -293,12 +348,12 @@ public sealed class OverlayDriver : IDisposable
 
         ExpireAlert();
 
-        return new OverlayTick(_presenter.Update(Build(server)), refreshed, raised);
+        return new OverlayTick(Presenter.Update(Build(server)), refreshed, raised);
     }
 
-    public void Show() => _presenter.Show();
+    public void Show() => Presenter.Show();
 
-    public void Hide() => _presenter.Hide();
+    public void Hide() => Presenter.Hide();
 
     public void Dispose()
     {
@@ -309,6 +364,8 @@ public sealed class OverlayDriver : IDisposable
         }
 
         _servers.Clear();
+        _events.Clear();
+        _popUps?.ClearAll();
     }
 
     private Server? Current()
@@ -400,6 +457,15 @@ public sealed class OverlayDriver : IDisposable
                 server.LastContextAttempt = null;
             }
 
+            // The Events screen. Only this instance's, newest first, and a fixed number of them:
+            // this is what just happened, not a record. The record is the server's audit log.
+            if (string.Equals(@event.InstanceId, _instance.InstanceId, StringComparison.Ordinal))
+            {
+                _events.Insert(0, @event);
+                if (_events.Count > MostEventsKept)
+                    _events.RemoveRange(MostEventsKept, _events.Count - MostEventsKept);
+            }
+
             // The reporting client already knows: it read the join out of its own log a moment
             // ago, and a card would be in front of the one moderator who does not need it.
             if (@event.ByThisDevice)
@@ -446,6 +512,17 @@ public sealed class OverlayDriver : IDisposable
         _showing = alert;
         _showingSince = _clock.UtcNow;
         _listener?.AlertShown(alert);
+
+        // The same news on the notification overlay, where a moderator who is not looking at the
+        // main panel will actually see it. Same rule, one decision: an alert the loop dropped is
+        // not put up here either.
+        _popUps?.Show(new PopUp(
+            "alert:" + alert.AlertId,
+            Current()?.Label is { Length: > 0 } label ? "Flagged user joined · " + label : "Flagged user joined",
+            alert.DisplayName ?? alert.SubjectId,
+            alert.Reason,
+            PopUpTone.Flagged));
+
         return true;
     }
 
@@ -468,15 +545,32 @@ public sealed class OverlayDriver : IDisposable
     private OverlayScreen Build(Server server)
     {
         var roster = server.Cache.Context(_instance!.InstanceId);
+        var problem = Health(server, roster);
+
+        // A fault is the other thing worth a pop-up: inside VRChat there is no email, no Discord
+        // and no browser. Said once per problem, not once per tick.
+        if (problem != _problemShown)
+        {
+            _problemShown = problem;
+            if (problem is { Length: > 0 })
+                _popUps?.Show(new PopUp("problem", "Modbot", problem, null, PopUpTone.Problem));
+            else
+                _popUps?.Clear("problem");
+        }
 
         return new OverlayScreen(
             server.Label,
             roster,
             roster.Freshness,
             _showing,
-            Health(server, roster),
+            problem,
             Person: _person,
-            RosterSkip: _rosterSkip);
+            RosterSkip: _rosterSkip,
+            Page: _page,
+
+            // A copy, not the list itself. The screen is a snapshot, and one that kept changing
+            // under the compositor would compare equal to itself and never redraw.
+            Events: [.. _events]);
     }
 
     /// <summary>

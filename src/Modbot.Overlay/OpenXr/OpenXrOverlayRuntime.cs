@@ -16,12 +16,19 @@ namespace Modbot.Overlay.OpenXr;
 /// </summary>
 /// <remarks>
 /// <para><strong>What this does.</strong> Opens a second OpenXR session marked as an overlay
-/// (<c>XR_EXTX_overlay</c>), whose one quad layer the runtime draws over VRChat's own frames.
-/// The quad sits where the placement says — on the head in the <c>VIEW</c> space, on a hand in
-/// that hand's aim space, or left in the room in <c>LOCAL</c> — and shows the same picture. The
-/// controllers are read through one action set (<see cref="OpenXrInput"/>) so the panel can be
-/// pointed at and held; that is the entire interaction: no other session is inspected, and
-/// nothing is sent anywhere.</para>
+/// (<c>XR_EXTX_overlay</c>), whose layers the runtime draws over VRChat's own frames. Each layer
+/// sits where its placement says — on the head in the <c>VIEW</c> space, on a hand in that hand's
+/// aim space, or left in the room in <c>LOCAL</c>. The controllers are read through one action set
+/// (<see cref="OpenXrInput"/>) so the main panel can be pointed at and held; that is the entire
+/// interaction: no other session is inspected, and nothing is sent anywhere.</para>
+/// <para><strong>Both panels ride one session.</strong> Modbot draws two panels, the main one and
+/// the notification one, and on OpenXR they are two layers on the same frame rather than two
+/// sessions. A second session would mean a second <c>XrInstance</c>, a second Vulkan device and a
+/// second frame thread on a machine that is also running VRChat, for two quads the runtime is
+/// perfectly happy to take together. So this type is the main panel's runtime, and
+/// <see cref="NotificationPanel"/> is a second one onto the same session; the session is attached
+/// when the first of them starts and let go when the last is disposed, so either panel can be
+/// switched off without taking the other down (two overlay modes design §4.2).</para>
 /// <para><strong>Opacity and curve</strong> are two optional extensions. Opacity goes through
 /// <c>XR_KHR_composition_layer_color_scale_bias</c> and curve through
 /// <c>XR_KHR_composition_layer_cylinder</c>; each is asked for only when the runtime lists it,
@@ -32,8 +39,8 @@ namespace Modbot.Overlay.OpenXr;
 /// machine with SteamVR the OpenVR runtime is tried first and this one is never reached, because
 /// SteamVR's own OpenXR has no overlay extension (overlay-on-OpenXR spec, 3.1).</para>
 /// <para><strong>A layer is submitted every frame</strong>, unlike OpenVR's set-once texture, so
-/// the runtime owns a frame thread. The picture is copied into a swapchain image only when the
-/// compositor drew something new; every other frame resubmits the image already there, which
+/// the runtime owns a frame thread. A picture is copied into a swapchain image only when the
+/// compositor drew something new; every other frame resubmits the images already there, which
 /// costs one <c>xrEndFrame</c> and nothing else.</para>
 /// <para><strong>Nothing is shipped and nothing is launched.</strong> The OpenXR loader and
 /// Vulkan come from the machine; a missing loader is a state, not a crash, and starting never
@@ -60,41 +67,102 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
     private static XR? _xrApi;
     private static Vulkan.Vk? _vkApi;
 
-    private readonly int _resolution;
+    /// <summary>The main panel and the notification panel, in that order.</summary>
+    internal const int PanelCount = 2;
+
+    private const int MainPanel = 0;
+
+    private const int NotifyPanel = 1;
+
     private readonly float _widthInMetres;
     private readonly ILogger _log;
-    private readonly PendingFrame _pending = new();
     private readonly LatestTracking _tracking = new();
-    private readonly byte[] _scratch;
+    private readonly PanelState[] _panels;
+    private readonly Lock _gate = new();
 
     private volatile Attachment? _attachment;
     private volatile OverlayRuntimeStatus _status = new(OverlayRuntimeState.NotStarted, Detail: "OpenXR has not been looked for yet.");
     private Thread? _frameThread;
     private volatile bool _stop;
-    private volatile bool _visible = true;
+    private int _wanted;
 
-    // Read by the frame thread, replaced whole by Place: a reference swap is atomic.
-    private OverlayPlacement _placement = OverlayPlacement.Default;
-
+    /// <param name="resolution">The main panel's texture, square.</param>
+    /// <param name="widthInMetres">How wide the main panel starts, until a placement says otherwise.</param>
+    /// <param name="log">Where the attachment's story goes.</param>
+    /// <param name="notificationResolution">
+    /// The notification panel's texture. Null makes it the same as the main panel's; the client
+    /// gives it a smaller one, because a pop-up is three lines.
+    /// </param>
     public OpenXrOverlayRuntime(
         int resolution = OverlayHost.DefaultResolution,
         float widthInMetres = OpenVrOverlayRuntime.DefaultWidthInMetres,
-        ILogger? log = null)
+        ILogger? log = null,
+        int? notificationResolution = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(resolution, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(notificationResolution ?? 1, 1);
 
-        _resolution = resolution;
         _widthInMetres = widthInMetres;
         _log = log ?? Log.ForContext<OpenXrOverlayRuntime>();
-        _scratch = new byte[resolution * resolution * 4];
+
+        // Each panel keeps its own size: the swapchains are made once, at these, and the sub-image
+        // rectangle a layer names has to match the swapchain it came from.
+        _panels = [new PanelState(resolution), new PanelState(notificationResolution ?? resolution)];
+        NotificationPanel = new PanelRuntime(this, NotifyPanel);
+    }
+
+    /// <summary>
+    /// The notification panel, as a runtime of its own: the same session, its own layer, its own
+    /// placement and its own on and off.
+    /// </summary>
+    public IOverlayRuntime NotificationPanel { get; }
+
+    private static readonly Lock SharedGate = new();
+
+    private static OpenXrOverlayRuntime? _shared;
+
+    /// <summary>
+    /// The one OpenXR session the client's panels share, made on the first ask.
+    /// </summary>
+    /// <remarks>
+    /// <para>Shared for the same reason <see cref="OpenVrSession"/> is: one process, one session.
+    /// Either panel may be the first to ask for it and either may be the last to let it go, so
+    /// neither can own it. Letting go tears the attachment down but leaves this object, which
+    /// attaches again the next time a panel starts.</para>
+    /// <para>The sizes are taken from the first ask and kept, because the swapchains are made
+    /// once. In this client both asks pass the same two constants.</para>
+    /// </remarks>
+    public static OpenXrOverlayRuntime Shared(
+        int resolution = OverlayHost.DefaultResolution,
+        int notificationResolution = OverlayHost.DefaultNotificationResolution)
+    {
+        lock (SharedGate)
+            return _shared ??= new OpenXrOverlayRuntime(resolution, notificationResolution: notificationResolution);
     }
 
     public OverlayRuntimeStatus Status => _status;
 
     /// <summary>Whether a picture handed over by <see cref="Submit"/> is still waiting for a frame.</summary>
-    public bool HasPendingFrame => _pending.HasPending;
+    public bool HasPendingFrame => _panels[MainPanel].Pending.HasPending;
 
-    public OverlayRuntimeStatus Start()
+    public OverlayRuntimeStatus Start() => StartPanel(MainPanel);
+
+    /// <summary>Counts one panel in, and attaches the session if it is not up yet.</summary>
+    private OverlayRuntimeStatus StartPanel(int panel)
+    {
+        lock (_gate)
+        {
+            if (!_panels[panel].Wanted)
+            {
+                _panels[panel].Wanted = true;
+                _wanted++;
+            }
+
+            return StartShared();
+        }
+    }
+
+    private OverlayRuntimeStatus StartShared()
     {
         if (_status.State is OverlayRuntimeState.Running)
             return _status;
@@ -151,21 +219,24 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
     /// Keeps the surface's pixels for the frame thread. Kept even before <see cref="Start"/>, so
     /// the first frame after attaching shows the last thing drawn rather than nothing.
     /// </summary>
-    public bool Submit(IOverlaySurface surface)
+    public bool Submit(IOverlaySurface surface) => SubmitTo(MainPanel, surface);
+
+    private bool SubmitTo(int panel, IOverlaySurface surface)
     {
         ArgumentNullException.ThrowIfNull(surface);
 
+        var state = _panels[panel];
         var pixels = surface.Pixels.Span;
-        if (pixels.Length != _scratch.Length)
+        if (pixels.Length != state.Scratch.Length)
             return false;
 
-        _pending.Offer(pixels);
+        state.Pending.Offer(pixels);
         return true;
     }
 
-    public void Show() => _visible = true;
+    public void Show() => _panels[MainPanel].Visible = true;
 
-    public void Hide() => _visible = false;
+    public void Hide() => _panels[MainPanel].Visible = false;
 
     /// <summary>What the frame thread last read, synced once a frame; none before the first frame or after the session is gone.</summary>
     public OverlayTracking ReadTracking() => _tracking.Read();
@@ -175,29 +246,50 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
     /// LOCAL for the world), the size, the opacity and the curve on its next frame. A hand anchor
     /// before the action set exists is shown on the head meanwhile.
     /// </summary>
-    public void Place(OverlayPlacement placement)
+    public void Place(OverlayPlacement placement) => PlacePanel(MainPanel, placement);
+
+    private void PlacePanel(int panel, OverlayPlacement placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
 
+        var state = _panels[panel];
         var clamped = placement.Clamped();
-        if (clamped.Anchor != _placement.Anchor)
-            _log.Debug("The panel is now anchored to the {Anchor}", clamped.Anchor);
+        if (clamped.Anchor != state.Placement.Anchor)
+            _log.Debug("Panel {Panel} is now anchored to the {Anchor}", panel, clamped.Anchor);
 
-        _placement = clamped;
+        state.Placement = clamped;
     }
 
-    public void Dispose()
+    public void Dispose() => ReleasePanel(MainPanel);
+
+    /// <summary>
+    /// Counts one panel out. The session is let go when the last panel does, so switching the
+    /// main overlay off leaves the notification overlay attached, and the other way round.
+    /// </summary>
+    private void ReleasePanel(int panel)
     {
-        _stop = true;
-        _frameThread?.Join(TimeSpan.FromSeconds(5));
-        _frameThread = null;
+        lock (_gate)
+        {
+            if (_panels[panel].Wanted)
+            {
+                _panels[panel].Wanted = false;
+                _wanted--;
+            }
 
-        var attachment = _attachment;
-        _attachment = null;
-        attachment?.Dispose();
-        _tracking.Clear();
+            if (_wanted > 0)
+                return;
 
-        _status = new(OverlayRuntimeState.NotStarted, Detail: "The overlay has been let go.");
+            _stop = true;
+            _frameThread?.Join(TimeSpan.FromSeconds(5));
+            _frameThread = null;
+
+            var attachment = _attachment;
+            _attachment = null;
+            attachment?.Dispose();
+            _tracking.Clear();
+
+            _status = new(OverlayRuntimeState.NotStarted, Detail: "The overlay has been let go.");
+        }
     }
 
     // ---- Start-up, step by step (overlay-on-OpenXR spec, 3.2) ----
@@ -276,17 +368,24 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
                     attachment.RuntimeName, failure.Detail);
             }
 
-            CreateSwapchain(attachment);
-            _log.Information("Swapchain of {Count} {Format} images at {Size}x{Size} created",
-                attachment.Images.Length, attachment.Format.Name, _resolution);
-
             attachment.BlendMode = ChooseBlendMode(attachment);
             _log.Debug("Environment blend mode {Mode}", attachment.BlendMode);
 
-            attachment.Uploader = VulkanUploader.Create(
-                attachment.Vk, attachment.PhysicalDevice, attachment.Device, attachment.Queue, attachment.QueueFamily,
-                (uint)_resolution, (uint)_resolution, attachment.Format);
-            _log.Debug("Staging buffer of {Bytes} bytes ready", attachment.Uploader.FrameLength);
+            // One swapchain and one staging buffer per panel, each at that panel's own size.
+            for (var index = 0; index < PanelCount; index++)
+            {
+                var gpu = attachment.Panels[index];
+                var size = _panels[index].Resolution;
+
+                CreateSwapchain(attachment, gpu, size);
+
+                gpu.Uploader = VulkanUploader.Create(
+                    attachment.Vk, attachment.PhysicalDevice, attachment.Device, attachment.Queue, attachment.QueueFamily,
+                    (uint)size, (uint)size, attachment.Format);
+
+                _log.Debug("Panel {Panel}: swapchain of {Count} {Format} images at {Size}x{Size}",
+                    index, gpu.Images.Length, attachment.Format.Name, size);
+            }
 
             return attachment;
         }
@@ -632,7 +731,7 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         return space;
     }
 
-    private unsafe void CreateSwapchain(Attachment a)
+    private unsafe void CreateSwapchain(Attachment a, Attachment.PanelGpu gpu, int size)
     {
         uint count = 0;
         CheckXr(a.Xr.EnumerateSwapchainFormats(a.Session, 0, &count, null), a.RuntimeName, "xrEnumerateSwapchainFormats");
@@ -652,8 +751,8 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
             UsageFlags = SwapchainUsageFlags.ColorAttachmentBit | SwapchainUsageFlags.TransferDstBit,
             Format = a.Format.VulkanFormat,
             SampleCount = 1,
-            Width = (uint)_resolution,
-            Height = (uint)_resolution,
+            Width = (uint)size,
+            Height = (uint)size,
             FaceCount = 1,
             ArraySize = 1,
             MipCount = 1,
@@ -661,22 +760,22 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
 
         Swapchain swapchain;
         CheckXr(a.Xr.CreateSwapchain(a.Session, &info, &swapchain), a.RuntimeName, "xrCreateSwapchain");
-        a.Swapchain = swapchain;
+        gpu.Swapchain = swapchain;
 
         uint imageCount = 0;
-        CheckXr(a.Xr.EnumerateSwapchainImages(a.Swapchain, 0, &imageCount, null), a.RuntimeName, "xrEnumerateSwapchainImages");
+        CheckXr(a.Xr.EnumerateSwapchainImages(gpu.Swapchain, 0, &imageCount, null), a.RuntimeName, "xrEnumerateSwapchainImages");
         var images = new SwapchainImageVulkanKHR[imageCount];
         for (var i = 0; i < images.Length; i++)
             images[i].Type = StructureType.SwapchainImageVulkanKhr;
 
         fixed (SwapchainImageVulkanKHR* p = images)
-            CheckXr(a.Xr.EnumerateSwapchainImages(a.Swapchain, imageCount, &imageCount, (SwapchainImageBaseHeader*)p), a.RuntimeName, "xrEnumerateSwapchainImages");
+            CheckXr(a.Xr.EnumerateSwapchainImages(gpu.Swapchain, imageCount, &imageCount, (SwapchainImageBaseHeader*)p), a.RuntimeName, "xrEnumerateSwapchainImages");
 
-        a.Images = new Vulkan.Image[imageCount];
+        gpu.Images = new Vulkan.Image[imageCount];
         for (var i = 0; i < imageCount; i++)
-            a.Images[i] = new Vulkan.Image(images[i].Image);
+            gpu.Images[i] = new Vulkan.Image(images[i].Image);
 
-        if (a.Images.Length == 0)
+        if (gpu.Images.Length == 0)
             throw new OverlayStartFailure(OverlayRuntimeState.Refused, $"{a.RuntimeName} made a swapchain with no images.");
     }
 
@@ -843,95 +942,107 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         var beginInfo = new FrameBeginInfo { Type = StructureType.FrameBeginInfo };
         CheckXr(a.Xr.BeginFrame(a.Session, &beginInfo), a.RuntimeName, "xrBeginFrame");
 
-        // The copy is the only work that depends on content, and it happens only when the
-        // compositor drew. Everything else is the same frame resubmitted.
-        if (frameState.ShouldRender != 0 && _pending.TryTake(_scratch))
+        // One of each per panel, all on this frame's stack. A panel points at exactly one of its
+        // quad and its cylinder, and only the panels with something to show are counted in.
+        var quads = stackalloc CompositionLayerQuad[PanelCount];
+        var cylinders = stackalloc CompositionLayerCylinderKHR[PanelCount];
+        var fades = stackalloc CompositionLayerColorScaleBiasKHR[PanelCount];
+        var layers = stackalloc nint[PanelCount];
+        var shown = 0u;
+
+        for (var index = 0; index < PanelCount; index++)
         {
-            a.Uploader!.Stage(_scratch);
+            var state = _panels[index];
+            var gpu = a.Panels[index];
 
-            var acquireInfo = new SwapchainImageAcquireInfo { Type = StructureType.SwapchainImageAcquireInfo };
-            uint index;
-            CheckXr(a.Xr.AcquireSwapchainImage(a.Swapchain, &acquireInfo, &index), a.RuntimeName, "xrAcquireSwapchainImage");
-
-            var waitImage = new SwapchainImageWaitInfo { Type = StructureType.SwapchainImageWaitInfo, Timeout = InfiniteDuration };
-            CheckXr(a.Xr.WaitSwapchainImage(a.Swapchain, &waitImage), a.RuntimeName, "xrWaitSwapchainImage");
-
-            a.Uploader.Upload(a.Images[index]);
-
-            var releaseInfo = new SwapchainImageReleaseInfo { Type = StructureType.SwapchainImageReleaseInfo };
-            CheckXr(a.Xr.ReleaseSwapchainImage(a.Swapchain, &releaseInfo), a.RuntimeName, "xrReleaseSwapchainImage");
-
-            if (!a.Uploaded)
-                _log.Information("First picture uploaded to the OpenXR overlay");
-            a.Uploaded = true;
-        }
-
-        var placement = _placement;
-        var panel = Pose.From(placement.Offset);
-        var subImage = new SwapchainSubImage
-        {
-            Swapchain = a.Swapchain,
-            ImageRect = new Rect2Di(new Offset2Di(0, 0), new Extent2Di(_resolution, _resolution)),
-            ImageArrayIndex = 0,
-        };
-
-        // Opacity, when the runtime can. The pixels are premultiplied and the layer blends on
-        // their alpha, so every channel is scaled together: scaling alpha alone would leave the
-        // colour at full strength over a fainter cut-out, which reads as a glow, not a fade.
-        var fade = new CompositionLayerColorScaleBiasKHR
-        {
-            Type = StructureType.CompositionLayerColorScaleBiasKhr,
-            ColorScale = new Color4f(placement.Opacity, placement.Opacity, placement.Opacity, placement.Opacity),
-            ColorBias = new Color4f(0f, 0f, 0f, 0f),
-        };
-        var next = a.CanFade ? &fade : null;
-
-        // Both layers live on this frame's stack; only one is pointed at.
-        var quad = default(CompositionLayerQuad);
-        var cylinder = default(CompositionLayerCylinderKHR);
-        CompositionLayerBaseHeader* layer;
-
-        if (a.CanCurve && CurvedPanel.For(placement.Width, placement.Curve) is { } curved)
-        {
-            cylinder = new CompositionLayerCylinderKHR
+            // The copy is the only work that depends on content, and it happens only when the
+            // compositor drew. Everything else is the same frame resubmitted.
+            if (frameState.ShouldRender != 0 && state.Pending.TryTake(state.Scratch))
             {
-                Type = StructureType.CompositionLayerCylinderKhr,
-                Next = next,
-                LayerFlags = CompositionLayerFlags.BlendTextureSourceAlphaBit,
-                Space = SpaceFor(a, placement.Anchor),
-                EyeVisibility = EyeVisibility.Both,
-                SubImage = subImage,
-                Pose = OpenXrCalls.ToPosef(curved.CentreOf(panel)),
-                Radius = curved.Radius,
-                CentralAngle = curved.CentralAngle,
-                AspectRatio = 1f,
-            };
-            layer = (CompositionLayerBaseHeader*)&cylinder;
-        }
-        else
-        {
-            quad = new CompositionLayerQuad
+                gpu.Uploader!.Stage(state.Scratch);
+
+                var acquireInfo = new SwapchainImageAcquireInfo { Type = StructureType.SwapchainImageAcquireInfo };
+                uint image;
+                CheckXr(a.Xr.AcquireSwapchainImage(gpu.Swapchain, &acquireInfo, &image), a.RuntimeName, "xrAcquireSwapchainImage");
+
+                var waitImage = new SwapchainImageWaitInfo { Type = StructureType.SwapchainImageWaitInfo, Timeout = InfiniteDuration };
+                CheckXr(a.Xr.WaitSwapchainImage(gpu.Swapchain, &waitImage), a.RuntimeName, "xrWaitSwapchainImage");
+
+                gpu.Uploader.Upload(gpu.Images[image]);
+
+                var releaseInfo = new SwapchainImageReleaseInfo { Type = StructureType.SwapchainImageReleaseInfo };
+                CheckXr(a.Xr.ReleaseSwapchainImage(gpu.Swapchain, &releaseInfo), a.RuntimeName, "xrReleaseSwapchainImage");
+
+                if (!gpu.Uploaded)
+                    _log.Information("First picture uploaded to OpenXR panel {Panel}", index);
+                gpu.Uploaded = true;
+            }
+
+            if (frameState.ShouldRender == 0 || !state.Wanted || !state.Visible || !gpu.Uploaded)
+                continue;
+
+            var placement = state.Placement;
+            var panel = Pose.From(placement.Offset);
+            var subImage = new SwapchainSubImage
             {
-                Type = StructureType.CompositionLayerQuad,
-                Next = next,
-                LayerFlags = CompositionLayerFlags.BlendTextureSourceAlphaBit,
-                Space = SpaceFor(a, placement.Anchor),
-                EyeVisibility = EyeVisibility.Both,
-                SubImage = subImage,
-                Pose = OpenXrCalls.ToPosef(panel),
-                Size = new Extent2Df(placement.Width, placement.Width),
+                Swapchain = gpu.Swapchain,
+                ImageRect = new Rect2Di(new Offset2Di(0, 0), new Extent2Di(state.Resolution, state.Resolution)),
+                ImageArrayIndex = 0,
             };
-            layer = (CompositionLayerBaseHeader*)&quad;
+
+            // Opacity, when the runtime can. The pixels are premultiplied and the layer blends on
+            // their alpha, so every channel is scaled together: scaling alpha alone would leave
+            // the colour at full strength over a fainter cut-out, which reads as a glow, not a
+            // fade.
+            fades[index] = new CompositionLayerColorScaleBiasKHR
+            {
+                Type = StructureType.CompositionLayerColorScaleBiasKhr,
+                ColorScale = new Color4f(placement.Opacity, placement.Opacity, placement.Opacity, placement.Opacity),
+                ColorBias = new Color4f(0f, 0f, 0f, 0f),
+            };
+            var next = a.CanFade ? &fades[index] : null;
+
+            if (a.CanCurve && CurvedPanel.For(placement.Width, placement.Curve) is { } curved)
+            {
+                cylinders[index] = new CompositionLayerCylinderKHR
+                {
+                    Type = StructureType.CompositionLayerCylinderKhr,
+                    Next = next,
+                    LayerFlags = CompositionLayerFlags.BlendTextureSourceAlphaBit,
+                    Space = SpaceFor(a, placement.Anchor),
+                    EyeVisibility = EyeVisibility.Both,
+                    SubImage = subImage,
+                    Pose = OpenXrCalls.ToPosef(curved.CentreOf(panel)),
+                    Radius = curved.Radius,
+                    CentralAngle = curved.CentralAngle,
+                    AspectRatio = 1f,
+                };
+                layers[shown++] = (nint)(&cylinders[index]);
+            }
+            else
+            {
+                quads[index] = new CompositionLayerQuad
+                {
+                    Type = StructureType.CompositionLayerQuad,
+                    Next = next,
+                    LayerFlags = CompositionLayerFlags.BlendTextureSourceAlphaBit,
+                    Space = SpaceFor(a, placement.Anchor),
+                    EyeVisibility = EyeVisibility.Both,
+                    SubImage = subImage,
+                    Pose = OpenXrCalls.ToPosef(panel),
+                    Size = new Extent2Df(placement.Width, placement.Width),
+                };
+                layers[shown++] = (nint)(&quads[index]);
+            }
         }
 
-        var show = frameState.ShouldRender != 0 && _visible && a.Uploaded;
         var endInfo = new FrameEndInfo
         {
             Type = StructureType.FrameEndInfo,
             DisplayTime = frameState.PredictedDisplayTime,
             EnvironmentBlendMode = a.BlendMode,
-            LayerCount = show ? 1u : 0u,
-            Layers = show ? &layer : null,
+            LayerCount = shown,
+            Layers = shown > 0 ? (CompositionLayerBaseHeader**)layers : null,
         };
         CheckXr(a.Xr.EndFrame(a.Session, &endInfo), a.RuntimeName, "xrEndFrame");
     }
@@ -1013,37 +1124,54 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
         public Session Session;
         public Space ViewSpace;
         public Space LocalSpace;
-        public Swapchain Swapchain;
-        public Vulkan.Image[] Images = [];
         public SwapchainFormat Format = SwapchainFormat.Bgra;
         public EnvironmentBlendMode BlendMode = EnvironmentBlendMode.Opaque;
-        public VulkanUploader? Uploader;
         public OpenXrInput? Input;
         public bool InputFailed;
         public bool CanFade;
         public bool CanCurve;
         public bool SessionRunning;
-        public bool Uploaded;
+
+        /// <summary>What each panel owns on the graphics card, in the same order as the panels.</summary>
+        public PanelGpu[] Panels { get; } = [new PanelGpu(), new PanelGpu()];
+
+        /// <summary>One panel's swapchain, its images and the staging buffer that fills them.</summary>
+        public sealed class PanelGpu
+        {
+            public Swapchain Swapchain;
+            public Vulkan.Image[] Images = [];
+            public VulkanUploader? Uploader;
+            public bool Uploaded;
+        }
 
         public void Dispose()
         {
-            Uploader?.Dispose();
-            Uploader = null;
+            foreach (var panel in Panels)
+            {
+                panel.Uploader?.Dispose();
+                panel.Uploader = null;
+            }
 
             // The aim spaces belong to the session and the set to the instance; both go before
             // either parent does.
             Input?.Dispose();
             Input = null;
 
-            if (Swapchain.Handle != 0)
-                Xr.DestroySwapchain(Swapchain);
+            foreach (var panel in Panels)
+            {
+                if (panel.Swapchain.Handle != 0)
+                    Xr.DestroySwapchain(panel.Swapchain);
+                panel.Swapchain = default;
+                panel.Images = [];
+                panel.Uploaded = false;
+            }
+
             if (LocalSpace.Handle != 0)
                 Xr.DestroySpace(LocalSpace);
             if (ViewSpace.Handle != 0)
                 Xr.DestroySpace(ViewSpace);
             if (Session.Handle != 0)
                 Xr.DestroySession(Session);
-            Swapchain = default;
             LocalSpace = default;
             ViewSpace = default;
             Session = default;
@@ -1063,5 +1191,61 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
                 Xr.DestroyInstance(Instance);
             Instance = default;
         }
+    }
+
+    /// <summary>
+    /// One panel as the runtime keeps it between attachments: the picture waiting to go up, where
+    /// the panel is, and whether anybody wants it drawn.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Attachment.PanelGpu"/> on purpose. A picture offered before the
+    /// runtime attached, and a placement set from the settings page with no headset on, both have
+    /// to survive an attachment coming and going.
+    /// </remarks>
+    private sealed class PanelState(int resolution)
+    {
+        public readonly PendingFrame Pending = new();
+
+        /// <summary>This panel's texture, square. The two panels need not be the same size.</summary>
+        public readonly int Resolution = resolution;
+
+        public readonly byte[] Scratch = new byte[resolution * resolution * 4];
+
+        /// <summary>Whether a runtime has started this panel and not yet let it go.</summary>
+        public volatile bool Wanted;
+
+        /// <summary>Show and Hide. A hidden panel is still attached; it is simply not submitted.</summary>
+        public volatile bool Visible = true;
+
+        // Read by the frame thread, replaced whole by Place: a reference swap is atomic.
+        public OverlayPlacement Placement = OverlayPlacement.Default;
+    }
+
+    /// <summary>
+    /// A second panel on the same session, as an ordinary runtime.
+    /// </summary>
+    /// <remarks>
+    /// Starting it attaches the session if it is not up; disposing it lets the session go only if
+    /// it was the last panel wanting it. Everything else is that panel's own.
+    /// </remarks>
+    private sealed class PanelRuntime(OpenXrOverlayRuntime owner, int panel) : IOverlayRuntime
+    {
+        public OverlayRuntimeStatus Status => owner._status;
+
+        public OverlayRuntimeStatus Start() => owner.StartPanel(panel);
+
+        public void Poll() => owner.Poll();
+
+        public bool Submit(IOverlaySurface surface) => owner.SubmitTo(panel, surface);
+
+        public void Show() => owner._panels[panel].Visible = true;
+
+        public void Hide() => owner._panels[panel].Visible = false;
+
+        public OverlayTracking ReadTracking() => owner.ReadTracking();
+
+        public void Place(OverlayPlacement placement) => owner.PlacePanel(panel, placement);
+
+        public void Dispose() => owner.ReleasePanel(panel);
     }
 }

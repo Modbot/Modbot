@@ -23,6 +23,21 @@ public abstract record OverlayTarget
 
     /// <summary>The roster list. Scrolling while pointing here moves the list.</summary>
     public sealed record Roster : OverlayTarget;
+
+    /// <summary>A tab across the top of the panel. Tapping it shows that screen.</summary>
+    public sealed record GoTo(Views.OverlayPage Page) : OverlayTarget;
+
+    /// <summary>The person screen's Refresh: read that one person's summary again.</summary>
+    /// <remarks>
+    /// A read, and the only one a tap can ask for. There is deliberately no target that acts on a
+    /// person: the companion observes and reports and never acts, and its device token is
+    /// ingest-scoped and could not carry a moderation action even if something here tried
+    /// (M3 §10; two overlay modes design §3.1).
+    /// </remarks>
+    public sealed record RefreshPerson : OverlayTarget;
+
+    /// <summary>The events list. Scrolling while pointing here moves the list.</summary>
+    public sealed record Events : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>

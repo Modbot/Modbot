@@ -5,6 +5,24 @@ namespace Modbot.Overlay.Views;
 /// <summary>A point on the panel as fractions: 0 at the left or top edge, 1 at the right or bottom.</summary>
 public readonly record struct PanelCursor(float Across, float Down);
 
+/// <summary>Which screen of the main panel is showing.</summary>
+/// <remarks>
+/// Three, moved between by the tabs across the top and by tapping a roster row. Reading is fine in
+/// VR; scrolling and typing are hostile, so each screen is one short list or one short card rather
+/// than a page that has to be worked through (two overlay modes design §3).
+/// </remarks>
+public enum OverlayPage
+{
+    /// <summary>Who is in the instance. Where the panel opens.</summary>
+    Instance,
+
+    /// <summary>What the live link has heard here, newest first.</summary>
+    Events,
+
+    /// <summary>One person, opened by tapping their row.</summary>
+    Person,
+}
+
 /// <summary>
 /// Everything the overlay draws, in one immutable snapshot.
 /// </summary>
@@ -28,6 +46,8 @@ public readonly record struct PanelCursor(float Across, float Down);
 /// <param name="Person">A person's card, opened by tapping their row, or null.</param>
 /// <param name="RosterSkip">How many rows the roster has been scrolled past.</param>
 /// <param name="Cursor">Where a controller points at the panel, or null when none does.</param>
+/// <param name="Page">Which of the three screens the panel is on.</param>
+/// <param name="Events">What the live link has heard for this instance, newest first.</param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -37,8 +57,13 @@ public sealed record OverlayScreen(
     bool ShowIdleCard = false,
     UserSummary? Person = null,
     int RosterSkip = 0,
-    PanelCursor? Cursor = null)
+    PanelCursor? Cursor = null,
+    OverlayPage Page = OverlayPage.Instance,
+    IReadOnlyList<LiveEvent>? Events = null)
 {
+    /// <summary>What the live link has heard, never null.</summary>
+    public IReadOnlyList<LiveEvent> EventsOrNone => Events ?? [];
+
     /// <summary>
     /// Nothing to say: no group, no roster, no alert, no problem. Drawn as nothing at all unless
     /// <see cref="ShowIdleCard"/> asks for the card, which only the companion's debug page does.
@@ -66,13 +91,24 @@ public sealed record OverlayScreen(
             && ShowIdleCard == other.ShowIdleCard
             && RosterSkip == other.RosterSkip
             && Cursor == other.Cursor
+            && Page == other.Page
+            && SameEvents(EventsOrNone, other.EventsOrNone)
             && Person?.SubjectId == other.Person?.SubjectId
+            && Person?.DisplayName == other.Person?.DisplayName
+            && Person?.Roles.Count == other.Person?.Roles.Count
             && Freshness == other.Freshness
             && Health == other.Health
             && Alert?.AlertId == other.Alert?.AlertId
             && Roster.Describe() == other.Roster.Describe()
             && SameRoster(Roster.Value, other.Roster.Value);
     }
+
+    /// <summary>
+    /// Events only ever arrive at the front, so the count and the newest one's id are enough to
+    /// tell two lists apart without walking them on every tick.
+    /// </summary>
+    private static bool SameEvents(IReadOnlyList<LiveEvent> a, IReadOnlyList<LiveEvent> b)
+        => a.Count == b.Count && (a.Count == 0 || string.Equals(a[0].Id, b[0].Id, StringComparison.Ordinal));
 
     private static bool SameRoster(InstanceContext? a, InstanceContext? b)
     {

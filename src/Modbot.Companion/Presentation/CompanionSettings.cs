@@ -22,6 +22,8 @@ namespace Modbot.Companion.Presentation;
 /// (<c>{ "endpoint": "…", "disabled": true }</c>), <c>voice</c>
 /// (<c>{ "on": true, "joins": true, "leaves": true, "flaggedJoins": true, "volume": 80, "outputDevice": "…" }</c>)
 /// and <c>eventsFilters</c> (the Events page's filter chips, one line each, such as <c>"kind:is:joined,left"</c>).
+/// The notification overlay is its own object, <c>notifyOverlay</c>, kept apart from the main overlay's so
+/// either can be changed without touching the other.
 /// If it is missing or unreadable the defaults are
 /// used. The client writes it only when a switch on the settings screen is changed, and then changes
 /// only that switch's field — the whole <c>voice</c> object for the voice card — leaving anything
@@ -81,6 +83,17 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public OverlayPlacement Overlay { get; init; } = OverlayPlacement.Default;
 
     /// <summary>
+    /// The notification overlay: whether it is drawn, where on the screen it sits, how big, and
+    /// how long one pop-up stays. Saved as the <c>notifyOverlay</c> object.
+    /// </summary>
+    /// <remarks>
+    /// Its switch lives inside the object, unlike the main overlay's, because nothing but the
+    /// settings page ever writes this one — a controller cannot move it, so there is no write it
+    /// could be lost in (two overlay modes design §5).
+    /// </remarks>
+    public NotificationSettings NotifyOverlay { get; init; } = NotificationSettings.Default;
+
+    /// <summary>
     /// The Events page's filter chips, saved as <c>eventsFilters</c> whenever the bar changes,
     /// so the page opens the way it was left.
     /// </summary>
@@ -99,6 +112,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string OverlayOnField = "overlayOn";
 
     public const string OverlayField = "overlay";
+
+    public const string NotifyOverlayField = "notifyOverlay";
 
     public const string VoiceField = "voice";
 
@@ -132,6 +147,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
             OverlayOn = shape?.OverlayOn ?? true,
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
+            NotifyOverlay = NotificationSettings.FromJson(shape?.NotifyOverlay),
             Voice = FromShape(shape?.Voice),
             EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
         };
@@ -152,6 +168,16 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentNullException.ThrowIfNull(placement);
         return SaveField(path, OverlayField, placement.Clamped().ToJson());
+    }
+
+    /// <summary>
+    /// Writes the whole <c>notifyOverlay</c> object, keeping every other field in the file. The
+    /// same rules as <see cref="SaveSwitch"/>: a file that cannot be read as JSON is left alone.
+    /// </summary>
+    public static bool SaveNotifyOverlay(string path, NotificationSettings notifyOverlay)
+    {
+        ArgumentNullException.ThrowIfNull(notifyOverlay);
+        return SaveField(path, NotifyOverlayField, notifyOverlay.ToJson());
     }
 
     private static VoiceSettings FromShape(VoiceShape? voice) => voice is null
@@ -276,6 +302,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("cloud")] CloudShape? Cloud,
         [property: JsonPropertyName("overlayOn")] bool? OverlayOn,
         [property: JsonPropertyName("overlay")] JsonObject? Overlay,
+        [property: JsonPropertyName("notifyOverlay")] JsonObject? NotifyOverlay,
         [property: JsonPropertyName("voice")] VoiceShape? Voice,
         [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters);
 

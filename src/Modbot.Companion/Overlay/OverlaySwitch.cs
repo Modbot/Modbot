@@ -9,8 +9,11 @@ namespace Modbot.Companion.Overlay;
 /// moderator who turns it off gets none of that, rather than a panel drawn where nobody can see
 /// it. This holds the rule: start is never called while it is off, stop is never called for
 /// something that was not started, and neither is called twice in a row.</para>
-/// <para>The setting itself lives in <c>settings.json</c> as <c>overlayOn</c>
-/// (<see cref="Presentation.CompanionSettings.OverlayOn"/>); this is what the client does about it.</para>
+/// <para>The setting itself lives in <c>settings.json</c>; this is what the client does about it.
+/// There is one of these per panel: the main overlay's reads <c>overlayOn</c>
+/// (<see cref="Presentation.CompanionSettings.OverlayOn"/>) and the notification overlay's reads
+/// <c>on</c> inside <c>notifyOverlay</c> (<see cref="NotificationSettings.On"/>). Neither can take
+/// the other down.</para>
 /// </remarks>
 /// <param name="start">Builds the panel and starts its loops.</param>
 /// <param name="stop">Takes all of that down again.</param>

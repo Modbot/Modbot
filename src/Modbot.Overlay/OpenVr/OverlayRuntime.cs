@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Rendering;
@@ -65,20 +64,25 @@ public interface IOverlayRuntime : IDisposable
 }
 
 /// <summary>
-/// SteamVR, through OpenVR's overlay interface.
+/// One overlay in SteamVR, through OpenVR's overlay interface.
 /// </summary>
 /// <remarks>
-/// <para><strong>What this does.</strong> Registers one overlay with SteamVR, places it a little
-/// below and to the right of where the moderator is looking so it travels with the headset, and
-/// hands the compositor a picture whenever the content changes: a Direct3D texture on Windows,
-/// the raw pixels everywhere else. That is the entire interaction: no headset tracking data is
-/// read, no other application's overlay is inspected, and nothing is sent anywhere.</para>
-/// <para><strong>It never starts SteamVR.</strong> OpenVR's overlay mode launches SteamVR when it
-/// is not running, which is the last thing a program that starts with the computer should do. So
-/// the companion first asks as a background application, which is only ever answered by a SteamVR
-/// that is already up; only then does it attach as an overlay. While SteamVR is down the answer is
-/// a state, the companion asks again every few seconds, and the overlay appears when the moderator
-/// starts SteamVR themselves. When SteamVR closes it says so, and the overlay lets go.</para>
+/// <para><strong>What this does.</strong> Registers one overlay with SteamVR, puts it where its
+/// placement says so it travels with the headset or a hand, and hands the compositor a picture
+/// whenever the content changes: a Direct3D texture on Windows, the raw pixels everywhere else.
+/// That is the entire interaction: no other application's overlay is inspected, and nothing is
+/// sent anywhere.</para>
+/// <para><strong>One attachment, as many overlays as there are panels.</strong> The attachment to
+/// SteamVR itself — the init, the function table and the tracking — is
+/// <see cref="OpenVrSession"/>, shared, because OpenVR's entry points are process-wide. What this
+/// type owns is one overlay: its key, its handle, its placement and its picture. Modbot has two,
+/// the main panel and the notification panel, and either can be switched off without disturbing
+/// the other (two overlay modes design §4.1).</para>
+/// <para><strong>It never starts SteamVR.</strong> The session asks as a background application
+/// first, which is only ever answered by a SteamVR that is already up. While SteamVR is down the
+/// answer is a state, the companion asks again every few seconds, and the overlay appears when
+/// the moderator starts SteamVR themselves. When SteamVR closes it says so, and the overlays let
+/// go.</para>
 /// <para><strong>Absence is not failure.</strong> SteamVR missing, not running, or without a
 /// headset are all ordinary conditions for a moderator reporting presence from the desktop. They
 /// are reported as states, never as errors, and the companion goes on working without an
@@ -96,6 +100,9 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
     /// </summary>
     public const string OverlayKey = "moe.bin.modbot.overlay";
 
+    /// <summary>The notification panel's own key, for the same reason and with the same promise.</summary>
+    public const string NotificationOverlayKey = "moe.bin.modbot.notifications";
+
     /// <summary>
     /// Where the panel sits relative to the headset, in metres: right of centre, below the eye
     /// line, and an arm's length forward. Out of the middle of the view, where the instance is,
@@ -103,111 +110,93 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
     /// </summary>
     public static readonly (float X, float Y, float Z) Placement = (0.35f, -0.28f, -1.0f);
 
-    private readonly string _overlayName;
-    private readonly float _widthInMetres;
-
-    private nint _fnTable;
-    private ulong _handle;
-    private byte[]? _rgba;
-    private OpenVrSystem? _system;
-    private OverlayPlacement _placement;
-
     /// <summary>How wide the panel is in the headset. Sharpness is the texture's resolution, set separately.</summary>
     public const float DefaultWidthInMetres = 0.45f;
 
-    public OpenVrOverlayRuntime(string overlayName = "Modbot", float widthInMetres = DefaultWidthInMetres)
+    /// <summary>
+    /// Drawn over the main panel where the two happen to overlap: a pop-up hidden behind the
+    /// roster would be a pop-up nobody sees.
+    /// </summary>
+    private const uint NotificationSortOrder = 100;
+
+    private readonly OverlayKind _kind;
+    private readonly OpenVrSession _session;
+    private readonly string _overlayName;
+    private readonly float _widthInMetres;
+
+    private ulong _handle;
+    private int _generation;
+    private bool _holdsSession;
+    private byte[]? _rgba;
+    private OverlayPlacement _placement;
+
+    /// <param name="kind">Which panel this is; it decides the key, the name and the sort order.</param>
+    /// <param name="overlayName">What SteamVR calls it in its own lists. Null takes the kind's name.</param>
+    /// <param name="widthInMetres">The starting width, until a placement says otherwise.</param>
+    /// <param name="session">The attachment to share. Null takes the client's one.</param>
+    public OpenVrOverlayRuntime(
+        OverlayKind kind = OverlayKind.Main,
+        string? overlayName = null,
+        float widthInMetres = DefaultWidthInMetres,
+        OpenVrSession? session = null)
     {
-        _overlayName = overlayName;
+        _kind = kind;
+        _session = session ?? OpenVrSession.Shared;
+        _overlayName = overlayName ?? (kind is OverlayKind.Notification ? "Modbot notifications" : "Modbot");
         _widthInMetres = widthInMetres;
         _placement = OverlayPlacement.Default with { Width = widthInMetres };
     }
+
+    /// <summary>Which panel this overlay draws.</summary>
+    public OverlayKind Kind => _kind;
+
+    /// <summary>The key SteamVR knows this overlay by.</summary>
+    public string Key => _kind is OverlayKind.Notification ? NotificationOverlayKey : OverlayKey;
+
+    /// <summary>The width this overlay was built with, before any placement moved it.</summary>
+    public float StartingWidth => _widthInMetres;
 
     /// <summary>The placement last asked for, applied as soon as there is an overlay to apply it to.</summary>
     public OverlayPlacement CurrentPlacement => _placement;
 
     public OverlayRuntimeStatus Status { get; private set; } = new(OverlayRuntimeState.NotStarted, Detail: "SteamVR has not been looked for yet.");
 
-    /// <summary>
-    /// A refusal in words. Most are SteamVR's own and are named as they come; the one that is
-    /// not SteamVR is xrizer, the OpenVR-on-OpenXR layer used with WiVRn and Monado on Linux,
-    /// which runs games only and answers an overlay with InvalidApplicationType.
-    /// </summary>
-    private static string Refusal(VrInitError error) => error switch
-    {
-        VrInitError.Init_InvalidApplicationType =>
-            "This VR runtime runs games only and does not take overlay applications (xrizer answers this; SteamVR does not).",
-        _ => $"SteamVR answered {error}.",
-    };
-
     public OverlayRuntimeStatus Start()
     {
-        if (Status.State is OverlayRuntimeState.Running)
+        if (Status.State is OverlayRuntimeState.Running && _handle != 0 && _generation == _session.Generation)
             return Status;
 
-        try
+        var opened = _session.Open();
+        if (opened.State is not OverlayRuntimeState.Running)
+            return Status = opened;
+
+        _holdsSession = true;
+        _generation = _session.Generation;
+
+        if (CreateOverlay() is { } failure)
         {
-            if (!OpenVrInterop.IsRuntimeInstalled())
-                return Status = new(OverlayRuntimeState.NoRuntime, Detail: "SteamVR is not installed on this PC.");
-
-            // The knock on the door. A background application is refused unless SteamVR is already
-            // running, and refusing is all it does: nothing is launched.
-            OpenVrInterop.InitInternal(out var probeError, OpenVrInterop.ApplicationTypeBackground);
-            if (probeError != VrInitError.None)
-            {
-                var state = probeError is VrInitError.Init_NoServerForBackgroundApp
-                    or VrInitError.Init_HmdNotFound
-                    or VrInitError.Init_PathRegistryNotFound
-                    or VrInitError.Init_NotInitialized
-                    ? OverlayRuntimeState.NotStarted
-                    : OverlayRuntimeState.Refused;
-
-                return Status = new(
-                    state,
-                    probeError,
-                    state is OverlayRuntimeState.NotStarted ? "SteamVR is not running." : Refusal(probeError));
-            }
-
-            OpenVrInterop.ShutdownInternal();
-
-            OpenVrInterop.InitInternal(out var initError, OpenVrInterop.ApplicationTypeOverlay);
-            if (initError != VrInitError.None)
-                return Status = new(OverlayRuntimeState.Refused, initError, Refusal(initError));
-
-            _fnTable = OpenVrInterop.GetGenericInterface(OpenVrInterop.OverlayInterfaceVersion, out var interfaceError);
-            if (_fnTable == 0 || interfaceError != VrInitError.None)
-            {
-                // A SteamVR whose IVROverlay is a version this build was not written against.
-                // Refusing is the only safe answer: the function table is positional, so guessing
-                // would call the wrong function rather than fail.
-                OpenVrInterop.ShutdownInternal();
-                return Status = new(
-                    OverlayRuntimeState.Refused,
-                    interfaceError,
-                    $"This build speaks {OpenVrInterop.OverlayInterfaceVersion}; SteamVR does not.");
-            }
-
-            if (CreateOverlay() is { } failure)
-                return Status = failure;
-
-            // The head and the controllers, for the cursor and for holding the panel. A SteamVR
-            // without this interface version still shows the panel; it just cannot be held.
-            _system = OpenVrSystem.Open();
-
-            // Named, because the same page and log line serve the OpenXR runtime too.
-            return Status = new(OverlayRuntimeState.Running, Detail: "Attached to SteamVR.");
+            _holdsSession = false;
+            _session.Release();
+            return Status = failure;
         }
-        catch (DllNotFoundException)
-        {
-            // openvr_api is shipped beside the overlay; its absence means a broken install, not a
-            // missing headset, and saying so saves somebody a long wrong search.
-            return Status = new(
-                OverlayRuntimeState.NoRuntime,
-                Detail: "The OpenVR library is missing from the Modbot installation.");
-        }
+
+        // Named, because the same page and log line serve the OpenXR runtime too.
+        return Status = new(OverlayRuntimeState.Running, Detail: "Attached to SteamVR.");
     }
 
     public void Poll()
     {
+        // Another overlay heard SteamVR close and let the whole attachment go. This handle now
+        // belongs to an attachment that no longer exists, so it is dropped rather than destroyed:
+        // DestroyOverlay would go through a function table that has already been shut down.
+        if (_handle != 0 && _generation != _session.Generation)
+        {
+            _handle = 0;
+            _holdsSession = false;
+            Status = new(OverlayRuntimeState.NotStarted, Detail: "SteamVR closed.");
+            return;
+        }
+
         if (_handle == 0)
             return;
 
@@ -222,9 +211,11 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
             {
                 if (vrEvent.EventType is OpenVrInterop.EventQuit or OpenVrInterop.EventProcessQuit)
                 {
-                    // SteamVR is closing and expects the overlay to let go. The picture, the cache
-                    // and the loop all stay; the next Start() attaches again when it is back.
-                    Dispose();
+                    // SteamVR is closing and expects every overlay to let go. The picture, the
+                    // cache and the loops all stay; the next Start() attaches again when it is back.
+                    DestroyHandle();
+                    _holdsSession = false;
+                    _session.Close();
                     Status = new(OverlayRuntimeState.NotStarted, Detail: "SteamVR closed.");
                     return;
                 }
@@ -294,7 +285,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
     }
 
     public OverlayTracking ReadTracking()
-        => _handle != 0 && _system is { } system ? system.Read() : OverlayTracking.None;
+        => _handle != 0 ? _session.ReadTracking() : OverlayTracking.None;
 
     public void Place(OverlayPlacement placement)
     {
@@ -320,8 +311,8 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
         uint? device = placement.Anchor switch
         {
             OverlayAnchor.Head => OpenVrInterop.TrackedDeviceIndexHmd,
-            OverlayAnchor.LeftHand => _system?.DeviceIndex(Interaction.Hand.Left),
-            OverlayAnchor.RightHand => _system?.DeviceIndex(Interaction.Hand.Right),
+            OverlayAnchor.LeftHand => _session.DeviceIndex(Interaction.Hand.Left),
+            OverlayAnchor.RightHand => _session.DeviceIndex(Interaction.Hand.Right),
             _ => null,
         };
 
@@ -340,31 +331,38 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
 
     public void Dispose()
     {
-        _system = null;
-
-        if (_handle != 0)
-        {
-            unsafe
-            {
-                ((delegate* unmanaged[Stdcall]<ulong, int>)Slot(OverlaySlot.DestroyOverlay))(_handle);
-            }
-
+        // A handle from an attachment that has already gone is dropped, never destroyed.
+        if (_generation == _session.Generation)
+            DestroyHandle();
+        else
             _handle = 0;
-        }
 
-        if (_fnTable != 0)
+        if (_holdsSession)
         {
-            OpenVrInterop.ShutdownInternal();
-            _fnTable = 0;
+            _holdsSession = false;
+            _session.Release();
         }
 
         Status = new(OverlayRuntimeState.NotStarted, Detail: "The overlay has been let go.");
     }
 
+    private void DestroyHandle()
+    {
+        if (_handle == 0)
+            return;
+
+        unsafe
+        {
+            ((delegate* unmanaged[Stdcall]<ulong, int>)Slot(OverlaySlot.DestroyOverlay))(_handle);
+        }
+
+        _handle = 0;
+    }
+
     private unsafe OverlayRuntimeStatus? CreateOverlay()
     {
         ulong handle = 0;
-        var keyBytes = System.Text.Encoding.UTF8.GetBytes(OverlayKey + "\0");
+        var keyBytes = System.Text.Encoding.UTF8.GetBytes(Key + "\0");
         var nameBytes = System.Text.Encoding.UTF8.GetBytes(_overlayName + "\0");
 
         int created;
@@ -376,11 +374,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
         }
 
         if (created != 0 || handle == 0)
-        {
-            OpenVrInterop.ShutdownInternal();
-            _fnTable = 0;
             return new(OverlayRuntimeState.Refused, Detail: $"SteamVR refused to create the overlay (error {created}).");
-        }
 
         _handle = handle;
 
@@ -390,6 +384,9 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
         // found; a moderator who has moved it gets it back where they left it.
         Apply(_placement);
 
+        if (_kind is OverlayKind.Notification)
+            ((delegate* unmanaged[Stdcall]<ulong, uint, int>)Slot(OverlaySlot.SetOverlaySortOrder))(handle, NotificationSortOrder);
+
         // Shown from the start. The idle screen is drawn when there is nothing to say, so the
         // panel is a fixture of the headset rather than something that appears and vanishes.
         ((delegate* unmanaged[Stdcall]<ulong, int>)Slot(OverlaySlot.ShowOverlay))(handle);
@@ -397,16 +394,7 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
         return null;
     }
 
-    private nint Slot(int index)
-    {
-        if (_fnTable == 0)
-            throw new InvalidOperationException("The overlay runtime has not been started.");
-
-        unsafe
-        {
-            return ((nint*)_fnTable)[index];
-        }
-    }
+    private nint Slot(int index) => _session.Slot(index);
 }
 
 /// <summary>Turning Avalonia's pixels into what SteamVR reads.</summary>
