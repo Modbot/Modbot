@@ -190,6 +190,7 @@ the file:
 | `checkForUpdates` | `true` | Whether an installed client looks for newer versions. See [Check for updates](#check-for-updates). |
 | `startWithWindows` | `true` | The **Start Modbot Companion when my computer starts** switch. |
 | `vrchatLogFolder` | blank | The [VRChat log folder](#vrchat-log-folder). |
+| `overlayOn` | `true` | The **Overlay on** switch on the **SteamVR** page. `false` stops the headset panel entirely. See [Turning it off](/companion/overlay#turning-it-off). |
 | `voice.on` | `false` | The **Voice on** switch. See [Voice](#voice). |
 | `voice.joins` | `true` | The **Joins** switch. |
 | `voice.leaves` | `true` | The **Leaves** switch. |
@@ -268,6 +269,9 @@ including a line each time the client reads new lines from VRChat's log. An unkn
 text.
 
 ## Overlay placement
+
+Only used while the overlay is on; `overlayOn` is the switch, and it is a field of its own so
+that moving the panel never rewrites it.
 
 Where the headset panel sits, set on the **SteamVR** page or by [holding it](/companion/overlay#holding-it)
 with a controller, and saved as the `overlay` object in `settings.json`:
