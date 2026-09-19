@@ -35,7 +35,11 @@ namespace Modbot.Companion.Presentation;
 /// There is also <c>notifications</c>
 /// (<c>{ "bleep": true, "volume": 70, "trayNoticesShown": 0 }</c>), written whole the same way, and
 /// <c>desktopOverlay</c> (<c>{ "on": true, "shortcut": "mod+alt+m", "opacity": 90 }</c>), the
-/// window that sits over VRChat on a monitor, written whole the same way the voice is.</para>
+/// window that sits over VRChat on a monitor, written whole the same way the voice is. There is
+/// also <c>notificationFilters</c>
+/// (<c>{ "popUp": ["flagged join"], "sound": ["flagged join"], "voice": ["joined", "left"] }</c>),
+/// which kinds of event raise a notification by each of the three ways, written whole the same way
+/// too.</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
 /// opens in your browser when you press the button; no server is told what it is. The switches decide
 /// what the client does; they are not reported anywhere.</para>
@@ -70,6 +74,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     /// <summary>The voice: off until turned on, then which events it speaks, how loud, and through what.</summary>
     public VoiceSettings Voice { get; init; } = VoiceSettings.Default;
+
+    /// <summary>
+    /// Which kinds of event raise a notification, and by which of the three ways: the pop-up
+    /// overlay, the sound, and the voice. Saved as the <c>notificationFilters</c> object.
+    /// </summary>
+    public NotificationFilters NotificationFilters { get; init; } = NotificationFilters.Default;
 
     /// <summary>
     /// The desktop overlay: off until turned on, then the shortcut that brings it up over VRChat
@@ -135,6 +145,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string VoiceField = "voice";
 
+    public const string NotificationFiltersField = "notificationFilters";
+
     public const string DesktopOverlayField = "desktopOverlay";
 
     public const string EventsFiltersField = "eventsFilters";
@@ -171,6 +183,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         environment ??= Environment.GetEnvironmentVariable;
 
         var shape = ReadFile(path);
+        var voice = FromShape(shape?.Voice);
 
         return FromPairingPage(shape?.PairingPage) with
         {
@@ -181,7 +194,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayOn = shape?.OverlayOn ?? true,
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
             NotifyOverlay = NotifyOverlaySettings.FromJson(shape?.NotifyOverlay),
-            Voice = FromShape(shape?.Voice),
+            Voice = voice,
+            NotificationFilters = NotificationFilters.FromJson(shape?.NotificationFilters, voice),
             DesktopOverlay = FromShape(shape?.DesktopOverlay),
             EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
             Notifications = FromShape(shape?.Notifications),
@@ -274,6 +288,16 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             shape["outputDevice"] = voice.OutputDeviceId.Trim();
 
         return SaveField(path, VoiceField, shape);
+    }
+
+    /// <summary>
+    /// Writes the whole <c>notificationFilters</c> object, keeping every other field in the file.
+    /// The same rules as <see cref="SaveVoice"/>: a file that cannot be read as JSON is left alone.
+    /// </summary>
+    public static bool SaveNotificationFilters(string path, NotificationFilters filters)
+    {
+        ArgumentNullException.ThrowIfNull(filters);
+        return SaveField(path, NotificationFiltersField, filters.ToJson());
     }
 
     private static NotificationSettings FromShape(NotificationsShape? notifications) => notifications is null
@@ -392,6 +416,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlay")] JsonObject? Overlay,
         [property: JsonPropertyName("notifyOverlay")] JsonObject? NotifyOverlay,
         [property: JsonPropertyName("voice")] VoiceShape? Voice,
+        [property: JsonPropertyName("notificationFilters")] JsonObject? NotificationFilters,
         [property: JsonPropertyName("desktopOverlay")] DesktopOverlayShape? DesktopOverlay,
         [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters,
         [property: JsonPropertyName("notifications")] NotificationsShape? Notifications);

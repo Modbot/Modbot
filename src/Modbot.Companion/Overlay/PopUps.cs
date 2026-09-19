@@ -1,3 +1,4 @@
+using Modbot.Companion.Sounds;
 using Modbot.Core.Time;
 
 namespace Modbot.Companion.Overlay;
@@ -37,6 +38,9 @@ public sealed record PopUp(string Id, string Heading, string Body, string? Detai
 /// <para><strong>Nothing here is transmitted, and nothing here is read from a server.</strong>
 /// These are made by the client out of what it already holds, and they live in memory until their
 /// time is up.</para>
+/// <para><strong>The moderator's filters are asked here.</strong> <see cref="Wanted"/> is the
+/// pop-up column of the Notifications card, so every card in the client passes one gate rather
+/// than each caller remembering to ask (notification filters design 2026-09-19 §5).</para>
 /// </remarks>
 public sealed class PopUps
 {
@@ -52,10 +56,26 @@ public sealed class PopUps
     /// <summary>At most this many are drawn at once.</summary>
     public int MostAtOnce { get; set; } = NotifyOverlaySettings.MostPopUpsAtOnce;
 
-    /// <summary>Puts one up, newest first. The same id again restarts its time rather than stacking.</summary>
-    public void Show(PopUp popUp)
+    /// <summary>
+    /// Whether the moderator wants a card for this kind. Set from settings, and read at the moment
+    /// of showing, so a tick changed mid-session takes effect at once. Null lets everything
+    /// through.
+    /// </summary>
+    public Func<NotificationKind, bool>? Wanted { get; set; }
+
+    /// <summary>
+    /// Puts one up, newest first. The same id again restarts its time rather than stacking.
+    /// </summary>
+    /// <param name="kind">
+    /// What happened, so the moderator's filters can be asked. Null for a card that is not a
+    /// notification — the overlay preview and the sample screens — which is never filtered.
+    /// </param>
+    public void Show(PopUp popUp, NotificationKind? kind = null)
     {
         ArgumentNullException.ThrowIfNull(popUp);
+
+        if (kind is { } asked && Wanted is { } wanted && !wanted(asked))
+            return;
 
         lock (_gate)
         {

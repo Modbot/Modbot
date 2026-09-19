@@ -1,3 +1,4 @@
+using Modbot.Companion.Presentation;
 using Modbot.Companion.Voice;
 
 namespace Modbot.Companion.Sounds;
@@ -14,6 +15,10 @@ namespace Modbot.Companion.Sounds;
 /// right now means the system default rather than silence — while whether it plays at all, and how
 /// loud, are its own settings. Somebody who wants a sound but not a talking PC turns the voice off
 /// and leaves this on.</para>
+/// <para><strong>The moderator's filters are asked here.</strong> Beside the switch and the
+/// volume rather than inside <see cref="BleepRule"/>, which is about pacing -- the same thing not
+/// sounding twice, and a quiet gap between sounds -- and not about whether a kind is wanted at all
+/// (notification filters design 2026-09-19 §5).</para>
 /// <para><strong>A failure is not a fault.</strong> No output device, a device that went away
 /// mid-sound, an audio library that will not load: it is written down and everything else carries
 /// on. This is the least important thing the client does.</para>
@@ -26,6 +31,7 @@ public sealed class NotificationSound
     private readonly Func<string?> _outputDeviceId;
     private readonly BleepRule _rule;
     private readonly Action<string>? _log;
+    private readonly Func<NotificationFilters>? _filters;
 
     /// <summary>Made once. The samples are the same every time, and there are only a few thousand.</summary>
     private readonly Lazy<VoiceClip> _clip = new(() => Bleep.Make());
@@ -35,13 +41,18 @@ public sealed class NotificationSound
     /// <param name="settings">Read at the moment of playing, so a switch flipped mid-session takes effect at once.</param>
     /// <param name="outputDeviceId">The voice's chosen output device, or null for the system default.</param>
     /// <param name="log">Where one-line notes go: a sound that could not be played.</param>
+    /// <param name="filters">
+    /// The Notifications card's Sound column, read at the moment of playing so a tick changed
+    /// mid-session takes effect at once. Null means nothing is filtered.
+    /// </param>
     public NotificationSound(
         IVoicePlayer player,
         IOutputDevices devices,
         Func<NotificationSettings> settings,
         Func<string?> outputDeviceId,
         BleepRule rule,
-        Action<string>? log = null)
+        Action<string>? log = null,
+        Func<NotificationFilters>? filters = null)
     {
         _player = player;
         _devices = devices;
@@ -49,6 +60,7 @@ public sealed class NotificationSound
         _outputDeviceId = outputDeviceId;
         _rule = rule;
         _log = log;
+        _filters = filters;
     }
 
     /// <summary>True while a sound is being played.</summary>
@@ -62,8 +74,8 @@ public sealed class NotificationSound
         => _ = PlayAsync(kind, about);
 
     /// <summary>
-    /// The same thing, awaited: false when the rule refused it, the bleep is off, the volume is
-    /// nothing, or a sound is already playing.
+    /// The same thing, awaited: false when the moderator does not want this kind, the rule refused
+    /// it, the bleep is off, the volume is nothing, or a sound is already playing.
     /// </summary>
     public async Task<bool> PlayAsync(NotificationKind kind, string? about = null, CancellationToken cancellationToken = default)
     {
@@ -75,6 +87,9 @@ public sealed class NotificationSound
             return false;
 
         if (settings.Volume <= 0)
+            return false;
+
+        if (_filters?.Invoke() is { } filters && !filters.SoundPlays(kind))
             return false;
 
         if (!_rule.Ask(kind, about))

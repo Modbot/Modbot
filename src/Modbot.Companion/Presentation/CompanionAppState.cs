@@ -172,6 +172,7 @@ public sealed record NotifyOverlayStatus(
 /// <param name="EventsFilters">The Events page's chips as settings remember them; the window takes them once, when it first draws the page.</param>
 /// <param name="Credits">The people the project thanks, for the Credits page.</param>
 /// <param name="Notifications">The bleep and the tray notice, for the Settings page.</param>
+/// <param name="NotificationFilters">Which kinds of event raise a notification, by each of the three ways.</param>
 public sealed record CompanionAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
     IReadOnlyList<JournalRow> Events,
@@ -193,7 +194,8 @@ public sealed record CompanionAppSnapshot(
     CreditsList? Credits = null,
     NotificationSettings? Notifications = null,
     DesktopOverlayStatus? DesktopOverlay = null,
-    NotifyOverlayStatus? NotifyOverlay = null)
+    NotifyOverlayStatus? NotifyOverlay = null,
+    NotificationFilters? NotificationFilters = null)
 {
     /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
     public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
@@ -215,6 +217,9 @@ public sealed record CompanionAppSnapshot(
 
     /// <summary>The bleep and the tray notice, never null: the defaults until settings have been read.</summary>
     public NotificationSettings NotificationsOrDefault => Notifications ?? NotificationSettings.Default;
+
+    /// <summary>The filters, never null: the defaults until settings have been read.</summary>
+    public NotificationFilters NotificationFiltersOrDefault => NotificationFilters ?? NotificationFilters.Default;
 
     public static CompanionAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, CompanionSettings.DefaultPairingPage);
@@ -341,7 +346,8 @@ public sealed class CompanionAppState
             Credits,
             Settings.Notifications,
             DesktopOverlay,
-            NotifyOverlay with { Settings = Settings.NotifyOverlay });
+            NotifyOverlay with { Settings = Settings.NotifyOverlay },
+            Settings.NotificationFilters);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

@@ -84,9 +84,6 @@ public sealed partial class MainWindow : Window
     // The Voice card, built once too: a slider being dragged and a list being opened both die
     // under a rebuild.
     private readonly CheckBox _voiceOn;
-    private readonly CheckBox _voiceJoins;
-    private readonly CheckBox _voiceLeaves;
-    private readonly CheckBox _voiceFlagged;
     private readonly Slider _voiceVolume;
     private readonly TextBlock _voiceVolumeValue;
     private readonly ComboBox _voiceDevice;
@@ -144,9 +141,6 @@ public sealed partial class MainWindow : Window
         _opacitySlider = PlacementSlider(OverlayPlacement.MinOpacity, 1, 0.05, (p, v) => p with { Opacity = (float)v });
         _curveSlider = PlacementSlider(0, 1, 0.05, (p, v) => p with { Curve = (float)v });
         _voiceOn = Switch("Voice on");
-        _voiceJoins = Switch("Joins");
-        _voiceLeaves = Switch("Leaves");
-        _voiceFlagged = Switch("Flagged joins");
         _voiceVolumeValue = Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextDimBrush, wrap: false, mono: true);
         _voiceVolumeValue.VerticalAlignment = VerticalAlignment.Center;
         _voiceVolumeValue.Width = 32;
@@ -174,6 +168,7 @@ public sealed partial class MainWindow : Window
         SetUpKeyboard();
         SetUpEvents();
         SetUpNotifications();
+        SetUpNotificationFilters();
 
         // The palette and the shortcut sheet open over the page, inside this window, so the
         // window's own keys still reach them and nothing else appears in the taskbar.
@@ -230,14 +225,15 @@ public sealed partial class MainWindow : Window
         var chosen = _voiceName.SelectedIndex;
         var name = chosen >= 0 && chosen < _voiceNames.Count ? _voiceNames[chosen] : VoiceModel.DefaultName;
 
-        _actions.SetVoice(new VoiceSettings(
-            _voiceOn.IsChecked == true,
-            _voiceJoins.IsChecked == true,
-            _voiceLeaves.IsChecked == true,
-            _voiceFlagged.IsChecked == true,
-            (int)_voiceVolume.Value,
-            device,
-            name));
+        // Which kinds the voice says is the Notifications card's Voice column now; the three
+        // fields it still keeps are carried through untouched so this card cannot undo them.
+        _actions.SetVoice(_snapshot.VoiceOrNone.Settings with
+        {
+            On = _voiceOn.IsChecked == true,
+            Volume = (int)_voiceVolume.Value,
+            OutputDeviceId = device,
+            VoiceName = name,
+        });
     }
 
     /// <summary>
@@ -860,6 +856,7 @@ public sealed partial class MainWindow : Window
 
             RefreshVoiceControls(_snapshot.VoiceOrNone);
             RefreshNotificationControls(_snapshot.NotificationsOrDefault);
+            RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
         }
         finally
         {
@@ -875,6 +872,7 @@ public sealed partial class MainWindow : Window
 
         _body.Children.Add(Ui.Card(DesktopOverlayCard(), "Desktop overlay"));
         _body.Children.Add(Ui.Card(NotificationsCard(), "Notifications"));
+        _body.Children.Add(Ui.Card(NotificationFiltersCard(), "Tell me about"));
 
         _body.Children.Add(Ui.Card(VoiceSettingsCard(_snapshot.VoiceOrNone), "Voice"));
 
@@ -891,9 +889,6 @@ public sealed partial class MainWindow : Window
     {
         var settings = voice.Settings;
         _voiceOn.IsChecked = settings.On;
-        _voiceJoins.IsChecked = settings.Joins;
-        _voiceLeaves.IsChecked = settings.Leaves;
-        _voiceFlagged.IsChecked = settings.FlaggedJoins;
 
         if (!_voiceVolume.IsPointerOver && !_voiceVolume.IsFocused)
             _voiceVolume.Value = VoiceSettings.ClampVolume(settings.Volume);
@@ -946,9 +941,6 @@ public sealed partial class MainWindow : Window
 
         var enabled = voice.HasOutput;
         _voiceOn.IsEnabled = enabled;
-        _voiceJoins.IsEnabled = enabled;
-        _voiceLeaves.IsEnabled = enabled;
-        _voiceFlagged.IsEnabled = enabled;
         _voiceVolume.IsEnabled = enabled;
         _voiceDevice.IsEnabled = enabled;
         _voiceName.IsEnabled = enabled;
@@ -969,10 +961,10 @@ public sealed partial class MainWindow : Window
         _voiceLine.Foreground = voice.State is VoiceState.Failed ? Ui.T.DangerBrush : Ui.T.TextFaintBrush;
     }
 
-    /// <summary>The Voice card: on or off, which events, how loud, through what, and a Test button.</summary>
+    /// <summary>The Voice card: on or off, how loud, through what, and a Test button.</summary>
     private Control VoiceSettingsCard(VoiceStatus voice)
     {
-        foreach (var control in new Control[] { _voiceOn, _voiceJoins, _voiceLeaves, _voiceFlagged, _voiceVolume, _voiceVolumeValue, _voiceDevice, _voiceName, _voiceLine })
+        foreach (var control in new Control[] { _voiceOn, _voiceVolume, _voiceVolumeValue, _voiceDevice, _voiceName, _voiceLine })
             DetachFromParent(control);
 
         var test = Ui.Button("Test");
@@ -985,12 +977,6 @@ public sealed partial class MainWindow : Window
             Children =
             {
                 _voiceOn,
-                new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 16,
-                    Children = { _voiceJoins, _voiceLeaves, _voiceFlagged },
-                },
                 Ui.Field("Volume", new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
@@ -1389,6 +1375,12 @@ public sealed record MainWindowActions(
 
     /// <summary>Plays one bleep, whether or not the sound is switched on.</summary>
     public Action TestBleep { get; init; } = () => { };
+
+    /// <summary>
+    /// The Notifications card's filter list changed: which kinds of event raise a notification, by
+    /// each of the three ways.
+    /// </summary>
+    public Action<NotificationFilters> SetNotificationFilters { get; init; } = _ => { };
 
     /// <summary>
     /// The window was closed with the X and the client is still in the tray. Shows the notice, the

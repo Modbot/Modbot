@@ -11,11 +11,23 @@ namespace Modbot.Companion.Voice;
 /// and nowhere else. No server is told any of it.</para>
 /// <para>The downloaded voice holds ten voices in the one file, so which one speaks is a choice
 /// here and not a second download (voice engine design, 2026-09-18, §5).</para>
+/// <para><strong>Which kinds it speaks moved.</strong> Joins, leaves and flagged joins are now
+/// three of the rows on the Notifications card, beside the pop-up and the sound, because a
+/// moderator picking what interrupts them should pick it in one place. The three fields below stay
+/// so an upgrade and an older copy of the client both read the same thing.</para>
 /// </remarks>
 /// <param name="On">Whether anything is spoken.</param>
-/// <param name="Joins">Say when somebody joins the instance the moderator is in.</param>
-/// <param name="Leaves">Say when somebody leaves it.</param>
-/// <param name="FlaggedJoins">Say when the paired server raises a flagged-join alert for this instance.</param>
+/// <param name="Joins">
+/// Say when somebody joins the instance the moderator is in. The Notifications card's Voice column
+/// is what the voice actually reads now; this is kept in step with it and is what an upgrade reads
+/// to seed that column, so a switch somebody turned off stays off (notification filters design
+/// 2026-09-19 §4.2).
+/// </param>
+/// <param name="Leaves">Say when somebody leaves it. Kept in step the same way.</param>
+/// <param name="FlaggedJoins">
+/// Say when the paired server raises a flagged-join alert for this instance. Kept in step the same
+/// way.
+/// </param>
 /// <param name="Volume">0 to 100.</param>
 /// <param name="OutputDeviceId">
 /// The device the voice plays through, by the id the operating system gives it, or null for the

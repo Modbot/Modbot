@@ -328,7 +328,14 @@ internal sealed class CompanionHost : IOverlayListener
         // brings it up or takes it down without a restart. Three panels -- the main headset one,
         // the notification one, and the window over VRChat on a monitor -- so three switches, and
         // none of them can take another down.
-        _popUps = new PopUps(_clock) { Dwell = _state.Settings.NotifyOverlay.Dwell };
+        _popUps = new PopUps(_clock)
+        {
+            Dwell = _state.Settings.NotifyOverlay.Dwell,
+
+            // The Notifications card's Pop-up column, read at the moment of showing so a tick
+            // changed mid-session takes effect at once.
+            Wanted = kind => _state!.Settings.NotificationFilters.PopUpShows(kind),
+        };
         _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, _state.Settings.OverlayOn);
         _notifySwitch = new OverlaySwitch(StartNotifyOverlay, StopNotifyOverlay, _state.Settings.NotifyOverlay.On);
         _desktopSwitch = new OverlaySwitch(StartDesktopOverlay, StopDesktopOverlay, _state.Settings.DesktopOverlay.On);
@@ -504,7 +511,8 @@ internal sealed class CompanionHost : IOverlayListener
             _http!,
             _clock,
             () => _state!.Settings.Voice,
-            () => _engine?.ModeratorId);
+            () => _engine?.ModeratorId,
+            filters: () => _state!.Settings.NotificationFilters);
 
         _voiceLoop.Tick += async (_, _) => await CrashGuard.RunAsync("speaking", VoiceTickAsync);
         _voiceLoop.Start();
@@ -540,7 +548,8 @@ internal sealed class CompanionHost : IOverlayListener
             () => _state!.Settings.Notifications,
             () => _state!.Settings.Voice.OutputDeviceId,
             new BleepRule(_clock),
-            line => Log.Information("Notification sound: {Line}", line));
+            line => Log.Information("Notification sound: {Line}", line),
+            () => _state!.Settings.NotificationFilters);
     }
 
     /// <summary>The Notifications card changed. Takes effect at once; the file is written now.</summary>
@@ -559,6 +568,31 @@ internal sealed class CompanionHost : IOverlayListener
 
     /// <summary>The Notifications card's Test button: one bleep, whether or not the sound is on.</summary>
     private void TestBleep() => _bleep?.Ask(NotificationKind.Test);
+
+    /// <summary>
+    /// The Notifications card's filter list changed: which kinds of event raise a notification, by
+    /// each of the three ways. Takes effect at once; the file is written now.
+    /// </summary>
+    /// <remarks>
+    /// The <c>voice</c> object is written too, because its three switches are three of the ticks
+    /// in the Voice column and the file must not say two different things (notification filters
+    /// design 2026-09-19 §4.2).
+    /// </remarks>
+    private void SetNotificationFilters(NotificationFilters filters)
+    {
+        if (_state is null || _state.Settings.NotificationFilters.Equals(filters))
+            return;
+
+        var voice = filters.InStepWith(_state.Settings.Voice);
+        _state.Settings = _state.Settings with { NotificationFilters = filters, Voice = voice };
+
+        if (!CompanionSettings.SaveNotificationFilters(_settingsPath, filters))
+            Log.Warning("Could not save the notification filters to {Path}", _settingsPath);
+        else if (!CompanionSettings.SaveVoice(_settingsPath, voice))
+            Log.Warning("Could not save the voice settings to {Path}", _settingsPath);
+
+        Render();
+    }
 
     /// <summary>
     /// The window was closed with the X: the client is still here, still reporting, and the tray
@@ -708,7 +742,14 @@ internal sealed class CompanionHost : IOverlayListener
             timeProbe: new HttpServerTimeProbe(_http!, _clock),
             backup: _cloudBackup,
             journal: _journal,
-            voice: _voice?.Announcer);
+            voice: _voice?.Announcer,
+
+            // The same observations, offered to the pop-up overlay and to the bleep. Both ask the
+            // moderator's filters, and everything this adds is off until it is ticked on.
+            notices: new EventNotifier(
+                () => observer.ModeratorId,
+                (popUp, kind) => _popUps?.Show(popUp, kind),
+                (kind, about) => _bleep?.Ask(kind, about)));
 
         _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
         _engineLoop.Start();
@@ -1593,6 +1634,7 @@ internal sealed class CompanionHost : IOverlayListener
                 SetEventsFilters = SetEventsFilters,
                 SetOverlayOn = SetOverlayOn,
                 SetNotifications = SetNotifications,
+                SetNotificationFilters = SetNotificationFilters,
                 TestBleep = TestBleep,
                 ClosedToTray = ClosedToTray,
                 RestartAsync = RestartAsync,
