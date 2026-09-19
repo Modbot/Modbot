@@ -23,11 +23,42 @@ checked before it is copied over.
 | `icon-512-maskable.png` | Lavender background, head inside the 80 % safe circle | manifest, purpose `maskable` |
 | `discord-avatar-1024.png` | Head on soft off-white, survives Discord's circle crop | bot avatar |
 | `og.png` | 1200 x 630 share image, rendered from `../og.template.html` | `public/og.png` |
+| `banners/*.png` | 1024 x 300 header banners, light and dark, rendered from `../banners.template.html` | Discord channel headers, forum headers |
 | `gen.py`, `jobs-*.json` | The generation script and the exact prompts used | rerun to iterate |
 | `contrast.py` | WCAG 2 contrast for any pair of hex colours | check new tokens |
 
 Both SVGs came back with a white background path and C2PA metadata; both were removed. Alpha
 on every PNG tops out at 254, which renders as opaque.
+
+## Banners
+
+`banners/` holds a 1024 x 300 header for each place that wants one, on the light ground and on the
+dark one. The mascot head and the wordmark sit centred, with the section's name under the wordmark.
+
+| File | Says |
+|---|---|
+| `modbot` | the wordmark alone |
+| `guidelines` | Guidelines |
+| `support` | Support |
+| `service-health` | 3rd Party Service Health |
+| `bugs-and-feedback` | Bugs & Feedback |
+| `open-a-ticket` | Open a Ticket |
+| `team-information` | Modbot Team Information |
+
+Each also exists as `<name>-dark`. To change one, edit `../banners.template.html` and run:
+
+```
+python build.py banners && python banners.py
+```
+
+`build.py` turns `{{asset:...}}` into data URIs and writes `banners.html`, which is gitignored;
+`banners.py` shoots each `.banner` element on its own so every file is exactly the laid-out size
+with nothing to crop. They are saved at 2x — 2048 x 600 — because Discord downscales a banner to
+fit and a 1x file goes soft on a high-density screen.
+
+The name sits **under** the wordmark rather than beside it. Beside it, a long one such as
+"3rd Party Service Health" either wrapped or forced the wordmark smaller, so the banners stopped
+matching each other. Stacked, every banner carries the same wordmark at the same size.
 
 ## Tokens
 

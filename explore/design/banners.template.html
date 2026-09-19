@@ -1,0 +1,143 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>Modbot banners</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;background:#2a2738}
+body{font-family:"IBM Plex Sans",system-ui,sans-serif}
+
+/* Each banner is exactly the size it is exported at, so what is on screen is what is saved. */
+.banner{
+  width:1024px;height:300px;overflow:hidden;position:relative;
+  background:#f7f6fb;color:#111113;
+  display:flex;align-items:center;justify-content:center;gap:36px;
+  padding:0 72px;box-sizing:border-box;
+}
+
+/* A soft violet wash in the top-right corner, so a row of these does not read as flat panels. */
+/* Centred behind the lockup rather than in a corner: the banner is centred, so a corner wash
+   left one half glowing and the other flat. */
+.banner::after{
+  content:"";position:absolute;left:50%;top:50%;width:900px;height:640px;
+  transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(ellipse at 50% 50%, #edebff 0%, rgb(237 235 255 / 0) 68%);
+}
+
+/* Above the wash, like the wordmark. Without this the gradient lies over the mascot and takes
+   the colour out of it. */
+.icon{position:relative;z-index:1;width:172px;height:172px;flex:none;filter:drop-shadow(0 14px 26px rgb(40 30 90 / 0.18))}
+
+.words{position:relative;z-index:1;min-width:0}
+
+.name{
+  font-family:"Bricolage Grotesque";font-weight:700;
+  font-size:76px;line-height:1;letter-spacing:-0.02em;
+}
+
+/* The label sits under the wordmark rather than beside it: at this width a long one such as
+   "3rd Party Service Health" beside "Modbot" either wraps or shrinks the wordmark, and both look
+   like a mistake. Stacked, every banner keeps the same wordmark at the same size. */
+.label{
+  margin-top:14px;font-family:"Bricolage Grotesque";font-weight:600;
+  font-size:34px;line-height:1.1;letter-spacing:-0.01em;color:#5b4bd6;
+  white-space:nowrap;
+}
+
+/* The plain banner has no label, so the wordmark centres on the icon instead of sitting high. */
+.banner.plain .name{font-size:88px}
+
+/* Dark is the same banner on the dark ground, for a server using a dark theme. */
+.banner.dark{background:#0f0e15;color:#e6e6eb}
+.banner.dark::after{background:radial-gradient(ellipse at 50% 50%, #2a2547 0%, rgb(42 37 71 / 0) 68%)}
+.banner.dark .label{color:#a78bfa}
+
+.sheet{display:flex;flex-direction:column;align-items:center;gap:28px;padding:28px}
+.caption{color:#a5a3b8;font-size:13px;letter-spacing:0.02em;align-self:flex-start;margin-left:28px}
+</style></head><body>
+<div class="sheet">
+
+  <div class="caption">modbot — 1024 x 300</div>
+  <div class="banner plain" id="modbot">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div></div>
+  </div>
+
+  <div class="caption">guidelines</div>
+  <div class="banner" id="guidelines">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Guidelines</div></div>
+  </div>
+
+  <div class="caption">support</div>
+  <div class="banner" id="support">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Support</div></div>
+  </div>
+
+  <div class="caption">service-health</div>
+  <div class="banner" id="service-health">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">3rd Party Service Health</div></div>
+  </div>
+
+  <div class="caption">bugs-and-feedback</div>
+  <div class="banner" id="bugs-and-feedback">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Bugs &amp; Feedback</div></div>
+  </div>
+
+  <div class="caption">open-a-ticket</div>
+  <div class="banner" id="open-a-ticket">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Open a Ticket</div></div>
+  </div>
+
+  <div class="caption">team-information</div>
+  <div class="banner" id="team-information">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Modbot Team Information</div></div>
+  </div>
+
+  <div class="caption">modbot-dark</div>
+  <div class="banner plain dark" id="modbot-dark">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div></div>
+  </div>
+
+  <div class="caption">guidelines-dark</div>
+  <div class="banner dark" id="guidelines-dark">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Guidelines</div></div>
+  </div>
+
+  <div class="caption">support-dark</div>
+  <div class="banner dark" id="support-dark">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Support</div></div>
+  </div>
+
+  <div class="caption">service-health-dark</div>
+  <div class="banner dark" id="service-health-dark">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">3rd Party Service Health</div></div>
+  </div>
+
+  <div class="caption">bugs-and-feedback-dark</div>
+  <div class="banner dark" id="bugs-and-feedback-dark">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Bugs &amp; Feedback</div></div>
+  </div>
+
+  <div class="caption">open-a-ticket-dark</div>
+  <div class="banner dark" id="open-a-ticket-dark">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Open a Ticket</div></div>
+  </div>
+
+  <div class="caption">team-information-dark</div>
+  <div class="banner dark" id="team-information-dark">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words"><div class="name">Modbot</div><div class="label">Modbot Team Information</div></div>
+  </div>
+
+</div>
+</body></html>

@@ -1,13 +1,18 @@
-"""Build the self-contained landing page: explore/design/landing.template.html -> landing.html.
+"""Build a self-contained page from a template: <name>.template.html -> <name>.html.
 
 Every {{asset:<file>}} in the template becomes a data URI for explore/design/brand/<file>, so the
 output is one file with no external requests except the Google Fonts link used while iterating
 (the real site bundles fonts through @fontsource, see src/Modbot.Landing/Web/src/index.css).
+
+Usage:  python build.py [name ...]
+With no names it builds every *.template.html in this folder.
 """
 import base64
+import glob
 import mimetypes
 import os
 import re
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BRAND = os.path.join(HERE, "brand")
@@ -22,8 +27,8 @@ def data_uri(name: str) -> str:
         return f"data:{mime};base64,{base64.b64encode(f.read()).decode()}"
 
 
-def main() -> None:
-    with open(os.path.join(HERE, "landing.template.html"), encoding="utf-8") as f:
+def build(name: str) -> None:
+    with open(os.path.join(HERE, f"{name}.template.html"), encoding="utf-8") as f:
         html = f.read()
     used = set()
 
@@ -32,10 +37,19 @@ def main() -> None:
         return data_uri(m.group(1))
 
     out = re.sub(r"\{\{asset:([^}]+)\}\}", swap, html)
-    target = os.path.join(HERE, "landing.html")
+    target = os.path.join(HERE, f"{name}.html")
     with open(target, "w", encoding="utf-8") as f:
         f.write(out)
     print(f"wrote {target}: {len(out) / 1024:.0f} KB, assets: {', '.join(sorted(used))}")
+
+
+def main() -> None:
+    names = sys.argv[1:] or [
+        os.path.basename(p)[: -len(".template.html")]
+        for p in sorted(glob.glob(os.path.join(HERE, "*.template.html")))
+    ]
+    for name in names:
+        build(name)
 
 
 if __name__ == "__main__":
