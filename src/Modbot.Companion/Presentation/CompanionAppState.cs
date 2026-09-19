@@ -4,6 +4,7 @@ using Modbot.Companion.Journal;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Pipeline;
+using Modbot.Companion.Sounds;
 using Modbot.Companion.Startup;
 using Modbot.Companion.Voice;
 using Modbot.Core.Time;
@@ -141,6 +142,7 @@ public sealed record OverlayStatus(
 /// <param name="Voice">The voice, for the Settings page.</param>
 /// <param name="EventsFilters">The Events page's chips as settings remember them; the window takes them once, when it first draws the page.</param>
 /// <param name="Credits">The people the project thanks, for the Credits page.</param>
+/// <param name="Notifications">The bleep and the tray notice, for the Settings page.</param>
 public sealed record CompanionAppSnapshot(
     IReadOnlyList<ServerRow> Servers,
     IReadOnlyList<JournalRow> Events,
@@ -159,7 +161,8 @@ public sealed record CompanionAppSnapshot(
     bool DebugMode = false,
     VoiceStatus? Voice = null,
     EventFilterSet? EventsFilters = null,
-    CreditsList? Credits = null)
+    CreditsList? Credits = null,
+    NotificationSettings? Notifications = null)
 {
     /// <summary>The overlay row, never null: <see cref="OverlayStatus.None"/> until the host has said.</summary>
     public OverlayStatus OverlayOrNone => Overlay ?? OverlayStatus.None;
@@ -172,6 +175,9 @@ public sealed record CompanionAppSnapshot(
 
     /// <summary>The three lists, never null: empty until Cloud has been read.</summary>
     public CreditsList CreditsOrNone => Credits ?? CreditsList.Empty;
+
+    /// <summary>The bleep and the tray notice, never null: the defaults until settings have been read.</summary>
+    public NotificationSettings NotificationsOrDefault => Notifications ?? NotificationSettings.Default;
 
     public static CompanionAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, CompanionSettings.DefaultPairingPage);
@@ -289,7 +295,8 @@ public sealed class CompanionAppState
             DebugMode,
             Voice,
             Settings.EventsFilters,
-            Credits);
+            Credits,
+            Settings.Notifications);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

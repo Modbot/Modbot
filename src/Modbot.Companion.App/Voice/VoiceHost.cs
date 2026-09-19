@@ -67,6 +67,7 @@ internal sealed class VoiceHost : IDisposable
 
         (_devices, var player, _output) = OpenOutput();
         HasOutput = _output is not null;
+        Player = player;
 
         Announcer = new VoiceAnnouncer(
             new AnnouncementQueue(clock),
@@ -91,6 +92,15 @@ internal sealed class VoiceHost : IDisposable
 
     /// <summary>False when this PC has nothing to play through. The voice then cannot speak.</summary>
     public bool HasOutput { get; }
+
+    /// <summary>
+    /// This PC's sound output, so the notification bleep plays through the same one rather than
+    /// opening a second. Plays nothing when the PC has no output at all.
+    /// </summary>
+    public IVoicePlayer Player { get; }
+
+    /// <summary>The output devices this PC has, as the voice sees them.</summary>
+    public IOutputDevices Devices => _devices;
 
     /// <summary>
     /// The settings changed. Turning the voice on fetches it if it is not here; turning it off

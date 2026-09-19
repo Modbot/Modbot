@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Modbot.Companion.CloudBackup;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pairing;
+using Modbot.Companion.Sounds;
 using Modbot.Companion.Voice;
 
 namespace Modbot.Companion.Presentation;
@@ -27,7 +28,9 @@ namespace Modbot.Companion.Presentation;
 /// only that switch's field — the whole <c>voice</c> object for the voice card — leaving anything
 /// else in the file as it was. The <c>cloud</c> object is
 /// never written by the client; the environment variables <c>MODBOT_CLOUD_ENDPOINT</c> and
-/// <c>MODBOT_CLOUD_DISABLED</c> are also read, and win over it (<see cref="CloudSettings"/>).</para>
+/// <c>MODBOT_CLOUD_DISABLED</c> are also read, and win over it (<see cref="CloudSettings"/>).
+/// There is also <c>notifications</c>
+/// (<c>{ "bleep": true, "volume": 70, "trayNoticesShown": 0 }</c>), written whole the same way.</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
 /// opens in your browser when you press the button; no server is told what it is. The switches decide
 /// what the client does; they are not reported anywhere.</para>
@@ -87,6 +90,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public EventFilterSet EventsFilters { get; init; } = EventFilterSet.Empty;
 
     /// <summary>
+    /// Being told things on this PC: the short sound, its own volume, and how many times the tray
+    /// notice has been shown. Saved as the <c>notifications</c> object.
+    /// </summary>
+    public NotificationSettings Notifications { get; init; } = NotificationSettings.Default;
+
+    /// <summary>
     /// my.modbot.co's redirect route, pointed at <c>/pair</c>: it picks one of the moderator's saved
     /// servers and opens that server's own pairing page.
     /// </summary>
@@ -103,6 +112,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string VoiceField = "voice";
 
     public const string EventsFiltersField = "eventsFilters";
+
+    public const string NotificationsField = "notifications";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
@@ -134,6 +145,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
             Voice = FromShape(shape?.Voice),
             EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
+            Notifications = FromShape(shape?.Notifications),
         };
     }
 
@@ -185,6 +197,31 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             shape["outputDevice"] = voice.OutputDeviceId.Trim();
 
         return SaveField(path, VoiceField, shape);
+    }
+
+    private static NotificationSettings FromShape(NotificationsShape? notifications) => notifications is null
+        ? NotificationSettings.Default
+        : new NotificationSettings(
+            notifications.Bleep ?? true,
+            NotificationSettings.ClampVolume(notifications.Volume ?? NotificationSettings.DefaultVolume),
+            Math.Clamp(notifications.TrayNoticesShown ?? 0, 0, NotificationSettings.TrayNoticesToShow));
+
+    /// <summary>
+    /// Writes the whole <c>notifications</c> object, keeping every other field in the file. The
+    /// same rules as <see cref="SaveVoice"/>: a file that cannot be read as JSON is left alone.
+    /// </summary>
+    public static bool SaveNotifications(string path, NotificationSettings notifications)
+    {
+        ArgumentNullException.ThrowIfNull(notifications);
+
+        var shape = new JsonObject
+        {
+            ["bleep"] = notifications.Bleep,
+            ["volume"] = NotificationSettings.ClampVolume(notifications.Volume),
+            ["trayNoticesShown"] = Math.Clamp(notifications.TrayNoticesShown, 0, NotificationSettings.TrayNoticesToShow),
+        };
+
+        return SaveField(path, NotificationsField, shape);
     }
 
     private static FileShape? ReadFile(string path)
@@ -277,7 +314,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayOn")] bool? OverlayOn,
         [property: JsonPropertyName("overlay")] JsonObject? Overlay,
         [property: JsonPropertyName("voice")] VoiceShape? Voice,
-        [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters);
+        [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters,
+        [property: JsonPropertyName("notifications")] NotificationsShape? Notifications);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,
@@ -290,4 +328,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("flaggedJoins")] bool? FlaggedJoins,
         [property: JsonPropertyName("volume")] int? Volume,
         [property: JsonPropertyName("outputDevice")] string? OutputDevice);
+
+    private sealed record NotificationsShape(
+        [property: JsonPropertyName("bleep")] bool? Bleep,
+        [property: JsonPropertyName("volume")] int? Volume,
+        [property: JsonPropertyName("trayNoticesShown")] int? TrayNoticesShown);
 }

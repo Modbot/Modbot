@@ -10,6 +10,7 @@ using Modbot.Companion.LogReading;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
+using Modbot.Companion.Sounds;
 using Modbot.Companion.Startup;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Time;
@@ -231,6 +232,8 @@ internal sealed class CompanionHost : IOverlayListener
     private CloudEventBackup? _cloudBackup;
     private VoiceHost? _voice;
     private bool _voiceTicking;
+    private NotificationSound? _bleep;
+    private IClassicDesktopStyleApplicationLifetime? _desktop;
     private string _settingsPath = string.Empty;
 
     /// <summary>Stops the background tasks -- the event backup and the credits read -- when this copy quits.</summary>
@@ -248,6 +251,7 @@ internal sealed class CompanionHost : IOverlayListener
 
     public void Start(IClassicDesktopStyleApplicationLifetime desktop, string? startupMessage)
     {
+        _desktop = desktop;
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         _directory = Path.Combine(appData, "Modbot");
 
@@ -476,6 +480,72 @@ internal sealed class CompanionHost : IOverlayListener
             if (_state is not null && !CompanionSettings.SaveVoice(_settingsPath, _state.Settings.Voice))
                 Log.Warning("Could not save the voice settings to {Path}", _settingsPath);
         };
+
+        StartBleep();
+    }
+
+    /// <summary>
+    /// Brings up the short sound the client makes when it has something to tell the moderator.
+    /// </summary>
+    /// <remarks>
+    /// <para>Through the voice's own output object, so there is one audio device list in the
+    /// process and the sound comes out of whatever the moderator chose for the voice. Its switch
+    /// and its volume are its own (<see cref="NotificationSettings"/>).</para>
+    /// <para>The sound is made from a formula in code — there is no audio file in the client — and
+    /// played on this PC. No server is told it happened.</para>
+    /// </remarks>
+    private void StartBleep()
+    {
+        if (_voice is null)
+            return;
+
+        _bleep = new NotificationSound(
+            _voice.Player,
+            _voice.Devices,
+            () => _state!.Settings.Notifications,
+            () => _state!.Settings.Voice.OutputDeviceId,
+            new BleepRule(_clock),
+            line => Log.Information("Notification sound: {Line}", line));
+    }
+
+    /// <summary>The Notifications card changed. Takes effect at once; the file is written now.</summary>
+    private void SetNotifications(NotificationSettings notifications)
+    {
+        if (_state is null || _state.Settings.Notifications == notifications)
+            return;
+
+        _state.Settings = _state.Settings with { Notifications = notifications };
+
+        if (!CompanionSettings.SaveNotifications(_settingsPath, notifications))
+            Log.Warning("Could not save the notification settings to {Path}", _settingsPath);
+
+        Render();
+    }
+
+    /// <summary>The Notifications card's Test button: one bleep, whether or not the sound is on.</summary>
+    private void TestBleep() => _bleep?.Ask(NotificationKind.Test);
+
+    /// <summary>
+    /// The window was closed with the X: the client is still here, still reporting, and the tray
+    /// icon is where it now lives. Said the first few times only, and counted in settings.json so
+    /// somebody who closes the window twenty times a day is told three times.
+    /// </summary>
+    private void ClosedToTray()
+    {
+        if (_state is null)
+            return;
+
+        var notifications = _state.Settings.Notifications;
+        if (!notifications.ShowTrayNotice)
+            return;
+
+        var counted = notifications.WithTrayNoticeShown();
+        _state.Settings = _state.Settings with { Notifications = counted };
+
+        if (!CompanionSettings.SaveNotifications(_settingsPath, counted))
+            Log.Warning("Could not save the notification settings to {Path}", _settingsPath);
+
+        TrayNoticeWindow.Show("Modbot is minimised to the tray");
     }
 
     /// <summary>One turn of the voice, never overlapping itself: a line takes seconds to say.</summary>
@@ -529,10 +599,11 @@ internal sealed class CompanionHost : IOverlayListener
     /// </summary>
     private void AnnounceTokenRejected(string serverId)
     {
-        if (_voice is null || !_tokenRejectionsSpoken.Add(serverId))
+        if (!_tokenRejectionsSpoken.Add(serverId))
             return;
 
-        _voice.Announcer.Problem($"{serverId} rejected this device. Modbot has stopped reporting to it.");
+        _bleep?.Ask(NotificationKind.Problem, serverId);
+        _voice?.Announcer.Problem($"{serverId} rejected this device. Modbot has stopped reporting to it.");
     }
 
     private void NoticeTokenRejections()
@@ -541,7 +612,13 @@ internal sealed class CompanionHost : IOverlayListener
             AnnounceTokenRejected(stopped.ServerId);
     }
 
-    void IOverlayListener.AlertShown(FlaggedJoinAlert alert) => _voice?.Announcer.FlaggedJoin(alert.DisplayName);
+    void IOverlayListener.AlertShown(FlaggedJoinAlert alert)
+    {
+        // The same moment the overlay draws its card: a sound that points at something already on
+        // screen, and one sound however many times the alert is noticed.
+        _bleep?.Ask(NotificationKind.FlaggedJoin, alert.DisplayName ?? alert.SubjectId);
+        _voice?.Announcer.FlaggedJoin(alert.DisplayName);
+    }
 
     void IOverlayListener.TokenRejected(string label) => AnnounceTokenRejected(label);
 
@@ -1001,18 +1078,7 @@ internal sealed class CompanionHost : IOverlayListener
         var quit = new NativeMenuItem("Quit — stops reporting");
         quit.Click += (_, _) =>
         {
-            // Quitting really does stop reporting: the log stops being read at this line, not when
-            // the process eventually exits.
-            _engineLoop.Stop();
-            _overlayLoop.Stop();
-            _inputLoop.Stop();
-            _voiceLoop.Stop();
-            _updates?.Stop();
-            _inboxStop.Cancel();
-            _backupStop.Cancel();
-            _overlay?.Dispose();
-            _overlayHost?.Dispose();
-            _voice?.Dispose();
+            StopEverything();
             desktop.Shutdown();
         };
 
@@ -1026,6 +1092,57 @@ internal sealed class CompanionHost : IOverlayListener
 
         _tray.Clicked += (_, _) => ShowWindow();
         TrayIcon.SetIcons(Application.Current!, [_tray]);
+    }
+
+    /// <summary>
+    /// Stops every loop this client runs and lets go of everything it holds.
+    /// </summary>
+    /// <remarks>
+    /// Quitting really does stop reporting: the log stops being read at these lines, not when the
+    /// process eventually exits. The Settings page's Restart uses the same stop, in the same order,
+    /// so a restart and a quit leave the machine in the same state — the difference is only that a
+    /// fresh copy is already waiting to take over.
+    /// </remarks>
+    private void StopEverything()
+    {
+        _engineLoop.Stop();
+        _overlayLoop.Stop();
+        _inputLoop.Stop();
+        _voiceLoop.Stop();
+        _updates?.Stop();
+        _inboxStop.Cancel();
+        _backupStop.Cancel();
+        _overlay?.Dispose();
+        _overlayHost?.Dispose();
+        _voice?.Dispose();
+    }
+
+    /// <summary>
+    /// The Settings page's <strong>Restart Modbot Companion</strong>.
+    /// </summary>
+    /// <remarks>
+    /// <para>The fresh copy is started first, because once this one has stopped there is nothing
+    /// left to start it. It is started the way pairing links start this program: by asking Windows
+    /// to open Modbot's own <c>modbot-companion://</c> address, which Windows answers from the
+    /// registration this client wrote for itself. The client launches nothing and inspects nothing
+    /// (<see cref="CompanionRestart"/>).</para>
+    /// <para>A machine where that address has no handler — the registry refused the registration —
+    /// gets no restart and keeps the client it has: nothing is stopped, and the card says so.</para>
+    /// </remarks>
+    /// <returns>True once a fresh copy has been asked for and this one is shutting down.</returns>
+    private async Task<bool> RestartAsync()
+    {
+        var started = await Window.Launcher.LaunchUriAsync(new Uri(CompanionRestart.Link));
+        if (!started)
+        {
+            Log.Warning("Could not start another copy of Modbot; this one carries on reporting");
+            return false;
+        }
+
+        Log.Information("Restarting: a fresh copy has been asked for and is waiting for this one to go");
+        StopEverything();
+        _desktop?.Shutdown();
+        return true;
     }
 
     /// <summary>
@@ -1117,6 +1234,10 @@ internal sealed class CompanionHost : IOverlayListener
             {
                 SetEventsFilters = SetEventsFilters,
                 SetOverlayOn = SetOverlayOn,
+                SetNotifications = SetNotifications,
+                TestBleep = TestBleep,
+                ClosedToTray = ClosedToTray,
+                RestartAsync = RestartAsync,
             });
     }
 
@@ -1356,12 +1477,33 @@ internal static class Program
         // link is the first argument that looks like one; anything else on the command line is
         // Avalonia's business.
         var link = args.FirstOrDefault(PairingToken.LooksLikeLink);
+
+        // One of those links is not a pairing link: it is this program asking Windows to start a
+        // fresh copy of itself for the Settings page's Restart button. That copy waits for the one
+        // that is quitting instead of handing it anything (CompanionRestart).
+        var restarting = CompanionRestart.IsRestartLink(link);
+        if (restarting)
+            link = null;
+
         var startHidden = StartWithWindows.StartsHidden(args);
 
         CompanionLog.Start(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
         CrashGuard.Install();
 
         using var single = new Mutex(initiallyOwned: true, SingleInstanceName, out var firstCopy);
+
+        // Started to replace a copy that is on its way out: wait for it to go rather than handing
+        // it a message and leaving. Its exit frees both the single-copy lock and the pairing link
+        // inbox's pipe, and this copy needs both.
+        if (!firstCopy && restarting)
+        {
+            Log.Information("Started to replace the copy that is quitting; waiting for it to go");
+            firstCopy = CompanionRestart.WaitForTheOldCopyToGo(single);
+
+            if (!firstCopy)
+                Log.Warning("The copy that was quitting is still running; leaving it alone");
+        }
+
         if (!firstCopy)
         {
             // Windows starting a second copy at sign-in wants nothing from the first one.

@@ -8,6 +8,7 @@ using Modbot.Companion.Journal;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
+using Modbot.Companion.Sounds;
 using Modbot.Companion.Voice;
 using Modbot.Overlay;
 using Modbot.Overlay.OpenVr;
@@ -181,6 +182,7 @@ public sealed partial class MainWindow : Window
 
         SetUpKeyboard();
         SetUpEvents();
+        SetUpNotifications();
 
         // The palette and the shortcut sheet open over the page, inside this window, so the
         // window's own keys still reach them and nothing else appears in the taskbar.
@@ -238,6 +240,10 @@ public sealed partial class MainWindow : Window
 
         e.Cancel = true;
         Hide();
+
+        // The client is still running and still reporting, which is the point of the tray icon and
+        // is not obvious from a window that has just vanished. Said the first few times only.
+        _actions.ClosedToTray();
     }
 
     /// <summary>Rebuilds the window from a snapshot. Cheap enough to call on a timer.</summary>
@@ -835,6 +841,7 @@ public sealed partial class MainWindow : Window
             _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
 
             RefreshVoiceControls(_snapshot.VoiceOrNone);
+            RefreshNotificationControls(_snapshot.NotificationsOrDefault);
         }
         finally
         {
@@ -848,9 +855,13 @@ public sealed partial class MainWindow : Window
             new StackPanel { Spacing = 6, Children = { _startupBox } },
             "Settings"));
 
+        _body.Children.Add(Ui.Card(NotificationsCard(), "Notifications"));
+
         _body.Children.Add(Ui.Card(VoiceSettingsCard(_snapshot.VoiceOrNone), "Voice"));
 
         _body.Children.Add(Ui.Card(LogFolderSettings(), "VRChat log folder"));
+
+        _body.Children.Add(Ui.Card(RestartCard(), "Restart"));
     }
 
     /// <summary>
@@ -1330,6 +1341,24 @@ public sealed record MainWindowActions(
 
     /// <summary>The SteamVR page's <strong>Overlay on</strong> switch. Added the same way.</summary>
     public Action<bool> SetOverlayOn { get; init; } = _ => { };
+
+    /// <summary>The Notifications card changed: the sound's own switch and its own volume.</summary>
+    public Action<NotificationSettings> SetNotifications { get; init; } = _ => { };
+
+    /// <summary>Plays one bleep, whether or not the sound is switched on.</summary>
+    public Action TestBleep { get; init; } = () => { };
+
+    /// <summary>
+    /// The window was closed with the X and the client is still in the tray. Shows the notice, the
+    /// first few times only.
+    /// </summary>
+    public Action ClosedToTray { get; init; } = () => { };
+
+    /// <summary>
+    /// The Settings page's Restart button. True once a fresh copy has been started and this one is
+    /// going; false when no copy could be started, in which case nothing has been stopped.
+    /// </summary>
+    public Func<Task<bool>> RestartAsync { get; init; } = () => Task.FromResult(false);
 
     public static MainWindowActions None { get; } = new(
         _ => { },
