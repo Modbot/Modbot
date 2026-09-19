@@ -33,6 +33,11 @@ public class EventSocketTeardownTests
             PollInterval = TimeSpan.FromMilliseconds(50),
         }));
 
+    /// <summary>
+    /// Takes a ticket and opens the socket with it. The caller needs a permission that reaches one
+    /// of the two logs -- ViewLiveInstances only widens what a reader of a log may additionally be
+    /// sent, so on its own it sees no event at all and the ticket is refused.
+    /// </summary>
     private static async Task<WebSocket> ConnectAsync(ApiTestHost host, string cookie)
     {
         var response = await host.SendJsonAsync(HttpMethod.Post, "/api/events/tickets", null, cookie, Ct);
@@ -94,7 +99,7 @@ public class EventSocketTeardownTests
     public async Task AConnectionDroppedWhileTheServerIsWaitingToReceive_GivesItsPlaceBack()
     {
         await using var host = await StartAsync(_db);
-        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
         var key = EventConnections.KeyFor(user.Id, null);
 
         var socket = await ConnectAsync(host, cookie);
@@ -120,7 +125,7 @@ public class EventSocketTeardownTests
     public async Task ASecondConnectionOpenedWhileTheFirstCloses_IsServed_AndBothPlacesComeBack()
     {
         await using var host = await StartAsync(_db);
-        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
         var key = EventConnections.KeyFor(user.Id, null);
 
         var first = await ConnectAsync(host, cookie);
