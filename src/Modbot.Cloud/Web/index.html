@@ -12,6 +12,28 @@
     <meta name="theme-color" content="#0f0e15" media="(prefers-color-scheme: dark)" />
     <meta name="color-scheme" content="light dark" />
     <title>Modbot Cloud</title>
+
+    <!-- The link preview a chat app draws for a cloud.modbot.co link. One set for the whole site,
+         which is all it can have and all it should have: every route serves this one file and a
+         crawler runs no script, and the routes are the admin area, the account pages and the
+         unsubscribe link at the foot of a mailing-list message. A preview that named those would
+         put somebody's account page or an unsubscribe token into a channel as a headline.
+
+         The image is modbot.co's copy, so there is one share image for the project rather than a
+         copy per site drifting from it. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Modbot Cloud" />
+    <meta property="og:url" content="https://cloud.modbot.co/" />
+    <meta property="og:title" content="Modbot Cloud" />
+    <meta property="og:description" content="Accounts, reports and app logs for Modbot." />
+    <meta property="og:image" content="https://modbot.co/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Modbot: self-hosted moderation for VRChat groups." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Modbot Cloud" />
+    <meta name="twitter:description" content="Accounts, reports and app logs for Modbot." />
+    <meta name="twitter:image" content="https://modbot.co/og.png" />
   </head>
   <body>
     <div id="root"></div>

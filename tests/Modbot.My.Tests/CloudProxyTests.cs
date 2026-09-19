@@ -69,7 +69,7 @@ public class CloudProxyTests
             .WaitAsync(TimeSpan.FromSeconds(5), Ct);
 
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.Equal(MyTestHost.AppHtml, await page.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(MyTestHost.RegisterHtml, await page.Content.ReadAsStringAsync(Ct));
 
         await host.Cloud.NextCallAsync(Ct);
         host.Cloud.Hold.SetResult();
@@ -175,7 +175,7 @@ public class CloudProxyTests
         using var page = await host.GetAsync("/register?url=https%3A%2F%2Fmodbot.example", Visitor);
 
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.Equal(MyTestHost.AppHtml, await page.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(MyTestHost.RegisterHtml, await page.Content.ReadAsStringAsync(Ct));
     }
 
     [Fact]

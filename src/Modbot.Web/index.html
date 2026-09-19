@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="robots" content="noindex" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -11,6 +12,32 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Modbot</title>
+
+    <!-- The link preview a chat app draws when a moderator pastes a page of this app into a
+         channel. It names the product and nothing else, on purpose.
+
+         It cannot say more and it should not. It cannot, because the app is drawn by a script and
+         a preview is fetched by a crawler that runs none: every path serves this one file, so the
+         only words a crawler can ever read are the ones written here. It should not, because the
+         links moderators paste are things like /audit?subject=usr_... and /cases/42; a preview that
+         named the page would spell a ban, a person or a case file into a channel that the app
+         itself keeps behind a sign-in.
+
+         The image is modbot.co's, not this server's: a self-hosted Modbot's public address is a
+         setting most installs leave empty, and a preview image that fails to load looks worse than
+         the project's own. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Modbot" />
+    <meta property="og:title" content="Modbot" />
+    <meta property="og:description" content="Moderation for a VRChat group." />
+    <meta property="og:image" content="https://modbot.co/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Modbot: self-hosted moderation for VRChat groups." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Modbot" />
+    <meta name="twitter:description" content="Moderation for a VRChat group." />
+    <meta name="twitter:image" content="https://modbot.co/og.png" />
   </head>
   <body>
     <div id="root"></div>

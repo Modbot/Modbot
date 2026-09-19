@@ -1,4 +1,5 @@
 using System.Net;
+using Modbot.My.Features.Pages;
 
 namespace Modbot.My.Tests;
 
@@ -9,12 +10,18 @@ public class PageTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>
+    /// Each route serves its own built page. They are the same app and differ only in the head,
+    /// which carries that page's title and link preview tags; a chat app drawing a preview runs no
+    /// script, so a route that served the home page's head would preview every link as the home
+    /// page.
+    /// </summary>
     [Theory]
-    [InlineData("/")]
-    [InlineData("/register")]
-    [InlineData("/go")]
-    [InlineData("/go?redir=/pair")]
-    public async Task EachAppRouteServesTheAppOnFirstLoad(string path)
+    [InlineData("/", AppPage.Home)]
+    [InlineData("/register", AppPage.Register)]
+    [InlineData("/go", AppPage.Go)]
+    [InlineData("/go?redir=/pair", AppPage.Go)]
+    public async Task EachAppRouteServesItsOwnPageOnFirstLoad(string path, string file)
     {
         await using var host = await MyTestHost.StartAsync();
 
@@ -23,7 +30,7 @@ public class PageTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
         Assert.True(response.Headers.CacheControl?.NoCache);
-        Assert.Equal(MyTestHost.AppHtml, await response.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(MyTestHost.HtmlFor(file), await response.Content.ReadAsStringAsync(Ct));
     }
 
     /// <summary>
@@ -39,6 +46,8 @@ public class PageTests
     [InlineData("/admin")]
     [InlineData("/admin/instances/some-id")]
     [InlineData("/index.html")]
+    [InlineData("/register.html")]
+    [InlineData("/go.html")]
     [InlineData("/register/extra")]
     [InlineData("/nothing-here")]
     [InlineData("/missing.js")]

@@ -127,6 +127,12 @@ dash.
 | `src/Modbot.Web/public` | `favicon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` |
 | `src/Modbot.My.Web/public` | same |
 | `src/Modbot.Cloud/Web/public` | same |
-| `docs/public` | same; the docs site maps these tokens onto Fumadocs' `--color-fd-*` variables in `docs/app/global.css` |
+| `docs/public` | same, plus `og.png`; the docs site maps these tokens onto Fumadocs' `--color-fd-*` variables in `docs/app/global.css` |
+
+There is one share image. `og.png` is 1200 x 630, rendered from `explore/design/og.template.html`,
+and it is the picture in every link preview the project draws. The landing page and the docs site
+serve their own copy; my.modbot.co, Modbot Cloud and the moderator app point at
+`https://modbot.co/og.png` instead of carrying a copy each, so the picture is the same one
+everywhere and a self-hosted Modbot needs no public address of its own to have a preview at all.
 
 The kit, the prompts and the generation script are in `explore/design/brand/`.
