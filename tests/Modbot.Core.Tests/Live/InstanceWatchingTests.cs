@@ -120,7 +120,10 @@ public class InstanceWatchingTests
 
         var watcher = Assert.Single(people.Watching);
         Assert.Equal("usr_ada", watcher.UserId);
-        Assert.Equal(T0, watcher.Since);
+
+        // The earlier of her two clients, which is the one whose arrival burst opens a second
+        // before her own join -- not the second PC that turns up five minutes later.
+        Assert.Equal(T0.AddSeconds(-1), watcher.Since);
     }
 
     [Fact]
