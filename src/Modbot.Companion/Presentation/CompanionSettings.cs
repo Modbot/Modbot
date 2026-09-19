@@ -27,7 +27,9 @@ namespace Modbot.Companion.Presentation;
 /// only that switch's field — the whole <c>voice</c> object for the voice card — leaving anything
 /// else in the file as it was. The <c>cloud</c> object is
 /// never written by the client; the environment variables <c>MODBOT_CLOUD_ENDPOINT</c> and
-/// <c>MODBOT_CLOUD_DISABLED</c> are also read, and win over it (<see cref="CloudSettings"/>).</para>
+/// <c>MODBOT_CLOUD_DISABLED</c> are also read, and win over it (<see cref="CloudSettings"/>).
+/// <c>desktopOverlay</c> (<c>{ "on": true, "shortcut": "mod+alt+m", "opacity": 90 }</c>) is the
+/// window that sits over VRChat on a monitor, and is written whole the same way the voice is.</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
 /// opens in your browser when you press the button; no server is told what it is. The switches decide
 /// what the client does; they are not reported anywhere.</para>
@@ -62,6 +64,12 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     /// <summary>The voice: off until turned on, then which events it speaks, how loud, and through what.</summary>
     public VoiceSettings Voice { get; init; } = VoiceSettings.Default;
+
+    /// <summary>
+    /// The desktop overlay: off until turned on, then the shortcut that brings it up over VRChat
+    /// and how solid its background is. Saved as the <c>desktopOverlay</c> object.
+    /// </summary>
+    public DesktopOverlaySettings DesktopOverlay { get; init; } = DesktopOverlaySettings.Default;
 
     /// <summary>
     /// Whether the headset panel is drawn at all. On unless <c>"overlayOn": false</c> is in the
@@ -102,6 +110,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string VoiceField = "voice";
 
+    public const string DesktopOverlayField = "desktopOverlay";
+
     public const string EventsFiltersField = "eventsFilters";
 
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
@@ -133,6 +143,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             OverlayOn = shape?.OverlayOn ?? true,
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
             Voice = FromShape(shape?.Voice),
+            DesktopOverlay = FromShape(shape?.DesktopOverlay),
             EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
         };
     }
@@ -153,6 +164,32 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         ArgumentNullException.ThrowIfNull(placement);
         return SaveField(path, OverlayField, placement.Clamped().ToJson());
     }
+
+    /// <summary>
+    /// Writes the whole <c>desktopOverlay</c> object, keeping every other field in the file. A
+    /// shortcut nobody could register is not written: the file would then hold a combination the
+    /// client silently ignores.
+    /// </summary>
+    public static bool SaveDesktopOverlay(string path, DesktopOverlaySettings desktopOverlay)
+    {
+        ArgumentNullException.ThrowIfNull(desktopOverlay);
+
+        return SaveField(path, DesktopOverlayField, new JsonObject
+        {
+            ["on"] = desktopOverlay.On,
+            ["shortcut"] = desktopOverlay.ShortcutOrDefault,
+            ["opacity"] = DesktopOverlaySettings.ClampOpacity(desktopOverlay.Opacity),
+        });
+    }
+
+    private static DesktopOverlaySettings FromShape(DesktopOverlayShape? desktopOverlay) => desktopOverlay is null
+        ? DesktopOverlaySettings.Default
+        : new DesktopOverlaySettings(
+            desktopOverlay.On ?? false,
+            string.IsNullOrWhiteSpace(desktopOverlay.Shortcut)
+                ? DesktopOverlaySettings.DefaultShortcut
+                : desktopOverlay.Shortcut.Trim(),
+            DesktopOverlaySettings.ClampOpacity(desktopOverlay.Opacity ?? DesktopOverlaySettings.DefaultOpacity));
 
     private static VoiceSettings FromShape(VoiceShape? voice) => voice is null
         ? VoiceSettings.Default
@@ -277,6 +314,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("overlayOn")] bool? OverlayOn,
         [property: JsonPropertyName("overlay")] JsonObject? Overlay,
         [property: JsonPropertyName("voice")] VoiceShape? Voice,
+        [property: JsonPropertyName("desktopOverlay")] DesktopOverlayShape? DesktopOverlay,
         [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters);
 
     private sealed record CloudShape(
@@ -290,4 +328,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("flaggedJoins")] bool? FlaggedJoins,
         [property: JsonPropertyName("volume")] int? Volume,
         [property: JsonPropertyName("outputDevice")] string? OutputDevice);
+
+    private sealed record DesktopOverlayShape(
+        [property: JsonPropertyName("on")] bool? On,
+        [property: JsonPropertyName("shortcut")] string? Shortcut,
+        [property: JsonPropertyName("opacity")] int? Opacity);
 }

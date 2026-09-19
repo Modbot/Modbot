@@ -688,7 +688,11 @@ public sealed partial class MainWindow : Window
     /// place, named by the group the server manages. An event seen in a group nobody manages has
     /// the time and the sentence and nothing else, which is the truth of it.
     /// </summary>
-    private static Border EventRow(JournalRow row, bool first, IReadOnlyDictionary<string, string> groups)
+    /// <remarks>
+    /// Shared with the desktop overlay, which shows the last few of these under the panel: one row
+    /// builder, so the two screens cannot come to say different things about one event.
+    /// </remarks>
+    internal static Border EventRow(JournalRow row, bool first, IReadOnlyDictionary<string, string> groups)
     {
         var sent = row.ServerState is JournalEntryKind.Sent || row.CloudState is JournalEntryKind.Sent;
 
@@ -847,6 +851,8 @@ public sealed partial class MainWindow : Window
         _body.Children.Add(Ui.Card(
             new StackPanel { Spacing = 6, Children = { _startupBox } },
             "Settings"));
+
+        _body.Children.Add(Ui.Card(DesktopOverlayCard(), "Desktop overlay"));
 
         _body.Children.Add(Ui.Card(VoiceSettingsCard(_snapshot.VoiceOrNone), "Voice"));
 
@@ -1330,6 +1336,18 @@ public sealed record MainWindowActions(
 
     /// <summary>The SteamVR page's <strong>Overlay on</strong> switch. Added the same way.</summary>
     public Action<bool> SetOverlayOn { get; init; } = _ => { };
+
+    /// <summary>
+    /// The Settings page's Desktop overlay card changed: the whole record as the controls now
+    /// read. Added the same way.
+    /// </summary>
+    public Action<DesktopOverlaySettings> SetDesktopOverlay { get; init; } = _ => { };
+
+    /// <summary>
+    /// Opens the desktop overlay from the settings card, which is the way in when the shortcut
+    /// could not be registered. Added the same way.
+    /// </summary>
+    public Action ShowDesktopOverlay { get; init; } = () => { };
 
     public static MainWindowActions None { get; } = new(
         _ => { },
