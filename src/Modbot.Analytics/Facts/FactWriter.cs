@@ -97,13 +97,15 @@ public sealed class FactWriter : IFactWriter
             await _db.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT pg_advisory_xact_lock(hashtext({key})::bigint)", ct);
 
-            var existing = await AlreadyRecordedAsync(fact, window, ct);
-            if (existing is not null)
+            var existing = await FindRecordedAsync(fact, window, ct);
+            if (existing is { } already)
             {
+                await RecordSupportingReportAsync(fact, already, ct);
+
                 if (transaction is not null)
                     await transaction.CommitAsync(ct);
 
-                return new FactWriteResult(existing.Value, WasDeduplicated: true);
+                return new FactWriteResult(already.Id, WasDeduplicated: true);
             }
 
             var id = await InsertAsync(fact, ct);
@@ -157,6 +159,19 @@ public sealed class FactWriter : IFactWriter
         FactRecord fact,
         TimeSpan within,
         CancellationToken ct = default)
+        => (await FindRecordedAsync(fact, within, ct))?.Id;
+
+    /// <summary>The fact already recording this event, with what a second report needs to know about it.</summary>
+    /// <param name="OccurredAt">
+    /// The stored fact's own time, not the arriving report's. They are within the window of each
+    /// other and can fall either side of a month boundary, and this is the one retention prunes by.
+    /// </param>
+    private readonly record struct RecordedFact(long Id, DateTimeOffset OccurredAt, string? Data);
+
+    private async Task<RecordedFact?> FindRecordedAsync(
+        FactRecord fact,
+        TimeSpan within,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(fact);
 
@@ -177,10 +192,41 @@ public sealed class FactWriter : IFactWriter
             // ordering by time rather than id keeps that stable if ids are ever filled in later.
             .OrderBy(e => e.OccurredAt)
             .ThenBy(e => e.Id)
-            .Select(e => (long?)e.Id)
+            .Select(e => new { e.Id, e.OccurredAt, e.Data })
             .FirstOrDefaultAsync(ct);
 
-        return match;
+        return match is null ? null : new RecordedFact(match.Id, match.OccurredAt, match.Data);
+    }
+
+    /// <summary>
+    /// Writes down that another client saw the same thing, beside the fact rather than as one.
+    /// </summary>
+    /// <remarks>
+    /// <para>Two clients independently reporting one arrival is better evidence than one, and until
+    /// this row existed the second report was counted in the ingest response and then thrown away.
+    /// It goes in its own table because facts are immutable and because a second fact would turn
+    /// one arrival into two everywhere anything is added up.</para>
+    /// <para>The client already named on the fact is skipped. A client that retries a batch resends
+    /// reports the server has seen, and recording those would make one client saying a thing twice
+    /// look like two clients agreeing -- which is the whole value of the row.</para>
+    /// </remarks>
+    private async Task RecordSupportingReportAsync(FactRecord report, RecordedFact existing, CancellationToken ct)
+    {
+        if (ClientReport.DeviceIdOf(report.Data) is not { } device)
+            return;
+
+        if (ClientReport.DeviceIdOf(existing.Data) == device)
+            return;
+
+        // The advisory lock already serialises reports of this event; the conflict clause covers
+        // the same client reporting it again in a later batch.
+        await _db.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+             INSERT INTO modbot_event_report (fact_id, occurred_at, device_id, reported_at)
+             VALUES ({existing.Id}, {existing.OccurredAt}, {device}, {_clock.UtcNow})
+             ON CONFLICT DO NOTHING
+             """,
+            ct);
     }
 
     private async Task<long> InsertAsync(FactRecord fact, CancellationToken ct)

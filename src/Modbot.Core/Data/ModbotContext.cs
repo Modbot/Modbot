@@ -58,6 +58,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// </summary>
     public DbSet<LinkedFact> LinkedFacts => Set<LinkedFact>();
 
+    /// <summary>
+    /// The other clients that reported a fact already recorded. Nothing counts from here; it only
+    /// says who else saw the same thing.
+    /// </summary>
+    public DbSet<EventReport> EventReports => Set<EventReport>();
+
     /// <summary>Daily aggregates (spec 5.4). Derived from <see cref="Events"/>, kept forever.</summary>
     public DbSet<DailyTotal> DailyTotals => Set<DailyTotal>();
 
@@ -1035,6 +1041,23 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.HasIndex(e => e.OccurredAt)
                 .HasDatabaseName("ix_modbot_linked_fact_occurred");
+        });
+
+        builder.Entity<EventReport>(entity =>
+        {
+            entity.ToTable("modbot_event_report");
+
+            // One row per client per fact, and the key says so: a client that retries a batch
+            // reports the same thing twice, and two rows would read as two clients agreeing.
+            entity.HasKey(e => new { e.FactId, e.DeviceId }).HasName("pk_modbot_event_report");
+
+            // Pruned by occurred_at, the same bound retention drops partitions at.
+            entity.HasIndex(e => e.OccurredAt)
+                .HasDatabaseName("ix_modbot_event_report_occurred");
+
+            // Deliberately no foreign key to modbot_event, for the reason LinkedFact gives: the
+            // fact log is partitioned and retention drops whole partitions, which a constraint
+            // would turn into a per-row cascade.
         });
 
         builder.Entity<DailyTotal>(entity =>

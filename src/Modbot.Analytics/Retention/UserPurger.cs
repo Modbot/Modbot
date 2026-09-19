@@ -146,6 +146,18 @@ public sealed class UserPurger : IUserPurger
                 new NpgsqlParameter("platform", (short)platform),
                 new NpgsqlParameter("subject", subjectId));
 
+            // And which other clients reported them, for the same reason.
+            await ExecuteAsync(
+                """
+                DELETE FROM modbot_event_report r
+                USING modbot_event e
+                WHERE r.fact_id = e.id AND r.occurred_at = e.occurred_at
+                  AND e.subject_platform = @platform AND e.subject_id = @subject
+                """,
+                ct,
+                new NpgsqlParameter("platform", (short)platform),
+                new NpgsqlParameter("subject", subjectId));
+
             var factsDeleted = await ExecuteAsync(
                 """
                 DELETE FROM modbot_event
