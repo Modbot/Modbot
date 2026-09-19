@@ -20,6 +20,9 @@ namespace Modbot.Companion.App;
 internal enum Page
 {
     Servers,
+
+    /// <summary>The pairing instructions. Reached from Servers, not from the sidebar.</summary>
+    AddServer,
     Events,
     SteamVr,
     Log,
@@ -484,6 +487,9 @@ public sealed partial class MainWindow : Window
             case Page.Settings:
                 RenderSettings();
                 break;
+            case Page.AddServer:
+                RenderAddServer();
+                break;
             case Page.Credits:
                 RenderCredits();
                 break;
@@ -503,18 +509,54 @@ public sealed partial class MainWindow : Window
         _ => Ui.T.Palette.Info,
     };
 
+/// <summary>
+    /// One small card per paired server, and the way to add another.
+    /// </summary>
+    /// <remarks>
+    /// The card is the group: its icon, its name, and whether reporting is working. The counts
+    /// that used to sit here -- recorded, already known, queued -- answered a question nobody was
+    /// asking on this page; what a moderator opens it for is whether their groups are covered, and
+    /// four numbers per card buried that. The Events page still has every one of them.
+    /// </remarks>
     private void RenderServers()
     {
+        var add = Ui.Button("Add a server", primary: true);
+        add.Click += (_, _) => GoTo(Page.AddServer);
+
+        _body.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 0, 0, 4),
+            Children = { add },
+        });
+
         if (_snapshot.Servers.Count == 0)
         {
             _body.Children.Add(Ui.Card(
-                Ui.Dim(
-                    "No servers paired. Press \"Pair with a server\" below to add the group you moderate."),
+                Ui.Dim("No servers paired."),
                 "Not reporting anywhere"));
+            return;
         }
 
+        var cards = new WrapPanel { ItemSpacing = 12, LineSpacing = 12 };
         foreach (var server in _snapshot.Servers)
-            _body.Children.Add(ServerCard(server));
+            cards.Children.Add(ServerCard(server));
+
+        _body.Children.Add(cards);
+    }
+
+    /// <summary>The pairing instructions, on a screen of their own, with the way back.</summary>
+    private void RenderAddServer()
+    {
+        var back = Ui.Button("Back to servers");
+        back.Click += (_, _) => GoTo(Page.Servers);
+
+        _body.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 0, 0, 4),
+            Children = { back },
+        });
 
         RenderPairingNotice();
         _body.Children.Add(_pairingCard);
@@ -548,6 +590,10 @@ public sealed partial class MainWindow : Window
         };
     }
 
+/// <summary>
+    /// One group, small enough that several sit side by side: the icon, the name, whether
+    /// reporting is working, and the two things a moderator does to it.
+    /// </summary>
     private Control ServerCard(ServerRow server)
     {
         var pause = Ui.Button(server.IsPaused ? "Resume reporting" : "Pause reporting");
@@ -556,39 +602,13 @@ public sealed partial class MainWindow : Window
         var unpair = Ui.Button("Unpair", danger: true);
         unpair.Click += (_, _) => _actions.Unpair(server.ServerId);
 
-        var stats = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*,*"),
-            ColumnSpacing = 10,
-        };
-
-        // "Already known" rather than "deduplicated": the technical word sounds like a loss and is
-        // not. Several moderators in one instance all report the same join, and the server keeping
-        // one of them is the system working exactly as designed.
-        // "live" is the overlay's link to this server, in one word: Off when not in one of its
-        // instances, Live over the WebSocket, Polling when the socket cannot be kept.
-        Control[] tiles =
-        [
-            Ui.Stat("recorded", $"{server.AcceptedTotal:N0}"),
-            Ui.Stat("already known", $"{server.DeduplicatedTotal:N0}"),
-            Ui.Stat("queued", $"{server.Pending:N0}", server.Pending > 0 ? Ui.T.WarnBrush : Ui.T.TextBrush),
-            Ui.Stat("live", server.Live, server.Live == "Stopped" ? Ui.T.DangerBrush : Ui.T.TextBrush),
-        ];
-
-        for (var index = 0; index < tiles.Length; index++)
-        {
-            Grid.SetColumn(tiles[index], index);
-            stats.Children.Add(tiles[index]);
-        }
-
         var body = new StackPanel
         {
-            Spacing = 12,
+            Spacing = 10,
             Children =
             {
-                Ui.Dim($"{server.Address}  ·  {server.ManagedGroupId}"),
                 Ui.Text(server.Detail, Ui.T.Density.TextSmall, DetailBrush(server.State)),
-                stats,
+                Ui.Faint($"{server.Address}  ·  {server.ManagedGroupId}"),
                 new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
@@ -599,8 +619,16 @@ public sealed partial class MainWindow : Window
         };
 
         var picture = Pictures?.For(server.GroupIconUrl);
-        return Ui.Card(body, server.GroupName, StatePill(server), picture is null ? null : Ui.Picture(picture, 24));
+        var card = Ui.Card(body, server.GroupName, StatePill(server), picture is null ? null : Ui.Picture(picture, 28));
+        card.Width = ServerCardWidth;
+        return card;
     }
+
+    /// <summary>
+    /// Wide enough for a long group name and the address under it, narrow enough that two sit
+    /// side by side in the window at its smallest.
+    /// </summary>
+    private const double ServerCardWidth = 320;
 
     /// <summary>
     /// The one distinction that must be legible at a glance.
