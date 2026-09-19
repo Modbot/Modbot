@@ -230,15 +230,15 @@ export function People() {
               {search || chips.length > 0 ? 'Nobody matches' : 'Nobody seen yet'}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div data-pin-first className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                    <th className="px-3 py-2 text-left font-normal">Person</th>
-                    <th className="px-3 py-2 text-left font-normal">Standing</th>
-                    <th className="px-3 py-2 text-left font-normal">Last seen by Modbot</th>
-                    <th className="px-3 py-2 text-left font-normal">Known for</th>
-                    <th className="px-3 py-2 text-left font-normal">Profile</th>
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Standing</th>
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Last seen by Modbot</th>
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Known for</th>
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Profile</th>
                   </tr>
                 </thead>
                 <tbody>
