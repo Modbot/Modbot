@@ -46,8 +46,7 @@ public class RegisterDetailsTests
 
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
 
-        var visit = await host.Cloud.NextCallAsync(Ct);
-        Assert.Equal(new Uri(MyTestHost.CloudEndpoint, "api/v1/site/visits"), visit.Url);
+        var visit = await host.Cloud.CallToAsync("/api/v1/site/visits", Ct);
         Assert.Equal(Server, JsonDocument.Parse(visit.Body).RootElement.GetProperty("url").GetString());
     }
 

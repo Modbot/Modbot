@@ -179,13 +179,49 @@ public sealed class FakeCloud : HttpMessageHandler
 
     private readonly SemaphoreSlim _called = new(0);
 
-    /// <summary>Waits for the next call to arrive, for a note the app does not wait on itself.</summary>
+    private int _taken;
+
+    /// <summary>
+    /// Waits for the next call to arrive, for a note the app does not wait on itself.
+    /// </summary>
+    /// <remarks>
+    /// It returns the call it waited for, counted from the first, rather than whichever call
+    /// happens to be last when it wakes. Two calls made at once release the semaphore twice, and
+    /// reading <see cref="Last"/> then answered both waits with the same call -- the later one.
+    /// </remarks>
     public async Task<CloudCall> NextCallAsync(CancellationToken ct)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
         await _called.WaitAsync(timeout.Token);
-        return Last;
+
+        var index = Interlocked.Increment(ref _taken) - 1;
+
+        lock (_calls)
+            return _calls[index];
+    }
+
+    /// <summary>
+    /// Waits for a call to an address ending in <paramref name="path"/>, whenever it comes.
+    /// </summary>
+    /// <remarks>
+    /// The page makes more than one call to Cloud and nothing decides which lands first, so a
+    /// test that wants one of them has to name it rather than take the next one to arrive.
+    /// </remarks>
+    public async Task<CloudCall> CallToAsync(string path, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+
+        while (true)
+        {
+            if (Calls.FirstOrDefault(c => c.Url.AbsolutePath.EndsWith(path, StringComparison.Ordinal)) is { } found)
+                return found;
+
+            await Task.Delay(20, timeout.Token);
+        }
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)

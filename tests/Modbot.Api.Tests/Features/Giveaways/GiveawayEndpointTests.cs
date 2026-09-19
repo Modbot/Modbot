@@ -25,6 +25,15 @@ public class GiveawayEndpointTests(PostgresFixture db)
         await using (var context = db.NewContext())
         {
             await context.Giveaways.ExecuteDeleteAsync(Ct);
+
+            // And everybody a draw could pick. These tests make giveaways whose rules match every
+            // member, so "nobody is in this giveaway" is only true while nobody is a member --
+            // and another suite leaving one behind turned that refusal into a successful draw.
+            // Nothing here adds a member, so clearing them costs these tests nothing.
+            await context.GiveawayEntrants.ExecuteDeleteAsync(Ct);
+            await context.DiscordAccountLinks.ExecuteDeleteAsync(Ct);
+            await context.GroupMembers.ExecuteDeleteAsync(Ct);
+            await context.DiscordMembers.ExecuteDeleteAsync(Ct);
         }
 
         return await ApiTestHost.StartAsync(db);
