@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { EntryDetail } from '@/components/audit/EntryDetail'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
-import { FactTime, SourceBadge } from '@/components/facts'
+import { FactTime, ReportedBy, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
 import { useFilters, type FilterProperty } from '@/lib/filters'
 import { useListSelection } from '@/lib/listSelection'
@@ -428,6 +428,10 @@ function Row({
               {entry.linked.length + 1} facts
             </Badge>
           )}
+          {/* Whose client saw it. On the row rather than behind the chevron, because a moderator
+              scanning the log for what a colleague's client reported should not have to open every
+              row to find out. */}
+          <ReportedBy entry={entry} />
         </td>
       </tr>
       {open && (

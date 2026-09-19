@@ -81,6 +81,18 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
               />
             </Item>
           )}
+          {entry.reportedBy && entry.reportedBy.length > 0 && (
+            <Item label="Reported by">
+              <ul>
+                {entry.reportedBy.map((reporter) => (
+                  <li key={reporter.accountId}>
+                    {reporter.name ?? reporter.accountId}
+                    <span className="ml-2 text-muted-foreground">{dateTime(reporter.at)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Item>
+          )}
           {entry.description && <Item label="Description">{entry.description}</Item>}
           <Item label="Entry id">
             <span className="font-mono">{entry.id}</span>

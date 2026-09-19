@@ -612,6 +612,19 @@ export type AuditEntry = {
    * rows of their own; they are shown inside this entry.
    */
   linked?: AuditEntry[] | null
+  /**
+   * Whose clients reported this, oldest first. Only a client-reported fact has any: the first is
+   * the client whose report became the fact, and the rest reported the same thing afterwards and
+   * were folded into it.
+   */
+  reportedBy?: AuditReporter[] | null
+}
+
+/** One moderator's client that reported a fact, and when its report arrived. */
+export type AuditReporter = {
+  accountId: string
+  name: string | null
+  at: string
 }
 
 export type AuditCursor = { occurredAt: string; id: number }

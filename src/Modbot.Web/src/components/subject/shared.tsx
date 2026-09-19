@@ -1,6 +1,6 @@
 import { DialogContent } from '@/components/ui/dialog'
 import { FactSentence } from '@/components/factSentence'
-import { FactTime, SourceBadge } from '@/components/facts'
+import { FactTime, ReportedBy, SourceBadge } from '@/components/facts'
 import type { AuditEntry } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -101,6 +101,7 @@ export function FactList({
           <div className="mt-1">
             <FactSentence entry={entry} />
           </div>
+          <ReportedBy entry={entry} />
         </li>
       ))}
     </ol>

@@ -58,6 +58,12 @@ public enum SubjectKind
     Other = 6,
 }
 
+/// <summary>One moderator's client that reported a fact.</summary>
+/// <param name="AccountId">The Modbot account the client belongs to.</param>
+/// <param name="Name">That account's username. Null when the account is gone.</param>
+/// <param name="At">When this client's report reached the server.</param>
+public sealed record AuditReporter(Guid AccountId, string? Name, DateTimeOffset At);
+
 /// <param name="Id">The fact's id. Also the second half of the paging cursor.</param>
 /// <param name="OccurredBefore">Null when the time is exact; otherwise the end of the window.</param>
 /// <param name="ObservedAt">When Modbot learned of it, which is not when it happened.</param>
@@ -101,6 +107,16 @@ public enum SubjectKind
 /// two rows a second apart are one thing; every one of them is here in full instead. Empty for
 /// the ordinary fact, which is on its own.
 /// </param>
+/// <param name="ReportedBy">
+/// Whose clients reported this, oldest first. Only a client-reported fact has any: the first is the
+/// client whose report became the fact, and the rest are clients that reported the same thing
+/// afterwards and were deduplicated into it (<c>modbot_event_report</c>). Two independent clients
+/// agreeing is stronger evidence than one, which is why the extras are worth keeping at all.
+///
+/// No wider a gate than the entry itself: every client-reported fact is a moderation entry, so a
+/// caller reading one already holds <c>ViewAuditLog</c>, and the device id this is resolved from has
+/// always been in the entry's payload.
+/// </param>
 public sealed record AuditEntry(
     long Id,
     DateTimeOffset OccurredAt,
@@ -126,7 +142,8 @@ public sealed record AuditEntry(
     JsonNode? Data,
     TrustRank? SubjectTrustRank = null,
     TrustRank? ActorTrustRank = null,
-    IReadOnlyList<AuditEntry>? Linked = null);
+    IReadOnlyList<AuditEntry>? Linked = null,
+    IReadOnlyList<AuditReporter>? ReportedBy = null);
 
 /// <param name="OccurredAt">Pass back as <c>beforeOccurredAt</c> for the next page.</param>
 /// <param name="Id">Pass back as <c>beforeId</c>. Both are required — see the endpoint.</param>
