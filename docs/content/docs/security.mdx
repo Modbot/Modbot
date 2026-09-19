@@ -214,6 +214,12 @@ The companion pairs with your server through the pairing page. See
   uploaded — the client has no upload path, and the evidence endpoints need a signed-in person
   holding the **Upload evidence** permission, which no device token has. A stolen device token
   cannot start a recording, cannot read one, and cannot attach one to a case.
+- The companion can open that person's microphone if they switch
+  [Listening](/companion/listening) on, and **a device token reaches none of that either**. Nothing
+  the microphone hears is recorded, kept or sent anywhere by anybody: the sound is checked against
+  four short phrases and thrown away, the one file allowed to open a microphone cannot write a file
+  or reach the network, and the build fails if that changes. A stolen device token cannot switch
+  listening on, cannot hear anything, and cannot learn that it is on.
 
 ## What Modbot tells VRChat about you
 

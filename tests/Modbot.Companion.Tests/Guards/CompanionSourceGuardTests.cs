@@ -268,7 +268,11 @@ public class CompanionSourceGuardTests
         Assert.Matches(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)");
         Assert.Matches(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active)");
         Assert.Matches(SoundCapture, "var mic = capture.CaptureOpenDevice(null, 16000, BufferFormat.Mono16, 1024);");
+        Assert.Matches(SoundCapture, "var recorder = new WasapiRecorderBuilder().WithSharedMode().Build();");
+        Assert.Matches(SoundCapture, "var matcher = new KeywordSpotter(config);");
+        Assert.Matches(SoundCapture, "stream.AcceptWaveform(16000, samples);");
         Assert.DoesNotMatch(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)");
+        Assert.DoesNotMatch(SoundCapture, "await player.PlayAsync(clip, device, cancellationToken);");
     }
 
     [Fact]
@@ -424,16 +428,21 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void OnlyTheEightDeclaredPlacesMakeOutboundRequests()
+    public void OnlyTheNineDeclaredPlacesMakeOutboundRequests()
     {
         // "What does this program send, and where" should have a short, complete answer findable
-        // by somebody who has never seen the codebase. Eight files, each with a remarks block
+        // by somebody who has never seen the codebase. Nine files, each with a remarks block
         // saying what it sends: one posts observations, one asks the time, one trades a pairing
         // code for a token, one reads the overlay's context, one holds the overlay's live
         // WebSocket open, one backs the client's events up to Modbot Cloud (cloud event backup
         // spec), one fetches the voice -- once, from one pinned address, with nothing attached --
-        // and one reads the sponsors, early adopters and contributors the Credits page shows.
-        // Nothing else reaches the network.
+        // one fetches the phrase model the same way, added on 2026-09-19, and one reads the
+        // sponsors, early adopters and contributors the Credits page shows. Nothing else reaches
+        // the network.
+        //
+        // The ninth is a download and nothing else. Nothing a microphone hears reaches the network
+        // from anywhere in this client, and the file that opens the microphone cannot reach it at
+        // all (NothingTheClientShipsCanKeepOrSendWhatAMicrophoneHeard).
         //
         // Two of the eight are the overlay's: HttpOverlayReadClient and LiveSocket. Neither runs
         // while both overlays are switched off, because nothing then builds the driver that owns
@@ -457,41 +466,104 @@ public class CompanionSourceGuardTests
                 "HttpPairingClient.cs",
                 "HttpServerTimeProbe.cs",
                 "LiveSocket.cs",
+                "PhraseDownload.cs",
                 "VoiceDownload.cs",
             ],
             senders);
     }
 
     /// <summary>Anything that would open a microphone, a line-in or a loopback, by any route.</summary>
+    /// <remarks>
+    /// The list grew on 2026-09-19 with the routes the phrase listener itself uses — the WASAPI
+    /// recorder, the callback it hands sound over on, and the phrase matcher and its neighbours in
+    /// the same library — so that the way in which this ban was narrowed cannot be used a second
+    /// time by a second file. Exactly one file is allowed to match this, and
+    /// <see cref="TheOnlyFileThatCanListenIsPhraseListeningCs"/> names it.
+    /// </remarks>
     private static readonly Regex SoundCapture = new(
         @"\b(WaveIn|WaveInEvent|WaveInProvider|WasapiCapture|WasapiLoopbackCapture|AudioCaptureClient|IAudioCaptureClient"
         + @"|CaptureOpenDevice|CaptureStart|CaptureSamples|CaptureStop|CaptureCloseDevice|alcCaptureOpenDevice"
-        + @"|MediaCapture|AudioRecord|SoundRecorder|eCapture)\b"
+        + @"|MediaCapture|AudioRecord|SoundRecorder|eCapture"
+        + @"|WasapiRecorder|WasapiRecorderBuilder|CaptureDataAvailableHandler|CaptureBufferLease"
+        + @"|WithLoopbackCapture|WithProcessLoopback|StartRecording"
+        + @"|KeywordSpotter|KeywordSpotterConfig|KeywordResult|OnlineRecognizer|VoiceActivityDetector"
+        + @"|AcceptWaveform|SoundArrived)\b"
         + @"|DataFlow\s*\.\s*(Capture|All)\b"
         + @"|Extensions\s*\.\s*EXT\s*\.\s*Capture\b",
         RegexOptions.Compiled);
 
+    /// <summary>The one file allowed to open a microphone.</summary>
+    private const string ListeningFile = "PhraseListening.cs";
+
     [Fact]
-    public void NothingTheClientShipsCanRecordSound()
+    public void TheOnlyFileThatCanListenIsPhraseListeningCs()
     {
-        // The voice gave the client an audio library, and an audio library has a recording half.
-        // The client plays; it never listens. Voice chat is in the never-recorded column beside
-        // keystrokes and the process list (M3 10), and the way to keep it there is to make the
-        // recording APIs fail the build rather than a review.
+        // This ban used to be total. The voice gave the client an audio library, an audio library
+        // has a recording half, and the rule was that the client plays and never listens: voice
+        // chat sat in the never-recorded column beside keystrokes and the process list (M3 10).
         //
-        // This ban did NOT move when the screen one did. Clips are silent on purpose: what a
-        // moderator asked for was to be able to show what happened, and a recording of everyone's
-        // voice in the instance is a different and much larger thing to take off a PC. Keeping the
-        // sound ban total is most of what keeps the clips one narrow.
-        var offenders = EverythingTheClientShips()
+        // On 2026-09-19 a moderator asked to be able to say "Modbot, clip that" inside a headset,
+        // where there is no keyboard and no settings screen to reach, and the rule was narrowed
+        // rather than dropped: the capability exists, in one file, off unless a person switches it
+        // on, only while VRChat is running, with nothing recorded, kept or sent. The listening
+        // design spec carries the whole argument.
+        //
+        // The shape of the narrowing matters as much as the narrowing. A capability in one named
+        // file is answerable -- "show me where this program listens" has a one-word answer. So the
+        // ban stands everywhere else, the list of routes above grew to include the ones the new
+        // file uses, and a second file learning any of them fails the build.
+        //
+        // What did NOT move: clips are still silent. A clip records no sound at all, and this file
+        // records none either -- it matches four phrases and throws the sound away. The client
+        // still has no way to keep or send a recording of anybody's voice, which is most of what
+        // keeps both of these narrow.
+        var listening = EverythingTheClientShips()
             .Where(f => SoundCapture.IsMatch(File.ReadAllText(f)))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
 
-        Assert.True(
-            offenders.Count == 0,
-            "The client must never record sound; found capture APIs in " + string.Join(", ", offenders));
+        Assert.Equal([ListeningFile], listening);
+
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == ListeningFile));
+
+        // The same plain-language disclosure every reading and sending file carries, and the three
+        // claims that make this one bounded: nothing kept, nothing sent, and a shared device.
+        Assert.Contains("<remarks>", source, StringComparison.Ordinal);
+        Assert.Matches(Discloses, source);
+        Assert.Contains("Nothing is recorded. Nothing is kept. Nothing is sent.", source, StringComparison.Ordinal);
+        Assert.Contains("What leaves the machine: nothing", source, StringComparison.Ordinal);
+
+        // Shared mode, never exclusive. This is the line that keeps VRChat's own microphone
+        // working while Modbot listens, and the call that would break it must never appear.
+        Assert.Contains("WithSharedMode()", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("WithExclusiveMode", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AudioClientShareMode.Exclusive", source, StringComparison.Ordinal);
+
+        // And it listens to a microphone, never to what the PC is playing.
+        Assert.DoesNotContain("Loopback", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ListeningIsOnlyEverBuiltInOnePlaceAndIsOffUntilItIsSwitchedOn()
+    {
+        // "What does this program start, and when" has to stay answerable now that one of the
+        // answers is a microphone. One place builds the listener, that place is the same one that
+        // owns every other switch, and the settings it reads default to off -- so an existing
+        // client updated into a version that can listen does not open a microphone.
+        var building = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("new PhraseListening(", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal(["Program.cs"], building);
+
+        var settings = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "src", "Modbot.Companion", "Listening", "ListeningSettings.cs"));
+
+        Assert.Contains("bool On = false", settings, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -499,6 +571,12 @@ public class CompanionSourceGuardTests
     {
         // Belt and braces for the ban above: every place the Windows audio system is asked for
         // devices names the render direction explicitly, so nothing enumerates "all" and picks.
+        //
+        // This one did not have to move when the microphone ban was narrowed, and that is worth
+        // saying out loud: the listener asks Windows to route whichever device is the default
+        // microphone rather than asking which microphones this PC has, so the client still never
+        // enumerates capture endpoints at all -- the same shape as never enumerating windows and
+        // never enumerating processes.
         var audio = EverythingTheClientShips()
             .Select(File.ReadAllText)
             .Where(source => source.Contains("MMDeviceEnumerator", StringComparison.Ordinal))
@@ -510,6 +588,26 @@ public class CompanionSourceGuardTests
         {
             foreach (Match ask in Regex.Matches(source, @"(EnumerateAudioEndPoints|GetDefaultAudioEndpoint|HasDefaultAudioEndpoint)\s*\(\s*DataFlow\s*\.\s*(\w+)"))
                 Assert.Equal("Render", ask.Groups[2].Value);
+        }
+    }
+
+    [Fact]
+    public void NothingTheClientShipsCanKeepOrSendWhatAMicrophoneHeard()
+    {
+        // The narrowing above is "it may listen", not "it may record". So the one file allowed to
+        // open a microphone is held to a second rule: it writes nothing and it sends nothing.
+        // Everything else in the client is still barred from a microphone entirely, so this is the
+        // whole of the surface that has to be checked.
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == ListeningFile));
+
+        foreach (var forbidden in new[]
+                 {
+                     "File.", "FileStream", "StreamWriter", "Directory.",
+                     "HttpClient", "ClientWebSocket", "WaveFileWriter",
+                 })
+        {
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
         }
     }
 

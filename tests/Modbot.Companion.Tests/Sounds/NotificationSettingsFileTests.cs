@@ -154,6 +154,45 @@ public class NotificationSettingsFileTests : IDisposable
     }
 
     [Fact]
+    public void ThereIsNoSoundFileUntilSomebodyNamesOne()
+    {
+        Assert.Null(Load().Sound);
+        Assert.Null(Load().SoundOrNone);
+    }
+
+    [Fact]
+    public void ReadsTheSoundFileAndWritesItBack()
+    {
+        Assert.True(CompanionSettings.SaveNotifications(
+            Path_, new NotificationSettings(Sound: @"C:\Sounds\ping.wav")));
+
+        Assert.Equal(@"C:\Sounds\ping.wav", Load().Sound);
+
+        // And the path lands in the file readable rather than escaped, because this is a file a
+        // moderator is meant to be able to open and edit.
+        Assert.Contains(@"C:\\Sounds\\ping.wav", File.ReadAllText(Path_), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BlankIsTheSameAsNoneAndTheFieldIsNotWritten()
+    {
+        Write("""{ "notifications": { "sound": "   " } }""");
+
+        Assert.Null(Load().SoundOrNone);
+
+        Assert.True(CompanionSettings.SaveNotifications(Path_, new NotificationSettings(Sound: "  ")));
+        Assert.DoesNotContain("\"sound\"", File.ReadAllText(Path_), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SpacesRoundThePathAreTakenOff()
+    {
+        Write("""{ "notifications": { "sound": "  C:\\Sounds\\ping.wav  " } }""");
+
+        Assert.Equal(@"C:\Sounds\ping.wav", Load().Sound);
+    }
+
+    [Fact]
     public void GainIsTheVolumeAsAFraction()
     {
         Assert.Equal(0.7f, NotificationSettings.Default.Gain);

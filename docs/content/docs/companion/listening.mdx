@@ -1,0 +1,171 @@
+---
+title: Listening
+description: Say "Modbot, clip that" and the companion saves a clip, so you never have to reach a keyboard in a headset. Off unless you switch it on, and nothing it hears is recorded, kept or sent.
+---
+
+You are in a headset, something happens, and **Save a clip** is on a panel you have to find and
+point at. **Listening** is the answer to that: with it on, saying **"Modbot, clip that"** out loud
+saves a clip, and the companion tells you whether it worked.
+
+<Callout type="warn" title="This narrows something the companion used to promise">
+Until 19 September 2026 the companion said, in its own source and on this site, that it **never**
+recorded sound, by any route, and the build failed if any code that could open a microphone
+appeared anywhere in it. That ban is now narrowed by exactly one file, and this page is the honest
+replacement rather than a patch over it.
+
+What has **not** changed: nothing your microphone hears is recorded, kept or sent — not to your
+group's server, not to Modbot Cloud, not anywhere. Clips are still silent. There is no upload path
+in the client and it did not gain one.
+</Callout>
+
+## It is off until you switch it on
+
+A fresh install has it off. An existing companion updated into a version that can listen has it off.
+While it is off, **no microphone is opened** and nothing is asked of Windows' audio system at all —
+there is no listener, no phrase matcher and no extra thread.
+
+**Settings** → **Listening** → **Listen for "Modbot, clip that"** is the whole of the consent.
+
+## What happens to the sound
+
+Sound arrives from Windows in fifths of a second, is checked against four short phrases, and is
+thrown away. That is the whole of it.
+
+- **Nothing is written to disk.** Not a recording, not a transcript, not a log of what you said. The
+  one file allowed to open a microphone cannot open a file for writing, and the build fails if it
+  learns how.
+- **Nothing is sent.** That file cannot reach the network either. The only thing listening ever
+  sends is the one download of the phrase matcher itself, described below.
+- **Nothing is held.** At most a few seconds of sound sit in memory waiting to be checked, and they
+  are overwritten by the next few seconds.
+
+### It is not transcribing you
+
+The thing doing the checking is a **phrase matcher**, not a speech recogniser. It is a 3.3-megabyte
+model that is handed four phrases and answers one question: *was one of those just said?* It has no
+ability to produce a transcript of anything else, and the companion does not ship a recogniser that
+could.
+
+That is most of why it was chosen. The same library the companion already uses for the
+[voice](/companion/settings#voice) also offers a full speech recogniser; a program that runs
+unattended on your PC has no business carrying one.
+
+## When the microphone is open
+
+**Only while VRChat is running**, which is the same rule [Clips](/companion/clips) uses. The
+companion knows VRChat is running because lines are arriving in VRChat's own log — it never looks
+for a running program. VRChat closing closes the microphone. Quitting the companion closes it.
+
+So the microphone is not open whenever the companion is. It is open while you are inside VRChat,
+which is when the thing it exists for can happen.
+
+**While it is open, the companion says so** at the top of every page of its own window, for as long
+as it is open.
+
+## It does not take your microphone away from VRChat
+
+Windows is asked for the default microphone in **shared** mode — the same way VRChat, Discord and
+every other voice chat program ask for it. Windows mixes them and hands each program the same sound.
+Modbot never asks for the exclusive mode that would lock other programs out, and the build fails if
+that call appears.
+
+If some other program has already taken your microphone exclusively, Modbot cannot open it, the
+**Listening** card says so, and everything else in the companion carries on exactly as before.
+
+Modbot follows **whichever microphone Windows calls the default**. It never asks Windows for a list
+of your microphones — the same as never asking for a list of your windows or your programs. Change
+your microphone in Windows and Modbot changes with it.
+
+## What you can say
+
+Four spellings of the same request, because the matcher hears sounds rather than spellings and
+"Modbot" is not a word it was trained on:
+
+- **Modbot, clip that**
+- **Mod bot, clip that**
+- **Modbot, clip this**
+- **Mod bot, clip this**
+
+Say it normally. All four mean the same thing.
+
+**The phrase cannot be changed.** The matcher is not given words — it is given the small pieces its
+own vocabulary is built from, and working those out from a sentence needs a second library the
+companion does not ship. The four above were worked out once, from the model's own vocabulary, and
+written into the client.
+
+### Saying it twice does not make two clips
+
+One spoken sentence is one clip. After a phrase fires, nothing fires again for six seconds, which
+covers the matcher offering the same words twice as the rest of the sentence arrives and covers you
+repeating yourself because you were not sure it heard.
+
+## What it says back
+
+**If the [voice](/companion/settings#voice) is on**, it says it out loud:
+
+| What happened | What it says |
+|---|---|
+| A clip was saved | *Clip saved.* |
+| Clips is switched off | *Clips are switched off, so there was nothing to save.* |
+| VRChat is not running | *VRChat is not running, so there was nothing to save.* |
+| VRChat's window has not been found yet | *Modbot has not found VRChat's window yet, so there was nothing to save.* |
+| The clips folder cannot be written to | *The clips folder cannot be used, so nothing was saved.* |
+| The recorder had stopped | *Recording has stopped, so nothing was saved.* |
+
+**If the voice is off**, a clip that was saved plays the
+[notification sound](/companion/settings#notification-sound), and a clip that was **not** saved
+plays nothing. One short sound cannot say which of six reasons it was, and a sound that meant both
+"kept" and "not kept" would be worse than silence.
+
+Either way it is written into the companion's **Events** page — including every time it heard you
+and could not save anything — and the **Save a clip** control on the overlay says **Clip saved** or
+**Clip not saved** for eight seconds, the same as when you press it yourself.
+
+The answer arrives a moment after you speak, because the recorder writes the file on its own thread.
+If nothing has happened after ten seconds it is called a failure, which is deliberately generous:
+saying "not saved" about a clip that did land is the worse of the two mistakes.
+
+## The one download
+
+Turning **Listening** on fetches the phrase matcher once, from one pinned address:
+
+```
+https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2
+17,626,723 bytes, SHA-256 f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a
+```
+
+About 17 MB, with nothing attached to the request: no token, no id, nothing about you or your
+pairings. GitHub sees your IP address, as it does for any download. A download whose size or hash
+does not match exactly is thrown away rather than used.
+
+It lands in `%APPDATA%\Modbot\phrases`, and only the five files that are actually needed are
+written: the three parts of the model, its vocabulary, and the list of phrases. The archive's spare
+8-bit copies, its sample recordings and its readme are not written at all.
+
+The model is Apache-2.0, from the sherpa-onnx project. It is listed in the repository's
+`THIRD-PARTY-NOTICES.md` beside the voice.
+
+## What it costs
+
+Small, and deliberately so — your frame rate in VRChat matters more than how quickly a phrase is
+noticed. The matcher is 3.3 million numbers, about a thousandth of the size of the voice, and it
+runs on one thread below normal priority. Nothing here has been measured on a machine running
+VRChat.
+
+## On Linux
+
+**Listening only works on Windows**, for the same reason [Clips](/companion/clips) does: saying
+"Modbot, clip that" saves a clip, and there are no clips anywhere else. The Linux client says so on
+the card rather than quietly doing nothing.
+
+## Turning it off
+
+Untick it. The microphone closes at once rather than at the next restart. Or set it in the
+[settings file](/companion/settings#settings-in-the-settings-file):
+
+```json
+"listenForPhrase": { "on": false }
+```
+
+Deleting the `phrases` folder under `%APPDATA%\Modbot` removes the downloaded matcher as well; it
+is fetched again the next time you turn listening on.

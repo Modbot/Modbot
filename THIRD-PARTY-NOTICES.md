@@ -56,16 +56,17 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 "SteamVR" and "OpenVR" are trademarks of Valve Corporation. Modbot is not affiliated with or
 endorsed by Valve.
 
-## The companion's voice
+## The companion's voice, and listening for a phrase
 
-The companion can say what it sees out loud. The pieces that make that work come from NuGet and
-are not copied into this repository, but two of them are not MIT-licensed and one of them is
-fetched at run time, so they are listed here.
+The companion can say what it sees out loud, and — off unless a moderator switches it on — listen
+for one spoken phrase. The pieces that make both work come from NuGet and are not copied into this
+repository, but two of them are not MIT-licensed and two of them are fetched at run time, so they
+are listed here.
 
 | What | Package | Licence | Notes |
 |---|---|---|---|
-| Text to speech engine | `org.k2fsa.sherpa.onnx` 1.13.8 and its native package for each platform | Apache-2.0 | Its native library statically links ONNX Runtime (MIT), piper-phonemize (MIT) and **espeak-ng (GPL-3.0-or-later)**, which turns words into sounds. GPL-3.0 code inside an AGPL-3.0 program is permitted by both licences. |
-| Windows sound output | `NAudio.Wasapi` 3.1.0 (with `NAudio.Core`) | MIT | Playback only; the client references nothing that records. |
+| Text to speech engine, and the phrase matcher | `org.k2fsa.sherpa.onnx` 1.13.8 and its native package for each platform | Apache-2.0 | One library serves both. Its native library statically links ONNX Runtime (MIT), piper-phonemize (MIT) and **espeak-ng (GPL-3.0-or-later)**, which turns words into sounds. GPL-3.0 code inside an AGPL-3.0 program is permitted by both licences. |
+| Windows sound output, and the one microphone | `NAudio.Wasapi` 3.1.0 (with `NAudio.Core`) | MIT | Playback everywhere, and — from `Listening/PhraseListening.cs` only, and only while a moderator has switched listening on — one shared-mode microphone. Nothing it hears is recorded, kept or sent. |
 | Linux sound output | `Silk.NET.OpenAL` 2.23.0, `Silk.NET.OpenAL.Extensions.Enumeration` 2.23.0 | MIT | The binding. |
 | Linux sound output | `Silk.NET.OpenAL.Soft.Native` 1.23.1 | **LGPL-2.0-or-later** | OpenAL Soft (`libopenal.so`), shipped beside the companion and loaded as a shared library, which is the use the LGPL permits without conditions on Modbot's own code. Its source is at <https://github.com/kcat/openal-soft>. |
 | Unpacking the voice | `SharpZipLib` 1.4.2 | MIT | Reads the bzip2 layer of the downloaded archive. |
@@ -84,6 +85,21 @@ That archive holds **Kokoro 82M**, version 0.19, English (`model.onnx`, `voices.
 carries the licence text itself) and a copy of espeak-ng's language data (GPL-3.0-or-later, from
 <https://github.com/espeak-ng/espeak-ng>). Both sit in `%APPDATA%\Modbot\voices` on the
 moderator's PC and are never redistributed by Modbot.
+
+**The phrase matcher is not shipped either.** It is downloaded once, when a moderator first turns
+**Listening** on, from one pinned address — the sherpa-onnx project's `kws-models` release on
+GitHub — and checked against a pinned SHA-256 before it is used
+(`src/Modbot.Companion/Listening/PhraseModel.cs`):
+
+```
+https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2
+17,626,723 bytes, SHA-256 f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a
+```
+
+That archive holds a **3.3M-parameter zipformer keyword model** trained on GigaSpeech
+(**Apache-2.0**, from <https://www.modelscope.cn/pkufool/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01>).
+Five files from it sit in `%APPDATA%\Modbot\phrases` on the moderator's PC and are never
+redistributed by Modbot.
 
 Until 2026-09-18 this was the Piper voice `en_US-kristin-medium` (MIT, from
 <https://github.com/rhasspy/piper>). It was replaced because it did not sound good enough; the

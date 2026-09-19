@@ -6,6 +6,7 @@ using Avalonia.Media;
 using Modbot.Companion.Clips;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
+using Modbot.Companion.Listening;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
@@ -209,6 +210,7 @@ public sealed partial class MainWindow : Window
         SetUpNotifications();
         SetUpNotificationFilters();
         SetUpClips();
+        SetUpListening();
 
         // The palette and the shortcut sheet open over the page, inside this window, so the
         // window's own keys still reach them and nothing else appears in the taskbar.
@@ -1124,6 +1126,8 @@ public sealed partial class MainWindow : Window
 
         _body.Children.Add(Ui.Card(ClipsCard(), "Clips"));
 
+        _body.Children.Add(Ui.Card(ListeningCard(), "Listening"));
+
         _body.Children.Add(Ui.Card(LogFolderSettings(), "VRChat log folder"));
 
         _body.Children.Add(Ui.Card(RestartCard(), "Restart"));
@@ -1150,6 +1154,7 @@ public sealed partial class MainWindow : Window
             RefreshNotificationControls(_snapshot.NotificationsOrDefault);
             RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
             RefreshClipControls(_snapshot.ClipsOrNone);
+            RefreshListeningControls(_snapshot.ListeningOrNone);
             RefreshLogFolderControls();
         }
         finally
@@ -1707,6 +1712,12 @@ public sealed record MainWindowActions(
     /// nothing at all when nothing is being kept.
     /// </summary>
     public Action SaveClip { get; init; } = () => { };
+
+    /// <summary>
+    /// The Listening card's switch changed. Added after the positional list the same way the
+    /// others were.
+    /// </summary>
+    public Action<ListeningSettings> SetListening { get; init; } = _ => { };
 
     public static MainWindowActions None { get; } = new(
         _ => { },
