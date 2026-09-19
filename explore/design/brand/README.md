@@ -45,6 +45,7 @@ to the far right on the wordmark's line, and a violet rule runs under both.
 | `bugs-and-feedback` | Bugs & Feedback |
 | `open-a-ticket` | Open a Ticket |
 | `team-information` | Modbot Team Information |
+| `links` | Links |
 
 Each also exists as `<name>-dark`. To change one, edit `../banners.template.html` and run:
 
