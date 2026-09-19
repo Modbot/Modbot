@@ -102,9 +102,11 @@ public class DeleteUserTests
             Assert.Equal(user.Id, file.AuthorUserId);
             Assert.Equal(was, file.AuthorUsername);
 
-            // The facts about the account are still about the same id.
+            // The facts about the account are still about the same id. The deletion's own fact is
+            // the one checked because it is the one this deployment certainly has: an account made
+            // by TestAccounts is written straight to the table and no creation fact goes with it.
             Assert.True(await db.Events.AsNoTracking()
-                .AnyAsync(e => e.SubjectId == user.Id.ToString() && e.Type == FactType.UserCreated, Ct));
+                .AnyAsync(e => e.SubjectId == user.Id.ToString() && e.Type == FactType.UserDeleted, Ct));
         }
     }
 

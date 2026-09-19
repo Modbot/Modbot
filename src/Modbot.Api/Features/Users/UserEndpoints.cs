@@ -297,9 +297,10 @@ public static class UserEndpoints
                 return Results.Ok(UserSummary.From(user));
             })
             .WithName("DeleteUser")
-            .WithSummary("Delete an account, keeping everything it did")
+            .WithSummary("Delete user")
             .WithDescription(
-                "The account's username, email, password, Discord id, VRChat link and roles are "
+                "Deletes an account while keeping everything it did. "
+                + "The account's username, email, password, Discord id, VRChat link and roles are "
                 + "replaced or cleared, and it is left under a deleted_user_ name. Facts, case "
                 + "files, notes and moderation actions keep pointing at it. The request must carry "
                 + "the account's username, typed out. Refused for your own account and for the "

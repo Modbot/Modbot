@@ -33,7 +33,7 @@ public class UsernameRulesTests
     [InlineData("аlice")]                    // a Cyrillic а, which reads as a Latin one
     [InlineData("アリス")]                     // another script
     [InlineData("alice​")]              // a zero-width space
-    [InlineData("alice\t")]                  // an inner tab; the trim only takes the ends
+    [InlineData("al\tice")]                  // an inner tab; the trim only takes the ends
     public void EverythingElseIsRefused(string value)
     {
         Assert.False(UsernameRules.LooksLike(value));
