@@ -13,6 +13,15 @@ public enum AnnouncementKind
     /// <summary>Somebody left it. The text is their spoken name.</summary>
     Left,
 
+    /// <summary>Somebody was already in the instance when the moderator arrived. The spoken name.</summary>
+    AlreadyThere,
+
+    /// <summary>Somebody changed avatar. The whole sentence, because it names the avatar too.</summary>
+    ChangedAvatar,
+
+    /// <summary>VRChat's log stopped while the moderator was in an instance. The whole sentence.</summary>
+    LogStopped,
+
     /// <summary>The paired server raised a flagged-join alert. The text is the whole sentence.</summary>
     FlaggedJoin,
 
@@ -99,9 +108,10 @@ public sealed class AnnouncementQueue
     /// Takes the next sentence to say, or null when nothing worth saying is waiting.
     /// </summary>
     /// <remarks>
-    /// Problems first, then flagged joins, then a test line, then joins, then leaves. Joins are
-    /// taken all together and said as one sentence, and so are leaves; the other kinds are said
-    /// one at a time, in the order they arrived.
+    /// Problems first, then flagged joins, a test line and a stopped log, then joins, leaves and
+    /// people who were already there, then avatar changes. Joins are taken all together and said
+    /// as one sentence, and so are leaves and "already there"; the other kinds are said one at a
+    /// time, in the order they arrived.
     /// </remarks>
     public string? Next()
     {
@@ -109,7 +119,7 @@ public sealed class AnnouncementQueue
         {
             DropStale();
 
-            foreach (var kind in new[] { AnnouncementKind.Problem, AnnouncementKind.FlaggedJoin, AnnouncementKind.Test })
+            foreach (var kind in new[] { AnnouncementKind.Problem, AnnouncementKind.FlaggedJoin, AnnouncementKind.Test, AnnouncementKind.LogStopped })
             {
                 var index = _pending.FindIndex(a => a.Kind == kind);
                 if (index < 0)
@@ -120,7 +130,12 @@ public sealed class AnnouncementQueue
                 return line;
             }
 
-            foreach (var (kind, presence) in new[] { (AnnouncementKind.Joined, PresenceKind.Joined), (AnnouncementKind.Left, PresenceKind.Left) })
+            foreach (var (kind, presence) in new[]
+                     {
+                         (AnnouncementKind.Joined, PresenceKind.Joined),
+                         (AnnouncementKind.Left, PresenceKind.Left),
+                         (AnnouncementKind.AlreadyThere, PresenceKind.PresenceObserved),
+                     })
             {
                 var names = _pending.Where(a => a.Kind == kind).Select(a => a.Text).ToList();
                 if (names.Count == 0)
@@ -128,6 +143,16 @@ public sealed class AnnouncementQueue
 
                 _pending.RemoveAll(a => a.Kind == kind);
                 return Coalesce(presence, names);
+            }
+
+            // An avatar change names the avatar, so it is a whole sentence and cannot be folded
+            // into one line the way names can.
+            var avatar = _pending.FindIndex(a => a.Kind == AnnouncementKind.ChangedAvatar);
+            if (avatar >= 0)
+            {
+                var line = _pending[avatar].Text;
+                _pending.RemoveAt(avatar);
+                return line;
             }
 
             return null;
@@ -180,7 +205,10 @@ public sealed class AnnouncementQueue
 
     private static TimeSpan MaxAge(AnnouncementKind kind) => kind switch
     {
-        AnnouncementKind.Joined or AnnouncementKind.Left => PresenceMaxAge,
+        AnnouncementKind.Joined
+            or AnnouncementKind.Left
+            or AnnouncementKind.AlreadyThere
+            or AnnouncementKind.ChangedAvatar => PresenceMaxAge,
         _ => AlertMaxAge,
     };
 }

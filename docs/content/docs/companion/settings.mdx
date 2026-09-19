@@ -3,8 +3,8 @@ title: Client settings
 description: Every setting in the companion, including starting with Windows, the voice, Modbot Cloud backup, and the ones kept in its settings file.
 ---
 
-The client's **Settings** page has the start-with-Windows switch, the **Voice** card and the VRChat
-log folder. Everything else is set in the client's settings file or in environment variables on
+The client's **Settings** page has the start-with-Windows switch, the **Tell me about** card, the
+**Voice** card and the VRChat log folder. Everything else is set in the client's settings file or in environment variables on
 your PC: the pairing page, update checks, Modbot Cloud backup, and how much the client writes to
 its own log.
 
@@ -17,16 +17,19 @@ headset hears it rather than having to look at the overlay. The speech is made o
 small open-source text-to-speech engine that runs inside the client; nothing you hear, and nothing
 about who joined, is sent anywhere to make it.
 
-What it says, each with its own switch:
+What it says is the **Voice** column of [Tell me about](#tell-me-about):
 
-| Switch | What is said | Where it comes from |
+| Kind | What is said | Where it comes from |
 |---|---|---|
-| **Joins** | *Rin joined your world*. Several people arriving together become *Rin and Kai joined your world*, or *five people joined your world*. | The client's own reading of VRChat's log, the same events the **Events** page shows. |
-| **Leaves** | *Rin left your world*, folded together the same way. | The same. |
-| **Flagged joins** | *Flagged user Rin joined*. | Your group's server, when it raises the same alert the [overlay](/companion/overlay) shows as a card. Only for the instance you are in. |
+| **Joined** | *Rin joined your world*. Several people arriving together become *Rin and Kai joined your world*, or *five people joined your world*. | The client's own reading of VRChat's log, the same events the **Events** page shows. |
+| **Already there** | *Rin was already in your world when you arrived*, folded together the same way. | The same. |
+| **Left** | *Rin left your world*, folded together the same way. | The same. |
+| **Changed avatar** | *Rin switched to the avatar “Tall Cat”*. | The same. |
+| **Flagged join** | *Flagged user Rin joined*. | Your group's server, when it raises the same alert the [overlay](/companion/overlay) shows as a card. Only for the instance you are in. |
+| **Log stopped** | *VRChat's log stopped while you were in this world*. | The client, when VRChat stops writing and it can no longer see who is there. |
+| **Problem** | *Cat Lounge rejected this device. Modbot has stopped reporting to it.* | The client, when a paired server rejects its token and reporting has stopped. |
 
-It also says, once, when a paired server rejects the client's token, because that means reporting
-has stopped: *Cat Lounge rejected this device. Modbot has stopped reporting to it.*
+A fresh client says joins, leaves, flagged joins and problems, and keeps quiet about the rest.
 
 It never announces you. It says nothing while reporting to any server is paused, and drops
 anything it did not get to within a few seconds rather than reading out old news. Lines never
@@ -215,10 +218,13 @@ the file:
 | `notifications.bleep` | `true` | Whether a short sound plays when you are told something. See [Notification sound](#notification-sound). |
 | `notifications.volume` | `70` | The sound's own volume, 0 to 100, separate from the voice's. |
 | `notifications.trayNoticesShown` | `0` | How many times you have been told the client is still in the tray. It stops after three. |
+| `notificationFilters.popUp` | `["flagged join", "problem"]` | Which kinds raise a pop-up on the notification overlay. See [Tell me about](#tell-me-about). |
+| `notificationFilters.sound` | `["flagged join", "problem"]` | Which kinds play the sound. |
+| `notificationFilters.voice` | `["joined", "left", "flagged join", "problem"]` | Which kinds the voice says. |
 | `voice.on` | `false` | The **Voice on** switch. See [Voice](#voice). |
-| `voice.joins` | `true` | The **Joins** switch. |
-| `voice.leaves` | `true` | The **Leaves** switch. |
-| `voice.flaggedJoins` | `true` | The **Flagged joins** switch. |
+| `voice.joins` | `true` | Kept in step with `notificationFilters.voice`, which is what the voice reads. Clients before 2026-09-19 used this. |
+| `voice.leaves` | `true` | The same, for `left`. |
+| `voice.flaggedJoins` | `true` | The same, for `flagged join`. |
 | `voice.volume` | `80` | **Volume**, 0 to 100. |
 | `voice.outputDevice` | absent | The chosen **Output device**, by the id the operating system gives it. Absent means the system default. |
 | `voice.name` | `Bella` | Which of the download's ten voices speaks. A name that is not one of them falls back to Bella. |
@@ -379,6 +385,47 @@ a rush of arrivals is one sound rather than ten.
 
 `trayNoticesShown` counts how many times closing the window with the X has told you the client is
 still running in the tray. After three it stops. Set it back to `0` to be told again.
+
+## Tell me about
+
+The **Tell me about** card on the **Settings** page is one row per kind of event and one tick per
+way of being told: a pop-up on the [notification overlay](/companion/overlay), the
+[notification sound](#notification-sound), and the [voice](#voice).
+
+| Kind | Pop-up | Sound | Voice | What it is |
+|---|---|---|---|---|
+| **Joined** | | | ✓ | Somebody joined the instance you are in. |
+| **Already there** | | | | Somebody was already in the instance when you arrived. |
+| **Left** | | | ✓ | Somebody left the instance you are in. |
+| **Changed avatar** | | | | Somebody in the instance changed avatar. |
+| **Flagged join** | ✓ | ✓ | ✓ | Your group's server raised a flagged-join alert for the instance you are in. |
+| **Log stopped** | | | | VRChat stopped writing to its log, so the client can no longer see who is there. |
+| **Problem** | ✓ | ✓ | ✓ | A paired server rejected this device, or cannot be reached. |
+
+The ticks above are what a fresh client does. The first five kinds come from the client's own
+reading of VRChat's log — the same events the **Events** page lists, under the same names.
+**Flagged join** comes from your group's server, and **Problem** from the client itself.
+
+Each way keeps its own switch and its own volume: turning a kind on here does nothing while the
+sound is off, the voice is off, or the notification overlay is off. Your own arrivals and
+departures are never announced, whatever is ticked.
+
+The card writes the `notificationFilters` object:
+
+```json
+"notificationFilters": {
+  "popUp": ["flagged join", "problem"],
+  "sound": ["flagged join", "problem"],
+  "voice": ["joined", "left", "flagged join", "problem"]
+}
+```
+
+A word the client does not know is ignored rather than breaking the file.
+
+Filtering on **who** arrived — everybody who is not age verified, say, or everybody who is 18+
+verified — is not possible. Your group's server knows both, and shows them in the web app, but it
+does not send either to the client, so the client cannot tell one arrival from another beyond
+whether the server flagged it.
 
 ## Debug mode
 

@@ -1,3 +1,4 @@
+using Modbot.Companion.Presentation;
 using Modbot.Companion.Voice;
 using Modbot.Core.Time;
 using Serilog;
@@ -59,13 +60,15 @@ internal sealed class VoiceHost : IDisposable
     /// <param name="companionFolder">Modbot's own folder under the user profile; the voice lives in <c>voices</c> below it.</param>
     /// <param name="moderatorId">The moderator's own VRChat id, as the log last said.</param>
     /// <param name="names">How names are spoken. The default strips decoration lightly; the real normaliser plugs in here.</param>
+    /// <param name="filters">The Notifications card's Voice column. Null leaves the voice's own three switches deciding.</param>
     public VoiceHost(
         string companionFolder,
         HttpClient http,
         IModbotClock clock,
         Func<VoiceSettings> settings,
         Func<string?> moderatorId,
-        ISpokenName? names = null)
+        ISpokenName? names = null,
+        Func<NotificationFilters>? filters = null)
     {
         _voicesFolder = VoiceModel.VoicesFolder(companionFolder);
         _http = http;
@@ -86,7 +89,8 @@ internal sealed class VoiceHost : IDisposable
             Synthesizer,
             player,
             _devices,
-            line => Log.Information("Voice: {Line}", line));
+            line => Log.Information("Voice: {Line}", line),
+            filters);
 
         if (OperatingSystem.IsWindows() && _output is WindowsVoiceOutput windows)
             windows.Changed += () => _devicesChanged = true;

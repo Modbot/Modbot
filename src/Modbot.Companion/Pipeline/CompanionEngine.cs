@@ -44,6 +44,13 @@ public sealed class CompanionEngine
     /// </summary>
     private readonly IObservationSink? _voice;
 
+    /// <summary>
+    /// The pop-up overlay and the bleep, when there is one. It hears the same observations and
+    /// offers them to the two surfaces, which ask the moderator's filters; it sends nothing
+    /// anywhere.
+    /// </summary>
+    private readonly IObservationSink? _notices;
+
     /// <summary>Where an observation in a group nobody manages is written down as seen, when there is one.</summary>
     private readonly SentJournal? _journal;
     private readonly Dictionary<string, DateTimeOffset> _lastClockCheck = new(StringComparer.Ordinal);
@@ -58,11 +65,13 @@ public sealed class CompanionEngine
         IServerTimeProbe? timeProbe = null,
         IObservationSink? backup = null,
         SentJournal? journal = null,
-        IObservationSink? voice = null)
+        IObservationSink? voice = null,
+        IObservationSink? notices = null)
     {
         _observer = observer;
         _backup = backup;
         _voice = voice;
+        _notices = notices;
         _journal = journal;
         _clock = clock;
         _timeProbe = timeProbe;
@@ -125,6 +134,7 @@ public sealed class CompanionEngine
         // their own group's. Offer only queues, so it costs this turn nothing.
         _backup?.Offer(observations);
         _voice?.Offer(observations);
+        _notices?.Offer(observations);
 
         // What no server hears about still goes on the Events screen, without a group: the
         // moderator can see the companion saw it, and see that it went nowhere.

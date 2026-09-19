@@ -1,6 +1,7 @@
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Overlay;
+using Modbot.Companion.Sounds;
 using Modbot.Core.Time;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Views;
@@ -521,7 +522,8 @@ public sealed class OverlayDriver : IDisposable
             Current()?.Label is { Length: > 0 } label ? "Flagged user joined · " + label : "Flagged user joined",
             alert.DisplayName ?? alert.SubjectId,
             alert.Reason,
-            PopUpTone.Flagged));
+            PopUpTone.Flagged),
+            NotificationKind.FlaggedJoin);
 
         return true;
     }
@@ -553,7 +555,7 @@ public sealed class OverlayDriver : IDisposable
         {
             _problemShown = problem;
             if (problem is { Length: > 0 })
-                _popUps?.Show(new PopUp("problem", "Modbot", problem, null, PopUpTone.Problem));
+                _popUps?.Show(new PopUp("problem", "Modbot", problem, null, PopUpTone.Problem), NotificationKind.Problem);
             else
                 _popUps?.Clear("problem");
         }

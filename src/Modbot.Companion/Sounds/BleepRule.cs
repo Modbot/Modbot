@@ -2,16 +2,34 @@ using Modbot.Core.Time;
 
 namespace Modbot.Companion.Sounds;
 
-/// <summary>What the client wants to tell the moderator about.</summary>
+/// <summary>
+/// What the client wants to tell the moderator about. Each of these is a row on the Notifications
+/// card's filter list, except <see cref="Test"/>, which is never filtered.
+/// </summary>
 public enum NotificationKind
 {
+    /// <summary>Somebody joined the instance the moderator is in.</summary>
+    Joined,
+
+    /// <summary>Somebody was already in the instance when the moderator arrived.</summary>
+    AlreadyThere,
+
+    /// <summary>Somebody left the instance the moderator is in.</summary>
+    Left,
+
+    /// <summary>Somebody in the instance changed avatar.</summary>
+    ChangedAvatar,
+
     /// <summary>The paired server raised a flagged-join alert for the instance the moderator is in.</summary>
     FlaggedJoin,
+
+    /// <summary>VRChat's log stopped growing, so this client can no longer see who is in the instance.</summary>
+    LogStopped,
 
     /// <summary>Something about the companion itself: a server that rejected this device, so reporting has stopped.</summary>
     Problem,
 
-    /// <summary>The Test button on the Notifications card.</summary>
+    /// <summary>The Test button on the Notifications card. Never filtered: a person pressed it.</summary>
     Test,
 }
 

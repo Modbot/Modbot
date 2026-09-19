@@ -1,5 +1,8 @@
 using Modbot.Companion.CloudBackup;
 using Modbot.Companion.Instances;
+using Modbot.Companion.Journal;
+using Modbot.Companion.Presentation;
+using Modbot.Companion.Sounds;
 
 namespace Modbot.Companion.Voice;
 
@@ -12,8 +15,13 @@ namespace Modbot.Companion.Voice;
 /// joining and leaving the instance the moderator is standing in — never the moderator's own
 /// arrival or departure, which they know about. From the paired server, a flagged-join alert the
 /// overlay would show as a card, and the one problem worth hearing: a server that rejected this
-/// device, because that means reporting has silently stopped. Each kind has its own switch, and
-/// the whole thing is off until turned on.</para>
+/// device, because that means reporting has silently stopped. It can also say the three it used
+/// not to — somebody who was already there, an avatar change, and VRChat's log stopping — though
+/// none of those is on by default.</para>
+/// <para><strong>Which kinds it says is the Notifications card's Voice column.</strong> Read on
+/// every event, so a tick changed mid-session takes effect at once. When no filters are handed in
+/// — a test, or a client older than the card — the voice's own three switches decide, as they
+/// always did (notification filters design 2026-09-19 §4.2).</para>
 /// <para><strong>Silent while paused.</strong> Pausing reporting means "stop watching what I do",
 /// and a voice that kept narrating the instance would be watching. Anything queued is dropped rather
 /// than saved up.</para>
@@ -30,6 +38,7 @@ public sealed class VoiceAnnouncer : IObservationSink
     private readonly AnnouncementQueue _queue;
     private readonly ISpokenName _names;
     private readonly Func<VoiceSettings> _settings;
+    private readonly Func<NotificationFilters>? _filters;
     private readonly Func<string?> _moderatorId;
     private readonly Func<IVoiceSynthesizer?> _synthesizer;
     private readonly IVoicePlayer _player;
@@ -43,6 +52,9 @@ public sealed class VoiceAnnouncer : IObservationSink
     /// <param name="moderatorId">The moderator's own VRChat id as the log last said, or null while unknown.</param>
     /// <param name="synthesizer">The engine, or null while the voice is not downloaded or not loaded; lines wait and age out.</param>
     /// <param name="log">Where one-line notes go: a device that fell back, a line that could not be played.</param>
+    /// <param name="filters">
+    /// The Notifications card's Voice column. Null falls back to the voice's own three switches.
+    /// </param>
     public VoiceAnnouncer(
         AnnouncementQueue queue,
         ISpokenName names,
@@ -51,7 +63,8 @@ public sealed class VoiceAnnouncer : IObservationSink
         Func<IVoiceSynthesizer?> synthesizer,
         IVoicePlayer player,
         IOutputDevices devices,
-        Action<string>? log = null)
+        Action<string>? log = null,
+        Func<NotificationFilters>? filters = null)
     {
         _queue = queue;
         _names = names;
@@ -61,6 +74,7 @@ public sealed class VoiceAnnouncer : IObservationSink
         _player = player;
         _devices = devices;
         _log = log;
+        _filters = filters;
     }
 
     /// <summary>Set by the host: true while reporting to any paired server is paused.</summary>
@@ -72,7 +86,10 @@ public sealed class VoiceAnnouncer : IObservationSink
     /// <summary>How many lines are waiting.</summary>
     public int Waiting => _queue.Count;
 
-    /// <summary>The engine's observations, as they are read. Joins and leaves of other people become lines.</summary>
+    /// <summary>
+    /// The engine's observations, as they are read. The kinds the Voice column has ticked become
+    /// lines; the moderator's own comings and goings never do.
+    /// </summary>
     public void Offer(IReadOnlyList<ObservedPresence> observations)
     {
         ArgumentNullException.ThrowIfNull(observations);
@@ -85,26 +102,67 @@ public sealed class VoiceAnnouncer : IObservationSink
 
         foreach (var observation in observations)
         {
-            if (moderator is not null && string.Equals(observation.SubjectId, moderator, StringComparison.Ordinal))
+            // A stopped log is about the moderator themselves, so it is the one kind their own id
+            // does not disqualify.
+            if (observation.Kind is not PresenceKind.LogStopped
+                && moderator is not null
+                && string.Equals(observation.SubjectId, moderator, StringComparison.Ordinal))
+            {
                 continue;
+            }
+
+            if (NotificationFilters.KindOf(observation.Kind) is not { } kind || !Says(settings, kind))
+                continue;
+
+            var name = _names.Spoken(observation.DisplayName);
 
             switch (observation.Kind)
             {
-                case PresenceKind.Joined when settings.Joins:
-                    _queue.Add(AnnouncementKind.Joined, _names.Spoken(observation.DisplayName));
+                case PresenceKind.Joined:
+                    _queue.Add(AnnouncementKind.Joined, name);
                     break;
-                case PresenceKind.Left when settings.Leaves:
-                    _queue.Add(AnnouncementKind.Left, _names.Spoken(observation.DisplayName));
+                case PresenceKind.Left:
+                    _queue.Add(AnnouncementKind.Left, name);
+                    break;
+                case PresenceKind.PresenceObserved:
+                    _queue.Add(AnnouncementKind.AlreadyThere, name);
+                    break;
+                case PresenceKind.AvatarChanged:
+                    _queue.Add(
+                        AnnouncementKind.ChangedAvatar,
+                        SentJournal.Sentence(PresenceKind.AvatarChanged, name, observation.AvatarName));
+                    break;
+                case PresenceKind.LogStopped:
+                    _queue.Add(AnnouncementKind.LogStopped, SentJournal.Sentence(PresenceKind.LogStopped, name));
                     break;
             }
         }
+    }
+
+    /// <summary>
+    /// Whether the voice says this kind: the Notifications card's Voice column when there is one,
+    /// and the voice's own three switches when there is not.
+    /// </summary>
+    private bool Says(VoiceSettings settings, NotificationKind kind)
+    {
+        if (_filters?.Invoke() is { } filters)
+            return filters.VoiceSays(kind);
+
+        return kind switch
+        {
+            NotificationKind.Joined => settings.Joins,
+            NotificationKind.Left => settings.Leaves,
+            NotificationKind.FlaggedJoin => settings.FlaggedJoins,
+            NotificationKind.Problem => true,
+            _ => false,
+        };
     }
 
     /// <summary>A flagged-join alert the overlay is showing: "Flagged user Rin joined".</summary>
     public void FlaggedJoin(string? displayName)
     {
         var settings = _settings();
-        if (!settings.On || !settings.FlaggedJoins || Paused)
+        if (!settings.On || Paused || !Says(settings, NotificationKind.FlaggedJoin))
             return;
 
         _queue.Add(AnnouncementKind.FlaggedJoin, $"Flagged user {_names.Spoken(displayName)} joined");
@@ -115,7 +173,8 @@ public sealed class VoiceAnnouncer : IObservationSink
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sentence);
 
-        if (!_settings().On || Paused)
+        var settings = _settings();
+        if (!settings.On || Paused || !Says(settings, NotificationKind.Problem))
             return;
 
         _queue.Add(AnnouncementKind.Problem, sentence);
