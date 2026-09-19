@@ -249,7 +249,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div data-pin-first className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
@@ -286,7 +286,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                             <div className="size-7 shrink-0 rounded-full bg-muted" />
                           )}
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <SubjectLink id={m.userId} name={m.displayName} onOpen={onOpenSubject} />
                               {m.eighteenPlus && (
                                 <span

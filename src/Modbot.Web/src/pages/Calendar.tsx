@@ -228,7 +228,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
   const today = new Date(now)
 
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <div className="grid min-w-[720px] grid-cols-7 overflow-hidden rounded-xl border" style={{ borderWidth: 'var(--hairline)' }}>
         {WEEKDAYS.map((d) => (
           <div

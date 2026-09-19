@@ -72,7 +72,7 @@ export function MyTeam({
             ) : shownGaps.length === 0 ? (
               <Nothing>No gaps with that many people.</Nothing>
             ) : (
-              <div className="overflow-x-auto">
+              <div data-pin-first className="relative overflow-x-auto">
                 <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                   <thead className="text-left text-muted-foreground">
                     <tr>
@@ -112,7 +112,7 @@ export function MyTeam({
             {data.moderators.length === 0 ? (
               <Nothing>No moderation actions recorded in this range.</Nothing>
             ) : (
-              <div className="overflow-x-auto">
+              <div data-pin-first className="relative overflow-x-auto">
                 <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                   <thead className="text-left text-muted-foreground">
                     <tr>

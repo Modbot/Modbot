@@ -264,7 +264,7 @@ function GroupBans({
               <div className="font-medium text-foreground">{search ? 'Nobody matches' : 'No bans listed'}</div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div data-pin-first className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
@@ -296,7 +296,7 @@ function GroupBans({
                             <div className="size-7 shrink-0 rounded-full bg-muted" />
                           )}
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} />
                               <TrustRankBadge rank={ban.trustRank} />
                             </div>
@@ -438,7 +438,7 @@ function RecordedBans({
               <div className="font-medium text-foreground">No bans recorded</div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div data-pin-first className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
