@@ -6,6 +6,7 @@ import { IntegrationsSection } from '@/components/settings/IntegrationsSection'
 import { DiscordSection } from '@/components/settings/discord/DiscordSection'
 import { ModerationSection } from '@/components/settings/ModerationSection'
 import { AutoModSection } from '@/components/settings/automod/AutoModSection'
+import { AutoInvitesSection } from '@/components/settings/AutoInvitesSection'
 import { SyncSection } from '@/components/settings/SyncSection'
 import { VRChatSection } from '@/components/settings/VRChatSection'
 import { AiSection } from '@/components/settings/ai/AiSection'
@@ -38,6 +39,7 @@ const TABS = [
   { value: 'ai', label: 'AI', needs: ['ManageSettings'] },
   { value: 'api', label: 'API', needs: ['ManageSettings'] },
   { value: 'proxy', label: 'VRChat Proxy', needs: ['ManageSettings'] },
+  { value: 'auto-invites', label: 'Auto-invites', needs: ['ManageAutoInvites'] },
   { value: 'purge', label: 'Purge a person', needs: ['Administrator'] },
 ] as const
 
@@ -156,6 +158,8 @@ function Panel({
       return <ApiSection />
     case 'proxy':
       return <VRChatProxySection />
+    case 'auto-invites':
+      return <AutoInvitesSection />
     case 'purge':
       return <PurgeSection />
   }

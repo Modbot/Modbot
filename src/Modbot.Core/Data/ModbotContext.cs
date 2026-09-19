@@ -140,6 +140,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The group's ban list as last swept.</summary>
     public DbSet<GroupBan> GroupBans => Set<GroupBan>();
 
+    /// <summary>Who Modbot has invited to the group on its own, and when (auto-invites design §6).</summary>
+    public DbSet<GroupAutoInvite> GroupAutoInvites => Set<GroupAutoInvite>();
+
     /// <summary>The reasons a moderator picks from when writing up a ban (spec 5.8.2).</summary>
     public DbSet<BanReason> BanReasons => Set<BanReason>();
 
@@ -913,6 +916,23 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .HasFilter("waiting_facts IS NOT NULL");
         });
 
+        builder.Entity<GroupAutoInvite>(entity =>
+        {
+            entity.ToTable("group_auto_invite");
+
+            // One row per person, updated in place: the question this table answers is "when did
+            // Modbot last invite this person", and a row per attempt would make that a scan.
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).HasColumnType("text");
+            entity.Property(e => e.Problem).HasMaxLength(500);
+
+            // "When did the last invite anywhere go out" is asked before every send, so the
+            // pacing check is one index read rather than a table scan.
+            entity.HasIndex(e => e.InvitedAt)
+                .HasDatabaseName("ix_group_auto_invite_invited_at")
+                .IsDescending(true);
+        });
+
         builder.Entity<BanReason>(entity =>
         {
             entity.ToTable("ban_reason");
@@ -1469,6 +1489,17 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         builder.Entity<Settings>(entity =>
         {
             entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb");
+
+            // Written out rather than left to the CLR default, so a row that existed before this
+            // feature reads as "everybody who gets past the checks that are not rules" rather
+            // than as an empty column the rule reader has to guess at.
+            entity.Property(e => e.GroupAutoInviteRules)
+                .HasDefaultValue("{\"kind\":\"allOf\",\"rules\":[]}");
+
+            entity.Property(e => e.GroupAutoInviteMinutesInInstance)
+                .HasDefaultValue(Entities.Settings.MinimumAutoInviteMinutes);
+
+            entity.Property(e => e.GroupAutoInviteAgainAfterDays).HasDefaultValue(30);
 
             // "automod" is one word on this screen and in its tables, so the columns say so too
             // rather than the "auto_mod" the naming convention would make of the property.

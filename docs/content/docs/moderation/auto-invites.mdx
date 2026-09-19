@@ -1,0 +1,136 @@
+---
+title: Auto-invites
+description: Having Modbot invite people to your group once they have spent long enough in one of your instances and pass your rules.
+---
+
+Auto-invites turn the people who already hang around your instances into members. Somebody stands
+in one of your group's instances, stays a while, passes the rules you set, and Modbot sends them a
+group invite. Nobody presses anything.
+
+This is the opposite way round from [Join requests](/moderation/join-requests): there, people ask
+to join and you answer; here, Modbot asks them.
+
+<Callout type="warn" title="It is off until you turn it on">
+Auto-invites are off on every Modbot, including one that has just been updated. Nothing is sent
+until somebody switches them on.
+</Callout>
+
+## Turning it on
+
+**Settings → Auto-invites**. Switch on **Invite people automatically**, set the rules underneath,
+and press **Save**.
+
+The tab needs the **Set up auto-invites** permission, which is not in the built-in Moderator or
+Viewer roles — grant it on the [Roles](/accounts/roles-and-permissions) page. Administrators have
+it already.
+
+## Nobody is invited unless a moderator is in the instance
+
+<Callout type="warn" title="Read this one before you report a bug">
+Modbot only knows who is in an instance, and since when, **while a moderator's companion is running
+in it**. With no companion reporting, Modbot has no list of people and no arrival times for that
+instance — so nobody meets the "minutes in the instance" rule and **no invites go out at all**.
+</Callout>
+
+This is the same limit the [Live](/moderation/live) page has, and the reason it says "nobody is
+watching" rather than showing you a stale list. Modbot's own instance poll can tell you an instance
+is open and how many people are in it; it cannot tell you who they are or when each of them
+arrived, and a duration is never guessed from a head count.
+
+So: if you switch auto-invites on and nothing ever happens, check whether anybody was running the
+[companion](/companion/install) in the instance at the time.
+
+One more detail worth knowing. When a moderator walks into an instance that is already busy, Modbot
+learns that everybody there is *there*, but not when any of them arrived. It counts their time from
+the moment it started watching, not from a guess — so somebody who had already been there an hour
+still waits the full five minutes from when the moderator arrived.
+
+## The rules
+
+The rule builder is the same one [Giveaways](/moderation/giveaways#rules) use, and it means the same
+thing here. Rules combine with **All of**, **Any of** and **None of**, and can be nested.
+
+| Rule | What it asks |
+|---|---|
+| **Trust rank at least** | Their VRChat trust rank — Visitor, New User, User, Known User, Trusted User or Legend. Nuisance and VRChat Team are not steps on that ladder, so neither ever counts as "Trusted User or better". |
+| **VRChat account at least** N days old | The join date on their VRChat profile. |
+| **18+ verified** | Modbot has seen them [18+ verified](/moderation/profiles) at least once. |
+| **No bans, kicks or flags** | No bans, removals, instance kicks, Discord bans, kicks or timeouts, and no [flag](/moderation/flags) a moderator has not dismissed. Set it to **All time** or to the last so many days. |
+| **In Discord for at least** N days | Their Discord join date. |
+| **Hours in our instances, at least** N | Every hour they have been seen in your instances, added up. |
+| **Hours in one single instance, at least** N | The most they have been seen in any one instance. |
+| **Hours in Discord voice, at least** N | Time connected to a voice channel. |
+| **Discord messages sent, at least** N | Messages they have sent in your server. |
+| **Seen in the last** N days | When they were last seen in one of your instances. |
+| **Discord and VRChat accounts linked** | They have [linked their accounts](/discord/account-linking). |
+| **Holds the Discord role** | One of your server's roles. |
+| **Holds the group role** | One of your VRChat group's roles. Of limited use here, since people being invited are not members yet. |
+
+A rule about somebody Modbot knows nothing about **fails**. An account whose profile has never been
+read has no trust rank and no join date, so "trust rank at least Known User" is not true of them.
+
+With no rules at all, everybody who gets past the checks below is invited.
+
+## Minutes in the instance
+
+**Minutes in the instance** is how long somebody must have been there before Modbot will invite
+them. It is **five minutes at the lowest and cannot be set lower** — the box will not take a smaller
+number, and neither will the server.
+
+It is a separate box rather than a rule for a reason: rules can go inside a **None of** group, and a
+five-minute floor you can turn upside down is not a floor.
+
+## One invite every thirty seconds
+
+Modbot sends **at most one invite every thirty seconds**, for the whole deployment — not per person
+and not per instance. A busy night with forty strangers in the instance is forty invites over twenty
+minutes, not forty invites at once.
+
+That is deliberate and it is not adjustable. Group invites are a VRChat request like any other, and
+a burst of them is the kind of thing that gets an account rate limited.
+
+## Who is never invited
+
+Some checks are not rules and cannot be switched off:
+
+- **Anybody already in the group.** Checked before the invite is sent, not after.
+- **Anybody on your ban list.**
+- **Anybody your group has ever kicked, removed or banned**, even if the ban was later lifted. An
+  unban lets somebody come back; it does not send Modbot to fetch them. Invite them by hand if that
+  is what you want.
+- **Anybody invited recently** — see below.
+- **Modbot's own VRChat account.**
+
+## How long an invite is remembered
+
+Forever. Modbot keeps a row per person saying when it last invited them, and **Invite again after**
+says how many days must pass before it may invite the same person again. Thirty days to start with.
+
+So somebody who ignores the invite, or declines it, or leaves and comes back an hour later, is not
+asked again that evening. Somebody who joins the group in the meantime is a member, and members are
+never invited.
+
+**An invite VRChat refused still counts as an invite.** If it could not be delivered — the account
+is gone, or they have blocked the group — Modbot does not keep trying every thirty seconds.
+
+## What happens when Modbot restarts
+
+Nothing is lost, because nothing is held in memory. Modbot does not build a queue of people to
+invite: every thirty seconds it works out afresh who is standing in your instances right now and
+picks the person who has been there longest.
+
+The two things that have to survive a restart both live in the database — who has already been
+invited, and when the last invite went out, which is what the thirty seconds is measured from. A
+restart cannot cause a burst of invites and cannot cause anybody to be invited twice.
+
+## What it writes down
+
+Every invite is recorded in the [audit log](/moderation/audit-log) and on the person's profile, as
+**Invited to the group**, with the instance they were in and how long they had been there. No
+moderator is named, because none decided — Modbot did.
+
+An invite that VRChat refused is recorded as **Group invite failed**, which is not a claim that
+anybody was invited.
+
+VRChat's own group audit log records the invite too, and it says *Modbot* sent it, because Modbot
+signs in as its own account. Modbot's record is the one that says why.

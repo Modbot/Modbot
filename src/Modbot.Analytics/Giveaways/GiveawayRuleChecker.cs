@@ -4,6 +4,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Giveaways;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Analytics.Giveaways;
 
@@ -155,6 +156,103 @@ public sealed class GiveawayRuleChecker
         await measures.CountAsync(_db, [person], needed, now, ct);
 
         return Check(rule, person, measures, now);
+    }
+
+    /// <summary>
+    /// Whether one VRChat account passes the rules right now.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same tree, the same measurements and the same <see cref="Check"/> as a giveaway
+    /// preview, asked about one person instead of everybody. Auto-invites calls it for somebody
+    /// standing in one of the group's instances (auto-invites design §3.2).
+    /// </para>
+    /// <para>
+    /// Deliberately not <see cref="CandidatesAsync"/>, which loads every member of both sides
+    /// before narrowing: that is the right shape for "who would be in this draw" and the wrong one
+    /// for "does this one person qualify". This builds the one candidate from targeted queries.
+    /// </para>
+    /// </remarks>
+    public async Task<GiveawayRuleAnswer> CheckVRChatUserAsync(
+        GiveawayRule rule, string vrchatUserId, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        ArgumentException.ThrowIfNullOrEmpty(vrchatUserId);
+
+        var coverage = await GiveawayCoverage.ReadAsync(_db, ct);
+
+        // A rule that cannot be answered is not a rule that passed. Saying so is the whole point
+        // of the coverage check (giveaways design §6).
+        if (coverage.WhyUnanswerable(rule) is { } why)
+            return new GiveawayRuleAnswer(false, false, false, why);
+
+        var person = await OneVRChatAsync(vrchatUserId, ct);
+        var now = _clock.UtcNow;
+        var measures = new GiveawayMeasures();
+        await measures.CountAsync(_db, [person], GiveawayMeasures.Needed(rule, GiveawayWeights.Uniform), now, ct);
+
+        return Check(rule, person, measures, now);
+    }
+
+    /// <summary>One candidate built around one VRChat account, with whatever links to it.</summary>
+    private async Task<GiveawayCandidate> OneVRChatAsync(string vrchatUserId, CancellationToken ct)
+    {
+        var person = new GiveawayCandidate { VRChatUserId = vrchatUserId };
+
+        var discordUserId = await _db.DiscordAccountLinks.AsNoTracking()
+            .Where(l => l.UnlinkedAt == null && l.VRChatUserId == vrchatUserId)
+            .Select(l => l.DiscordUserId)
+            .FirstOrDefaultAsync(ct);
+
+        person.DiscordUserId = discordUserId;
+        person.Linked = discordUserId is not null;
+
+        if (discordUserId is not null)
+        {
+            var member = await _db.DiscordMembers.AsNoTracking()
+                .Where(m => m.UserId == discordUserId && !m.IsBot)
+                .Select(m => new { m.DisplayName, m.JoinedAt, m.Roles, m.LeftAt })
+                .FirstOrDefaultAsync(ct);
+
+            if (member is not null)
+            {
+                person.Name = member.DisplayName;
+                person.InDiscord = member.LeftAt is null;
+                person.DiscordJoinedAt = member.JoinedAt;
+                person.DiscordRoles = Ids(member.Roles);
+            }
+        }
+
+        var group = await _db.GroupMembers.AsNoTracking()
+            .Where(m => m.UserId == vrchatUserId && m.LeftAt == null)
+            .Select(m => new { m.JoinedAt, m.Roles })
+            .FirstOrDefaultAsync(ct);
+
+        if (group is not null)
+        {
+            person.InGroup = true;
+            person.GroupJoinedAt = group.JoinedAt;
+            person.GroupRoles = Ids(group.Roles);
+        }
+
+        var user = await _db.VRChatUsers.AsNoTracking()
+            .Where(u => u.UserId == vrchatUserId)
+            .Select(u => new { u.DisplayName, u.DateJoined, u.TrustRank, u.Is18PlusVerified })
+            .FirstOrDefaultAsync(ct);
+
+        if (user is not null)
+        {
+            person.VRChatJoined = user.DateJoined;
+            person.TrustRank = user.TrustRank;
+            person.Is18PlusVerified = user.Is18PlusVerified;
+
+            // The VRChat name wins, for the reason FillAsync gives: it is the name the group
+            // knows them by.
+            if (!string.IsNullOrWhiteSpace(user.DisplayName))
+                person.Name = user.DisplayName;
+        }
+
+        return person;
     }
 
     private async Task<GiveawayMatch> RunAsync(
@@ -394,6 +492,14 @@ public sealed class GiveawayRuleChecker
                 return Plain(age >= threshold, rule);
             }
 
+            case GiveawayRuleKinds.TrustRankAtLeast:
+                return Plain(
+                    rule.Id is { } rankName && TrustRanks.Meets(person.TrustRank, TrustRanks.Parse(rankName)),
+                    rule);
+
+            case GiveawayRuleKinds.Age18Plus:
+                return Plain(person.Is18PlusVerified, rule);
+
             case GiveawayRuleKinds.SeenWithinDays:
             {
                 // The measurement is "how many days since they were last seen"; nought means the
@@ -599,7 +705,7 @@ public sealed class GiveawayRuleChecker
         {
             var users = await _db.VRChatUsers.AsNoTracking()
                 .Where(u => vrchatIds.Contains(u.UserId))
-                .Select(u => new { u.UserId, u.DisplayName, u.DateJoined })
+                .Select(u => new { u.UserId, u.DisplayName, u.DateJoined, u.TrustRank, u.Is18PlusVerified })
                 .ToListAsync(ct);
 
             var byId = users.ToDictionary(u => u.UserId, StringComparer.Ordinal);
@@ -609,6 +715,8 @@ public sealed class GiveawayRuleChecker
                 if (person.VRChatUserId is { } id && byId.TryGetValue(id, out var user))
                 {
                     person.VRChatJoined = user.DateJoined;
+                    person.TrustRank = user.TrustRank;
+                    person.Is18PlusVerified = user.Is18PlusVerified;
 
                     // The VRChat name wins: a giveaway is about the group, and that is the name
                     // the group knows them by.

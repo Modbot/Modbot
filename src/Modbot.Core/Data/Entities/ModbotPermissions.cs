@@ -316,6 +316,25 @@ public enum ModbotPermissions : long
     /// </remarks>
     RunDiscordSync = 1L << 36,
 
+    // --- Auto-invites (auto-invites design §9) ---
+    //
+    // Bit 37. Bits 31 to 34 were spoken for by work in flight when the two above were added, so
+    // this carries on from 36 rather than filling a gap that may not be one.
+
+    /// <summary>
+    /// Switch auto-invites on and off, and set the rules, the minutes and how long before
+    /// somebody may be invited again.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ManageSettings"/>, for the reason
+    /// <see cref="AnswerJoinRequests"/> is its own flag: everything else under settings changes
+    /// what Modbot does to its own data, and this decides who ends up inside the group. It is
+    /// also strictly larger than answering one join request, because it answers all of them in
+    /// advance and without anybody looking. Not added to the built-in roles; Administrator
+    /// already holds it.
+    /// </remarks>
+    ManageAutoInvites = 1L << 37,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

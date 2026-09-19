@@ -7,8 +7,11 @@ import {
   COMBINING,
   RULE_LABEL,
   RULE_UNIT,
+  TRUST_RANKS,
+  TRUST_RANK_LABEL,
   isCombining,
   takesAmount,
+  takesRank,
   takesRole,
   takesWindow,
   type GiveawayBuilder,
@@ -147,7 +150,7 @@ function Row({
             kind,
             amount: takesAmount(kind) ? (rule.amount ?? 1) : undefined,
             withinDays: takesWindow(kind) ? (rule.withinDays ?? null) : undefined,
-            id: takesRole(kind) ? rule.id : undefined,
+            id: takesRole(kind) || takesRank(kind) ? rule.id : undefined,
           })
         }
       >
@@ -182,6 +185,22 @@ function Row({
           {roles.map((r) => (
             <option key={r.id} value={r.id}>
               {r.name}
+            </option>
+          ))}
+        </Select>
+      )}
+
+      {takesRank(rule.kind) && (
+        <Select
+          className="h-9"
+          aria-label="Trust rank"
+          value={rule.id ?? ''}
+          onChange={(id) => onChange({ ...rule, id: id || undefined })}
+        >
+          <option value="">Pick a rank</option>
+          {(builder?.trustRanks ?? TRUST_RANKS).map((r) => (
+            <option key={r} value={r}>
+              {TRUST_RANK_LABEL[r] ?? r}
             </option>
           ))}
         </Select>

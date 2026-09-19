@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Modbot.Core.Users;
 
 namespace Modbot.Core.Giveaways;
 
@@ -71,6 +72,27 @@ public static class GiveawayRuleKinds
     /// <summary>The VRChat account is at least <c>Amount</c> days old, from the join date Modbot stores.</summary>
     public const string VRChatAccountDays = "vrchatAccountDays";
 
+    /// <summary>
+    /// The VRChat trust rank is at least the one named in <c>Id</c> -- <c>"TrustedUser"</c>.
+    /// </summary>
+    /// <remarks>
+    /// The rank is a name and not a number because a rule tree is JSON that people read, and
+    /// <c>{"id":"TrustedUser"}</c> says what it means where <c>{"amount":4}</c> does not.
+    /// Nuisance and VRChat Team sit above the ladder because they override it, so "at least"
+    /// never reaches them (auto-invites design §3.1).
+    /// </remarks>
+    public const string TrustRankAtLeast = "trustRankAtLeast";
+
+    /// <summary>
+    /// Modbot has seen them as 18+ verified at least once.
+    /// </summary>
+    /// <remarks>
+    /// The sticky flag, not VRChat's current status word: VRChat lets somebody hide the
+    /// verification again, and a rule that flickered with it would answer differently on two days
+    /// for a thing that did not change (user profile sync design §4).
+    /// </remarks>
+    public const string Age18Plus = "age18Plus";
+
     public static readonly IReadOnlyList<string> Combining = [AllOf, AnyOf, NoneOf];
 
     /// <summary>Every kind that asks a question, in the order the builder lists them.</summary>
@@ -89,6 +111,8 @@ public static class GiveawayRuleKinds
         DiscordRole,
         NoTrouble,
         VRChatAccountDays,
+        TrustRankAtLeast,
+        Age18Plus,
     ];
 
     public static bool IsCombining(string kind) => Combining.Contains(kind, StringComparer.Ordinal);
@@ -105,6 +129,14 @@ public static class GiveawayRuleKinds
 
     /// <summary>Kinds that name a role.</summary>
     public static bool TakesId(string kind) => kind is GroupRole or DiscordRole;
+
+    /// <summary>Kinds that name a trust rank.</summary>
+    /// <remarks>
+    /// Apart from <see cref="TakesId"/> although both use the same field: a role is picked from
+    /// the group's own list and a rank from a fixed ladder, and the builder draws two different
+    /// controls for them.
+    /// </remarks>
+    public static bool TakesRank(string kind) => kind is TrustRankAtLeast;
 }
 
 /// <summary>
@@ -146,7 +178,11 @@ public sealed record GiveawayRule
     /// <summary>Only count the last so many days. Null means all of recorded history.</summary>
     public int? WithinDays { get; init; }
 
-    /// <summary>A role id, for the role kinds. Opaque text, never parsed (foundation §3.1.1).</summary>
+    /// <summary>
+    /// A role id, for the role kinds, or a trust rank name for <see cref="GiveawayRuleKinds.TrustRankAtLeast"/>.
+    /// A role id is opaque text, never parsed (foundation §3.1.1); a rank name is one of
+    /// <see cref="Modbot.Core.Users.TrustRank"/>'s members and is checked when the rule is read.
+    /// </summary>
     public string? Id { get; init; }
 
     /// <summary>A rule that lets everybody through: all of nothing.</summary>
@@ -293,9 +329,15 @@ public static class GiveawayRules
             GiveawayRuleKinds.DiscordRole => $"holds the Discord role {RoleName(rule.Id, roleNames)}",
             GiveawayRuleKinds.NoTrouble => $"no bans, kicks or flags{within}",
             GiveawayRuleKinds.VRChatAccountDays => $"VRChat account {Plain(amount)} days old or more",
+            GiveawayRuleKinds.TrustRankAtLeast => $"trust rank {RankName(rule.Id)} or better",
+            GiveawayRuleKinds.Age18Plus => "18+ verified",
             _ => rule.Kind,
         };
     }
+
+    /// <summary>The rank a rule names, in the words a nameplate shows.</summary>
+    private static string RankName(string? id)
+        => id is null ? "(none picked)" : TrustRanks.Name(TrustRanks.Parse(id));
 
     private static string RoleName(string? id, IReadOnlyDictionary<string, string>? roleNames)
     {
@@ -406,7 +448,29 @@ public static class GiveawayRules
         }
 
         string? id = null;
-        if (GiveawayRuleKinds.TakesId(kind))
+        if (GiveawayRuleKinds.TakesRank(kind))
+        {
+            id = body["id"]?.GetValue<string>()?.Trim();
+
+            // Parsed strictly rather than through TrustRanks.Parse, which answers Visitor for
+            // anything it does not know: a rank nobody meant would quietly become "everybody".
+            if (string.IsNullOrEmpty(id)
+                || !Enum.TryParse<TrustRank>(id, ignoreCase: true, out var rank)
+                || !Enum.IsDefined(rank))
+            {
+                error = $"'{kind}' needs a trust rank.";
+                return null;
+            }
+
+            if (!TrustRanks.OnTheLadder(rank))
+            {
+                error = $"“{TrustRanks.Name(rank)}” is not a rank a rule can ask for.";
+                return null;
+            }
+
+            id = rank.ToString();
+        }
+        else if (GiveawayRuleKinds.TakesId(kind))
         {
             id = body["id"]?.GetValue<string>()?.Trim();
 

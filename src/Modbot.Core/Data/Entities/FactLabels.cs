@@ -151,6 +151,9 @@ public static class FactLabels
         [FactType.GiveawayChanged] = "Giveaway changed",
         [FactType.GiveawayOpened] = "Giveaway opened",
         [FactType.GiveawayClosed] = "Giveaway closed",
+        [FactType.GroupAutoInvited] = "Invited to the group",
+        [FactType.GroupAutoInviteFailed] = "Group invite failed",
+
         [FactType.GiveawayEntered] = "Entered a giveaway",
         [FactType.GiveawayWithdrawn] = "Withdrew from a giveaway",
         [FactType.GiveawayDrawn] = "Giveaway drawn",

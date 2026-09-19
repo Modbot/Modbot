@@ -3662,6 +3662,96 @@
         ]
       }
     },
+    "/api/settings/auto-invites": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get auto-invites",
+        "description": "Whether Modbot invites people to the group on its own, and who qualifies.\n\nNeeds the `ManageAutoInvites` permission.",
+        "operationId": "GetAutoInvites",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoInviteView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Set auto-invites",
+        "description": "Turn auto-invites on or off, and set the rules, the minutes and how long before somebody may be invited again.\n\nNeeds the `ManageAutoInvites` permission.",
+        "operationId": "SetAutoInvites",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAutoInvitesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutoInviteView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/repeat-offenders": {
       "get": {
         "tags": [
@@ -17780,6 +17870,126 @@
           }
         }
       },
+      "AutoInviteRoleView": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "AutoInviteView": {
+        "required": [
+          "enabled",
+          "minutesInInstance",
+          "minimumMinutesInInstance",
+          "inviteAgainAfterDays",
+          "rules",
+          "ruleKinds",
+          "trustRanks",
+          "groupRoles",
+          "discordRoles",
+          "moderationFactRetentionDays",
+          "presenceFactRetentionDays",
+          "invitesSent",
+          "lastInviteAt"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "minutesInInstance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "minimumMinutesInInstance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "inviteAgainAfterDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/JsonObject"
+          },
+          "ruleKinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trustRanks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoInviteRoleView"
+            }
+          },
+          "discordRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutoInviteRoleView"
+            }
+          },
+          "moderationFactRetentionDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "presenceFactRetentionDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "invitesSent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "lastInviteAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "AutoModResponse": {
         "required": [
           "enabled",
@@ -23089,6 +23299,7 @@
         "required": [
           "ruleKinds",
           "weightings",
+          "trustRanks",
           "groupRoles",
           "discordRoles",
           "moderationFactRetentionDays",
@@ -23103,6 +23314,12 @@
             }
           },
           "weightings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trustRanks": {
             "type": "array",
             "items": {
               "type": "string"
@@ -25491,6 +25708,9 @@
       },
       "JsonElement": { },
       "JsonNode": { },
+      "JsonObject": {
+        "type": "object"
+      },
       "KindSeries": {
         "required": [
           "metric",
@@ -30257,6 +30477,46 @@
             "type": [
               "null",
               "string"
+            ]
+          }
+        }
+      },
+      "SetAutoInvitesRequest": {
+        "required": [
+          "enabled",
+          "minutesInInstance",
+          "inviteAgainAfterDays",
+          "rules"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "minutesInInstance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "inviteAgainAfterDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rules": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/JsonNode"
+              }
             ]
           }
         }

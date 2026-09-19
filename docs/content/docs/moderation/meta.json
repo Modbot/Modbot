@@ -16,6 +16,7 @@
     "evidence",
     "reviews",
     "automod",
-    "flags"
+    "flags",
+    "auto-invites"
   ]
 }

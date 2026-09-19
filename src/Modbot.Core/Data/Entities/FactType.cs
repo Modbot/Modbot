@@ -406,6 +406,26 @@ public static class FactType
     public const string WebhookDisabled = "modbot.webhook.disable";
     public const string SettingsChanged = "modbot.settings.change";
 
+    // ── Auto-invites (auto-invites design §9.1) ────────────────────────────────────────────
+    //
+    // The subject is the person invited, on the VRChat platform, so it lands in their history
+    // beside everything else about them. No actor: Modbot did this on its own, as AutoMod's
+    // actions and the calendar's opener do. VRChat's own audit log records the invite too, as
+    // `vrchat.group.invite.create`, and cannot say why it was sent; this is the half that can
+    // (§5.9.1). Moderation retention, which is what an unprefixed `modbot.group.` type falls to.
+
+    /// <summary>
+    /// Modbot invited somebody to the group on its own and VRChat accepted. Payload: the rules
+    /// they passed, how long they had been in the instance, and the instance.
+    /// </summary>
+    public const string GroupAutoInvited = "modbot.group.auto-invite";
+
+    /// <summary>
+    /// The invite did not go out: VRChat refused it, or the gate declined to send. Payload
+    /// carries what went wrong. Not a claim that anybody was invited.
+    /// </summary>
+    public const string GroupAutoInviteFailed = "modbot.group.auto-invite.failed";
+
     // ── Modbot's own calendar (calendar design §8). The subject is the event's id. ──────────
     //
     // "Planned event" in the names, because the CalendarEvent* names above are VRChat's own

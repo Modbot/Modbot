@@ -97,9 +97,26 @@ public sealed class FakeGroups
         return this;
     }
 
+    /// <summary>Every invite VRChat was asked to create, in order, by user id.</summary>
+    public List<string> InvitedUserIds { get; } = [];
+
+    /// <summary>What <c>CreateGroupInvite</c> answers with. 403 is VRChat refusing one.</summary>
+    public HttpStatusCode InviteStatus { get; set; } = HttpStatusCode.OK;
+
     public IGroupsApi Build()
     {
         var groups = Substitute.For<IGroupsApi>();
+
+        groups
+            .CreateGroupInviteWithHttpInfoAsync(
+                Arg.Any<string>(), Arg.Any<CreateGroupInviteRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                InvitedUserIds.Add(call.ArgAt<CreateGroupInviteRequest>(1).UserId);
+
+                return Task.FromResult(new ApiResponse<object>(
+                    InviteStatus, new Multimap<string, string>(), new object(), "{}"));
+            });
 
         groups
             .GetGroupMembersWithHttpInfoAsync(
