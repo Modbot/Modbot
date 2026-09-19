@@ -752,7 +752,8 @@ internal sealed class CompanionHost : IOverlayListener
             saved.Count,
             saved.Sum(c => c.Bytes),
             _recorder?.LastSaved ?? _clipsLastSaved,
-            _recorder?.LastProblem ?? _clipsProblem);
+            _recorder?.LastProblem ?? _clipsProblem,
+            ScreenRecording.Supported);
 
         // What the overlay's Save a clip control shows. Worked out here rather than in the overlay
         // because this is the half that owns the recorder; the panel is only told the answer.

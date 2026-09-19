@@ -108,9 +108,15 @@ public sealed partial class MainWindow
         _clipsSave.IsEnabled = clips.CanSave;
         _clipsLine.Text = Describe(clips);
 
-        // A label names a control and an error says what failed; the folder's problem is the only
-        // sentence this card ever grows.
-        _clipsProblem.Text = clips.Folder.Problem ?? clips.LastProblem ?? "";
+        // A machine that cannot record says so and its switch does nothing, rather than reading
+        // "Off" like a choice somebody made.
+        _clipsOn.IsEnabled = clips.Supported;
+        _clipsMinutes.IsEnabled = clips.Supported;
+        _clipsFolderBox.IsEnabled = clips.Supported;
+
+        // A label names a control and an error says what failed; this card's sentences are the
+        // folder's problem, the last thing that went wrong, and why it cannot record here at all.
+        _clipsProblem.Text = clips.Unsupported ?? clips.Folder.Problem ?? clips.LastProblem ?? "";
         _clipsProblem.IsVisible = _clipsProblem.Text.Length > 0;
 
         return new StackPanel

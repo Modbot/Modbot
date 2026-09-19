@@ -103,9 +103,12 @@ public class ClipWindowRuleTests
     [Fact]
     public void AWindowDraggedSmallerLeavesTheRestOfTheFrameEmpty()
     {
+        // A 1920-wide window is already halved once to fit the 1280 cap, so the frame is 960 x 540
+        // and a window dragged to 960 fills it exactly. The window has to be smaller than the
+        // frame, not merely smaller than it was, for any of it to be left over.
         var (width, height) = ClipWindowRule.RecordedSize(1920, 1080);
-        var level = ClipWindowRule.FitLevel(960, 540, width, height);
-        var (fitWidth, fitHeight) = ClipWindowRule.FittedSize(960, 540, width, height, level);
+        var level = ClipWindowRule.FitLevel(800, 450, width, height);
+        var (fitWidth, fitHeight) = ClipWindowRule.FittedSize(800, 450, width, height, level);
 
         Assert.Equal(0, level);
         Assert.True(fitWidth < width);

@@ -113,6 +113,11 @@ public static class ClipRecordingRule
 /// <param name="UsedBytes">How much room they take.</param>
 /// <param name="LastSaved">The file name of the clip saved most recently this run, or null.</param>
 /// <param name="LastProblem">What went wrong the last time something was tried, or null.</param>
+/// <param name="Supported">
+/// Whether this machine can record at all. Read separately from <paramref name="State"/>, which
+/// answers Off before it looks at anything else: a moderator who turned it off chose that, and a
+/// machine that cannot record did not, so the card has to tell them apart.
+/// </param>
 public sealed record ClipsStatus(
     ClipSettings Settings,
     ClipRecordingState State,
@@ -120,7 +125,8 @@ public sealed record ClipsStatus(
     int SavedClips,
     long UsedBytes,
     string? LastSaved = null,
-    string? LastProblem = null)
+    string? LastProblem = null,
+    bool Supported = true)
 {
     /// <summary>Before the host has said anything: off, with the default settings.</summary>
     public static ClipsStatus None { get; } = new(
@@ -132,4 +138,9 @@ public sealed record ClipsStatus(
 
     /// <summary>Whether Save a clip can do anything right now.</summary>
     public bool CanSave => State is ClipRecordingState.Recording;
+
+    /// <summary>What the card says when this machine cannot record, or null when it can.</summary>
+    public string? Unsupported => Supported
+        ? null
+        : "Keeping the last few minutes only works on Windows.";
 }

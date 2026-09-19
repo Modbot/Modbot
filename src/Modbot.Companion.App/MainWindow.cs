@@ -191,10 +191,16 @@ public sealed partial class MainWindow : Window
 
         // The warnings and the page are two panels rather than one list, so a warning appearing or
         // going does not disturb the page under it.
+        // The spacing is on the content, not on the ScrollViewer. A ScrollViewer's padding is
+        // outside the area it scrolls, so the bottom of a long page could not be reached.
         var main = new ScrollViewer
         {
-            Padding = new Thickness(20),
-            Content = new StackPanel { Spacing = 14, Children = { _warnings, _body } },
+            Content = new StackPanel
+            {
+                Spacing = 14,
+                Margin = new Thickness(20),
+                Children = { _warnings, _body },
+            },
         };
         Grid.SetColumn(main, 1);
 
