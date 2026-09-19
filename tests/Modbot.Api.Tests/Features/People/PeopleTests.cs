@@ -46,8 +46,38 @@ public class PeopleTests
             new GroupMember { GroupId = Group, UserId = "usr_alice", Roles = "[]", JoinedAt = Day.AddDays(-30), FirstSeenAt = Day, LastSeenAt = Day },
             new GroupMember { GroupId = Group, UserId = "usr_gone", Roles = "[]", JoinedAt = Day.AddDays(-5), FirstSeenAt = Day, LastSeenAt = Day, LeftAt = Day.AddHours(1) });
 
-        db.GroupBans.Add(
-            new GroupBan { GroupId = Group, UserId = "usr_mallory", BannedAt = Day.AddDays(-2), FirstSeenAt = Day, LastSeenAt = Day });
+        db.GroupBans.AddRange(
+            new GroupBan { GroupId = Group, UserId = "usr_mallory", BannedAt = Day.AddDays(-2), FirstSeenAt = Day, LastSeenAt = Day },
+            // Banned once and let back in: off the ban list, still somebody the group has banned.
+            new GroupBan
+            {
+                GroupId = Group,
+                UserId = "usr_gone",
+                BannedAt = Day.AddDays(-40),
+                LiftedAt = Day.AddDays(-20),
+                FirstSeenAt = Day,
+                LastSeenAt = Day,
+            });
+
+        db.DiscordAccountLinks.Add(new DiscordAccountLink
+        {
+            DiscordUserId = "111",
+            DiscordUsername = "alice",
+            VRChatUserId = "usr_alice",
+            LinkedAt = Day.AddDays(-10),
+        });
+
+        db.ModerationFlags.Add(new ModerationFlag
+        {
+            Id = Guid.CreateVersion7(),
+            FlaggedAt = Day.AddDays(-2),
+            RuleName = "Slurs",
+            RuleVersion = 1,
+            Target = "discordMessage",
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = "usr_mallory",
+            Matched = "a word",
+        });
 
         db.VRChatUsers.AddRange(
             new VRChatUser
@@ -57,12 +87,32 @@ public class PeopleTests
                 CurrentAvatarThumbnailImageUrl = "https://img/alice",
                 Is18PlusVerified = true,
                 TrustRank = TrustRank.KnownUser,
+                LastPlatform = "standalonewindows",
                 FirstSeenAt = Day.AddDays(-300),
                 LastSeenAt = Day,
                 LastRefreshedAt = Day,
             },
-            new VRChatUser { UserId = "usr_gone", DisplayName = "Gone Away", FirstSeenAt = Day.AddDays(-200), LastSeenAt = Day.AddHours(-1), LastRefreshedAt = Day },
-            new VRChatUser { UserId = "usr_mallory", DisplayName = "Mallory", FirstSeenAt = Day.AddDays(-100), LastSeenAt = Day.AddHours(-2), LastRefreshedAt = Day },
+            new VRChatUser
+            {
+                UserId = "usr_gone",
+                DisplayName = "Gone Away",
+                TrustRank = TrustRank.Visitor,
+                LastPlatform = "android",
+                FirstSeenAt = Day.AddDays(-200),
+                LastSeenAt = Day.AddHours(-1),
+                LastRefreshedAt = Day,
+            },
+            new VRChatUser
+            {
+                UserId = "usr_mallory",
+                DisplayName = "Mallory",
+                TrustRank = TrustRank.Nuisance,
+                // As VRChat sent it: the column is free text and the filter matches it as it is.
+                LastPlatform = "StandaloneWindows",
+                FirstSeenAt = Day.AddDays(-100),
+                LastSeenAt = Day.AddHours(-2),
+                LastRefreshedAt = Day,
+            },
             // Seen once in an instance and never anything else: the whole reason this page exists.
             new VRChatUser { UserId = "usr_visitor", FirstSeenAt = Day.AddDays(-2), LastSeenAt = Day.AddHours(-3) },
             new VRChatUser { UserId = "8JoV9XEdpo", DisplayName = "Old Timer", FirstSeenAt = Day.AddDays(-900), LastSeenAt = Day.AddHours(-4), LastRefreshedAt = Day });
@@ -173,6 +223,157 @@ public class PeopleTests
 
         var unfetched = await host.GetJsonAsync<PeopleListResponse>("/api/people?profile=not-fetched", cookie, Ct);
         Assert.Equal(["usr_visitor"], unfetched.People.Select(p => p.UserId));
+    }
+
+    [Fact]
+    public async Task EverBannedFindsPeopleTheBanListNoLongerHolds()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        // The one whose ban was lifted is off the ban list and still someone the group has banned,
+        // which is the whole difference between the two questions.
+        var ever = await host.GetJsonAsync<PeopleListResponse>("/api/people?everBanned=true", cookie, Ct);
+        Assert.Equal(["usr_gone", "usr_mallory"], ever.People.Select(p => p.UserId).Order());
+
+        var onTheList = await host.GetJsonAsync<PeopleListResponse>("/api/people?banned=true", cookie, Ct);
+        Assert.Equal(["usr_mallory"], onTheList.People.Select(p => p.UserId));
+
+        var never = await host.GetJsonAsync<PeopleListResponse>("/api/people?everBanned=false", cookie, Ct);
+        Assert.DoesNotContain("usr_gone", never.People.Select(p => p.UserId));
+        Assert.Contains("usr_visitor", never.People.Select(p => p.UserId));
+    }
+
+    [Fact]
+    public async Task TheTrustRankFilterTakesSeveralRanksAndLeavesOutAnybodyNobodyHasRead()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        var one = await host.GetJsonAsync<PeopleListResponse>("/api/people?trustRank=Nuisance", cookie, Ct);
+        Assert.Equal(["usr_mallory"], one.People.Select(p => p.UserId));
+
+        var either = await host.GetJsonAsync<PeopleListResponse>(
+            "/api/people?trustRank=Nuisance&trustRank=KnownUser", cookie, Ct);
+        Assert.Equal(["usr_alice", "usr_mallory"], either.People.Select(p => p.UserId).Order());
+
+        // Nobody has read the visitor's or the legacy account's tags, so neither has a rank at all
+        // and asking for Visitor must not sweep them in.
+        var visitors = await host.GetJsonAsync<PeopleListResponse>("/api/people?trustRank=Visitor", cookie, Ct);
+        Assert.Equal(["usr_gone"], visitors.People.Select(p => p.UserId));
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (await host.GetAsync("/api/people?trustRank=SuperUser", cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task ThePlatformFilterMatchesWhateverVRChatSentWhateverItsCapitals()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        var pc = await host.GetJsonAsync<PeopleListResponse>("/api/people?platform=standalonewindows", cookie, Ct);
+        Assert.Equal(["usr_alice", "usr_mallory"], pc.People.Select(p => p.UserId).Order());
+
+        var both = await host.GetJsonAsync<PeopleListResponse>(
+            "/api/people?platform=android&platform=ios", cookie, Ct);
+        Assert.Equal(["usr_gone"], both.People.Select(p => p.UserId));
+
+        // Free text on the wire, so a value this build has no word for is a value nobody matches,
+        // never an error.
+        var unknown = await host.GetJsonAsync<PeopleListResponse>("/api/people?platform=holodeck", cookie, Ct);
+        Assert.Empty(unknown.People);
+    }
+
+    [Fact]
+    public async Task TheDiscordTheAgeMarkAndTheFlagFiltersEachNarrowTheList()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        var linked = await host.GetJsonAsync<PeopleListResponse>("/api/people?linked=linked", cookie, Ct);
+        Assert.Equal(["usr_alice"], linked.People.Select(p => p.UserId));
+
+        var notLinked = await host.GetJsonAsync<PeopleListResponse>("/api/people?linked=not-linked", cookie, Ct);
+        Assert.DoesNotContain("usr_alice", notLinked.People.Select(p => p.UserId));
+        Assert.Equal(4, notLinked.Total);
+
+        var marked = await host.GetJsonAsync<PeopleListResponse>("/api/people?eighteenPlus=true", cookie, Ct);
+        Assert.Equal(["usr_alice"], marked.People.Select(p => p.UserId));
+
+        var unmarked = await host.GetJsonAsync<PeopleListResponse>("/api/people?eighteenPlus=false", cookie, Ct);
+        Assert.Equal(4, unmarked.Total);
+
+        var flagged = await host.GetJsonAsync<PeopleListResponse>("/api/people?flagged=true", cookie, Ct);
+        Assert.Equal(["usr_mallory"], flagged.People.Select(p => p.UserId));
+
+        var clean = await host.GetJsonAsync<PeopleListResponse>("/api/people?flagged=false", cookie, Ct);
+        Assert.DoesNotContain("usr_mallory", clean.People.Select(p => p.UserId));
+
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (await host.GetAsync("/api/people?linked=maybe", cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task TheLastSeenStretchIsHalfOpenSoTheDayItEndsOnIsNotCountedTwice()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        // Everybody Modbot last saw in the two hours before noon: Alice at noon, Gone at 11, and
+        // Mallory at 10 is the first one outside it.
+        var from = Uri.EscapeDataString(Day.AddHours(-1).ToString("O"));
+        var recent = await host.GetJsonAsync<PeopleListResponse>($"/api/people?seenFrom={from}", cookie, Ct);
+        Assert.Equal(["usr_alice", "usr_gone"], recent.People.Select(p => p.UserId));
+
+        var to = Uri.EscapeDataString(Day.AddHours(-2).ToString("O"));
+        var older = await host.GetJsonAsync<PeopleListResponse>($"/api/people?seenTo={to}", cookie, Ct);
+        Assert.Equal(["usr_visitor", "8JoV9XEdpo"], older.People.Select(p => p.UserId));
+
+        var between = await host.GetJsonAsync<PeopleListResponse>(
+            $"/api/people?seenFrom={to}&seenTo={from}", cookie, Ct);
+        Assert.Equal(["usr_mallory"], between.People.Select(p => p.UserId));
+    }
+
+    [Fact]
+    public async Task FiltersCombineWithAndRatherThanWideningTheList()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        var both = await host.GetJsonAsync<PeopleListResponse>(
+            "/api/people?membership=not-member&platform=standalonewindows", cookie, Ct);
+        Assert.Equal(["usr_mallory"], both.People.Select(p => p.UserId));
+
+        var none = await host.GetJsonAsync<PeopleListResponse>(
+            "/api/people?membership=member&flagged=true", cookie, Ct);
+        Assert.Empty(none.People);
+        Assert.Equal(0, none.Total);
+
+        // The counts above the list are the whole table either way: they say what there is, not
+        // what the filters left.
+        Assert.Equal(5, none.Coverage.Known);
+        Assert.Equal(1, none.Coverage.Members);
     }
 
     [Fact]

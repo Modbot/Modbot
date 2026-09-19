@@ -782,7 +782,7 @@
           "People"
         ],
         "summary": "Everyone Modbot has a record of, member or not",
-        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false; `profile` is `fetched` or `not-fetched`. Sorted by when Modbot last saw them, most recent first, unless `sort=name` or `sort=known` (longest known first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet.\n\nNeeds the `ViewProfile` permission.",
+        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false for the group's ban list as it stands, `everBanned` true or false for a ban at any time, lifted or not; `profile` is `fetched` or `not-fetched`. `eighteenPlus` is true or false for Modbot's 18+ mark. `trustRank` is a trust rank name and may be repeated: people holding any of them, and never anybody whose tags have not been read. `platform` is the platform they last used, matched case-insensitively against whatever VRChat sent, and may be repeated. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without. `flagged` is true or false for having ever been flagged by a moderation rule, dismissed or not. `seenFrom` and `seenTo` narrow the list to people Modbot last saw inside that stretch. Sorted by when Modbot last saw them, most recent first, unless `sort=name` or `sort=known` (longest known first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetPeople",
         "parameters": [
           {
@@ -807,10 +807,74 @@
             }
           },
           {
+            "name": "everBanned",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "profile",
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "eighteenPlus",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trustRank",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "linked",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "flagged",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "seenFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "seenTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
             }
           },
           {
