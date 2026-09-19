@@ -26,7 +26,7 @@ public class UpdateCheckTests(PostgresFixture db)
         return $"{year}.{month}.{patch + 1}";
     }
 
-    private static string Answer(string version, string image = "modbot/modbot-host") =>
+    private static string Answer(string version, string image = "modbot/modbot") =>
         $$"""
         {"name":"server","version":"{{version}}","publishedAt":"2026-09-18T08:00:00+00:00",
          "notesUrl":"https://github.com/binn/Modbot/releases/tag/host-v{{version}}",
@@ -47,7 +47,7 @@ public class UpdateCheckTests(PostgresFixture db)
         Assert.True(status.NewerAvailable);
         Assert.Equal(newest, status.Newest);
         Assert.Equal(ModbotVersion.Release, status.Running);
-        Assert.Equal("modbot/modbot-host", status.Image);
+        Assert.Equal("modbot/modbot", status.Image);
         Assert.Equal(newest, status.Tag);
         Assert.Equal(Now, status.CheckedAt);
         Assert.Null(status.Problem);
@@ -55,7 +55,7 @@ public class UpdateCheckTests(PostgresFixture db)
         // Written down, so the settings screen can read it without asking anybody.
         var settings = await context.GetSettingsAsync(Ct);
         Assert.Equal(newest, settings.NewestRelease);
-        Assert.Equal("modbot/modbot-host", settings.NewestReleaseImage);
+        Assert.Equal("modbot/modbot", settings.NewestReleaseImage);
     }
 
     [Fact]

@@ -91,7 +91,7 @@ GET /api/v1/updates/companion/releases.{channel}.json
       "version": "2026.9.3",
       "publishedAt": "2026-09-16T10:00:00+00:00",
       "notesUrl": "https://github.com/binn/Modbot/releases/tag/host-v2026.9.3",
-      "image": "modbot/modbot-host",
+      "image": "modbot/modbot",
       "tag": "2026.9.3",
       "imagePushedAt": "2026-09-16T10:30:00+00:00"
     }

@@ -27,7 +27,7 @@ requests, and a second container would send twice as many against the same rate 
 ## Pull the published image
 
 Every named release is published to GitHub's container registry as
-`ghcr.io/binn/modbot-host`:
+`ghcr.io/binn/modbot`:
 
 | Tag | What it is |
 |---|---|
@@ -37,7 +37,7 @@ Every named release is published to GitHub's container registry as
 | `sha-1af5e1a` | One commit. |
 
 ```bash
-docker pull ghcr.io/binn/modbot-host:latest
+docker pull ghcr.io/binn/modbot:latest
 ```
 
 While the repository is private, so is the image. Sign in first with a GitHub token that has the
@@ -47,7 +47,7 @@ While the repository is private, so is the image. Sign in first with a GitHub to
 echo "$GITHUB_TOKEN" | docker login ghcr.io -u your-github-username --password-stdin
 ```
 
-Wherever the rest of this page says `modbot`, the published image is `ghcr.io/binn/modbot-host`
+Wherever the rest of this page says `modbot`, the published image is `ghcr.io/binn/modbot`
 with the tag you chose.
 
 ## Build the image

@@ -11,7 +11,7 @@ public sealed class FakeReleaseHost : HttpMessageHandler
 {
     public const string Repository = "example/modbot";
 
-    public const string Image = "example/modbot-host";
+    public const string Image = "example/modbot";
 
     /// <summary>The newest client release, which is also where its feed files are attached.</summary>
     public const string ClientVersion = "2026.9.10";

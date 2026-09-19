@@ -8,7 +8,7 @@ namespace Modbot.Core.Updates;
 /// <param name="Version">The newest release, <c>YYYY.M.PATCH</c>.</param>
 /// <param name="PublishedAt">When it was published.</param>
 /// <param name="NotesUrl">The page with its notes on it.</param>
-/// <param name="Image">The image to pull, such as <c>modbot/modbot-host</c>.</param>
+/// <param name="Image">The image to pull, such as <c>modbot/modbot</c>.</param>
 /// <param name="Tag">The tag to pull it with.</param>
 public sealed record NewestRelease(
     [property: JsonPropertyName("version")] string Version,

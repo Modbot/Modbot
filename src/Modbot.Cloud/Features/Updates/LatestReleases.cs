@@ -196,9 +196,7 @@ public sealed class LatestReleases(
                 release.NotesUrl,
                 isServer ? docker.Image : null,
                 isServer ? version : null,
-                isServer
-                    ? tags?.FirstOrDefault(t => string.Equals(t.Name, version, StringComparison.Ordinal))?.PushedAt
-                    : null));
+                isServer ? PushedAt(tags, version) : null));
         }
 
         Volatile.Write(ref _answer, new UpdatesAnswer(views, feeds, time.GetUtcNow()));
@@ -381,5 +379,23 @@ public sealed class LatestReleases(
     {
         var at = tag.IndexOf("-v", StringComparison.Ordinal);
         return at > 0 && at + 2 < tag.Length ? tag[(at + 2)..] : null;
+    }
+
+    /// <summary>
+    /// When the image for a release was pushed, or null when there is no such tag.
+    /// </summary>
+    /// <remarks>
+    /// The image is tagged <c>v2026.9.1</c> and the release version is <c>2026.9.1</c>, so the
+    /// two are not the same string. Both spellings are looked for: images pushed before the v was
+    /// added carry the bare version, and a deployment pulling one of those should still be told
+    /// when it was pushed.
+    /// </remarks>
+    private static DateTimeOffset? PushedAt(IReadOnlyList<ImageTag>? tags, string version)
+    {
+        if (tags is null)
+            return null;
+
+        return tags.FirstOrDefault(t => string.Equals(t.Name, "v" + version, StringComparison.Ordinal))?.PushedAt
+            ?? tags.FirstOrDefault(t => string.Equals(t.Name, version, StringComparison.Ordinal))?.PushedAt;
     }
 }

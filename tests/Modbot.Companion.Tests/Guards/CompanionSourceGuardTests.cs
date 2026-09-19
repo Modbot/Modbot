@@ -13,6 +13,15 @@ namespace Modbot.Companion.Tests.Guards;
 /// </remarks>
 public class CompanionSourceGuardTests
 {
+    /// <summary>
+    /// The Process type reached through any name: <c>Process.Start</c>, <c>new Process(</c>, or
+    /// <c>Diagnostics.Process</c>. Not <c>ProcessMessage</c> or <c>_processed</c>, which need the
+    /// word to run straight into a dot or an opening bracket.
+    /// </summary>
+    private static readonly Regex ProcessTypeUse = new(
+        @"\bProcess\s*\.|\bnew\s+Process\s*\(",
+        RegexOptions.Compiled);
+
     private static readonly Regex SystemClockUse = new(
         @"\bDateTime(Offset)?\s*\.\s*(UtcNow|Now|Today)\b",
         RegexOptions.Compiled);
@@ -114,6 +123,28 @@ public class CompanionSourceGuardTests
             .ToList();
 
         Assert.True(offenders.Count == 0, $"{why}; found in {string.Join(", ", offenders)}");
+    }
+
+    /// <summary>The same ban, written so importing the namespace does not walk around it.</summary>
+    /// <remarks>
+    /// The theory above looks for the literal <c>System.Diagnostics.Process</c>. A file that says
+    /// <c>using System.Diagnostics;</c> and then <c>Process.Start(...)</c> contains neither of
+    /// those words together and would have passed. The client uses that namespace for Stopwatch
+    /// and nothing else, so the type itself is what has to be named.
+    /// </remarks>
+    [Fact]
+    public void TheClientDoesNotStartAProcessUnderAShorterName()
+    {
+        var offenders = EverythingTheClientShips()
+            .Where(f => ProcessTypeUse.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "These client files use System.Diagnostics.Process through a shorter name: "
+            + string.Join(", ", offenders));
     }
 
     /// <summary>The two files allowed to touch the registry, and the keys each may touch.</summary>

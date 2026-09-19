@@ -1,13 +1,13 @@
 # Builds the server image -- the SPA, the API, the Discord bot and the sync scheduler in one
 # container, from the Dockerfile at the root -- and pushes it to GitHub's container registry as
-# ghcr.io/<owner>/modbot-host.
+# ghcr.io/<owner>/modbot.
 #
 # Two kinds of build, told apart by what was pushed:
 #
-#   a commit on master        ghcr.io/<owner>/modbot-host:edge
-#                             ghcr.io/<owner>/modbot-host:sha-<short commit>
-#   a tag host-vYYYY.M.PATCH  ghcr.io/<owner>/modbot-host:YYYY.M.PATCH
-#                             ghcr.io/<owner>/modbot-host:latest
+#   a commit on master        ghcr.io/<owner>/modbot:edge
+#                             ghcr.io/<owner>/modbot:sha-<short commit>
+#   a tag host-vYYYY.M.PATCH  ghcr.io/<owner>/modbot:vYYYY.M.PATCH
+#                             ghcr.io/<owner>/modbot:latest
 #
 # `latest` is a named release and nothing else, so an operator who pulls it gets a version somebody
 # chose to name. `edge` follows master. The version after `host-v` is stamped into the build
@@ -44,7 +44,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/modbot-host
+  IMAGE: ghcr.io/${{ github.repository_owner }}/modbot
 
 jobs:
   image:
@@ -80,7 +80,7 @@ jobs:
           tags: |
             type=raw,value=edge,enable=${{ github.ref_type == 'branch' }}
             type=sha,prefix=sha-,enable=${{ github.ref_type == 'branch' }}
-            type=raw,value=${{ env.VERSION }},enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=v${{ env.VERSION }},enable=${{ github.ref_type == 'tag' }}
             type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
 
       # The commit and branch go in under the names the Dockerfile already declares for Railway;

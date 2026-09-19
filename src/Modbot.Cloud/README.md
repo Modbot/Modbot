@@ -45,7 +45,7 @@ built by `src/Modbot.Cloud/Dockerfile` from the repository root.
 | `GITHUB_TOKEN` | No | none | Reads the repository's contributors for the showcase. Not needed for a public repository; without it while it is private, the contributor list is empty. |
 | `GITHUB_REPOSITORY` | No | `binn/Modbot` | The repository those contributors come from, as `owner/name`. |
 | `GITHUB_RELEASES_REPOSITORY` | No | `GITHUB_REPOSITORY`, then `binn/Modbot` | The repository the releases at `/api/v1/updates` come from, as `owner/name`. Separate because the client's releases may be published where the public can download them while the source repository is private. |
-| `DOCKER_IMAGE` | No | `modbot/modbot-host` | The server's image on Docker Hub, as `owner/name`. Its tags are read so `/api/v1/updates/server` can say what to pull. Read unauthenticated; when Docker Hub cannot be read, the answer still names the image and the release version as its tag. |
+| `DOCKER_IMAGE` | No | `modbot/modbot` | The server's image on Docker Hub, as `owner/name`. Its tags are read so `/api/v1/updates/server` can say what to pull. Read unauthenticated; when Docker Hub cannot be read, the answer still names the image and the release version as its tag. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value falls back to 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. Unset means no Seq. |
 | `CONSOLE_LOG_MODE` | No | `serilog` | The shape of the console output: `serilog` (readable lines), `json` (Serilog's compact JSON) or `railway_json` (the JSON Railway parses). Case, spaces, hyphens and underscores are ignored; anything else means `serilog`. |

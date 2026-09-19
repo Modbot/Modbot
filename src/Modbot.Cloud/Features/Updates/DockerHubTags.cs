@@ -33,7 +33,7 @@ public sealed class DockerHubTags(HttpClient client, string image)
     public const string HttpClientName = "docker-hub";
 
     /// <summary>The image read when <c>DOCKER_IMAGE</c> is not set.</summary>
-    public const string DefaultImage = "modbot/modbot-host";
+    public const string DefaultImage = "modbot/modbot";
 
     /// <summary>How many tags are read. Newest first, so this is a window on the recent ones.</summary>
     public const int MostTags = 50;

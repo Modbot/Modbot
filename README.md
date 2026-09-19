@@ -100,7 +100,7 @@ cp .env.example .env          # set POSTGRES_PASSWORD and SEQ_ADMIN_PASSWORD
 docker compose up -d --build
 ```
 
-Every release is also published as an image, `ghcr.io/binn/modbot-host`, for running it without
+Every release is also published as an image, `ghcr.io/binn/modbot`, for running it without
 the repository. See [Docker](docs/content/docs/self-hosting/docker.mdx).
 
 Open <http://localhost:8080>. The setup wizard opens on first visit and walks you through your

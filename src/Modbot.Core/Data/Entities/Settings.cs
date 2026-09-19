@@ -194,7 +194,7 @@ public class Settings
     /// <summary>The page with that release's notes on it.</summary>
     public string? NewestReleaseNotesUrl { get; set; }
 
-    /// <summary>The image to pull for it, such as <c>modbot/modbot-host</c>.</summary>
+    /// <summary>The image to pull for it, such as <c>modbot/modbot</c>.</summary>
     public string? NewestReleaseImage { get; set; }
 
     /// <summary>The tag to pull it with.</summary>
