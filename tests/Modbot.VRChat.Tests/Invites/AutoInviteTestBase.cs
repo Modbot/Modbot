@@ -24,7 +24,21 @@ public abstract class AutoInviteTestBase(PostgresFixture fixture) : SyncTestBase
 {
     protected const string Instance = "41337";
     protected const string World = "wrld_auto_invite";
+
+    /// <summary>
+    /// A volunteer moderator whose companion reports from the instance. <strong>Not the account
+    /// Modbot signs in as</strong> — see <see cref="Modbot"/>.
+    /// </summary>
+    /// <remarks>
+    /// They are a member of the group, because VRChat requires membership to hold a group role, so
+    /// anybody who can moderate the group is in it. That is what keeps them out of the invite list
+    /// and it is the production rule doing it, not anything the fixture arranges.
+    /// </remarks>
     protected const string Moderator = "usr_moderator";
+
+    /// <summary>The account the gate signs in as. Configured on every real deployment.</summary>
+    protected const string Modbot = "usr_modbot";
+
     protected const string Stranger = "usr_stranger";
 
     protected static readonly Guid Device = Guid.Parse("9f1c2a4e-0000-4000-8000-000000000001");
@@ -45,13 +59,21 @@ public abstract class AutoInviteTestBase(PostgresFixture fixture) : SyncTestBase
             Clock).RunOnceAsync(Ct);
     }
 
-    /// <summary>Switches the feature on and sets the rules. Off until a test calls this.</summary>
+    /// <summary>
+    /// Switches the feature on and sets the rules. Off until a test calls this.
+    /// </summary>
+    /// <remarks>
+    /// It also records which account Modbot signs in as, because a deployment with a group always
+    /// has one and leaving the column null would quietly disable the one check that reads it. A
+    /// test that needs the session account to be somebody else sets it afterwards.
+    /// </remarks>
     protected async Task SwitchOnAsync(
         GiveawayRule? rules = null, int minutes = 5, int againAfterDays = 30)
     {
         await using var context = Database.NewContext();
         var settings = await context.GetSettingsAsync(Ct);
 
+        settings.VRChatSessionUserId = Modbot;
         settings.GroupAutoInviteEnabled = true;
         settings.GroupAutoInviteMinutesInInstance = minutes;
         settings.GroupAutoInviteAgainAfterDays = againAfterDays;
@@ -95,6 +117,19 @@ public abstract class AutoInviteTestBase(PostgresFixture fixture) : SyncTestBase
             Presence(FactType.InstanceJoined, Moderator, watchFrom ?? arrivedAt, Device),
             Presence(FactType.InstanceJoined, userId, arrivedAt, Device));
     }
+
+    /// <summary>
+    /// A companion walking into an instance somebody was already standing in.
+    /// </summary>
+    /// <remarks>
+    /// The person is reported as "already here" rather than as arriving, which is the fact VRChat's
+    /// log produces for everybody present when the moderator joins. Their real arrival is some
+    /// earlier moment nobody saw, so the only time Modbot may count runs from this moment.
+    /// </remarks>
+    protected Task WatchedAlreadyHereAsync(string userId, DateTimeOffset watchFrom)
+        => FactsAsync(
+            Presence(FactType.InstanceJoined, Moderator, watchFrom, Device),
+            Presence(FactType.InstancePresenceObserved, userId, watchFrom, Device));
 
     /// <summary>The same arrival with nobody reporting it: an instance no companion is in.</summary>
     protected Task UnwatchedArrivalAsync(string userId, DateTimeOffset arrivedAt)
@@ -158,7 +193,15 @@ public abstract class AutoInviteTestBase(PostgresFixture fixture) : SyncTestBase
         await context.SaveChangesAsync(Ct);
     }
 
-    /// <summary>The companion that reports, and the Modbot account it was issued to.</summary>
+    /// <summary>
+    /// A volunteer moderator with a Modbot account, a paired companion, and a place in the group.
+    /// </summary>
+    /// <remarks>
+    /// The group membership is part of what this sets up, not an afterthought. VRChat requires
+    /// membership to hold a group role, so the person whose companion is reporting from a group
+    /// instance is always a member — and a fixture that left them out would be testing a
+    /// deployment that cannot exist, and inviting somebody the real rule already excludes.
+    /// </remarks>
     protected async Task AddCompanionAsync()
     {
         await using var context = Database.NewContext();
@@ -183,6 +226,17 @@ public abstract class AutoInviteTestBase(PostgresFixture fixture) : SyncTestBase
             LastSeenAt = Now,
         });
 
+        await context.SaveChangesAsync(Ct);
+
+        await AddMemberAsync(Moderator);
+    }
+
+    /// <summary>The account the gate signs in as, for a test that needs it to be somebody else.</summary>
+    protected async Task SignedInAsAsync(string userId)
+    {
+        await using var context = Database.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.VRChatSessionUserId = userId;
         await context.SaveChangesAsync(Ct);
     }
 

@@ -81,7 +81,13 @@ public sealed class GroupAutoInvites
     }
 
     /// <summary>Somebody who could be invited, and what is known about their stay.</summary>
-    private readonly record struct Standing(string UserId, string? InstanceId, int Minutes, bool SeenArriving);
+    /// <param name="Since">
+    /// The first moment they were seen this stay. Kept as the instant rather than only as
+    /// <paramref name="Minutes"/>, because it is what the order below is decided by and two people
+    /// who arrived in the same minute are not the same age.
+    /// </param>
+    private readonly record struct Standing(
+        string UserId, string? InstanceId, DateTimeOffset Since, int Minutes, bool SeenArriving);
 
     /// <summary>
     /// One pass. Returns true when an invite went out.
@@ -146,6 +152,7 @@ public sealed class GroupAutoInvites
                 standing.Add(new Standing(
                     person.UserId,
                     instance.VRChatInstanceId,
+                    person.Since,
                     (int)Math.Floor((now - person.Since).TotalMinutes),
                     person.SeenArriving));
             }
@@ -156,8 +163,15 @@ public sealed class GroupAutoInvites
 
         // Longest here first. The cap below then only ever leaves out the newest arrivals, who
         // will still be there next pass.
+        //
+        // Ordered by the instant, not by the whole minutes the fact records: two people who
+        // arrived in the same minute would otherwise be sorted by whatever order the rows came
+        // back in, and which of them is invited first would change between runs for no reason. The
+        // id breaks a genuine tie -- two people the facts place at the same instant -- so the
+        // answer is the same on every pass and in every process.
         var considered = standing
-            .OrderByDescending(p => p.Minutes)
+            .OrderBy(p => p.Since)
+            .ThenBy(p => p.UserId, StringComparer.Ordinal)
             .DistinctBy(p => p.UserId, StringComparer.Ordinal)
             .Take(MostPeoplePerPass)
             .ToList();
