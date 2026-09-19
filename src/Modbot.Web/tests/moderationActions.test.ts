@@ -28,6 +28,13 @@ test('somebody who is not a member is not offered a kick', () => {
   assert.deepEqual(offered, ['ban'])
 })
 
+test('somebody who is not a member is still offered a ban', () => {
+  // The whole point: VRChat's group ban takes a user id, so a person who has never joined can be
+  // kept out before they arrive.
+  assert.deepEqual(actionsFor(who('Ban'), { userId: 'usr_1', isMember: false }).map((o) => o.action), ['ban'])
+  assert.deepEqual(actionsFor(who('Kick'), { userId: 'usr_1', isMember: false }), [])
+})
+
 test('membership Modbot has not read still offers a kick', () => {
   const offered = actionsFor(moderator, { userId: 'usr_1' }).map((o) => o.action)
   assert.deepEqual(offered, ['kick', 'ban'])
@@ -58,6 +65,15 @@ test('the confirmation names the person and the action', () => {
   assert.equal(confirmTitle('ban', 'Gunner24'), 'Ban Gunner24 from the group?')
   assert.equal(confirmTitle('kick', 'Gunner24'), 'Kick Gunner24 from the group?')
   assert.equal(confirmTitle('unban', 'Gunner24'), 'Unban Gunner24?')
+})
+
+test('banning somebody who is not a member does not ask about removing them', () => {
+  assert.equal(confirmTitle('ban', 'Gunner24', false), 'Ban Gunner24?')
+
+  // A member, and somebody whose membership Modbot has not read, both keep the longer sentence.
+  assert.equal(confirmTitle('ban', 'Gunner24', true), 'Ban Gunner24 from the group?')
+  assert.equal(confirmTitle('ban', 'Gunner24', null), 'Ban Gunner24 from the group?')
+  assert.equal(confirmTitle('ban', 'Gunner24', undefined), 'Ban Gunner24 from the group?')
 })
 
 test('a refusal reads as what VRChat said, never as a success', () => {
