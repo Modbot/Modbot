@@ -17,7 +17,16 @@ public sealed record ReleaseFile(string Name, string ReadUrl, string DownloadUrl
 /// <param name="PublishedAt">When GitHub published it.</param>
 /// <param name="NotesUrl">The release page, which is where the notes are.</param>
 /// <param name="Files">Everything attached to the release.</param>
-public sealed record Release(string Tag, DateTimeOffset? PublishedAt, string? NotesUrl, IReadOnlyList<ReleaseFile> Files);
+/// <param name="Preview">
+/// True when GitHub has this marked a pre-release. A preview client is published that way, and it
+/// is what keeps one out of the answer every deployment in the world reads.
+/// </param>
+public sealed record Release(
+    string Tag,
+    DateTimeOffset? PublishedAt,
+    string? NotesUrl,
+    IReadOnlyList<ReleaseFile> Files,
+    bool Preview);
 
 /// <summary>
 /// Reads the project's releases from GitHub.
@@ -30,8 +39,9 @@ public sealed record Release(string Tag, DateTimeOffset? PublishedAt, string? No
 /// </para>
 /// <para>
 /// <strong>Rate limit.</strong> GitHub allows 60 unauthenticated requests an hour per address and
-/// 5,000 with a token. A refresh costs one list call plus one read per companion channel, so three;
-/// at <see cref="LatestReleases.RefreshEvery"/> that is a few dozen a day. A refusal keeps the
+/// 5,000 with a token. A refresh costs one list call plus one read per companion channel, so three
+/// with no preview out and five with one; at <see cref="LatestReleases.RefreshEvery"/> that is a
+/// hundred a day at worst. A refusal keeps the
 /// previous answer rather than being retried immediately, which is the shape that turns a rate
 /// limit into a ban.
 /// </para>
@@ -62,8 +72,13 @@ public sealed class GitHubReleases(HttpClient client, string? token, string repo
     /// read; an empty list means it answered and there are none.
     /// </summary>
     /// <remarks>
-    /// Drafts and pre-releases are left out. A pre-release is somebody's trial balloon, and telling
-    /// every deployment in the world to update to one is not what publishing it meant.
+    /// <para>
+    /// Drafts are left out. A pre-release is kept but marked, because the two things Cloud does
+    /// with a release want opposite answers: a pre-release must never become the version every
+    /// deployment in the world is told to update to, and it must still be readable, because that
+    /// is where a preview client's own feed is attached. <see cref="LatestReleases"/> holds both
+    /// rules; this only reports what GitHub said.
+    /// </para>
     /// </remarks>
     public async Task<IReadOnlyList<Release>?> ListAsync(CancellationToken ct = default)
     {
@@ -87,7 +102,7 @@ public sealed class GitHubReleases(HttpClient client, string? token, string repo
             return
             [
                 .. releases
-                    .Where(r => r is { Draft: false, Prerelease: false } && !string.IsNullOrWhiteSpace(r.TagName))
+                    .Where(r => r is { Draft: false } && !string.IsNullOrWhiteSpace(r.TagName))
                     .Select(r => new Release(
                         r.TagName!,
                         r.PublishedAt,
@@ -98,7 +113,8 @@ public sealed class GitHubReleases(HttpClient client, string? token, string repo
                                             && !string.IsNullOrWhiteSpace(a.Url)
                                             && !string.IsNullOrWhiteSpace(a.BrowserDownloadUrl))
                                 .Select(a => new ReleaseFile(a.Name!, a.Url!, a.BrowserDownloadUrl!)),
-                        ])),
+                        ],
+                        r.Prerelease)),
             ];
         }
         catch (Exception e) when (Transient(e, ct))

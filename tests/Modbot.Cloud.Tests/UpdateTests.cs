@@ -248,6 +248,59 @@ public class UpdateTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.OK, linux.StatusCode);
     }
 
+    /// <summary>
+    /// A copy installed from a preview asks for the preview channel for the rest of its life, so
+    /// Cloud has to answer for that channel. Otherwise the handful of people most likely to find a
+    /// bug are the only ones who cannot be sent the fix.
+    /// </summary>
+    [Fact]
+    public async Task APreviewIsServedOnItsOwnChannel()
+    {
+        var (releases, _) = Build(new ManualTime(CloudTestHost.Start));
+        Assert.True(await releases.RefreshAsync(Ct));
+
+        await using var host = await CloudTestHost.StartAsync(db, updates: releases);
+
+        using var windows = await host.GetAsync("/api/v1/updates/companion/releases.win-preview.json");
+        using var linux = await host.GetAsync("/api/v1/updates/companion/releases.linux-preview.json");
+
+        Assert.Equal(HttpStatusCode.OK, windows.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, linux.StatusCode);
+
+        var feed = await windows.Content.ReadAsStringAsync(Ct);
+        var asset = JsonDocument.Parse(feed).RootElement.GetProperty("Assets")[0];
+
+        Assert.Equal(FakeReleaseHost.PreviewVersion, asset.GetProperty("Version").GetString());
+        Assert.Equal(FakeReleaseHost.PreviewPackageDownloadUrl, asset.GetProperty("FileName").GetString());
+    }
+
+    /// <summary>
+    /// The failure worth designing against: a preview is a build nobody has tried, and it must
+    /// never reach somebody who did not ask for one. It is not the version deployments are told
+    /// about, and it cannot answer for the channel released clients read — even though this
+    /// fixture's preview is numbered higher than the release and attaches a releases.win.json of
+    /// its own.
+    /// </summary>
+    [Fact]
+    public async Task APreviewIsNotOfferedToAnybodyRunningARelease()
+    {
+        var (releases, _) = Build(new ManualTime(CloudTestHost.Start));
+        Assert.True(await releases.RefreshAsync(Ct));
+
+        await using var host = await CloudTestHost.StartAsync(db, updates: releases);
+
+        using var newest = await host.GetAsync("/api/v1/updates/companion");
+        var client = await newest.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Equal(FakeReleaseHost.ClientVersion, client.GetProperty("version").GetString());
+
+        using var windows = await host.GetAsync("/api/v1/updates/companion/releases.win.json");
+        var feed = await windows.Content.ReadAsStringAsync(Ct);
+        var asset = JsonDocument.Parse(feed).RootElement.GetProperty("Assets")[0];
+
+        Assert.Equal(FakeReleaseHost.ClientVersion, asset.GetProperty("Version").GetString());
+        Assert.Equal(FakeReleaseHost.PackageDownloadUrl, asset.GetProperty("FileName").GetString());
+    }
+
     /// <summary>Reads through the test server, so Velopack talks to the real endpoint.</summary>
     private sealed class CloudDownloader(CloudTestHost host) : IFileDownloader
     {

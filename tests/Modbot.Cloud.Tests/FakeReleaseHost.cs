@@ -19,14 +19,34 @@ public sealed class FakeReleaseHost : HttpMessageHandler
     /// <summary>The newest server release.</summary>
     public const string ServerVersion = "2026.9.3";
 
+    /// <summary>
+    /// The preview client, published after the release above and numbered higher, so a test that
+    /// passes only because the preview happened to be older would not pass.
+    /// </summary>
+    public const string PreviewVersion = "2026.9.11-preview.1";
+
     private const string ReleasesUrl = $"https://api.github.com/repos/{Repository}/releases";
 
     private const string WinFeedAssetUrl = $"https://api.github.com/repos/{Repository}/releases/assets/11";
     private const string LinuxFeedAssetUrl = $"https://api.github.com/repos/{Repository}/releases/assets/12";
 
+    private const string WinPreviewFeedAssetUrl = $"https://api.github.com/repos/{Repository}/releases/assets/21";
+    private const string LinuxPreviewFeedAssetUrl = $"https://api.github.com/repos/{Repository}/releases/assets/22";
+
+    /// <summary>
+    /// A releases.win.json attached to the preview release, which the workflow would never put
+    /// there. It is served, and readable, so that a test proving Cloud ignores it would fail if
+    /// Cloud stopped ignoring it.
+    /// </summary>
+    private const string StrayWinFeedAssetUrl = $"https://api.github.com/repos/{Repository}/releases/assets/23";
+
     /// <summary>Where the client actually downloads a package from, and what Cloud must write into the feed.</summary>
     public const string PackageDownloadUrl =
         $"https://github.com/{Repository}/releases/download/companion-v{ClientVersion}/Modbot-{ClientVersion}-full.nupkg";
+
+    /// <summary>The same, for the preview.</summary>
+    public const string PreviewPackageDownloadUrl =
+        $"https://github.com/{Repository}/releases/download/companion-v{PreviewVersion}/Modbot-{PreviewVersion}-win-preview-full.nupkg";
 
     private int _releasesAsked;
     private int _tagsAsked;
@@ -54,9 +74,48 @@ public sealed class FakeReleaseHost : HttpMessageHandler
         "SHA256":"89abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567","Size":81234567}]}
         """;
 
+    private static string WindowsPreviewFeed { get; } =
+        $$"""
+        {"Assets":[{"PackageId":"Modbot","Version":"{{PreviewVersion}}","Type":"Full",
+        "FileName":"Modbot-{{PreviewVersion}}-win-preview-full.nupkg","SHA1":"abcdef0123456789abcdef0123456789abcdef01",
+        "SHA256":"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789","Size":92234567}]}
+        """;
+
+    private static string LinuxPreviewFeed { get; } =
+        $$"""
+        {"Assets":[{"PackageId":"Modbot","Version":"{{PreviewVersion}}","Type":"Full",
+        "FileName":"Modbot-{{PreviewVersion}}-linux-preview-full.nupkg","SHA1":"456789abcdef0123456789abcdef0123456789ab",
+        "SHA256":"456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123","Size":82234567}]}
+        """;
+
+    /// <summary>A version nobody should ever be served, on a channel a pre-release may not answer for.</summary>
+    private static string StrayWindowsFeed { get; } =
+        """
+        {"Assets":[{"PackageId":"Modbot","Version":"9999.9.9","Type":"Full",
+        "FileName":"Modbot-9999.9.9-full.nupkg","SHA1":"ffffffffffffffffffffffffffffffffffffffff",
+        "SHA256":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","Size":1}]}
+        """;
+
     private static string ReleasesJson { get; } =
         $$"""
         [
+          {
+            "tag_name": "companion-v{{PreviewVersion}}",
+            "html_url": "https://github.com/{{Repository}}/releases/tag/companion-v{{PreviewVersion}}",
+            "published_at": "2026-09-18T12:00:00+00:00",
+            "draft": false,
+            "prerelease": true,
+            "assets": [
+              { "name": "releases.win-preview.json", "url": "{{WinPreviewFeedAssetUrl}}",
+                "browser_download_url": "https://github.com/{{Repository}}/releases/download/companion-v{{PreviewVersion}}/releases.win-preview.json" },
+              { "name": "releases.linux-preview.json", "url": "{{LinuxPreviewFeedAssetUrl}}",
+                "browser_download_url": "https://github.com/{{Repository}}/releases/download/companion-v{{PreviewVersion}}/releases.linux-preview.json" },
+              { "name": "releases.win.json", "url": "{{StrayWinFeedAssetUrl}}",
+                "browser_download_url": "https://github.com/{{Repository}}/releases/download/companion-v{{PreviewVersion}}/releases.win.json" },
+              { "name": "Modbot-{{PreviewVersion}}-win-preview-full.nupkg", "url": "https://api.github.com/repos/{{Repository}}/releases/assets/24",
+                "browser_download_url": "{{PreviewPackageDownloadUrl}}" }
+            ]
+          },
           {
             "tag_name": "companion-v{{ClientVersion}}",
             "html_url": "https://github.com/{{Repository}}/releases/tag/companion-v{{ClientVersion}}",
@@ -136,6 +195,9 @@ public sealed class FakeReleaseHost : HttpMessageHandler
             _ when string.Equals(url, ReleasesUrl, StringComparison.Ordinal) => ReleasesJson,
             WinFeedAssetUrl => WindowsFeed,
             LinuxFeedAssetUrl => LinuxFeed,
+            WinPreviewFeedAssetUrl => WindowsPreviewFeed,
+            LinuxPreviewFeedAssetUrl => LinuxPreviewFeed,
+            StrayWinFeedAssetUrl => StrayWindowsFeed,
             _ when url.StartsWith("https://hub.docker.com/", StringComparison.Ordinal) => TagsJson,
             _ => null,
         };
