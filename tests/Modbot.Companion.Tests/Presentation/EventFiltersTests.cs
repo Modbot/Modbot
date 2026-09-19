@@ -80,7 +80,10 @@ public class EventFiltersTests
         // One word per row, from the paired server, and the backup only ever able to lift a
         // waiting row to sent. There is no destination to filter on any more.
         Assert.Equal(["sent"], EventFilters.StatesOf(RinJoined));
-        Assert.Equal(["sent"], EventFilters.StatesOf(RinLeft));
+
+        // Neither has settled, so the row has not got anywhere yet. The backup lifts a waiting row
+        // to sent only once it has actually taken it.
+        Assert.Equal(["waiting"], EventFilters.StatesOf(RinLeft));
         Assert.Equal(["withheld"], EventFilters.StatesOf(KaiAlready));
         Assert.Equal(["sent"], EventFilters.StatesOf(AvatarChanged));
         Assert.Empty(EventFilters.StatesOf(SeenOnly));
