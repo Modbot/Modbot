@@ -19,11 +19,18 @@
   <!-- A release build names its version once, as ModbotRelease (YYYY.M.PATCH), and every
        assembly is stamped from it: the four-part AssemblyVersion is the direct mapping from
        foundation 2.7.2, and the display version is the calendar string itself. Nothing is set
-       when ModbotRelease is absent, so an ordinary development build is unchanged. -->
+       when ModbotRelease is absent, so an ordinary development build is unchanged.
+
+       A client build handed to testers before the release says so: 2026.9.2-preview.1. Only the
+       display versions can carry that, because AssemblyVersion and FileVersion are four whole
+       numbers and nothing else, so those two get the numbers alone. A preview and the release it
+       leads to therefore share a FileVersion; InformationalVersion, which is what
+       ModbotVersion.Release and every screen show, is where they differ. -->
   <PropertyGroup Condition="'$(ModbotRelease)' != ''">
+    <ModbotReleaseNumbers>$([System.Text.RegularExpressions.Regex]::Replace('$(ModbotRelease)', '-.*$', ''))</ModbotReleaseNumbers>
     <Version>$(ModbotRelease)</Version>
-    <AssemblyVersion>$(ModbotRelease).0</AssemblyVersion>
-    <FileVersion>$(ModbotRelease).0</FileVersion>
+    <AssemblyVersion>$(ModbotReleaseNumbers).0</AssemblyVersion>
+    <FileVersion>$(ModbotReleaseNumbers).0</FileVersion>
     <InformationalVersion>$(ModbotRelease)</InformationalVersion>
   </PropertyGroup>
 </Project>
