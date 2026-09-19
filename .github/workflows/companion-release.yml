@@ -77,6 +77,11 @@ env:
 
 jobs:
   windows:
+    # This one cannot move to Linux and cost half as much: it builds the Windows executable and
+    # the installer that testers run, and Velopack makes those on Windows. It is also the only
+    # place the companion's Windows-only paths -- DPAPI, the Direct3D overlay surface, the
+    # keyboard shortcut -- are tested on the system they run on. It fires on a tag or by hand,
+    # never on a push, so it costs nothing day to day.
     runs-on: windows-latest
 
     steps:
@@ -131,6 +136,17 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      # setup-dotnet's own cache wants a packages.lock.json and this repository has none: it uses
+      # central package management without locking, so the built-in cache fails the step rather
+      # than skipping it. Hashing the files that decide what gets restored does the same job.
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
       - name: Restore
         run: dotnet restore
@@ -282,6 +298,17 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      # setup-dotnet's own cache wants a packages.lock.json and this repository has none: it uses
+      # central package management without locking, so the built-in cache fails the step rather
+      # than skipping it. Hashing the files that decide what gets restored does the same job.
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
       - name: Restore
         run: dotnet restore

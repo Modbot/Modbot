@@ -5,6 +5,18 @@ name: CI
 on:
   push:
     branches: [master]
+    # A run costs Actions minutes, and nothing below builds, lints or tests any of these. The
+    # documentation site's own pages are .mdx and are deliberately not listed, so a change to them
+    # still gets its build and its link check.
+    paths-ignore:
+      - '**/*.md'
+      - '.agent/**'
+      - '.github/FUNDING.yml'
+      - '.playwright-mcp/**'
+      - 'LICENSE'
+      - '.gitattributes'
+      - '.gitignore'
+      - '**/*.png'
   workflow_dispatch:
 
 jobs:
@@ -16,6 +28,14 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
       - name: Restore
         run: dotnet restore
