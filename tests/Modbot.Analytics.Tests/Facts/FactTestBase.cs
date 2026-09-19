@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -38,11 +39,16 @@ public abstract class FactTestBase : IAsyncLifetime
         => new FactWriter(context, clock);
 
     /// <summary>A client-reported instance join -- the shape deduplication exists for.</summary>
+    /// <param name="device">
+    /// Which client reported it, as the companion ingest writes it. Left off where the test is
+    /// about the fact rather than about who saw it.
+    /// </param>
     protected static FactRecord Presence(
         string subjectId,
         DateTimeOffset occurredAt,
         string instanceId = "instance-1",
-        string type = FactType.InstanceJoined)
+        string type = FactType.InstanceJoined,
+        Guid? device = null)
         => new()
         {
             Type = type,
@@ -52,5 +58,8 @@ public abstract class FactTestBase : IAsyncLifetime
             WorldId = "wrld_test",
             InstanceId = instanceId,
             Source = FactSource.Client,
+            Data = device is { } reporter
+                ? new JsonObject { [ClientReport.DeviceIdKey] = reporter.ToString() }
+                : null,
         };
 }

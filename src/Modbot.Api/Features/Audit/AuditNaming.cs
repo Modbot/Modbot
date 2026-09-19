@@ -47,10 +47,12 @@ public static class AuditNaming
         var accounts = await AccountsAsync(db, entries, ct);
         var worlds = await WorldsAsync(db, entries, ct);
         var instances = await InstancesAsync(db, entries, ct);
+        var reporters = await ReportersAsync(db, entries, ct);
 
         return entries
             .Select(e => e with
             {
+                ReportedBy = reporters.GetValueOrDefault(e.Id),
                 SubjectName = NameOf(e, people.Names, discord, accounts),
                 ActorName = e.ActorName ?? (e.ActorId is { } actor
                     ? (IsDiscord(e.ActorPlatform) ? discord : people.Names).GetValueOrDefault(actor)
@@ -177,6 +179,83 @@ public static class AuditNaming
             .Where(u => ids.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
     }
+
+    /// <summary>
+    /// Whose clients reported each client-reported fact on the page, oldest report first.
+    /// </summary>
+    /// <remarks>
+    /// <para>The fact names the client whose report became it; <c>modbot_event_report</c> names the
+    /// clients that reported the same thing afterwards and were deduplicated into it. Both are
+    /// device ids, and a device id means nothing to a moderator, so both are turned into the
+    /// username of the account the device was issued to.</para>
+    /// <para>Two queries for the page however many entries it holds, and none at all for a page
+    /// with no client-reported fact on it -- which is most pages outside an instance's own log.</para>
+    /// <para>A device Modbot can no longer put an account to is left out rather than shown as an
+    /// id. The id is still in the entry's payload for anybody who needs it.</para>
+    /// </remarks>
+    private static async Task<IReadOnlyDictionary<long, IReadOnlyList<AuditReporter>>> ReportersAsync(
+        ModbotContext db,
+        IReadOnlyList<AuditEntry> entries,
+        CancellationToken ct)
+    {
+        var wrote = entries
+            .Select(e => (e.Id, e.ObservedAt, Device: DeviceOn(e)))
+            .Where(e => e.Device is not null)
+            .ToList();
+
+        if (wrote.Count == 0)
+            return new Dictionary<long, IReadOnlyList<AuditReporter>>();
+
+        var factIds = wrote.Select(e => e.Id).ToList();
+
+        var also = await db.EventReports.AsNoTracking()
+            .Where(r => factIds.Contains(r.FactId))
+            .Select(r => new { r.FactId, r.DeviceId, r.ReportedAt })
+            .ToListAsync(ct);
+
+        var devices = wrote.Select(e => e.Device!.Value)
+            .Concat(also.Select(r => r.DeviceId))
+            .Distinct()
+            .ToList();
+
+        var owners = await (
+                from device in db.CompanionDevices.AsNoTracking()
+                join user in db.Users.AsNoTracking() on device.IssuedToUserId equals user.Id
+                where devices.Contains(device.Id)
+                select new { Device = device.Id, Account = user.Id, user.Username })
+            .ToDictionaryAsync(o => o.Device, o => new { o.Account, o.Username }, ct);
+
+        var byFact = also
+            .GroupBy(r => r.FactId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(r => r.ReportedAt).ToList());
+
+        var resolved = new Dictionary<long, IReadOnlyList<AuditReporter>>();
+
+        foreach (var (id, observedAt, device) in wrote)
+        {
+            var reporters = new List<AuditReporter>();
+
+            if (owners.TryGetValue(device!.Value, out var first))
+                reporters.Add(new AuditReporter(first.Account, first.Username, observedAt));
+
+            foreach (var extra in byFact.GetValueOrDefault(id) ?? [])
+            {
+                if (owners.TryGetValue(extra.DeviceId, out var owner))
+                    reporters.Add(new AuditReporter(owner.Account, owner.Username, extra.ReportedAt));
+            }
+
+            if (reporters.Count > 0)
+                resolved[id] = reporters;
+        }
+
+        return resolved;
+    }
+
+    /// <summary>The client named on an entry's payload, or null for a fact no client reported.</summary>
+    private static Guid? DeviceOn(AuditEntry entry)
+        => Guid.TryParse(AuditJson.Text(entry.Data, ClientReport.DeviceIdKey), out var device)
+            ? device
+            : null;
 
     private static async Task<IReadOnlyDictionary<string, string>> WorldsAsync(
         ModbotContext db,

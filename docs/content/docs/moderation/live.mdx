@@ -69,21 +69,30 @@ within about 10 seconds.
 
 ## When a moderator counts as watching
 
-Watching starts when **your own** companion reports that **you** are in the instance. For
-that to work:
+Watching starts the moment **your** companion reports anything at all in the instance — somebody
+arriving, somebody leaving, or you walking in yourself. For that to work:
 
 1. The companion is installed and [paired](/companion/pairing) to your Modbot account.
 2. Your Modbot account is [linked to your VRChat account](/accounts/staff-accounts#linking-a-vrchat-account-required).
 3. You are in VRChat, in that instance.
 
-A moderator whom somebody else's client sees is in the instance, but is not watching it.
+A companion only ever reports what its own moderator's VRChat log shows, and that log only shows
+the instance they are standing in. So a report from your client in an instance is your client
+being in it, whoever the report is about.
+
+A moderator whom somebody else's client sees is in the instance. Whether they are also watching
+depends on their own client reporting there.
 
 Watching stops at whichever comes first:
 
 - you leave the instance;
 - your client says VRChat's log stopped (for example, you closed VRChat);
-- your client reports you in a different instance;
+- your client reports from a different instance;
+- you turn up in a different instance;
 - the instance closes.
+
+If you run the companion on two PCs in the same instance, you appear once, from whichever of them
+reported first.
 
 When two moderators overlap, the instance counts as watched without a break. If Alice arrives at
 eight, Bob at half past and Alice leaves at nine, the list is built from everything reported since
@@ -93,7 +102,9 @@ eight.
 
 **It says Nobody watching, but I am in the instance.** Check that the companion is running,
 paired and not paused, and that your Modbot account is linked to the VRChat account you are
-playing on. A client paired to somebody else's Modbot account does not make you a watcher.
+playing on. A client paired to somebody else's Modbot account makes **them** the watcher, not you.
+Until 19 September 2026 a companion started after you were already in an instance never counted as
+watching it; it does now.
 
 **An instance I can see in VRChat is missing.** Live only lists instances that belong to your
 group and appear in VRChat's group instance list. If no instances ever appear, check that Modbot's

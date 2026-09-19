@@ -129,6 +129,12 @@ public sealed partial class RetentionPruner
                 // is already gone.
                 await Facts.FactLinker.PruneAsync(_db, partition.UpperBound, ct);
 
+                // And the rows saying which other clients reported those facts, for the same
+                // reason: they name fact ids nobody can look up any more.
+                await _db.EventReports
+                    .Where(r => r.OccurredAt < partition.UpperBound)
+                    .ExecuteDeleteAsync(ct);
+
                 dropped.Add(partition.Name);
                 continue;
             }

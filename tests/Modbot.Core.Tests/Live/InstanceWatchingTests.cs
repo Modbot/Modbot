@@ -49,7 +49,7 @@ public class InstanceWatchingTests
     ];
 
     [Fact]
-    public void PresenceNoModeratorReportedAsThemselves_IsNotAWatch()
+    public void PresenceNoPairedClientReported_IsNotAWatch()
     {
         var people = Work(null,
             M(Joined, "usr_cid", 0),
@@ -61,15 +61,80 @@ public class InstanceWatchingTests
         Assert.Empty(people.LastSeen);
     }
 
+    /// <summary>
+    /// The defect this rule was rewritten for. A client that starts while VRChat is already in an
+    /// instance replays the arrival burst to learn where it is and reports none of it, so the
+    /// server never gets a fact about the moderator -- only their reports of everybody else. The
+    /// instance read as unwatched with its own moderator standing in it.
+    /// </summary>
     [Fact]
-    public void AModeratorsOwnArrival_StartsTheWatch_AndTheBurstIsHereBefore()
+    public void AClientReportingOnlyOtherPeople_IsStillWatching()
+    {
+        var people = Work(null,
+            M(Joined, "usr_cid", 0, AdaDevice, name: "Cid"),
+            M(Joined, "usr_dee", 3, AdaDevice, name: "Dee"));
+
+        var watcher = Assert.Single(people.Watching);
+        Assert.Equal("usr_ada", watcher.UserId);
+        Assert.Equal(T0, watcher.Since);
+
+        Assert.Equal(["usr_cid", "usr_dee"], people.Here.Select(p => p.UserId).Order());
+        Assert.DoesNotContain(people.Here, p => p.UserId == "usr_ada");
+    }
+
+    /// <summary>The same client, later reporting somebody's departure and nothing else.</summary>
+    [Fact]
+    public void AClientReportingOnlySomebodyElseLeaving_IsStillWatching()
+    {
+        var people = Work(null, M(Left, "usr_cid", 0, AdaDevice, name: "Cid"));
+
+        Assert.Equal("usr_ada", Assert.Single(people.Watching).UserId);
+        Assert.Empty(people.Here);
+    }
+
+    [Fact]
+    public void TwoClientsReportingFromOneInstance_AreTwoWatchers()
+    {
+        var people = Work(null,
+            M(Joined, "usr_cid", 0, AdaDevice),
+            M(Joined, "usr_dee", 1, BenDevice));
+
+        Assert.Equal(["usr_ada", "usr_ben"], people.Watching.Select(w => w.UserId).Order());
+    }
+
+    /// <summary>
+    /// One moderator with two PCs in one instance is one line, not two -- a reader wants to know
+    /// who is there, not how many machines they run.
+    /// </summary>
+    [Fact]
+    public void OneModeratorsTwoClients_AreOneWatcher()
+    {
+        var secondPc = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
+        var owners = new Dictionary<Guid, string>(Owners) { [secondPc] = "usr_ada" };
+
+        var people = InstanceWatching.Work(
+            Instance,
+            [M(Joined, "usr_cid", 5, secondPc), .. AdaArrives()],
+            owners,
+            closedAt: null);
+
+        var watcher = Assert.Single(people.Watching);
+        Assert.Equal("usr_ada", watcher.UserId);
+        Assert.Equal(T0, watcher.Since);
+    }
+
+    [Fact]
+    public void AModeratorsArrivalBurst_StartsTheWatch_AndTheBurstIsHereBefore()
     {
         var people = Work(null, AdaArrives());
 
         var watcher = Assert.Single(people.Watching);
         Assert.Equal("usr_ada", watcher.UserId);
         Assert.Equal("Ada", watcher.DisplayName);
-        Assert.Equal(T0, watcher.Since);
+
+        // The first thing her client reported, which is Cid a second before her own join: VRChat
+        // logs everybody already present before it logs you, and her client was there for both.
+        Assert.Equal(T0.AddSeconds(-1), watcher.Since);
 
         Assert.Equal(["usr_ada", "usr_cid", "usr_dee"], people.Here.Select(p => p.UserId).Order());
 
@@ -141,12 +206,18 @@ public class InstanceWatchingTests
         Assert.Equal(3, people.LastSeen.Count);
     }
 
+    /// <summary>
+    /// Ben's client saw Ada standing there. That makes Ben's client the one watching -- it is in
+    /// the instance, which is what the roster rests on -- and says nothing about Ada's, which has
+    /// reported nothing here.
+    /// </summary>
     [Fact]
     public void AModeratorSeenBySomebodyElsesClient_IsInTheInstanceButNotWatching()
     {
         var people = Work(null, M(Here, "usr_ada", 0, BenDevice));
 
-        Assert.False(people.IsWatched);
+        Assert.Equal("usr_ben", Assert.Single(people.Watching).UserId);
+        Assert.Contains(people.Here, p => p.UserId == "usr_ada");
     }
 
     [Fact]
@@ -235,10 +306,19 @@ public class InstanceWatchingTests
         Assert.DoesNotContain(people.Here, p => p.UserId == "usr_dee");
     }
 
+    /// <summary>
+    /// Ada was here earlier and left. What her client saw on that visit belongs to that watch, and
+    /// the walk back in starts a fresh one that counts only what it saw.
+    /// </summary>
     [Fact]
-    public void AFactFromBeforeTheWatchIsNotCounted_OutsideTheArrivalBurst()
+    public void AFactFromAnEarlierWatchIsNotCounted_OutsideTheArrivalBurst()
     {
-        var people = Work(null, [M(Here, "usr_old", -5, AdaDevice), .. AdaArrives()]);
+        var people = Work(null,
+        [
+            M(Here, "usr_old", -5, AdaDevice),
+            M(Left, "usr_ada", -4, AdaDevice),
+            .. AdaArrives(),
+        ]);
 
         Assert.DoesNotContain(people.Here, p => p.UserId == "usr_old");
     }

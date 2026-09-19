@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { sourceLabel } from '@/lib/format'
 import { instanceName, instanceNumber } from '@/lib/instanceName'
+import { reporterNames } from '@/lib/reporters'
 import { openAccount, openDiscordPerson, openInstance, openPerson, openWorld } from '@/lib/subject'
 import type { AuditEntry } from '@/lib/api'
 
@@ -35,6 +36,35 @@ export function SourceBadge({ source, className }: { source: string; className?:
       <span className="size-1.5 shrink-0 rounded-full" style={{ background: `var(--series-${series})` }} />
       {sourceLabel(source)}
     </span>
+  )
+}
+
+/**
+ * Whose clients reported a fact.
+ *
+ * Only a client-reported fact has any. Several names mean several moderators' clients
+ * independently saw the same thing: the first report became the fact and the rest were folded into
+ * it, and they are listed rather than counted because two clients agreeing is worth more than one
+ * client saying so, and which two is the part a moderator can act on.
+ *
+ * Names, not device ids: the id is in the payload for anybody who wants it, and it identifies a
+ * machine, which nobody can do anything with.
+ */
+export function ReportedBy({
+  entry,
+  className,
+}: {
+  entry: Pick<AuditEntry, 'reportedBy'>
+  className?: string
+}) {
+  const names = reporterNames(entry)
+
+  if (names.length === 0) return null
+
+  return (
+    <div className={cn('text-muted-foreground', className)} style={{ fontSize: 'var(--text-small)' }}>
+      Reported by {names.join(', ')}
+    </div>
   )
 }
 
