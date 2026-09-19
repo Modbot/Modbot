@@ -60,6 +60,25 @@ public sealed record JoiningInstanceEvent(DateTime Timestamp, string Location)
     : VRChatLogEvent(Timestamp);
 
 /// <summary>
+/// <c>Joining or Creating Room: &lt;world name&gt;</c> — the readable name of the world, written
+/// a moment after the <c>Joining</c> line that carries its id.
+/// </summary>
+/// <remarks>
+/// <para>Read since 2026-09-19, for one reason: a saved clip is named after the world it was
+/// recorded in, and <c>wrld_4cf554b4-430c-…</c> is not a name a moderator can pick out of a folder
+/// an hour later. "The Black Cat" is.</para>
+/// <para>It is a <strong>display name</strong> and nothing else — it is not an id, it does not
+/// identify the instance, and two different worlds may share one. So it is never used to decide
+/// anything; the world id stays the identity, and this is only ever shown or written into a file
+/// name.</para>
+/// <para>It is also somebody's text. A world name is whatever its author typed, so it may carry
+/// anything a person can type, and whoever puts it on a screen or into a file name is the one that
+/// has to make it safe.</para>
+/// </remarks>
+public sealed record WorldNameEvent(DateTime Timestamp, string WorldName)
+    : VRChatLogEvent(Timestamp);
+
+/// <summary>
 /// <c>Initialized PlayerAPI "&lt;name&gt;" is local</c> — the only line that says which display
 /// name belongs to the moderator running Modbot. Matching it against the join burst is what yields
 /// the local user id, which is the burst's terminator.

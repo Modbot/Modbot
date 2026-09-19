@@ -123,29 +123,172 @@ public sealed class ClipLibrary
     }
 
     /// <summary>
-    /// What to call a clip saved now: the date and time, and the instance it was saved in when one
-    /// is known.
+    /// What to call a clip saved now: the world, the instance number and the local date and time,
+    /// joined with underscores — <c>The Black Cat_98874_2026-09-19 18-02-29.mp4</c>.
     /// </summary>
     /// <remarks>
-    /// Sortable, readable, and made only of characters a Windows file name may hold — an instance id
-    /// is VRChat's text and is never trusted to be a file name (foundation 3.1.1: ids follow no
-    /// structure), so anything unusual in it becomes an underscore.
+    /// <para><strong>The world comes first because that is what a moderator remembers.</strong>
+    /// They remember the world they were in and roughly when; they do not remember an instance
+    /// number and they certainly do not remember <c>wrld_4cf554b4-430c-…</c>. So the name is the
+    /// world's readable name when VRChat has said it, the world id when it has not, and neither
+    /// when there is no instance at all — a clip saved in a world Modbot could not read is still a
+    /// clip, and gets the moment on its own rather than nothing.</para>
+    /// <para><strong>The instance number is taken, never checked.</strong> It is the part of the
+    /// instance id before the first qualifier, because that is where VRChat puts it — and if there
+    /// is nothing there, whatever the id is stands in. VRChat's ids follow no structure and are
+    /// never validated for shape (foundation 3.1.1), so this takes what is in front of it and
+    /// falls back rather than asserting anything.</para>
+    /// <para><strong>The whole name is made safe, not the pieces.</strong> The template is built
+    /// first and then run through <see cref="AsFileName"/> once, because it is the finished name
+    /// that has to be a legal file name — a world name is whatever a person typed, an instance id
+    /// carries brackets and tildes, and sanitising the halves separately leaves the joins to chance.
+    /// A name that comes out of that empty falls back rather than producing a file called
+    /// <c>.mp4</c>.</para>
+    /// <para><strong>And it never lands on a clip that is already there.</strong> Two saves in the
+    /// same second in the same instance would otherwise be one file; the second gets
+    /// <c>(2)</c>.</para>
     /// </remarks>
-    public string NameFor(string? about = null)
+    /// <param name="worldName">The world's readable name, as VRChat's log said it, or null.</param>
+    /// <param name="worldId">The world's id, used when there is no readable name.</param>
+    /// <param name="instanceId">The instance id, in full; the number is taken off the front.</param>
+    /// <param name="folder">
+    /// Where the clip is going, so an existing clip of the same name is not written over. Null
+    /// skips that check, which is right when the caller has no folder to look in.
+    /// </param>
+    public string NameFor(
+        string? worldName = null,
+        string? worldId = null,
+        string? instanceId = null,
+        string? folder = null)
     {
-        var moment = _clock.UtcNow.ToLocalTime();
-        var name = moment.ToString("yyyy-MM-dd HH-mm-ss", System.Globalization.CultureInfo.InvariantCulture);
+        var world = Shorten(Blank(worldName) ? worldId : worldName, MostWorldCharacters);
+        var instance = Shorten(InstanceNumber(instanceId), MostInstanceCharacters);
+        var moment = _clock.UtcNow.ToLocalTime()
+            .ToString("yyyy-MM-dd HH-mm-ss", System.Globalization.CultureInfo.InvariantCulture);
 
-        if (!string.IsNullOrWhiteSpace(about))
+        var template = string.Join('_', new[] { world, instance, moment }.Where(part => part.Length > 0));
+
+        var name = AsFileName(template);
+        if (name.Length > MostNameCharacters)
+            name = AsFileName(name[..MostNameCharacters]);
+
+        return Unused(folder, name) + ClipExtension;
+    }
+
+    /// <summary>
+    /// The instance number off the front of an instance id: <c>98874</c> out of
+    /// <c>98874~group(grp_…)~region(use)</c>.
+    /// </summary>
+    /// <remarks>
+    /// VRChat writes the number first and its qualifiers after a tilde, so the number is what is in
+    /// front of the first tilde. Nothing here checks that what it found looks like a number, or
+    /// like anything else: VRChat's ids follow no structure (foundation 3.1.1) and a group can set
+    /// an instance id to any text it likes. An id that starts with a tilde leaves nothing in front
+    /// of it, and then the whole id stands in rather than nothing.
+    /// </remarks>
+    public static string InstanceNumber(string? instanceId)
+    {
+        if (Blank(instanceId))
+            return string.Empty;
+
+        var whole = instanceId!.Trim();
+        var qualifiers = whole.IndexOf('~', StringComparison.Ordinal);
+        var front = (qualifiers < 0 ? whole : whole[..qualifiers]).Trim();
+
+        return front.Length > 0 ? front : whole;
+    }
+
+    /// <summary>
+    /// <paramref name="text"/> with everything a Windows file name cannot hold taken out.
+    /// </summary>
+    /// <remarks>
+    /// <para>The list is written out rather than asked of the operating system, because the answer
+    /// has to be the same everywhere: Linux calls almost everything legal, and a name built on a
+    /// Linux machine that Windows then refuses would be a file nobody could save. Control
+    /// characters go as well, and so do the invisible ones that reorder text — a world name is
+    /// somebody else's typing, and a file whose name reads backwards in a folder is the kind of
+    /// trick that is worth not allowing rather than worth explaining.</para>
+    /// <para>Each one becomes an underscore rather than simply vanishing, so words do not run
+    /// together; a run of them collapses to one, and a name is never left starting or ending with
+    /// an underscore, a space or a dot. If nothing survives, the answer is <c>Clip</c> — an empty
+    /// name would make a file called <c>.mp4</c>, which Windows hides and nobody finds.</para>
+    /// </remarks>
+    public static string AsFileName(string? text)
+    {
+        var built = new System.Text.StringBuilder(text?.Length ?? 0);
+
+        foreach (var letter in text ?? string.Empty)
         {
-            var safe = new string([.. about.Trim()
-                .Take(60)
-                .Select(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or ' ' ? c : '_')]);
+            var allowed = !NeverInAFileName.Contains(letter)
+                && !char.IsControl(letter)
+                && char.GetUnicodeCategory(letter) is not System.Globalization.UnicodeCategory.Format;
 
-            if (safe.Trim().Length > 0)
-                name = $"{name} {safe.Trim()}";
+            var next = allowed ? letter : '_';
+
+            // One underscore, however many characters had to go.
+            if (next == '_' && built.Length > 0 && built[^1] == '_')
+                continue;
+
+            built.Append(next);
         }
 
-        return name + ClipExtension;
+        var name = built.ToString().Trim(' ', '.', '_');
+        return name.Length > 0 ? name : "Clip";
+    }
+
+    /// <summary>The longest a clip's name may be, before <c>.mp4</c> and before any <c>(2)</c>.</summary>
+    public const int MostNameCharacters = 130;
+
+    /// <summary>How much of a world's name a clip's name carries.</summary>
+    private const int MostWorldCharacters = 60;
+
+    /// <summary>How much of an instance number a clip's name carries.</summary>
+    private const int MostInstanceCharacters = 40;
+
+    /// <summary>
+    /// What Windows will not take in a file name, plus the two that end a path. Written out so the
+    /// answer does not change with the machine the name is built on.
+    /// </summary>
+    private const string NeverInAFileName = "<>:\"/\\|?*";
+
+    private static bool Blank(string? text) => string.IsNullOrWhiteSpace(text);
+
+    private static string Shorten(string? text, int most)
+    {
+        if (Blank(text))
+            return string.Empty;
+
+        var trimmed = text!.Trim();
+        return trimmed.Length <= most ? trimmed : trimmed[..most].TrimEnd();
+    }
+
+    /// <summary>
+    /// <paramref name="name"/>, or the first <c>name (2)</c>, <c>name (3)</c> … that is not already
+    /// a clip in <paramref name="folder"/>.
+    /// </summary>
+    /// <remarks>
+    /// Two saves in the same second, in the same instance, would otherwise be one file — and the
+    /// one that would be lost is the first, which is the one the moderator pressed Save for.
+    /// </remarks>
+    private string Unused(string? folder, string name)
+    {
+        if (Blank(folder))
+            return name;
+
+        if (!Taken(name))
+            return name;
+
+        for (var another = 2; another <= 999; another++)
+        {
+            var candidate = $"{name} ({another})";
+            if (!Taken(candidate))
+                return candidate;
+        }
+
+        // A thousand clips of one world, one instance and one second. The moment's own
+        // milliseconds part them; the clock is Modbot's, never the machine's.
+        return $"{name} ({_clock.UtcNow.ToUnixTimeMilliseconds()})";
+
+        bool Taken(string candidate) => File.Exists(Path.Combine(folder!, candidate + ClipExtension));
     }
 }

@@ -703,7 +703,8 @@ internal sealed class CompanionHost : IOverlayListener
             folder,
             ScreenRecording.Supported,
             _clipsFailed,
-            _recorder?.WindowFound);
+            _recorder?.WindowFound,
+            _recorder?.AnyPictureTaken);
 
         if (ClipRecordingRule.ShouldRecord(wanted))
         {
@@ -886,10 +887,17 @@ internal sealed class CompanionHost : IOverlayListener
         // the folder's limit plus one more clip at the same moment.
         _clipLibrary.MakeRoom(folder.Path, settings.KeepBytes, aboutToAdd: 0);
 
-        // The instance goes into the file name so a moderator can find the right clip afterwards.
-        // VRChat's ids follow no structure (foundation 3.1.1), so it is filtered down to characters
-        // a file name may hold rather than trusted.
-        var name = _clipLibrary.NameFor(CurrentInstance?.InstanceId);
+        // The world and the instance go into the file name so a moderator can find the right clip
+        // afterwards — "The Black Cat_98874_2026-09-19 18-02-29.mp4". The world's readable name
+        // when VRChat's log has said it, its id when it has not, and neither when there is no
+        // instance. None of it is trusted to be a file name: a world name is whatever somebody
+        // typed and VRChat's ids follow no structure (foundation 3.1.1), so the assembled name is
+        // made safe once, whole, by ClipLibrary.
+        var name = _clipLibrary.NameFor(
+            worldName: CurrentWorldName,
+            worldId: CurrentInstance?.WorldId,
+            instanceId: CurrentInstance?.InstanceId,
+            folder: folder.Path);
 
         // What the recorder had to say before being asked, so its next word can be read as the
         // answer to this press rather than as something it said earlier.
@@ -1741,6 +1749,16 @@ internal sealed class CompanionHost : IOverlayListener
     /// the reporting half already made.</para>
     /// </remarks>
     public InstanceLocation? CurrentInstance => _engine?.CurrentInstance;
+
+    /// <summary>
+    /// The readable name of the world the moderator is standing in, or null while it is not known.
+    /// </summary>
+    /// <remarks>
+    /// Read from the same log lines the reporting half already reads, and used for one thing: a
+    /// saved clip is named after the world so the right one can be picked out of a folder
+    /// afterwards. Nothing is asked of a server to obtain it and nothing is decided by it.
+    /// </remarks>
+    public string? CurrentWorldName => _engine?.CurrentWorldName;
 
     /// <summary>
     /// The tray icon, which is present for the whole life of the process.

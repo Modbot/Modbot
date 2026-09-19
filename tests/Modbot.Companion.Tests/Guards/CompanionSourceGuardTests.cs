@@ -392,6 +392,26 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
+    public void ARecorderWithNoPictureSaysSoRatherThanHandingOverABlackFile()
+    {
+        // The failure this exists for was real: a clip file of exactly the right length whose
+        // picture was black, because the rule while VRChat is not the window in front is to write
+        // the last picture of it again and there had never been a first one. A moderator finds
+        // that out at the moment they need the clip, which is the worst possible moment.
+        //
+        // The fix is a shape rather than a patch: nothing is written and no encoder is even opened
+        // until one real picture has been copied, and a save asked for before that is refused in
+        // words. There is no screen in CI, so this is checked where it can be -- that the recorder
+        // still carries the flag and still refuses -- with the state machine either side of it
+        // tested properly in ClipRecordingRuleTests and ClipButtonRuleTests.
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
+
+        Assert.Contains("public bool AnyPictureTaken", source, StringComparison.Ordinal);
+        Assert.Contains("Nothing has been recorded from VRChat's window yet.", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NothingTheClientShipsGoesLookingForScreenshotsOnDisk()
     {
         // Reading a folder full of screenshots is the same disclosure as taking one, reached by a

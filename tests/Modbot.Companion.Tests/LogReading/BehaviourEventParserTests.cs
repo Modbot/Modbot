@@ -121,10 +121,35 @@ public class BehaviourEventParserTests
     }
 
     [Fact]
-    public void JoiningOrCreatingInstanceIsNotALocationLine()
+    public void ReadsTheWorldsReadableName()
     {
         // "Joining or Creating Room: The Black Cat" carries a world display name, not a location.
-        Assert.Null(Parse("Joining or Creating Room: The Black Cat"));
+        // It was skipped outright until 2026-09-19, when saved clips began being named after the
+        // world: "The Black Cat" can be picked out of a folder an hour later and
+        // wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b cannot.
+        Assert.Equal("The Black Cat", Assert.IsType<WorldNameEvent>(
+            Parse("Joining or Creating Room: The Black Cat")).WorldName);
+    }
+
+    [Theory]
+    [InlineData("Joining or Creating Room: ΛƧƬΛ", "ΛƧƬΛ")]
+    [InlineData("Joining or Creating Room:   The Black Cat  ", "The Black Cat")]
+    [InlineData("Joining or Creating Room:The Black Cat", "The Black Cat")]
+    public void AWorldNameIsWhateverItsAuthorTyped(string line, string expected)
+    {
+        // A world name is somebody else's text: spaces, non-Latin scripts and a missing space
+        // after the colon are all ordinary, and none of them is a reason to lose the name.
+        Assert.Equal(expected, Assert.IsType<WorldNameEvent>(Parse(line)).WorldName);
+    }
+
+    [Fact]
+    public void AWorldNameLineWithNoNameOnItIsNotAJoiningLine()
+    {
+        // The guard that matters: "Joining or Creating Room:" also starts with "Joining ", so a
+        // line with nothing after the colon must not fall through and be read as a location of
+        // "or Creating Room:".
+        Assert.Null(Parse("Joining or Creating Room:"));
+        Assert.Null(Parse("Joining or Creating Room:   "));
     }
 
     [Fact]

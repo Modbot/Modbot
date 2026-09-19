@@ -8,8 +8,9 @@ namespace Modbot.Companion.LogReading;
 /// log (754 lines out of 17,123 in the sample this parser was built against). Everything else —
 /// tracking data, asset downloads, the OSC and Steam subsystems, VRChat's own HTTP calls — is read
 /// past without being looked at.</para>
-/// <para><strong>What is recognised inside that 4%.</strong> Instance transitions, player joins and
-/// leaves, which display name belongs to the local user, and avatar switches. Nothing else. There
+/// <para><strong>What is recognised inside that 4%.</strong> Instance transitions, the world's
+/// readable name, player joins and leaves, which display name belongs to the local user, and
+/// avatar switches. Nothing else. There
 /// is no line shape here for chat, friends, invites, private worlds or anything a moderator does
 /// outside the instances their group runs.</para>
 /// <para><strong>What leaves the machine.</strong> Nothing, from here. This function returns an
@@ -20,6 +21,9 @@ namespace Modbot.Companion.LogReading;
 public static class BehaviourEventParser
 {
     private const string BehaviourTag = "Behaviour";
+
+    /// <summary>The line that carries the world's readable name, rather than its id.</summary>
+    private const string WorldNamePrefix = "Joining or Creating Room:";
 
     /// <summary>
     /// Maps one log line to an event, or <c>null</c> when the line is not one Modbot recognises —
@@ -57,11 +61,22 @@ public static class BehaviourEventParser
         if (TryAfter(message, "Destination set: ", out var destination))
             return new DestinationSetEvent(at, destination);
 
-        if (!message.StartsWith("Joining or Creating Room:", StringComparison.Ordinal)
-            && TryAfter(message, "Joining ", out var joining))
+        // "Joining or Creating Room: The Black Cat" is the world's readable name, not a location,
+        // and it has to be tested first because it also starts with "Joining ". It was skipped
+        // outright until 2026-09-19, when saved clips began being named after the world: a
+        // moderator looking through a folder an hour later can pick out "The Black Cat" and cannot
+        // pick out wrld_4cf554b4-430c-4f8f-b53e-1f294eed230b.
+        if (message.StartsWith(WorldNamePrefix, StringComparison.Ordinal))
         {
-            return new JoiningInstanceEvent(at, joining);
+            var worldName = message[WorldNamePrefix.Length..].Trim();
+
+            // A line with no name after the colon is not a world name and must not fall through to
+            // the location reading below, which would take "or Creating Room:" for a location.
+            return worldName.Length == 0 ? null : new WorldNameEvent(at, worldName);
         }
+
+        if (TryAfter(message, "Joining ", out var joining))
+            return new JoiningInstanceEvent(at, joining);
 
         // "Switching to network region us (…)" shares this prefix and is not an avatar switch;
         // requiring the separator excludes it.

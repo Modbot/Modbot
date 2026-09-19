@@ -33,8 +33,10 @@ public class RealLogParsingTests
     [Fact]
     public void OnlyASmallShareOfEvenTheBehaviourLinesIsRecognised()
     {
-        // Most of the 754 is VRChat talking to itself about UI managers and youtube-dl.
-        Assert.Equal(88, LogFixture.Events().Count());
+        // Most of the 754 is VRChat talking to itself about UI managers and youtube-dl. It was 88
+        // until 2026-09-19, when the three "Joining or Creating Room" lines stopped being skipped
+        // and became the world names a saved clip is named after.
+        Assert.Equal(91, LogFixture.Events().Count());
     }
 
     [Fact]
@@ -51,6 +53,17 @@ public class RealLogParsingTests
         Assert.Equal(3, events.OfType<DestinationSetEvent>().Count());
         Assert.Equal(3, events.OfType<LocalPlayerIdentifiedEvent>().Count());
         Assert.Equal(33, events.OfType<AvatarSwitchedEvent>().Count());
+        Assert.Equal(3, events.OfType<WorldNameEvent>().Count());
+    }
+
+    [Fact]
+    public void FindsTheReadableNameOfEveryWorldInTheRealLog()
+    {
+        // One world name for each of the three "Joining" lines, in the same order, which is what
+        // lets a clip saved in the second of them be named after the second of them.
+        Assert.Equal(
+            ["VRChat Home", "The Black Cat", "Popcorn Palace"],
+            LogFixture.Events().OfType<WorldNameEvent>().Select(w => w.WorldName));
     }
 
     [Fact]
