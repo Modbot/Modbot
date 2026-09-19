@@ -19,7 +19,13 @@ public sealed record VoiceClip(float[] Samples, int SampleRate)
 /// <summary>Turns a sentence into sound. The text-to-speech engine sits behind this.</summary>
 public interface IVoiceSynthesizer : IDisposable
 {
-    VoiceClip Speak(string text);
+    /// <param name="text">The sentence to say.</param>
+    /// <param name="voiceName">
+    /// Which of the downloaded voices says it, by the name the Settings screen shows
+    /// (<see cref="VoiceModel.Voices"/>). A name the voice does not have falls back to the default
+    /// one rather than failing.
+    /// </param>
+    VoiceClip Speak(string text, string? voiceName);
 }
 
 /// <summary>One place sound can come out of: a pair of speakers, a headset.</summary>

@@ -43,6 +43,7 @@ public class VoiceSettingsFileTests : IDisposable
         Assert.True(voice.FlaggedJoins);
         Assert.Equal(VoiceSettings.DefaultVolume, voice.Volume);
         Assert.Null(voice.OutputDeviceId);
+        Assert.Equal(VoiceModel.DefaultName, voice.VoiceName);
         Assert.Equal(VoiceSettings.Default, voice);
     }
 
@@ -51,7 +52,7 @@ public class VoiceSettingsFileTests : IDisposable
     {
         Write("""
             {
-              "voice": { "on": true, "joins": false, "leaves": true, "flaggedJoins": false, "volume": 35, "outputDevice": " {hmd} " }
+              "voice": { "on": true, "joins": false, "leaves": true, "flaggedJoins": false, "volume": 35, "outputDevice": " {hmd} ", "name": " George " }
             }
             """);
 
@@ -63,6 +64,36 @@ public class VoiceSettingsFileTests : IDisposable
         Assert.False(voice.FlaggedJoins);
         Assert.Equal(35, voice.Volume);
         Assert.Equal("{hmd}", voice.OutputDeviceId);
+        Assert.Equal("George", voice.VoiceName);
+    }
+
+    [Fact]
+    public void ABlankOrMissingNameIsTheDefaultVoice()
+    {
+        Write("""{ "voice": { "name": "   " } }""");
+        Assert.Equal(VoiceModel.DefaultName, Load().VoiceName);
+
+        Write("""{ "voice": { "on": true } }""");
+        Assert.Equal(VoiceModel.DefaultName, Load().VoiceName);
+    }
+
+    [Fact]
+    public void AVoiceNameThisVoiceDoesNotHaveIsKeptButSpokenAsTheDefaultOne()
+    {
+        // A hand-edited file, or a name from a later version, must not stop the voice speaking.
+        Write("""{ "voice": { "name": "Gilgamesh" } }""");
+
+        Assert.Equal("Gilgamesh", Load().VoiceName);
+        Assert.Equal(VoiceModel.Default.Number(VoiceModel.DefaultName), VoiceModel.Default.Number("Gilgamesh"));
+    }
+
+    [Fact]
+    public void TheChosenVoiceIsSaved()
+    {
+        Assert.True(CompanionSettings.SaveVoice(Path_, new VoiceSettings(On: true, VoiceName: "Emma")));
+
+        Assert.Contains("\"name\": \"Emma\"", File.ReadAllText(Path_), StringComparison.Ordinal);
+        Assert.Equal("Emma", Load().VoiceName);
     }
 
     [Fact]

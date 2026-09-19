@@ -41,10 +41,13 @@ public sealed record VoiceDownloadResult(VoiceDownloadOutcome Outcome, string? D
 /// who never turns the voice on never fetches it.</para>
 /// <para><strong>What is written to your disk.</strong> The download, into the companion's own
 /// <c>voices</c> folder, first as a temporary file and then, once its SHA-256 matches the pinned
-/// hash exactly, unpacked into a folder named for the voice: the model, its token list, the
-/// espeak-ng data, and a small marker saying what it is and where it came from. A file whose
-/// hash or size does not match is deleted, not used. An archive entry that would land outside
-/// that folder is refused.</para>
+/// hash exactly, unpacked into a folder named for the voice: the model, the voices it can speak
+/// as, its token list, the espeak-ng data, and a small marker saying what it is and where it came
+/// from. A file whose hash or size does not match is deleted, not used. An archive entry that
+/// would land outside that folder is refused.</para>
+/// <para><strong>What is removed from your disk.</strong> Once the pinned voice is in place, any
+/// other voice folder beside it — an older voice from a client before this one. Never before: a
+/// download that fails or is abandoned leaves the PC exactly as it was.</para>
 /// <para><strong>What this reads.</strong> The temporary file it just wrote, to hash and unpack it.
 /// Nothing else.</para>
 /// </remarks>
@@ -68,7 +71,10 @@ public sealed class VoiceDownload
         ArgumentException.ThrowIfNullOrWhiteSpace(voicesFolder);
 
         if (model.IsPresent(voicesFolder))
+        {
+            RemoveOtherVoices(model, voicesFolder);
             return new VoiceDownloadResult(VoiceDownloadOutcome.AlreadyPresent);
+        }
 
         var archive = Path.Combine(voicesFolder, $"{model.Name}.download");
         var unpacking = Path.Combine(voicesFolder, $"{model.Name}.unpacking");
@@ -87,6 +93,7 @@ public sealed class VoiceDownload
             Unpack(model, archive, unpacking);
 
             if (!File.Exists(Path.Combine(unpacking, model.ModelFile))
+                || !File.Exists(Path.Combine(unpacking, model.VoicesFile))
                 || !File.Exists(Path.Combine(unpacking, model.TokensFile))
                 || !Directory.Exists(Path.Combine(unpacking, model.DataFolder)))
             {
@@ -101,6 +108,7 @@ public sealed class VoiceDownload
                 Directory.Delete(folder, recursive: true);
 
             Directory.Move(unpacking, folder);
+            RemoveOtherVoices(model, voicesFolder);
             progress?.Report(1.0);
 
             return new VoiceDownloadResult(VoiceDownloadOutcome.Done);
@@ -116,6 +124,42 @@ public sealed class VoiceDownload
         finally
         {
             TryDelete(archive);
+        }
+    }
+
+    /// <summary>
+    /// Takes away every voice folder that is not the pinned one, now that the pinned one is there.
+    /// </summary>
+    /// <remarks>
+    /// <para>A client that changes which voice it speaks with leaves the old one behind, and the
+    /// old one is dead weight: the client can only load the voice it has pinned, so keeping it as
+    /// a fallback would be hundreds of megabytes nothing is able to speak with.</para>
+    /// <para>Only ever called once the pinned voice is on the disk, so nothing can leave a PC with
+    /// no voice at all. A folder that will not delete — open in a window, held by a virus scanner —
+    /// is left alone and tried again next time; the voice works either way.</para>
+    /// </remarks>
+    private static void RemoveOtherVoices(VoiceModel model, string voicesFolder)
+    {
+        try
+        {
+            foreach (var folder in Directory.EnumerateDirectories(voicesFolder))
+            {
+                if (string.Equals(Path.GetFileName(folder), model.Name, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                try
+                {
+                    Directory.Delete(folder, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Left for next time. An old voice taking up room is not a fault worth reporting.
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
+        {
+            // The folder is unreadable; there is nothing to tidy and nothing to say.
         }
     }
 

@@ -16,10 +16,14 @@ public class VoiceAnnouncerTests
     {
         public List<string> Spoken { get; } = [];
 
-        public VoiceClip Speak(string text)
+        /// <summary>Which voice each line was asked for, in the same order as <see cref="Spoken"/>.</summary>
+        public List<string?> SpokenBy { get; } = [];
+
+        public VoiceClip Speak(string text, string? voiceName)
         {
             Spoken.Add(text);
-            return new VoiceClip([0.5f, -0.5f, 1f], 22_050);
+            SpokenBy.Add(voiceName);
+            return new VoiceClip([0.5f, -0.5f, 1f], 24_000);
         }
 
         public void Dispose() { }
@@ -250,6 +254,29 @@ public class VoiceAnnouncerTests
         Assert.True(await voice.SpeakNextAsync(Ct));
 
         Assert.Equal([0.25f, -0.25f, 0.5f], _player.Played[0].Clip.Samples);
+    }
+
+    [Fact]
+    public async Task TheChosenVoiceIsTheOneAskedFor()
+    {
+        _settings = new VoiceSettings(On: true, VoiceName: "George");
+        var voice = Announcer();
+        voice.Offer([Joined("usr_rin", "Rin")]);
+
+        Assert.True(await voice.SpeakNextAsync(Ct));
+
+        Assert.Equal(["George"], _synthesizer.SpokenBy);
+    }
+
+    [Fact]
+    public async Task WithNoVoiceChosenTheDefaultOneSpeaks()
+    {
+        var voice = Announcer();
+        voice.Offer([Joined("usr_rin", "Rin")]);
+
+        Assert.True(await voice.SpeakNextAsync(Ct));
+
+        Assert.Equal([VoiceModel.DefaultName], _synthesizer.SpokenBy);
     }
 
     [Fact]

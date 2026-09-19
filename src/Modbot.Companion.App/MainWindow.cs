@@ -90,8 +90,10 @@ public sealed partial class MainWindow : Window
     private readonly Slider _voiceVolume;
     private readonly TextBlock _voiceVolumeValue;
     private readonly ComboBox _voiceDevice;
+    private readonly ComboBox _voiceName;
     private readonly TextBlock _voiceLine;
     private readonly List<string?> _voiceDeviceIds = [];
+    private readonly List<string> _voiceNames = [];
 
     /// <summary>Set by the host once it has an HTTP client; null until then and pictures simply wait.</summary>
     internal GroupPictures? Pictures { get; set; }
@@ -162,19 +164,8 @@ public sealed partial class MainWindow : Window
             _voiceVolumeValue.Text = $"{(int)_voiceVolume.Value}";
             VoiceChanged();
         };
-        _voiceDevice = new ComboBox
-        {
-            Height = Ui.T.Density.ControlHeight,
-            MinWidth = 260,
-            FontSize = Ui.T.Density.TextSmall,
-            FontFamily = Ui.Sans,
-            Background = Ui.T.BackgroundBrush,
-            Foreground = Ui.T.TextBrush,
-            BorderBrush = Ui.T.Border2Brush,
-            BorderThickness = new Thickness(Ui.T.Density.Hairline),
-            CornerRadius = new CornerRadius(Ui.T.Density.Radius),
-        };
-        _voiceDevice.SelectionChanged += (_, _) => VoiceChanged();
+        _voiceDevice = VoiceDropDown();
+        _voiceName = VoiceDropDown();
         _voiceLine = Ui.Faint("");
 
         var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
@@ -200,6 +191,25 @@ public sealed partial class MainWindow : Window
         };
     }
 
+    /// <summary>A list on the Voice card. Every change goes through <see cref="VoiceChanged"/>.</summary>
+    private ComboBox VoiceDropDown()
+    {
+        var list = new ComboBox
+        {
+            Height = Ui.T.Density.ControlHeight,
+            MinWidth = 260,
+            FontSize = Ui.T.Density.TextSmall,
+            FontFamily = Ui.Sans,
+            Background = Ui.T.BackgroundBrush,
+            Foreground = Ui.T.TextBrush,
+            BorderBrush = Ui.T.Border2Brush,
+            BorderThickness = new Thickness(Ui.T.Density.Hairline),
+            CornerRadius = new CornerRadius(Ui.T.Density.Radius),
+        };
+        list.SelectionChanged += (_, _) => VoiceChanged();
+        return list;
+    }
+
     /// <summary>A check box on the Voice card. Every change goes through <see cref="VoiceChanged"/>.</summary>
     private CheckBox Switch(string caption)
     {
@@ -217,13 +227,17 @@ public sealed partial class MainWindow : Window
         var index = _voiceDevice.SelectedIndex;
         var device = index >= 0 && index < _voiceDeviceIds.Count ? _voiceDeviceIds[index] : null;
 
+        var chosen = _voiceName.SelectedIndex;
+        var name = chosen >= 0 && chosen < _voiceNames.Count ? _voiceNames[chosen] : VoiceModel.DefaultName;
+
         _actions.SetVoice(new VoiceSettings(
             _voiceOn.IsChecked == true,
             _voiceJoins.IsChecked == true,
             _voiceLeaves.IsChecked == true,
             _voiceFlagged.IsChecked == true,
             (int)_voiceVolume.Value,
-            device));
+            device,
+            name));
     }
 
     /// <summary>
@@ -912,6 +926,24 @@ public sealed partial class MainWindow : Window
         if (!_voiceDevice.IsDropDownOpen)
             _voiceDevice.SelectedIndex = Math.Max(0, _voiceDeviceIds.IndexOf(settings.OutputDeviceId));
 
+        // The voices come out of the one download and never change while the client runs, so the
+        // list is filled once and only the selection follows the settings after that.
+        var voiceNames = voice.Voices.Select(v => v.Name).ToList();
+        if (!_voiceName.IsDropDownOpen && !voiceNames.SequenceEqual(_voiceNames, StringComparer.Ordinal))
+        {
+            _voiceNames.Clear();
+            _voiceNames.AddRange(voiceNames);
+            _voiceName.ItemsSource = voiceNames;
+        }
+
+        if (!_voiceName.IsDropDownOpen)
+        {
+            var chosen = _voiceNames.FindIndex(n => string.Equals(n, settings.VoiceName, StringComparison.OrdinalIgnoreCase));
+            _voiceName.SelectedIndex = chosen >= 0
+                ? chosen
+                : Math.Max(0, _voiceNames.FindIndex(n => string.Equals(n, VoiceModel.DefaultName, StringComparison.OrdinalIgnoreCase)));
+        }
+
         var enabled = voice.HasOutput;
         _voiceOn.IsEnabled = enabled;
         _voiceJoins.IsEnabled = enabled;
@@ -919,11 +951,16 @@ public sealed partial class MainWindow : Window
         _voiceFlagged.IsEnabled = enabled;
         _voiceVolume.IsEnabled = enabled;
         _voiceDevice.IsEnabled = enabled;
+        _voiceName.IsEnabled = enabled;
 
+        // The size is named beside the progress: a percentage on its own tells somebody on a slow
+        // connection nothing about whether to wait.
+        var megabytes = $"{voice.DownloadSize / (1024.0 * 1024):N0} MB";
         _voiceLine.Text = voice switch
         {
             { HasOutput: false } => "No output device on this PC",
-            { State: VoiceState.Downloading } => $"Downloading voice… {voice.DownloadProgress:P0}",
+            { State: VoiceState.Downloading } => $"Downloading voice… {voice.DownloadProgress:P0} of {megabytes}",
+            { State: VoiceState.Replacing } => $"Getting the new voice… {voice.DownloadProgress:P0} of {megabytes}",
             { State: VoiceState.Failed, Problem: { } problem } => problem,
             { State: VoiceState.Failed } => "Voice failed",
             { State: VoiceState.Ready } => "Voice ready",
@@ -935,11 +972,11 @@ public sealed partial class MainWindow : Window
     /// <summary>The Voice card: on or off, which events, how loud, through what, and a Test button.</summary>
     private Control VoiceSettingsCard(VoiceStatus voice)
     {
-        foreach (var control in new Control[] { _voiceOn, _voiceJoins, _voiceLeaves, _voiceFlagged, _voiceVolume, _voiceVolumeValue, _voiceDevice, _voiceLine })
+        foreach (var control in new Control[] { _voiceOn, _voiceJoins, _voiceLeaves, _voiceFlagged, _voiceVolume, _voiceVolumeValue, _voiceDevice, _voiceName, _voiceLine })
             DetachFromParent(control);
 
         var test = Ui.Button("Test");
-        test.IsEnabled = voice.HasOutput && voice.State is not VoiceState.Downloading;
+        test.IsEnabled = voice.HasOutput && !voice.IsDownloading;
         test.Click += (_, _) => _actions.TestVoice();
 
         return new StackPanel
@@ -960,6 +997,7 @@ public sealed partial class MainWindow : Window
                     Spacing = 8,
                     Children = { _voiceVolume, _voiceVolumeValue },
                 }),
+                Ui.Field("Voice", _voiceName),
                 Ui.Field("Output device", _voiceDevice),
                 new StackPanel
                 {

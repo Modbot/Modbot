@@ -34,6 +34,10 @@ play over each other.
 
 **Volume** is 0 to 100. **Test** speaks one line.
 
+**Voice** is who speaks: **Bella**, **Nicole**, **Sarah**, **Sky**, **Adam**, **Michael**,
+**Emma**, **Isabella**, **George** or **Lewis**. All ten come in the one download, so changing
+your mind costs nothing and fetches nothing. A fresh client speaks as Bella.
+
 **Output device** lists every output on your PC. **Windows default** (or **System default** on
 Linux) follows whatever your operating system currently uses, and moves with it when that
 changes, the way a voice chat program does. Pick a device and the client remembers it by its id;
@@ -47,17 +51,23 @@ from the sherpa-onnx project's release on GitHub:
 
 | | |
 |---|---|
-| Voice | `en_US-kristin-medium`, a US English voice from the Piper project, trained on public-domain LibriVox recordings |
-| From | `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-kristin-medium.tar.bz2` |
-| Size | 67,259,230 bytes to download (about 64 MB); about 80 MB unpacked |
-| SHA-256 | `c2206f572df2956c50b1ae3367eebce3853c663e890cba8048cd62b1e4dbe6c7` |
+| Voice | Kokoro 82M, version 0.19, English: ten voices in one file, Apache-2.0 |
+| From | `https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-en-v0_19.tar.bz2` |
+| Size | 319,625,534 bytes to download (about 305 MB); about 353 MB unpacked |
+| SHA-256 | `912804855a04745fa77a30be545b3f9a5d15c4d66db00b88cbcd4921df605ac7` |
 | Kept in | `%APPDATA%\Modbot\voices` |
 
 The request carries nothing: no token, no id, nothing about you or your pairings. GitHub sees your
 IP address, as it does for any download. A file whose size or SHA-256 does not match the one above
 is thrown away, and the Voice card says so. The voice is not part of the installer, so a client
 that never has the voice turned on never fetches it. The card shows the download's progress and
-then **Voice ready**.
+the size it is working through, and then **Voice ready**.
+
+Clients before 2026-09-18 spoke with a smaller voice, `en_US-kristin-medium` from the Piper
+project, which did not sound good enough. A client that has it fetches the new one the next time
+the voice is turned on or **Test** is pressed, and deletes the old one once the new one is in
+place — not before, so a download that fails leaves your PC as it was. While that is happening the
+card says **Getting the new voice**.
 
 On a PC with no sound output, or a Linux PC without OpenAL's library, the card says so and the
 voice cannot speak; everything else in the client is unaffected.
@@ -197,6 +207,7 @@ the file:
 | `voice.flaggedJoins` | `true` | The **Flagged joins** switch. |
 | `voice.volume` | `80` | **Volume**, 0 to 100. |
 | `voice.outputDevice` | absent | The chosen **Output device**, by the id the operating system gives it. Absent means the system default. |
+| `voice.name` | `Bella` | Which of the download's ten voices speaks. A name that is not one of them falls back to Bella. |
 | `cloud.endpoint` | `https://cloud.modbot.co` | Where Modbot Cloud backup goes. `MODBOT_CLOUD_ENDPOINT` wins over it. See [Modbot Cloud backup](#turning-it-off-or-sending-it-somewhere-else). |
 | `cloud.disabled` | `false` | `true` turns Modbot Cloud backup off. `MODBOT_CLOUD_DISABLED` wins over it. |
 

@@ -79,8 +79,8 @@
          drag in a Newtonsoft.Json with a known high-severity advisory. -->
     <PackageVersion Include="LanguageDetection.Ai" Version="1.1.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
-    <!-- The companion's voice (companion voice, 2026-09-16). sherpa-onnx (Apache-2.0) runs the
-         Piper text-to-speech model in process on the CPU, through onnxruntime; the managed
+    <!-- The companion's voice (voice engine design, 2026-09-18). sherpa-onnx (Apache-2.0) runs the
+         Kokoro text-to-speech model in process on the CPU, through onnxruntime; the managed
          package pulls in one native package per platform and a published folder carries only
          its own. Its native library also carries espeak-ng (GPL-3.0-or-later), which turns words
          into sounds: fine beside Modbot's AGPL-3.0, and recorded in THIRD-PARTY-NOTICES.md. -->
