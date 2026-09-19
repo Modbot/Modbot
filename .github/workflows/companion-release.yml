@@ -40,8 +40,10 @@
 # where they run.
 #
 # Signing is optional and skipped cleanly when the secrets are absent. Unsigned builds trip
-# SmartScreen; docs/content/docs/companion/install.mdx tells testers how to get past it and the M3
-# spec (8.2) says what a real certificate involves. There is no signing on Linux.
+# SmartScreen; docs/content/docs/companion/install.mdx and .../preview.mdx tell testers how to get
+# past it and the M3 spec (8.2) says what a real certificate involves. There is no signing on Linux.
+#
+# The steps for publishing a preview, in order, are in src/Modbot.Companion.App/README.md.
 
 name: Client release
 

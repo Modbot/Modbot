@@ -1,0 +1,109 @@
+---
+title: Preview builds
+description: What a preview of the companion is, how to install one, what Windows will say about it, how it updates and how to go back to the normal client.
+---
+
+A **preview** is a build of the companion given to a few moderators before it is released, so that
+problems are found by a handful of people who expect them rather than by everybody at once. It is
+the same program as the normal client, built from work that has not been released yet.
+
+You only have a preview if somebody sent you one. If you downloaded Modbot from the releases page,
+this page is not about your copy — see [Installing the companion](/companion/install).
+
+## Telling a preview from the normal client
+
+A preview's version ends in `-preview` and a number, like `2026.9.2-preview.1`. A normal release is
+just `2026.9.2`.
+
+| Where to look | What you will see |
+|---|---|
+| The file you were sent | A preview has `preview` in its name: `Modbot-win-preview-Setup.exe`, `Modbot-linux-preview.AppImage`. |
+| Windows | **Settings → Apps → Installed apps → Modbot** shows the version. |
+| The client's own log | The first line of each run names the version. `%APPDATA%\Modbot\logs` on Windows, `~/.config/Modbot/logs` on Linux. |
+
+## Install it
+
+There is one Modbot per Windows account, and a preview takes the place of the normal client rather
+than sitting beside it. So if you already have Modbot installed, uninstall it first
+(**Settings → Apps → Installed apps → Modbot → Uninstall**); on Linux, delete the AppImage you have.
+
+Your pairings, settings, queued events and logs are kept through all of this. They live in
+`%APPDATA%\Modbot` (`~/.config/Modbot` on Linux), which installing, updating and uninstalling never
+touch.
+
+| File | What it is |
+|---|---|
+| `Modbot-win-preview-Setup.exe` | The Windows installer. Use this one on Windows. |
+| `Modbot-win-preview-Portable.zip` | The same Windows program with no installer. Unzip it anywhere and run `Modbot.exe`. |
+| `Modbot-linux-preview.AppImage` | The Linux build. `chmod +x` it and run it. |
+
+Everything else works the way [Installing the companion](/companion/install) describes: it installs
+to `%LOCALAPPDATA%\Modbot`, needs no administrator rights, and opens on its **Servers** page ready
+to [pair](/companion/pairing).
+
+<Callout type="warn" title="Windows will warn you about this file">
+Modbot is not code-signed — not the preview and not the normal release — so Windows has no
+publisher to check and says so. Expect this before you download, rather than having to decide
+what to do while a red-and-blue box is in front of you:
+
+- A blue **Windows protected your PC** box when you run the installer. Press **More info**, then
+  **Run anyway**.
+- Your browser may ask whether to keep the download. Keep it.
+- Windows Defender occasionally holds back an unsigned program that reads another program's files
+  and uses the network, which is exactly what this client does. If Modbot disappears right after
+  installing, look in **Windows Security → Protection history**.
+
+The warning is doing its job: it is about the file being new and unsigned, not about anything the
+file does. Only click through it for a file somebody you know sent you.
+</Callout>
+
+## Updates
+
+A preview checks for updates the same way the normal client does — 30 seconds after it starts, then
+every four hours — and it is only ever offered **newer previews**. It is never moved onto a release,
+and nobody running a release is ever offered a preview.
+
+A newer preview downloads in the background and the window shows a line saying so. It is installed
+the next time Modbot starts, so quit from the tray and open Modbot again whenever it suits you.
+Nothing is ever swapped underneath a running session.
+
+To stop it checking at all, see [Check for updates](/companion/settings#check-for-updates).
+
+## Going back to the normal client
+
+<Steps>
+<Step>
+### Uninstall the preview
+
+**Settings → Apps → Installed apps → Modbot → Uninstall** on Windows. On Linux, delete the
+AppImage.
+</Step>
+<Step>
+### Install the normal client
+
+Download it from the
+[releases page](https://github.com/binn/Modbot/releases) and install it as usual.
+</Step>
+</Steps>
+
+Your pairings and settings survive both steps, so the normal client picks up where the preview left
+off. Uninstalling tells your group's server nothing; the token simply stops being used, and an
+operator can [revoke it](/companion/pairing#paired-devices-on-the-server) if you would rather it
+were gone.
+
+## Reporting what you find
+
+Send whoever gave you the preview:
+
+- **which version** you are running,
+- **what you were doing** and what happened instead,
+- **the client's log**. One file a day, `companion-YYYYMMDD.log`, in `%APPDATA%\Modbot\logs` on
+  Windows or `~/.config/Modbot/logs` on Linux. Paste that path into File Explorer's address bar to
+  open the folder.
+
+The log is usually the only thing needed. It holds what the client did and what it made of VRChat's
+log — never chat, never screenshots, never anything else VRChat wrote;
+[what the client reads](/companion/install#what-it-reads) is the full list.
+
+A preview is where an awkward question is worth asking. If something looks wrong and you are not
+sure it is a bug, say so anyway.
