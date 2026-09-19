@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Modbot.Companion.Clips;
 using Modbot.Companion.Overlay;
 using Modbot.Overlay.Interaction;
 using Modbot.Core.Users;
@@ -69,8 +70,23 @@ public static class OverlayView
         // Outside a group instance the panel says nothing: a card reading "not in a group
         // instance" is a card in the moderator's face for most of their VRChat time. The debug
         // page can still ask for it, to see where the panel sits.
+        //
+        // Save a clip is the one thing that still shows there. The recorder runs wherever VRChat
+        // does, so a moment worth keeping can happen in a public instance as easily as a group
+        // one, and a control the moderator cannot reach there is a control they do not have. It is
+        // only ever drawn because they switched Clips on themselves.
         if (screen.IsIdle && !screen.ShowIdleCard)
-            return new Border { Background = Brushes.Transparent };
+        {
+            return screen.Clips.IsVisible
+                ? new Border
+                {
+                    Background = Brushes.Transparent,
+                    Padding = new Thickness(20),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Child = SaveClipBar(screen.Clips),
+                }
+                : new Border { Background = Brushes.Transparent };
+        }
 
         var stack = new StackPanel { Spacing = 12 };
 
@@ -81,6 +97,11 @@ public static class OverlayView
             stack.Children.Add(AlertCard(alert, screen.GroupLabel));
 
         stack.Children.Add(Tabs(screen));
+
+        // Under the tabs, above whichever screen is showing, so it is one press away from all
+        // three rather than behind a page (clips design spec §11).
+        if (screen.Clips.IsVisible)
+            stack.Children.Add(SaveClipBar(screen.Clips));
 
         // One screen at a time. A panel that stacked all three would need scrolling to reach the
         // bottom of, and scrolling in a headset is the thing to design out.
@@ -546,6 +567,59 @@ public static class OverlayView
         }
 
         return line;
+    }
+
+    /// <summary>
+    /// Save a clip: keep the last few minutes of VRChat as a file on this PC.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>It never looks pressable while nothing is being kept.</strong> Inside a
+    /// headset there is no settings screen, no file explorer and no notification, so a control that
+    /// appeared to work and quietly did nothing would leave a moderator believing they had kept a
+    /// moment they had not. The switch off, VRChat not running, a folder that cannot be written to,
+    /// a machine that cannot record — each gives the caption for that and a control the tap path
+    /// refuses (<see cref="ClipButtonRule"/>).</para>
+    /// <para><strong>And it says when a clip landed</strong>, for a few seconds, because that is
+    /// the only way to find out from inside VR.</para>
+    /// </remarks>
+    private static Control SaveClipBar(ClipButton clip)
+    {
+        var label = Text(
+            clip.Caption ?? string.Empty,
+            T.Density.TextBase,
+            clip.State switch
+            {
+                ClipButtonState.Saved => T.OkBrush,
+                ClipButtonState.NotSaved => T.DangerBrush,
+                ClipButtonState.Stopped => T.TextDimBrush,
+                _ => T.TextBrush,
+            },
+            FontWeight.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+
+        return new Border
+        {
+            // No target at all while nothing is being kept, so a tap lands on nothing rather than
+            // on a control that would have to decide to ignore it.
+            Tag = clip.CanPress ? new OverlayTarget.SaveClip() : null,
+            Background = clip.CanPress ? T.Surface2Brush : T.SurfaceBrush,
+            BorderBrush = clip.State switch
+            {
+                ClipButtonState.Saved => T.OkBrush,
+                ClipButtonState.NotSaved => T.DangerBrush,
+                ClipButtonState.Stopped => T.BorderBrush,
+                _ => T.AccentForegroundBrush,
+            },
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+
+            // A target a hand in a headset can land on without aiming.
+            MinWidth = 240,
+            MinHeight = T.Density.RowHeight,
+            Padding = new Thickness(16, 8),
+            Child = label,
+        };
     }
 
     /// <summary>A control a controller can press, sized for a hand in a headset.</summary>

@@ -1,3 +1,4 @@
+using Modbot.Companion.Clips;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Overlay;
@@ -118,6 +119,27 @@ public sealed class OverlayDriver : IDisposable
     /// <summary>Which problem the notification overlay was last told about, so it is said once.</summary>
     private string? _problemShown;
 
+    /// <summary>
+    /// What the Save a clip control on the panel says, and whether it can be pressed. Set by the
+    /// companion, which is the half that owns the recorder; the overlay never works it out itself
+    /// and has no recorder to ask.
+    /// </summary>
+    /// <remarks>
+    /// Hidden until the companion says otherwise, so a build with nothing wired to this — and a
+    /// moderator who has never switched Clips on — gets no control at all.
+    /// </remarks>
+    public ClipButton Clips { get; set; } = ClipButton.None;
+
+    /// <summary>
+    /// Save a clip was pressed on either panel.
+    /// </summary>
+    /// <remarks>
+    /// The loop does not save anything. It says that a moderator asked, and the companion — which
+    /// owns the recorder, the folder and the limit on it — decides what happens. Nothing here
+    /// reaches a server, and no server can raise this.
+    /// </remarks>
+    public event Action? SaveClipAsked;
+
     /// <param name="listener">Told when an alert becomes a card and when a server rejects the token. Optional.</param>
     /// <param name="sockets">
     /// Opens the live WebSocket. Null means the link only ever long-polls, which is what the tests
@@ -237,7 +259,8 @@ public sealed class OverlayDriver : IDisposable
 
     /// <summary>
     /// A tap on the panel. The alert card dismisses, a tab shows that screen, a roster or event
-    /// row opens that person, Back returns to the roster, and Refresh reads that person again.
+    /// row opens that person, Back returns to the roster, Refresh reads that person again, and
+    /// Save a clip asks the companion to keep the last few minutes.
     /// </summary>
     public void Tap(OverlayTarget? target)
     {
@@ -245,6 +268,12 @@ public sealed class OverlayDriver : IDisposable
         {
             case OverlayTarget.DismissAlert:
                 Dismiss();
+                break;
+
+            // Only while something is actually being kept. A tap that arrived from a stale frame,
+            // drawn a moment before VRChat closed, must not look like it saved anything.
+            case OverlayTarget.SaveClip when Clips.CanPress:
+                SaveClipAsked?.Invoke();
                 break;
             case OverlayTarget.GoTo tab:
                 GoTo(tab.Page);
@@ -334,7 +363,10 @@ public sealed class OverlayDriver : IDisposable
                 paired.Link.Follow(null);
 
             ExpireAlert();
-            return new OverlayTick(Presenter.Update(OverlayScreen.Idle), false, false);
+
+            // Still idle — the panel says nothing about a group it is not in. Save a clip travels
+            // with it, because the recorder runs wherever VRChat does.
+            return new OverlayTick(Presenter.Update(OverlayScreen.Idle with { Clips = Clips }), false, false);
         }
 
         foreach (var other in _servers.Where(s => s != server))
@@ -572,7 +604,8 @@ public sealed class OverlayDriver : IDisposable
 
             // A copy, not the list itself. The screen is a snapshot, and one that kept changing
             // under the compositor would compare equal to itself and never redraw.
-            Events: [.. _events]);
+            Events: [.. _events],
+            Clips: Clips);
     }
 
     /// <summary>

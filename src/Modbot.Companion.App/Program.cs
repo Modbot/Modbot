@@ -61,17 +61,22 @@ namespace Modbot.Companion.App;
 /// the keyboard (<c>DesktopOverlayShortcut</c>). Windows then sends one message when those keys are
 /// pressed and says nothing about any other key. There is no keyboard hook here and there will not
 /// be one; <c>CompanionSourceGuardTests</c> fails the build if one appears.</para>
-/// <para><strong>It can record one monitor, and only when you switch that on.</strong> Until
+/// <para><strong>It can record VRChat's window, and only when you switch that on.</strong> Until
 /// 2026-09-19 this paragraph said the program never captured a screen by any route. That is no
 /// longer true, and the honest replacement is this. The Settings page has a <strong>Clips</strong>
 /// switch. It is <strong>off</strong> in a fresh install and off in an updated one, and while it is
 /// off nothing is captured and no recorder is even built.
 /// <list type="bullet">
-/// <item><description><strong>What is recorded.</strong> The picture on one monitor, shrunk to at
-/// most 1280 pixels wide, at 15 frames a second. <strong>No sound at all</strong> — the ban on every
-/// microphone, line-in and loopback API stands untouched, so voice chat is still never recorded.
-/// Not the keyboard, not the clipboard, not another program's window list, and nothing read out of
-/// VRChat's screenshot folder or any other folder.</description></item>
+/// <item><description><strong>What is recorded.</strong> <strong>VRChat's window</strong>, not your
+/// monitor — this program asks Windows for VRChat's own window by name and records the part of the
+/// screen it is drawn in, shrunk to at most 1280 pixels wide, at 15 frames a second. Whatever is
+/// drawn on top of VRChat while you are in it — a chat program's in-game overlay, a notification,
+/// Modbot's own panel — is inside that rectangle and is in the clip; nothing outside it ever is, and
+/// while you are working in another program the last picture of VRChat is written again rather than
+/// what you moved to. <strong>No sound at all</strong> — the ban on every microphone, line-in and
+/// loopback API stands untouched, so voice chat is still never recorded. Not the keyboard, not the
+/// clipboard, not a list of the programs you are running or of their windows, and nothing read out
+/// of VRChat's screenshot folder or any other folder.</description></item>
 /// <item><description><strong>When.</strong> Only while VRChat is running, which this program knows
 /// because lines are arriving in VRChat's own log — never by looking for a running program. VRChat
 /// closing stops the recording and deletes what was kept.</description></item>
@@ -296,6 +301,27 @@ internal sealed class CompanionHost : IOverlayListener
 
     /// <summary>The last clip saved this run, kept for the same reason.</summary>
     private string? _clipsLastSaved;
+
+    /// <summary>
+    /// How the last Save a clip turned out, and when. The overlay says it for a few seconds,
+    /// because a moderator in a headset has no other way to find out (clips design spec §11).
+    /// </summary>
+    private ClipSave? _clipSave;
+
+    /// <summary>When Save a clip was last pressed, while the answer is still coming.</summary>
+    private DateTimeOffset? _clipAskedAt;
+
+    /// <summary>What the recorder had last saved, and last complained about, when it was pressed.</summary>
+    private string? _clipSavedBefore;
+
+    private string? _clipProblemBefore;
+
+    /// <summary>
+    /// How long a Save is given to produce a file before it is called a failure. The recorder acts
+    /// on its next frame, which is a fifteenth of a second; this is generous on purpose, because
+    /// saying "Clip not saved" about one that did land is the worse mistake.
+    /// </summary>
+    private static readonly TimeSpan ClipSaveAnswerWait = TimeSpan.FromSeconds(10);
 
     private bool _voiceTicking;
     private NotificationSound? _bleep;
@@ -676,7 +702,8 @@ internal sealed class CompanionHost : IOverlayListener
             _state.LogHealth.Evaluate(_clock.UtcNow, CompanionAppState.LogSilenceThreshold),
             folder,
             ScreenRecording.Supported,
-            _clipsFailed);
+            _clipsFailed,
+            _recorder?.WindowFound);
 
         if (ClipRecordingRule.ShouldRecord(wanted))
         {
@@ -716,6 +743,8 @@ internal sealed class CompanionHost : IOverlayListener
         var clips = _clipLibrary ??= new ClipLibrary(_clock);
         var saved = folder.IsUsable ? clips.List(folder.Path) : [];
 
+        AnswerTheSave();
+
         _state.Clips = new ClipsStatus(
             settings,
             wanted,
@@ -724,6 +753,50 @@ internal sealed class CompanionHost : IOverlayListener
             saved.Sum(c => c.Bytes),
             _recorder?.LastSaved ?? _clipsLastSaved,
             _recorder?.LastProblem ?? _clipsProblem);
+
+        // What the overlay's Save a clip control shows. Worked out here rather than in the overlay
+        // because this is the half that owns the recorder; the panel is only told the answer.
+        if (_overlay is not null)
+            _overlay.Clips = ClipButtonRule.For(_state.Clips, _clock.UtcNow, _clipSave);
+    }
+
+    /// <summary>
+    /// Turns a Save a clip that was asked for into a yes or a no, once the recorder has answered.
+    /// </summary>
+    /// <remarks>
+    /// The recorder writes the file on its own thread, on its next frame, so the answer arrives a
+    /// moment after the press. It is a yes when a new file name appears, a no when the recorder
+    /// complains about something it did not complain about before, and a no after
+    /// <see cref="ClipSaveAnswerWait"/> if neither happens — a recorder that has gone quiet must
+    /// not leave a moderator in a headset believing a clip is on their disk.
+    /// </remarks>
+    private void AnswerTheSave()
+    {
+        if (_clipAskedAt is not { } asked)
+            return;
+
+        if (_recorder is { } recorder)
+        {
+            if (recorder.LastSaved is { } now && now != _clipSavedBefore)
+            {
+                _clipSave = new ClipSave(_clock.UtcNow, true);
+                _clipAskedAt = null;
+                return;
+            }
+
+            if (recorder.LastProblem is { } problem && problem != _clipProblemBefore)
+            {
+                _clipSave = new ClipSave(_clock.UtcNow, false);
+                _clipAskedAt = null;
+                return;
+            }
+        }
+
+        if (_clock.UtcNow - asked < ClipSaveAnswerWait)
+            return;
+
+        _clipSave = new ClipSave(_clock.UtcNow, false);
+        _clipAskedAt = null;
     }
 
     /// <summary>
@@ -780,9 +853,13 @@ internal sealed class CompanionHost : IOverlayListener
     /// the oldest clips there are deleted if that would put the folder over its limit.
     /// </summary>
     /// <remarks>
-    /// Nothing is sent anywhere. The clip is a file on this PC, and attaching it to a case is a
-    /// separate, deliberate act in Modbot's web interface — the client has no way to upload one
-    /// (clips design spec §6).
+    /// <para>Nothing is sent anywhere. The clip is a file on this PC, and attaching it to a case is
+    /// a separate, deliberate act in Modbot's web interface — the client has no way to upload one
+    /// (clips design spec §6).</para>
+    /// <para>Reached from two places: the button on the Settings page, and the Save a clip control
+    /// on the overlay panel, which is the one a moderator wearing a headset can actually press
+    /// (clips design spec §11). Both end here, so there is one rule about room, one naming scheme
+    /// and one line in the journal however it was asked for.</para>
     /// </remarks>
     private void SaveClip()
     {
@@ -795,6 +872,11 @@ internal sealed class CompanionHost : IOverlayListener
         if (!folder.IsUsable)
         {
             Log.Warning("A clip could not be saved: {Problem}", folder.Problem);
+
+            // Said on the panel as well as on the settings screen: inside a headset there is no
+            // settings screen to read it on.
+            _clipSave = new ClipSave(_clock.UtcNow, false);
+            _clipAskedAt = null;
             Render();
             return;
         }
@@ -807,6 +889,14 @@ internal sealed class CompanionHost : IOverlayListener
         // VRChat's ids follow no structure (foundation 3.1.1), so it is filtered down to characters
         // a file name may hold rather than trusted.
         var name = _clipLibrary.NameFor(CurrentInstance?.InstanceId);
+
+        // What the recorder had to say before being asked, so its next word can be read as the
+        // answer to this press rather than as something it said earlier.
+        _clipSavedBefore = _recorder.LastSaved;
+        _clipProblemBefore = _recorder.LastProblem;
+        _clipAskedAt = _clock.UtcNow;
+        _clipSave = null;
+
         _recorder.AskToSave(Path.Combine(folder.Path, name));
 
         _journal?.RecordNote("this PC", $"Saved a clip of the last few minutes as {name}. It is on this PC only.");
@@ -1293,6 +1383,10 @@ internal sealed class CompanionHost : IOverlayListener
             listener: this,
             sockets: new ClientLiveSocketFactory(),
             popUps: _popUps);
+
+        // Save a clip on either panel. The loop only says that somebody asked; this half owns the
+        // recorder, the folder and the limit on it, so this is where a clip is actually written.
+        _overlay.SaveClipAsked += SaveClip;
 
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.ServerId);

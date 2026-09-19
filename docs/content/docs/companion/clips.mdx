@@ -1,10 +1,10 @@
 ---
 title: Clips
-description: Keep the last few minutes of your screen while VRChat is running, and save them as a video file when something happens. Off unless you switch it on.
+description: Keep the last few minutes of VRChat while it is running, and save them as a video file — from the settings page or from inside your headset. Off unless you switch it on.
 ---
 
 Something happens in an instance and it is over before you could have started recording. **Clips**
-is the answer to that: while it is on, the companion keeps the last few minutes of your screen, and
+is the answer to that: while it is on, the companion keeps the last few minutes of VRChat, and
 **Save a clip** writes those minutes out as a video file on your PC.
 
 <Callout type="warn" title="This reverses something the companion used to promise">
@@ -13,6 +13,9 @@ captured the screen, by any route, for any reason. That is no longer true, and t
 honest replacement rather than a patch over it. What has **not** changed is the other half of that
 promise: nothing the companion records ever leaves your PC. There is no upload path in the client
 and it did not gain one.
+
+It records **VRChat's window**, not your screen. The section below says exactly what that does and
+does not keep out.
 </Callout>
 
 ## It is off until you switch it on
@@ -25,16 +28,46 @@ nothing written anywhere.
 
 ## What is recorded
 
-- The picture on **one monitor**, shrunk to at most 1280 pixels wide, at **15 frames a second**.
-  A 2560×1440 monitor records at 1280×720; a 1920×1080 one at 960×540. It is deliberately modest:
-  your frame rate in VRChat matters more than how sharp the clip is.
+**VRChat's window. Not your screen.**
+
+The companion asks Windows for VRChat's own window, finds where it is drawn, and records that
+rectangle — shrunk to at most 1280 pixels wide, at **15 frames a second**. A 2560×1440 window
+records at 1280×720; a 1920×1080 one at 960×540. It is deliberately modest: your frame rate in
+VRChat matters more than how sharp the clip is.
+
+### What can still end up in a clip
+
+Being straight about this, because it is the one thing on this page where "records VRChat's
+window" is not the whole answer.
+
+The companion takes a copy of a picture Windows has already drawn, and cuts VRChat's rectangle out
+of it. So **anything drawn on top of VRChat while you are in VRChat is inside that rectangle and is
+in the clip**:
+
+- A chat program's in-game overlay, and Steam's.
+- A Windows notification that pops up over the game.
+- A window you pinned to stay on top.
+- Modbot's own panel, if you have the [window over VRChat](/companion/overlay) open.
+
+**While you are working in another program, nothing new is recorded at all.** Alt-tab to Discord
+and the clip holds the last picture of VRChat until you come back — it does not start recording
+Discord. That is the important half: VRChat's default is a borderless window filling the whole
+screen, so without this rule a clip would be your whole monitor every time you tabbed away, which
+is exactly when your private messages are on it.
+
+The cost of that rule is worth knowing too: if you spend the whole recording in another program,
+the clip is a still picture. A dull clip, not somebody else's messages.
 
 ## What is not recorded
 
+- **Nothing outside VRChat's window.** Not a second monitor, not a window beside the game, not the
+  taskbar, and not whatever you have alt-tabbed to.
 - **No sound, at all.** Not your microphone, not your speakers, not VRChat's voice chat. The
   companion has no ability to record sound and the build fails if any code that could appears in it.
   That has not changed and is not going to.
-- **Not the keyboard, not the clipboard, not a list of the programs you are running.**
+- **Not the keyboard, not the clipboard, not a list of the programs you are running or of their
+  windows.** It asks Windows for one named window — VRChat's — and never for a list of what else is
+  open.
 - **Nothing read out of a folder.** Not your Pictures, not your Documents, not your Desktop, not
   VRChat's own screenshot folder. The companion still never opens an image it did not make.
 - **Nothing at all while VRChat is not running.** See below.
@@ -46,12 +79,54 @@ The companion knows VRChat is running because lines are arriving in
 looking for a running program; it cannot, and that ban has not moved.
 
 So: VRChat closes, recording stops and what was kept is deleted. VRChat opens, recording starts
-again. The **Clips** card says which of those is happening — *Off*, *Waiting for VRChat*, or
-*Recording*.
+again. The **Clips** card says which of those is happening — *Off*, *Waiting for VRChat*,
+*Waiting for VRChat's window*, or *Recording*.
+
+Because a clip is VRChat's window, the companion also has to be handed that window before there is
+anything to keep. That takes a second or two after VRChat starts, and the card says
+*Waiting for VRChat's window* while it does.
+
+If VRChat's window closes, is minimised or is moved to a monitor the companion is not recording,
+the clip holds the last picture of it rather than ending — and if you resize VRChat, or change your
+resolution, the clip keeps its size and the picture is fitted inside it. A clip is never left half
+written.
 
 If VRChat is running but the companion has stopped understanding its log, it keeps recording. Lines
 are arriving, so you are in a world, and a client that needs updating should not also quietly lose
 the recording you switched on.
+
+## Saving a clip from inside VR
+
+**Save a clip** is on the [overlay panel](/companion/overlay), under the tabs, above whichever
+screen is showing. From the roster, from the events list, from a person's card — it is one press.
+It is on the headset panel and on the window over VRChat alike, so it works whether you play in a
+headset or on a monitor.
+
+It is only there when **Clips** is switched on. Turn Clips on and the control appears; leave it off
+and the panel is exactly as it was.
+
+**It tells you what is actually happening** rather than looking pressable and doing nothing:
+
+| What it says | What that means |
+|---|---|
+| **Save a clip** | The last few minutes are being kept. Press it. |
+| *Waiting for VRChat* | VRChat is not running, so there is nothing to keep. |
+| *Waiting for VRChat's window* | VRChat is starting. This clears itself in a second or two. |
+| *The folder cannot be used* | Clips cannot be written where they are pointed. The **Clips** card on the Settings page says why. |
+| *Not available on this machine* | Recording does not work here. See [Windows only](#windows-only). |
+| *Recording stopped* | Something went wrong. The **Clips** card says what. |
+
+Only the first of those can be pressed. Nothing happens if you press any of the others, and the
+control is not drawn as though it could be.
+
+**After you press it, it tells you how it went** — **Clip saved** or **Clip not saved**, for about
+eight seconds — because with a headset on there is no other way to find out. The clip is in your
+clips folder, waiting for you when you take the headset off.
+
+There is **no keyboard shortcut for this**, on purpose. The companion asks Windows for exactly one
+keyboard combination — the one that brings up the [window over VRChat](/companion/overlay) — and
+that is part of how it can say it does not read your keyboard. A second one is not worth what it
+would cost that claim.
 
 ## How many minutes
 
@@ -133,5 +208,16 @@ effect immediately and nothing else about the companion changes.
 
 ## Windows only
 
-There is no recording on the Linux companion. The **Clips** card says so rather than failing
-quietly, and everything else on Linux works exactly as it does on Windows.
+There is no recording on the Linux companion, and there is no plan to add one. The **Clips** card
+says so rather than failing quietly, and everything else on Linux works exactly as it does on
+Windows.
+
+The reason is the video encoder, not the recording. Windows has one built in, which is what the
+companion uses. On Linux the usual answer is to run `ffmpeg` as a separate program, and this client
+**never starts another program** — that is one of the things it can point at when somebody asks why
+it should be trusted on a personal machine, and it was not going to be given up for this. The other
+route, bundling a video library of its own, means shipping and maintaining something large for a
+feature a few people would use.
+
+A half-working recorder that wrote files nobody could open would be worse than one honest sentence,
+so it is one honest sentence.

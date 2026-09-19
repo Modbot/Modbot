@@ -226,6 +226,19 @@ public class CompanionSourceGuardTests
         @"SpecialFolder\s*\.\s*MyVideos\b",
         RegexOptions.Compiled);
 
+    /// <summary>Anything that asks Windows about another program's window.</summary>
+    /// <remarks>
+    /// Added on 2026-09-19, when a clip became VRChat's window rather than the whole monitor. The
+    /// recorder has to be told where VRChat is drawn and whether it is the window in front, which
+    /// means asking Windows about a window that is not Modbot's. That is one named ask for one
+    /// named window; the client still never enumerates windows and never enumerates processes, and
+    /// exactly one file is allowed to match this.
+    /// </remarks>
+    private static readonly Regex AsksAboutAnotherWindow = new(
+        @"\b(FindWindowW|FindWindowExW|EnumWindows|EnumChildWindows|GetForegroundWindow|GetClientRect"
+        + @"|GetWindowRect|ClientToScreen|IsIconic|GetWindowThreadProcessId|WindowFromPoint)\b",
+        RegexOptions.Compiled);
+
     /// <summary>The one file allowed to record a picture of a screen.</summary>
     private const string RecordingFile = "ScreenRecording.cs";
 
@@ -247,6 +260,9 @@ public class CompanionSourceGuardTests
         Assert.Matches(ScreenshotFolders, @"Path.Combine(pictures, ""VRChat\Screenshots"")");
         Assert.Matches(ScreenshotFolders, "Environment.GetFolderPath(Environment.SpecialFolder.MyPictures)");
         Assert.Matches(VideosFolder, "Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)");
+        Assert.Matches(AsksAboutAnotherWindow, "var handle = FindWindowW(null, \"VRChat\");");
+        Assert.Matches(AsksAboutAnotherWindow, "EnumWindows(callback, IntPtr.Zero);");
+        Assert.DoesNotMatch(AsksAboutAnotherWindow, "var placement = Window.Position;");
         Assert.DoesNotMatch(ScreenshotFolders, "Environment.GetFolderPath(Environment.SpecialFolder.MyVideos)");
         Assert.Matches(SoundCapture, "using var capture = new WasapiCapture(device);");
         Assert.Matches(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active)");
@@ -311,6 +327,40 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
+    public void RecordingIsWindowsOnlyAndSaysSoRatherThanFailingQuietly()
+    {
+        // Linux was looked at again on 2026-09-19 and left alone, and the reasoning is in the clips
+        // design spec: capturing one window is possible under X11 and under the Wayland portal, but
+        // there is no encoder a client that may not start a process can reach, and a recorder that
+        // wrote corrupt files would be worse than an honest "only on Windows".
+        //
+        // So the answer has to stay one plain sentence rather than a silent nothing, and the
+        // decision has to stay in the one place that can make it.
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
+
+        Assert.Contains("Supported => OperatingSystem.IsWindows()", source, StringComparison.Ordinal);
+        Assert.Contains("only works on Windows", source, StringComparison.Ordinal);
+
+        // And nothing anywhere in the client runs another program to do the encoding, which is the
+        // route a Linux recorder would have had to take. The Process ban above is the whole of it;
+        // this names the two libraries somebody would reach for instead.
+        foreach (var forbidden in new[] { "ffmpeg", "libavcodec" })
+        {
+            var offenders = EverythingTheClientShips()
+                .Where(f => File.ReadAllText(f).Contains(forbidden, StringComparison.OrdinalIgnoreCase))
+                .Select(Path.GetFileName)
+                .Order()
+                .ToList();
+
+            Assert.True(
+                offenders.Count == 0,
+                $"The client does not ship or drive an encoder of its own; found {forbidden} in "
+                + string.Join(", ", offenders));
+        }
+    }
+
+    [Fact]
     public void NothingTheClientShipsGoesLookingForScreenshotsOnDisk()
     {
         // Reading a folder full of screenshots is the same disclosure as taking one, reached by a
@@ -326,6 +376,34 @@ public class CompanionSourceGuardTests
             offenders.Count == 0,
             "The client reads VRChat's log directory and nothing else; found picture or screenshot "
             + "paths in " + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void TheOnlyFileThatAsksWindowsAboutVRChatsWindowIsScreenRecordingCs()
+    {
+        // A clip is VRChat's window, so the recorder has to be told where that window is drawn and
+        // whether it is the one in front. That is a real capability -- knowing something about a
+        // program that is not Modbot -- and it is held to the same shape as the recording itself:
+        // one named file, asking for one named window.
+        //
+        // What is still banned everywhere, this file included, is a *list*: the client does not
+        // enumerate windows and does not enumerate processes (the System.Diagnostics.Process ban
+        // above). "What does this program know about the rest of your PC" therefore still has a
+        // short answer -- VRChat's window, its size, and whether you are looking at it.
+        var asking = EverythingTheClientShips()
+            .Where(f => AsksAboutAnotherWindow.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([RecordingFile], asking);
+
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
+
+        // It looks for VRChat by name, rather than walking what else is open.
+        Assert.Contains("\"VRChat\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnumWindows", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -128,6 +128,72 @@ public class ClipRecordingRuleTests
         Assert.False(ClipsStatus.None.CanSave);
 
         Assert.False((ClipsStatus.None with { State = ClipRecordingState.Waiting }).CanSave);
+        Assert.False((ClipsStatus.None with { State = ClipRecordingState.NoWindow }).CanSave);
         Assert.True((ClipsStatus.None with { State = ClipRecordingState.Recording }).CanSave);
+    }
+
+    [Fact]
+    public void VRChatRunningWithoutAWindowFoundYetIsItsOwnAnswer()
+    {
+        // A clip is VRChat's window, so there is nothing to keep until Windows has handed one
+        // over. It happens for a second or two every time VRChat starts.
+        var state = ClipRecordingRule.Decide(
+            ClipSettings.Default with { On = true },
+            LogHealthStatus.Healthy,
+            Good,
+            supported: true,
+            windowFound: false);
+
+        Assert.Equal(ClipRecordingState.NoWindow, state);
+    }
+
+    [Fact]
+    public void ARecorderWithoutAWindowIsLeftRunningRatherThanRebuiltEverySecond()
+    {
+        // The recorder is the thing that asks Windows for VRChat's window. Taking it down for not
+        // having found one would tear it down and build it again once a second for as long as
+        // VRChat took to draw its window.
+        Assert.True(ClipRecordingRule.ShouldRecord(ClipRecordingState.NoWindow));
+        Assert.True(ClipRecordingRule.ShouldRecord(ClipRecordingState.Recording));
+
+        foreach (var stopped in new[]
+        {
+            ClipRecordingState.Off,
+            ClipRecordingState.Waiting,
+            ClipRecordingState.NotOnThisMachine,
+            ClipRecordingState.FolderUnusable,
+            ClipRecordingState.Failed,
+        })
+        {
+            Assert.False(ClipRecordingRule.ShouldRecord(stopped));
+        }
+    }
+
+    [Fact]
+    public void AWindowThatHasBeenFoundIsSimplyRecording()
+    {
+        var state = ClipRecordingRule.Decide(
+            ClipSettings.Default with { On = true },
+            LogHealthStatus.Healthy,
+            Good,
+            supported: true,
+            windowFound: true);
+
+        Assert.Equal(ClipRecordingState.Recording, state);
+    }
+
+    [Fact]
+    public void VRChatNotRunningBeatsNotHavingItsWindow()
+    {
+        // "Waiting for VRChat" is the true and useful answer; "waiting for VRChat's window" when
+        // VRChat is not running at all would send somebody looking for the wrong problem.
+        var state = ClipRecordingRule.Decide(
+            ClipSettings.Default with { On = true },
+            LogHealthStatus.Idle,
+            Good,
+            supported: true,
+            windowFound: false);
+
+        Assert.Equal(ClipRecordingState.Waiting, state);
     }
 }
