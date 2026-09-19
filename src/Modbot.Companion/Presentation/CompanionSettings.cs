@@ -20,7 +20,7 @@ namespace Modbot.Companion.Presentation;
 /// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c>, <c>vrchatLogFolder</c>, <c>overlayOn</c>,
 /// <c>overlay</c>, <c>cloud</c>
 /// (<c>{ "endpoint": "…", "disabled": true }</c>), <c>voice</c>
-/// (<c>{ "on": true, "joins": true, "leaves": true, "flaggedJoins": true, "volume": 80, "outputDevice": "…" }</c>)
+/// (<c>{ "on": true, "joins": true, "leaves": true, "flaggedJoins": true, "volume": 80, "outputDevice": "…", "name": "Bella" }</c>)
 /// and <c>eventsFilters</c> (the Events page's filter chips, one line each, such as <c>"kind:is:joined,left"</c>).
 /// If it is missing or unreadable the defaults are
 /// used. The client writes it only when a switch on the settings screen is changed, and then changes
@@ -162,7 +162,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             voice.Leaves ?? true,
             voice.FlaggedJoins ?? true,
             VoiceSettings.ClampVolume(voice.Volume ?? VoiceSettings.DefaultVolume),
-            string.IsNullOrWhiteSpace(voice.OutputDevice) ? null : voice.OutputDevice.Trim());
+            string.IsNullOrWhiteSpace(voice.OutputDevice) ? null : voice.OutputDevice.Trim(),
+            string.IsNullOrWhiteSpace(voice.Name) ? VoiceModel.DefaultName : voice.Name.Trim());
 
     /// <summary>
     /// Writes the whole <c>voice</c> object, keeping every other field in the file. The same rules
@@ -179,6 +180,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             ["leaves"] = voice.Leaves,
             ["flaggedJoins"] = voice.FlaggedJoins,
             ["volume"] = VoiceSettings.ClampVolume(voice.Volume),
+            ["name"] = string.IsNullOrWhiteSpace(voice.VoiceName) ? VoiceModel.DefaultName : voice.VoiceName.Trim(),
         };
 
         if (!string.IsNullOrWhiteSpace(voice.OutputDeviceId))
@@ -289,5 +291,6 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("leaves")] bool? Leaves,
         [property: JsonPropertyName("flaggedJoins")] bool? FlaggedJoins,
         [property: JsonPropertyName("volume")] int? Volume,
-        [property: JsonPropertyName("outputDevice")] string? OutputDevice);
+        [property: JsonPropertyName("outputDevice")] string? OutputDevice,
+        [property: JsonPropertyName("name")] string? Name);
 }

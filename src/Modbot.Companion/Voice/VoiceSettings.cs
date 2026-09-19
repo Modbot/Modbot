@@ -9,6 +9,8 @@ namespace Modbot.Companion.Voice;
 /// speakers happen to be on, is a surprise nobody asked for.</para>
 /// <para>Kept in the <c>voice</c> object of <c>settings.json</c> (<see cref="Presentation.CompanionSettings"/>)
 /// and nowhere else. No server is told any of it.</para>
+/// <para>The downloaded voice holds ten voices in the one file, so which one speaks is a choice
+/// here and not a second download (voice engine design, 2026-09-18, §5).</para>
 /// </remarks>
 /// <param name="On">Whether anything is spoken.</param>
 /// <param name="Joins">Say when somebody joins the instance the moderator is in.</param>
@@ -19,13 +21,18 @@ namespace Modbot.Companion.Voice;
 /// The device the voice plays through, by the id the operating system gives it, or null for the
 /// system default — which then follows the default wherever the operating system moves it.
 /// </param>
+/// <param name="VoiceName">
+/// Which of the downloaded voices speaks, by name (<see cref="VoiceModel.Voices"/>). A name the
+/// downloaded voice does not have falls back to the default one rather than failing.
+/// </param>
 public sealed record VoiceSettings(
     bool On = false,
     bool Joins = true,
     bool Leaves = true,
     bool FlaggedJoins = true,
     int Volume = VoiceSettings.DefaultVolume,
-    string? OutputDeviceId = null)
+    string? OutputDeviceId = null,
+    string VoiceName = VoiceModel.DefaultName)
 {
     public const int DefaultVolume = 80;
 

@@ -12,7 +12,8 @@ namespace Modbot.Companion.App.Voice;
 /// <remarks>
 /// <para><strong>What this reads and writes.</strong> The companion's own <c>voices</c> folder,
 /// through <see cref="VoiceModel"/> (to see whether the voice is there), <see cref="VoiceDownload"/>
-/// (to put it there, once) and <see cref="SherpaVoice"/> (to load it). Nothing else.</para>
+/// (to put it there, once, and to take an older voice away afterwards) and
+/// <see cref="SherpaVoice"/> (to load it). Nothing else.</para>
 /// <para><strong>What leaves the machine.</strong> The one download, described on
 /// <see cref="VoiceDownload"/>, and only when the voice is turned on or tested and is not yet on the
 /// disk. Nothing about what is said, or to whom, goes anywhere.</para>
@@ -38,6 +39,13 @@ internal sealed class VoiceHost : IDisposable
     private Task<IVoiceSynthesizer>? _loading;
     private bool _loadFailed;
     private bool _present;
+
+    /// <summary>
+    /// True when an older voice is sitting in the folder. Read once at start-up, and cleared when
+    /// the new voice lands, because the download takes the old one away with it.
+    /// </summary>
+    private bool _older;
+
     private Task<VoiceDownloadResult>? _download;
     private bool _downloadFailed;
     private double _progress;
@@ -64,6 +72,7 @@ internal sealed class VoiceHost : IDisposable
         _clock = clock;
         _settings = settings;
         _present = _model.IsPresent(_voicesFolder);
+        _older = !_present && _model.AnotherIsPresent(_voicesFolder);
 
         (_devices, var player, _output) = OpenOutput();
         HasOutput = _output is not null;
@@ -83,7 +92,7 @@ internal sealed class VoiceHost : IDisposable
 
         Log.Information(
             "Voice: {State}; output {Output}",
-            _present ? "downloaded" : "not downloaded",
+            _present ? "downloaded" : _older ? "an older voice is here and will be replaced" : "not downloaded",
             HasOutput ? "available" : "not available on this PC");
     }
 
@@ -153,12 +162,13 @@ internal sealed class VoiceHost : IDisposable
     {
         RefreshDevices();
 
-        var state = _download is not null ? VoiceState.Downloading
+        var state = _download is not null ? (_older ? VoiceState.Replacing : VoiceState.Downloading)
             : _downloadFailed || _loadFailed ? VoiceState.Failed
             : _present ? VoiceState.Ready
             : VoiceState.NotDownloaded;
 
-        return new VoiceStatus(_settings(), _deviceList, _default, HasOutput, state, _progress, _problem);
+        return new VoiceStatus(
+            _settings(), _deviceList, _default, HasOutput, state, _progress, _problem, _model.Size, _model.Voices);
     }
 
     public void Dispose()
@@ -225,6 +235,9 @@ internal sealed class VoiceHost : IDisposable
         if (result.Ready)
         {
             _present = true;
+            // The download takes any older voice away once the new one is in place, so there is
+            // nothing left to be replacing.
+            _older = false;
             _progress = 1;
             Log.Information("The voice {Voice} is ready ({Outcome})", _model.Name, result.Outcome);
             return;

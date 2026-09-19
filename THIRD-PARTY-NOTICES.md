@@ -75,15 +75,20 @@ on, from one pinned address — the sherpa-onnx project's `tts-models` release o
 checked against a pinned SHA-256 before it is used (`src/Modbot.Companion/Voice/VoiceModel.cs`):
 
 ```
-https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-kristin-medium.tar.bz2
-67,259,230 bytes, SHA-256 c2206f572df2956c50b1ae3367eebce3853c663e890cba8048cd62b1e4dbe6c7
+https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-en-v0_19.tar.bz2
+319,625,534 bytes, SHA-256 912804855a04745fa77a30be545b3f9a5d15c4d66db00b88cbcd4921df605ac7
 ```
 
-That archive holds the Piper voice `en_US-kristin-medium` (model weights MIT, from
-<https://github.com/rhasspy/piper>; the voice was trained from scratch on public-domain LibriVox
-recordings, per its model card) and a copy of espeak-ng's language data (GPL-3.0-or-later, from
+That archive holds **Kokoro 82M**, version 0.19, English (`model.onnx`, `voices.bin` and
+`tokens.txt`, all **Apache-2.0**, from <https://huggingface.co/hexgrad/Kokoro-82M> — the archive
+carries the licence text itself) and a copy of espeak-ng's language data (GPL-3.0-or-later, from
 <https://github.com/espeak-ng/espeak-ng>). Both sit in `%APPDATA%\Modbot\voices` on the
 moderator's PC and are never redistributed by Modbot.
+
+Until 2026-09-18 this was the Piper voice `en_US-kristin-medium` (MIT, from
+<https://github.com/rhasspy/piper>). It was replaced because it did not sound good enough; the
+voice engine design (`.agent/specs/2026-09-18-voice-engine-design.md`) has the comparison. A client
+that already has the old voice deletes it once the new one is downloaded.
 
 ## Fonts
 

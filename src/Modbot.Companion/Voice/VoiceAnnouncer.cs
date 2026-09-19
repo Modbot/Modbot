@@ -162,7 +162,7 @@ public sealed class VoiceAnnouncer : IObservationSink
                     + " until it is back.");
             }
 
-            var clip = await Task.Run(() => synthesizer.Speak(line), cancellationToken).ConfigureAwait(false);
+            var clip = await Task.Run(() => synthesizer.Speak(line, settings.VoiceName), cancellationToken).ConfigureAwait(false);
             await _player.PlayAsync(clip.WithGain(settings.Gain), choice.Device, cancellationToken).ConfigureAwait(false);
             return true;
         }

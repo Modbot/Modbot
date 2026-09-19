@@ -68,26 +68,29 @@ public class VoiceDownloadTests : IDisposable
 
     private static readonly (string, string)[] GoodEntries =
     [
-        ("vits-piper-en_US-test/", ""),
-        ("vits-piper-en_US-test/en_US-test.onnx", "not really a model"),
-        ("vits-piper-en_US-test/tokens.txt", "a 1\nb 2\n"),
-        ("vits-piper-en_US-test/MODEL_CARD", "# test"),
-        ("vits-piper-en_US-test/espeak-ng-data/", ""),
-        ("vits-piper-en_US-test/espeak-ng-data/en_dict", "words"),
-        ("vits-piper-en_US-test/espeak-ng-data/lang/", ""),
-        ("vits-piper-en_US-test/espeak-ng-data/lang/en", "language en"),
+        ("kokoro-test/", ""),
+        ("kokoro-test/model.onnx", "not really a model"),
+        ("kokoro-test/voices.bin", "not really the voices"),
+        ("kokoro-test/tokens.txt", "a 1\nb 2\n"),
+        ("kokoro-test/README.md", "# test"),
+        ("kokoro-test/espeak-ng-data/", ""),
+        ("kokoro-test/espeak-ng-data/en_dict", "words"),
+        ("kokoro-test/espeak-ng-data/lang/", ""),
+        ("kokoro-test/espeak-ng-data/lang/en", "language en"),
     ];
 
     private static VoiceModel Model(byte[] archive, string? sha256 = null, long? size = null) => new(
-        "en_US-test",
-        new Uri("https://example.test/voices/vits-piper-en_US-test.tar.bz2"),
+        "kokoro-test",
+        new Uri("https://example.test/voices/kokoro-test.tar.bz2"),
         sha256 ?? Convert.ToHexStringLower(SHA256.HashData(archive)),
         size ?? archive.Length,
-        "vits-piper-en_US-test",
-        "en_US-test.onnx",
+        "kokoro-test",
+        "model.onnx",
+        "voices.bin",
         "tokens.txt",
         "espeak-ng-data",
-        22_050);
+        24_000,
+        [new NamedVoice("Bella", 1), new NamedVoice("George", 9)]);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -108,12 +111,13 @@ public class VoiceDownloadTests : IDisposable
 
         Assert.True(model.IsPresent(Voices));
         Assert.Equal("not really a model", File.ReadAllText(model.ModelPath(Voices)));
+        Assert.Equal("not really the voices", File.ReadAllText(model.VoicesPath(Voices)));
         Assert.Equal("a 1\nb 2\n", File.ReadAllText(model.TokensPath(Voices)));
         Assert.Equal("language en", File.ReadAllText(Path.Combine(model.DataPath(Voices), "lang", "en")));
 
         // The archive's own top folder is not kept, the temporary files are gone, and the marker
         // says what this is and where it came from.
-        Assert.False(Directory.Exists(Path.Combine(model.Folder(Voices), "vits-piper-en_US-test")));
+        Assert.False(Directory.Exists(Path.Combine(model.Folder(Voices), "kokoro-test")));
         Assert.Equal([model.Name], Directory.GetFileSystemEntries(Voices).Select(Path.GetFileName));
         var marker = File.ReadAllText(model.MarkerPath(Voices));
         Assert.Contains(model.Sha256, marker, StringComparison.Ordinal);
@@ -170,7 +174,7 @@ public class VoiceDownloadTests : IDisposable
     [Fact]
     public async Task AnArchiveMissingTheVoicesFilesIsNotAVoice()
     {
-        var archive = Archive(("vits-piper-en_US-test/", ""), ("vits-piper-en_US-test/README", "nothing here"));
+        var archive = Archive(("kokoro-test/", ""), ("kokoro-test/README.md", "nothing here"));
         var model = Model(archive);
 
         var result = await new VoiceDownload(new HttpClient(new FakeServer(archive))).RunAsync(model, Voices, null, Ct);
@@ -184,9 +188,9 @@ public class VoiceDownloadTests : IDisposable
     public async Task AnEntryThatWouldLandOutsideTheFolderIsRefused()
     {
         var archive = Archive(
-            ("vits-piper-en_US-test/", ""),
-            ("vits-piper-en_US-test/en_US-test.onnx", "model"),
-            ("vits-piper-en_US-test/../../escaped.txt", "should never be written"));
+            ("kokoro-test/", ""),
+            ("kokoro-test/model.onnx", "model"),
+            ("kokoro-test/../../escaped.txt", "should never be written"));
         var model = Model(archive);
 
         var result = await new VoiceDownload(new HttpClient(new FakeServer(archive))).RunAsync(model, Voices, null, Ct);
@@ -232,10 +236,120 @@ public class VoiceDownloadTests : IDisposable
 
         Assert.Equal("https", voice.Url.Scheme);
         Assert.Equal("github.com", voice.Url.Host);
-        Assert.Equal("/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-kristin-medium.tar.bz2", voice.Url.AbsolutePath);
+        Assert.Equal("/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-en-v0_19.tar.bz2", voice.Url.AbsolutePath);
+        Assert.Equal("912804855a04745fa77a30be545b3f9a5d15c4d66db00b88cbcd4921df605ac7", voice.Sha256);
         Assert.Matches("^[0-9a-f]{64}$", voice.Sha256);
-        Assert.Equal(67_259_230, voice.Size);
-        Assert.Equal(22_050, voice.SampleRate);
+        Assert.Equal(319_625_534, voice.Size);
+        Assert.Equal(24_000, voice.SampleRate);
+        Assert.Equal("kokoro-en-v0_19", voice.Name);
+        Assert.Equal("kokoro-en-v0_19", voice.ArchiveFolder);
+        Assert.Equal("model.onnx", voice.ModelFile);
+        Assert.Equal("voices.bin", voice.VoicesFile);
+        Assert.Equal("tokens.txt", voice.TokensFile);
+        Assert.Equal("espeak-ng-data", voice.DataFolder);
+    }
+
+    [Fact]
+    public async Task AnArchiveWithNoVoicesFileIsNotAVoice()
+    {
+        // Kokoro keeps its voices in a file of their own beside the model; a folder without it
+        // loads into an engine that cannot speak as anybody.
+        var archive = Archive(GoodEntries.Where(e => !e.Item1.EndsWith("voices.bin", StringComparison.Ordinal)).ToArray());
+        var model = Model(archive);
+
+        var result = await new VoiceDownload(new HttpClient(new FakeServer(archive))).RunAsync(model, Voices, null, Ct);
+
+        Assert.Equal(VoiceDownloadOutcome.WrongFile, result.Outcome);
+        Assert.False(model.IsPresent(Voices));
+        Assert.Empty(Directory.GetFileSystemEntries(Voices));
+    }
+
+    [Fact]
+    public async Task AnOlderVoiceIsTakenAwayOnceTheNewOneIsThere()
+    {
+        // A moderator upgrading from the Piper voice must not be left with both on the disk.
+        var older = Path.Combine(Voices, "en_US-kristin-medium");
+        Directory.CreateDirectory(older);
+        File.WriteAllText(Path.Combine(older, "en_US-kristin-medium.onnx"), "the old model");
+        File.WriteAllText(Path.Combine(older, VoiceModel.MarkerFile), "{}");
+
+        var archive = Archive(GoodEntries);
+        var model = Model(archive);
+
+        var result = await new VoiceDownload(new HttpClient(new FakeServer(archive))).RunAsync(model, Voices, null, Ct);
+
+        Assert.Equal(VoiceDownloadOutcome.Done, result.Outcome);
+        Assert.True(model.IsPresent(Voices));
+        Assert.False(Directory.Exists(older));
+        Assert.Equal([model.Name], Directory.GetFileSystemEntries(Voices).Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public async Task AnOlderVoiceSurvivesADownloadThatFailed()
+    {
+        // Nothing is taken away until the new voice is actually there, so an abandoned or broken
+        // download leaves the PC exactly as it was.
+        var older = Path.Combine(Voices, "en_US-kristin-medium");
+        Directory.CreateDirectory(older);
+        File.WriteAllText(Path.Combine(older, VoiceModel.MarkerFile), "{}");
+
+        var archive = Archive(GoodEntries);
+        var model = Model(archive, sha256: new string('0', 64));
+
+        var result = await new VoiceDownload(new HttpClient(new FakeServer(archive))).RunAsync(model, Voices, null, Ct);
+
+        Assert.Equal(VoiceDownloadOutcome.WrongFile, result.Outcome);
+        Assert.True(Directory.Exists(older));
+    }
+
+    [Fact]
+    public async Task AnOlderVoiceIsTakenAwayEvenWhenTheNewOneWasAlreadyThere()
+    {
+        // The sweep has to run on the turn that finds the voice already downloaded too: a client
+        // that was stopped between unpacking and tidying gets it done next time.
+        var archive = Archive(GoodEntries);
+        var model = Model(archive);
+        var server = new FakeServer(archive);
+        var download = new VoiceDownload(new HttpClient(server));
+
+        Assert.Equal(VoiceDownloadOutcome.Done, (await download.RunAsync(model, Voices, null, Ct)).Outcome);
+
+        var older = Path.Combine(Voices, "en_US-kristin-medium");
+        Directory.CreateDirectory(older);
+        File.WriteAllText(Path.Combine(older, VoiceModel.MarkerFile), "{}");
+
+        Assert.Equal(VoiceDownloadOutcome.AlreadyPresent, (await download.RunAsync(model, Voices, null, Ct)).Outcome);
+
+        Assert.False(Directory.Exists(older));
+        Assert.Single(server.Requests);
+    }
+
+    [Fact]
+    public async Task AnOlderVoiceIsWhatMakesTheCardSayItIsReplacing()
+    {
+        var archive = Archive(GoodEntries);
+        var model = Model(archive);
+
+        Directory.CreateDirectory(Voices);
+        Assert.False(model.AnotherIsPresent(Voices));
+
+        var older = Path.Combine(Voices, "en_US-kristin-medium");
+        Directory.CreateDirectory(older);
+        Assert.False(model.AnotherIsPresent(Voices));
+
+        // A folder only counts once it has a marker in it; a half-unpacked one is not a voice.
+        File.WriteAllText(Path.Combine(older, VoiceModel.MarkerFile), "{}");
+        Assert.True(model.AnotherIsPresent(Voices));
+
+        // The voice's own folder never counts as another one.
+        await new VoiceDownload(new HttpClient(new FakeServer(archive))).RunAsync(model, Voices, null, Ct);
+        Assert.False(model.AnotherIsPresent(Voices));
+    }
+
+    [Fact]
+    public void AVoicesFolderThatIsNotThereIsNotAnotherVoice()
+    {
+        Assert.False(VoiceModel.Default.AnotherIsPresent(Path.Combine(_directory, "nowhere")));
     }
 
     private sealed class FailingServer : HttpMessageHandler
