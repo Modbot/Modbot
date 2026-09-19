@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Modbot.Core.Data.Entities;
 
@@ -12,6 +12,10 @@ public sealed record ImportRejection(int Line, string Reason);
 /// <param name="SeenBy">
 /// The source records are filed under unless a record names its own (import design §5).
 /// </param>
+/// <param name="Dedup">
+/// Whether records Modbot already had from somewhere else were skipped. Never the re-upload
+/// check, which runs either way.
+/// </param>
 /// <param name="Status"><c>Queued</c>, <c>Running</c>, <c>Done</c> or <c>Failed</c>.</param>
 /// <param name="Received">Records read from the file so far, well-formed or not.</param>
 /// <param name="Imported">Facts written. For a dry run, facts that would have been.</param>
@@ -24,6 +28,7 @@ public sealed record ImportView(
     string Source,
     string? FileName,
     bool DryRun,
+    bool Dedup,
     [property: JsonConverter(typeof(JsonStringEnumConverter<FactSource>))] FactSource SeenBy,
     [property: JsonConverter(typeof(JsonStringEnumConverter<ImportStatus>))] ImportStatus Status,
     int Received,
@@ -59,6 +64,7 @@ public sealed record ImportView(
             import.Source,
             import.FileName,
             import.DryRun,
+            import.Dedup,
             import.SeenBy,
             import.Status,
             import.Received,

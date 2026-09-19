@@ -154,6 +154,7 @@ Starts an import. Two body shapes:
 | `source` | Required. 1–64 characters. The source label every record is filed under (§6). |
 | `seenBy` | Optional. The Modbot source every record carries unless the record sets its own (§5). `Manual` when nothing says otherwise; anything that is not a source name is `400`. |
 | `dryRun` | `true` to validate and count without writing anything (§4.3). |
+| `dedup` | `false` to write every record even when Modbot already has the event from somewhere else (§6.1). `true` when nothing says otherwise. It never turns off the re-upload check (§6), which always runs. |
 | `fileName` | Optional, shown in the list of past imports. |
 
 The body is capped at **64 MB**; over that is `413`. An empty body is `400`. The answer is the
@@ -166,7 +167,7 @@ One import, or the latest fifty, newest first:
 
 | Field | |
 |---|---|
-| `id`, `source`, `fileName`, `dryRun`, `seenBy` | As uploaded. |
+| `id`, `source`, `fileName`, `dryRun`, `dedup`, `seenBy` | As uploaded. |
 | `status` | `Queued`, `Running`, `Done` or `Failed`. |
 | `received` | Records read from the file so far, well-formed or not. |
 | `imported` | Facts written. For a dry run, facts that would be written. |
@@ -289,16 +290,24 @@ while it writes. There is deliberately no second mechanism: a range query on
 already means in Modbot, and an import that invented its own definition would be a second answer
 to a question that already has one.
 
-**The same event, for an import, is: the same person, the same fact type, at the same moment.**
-Exactly the same instant — the window is zero, where a client report's is five seconds.
+**The same event, for an import, is: the same person, the same fact type, at the same moment, in
+the same place where both sides know the place.**
 
-The window is zero because the two timestamps are different kinds of thing. A client's is an
-observation through a clock that may be off by a second or two, so a window is what makes two
-reports of one join meet. An imported time is a time **somebody wrote down**, copied from another
-system's record; there is no skew to absorb, and a window would do real harm. A spreadsheet that
-dates warnings only to the day gives three warnings the same midnight, and a five-second window
-would swallow the second and third of them. Losing history is a worse failure than keeping a
-duplicate row, and this is a path that runs unattended over somebody's only copy of their past.
+> Narrowed on 2026-09-19 — see
+> [Imports and facts Modbot already has](2026-09-19-import-duplicates-design.md). This section
+> originally required the world and the instance to be *equal*, and set the window to zero. An
+> imported record never carries a world or an instance, so the check could never fire for
+> anything that happened in one, and every kick in a file was written a second time. It now
+> compares the place only when both sides know it, over a window of **two seconds** — wide enough
+> for an export that writes whole seconds to meet a log that writes fractions, far below the
+> fifteen seconds it takes somebody to leave and come back.
+
+The window is not there to absorb clock skew, the way a client report's five seconds are. An
+imported time is a time **somebody wrote down**; what it absorbs is two systems writing one
+action down at different precisions. Losing history is still a worse failure than keeping a
+duplicate row — this is a path that runs unattended over somebody's only copy of their past —
+which is why the window stops at two seconds and why the guards below do the work of telling
+records in one file apart.
 
 A record that matches is **already known**: it is counted, no fact is written, and its
 `import_record` row is still written, pointing at the fact that already says it. So a re-upload
@@ -307,10 +316,11 @@ skips it outright by key (§6), and it is still traceable to the import that met
 Two guards make this safe against collapsing history:
 
 - **Events this same import wrote do not count.** The run remembers the events it has put in and
-  never treats one of them as something Modbot knew beforehand. Otherwise the three
-  same-midnight warnings above would collapse into one anyway — the first would be written and
-  the other two would match it. Duplicates *within* a file are §6's job, and §6 tells them apart
-  by `externalId` or by content.
+  never treats one of them as something Modbot knew beforehand. Otherwise three warnings a
+  spreadsheet dates only to the day would collapse into one — the first would be written and the
+  other two would match it. Duplicates *within* a file are §6's job, and §6 tells them apart
+  by `externalId` or by content. The run's own set asks its question over the same window as the
+  query, so the two never disagree.
 - **Nothing else is compared.** Not `data`, not the actor: a fact Modbot recorded itself and the
   old platform's row for the same event will not agree on either, and requiring them to agree
   would make the check never fire.
@@ -319,6 +329,11 @@ A dry run makes exactly the same check and writes nothing, so its counts are wha
 would do. The check is one query per record, which roughly doubles the database work of an
 import; imports are rare, run in the background one at a time, and this is the price of not
 duplicating somebody's history.
+
+An upload can turn this check off with `dedup=false` (§4.1) and have every record written,
+whatever Modbot already has. That switch is only about *this* check. The re-upload key (§6) runs
+either way, so a file uploaded twice still imports nothing the second time, and `dedup` is stored
+on the import row so a run can be read back and explained.
 
 It takes no lock, because writing nothing there is nothing to serialise, and because imports run
 one at a time (§8) there is no second import to race. A sync writing the same fact in the gap

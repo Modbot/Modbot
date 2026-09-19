@@ -222,6 +222,7 @@ The answer is the import, with its `id` and status `Queued`:
   "source": "old-bot",
   "fileName": "old-bot.json",
   "dryRun": true,
+  "dedup": true,
   "seenBy": "AuditLog",
   "status": "Queued",
   "received": 0, "imported": 0, "skipped": 0, "alreadyKnown": 0, "rejected": 0,
@@ -244,7 +245,7 @@ curl -H "Authorization: Bearer mbk_..." \
 Drop `dryRun=true` to import for real. `seenBy` sets the source for the whole file; see
 [Where a record came from](#where-a-record-came-from). For a one-record-per-line file send
 `Content-Type: application/x-ndjson`; the body is the file either way. A multipart form with a
-`file` part and `source`, `dryRun` and `fileName` fields is accepted too. The body is capped at
+`file` part and `source`, `dryRun`, `dedup` and `fileName` fields is accepted too. The body is capped at
 64 MB; split a larger export into several files.
 
 `GET /api/imports` lists the latest fifty. The full detail is in the
@@ -284,16 +285,21 @@ happened.
 Modbot skips them. Before writing a record it checks whether it already has that event, and counts
 the matches as **Already known**. Nothing is written and nothing is lost.
 
-An event counts as one Modbot already has when **the same thing happened to the same person at the
-same moment** — the same event type, the same subject, the same `at`, to the second. Nothing else
-is compared: your old bot's wording of a ban reason will never match VRChat's, and requiring them
-to match would mean nothing was ever recognised.
+An event counts as one Modbot already has when **the same thing happened to the same person at
+about the same moment** — the same event type, the same subject, and an `at` within two seconds
+either way. Nothing else is compared: your old bot's wording of a ban reason will never match
+VRChat's, and requiring them to match would mean nothing was ever recognised.
 
-Exactly the same moment, with no leeway either way, and that is deliberate. Records in a file carry
-times somebody wrote down, not times measured by a clock that might be a second out, so there is
-nothing to allow for — and allowing for it would do harm. A spreadsheet that dates warnings only by
-the day gives every warning that day the same midnight, and a few seconds of leeway would throw
-away all but the first.
+Two seconds, because two systems writing down one action rarely agree to the fraction of a second:
+an export usually keeps whole seconds and Modbot's own record keeps the fraction it saw. It is far
+less than the time it takes somebody to leave an instance and come back, so two things that really
+did both happen are never mistaken for one.
+
+Where the action happened is compared **only when both sides know it**. A record in a file never
+says which instance a kick was in — there is no field for it — while the kick Modbot read from
+VRChat's own audit log names one. Those are the same kick, and until this was fixed every kick in
+an import was written down twice, once with the instance and once without. Two instances that are
+both known and different are still two events.
 
 Two things this never does:
 
@@ -304,6 +310,19 @@ Two things this never does:
 - **It never merges two different kinds of event**, or two people, or two moments.
 
 A dry run makes the same check, so its **Already known** count is what a real import would skip.
+
+## Turning that check off
+
+Add `dedup=false` to the upload and every record is written, whatever Modbot already has. Use it
+when you have looked at what Modbot matched and decided you want your own records in beside its.
+
+This does **not** turn off [Uploading twice](#uploading-twice). The two are different questions:
+`dedup` is about records Modbot got from somewhere else, and the source-and-key rule is about
+records you have already imported. That rule always runs, so uploading the same file again still
+writes nothing, with `dedup=false` as much as without it.
+
+Every import remembers which way it ran: `dedup` comes back with the import, so you can see months
+later how a run was made.
 
 ## What an import does not do
 

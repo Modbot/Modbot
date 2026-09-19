@@ -139,21 +139,27 @@ public sealed class FactWriter : IFactWriter
     }
 
     /// <summary>
-    /// Identifies the logical event: the same person doing the same thing in the same instance.
+    /// Identifies the logical event: the same person having the same thing happen to them.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The timestamp is deliberately absent. Including it would put reports of one event under
     /// different locks, which is exactly the serialisation the lock exists to provide.
-    /// <see cref="ModbotEvent.WorldId"/> is part of the key because an instance id identifies a
-    /// session only within its world.
+    /// </para>
+    /// <para>
+    /// So are the world and the instance, and that is the point of them being absent. A lock has
+    /// to cover everything <see cref="FindRecordedAsync"/> can match, and since a report that
+    /// does not know where it happened now matches one that does (import design §6.1), two such
+    /// reports keyed on their instances would take two different locks and both pass the
+    /// check-then-insert. The cost is that one person having the same thing happen in two
+    /// instances at once queues, which is not a thing that happens.
+    /// </para>
     /// </remarks>
     private static string LockKey(FactRecord fact) => string.Join(
         KeySeparator,
         (short)fact.SubjectPlatform,
         fact.SubjectId,
-        fact.Type,
-        fact.WorldId ?? string.Empty,
-        fact.InstanceId ?? string.Empty);
+        fact.Type);
 
     public async Task<long?> AlreadyRecordedAsync(
         FactRecord fact,
@@ -168,6 +174,14 @@ public sealed class FactWriter : IFactWriter
     /// </param>
     private readonly record struct RecordedFact(long Id, DateTimeOffset OccurredAt, string? Data);
 
+    /// <remarks>
+    /// Where the event happened is compared only when both sides know it. A report that names an
+    /// instance and one that does not are the same kick of the same person at the same moment,
+    /// and calling them two events writes the kick down twice -- which is what an import did to
+    /// every in-instance action it met, because an imported record never carries an instance
+    /// (import design §6.1). Two *known* and different instances stay two events, because they
+    /// are two.
+    /// </remarks>
     private async Task<RecordedFact?> FindRecordedAsync(
         FactRecord fact,
         TimeSpan within,
@@ -176,18 +190,30 @@ public sealed class FactWriter : IFactWriter
         ArgumentNullException.ThrowIfNull(fact);
 
         var at = fact.OccurredAt.ToUniversalTime();
-        var from = at - within;
-        var to = at + within;
 
-        var match = await _db.Events
+        // Clamped rather than subtracted outright: a record dated to the year 1 is junk, but a
+        // window that ran off the end of the calendar would throw and take a whole import with it.
+        var from = within < at - DateTimeOffset.MinValue ? at - within : DateTimeOffset.MinValue;
+        var to = within < DateTimeOffset.MaxValue - at ? at + within : DateTimeOffset.MaxValue;
+
+        var candidates = _db.Events
             .AsNoTracking()
             .Where(e => e.SubjectPlatform == fact.SubjectPlatform
                      && e.SubjectId == fact.SubjectId
                      && e.Type == fact.Type
-                     && e.WorldId == fact.WorldId
-                     && e.InstanceId == fact.InstanceId
                      && e.OccurredAt >= from
-                     && e.OccurredAt <= to)
+                     && e.OccurredAt <= to);
+
+        // Built as separate clauses rather than one expression so that the query says nothing
+        // about a column neither side can speak for: when the arriving fact has no world, every
+        // world is a match, and there is no filter to write.
+        if (fact.WorldId is { } world)
+            candidates = candidates.Where(e => e.WorldId == null || e.WorldId == world);
+
+        if (fact.InstanceId is { } instance)
+            candidates = candidates.Where(e => e.InstanceId == null || e.InstanceId == instance);
+
+        var match = await candidates
             // Earliest wins: spec 5.7 says whichever report arrives first sets the window, and
             // ordering by time rather than id keeps that stable if ids are ever filled in later.
             .OrderBy(e => e.OccurredAt)
