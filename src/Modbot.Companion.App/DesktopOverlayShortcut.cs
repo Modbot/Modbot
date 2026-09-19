@@ -14,10 +14,11 @@ namespace Modbot.Companion.App;
 /// <c>RegisterHotKey</c> is a claim on exactly one combination: the client names the keys it wants,
 /// and Windows sends one message when those keys are pressed and says nothing whatever about any
 /// other key. There is no key list, no buffer and no callback that sees anything else. The
-/// alternative — a low-level keyboard hook — would see every keystroke on the machine in every
-/// program, which is the shape of a keylogger, and this client does not get one.
-/// <c>CompanionSourceGuardTests</c> already fails the build if <c>GetAsyncKeyState</c> appears
-/// anywhere the client ships, for the same reason.</para>
+/// alternative — a low-level keyboard hook, or polling every key's state — would see every
+/// keystroke on the machine in every program, which is the shape of a keylogger, and this client
+/// does not get one. <c>CompanionSourceGuardTests</c> fails the build if either appears anywhere
+/// the client ships, for the same reason; that guard reads this source as plain text, so naming
+/// the banned calls here would trip it.</para>
 /// <para><strong>Nothing leaves the machine.</strong> Nothing here reads a file, opens a socket or
 /// is told anything by a server. A press becomes one call on the client's own UI thread.</para>
 /// <para><strong>Why a thread of its own.</strong> A combination registered with no window sends

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -128,6 +129,17 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public static CompanionSettings Default { get; } = new(new Uri(DefaultPairingPage));
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    /// <summary>
+    /// How the file is written: indented, and without the escaping the default encoder applies to
+    /// characters that only matter inside a web page. A shortcut would otherwise be saved as
+    /// <c>mod+alt+m</c>, and this file is meant to be one a moderator can open and edit.
+    /// </summary>
+    private static readonly JsonSerializerOptions Written = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>The default location: <c>%APPDATA%\Modbot\settings.json</c>.</summary>
     public static string DefaultPath(string applicationData)
@@ -318,7 +330,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             if (Path.GetDirectoryName(path) is { Length: > 0 } directory)
                 Directory.CreateDirectory(directory);
 
-            File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+            File.WriteAllText(path, root.ToJsonString(Written), new UTF8Encoding(false));
             return true;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
