@@ -241,6 +241,9 @@ internal sealed class CompanionHost : IOverlayListener
     /// <summary>Whether the overlay's three timers already have their handlers; they are wired once.</summary>
     private bool _overlayLoopsWired;
 
+    /// <summary>The overlay's on/off switch; null until the client has read its settings.</summary>
+    private OverlaySwitch? _overlaySwitch;
+
     public MainWindow Window { get; } = new();
 
     public void Start(IClassicDesktopStyleApplicationLifetime desktop, string? startupMessage)
@@ -289,7 +292,11 @@ internal sealed class CompanionHost : IOverlayListener
                 _state.UnusablePairings.Add(pairing);
         }
 
-        StartOverlay();
+        // Off in settings means the panel is never built in the first place, and the switch on the
+        // SteamVR page brings it up or takes it down without a restart.
+        _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, _state.Settings.OverlayOn);
+        _overlaySwitch.StartIfOn();
+
         InstallTray(desktop);
         ListenForLinks();
         StartUpdateChecks();
@@ -763,12 +770,6 @@ internal sealed class CompanionHost : IOverlayListener
     /// </remarks>
     private void StartOverlay()
     {
-        if (_state?.Settings.OverlayOn is false)
-        {
-            Log.Information("The overlay is switched off in settings; no VR runtime will be looked for");
-            return;
-        }
-
         try
         {
             _overlayHost = OverlayHost.Create(placement: _state?.Settings.Overlay);
@@ -880,11 +881,7 @@ internal sealed class CompanionHost : IOverlayListener
         if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayOnField, on))
             Log.Warning("Could not save the overlay switch to {Path}", _settingsPath);
 
-        if (on)
-            StartOverlay();
-        else
-            StopOverlay();
-
+        _overlaySwitch?.Set(on);
         Render();
     }
 
