@@ -509,7 +509,7 @@ function Shell({
 function Booting() {
   return (
     <div
-      className="grid min-h-screen place-items-center bg-background text-muted-foreground"
+      className="grid min-h-dvh place-items-center bg-background text-muted-foreground"
       style={{ fontSize: 'var(--text-small)' }}
     >
       Loading…

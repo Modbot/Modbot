@@ -227,12 +227,14 @@
    right took the name away with it and left an anonymous row of dates. So the
    first column stays put, and the rest of the row moves under it.
 
+   Below `md` only: from there up the members table just fits the width the
+   page has, and a cap on the name column would cost more than it saved.
    Marked with `data-pin-first` on the box that scrolls, and only where the
    first column is what names the row -- pinning a chevron would cost a third
    of the screen and say nothing. The cell repeats the row's own background,
    because a see-through cell would show the row sliding underneath it.
    ─────────────────────────────────────────────────────────────────────────── */
-@media (max-width: 63.9375rem) {
+@media (max-width: 47.9375rem) {
   [data-pin-first] tr > :first-child {
     position: sticky;
     left: 0;
@@ -244,8 +246,10 @@
        itself the name column claims the whole screen and pins the very thing
        the moderator was scrolling past. Capped, it clips to an ellipsis the
        way a long name already does at any width, and the row still opens the
-       person, where the id is written out in full. */
-    max-width: 14rem;
+       person, where the id is written out in full. Never past half the screen
+       either, or the pinned column is the screen and there is nothing left to
+       scroll it against. */
+    max-width: min(14rem, 48vw);
   }
 
   [data-pin-first] tr:hover > :first-child {
