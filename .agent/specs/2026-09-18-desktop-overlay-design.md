@@ -224,8 +224,9 @@ acting on a person is done in Modbot's web interface, by a human, in a browser.
 
 Below the panel the window shows the **last few events** the client handled, drawn with
 `MainWindow`'s own `EventRow` — the same row the Events page draws, with the same time column, the
-same sentence and the same per-destination pills. That row builder changed from `private static` to
-`internal static` and nothing else.
+same sentence and the same pill. That row builder changed from `private static` to `internal static`
+and nothing else. (It drew one pill per destination until 2026-09-19; see the cloud backup stays out
+of the way design.)
 
 ### 4.1 What was decided against
 

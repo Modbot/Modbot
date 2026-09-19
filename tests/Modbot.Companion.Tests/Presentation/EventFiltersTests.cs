@@ -29,13 +29,15 @@ public class EventFiltersTests
         => new(At, summary, serverId, server, cloud, seen);
 
     private static readonly JournalRow RinJoined = Row("Rin joined your world");
-    private static readonly JournalRow RinLeft = Row("Rin left your world", cloud: JournalEntryKind.Waiting);
+    private static readonly JournalRow RinLeft = Row("Rin left your world", server: JournalEntryKind.Waiting, cloud: JournalEntryKind.Waiting);
     private static readonly JournalRow KaiAlready = Row("Kai was already in your world when you arrived", serverId: "dogs", server: JournalEntryKind.Withheld);
     private static readonly JournalRow SeenOnly = Row("Mira joined your world", serverId: null, server: null, cloud: JournalEntryKind.Sent, seen: true);
     private static readonly JournalRow Paused = Row("Paused", server: null, cloud: null);
-    private static readonly JournalRow CloudFailed = Row("Rin switched to the avatar “Fox”", server: JournalEntryKind.Sent, cloud: JournalEntryKind.Failed);
 
-    private static readonly IReadOnlyList<JournalRow> Rows = [RinJoined, RinLeft, KaiAlready, SeenOnly, Paused, CloudFailed];
+    /// <summary>The server took it and the backup then gave up on it, which the page does not show.</summary>
+    private static readonly JournalRow AvatarChanged = Row("Rin switched to the avatar “Fox”", server: JournalEntryKind.Sent, cloud: JournalEntryKind.Failed);
+
+    private static readonly IReadOnlyList<JournalRow> Rows = [RinJoined, RinLeft, KaiAlready, SeenOnly, Paused, AvatarChanged];
 
     private static EventFilterChip Chip(string property, EventFilterOperator @operator, params string[] values)
         => new(property, @operator, values);
@@ -73,15 +75,16 @@ public class EventFiltersTests
         => Assert.Equal(["note"], EventFilters.KindsOf(Paused));
 
     [Fact]
-    public void WhereARowWentAndHowFarItGot()
+    public void HowFarARowGot()
     {
-        Assert.Equal(["server", "cloud"], EventFilters.DestinationsOf(RinJoined));
-        Assert.Equal(["cloud"], EventFilters.DestinationsOf(SeenOnly));
-        Assert.Empty(EventFilters.DestinationsOf(Paused));
-
-        Assert.Equal(["sent", "waiting"], EventFilters.StatesOf(RinLeft));
+        // One word per row, from the paired server, and the backup only ever able to lift a
+        // waiting row to sent. There is no destination to filter on any more.
         Assert.Equal(["sent"], EventFilters.StatesOf(RinJoined));
-        Assert.Equal(["withheld", "sent"], EventFilters.StatesOf(KaiAlready));
+        Assert.Equal(["sent"], EventFilters.StatesOf(RinLeft));
+        Assert.Equal(["withheld"], EventFilters.StatesOf(KaiAlready));
+        Assert.Equal(["sent"], EventFilters.StatesOf(AvatarChanged));
+        Assert.Empty(EventFilters.StatesOf(SeenOnly));
+        Assert.Empty(EventFilters.StatesOf(Paused));
     }
 
     [Fact]
@@ -104,7 +107,7 @@ public class EventFiltersTests
 
     [Fact]
     public void IsNotIsTheSameListTurnedAround()
-        => Assert.Equal([KaiAlready, Paused, CloudFailed], Apply(Chip(EventFilters.Kind, EventFilterOperator.IsNot, "joined", "left")));
+        => Assert.Equal([KaiAlready, Paused, AvatarChanged], Apply(Chip(EventFilters.Kind, EventFilterOperator.IsNot, "joined", "left")));
 
     [Fact]
     public void KindIsSeenShowsOnlyRowsThatWentToNoServer()
@@ -120,14 +123,19 @@ public class EventFiltersTests
             Chip(EventFilters.Kind, EventFilterOperator.Is, "joined", "left", "changed avatar"),
             Chip(EventFilters.State, EventFilterOperator.Is, "failed", "waiting"));
 
-        Assert.Equal([RinLeft, CloudFailed], shown);
+        // The avatar change is not in it. The backup gave up on that one, and the page does not
+        // call an event failed because a copy of it did not arrive somewhere.
+        Assert.Equal([RinLeft], shown);
     }
 
     [Fact]
-    public void DestinationFindsWhereARowWent()
+    public void ThereIsNoFilterForWhereAnEventWent()
     {
-        Assert.Equal([RinJoined, RinLeft, KaiAlready, CloudFailed], Apply(Chip(EventFilters.Destination, EventFilterOperator.Is, "server")));
-        Assert.Equal([SeenOnly, Paused], Apply(Chip(EventFilters.Destination, EventFilterOperator.IsNot, "server")));
+        // The Destination chip is gone, and so is the only place on any screen that named the
+        // backup. A remembered chip from an older version is dropped rather than drawn.
+        Assert.DoesNotContain("destination", EventFilters.Properties.Select(p => p.Id), StringComparer.Ordinal);
+        Assert.False(EventFilters.Knows("destination"));
+        Assert.Equal(["kind:is:joined"], EventFilterSet.Parse(["destination:is:cloud", "kind:is:joined"]).Encode());
     }
 
     [Fact]
@@ -137,8 +145,8 @@ public class EventFiltersTests
     [Fact]
     public void TextIsAWordAnywhereInTheSentenceWhateverItsCase()
     {
-        Assert.Equal([RinJoined, RinLeft, CloudFailed], Apply(Chip(EventFilters.Text, EventFilterOperator.Contains, "rin")));
-        Assert.Equal([CloudFailed], Apply(Chip(EventFilters.Text, EventFilterOperator.Contains, "FOX")));
+        Assert.Equal([RinJoined, RinLeft, AvatarChanged], Apply(Chip(EventFilters.Text, EventFilterOperator.Contains, "rin")));
+        Assert.Equal([AvatarChanged], Apply(Chip(EventFilters.Text, EventFilterOperator.Contains, "FOX")));
     }
 
     [Fact]
@@ -159,12 +167,15 @@ public class EventFiltersTests
     }
 
     [Fact]
-    public void DestinationOptionsAreNamedTheWayTheRowsAre()
+    public void StateOptionsAreTheFourWordsARowCanSay()
     {
-        var options = EventFilters.Options(EventFilters.Destination, Rows, Groups);
+        var options = EventFilters.Options(EventFilters.State, Rows, Groups);
 
-        Assert.Equal(["Server", SentJournal.CloudName], options.Select(o => o.Label));
-        Assert.Equal([4, 5], options.Select(o => o.Count));
+        Assert.Equal(EventFilters.States, options.Select(o => o.Value));
+        Assert.Equal(2, options.Single(o => o.Value == "sent").Count);
+        Assert.Equal(1, options.Single(o => o.Value == "waiting").Count);
+        Assert.Equal(1, options.Single(o => o.Value == "withheld").Count);
+        Assert.Equal(0, options.Single(o => o.Value == "failed").Count);
     }
 
     [Fact]
@@ -272,7 +283,7 @@ public class EventFiltersTests
     // ── The opened row ────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void TheDetailListsEveryFieldTheRowHolds()
+    public void TheDetailListsEveryFieldTheRowShows()
     {
         var fields = EventRowDetail.Fields(RinLeft, Groups).ToDictionary(f => f.Label, f => f.Value);
 
@@ -280,23 +291,81 @@ public class EventFiltersTests
         Assert.Equal("left", fields["Kind"]);
         Assert.Equal("Cat Café", fields["Group"]);
         Assert.Equal("cats", fields["Server"]);
-        Assert.Equal("sent", fields["Server state"]);
-        Assert.Equal("waiting", fields[SentJournal.CloudName]);
+        Assert.Equal("waiting", fields["State"]);
         Assert.Equal("no", fields["Seen only"]);
         Assert.Equal("no", fields["Note"]);
         Assert.Equal("2026-09-16 20:00:00 UTC", fields["Server time"]);
     }
 
     [Fact]
-    public void TheJsonIsTheRowAsTheWindowReceivedIt()
+    public void ARowNoPairedServerWasGivenHasNoStateToShow()
+        => Assert.Equal("—", EventRowDetail.Fields(SeenOnly, Groups).Single(f => f.Label == "State").Value);
+
+    [Fact]
+    public void TheJsonIsTheRowAsThePageHasIt()
     {
         var json = JsonDocument.Parse(EventRowDetail.ToJson(RinLeft)).RootElement;
 
         Assert.Equal("Rin left your world", json.GetProperty("summary").GetString());
         Assert.Equal("cats", json.GetProperty("serverId").GetString());
-        Assert.Equal("Sent", json.GetProperty("serverState").GetString());
-        Assert.Equal("Waiting", json.GetProperty("cloudState").GetString());
+        Assert.Equal("waiting", json.GetProperty("state").GetString());
         Assert.False(json.GetProperty("seen").GetBoolean());
         Assert.False(json.GetProperty("isNote").GetBoolean());
+    }
+
+    // ── Nothing on the page names the backup ──────────────────────────────────────────────────
+
+    [Fact]
+    public void NothingTheEventsPagePutsOnScreenNamesTheBackup()
+    {
+        // Written over what the page produces rather than over the source, so it stays true however
+        // the code is rearranged and does not go off on an honest comment. Every chip name, every
+        // value the picker offers, every field under an opened row and the JSON box beside them,
+        // over rows the backup has been every kind of busy with.
+        var words = new List<string>();
+
+        foreach (var property in EventFilters.Properties)
+        {
+            words.Add(property.Id);
+            words.Add(property.Label);
+
+            foreach (var option in EventFilters.Options(property.Id, Rows, Groups))
+            {
+                words.Add(option.Value);
+                words.Add(option.Label);
+            }
+        }
+
+        foreach (var row in Rows)
+        {
+            foreach (var (label, value) in EventRowDetail.Fields(row, Groups))
+            {
+                words.Add(label);
+                words.Add(value);
+            }
+
+            words.Add(EventRowDetail.ToJson(row));
+            words.AddRange(EventFilters.KindsOf(row));
+            words.AddRange(EventFilters.StatesOf(row));
+        }
+
+        Assert.DoesNotContain(words, w => w.Contains("cloud", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(words, w => w.Contains("backup", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void TheWordsTheStateFilterOffersAreTheWordsARowCanSay()
+    {
+        // The picker lists these four whether or not any row is in that state, so they have to be
+        // the whole of what JournalRow.State can produce, lower-cased the same way.
+        var possible = new[]
+        {
+            JournalEntryKind.Sent,
+            JournalEntryKind.Waiting,
+            JournalEntryKind.Withheld,
+            JournalEntryKind.Failed,
+        };
+
+        Assert.Equal(EventFilters.States.Order(), possible.Select(k => k.ToString().ToLowerInvariant()).Order());
     }
 }

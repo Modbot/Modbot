@@ -17,7 +17,7 @@ public enum EventFilterOperator
 }
 
 /// <summary>A property the Events list can be filtered on.</summary>
-/// <param name="Id">The word written into settings: <c>kind</c>, <c>destination</c>, <c>state</c>, <c>group</c>, <c>text</c>.</param>
+/// <param name="Id">The word written into settings: <c>kind</c>, <c>state</c>, <c>group</c>, <c>text</c>.</param>
 /// <param name="Label">The word on the chip.</param>
 /// <param name="IsText">Typed rather than picked from a list.</param>
 public sealed record EventFilterProperty(string Id, string Label, bool IsText)
@@ -175,7 +175,16 @@ public sealed class EventFilterSet : IEquatable<EventFilterSet>
     /// <summary>The chips as the lines written to settings.</summary>
     public IReadOnlyList<string> Encode() => [.. Chips.Select(c => c.Encode())];
 
-    /// <summary>Reads chips back, skipping lines that are not chips and later chips on a property already seen.</summary>
+    /// <summary>
+    /// Reads chips back, skipping lines that are not chips, chips on a property this version has
+    /// no filter for, and later chips on a property already seen.
+    /// </summary>
+    /// <remarks>
+    /// A property that has gone away — <c>destination</c> did, when the Events page stopped saying
+    /// which places an event went to — leaves a line in somebody's <c>settings.json</c>. Dropping
+    /// it here means the page opens with one filter fewer rather than falling over on a chip it can
+    /// no longer draw.
+    /// </remarks>
     public static EventFilterSet Parse(IEnumerable<string?>? lines)
     {
         if (lines is null)
@@ -184,8 +193,12 @@ public sealed class EventFilterSet : IEquatable<EventFilterSet>
         var chips = new List<EventFilterChip>();
         foreach (var line in lines)
         {
-            if (EventFilterChip.Decode(line) is { } chip && chips.All(c => c.Property != chip.Property))
+            if (EventFilterChip.Decode(line) is { } chip
+                && EventFilters.Knows(chip.Property)
+                && chips.All(c => c.Property != chip.Property))
+            {
                 chips.Add(chip);
+            }
         }
 
         return new EventFilterSet(chips);
@@ -218,15 +231,17 @@ public sealed class EventFilterSet : IEquatable<EventFilterSet>
 /// one. Done on the rows the window already holds, so nothing is read for it.
 /// </summary>
 /// <remarks>
-/// A row's kind is read from its sentence, because the journal writes the sentence and not the
-/// kind, and the sentence is the one thing every line carries. <c>SentJournal.Sentence</c> is the
-/// only place those words are written, and the test suite holds the two in step.
+/// <para>A row's kind is read from its sentence, because the journal writes the sentence and not
+/// the kind, and the sentence is the one thing every line carries. <c>SentJournal.Sentence</c> is
+/// the only place those words are written, and the test suite holds the two in step.</para>
+/// <para>There is no filter for where an event went. There was one until 2026-09-19, and it named
+/// the hidden backup as one of its two values, which is the one thing the backup must never do on
+/// a screen. A row now has a single state — <see cref="JournalRow.State"/> — and the Group chip is
+/// what answers "which of my groups is this about".</para>
 /// </remarks>
 public static class EventFilters
 {
     public const string Kind = "kind";
-
-    public const string Destination = "destination";
 
     public const string State = "state";
 
@@ -234,19 +249,17 @@ public static class EventFilters
 
     public const string Text = "text";
 
-    /// <summary>What a row went to, as the destination values.</summary>
-    public const string ServerValue = "server";
-
-    public const string CloudValue = "cloud";
-
     public static IReadOnlyList<EventFilterProperty> Properties { get; } =
     [
         new(Kind, "Kind", false),
-        new(Destination, "Destination", false),
         new(State, "State", false),
         new(Group, "Group", false),
         new(Text, "Text", true),
     ];
+
+    /// <summary>Whether this version has a filter for that property.</summary>
+    public static bool Knows(string property)
+        => Properties.Any(p => string.Equals(p.Id, property, StringComparison.Ordinal));
 
     /// <summary>The kinds a row can be, in the order the picker lists them.</summary>
     public static IReadOnlyList<string> Kinds { get; } =
@@ -289,36 +302,14 @@ public static class EventFilters
         return kinds;
     }
 
-    /// <summary>Where a row went: the server, Modbot Cloud, both or neither.</summary>
-    public static IReadOnlyList<string> DestinationsOf(JournalRow row)
-    {
-        ArgumentNullException.ThrowIfNull(row);
-
-        var places = new List<string>(2);
-        if (row.ServerState is not null)
-            places.Add(ServerValue);
-        if (row.CloudState is not null)
-            places.Add(CloudValue);
-        return places;
-    }
-
-    /// <summary>How far a row got, at whichever places it went.</summary>
+    /// <summary>How far a row got: the one word the page shows for it, or nothing.</summary>
     public static IReadOnlyList<string> StatesOf(JournalRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
 
-        var states = new List<string>(2);
-        foreach (var state in new[] { row.ServerState, row.CloudState })
-        {
-            if (state is { } known && known is not JournalEntryKind.Note && known is not JournalEntryKind.Seen)
-            {
-                var word = known.ToString().ToLowerInvariant();
-                if (!states.Contains(word))
-                    states.Add(word);
-            }
-        }
-
-        return states;
+        return row.State is { } state and not (JournalEntryKind.Note or JournalEntryKind.Seen)
+            ? [state.ToString().ToLowerInvariant()]
+            : [];
     }
 
     /// <summary>The group a row's server manages, or its server id until the group is known, or null.</summary>
@@ -390,28 +381,18 @@ public static class EventFilters
         IEnumerable<string> order = property switch
         {
             Kind => Kinds,
-            Destination => [ServerValue, CloudValue],
             State => States,
             Group => counts.Keys.Order(StringComparer.OrdinalIgnoreCase),
             _ => [],
         };
 
-        return [.. order.Select(v => new EventFilterOption(v, LabelOf(property, v), counts.GetValueOrDefault(v)))];
+        return [.. order.Select(v => new EventFilterOption(v, v, counts.GetValueOrDefault(v)))];
     }
-
-    /// <summary>The value as the chip and the picker show it.</summary>
-    public static string LabelOf(string property, string value) => property switch
-    {
-        Destination when value == ServerValue => "Server",
-        Destination when value == CloudValue => SentJournal.CloudName,
-        _ => value,
-    };
 
     private static IReadOnlyList<string> ValuesOf(JournalRow row, string property, IReadOnlyDictionary<string, string> groups)
         => property switch
         {
             Kind => KindsOf(row),
-            Destination => DestinationsOf(row),
             State => StatesOf(row),
             Group => GroupOf(row, groups) is { } group ? [group] : [],
             _ => [],

@@ -246,6 +246,15 @@ It does not send raw log lines, chat, the friends list, avatar ids, instance sec
 machine names or anything about the PC itself. An install is a random id; we do not store the address
 it registered from.
 
+**The client's window does not mention this backup, which is why it is written down here.** Its
+Events page shows what the client observed and how each event's own group's server took it; it does
+not name the backup, show how the backup is getting on, or let anyone filter by it, and a backup
+that cannot reach us raises no warning. Two consequences worth stating plainly: **pausing a paired
+server does not stop the backup** — pausing stops reporting to that server, and this is a separate
+flow — and a moderator who wants to see what the backup did has to look outside the window, in the
+client's own log file and in `%APPDATA%\Modbot\sent.jsonl`, which records every line it wrote.
+Turning it off is below, and it is the only thing that stops it.
+
 **It does not send a recording of anyone's screen, ever.** Since 19 September 2026 the client *can*
 record: if the person using that PC switches **Clips** on in its settings, it keeps the last two to
 five minutes of **VRChat's own window** while VRChat is running, so they can save those minutes as a

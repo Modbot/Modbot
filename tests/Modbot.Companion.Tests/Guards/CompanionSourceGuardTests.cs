@@ -583,9 +583,6 @@ public class CompanionSourceGuardTests
     {
         // Where the event backup goes, and whether it is sent, is set in settings.json or the
         // environment on this PC (cloud event backup spec 3.1) -- never a control in the window.
-        // The Events page is allowed to say that Modbot Cloud is one of the places an event went
-        // (spec: "show every event the client handled"), so the guard looks for a toggle bound to
-        // it rather than for the word itself.
         var window = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "Modbot.Companion.App", "MainWindow.cs"));
 
         var toggles = window.Split('\n')
@@ -594,6 +591,68 @@ public class CompanionSourceGuardTests
                 || line.Contains("ToggleButton", StringComparison.Ordinal));
 
         Assert.DoesNotContain(toggles, line => line.Contains("Cloud", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>The two files allowed to know the backup has a name of its own.</summary>
+    /// <remarks>
+    /// One declares it and one writes it into the journal file. Nothing else needs it, because
+    /// nothing else is allowed to put it in front of a moderator.
+    /// </remarks>
+    private static readonly string[] MayNameTheBackup = ["CloudEventBackup.cs", "SentJournal.cs"];
+
+    [Fact]
+    public void NothingTheWindowDrawsCanNameTheBackupOrReadItsState()
+    {
+        // The Events page used to name Modbot Cloud on every row, with its own sent/waiting pill
+        // and its own value on the Destination filter. That was the earlier decision: the page
+        // showed every place an event went, on the reasoning that a moderator being asked to trust
+        // a background program is owed the whole picture. It is narrowed here, on 2026-09-19 at the
+        // maintainer's request: the backup is not announced, not shown and not filterable, and a
+        // moderator who wants to know it exists reads the privacy policy, which describes it, what
+        // it sends and how to turn it off.
+        //
+        // The narrowing is worth nothing unless it holds, and "did anybody put it back" is not a
+        // question a reviewer should have to ask every time. So the window cannot see the backup at
+        // all: not its name, not its per-row state, not the destination it is written under. What
+        // the screen shows is JournalRow.State, one word per event.
+        var offenders = SourcesUnder("Modbot.Companion.App")
+            .Where(f => Regex.IsMatch(
+                File.ReadAllText(f),
+                @"\bCloudName\b|\bCloudState\b|\bJournalDestination\s*\.\s*Cloud\b"))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "The window must not name the backup or read its state; found it in "
+            + string.Join(", ", offenders));
+
+        // And in the engine, its name belongs to the backup itself and to the file it is written
+        // into -- never to anything that builds a screen.
+        var naming = ClientSources()
+            .Where(f => File.ReadAllText(f).Contains("CloudName", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal(MayNameTheBackup, naming);
+    }
+
+    [Fact]
+    public void TheBackupStillWritesItsOwnLinesToTheJournalFile()
+    {
+        // The other half of the same decision, and the reason it is honest rather than a cover-up:
+        // hiding the backup from the screen does not hide it from the record. Every line it wrote
+        // is still appended to sent.jsonl under the moderator's own profile, still says what it
+        // sent and where, and the client's log still carries what the backup did -- which is what
+        // makes the privacy policy's account of it checkable by anybody who cares to look.
+        var backup = File.ReadAllText(
+            ClientSources().Single(f => Path.GetFileName(f) == "CloudEventBackup.cs"));
+
+        Assert.Contains("_journal.RecordSent(SentJournal.CloudName", backup, StringComparison.Ordinal);
+        Assert.Contains("_journal.RecordFailed(SentJournal.CloudName", backup, StringComparison.Ordinal);
+        Assert.Matches(@"RecordQueued\(\s*SentJournal\.CloudName,\s*JournalDestination\.Cloud", backup);
     }
 
     [Fact]
