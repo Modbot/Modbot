@@ -85,6 +85,10 @@ ever offered newer previews and nobody on a release is ever offered a preview.
    it.
 3. **Actions → Client release → Run workflow**. Pick the branch, type the version, run it. A
    version with no `-preview.N` is refused here: a general release comes from a tag.
+
+   GitHub only shows **Run workflow** once the workflow file is on the default branch, so this
+   workflow has to have reached `master` at least once. The branch you then pick can be any
+   branch.
 4. Watch both jobs, as above. The run makes the tag `companion-v2026.9.2-preview.1` itself, on the
    commit it built.
 5. The release appears marked **Pre-release**, so the releases page keeps its "Latest" badge on the
