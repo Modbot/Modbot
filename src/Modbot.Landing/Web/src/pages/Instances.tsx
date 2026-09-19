@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { buttonVariants } from '@/components/ui/button'
-import { SiteFooter, SiteHeader } from '@/components/Site'
+import { Page } from '@/components/Site'
 import { type Group, type Instance, openFor, order, regionName } from '@/lib/instances'
 import { cn } from '@/lib/utils'
 
@@ -14,7 +14,7 @@ type State = { status: 'loading' } | { status: 'ready'; groups: Group[] } | { st
  * Modbot that reported the instance never sent one.
  */
 
-export default function InstancesPage({ privacy = false }: { privacy?: boolean }) {
+export function Instances({ privacy = false }: { privacy?: boolean }) {
   const [state, setState] = useState<State>({ status: 'loading' })
   const [now, setNow] = useState(() => Date.now())
 
@@ -47,31 +47,27 @@ export default function InstancesPage({ privacy = false }: { privacy?: boolean }
   }, [])
 
   return (
-    <>
-      <SiteHeader />
-      <main id="main" tabIndex={-1} className="outline-none">
-        <div className="mx-auto max-w-6xl px-4 pt-10 pb-20 sm:px-6 sm:pt-14 md:pt-16">
-          <h1 className="display text-[2.5rem] leading-[1.02] sm:text-[3.5rem]">Open instances</h1>
+    <Page page="instances" privacy={privacy}>
+      <div className="mx-auto max-w-6xl px-4 pt-10 pb-20 sm:px-6 sm:pt-14 md:pt-16">
+        <h1 className="display text-[2.5rem] leading-[1.02] sm:text-[3.5rem]">Open instances.</h1>
 
-          <div className="mt-10">
-            {state.status === 'loading' ? (
-              <p className="text-muted-foreground">Loading…</p>
-            ) : state.status === 'failed' ? (
-              <p className="text-muted-foreground">Could not load the instances.</p>
-            ) : state.groups.length === 0 ? (
-              <p className="text-muted-foreground">No groups listed</p>
-            ) : (
-              <ul className="grid gap-5 lg:grid-cols-2">
-                {state.groups.map((group) => (
-                  <GroupCard key={group.groupId} group={group} now={now} />
-                ))}
-              </ul>
-            )}
-          </div>
+        <div className="mt-10">
+          {state.status === 'loading' ? (
+            <p className="text-muted-foreground">Loading</p>
+          ) : state.status === 'failed' ? (
+            <p className="text-muted-foreground">Could not load the instances.</p>
+          ) : state.groups.length === 0 ? (
+            <p className="text-muted-foreground">No groups listed</p>
+          ) : (
+            <ul className="grid gap-5 lg:grid-cols-2">
+              {state.groups.map((group) => (
+                <GroupCard key={group.groupId} group={group} now={now} />
+              ))}
+            </ul>
+          )}
         </div>
-      </main>
-      <SiteFooter privacy={privacy} />
-    </>
+      </div>
+    </Page>
   )
 }
 

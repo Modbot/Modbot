@@ -22,7 +22,7 @@
     <meta property="og:image" content="https://modbot.co/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Modbot: self-hosted moderation for VRChat groups. Ban case files, live instances, a Discord bot and a SteamVR overlay, on your own server." />
+    <meta property="og:image:alt" content="Modbot: the open moderation and analytics engine for VRChat and Discord." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Open instances · Modbot" />
     <meta name="twitter:description" content="Groups using Modbot, and the instances they have open to everyone right now." />
@@ -31,9 +31,11 @@
     <!-- Before first paint, so a dark-mode visitor never sees a white flash. The server allows this
          script by its hash (Features/Pages/BuiltPages.cs); the key matches src/lib/theme.ts. -->
     <script>try{var t=localStorage.getItem('modbot-theme');if(t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark')}</script>
+
+    <link rel="stylesheet" href="/src/index.css" />
   </head>
   <body>
     <div id="root"><!--app--></div>
-    <script type="module" src="/src/instances-main.tsx"></script>
+    <script type="module" src="/src/entries/instances.tsx"></script>
   </body>
 </html>

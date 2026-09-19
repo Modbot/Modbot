@@ -2,7 +2,7 @@
   "modbot": {
     "name": "Modbot",
     "licence": "AGPL-3.0",
-    "url": "https://github.com/binn/Modbot"
+    "url": "https://github.com/Modbot/Modbot"
   },
   "services": [
     {

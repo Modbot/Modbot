@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Landing.Configuration;
 using Modbot.Landing.Features.Instances;
+using Modbot.Landing.Features.Pages;
 
 namespace Modbot.Landing.Tests;
 
@@ -41,6 +42,20 @@ public sealed class LandingTestHost : IAsyncDisposable
 
     public static readonly DateTimeOffset Start = new(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
 
+    /// <summary>The pages beside the landing page, and the body each one is written with.</summary>
+    public static readonly (string Path, string File, string Html)[] OtherPages =
+    [
+        ("/features", BuiltPages.FeaturesFile, Body("Features", "Every instance, as it happens")),
+        ("/self-host", BuiltPages.SelfHostFile, Body("Self-host", "One container and one database")),
+        ("/about", BuiltPages.AboutFile, Body("About", "Who builds Modbot")),
+        ("/license", BuiltPages.LicenseFile, Body("License", "GNU Affero General Public License")),
+    ];
+
+    public static readonly string NoDiscordHtml = Body("Discord", "No Discord invite yet");
+
+    private static string Body(string title, string text) =>
+        $"<!doctype html><html><head><title>{title}</title></head><body><main>{text}</main></body></html>";
+
     private readonly WebApplication _app;
     private readonly HttpClient _client;
     private readonly DirectoryInfo _webRoot;
@@ -70,8 +85,15 @@ public sealed class LandingTestHost : IAsyncDisposable
     /// <param name="privacy">True adds the privacy page, as a build does once PRIVACY_POLICY.md exists.</param>
     /// <param name="cloud">False leaves MODBOT_CLOUD_PROXY_URL and MODBOT_CLOUD_API_KEY unset.</param>
     /// <param name="myUrl">MODBOT_MY_URL. Null leaves the project's own selector in the page.</param>
+    /// <param name="discord">MODBOT_DISCORD_URL. Null leaves /discord showing its own page.</param>
+    /// <param name="github">MODBOT_GITHUB_URL. Null leaves the project's own repository.</param>
     public static async Task<LandingTestHost> StartAsync(
-        bool built = true, bool privacy = false, bool cloud = true, string? myUrl = null)
+        bool built = true,
+        bool privacy = false,
+        bool cloud = true,
+        string? myUrl = null,
+        string? discord = null,
+        string? github = null)
     {
         var webRoot = Directory.CreateTempSubdirectory("modbot-landing-tests-");
 
@@ -83,6 +105,12 @@ public sealed class LandingTestHost : IAsyncDisposable
             await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "index.html"), LandingHtml, Ct);
             await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "404.html"), NotFoundHtml, Ct);
             await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "instances.html"), InstancesHtml, Ct);
+
+            foreach (var (_, file, html) in OtherPages)
+                await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, file), html, Ct);
+
+            await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, BuiltPages.NoDiscordFile), NoDiscordHtml, Ct);
+
             await File.WriteAllTextAsync(
                 Path.Combine(webRoot.FullName, "favicon.svg"),
                 "<svg xmlns=\"http://www.w3.org/2000/svg\"/>",
@@ -111,7 +139,9 @@ public sealed class LandingTestHost : IAsyncDisposable
             LandingEnvironment.DefaultPort,
             cloud ? new Uri(CloudUrl) : null,
             cloud ? CloudApiKey : null,
-            myUrl ?? LandingEnvironment.DefaultMyUrl);
+            myUrl ?? LandingEnvironment.DefaultMyUrl,
+            discord,
+            github ?? LandingEnvironment.DefaultGithubUrl);
 
         LandingApp.AddServices(builder.Services, environment);
 

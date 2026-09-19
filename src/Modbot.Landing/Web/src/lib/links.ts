@@ -1,12 +1,19 @@
 /**
- * Where the page sends people.
+ * Where the pages send people.
  *
- * The source repository is not linked: it is private for now, and a link to a 404 is worse than no
- * link. Add it here, and to the footer, when it goes public.
+ * `/discord` and `/github` are this site's own addresses. The server sends them on to whatever
+ * `MODBOT_DISCORD_URL` and `MODBOT_GITHUB_URL` hold, so the pages are built once and the addresses
+ * can change without building them again. `/discord` answers with the not-found page while no
+ * address is set.
  */
 export const OPEN_MY_SERVER = 'https://my.modbot.co/go'
 export const MY_MODBOT = 'https://my.modbot.co'
 export const SITE = 'https://modbot.co'
+export const DISCORD = '/discord'
+export const GITHUB = '/github'
+
+/** The founder's own site, behind his name in the footer. */
+export const FOUNDER = 'https://bin.moe'
 
 /**
  * The documentation site. Its address is not final; this is the one place to change it. "Host your
@@ -14,3 +21,16 @@ export const SITE = 'https://modbot.co'
  */
 export const DOCS = 'https://docs.modbot.co'
 export const SELF_HOSTING_GUIDE = `${DOCS}/self-hosting/`
+
+/** The pages of this site, in the order the header lists them. */
+export const PAGES = {
+  home: '/',
+  features: '/features',
+  instances: '/instances',
+  selfHost: '/self-host',
+  about: '/about',
+  license: '/license',
+  privacy: '/privacy',
+} as const
+
+export type PageName = keyof typeof PAGES

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Self-host · Modbot</title>
+    <meta name="description" content="Run Modbot on your own server. One container, one database, one setting." />
+    <link rel="canonical" href="https://modbot.co/self-host" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#f7f6fb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f0e15" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Modbot" />
+    <meta property="og:url" content="https://modbot.co/self-host" />
+    <meta property="og:title" content="Self-host Modbot" />
+    <meta property="og:description" content="Run Modbot on your own server. One container, one database, one setting." />
+    <meta property="og:image" content="https://modbot.co/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Modbot: the open moderation and analytics engine for VRChat and Discord." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Self-host Modbot" />
+    <meta name="twitter:description" content="Run Modbot on your own server. One container, one database, one setting." />
+    <meta name="twitter:image" content="https://modbot.co/og.png" />
+
+    <!-- Before first paint, so a dark-mode visitor never sees a white flash. The server allows this
+         script by its hash (Features/Pages/BuiltPages.cs); the key matches src/lib/theme.ts. -->
+    <script>try{var t=localStorage.getItem('modbot-theme');if(t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark')}</script>
+
+    <link rel="stylesheet" href="/src/index.css" />
+  </head>
+  <body>
+    <div id="root"><!--app--></div>
+    <script type="module" src="/src/entries/static.ts"></script>
+  </body>
+</html>

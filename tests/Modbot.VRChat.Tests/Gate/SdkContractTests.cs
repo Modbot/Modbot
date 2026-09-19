@@ -158,7 +158,7 @@ public class SdkContractTests
             client.Configuration.UserAgent,
             StringComparison.Ordinal);
         Assert.Equal("me@bin.moe", client.Configuration.DefaultHeaders["X-Modbot-Developer-Contact-Email"]);
-        Assert.Equal("https://github.com/binn/Modbot", client.Configuration.DefaultHeaders["X-Modbot-Developer-Contact-URL"]);
+        Assert.Equal("https://github.com/Modbot/Modbot", client.Configuration.DefaultHeaders["X-Modbot-Developer-Contact-URL"]);
         Assert.DoesNotContain("X-Modbot-Contact-Email", client.Configuration.DefaultHeaders.Keys);
     }
 

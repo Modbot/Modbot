@@ -1,7 +1,7 @@
 {
   "name": "Modbot",
   "short_name": "Modbot",
-  "description": "Self-hosted moderation for VRChat groups.",
+  "description": "Open moderation and analytics for VRChat groups and Discord servers.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f6fb",

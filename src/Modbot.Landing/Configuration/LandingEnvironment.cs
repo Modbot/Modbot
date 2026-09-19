@@ -14,13 +14,28 @@ namespace Modbot.Landing.Configuration;
 /// selector is rewritten to it as the page is served, so a group running its own points them all
 /// somewhere else with one variable.
 /// </param>
-public sealed record LandingEnvironment(int Port, Uri? CloudUrl, string? CloudApiKey, string MyUrl)
+/// <param name="DiscordUrl">
+/// Where <c>/discord</c> sends people. Null when it is unset or not an http address, and then
+/// <c>/discord</c> answers with the page that says there is no invite yet.
+/// </param>
+/// <param name="GithubUrl">Where <c>/github</c> sends people. Falls back to the project's own repository.</param>
+public sealed record LandingEnvironment(
+    int Port,
+    Uri? CloudUrl,
+    string? CloudApiKey,
+    string MyUrl,
+    string? DiscordUrl,
+    string? GithubUrl)
 {
     public const string PortVariable = "PORT";
     public const string CloudUrlVariable = "MODBOT_CLOUD_PROXY_URL";
     public const string CloudApiKeyVariable = "MODBOT_CLOUD_API_KEY";
     public const string MyUrlVariable = "MODBOT_MY_URL";
+    public const string DiscordVariable = "MODBOT_DISCORD_URL";
+    public const string GithubVariable = "MODBOT_GITHUB_URL";
+
     public const int DefaultPort = 8080;
+    public const string DefaultGithubUrl = "https://github.com/Modbot/Modbot";
 
     /// <summary>The address the page is built with, and what a missing or unusable value means.</summary>
     public const string DefaultMyUrl = "https://my.modbot.co";
@@ -49,11 +64,17 @@ public sealed record LandingEnvironment(int Port, Uri? CloudUrl, string? CloudAp
             port,
             cloud,
             string.IsNullOrWhiteSpace(key) ? null : key.Trim(),
-            MyAddress(get(MyUrlVariable)) ?? DefaultMyUrl);
+            Address(get(MyUrlVariable)) ?? DefaultMyUrl,
+            Address(get(DiscordVariable)),
+            Address(get(GithubVariable)) ?? DefaultGithubUrl);
     }
 
-    /// <summary>An absolute http or https address with no trailing slash, or null.</summary>
-    private static string? MyAddress(string? value) =>
+    /// <summary>
+    /// An absolute http or https address with no trailing slash, or null. A page on this site links
+    /// it or sends people to it, so a typo, a bare word or a <c>javascript:</c> scheme is left out
+    /// rather than handed to a visitor.
+    /// </summary>
+    private static string? Address(string? value) =>
         Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
             ? uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath.TrimEnd('/')
             : null;
