@@ -51,6 +51,11 @@ namespace Modbot.Companion.App;
 /// download of the voice from GitHub, with nothing attached (see <c>VoiceDownload</c>); what the
 /// voice then says is made and played on this PC and goes nowhere.
 /// Never chat, screenshots, keystrokes, your friends list or a list of your processes.</para>
+/// <para><strong>It never reads the keyboard.</strong> Turning the desktop overlay on asks Windows
+/// for exactly one keyboard combination, by name, so that panel can be brought up while VRChat has
+/// the keyboard (<c>DesktopOverlayShortcut</c>). Windows then sends one message when those keys are
+/// pressed and says nothing about any other key. There is no keyboard hook here and there will not
+/// be one; <c>CompanionSourceGuardTests</c> fails the build if one appears.</para>
 /// <para><strong>It never captures the screen.</strong> Not the desktop, not a window, not
 /// VRChat's screenshot folder, not any other folder. Attaching evidence to a moderation case is a
 /// deliberate human action taken in Modbot's web interface, in a browser, by choosing a file —
@@ -223,6 +228,11 @@ internal sealed class CompanionHost : IOverlayListener
     private OverlayDriver? _overlay;
     private OverlayHost? _overlayHost;
     private OverlayPreviewWindow? _preview;
+
+    /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
+    private DesktopOverlayWindow? _desktopOverlay;
+    private DesktopOverlayShortcut? _desktopOverlayShortcut;
+
     private OverlaySample? _pinnedSample;
     private DateTimeOffset? _overlayAttachedAt;
     private DateTimeOffset? _overlayLastDrewAt;
@@ -296,9 +306,11 @@ internal sealed class CompanionHost : IOverlayListener
                 _state.UnusablePairings.Add(pairing);
         }
 
-        // Off in settings means the panel is never built in the first place, and the switch on the
-        // SteamVR page brings it up or takes it down without a restart.
-        _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, _state.Settings.OverlayOn);
+        // Off in settings means the overlay is never built in the first place, and either switch --
+        // the SteamVR page's for the headset panel, the Settings page's for the desktop overlay --
+        // brings it up or takes it down without a restart. It runs when either panel wants it.
+        var overlayWanted = _state.Settings.OverlayOn || _state.Settings.DesktopOverlay.On;
+        _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, overlayWanted);
         _overlaySwitch.StartIfOn();
 
         InstallTray(desktop);
@@ -831,7 +843,8 @@ internal sealed class CompanionHost : IOverlayListener
     }
 
     /// <summary>
-    /// Brings up the headset overlay, if this machine has one.
+    /// Brings up the overlay: the drive loop, and whichever of its two panels are switched on --
+    /// the headset panel, and the window that sits over VRChat on a monitor.
     /// </summary>
     /// <remarks>
     /// <para>No SteamVR is the ordinary case, not a fault: presence coverage comes from moderators
@@ -841,46 +854,64 @@ internal sealed class CompanionHost : IOverlayListener
     /// <para>A failure to create the Direct3D surface is not allowed to take the client down with
     /// it. Reporting presence is the job that cannot be filled in later; the overlay is the one that
     /// can wait for a restart.</para>
-    /// <para>Switched off, none of this happens: no texture, no drawing loop, no controllers read
-    /// and no VR runtime connected to. Off is a moderator saying they do not want the panel, so
-    /// the honest answer is to do none of the work rather than draw something invisible.</para>
+    /// <para>With both panels switched off, none of this happens: no texture, no drawing loop, no
+    /// controllers read, no window and no VR runtime connected to -- and, because the driver is
+    /// what owns them, no live connection to a paired server either. Off is a moderator saying they
+    /// do not want the overlay, so the honest answer is to do none of the work.</para>
+    /// <para>With only the desktop overlay on, the drive loop runs and the headset half is not
+    /// built: no texture, no controllers, no SteamVR. That is the moderator asking for the window
+    /// and nothing else, which is a thing a great many of them will want, because most of them
+    /// play on a monitor.</para>
     /// </remarks>
     private void StartOverlay()
     {
-        try
+        if (_state?.Settings.OverlayOn is not false)
         {
-            _overlayHost = OverlayHost.Create(placement: _state?.Settings.Overlay);
-            _overlayHost.KeepLastFrame = _state?.DebugMode is true;
-            AttachOverlay();
-        }
-        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
-        {
-            Log.Information(ex, "The overlay could not be set up on this machine; presence reporting is unaffected");
-            _overlayHost = null;
-            return;
+            try
+            {
+                _overlayHost = OverlayHost.Create(placement: _state?.Settings.Overlay);
+                _overlayHost.KeepLastFrame = _state?.DebugMode is true;
+                AttachOverlay();
+            }
+            catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+            {
+                Log.Information(ex, "The headset panel could not be set up on this machine; presence reporting is unaffected");
+                _overlayHost = null;
+            }
         }
 
+        if (_state?.Settings.DesktopOverlay.On is true)
+            StartDesktopOverlay();
+
+        // One screen, both panels. Either may be absent, and the loop neither knows nor cares.
         _overlay = new OverlayDriver(
-            _overlayHost, new HttpOverlayReadClient(_http!, _clock), _clock, listener: this, sockets: new ClientLiveSocketFactory());
+            new OverlayScreens(() => _overlayHost, () => _desktopOverlay),
+            new HttpOverlayReadClient(_http!, _clock),
+            _clock,
+            listener: this,
+            sockets: new ClientLiveSocketFactory());
 
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.ServerId);
 
-        // A controller's doing goes to the drive loop (taps, scrolling) and to settings (where
-        // the panel was left), so it is where it was left next time.
-        _overlayHost.Tapped += target => _overlay?.Tap(target);
-        _overlayHost.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
-        // Saved once a change has settled rather than on every tick of a drag or a held grip: a
-        // panel being moved changes thirty times a second, and the file needs the last one.
-        _overlayHost.PlacementChanged += placement =>
+        if (_overlayHost is not null)
         {
-            if (_state is null)
-                return;
+            // A controller's doing goes to the drive loop (taps, scrolling) and to settings (where
+            // the panel was left), so it is where it was left next time.
+            _overlayHost.Tapped += target => _overlay?.Tap(target);
+            _overlayHost.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+            // Saved once a change has settled rather than on every tick of a drag or a held grip: a
+            // panel being moved changes thirty times a second, and the file needs the last one.
+            _overlayHost.PlacementChanged += placement =>
+            {
+                if (_state is null)
+                    return;
 
-            _state.Settings = _state.Settings with { Overlay = placement };
-            _placementSave.Stop();
-            _placementSave.Start();
-        };
+                _state.Settings = _state.Settings with { Overlay = placement };
+                _placementSave.Stop();
+                _placementSave.Start();
+            };
+        }
 
         // The timers outlive any one host -- the switch can put a new one in their place -- so
         // they are wired once and each turn reads whatever host is there now.
@@ -904,18 +935,21 @@ internal sealed class CompanionHost : IOverlayListener
         }
 
         _overlayLoop.Start();
-        _inputLoop.Start();
+
+        if (_overlayHost is not null)
+            _inputLoop.Start();
     }
 
     /// <summary>
-    /// Takes the overlay down, for the SteamVR page's <strong>Overlay on</strong> switch.
+    /// Takes the overlay down, for either panel's switch.
     /// </summary>
     /// <remarks>
     /// Everything the overlay is goes: the drawing loop and the controller loop stop, the driver
     /// is disposed -- which closes its live connection to each paired server and drops the roster
-    /// it held in memory -- and disposing the host detaches the panel from SteamVR and frees the
-    /// texture. What is left running is the half that reads VRChat's log and reports, which the
-    /// overlay was never part of.
+    /// it held in memory -- disposing the host detaches the panel from SteamVR and frees the
+    /// texture, and the desktop overlay's window and its keyboard shortcut go with them. What is
+    /// left running is the half that reads VRChat's log and reports, which the overlay was never
+    /// part of.
     /// </remarks>
     private void StopOverlay()
     {
@@ -925,6 +959,8 @@ internal sealed class CompanionHost : IOverlayListener
 
         _preview?.Close();
         _pinnedSample = null;
+
+        StopDesktopOverlay();
 
         _overlay?.Dispose();
         _overlay = null;
@@ -945,6 +981,23 @@ internal sealed class CompanionHost : IOverlayListener
     }
 
     /// <summary>
+    /// Makes the overlay match what the two switches now say: it runs when either panel wants it,
+    /// and it is rebuilt so the halves that are built are the halves that were asked for.
+    /// </summary>
+    /// <remarks>
+    /// Rebuilding costs a reconnection of the live link, which is why it happens when somebody
+    /// presses a switch and never on a timer.
+    /// </remarks>
+    private void ApplyOverlaySwitches()
+    {
+        if (_state is null || _overlaySwitch is null)
+            return;
+
+        _overlaySwitch.Set(false);
+        _overlaySwitch.Set(_state.Settings.OverlayOn || _state.Settings.DesktopOverlay.On);
+    }
+
+    /// <summary>
     /// The SteamVR page's <strong>Overlay on</strong> switch: saved, then acted on at once rather
     /// than at the next restart.
     /// </summary>
@@ -958,7 +1011,104 @@ internal sealed class CompanionHost : IOverlayListener
         if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayOnField, on))
             Log.Warning("Could not save the overlay switch to {Path}", _settingsPath);
 
-        _overlaySwitch?.Set(on);
+        ApplyOverlaySwitches();
+        Render();
+    }
+
+    /// <summary>
+    /// The Settings page's Desktop overlay card: saved, then acted on at once.
+    /// </summary>
+    /// <remarks>
+    /// Turning it on or off rebuilds the overlay, because the window is one of the two places a
+    /// screen goes and the drive loop is handed both when it is built. A change to the shortcut or
+    /// the opacity alone does not: the shortcut is asked for again, and the window is told its new
+    /// opacity, with the loop left alone.
+    /// </remarks>
+    private void SetDesktopOverlay(DesktopOverlaySettings desktopOverlay)
+    {
+        if (_state is null || _state.Settings.DesktopOverlay == desktopOverlay)
+            return;
+
+        var before = _state.Settings.DesktopOverlay;
+        _state.Settings = _state.Settings with { DesktopOverlay = desktopOverlay };
+
+        if (!CompanionSettings.SaveDesktopOverlay(_settingsPath, desktopOverlay))
+            Log.Warning("Could not save the desktop overlay settings to {Path}", _settingsPath);
+
+        if (before.On != desktopOverlay.On)
+        {
+            ApplyOverlaySwitches();
+        }
+        else if (_desktopOverlay is not null)
+        {
+            _desktopOverlay.Apply(desktopOverlay);
+
+            if (before.ShortcutOrDefault != desktopOverlay.ShortcutOrDefault)
+                _desktopOverlayShortcut?.Ask(desktopOverlay.ShortcutOrDefault);
+        }
+
+        Render();
+    }
+
+    /// <summary>
+    /// Builds the window that sits over VRChat, and asks Windows for the shortcut that brings it
+    /// up. Neither failing stops anything else: a shortcut another program already holds is shown
+    /// on the settings screen and the window can still be opened from there.
+    /// </summary>
+    private void StartDesktopOverlay()
+    {
+        var settings = _state!.Settings.DesktopOverlay;
+
+        _desktopOverlay = new DesktopOverlayWindow { PlaceNear = Window };
+        _desktopOverlay.Apply(settings);
+        _desktopOverlay.PanelTapped += target => _overlay?.Tap(target);
+        _desktopOverlay.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+
+        _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
+        _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
+    }
+
+    /// <summary>Closes the window and gives the shortcut back to whoever wants it next.</summary>
+    private void StopDesktopOverlay()
+    {
+        _desktopOverlayShortcut?.Dispose();
+        _desktopOverlayShortcut = null;
+
+        if (_desktopOverlay is not null)
+        {
+            _desktopOverlay.Dismiss();
+            _desktopOverlay.Close();
+            _desktopOverlay = null;
+        }
+    }
+
+    /// <summary>
+    /// The shortcut, pressed: the overlay comes up over the game, or goes away again.
+    /// </summary>
+    /// <remarks>
+    /// It is shown beside the client's own window so it lands on the screen that window is on,
+    /// which is the closest thing to "the monitor the moderator is using" that can be known
+    /// without going looking at other programs' windows.
+    /// </remarks>
+    private void ToggleDesktopOverlay()
+    {
+        if (_desktopOverlay is null)
+            return;
+
+        _desktopOverlay.Press(escape: false);
+        Render();
+    }
+
+    /// <summary>
+    /// The settings card's <strong>Open</strong> button. It is how the overlay is reached when the
+    /// shortcut belongs to another program, which is why it is there.
+    /// </summary>
+    private void ShowDesktopOverlay()
+    {
+        if (_desktopOverlay is null)
+            return;
+
+        _desktopOverlay.Summon();
         Render();
     }
 
@@ -1010,26 +1160,31 @@ internal sealed class CompanionHost : IOverlayListener
 
     private async Task OverlayTickAsync()
     {
-        if (_overlay is null || _overlayHost is null || _overlayTicking)
+        if (_overlay is null || _overlayTicking)
             return;
 
         _overlayTicking = true;
         try
         {
-            // SteamVR closing detaches the overlay; a SteamVR started since the last look is picked
-            // up here, a few seconds after the moderator starts it.
-            var wasRunning = _overlayHost.Status.State is OverlayRuntimeState.Running;
-            _overlayHost.Poll();
-            if (wasRunning && _overlayHost.Status.State is not OverlayRuntimeState.Running)
+            // The headset half only, and only when it was built: a moderator running the desktop
+            // overlay alone has no runtime to poll and no panel to attach.
+            if (_overlayHost is not null)
             {
-                _overlayAttachedAt = null;
-                Log.Information("The VR runtime closed; the overlay has let go and will attach again when it is back: {Detail}", _overlayHost.Status.Detail);
-            }
+                // SteamVR closing detaches the overlay; a SteamVR started since the last look is picked
+                // up here, a few seconds after the moderator starts it.
+                var wasRunning = _overlayHost.Status.State is OverlayRuntimeState.Running;
+                _overlayHost.Poll();
+                if (wasRunning && _overlayHost.Status.State is not OverlayRuntimeState.Running)
+                {
+                    _overlayAttachedAt = null;
+                    Log.Information("The VR runtime closed; the overlay has let go and will attach again when it is back: {Detail}", _overlayHost.Status.Detail);
+                }
 
-            if (_overlayHost.Status.State is OverlayRuntimeState.NotStarted
-                && _clock.UtcNow - _overlayAttachTriedAt >= OverlayAttachInterval)
-            {
-                AttachOverlay();
+                if (_overlayHost.Status.State is OverlayRuntimeState.NotStarted
+                    && _clock.UtcNow - _overlayAttachTriedAt >= OverlayAttachInterval)
+                {
+                    AttachOverlay();
+                }
             }
 
             // The instance the log reader last understood. The overlay follows the moderator: the
@@ -1114,6 +1269,10 @@ internal sealed class CompanionHost : IOverlayListener
         _backupStop.Cancel();
         _overlay?.Dispose();
         _overlayHost?.Dispose();
+
+        // Gives the keyboard shortcut back to Windows rather than leaving it claimed by a process
+        // that is going away.
+        _desktopOverlayShortcut?.Dispose();
         _voice?.Dispose();
     }
 
@@ -1226,8 +1385,16 @@ internal sealed class CompanionHost : IOverlayListener
         if (_overlayHost is not null)
             _preview?.Refresh(_overlayHost);
 
+        _state.DesktopOverlay = new DesktopOverlayStatus(
+            _state.Settings.DesktopOverlay,
+            _desktopOverlayShortcut?.State ?? ShortcutState.Off,
+            _desktopOverlay?.IsVisible is true);
+
+        var snapshot = _state.Snapshot();
+        _desktopOverlay?.Refresh(snapshot);
+
         Window.Render(
-            _state.Snapshot(),
+            snapshot,
             new MainWindowActions(
                 TogglePause, Unpair, PairAsync, OpenPairingPageAsync, SetStartWithWindows, SetLogFolder,
                 AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, AnchorOverlay, SetVoice, TestVoice)
@@ -1238,6 +1405,8 @@ internal sealed class CompanionHost : IOverlayListener
                 TestBleep = TestBleep,
                 ClosedToTray = ClosedToTray,
                 RestartAsync = RestartAsync,
+                SetDesktopOverlay = SetDesktopOverlay,
+                ShowDesktopOverlay = ShowDesktopOverlay,
             });
     }
 

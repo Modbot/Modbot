@@ -143,7 +143,18 @@ public sealed partial class MainWindow
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || TokenFor(e) is not { } token)
+        if (e.Handled)
+            return;
+
+        // The desktop overlay's shortcut is recorded by pressing it, and while that button is
+        // waiting a key is the new shortcut rather than one of this window's own.
+        if (_capturingShortcut)
+        {
+            CaptureShortcut(e);
+            return;
+        }
+
+        if (TokenFor(e) is not { } token)
             return;
 
         var outcome = _registry.Decide(token, _pendingChord, IsTyping(), _panel is not PanelKind.None);

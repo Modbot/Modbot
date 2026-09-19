@@ -162,8 +162,12 @@ public sealed record CompanionAppSnapshot(
     VoiceStatus? Voice = null,
     EventFilterSet? EventsFilters = null,
     CreditsList? Credits = null,
-    NotificationSettings? Notifications = null)
+    NotificationSettings? Notifications = null,
+    DesktopOverlayStatus? DesktopOverlay = null)
 {
+    /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
+    public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
+
     /// <summary>The overlay row, never null: <see cref="OverlayStatus.None"/> until the host has said.</summary>
     public OverlayStatus OverlayOrNone => Overlay ?? OverlayStatus.None;
 
@@ -237,6 +241,9 @@ public sealed class CompanionAppState
     /// <summary>The voice as of the last render; set by the host that owns it.</summary>
     public VoiceStatus Voice { get; set; } = VoiceStatus.None;
 
+    /// <summary>The desktop overlay as of the last render; set by the host that owns its window.</summary>
+    public DesktopOverlayStatus DesktopOverlay { get; set; } = DesktopOverlayStatus.None;
+
     /// <summary>
     /// The people the project thanks, as of the last read; set by the host that owns the reader.
     /// Empty until Modbot Cloud has answered, and empty for good when this PC has Cloud turned off.
@@ -296,7 +303,8 @@ public sealed class CompanionAppState
             Voice,
             Settings.EventsFilters,
             Credits,
-            Settings.Notifications);
+            Settings.Notifications,
+            DesktopOverlay);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

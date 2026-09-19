@@ -357,6 +357,10 @@ public class CompanionSourceGuardTests
         // send". The panel connects to SteamVR and its driver opens a live connection to a paired
         // server, so a moderator who switched the overlay off must not get either by some second
         // path that forgot to ask. One place builds it, and only the switch calls that place.
+        //
+        // The overlay has two panels now -- the headset one and the desktop overlay -- and the
+        // switch is asked whether either of them wants it. That is still one place and still
+        // nothing that forgot to ask: the desktop overlay is a switch a moderator turned on.
         var building = EverythingTheClientShips()
             .Where(f => File.ReadAllText(f).Contains("OverlayHost.Create", StringComparison.Ordinal))
             .Select(Path.GetFileName)
@@ -370,6 +374,9 @@ public class CompanionSourceGuardTests
         Assert.Contains("new OverlaySwitch(StartOverlay, StopOverlay", program, StringComparison.Ordinal);
         Assert.DoesNotContain("StartOverlay();", program, StringComparison.Ordinal);
         Assert.DoesNotContain("StopOverlay();", program, StringComparison.Ordinal);
+
+        // Both switches reach the overlay through that one place and nowhere else.
+        Assert.Contains("Settings.OverlayOn || _state.Settings.DesktopOverlay.On", program, StringComparison.Ordinal);
     }
 
     [Fact]
