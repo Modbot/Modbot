@@ -99,7 +99,12 @@ The differences from what a Modbot server gets:
   group, the group is left empty.
 - It works the same whether the client is paired with no server, one, or several. A paired server
   has no say in where it goes or whether it is sent.
-- It is listed on the client's **Events** page as its own place, beside the paired server.
+- **Pausing a paired server does not pause it.** Pausing stops the client reporting to that
+  server; the backup is a separate flow and keeps going until it is turned off here.
+- **The client's window does not show it.** The **Events** page says what happened to each event's
+  own group's record — sent, waiting, withheld or failed — and nothing about the backup: no line
+  of its own, no state, no filter, and no error if a batch of it fails. What the backup did is in
+  the client's log file and in `%APPDATA%\Modbot\sent.jsonl`.
 
 It never sends VRChat's raw log, the secret part of an instance's address that would let someone
 join it, your pairing tokens, the client's own log, your computer's name or your Windows account

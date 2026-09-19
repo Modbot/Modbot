@@ -952,9 +952,9 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// When, what, and where it went: the time in its own column, the sentence, and one pill per
-    /// place, named by the group the server manages. An event seen in a group nobody manages has
-    /// the time and the sentence and nothing else, which is the truth of it.
+    /// When, what, and how it went: the time in its own column, the sentence, and one pill, named
+    /// by the group the server manages. An event no paired server was given has the time and the
+    /// sentence and nothing else, which is the truth of it.
     /// </summary>
     /// <remarks>
     /// Shared with the desktop overlay, which shows the last few of these under the panel: one row
@@ -962,7 +962,7 @@ public sealed partial class MainWindow : Window
     /// </remarks>
     internal static Border EventRow(JournalRow row, bool first, IReadOnlyDictionary<string, string> groups)
     {
-        var sent = row.ServerState is JournalEntryKind.Sent || row.CloudState is JournalEntryKind.Sent;
+        var sent = row.State is JournalEntryKind.Sent;
 
         var when = Ui.Text(row.At.ToLocalTime().ToString("HH:mm:ss"), Ui.T.Density.TextSmall, Ui.T.TextFaintBrush, wrap: false, mono: true);
         when.VerticalAlignment = VerticalAlignment.Center;
@@ -974,18 +974,14 @@ public sealed partial class MainWindow : Window
 
         line.VerticalAlignment = VerticalAlignment.Center;
 
-        // One line per place this event went, so "the server has it and Modbot Cloud has not yet"
-        // is something the screen can say rather than something it has to hide behind one word.
+        // One word per event. The row names the moderator's own group and says how that group's
+        // record stands; it does not itemise the places a copy went.
         var places = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Right };
 
         if (row.IsNote)
             places.Children.Add(Place(GroupOf(row.ServerId, groups), JournalEntryKind.Note));
-
-        if (row.ServerState is { } serverState)
-            places.Children.Add(Place(GroupOf(row.ServerId, groups), serverState));
-
-        if (row.CloudState is { } cloudState)
-            places.Children.Add(Place(SentJournal.CloudName, cloudState));
+        else if (row.State is { } state)
+            places.Children.Add(Place(GroupOf(row.ServerId, groups), state));
 
         var grid = new Grid
         {

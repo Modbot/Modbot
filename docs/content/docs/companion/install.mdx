@@ -121,7 +121,7 @@ The window has six pages:
 | Page | What it shows |
 |---|---|
 | **Servers** | Each paired server, whether it is reporting, and the pairing controls. See [Pairing](/companion/pairing). |
-| **Events** | Every event the client has handled, newest first — one line each, with where it went (the paired server, Modbot Cloud, both or neither) and whether it was **sent**, **waiting**, **withheld** or **failed** there. Events held back, for example while paused, are listed too, along with notes such as "Paused" or "Resumed reporting". It shows the latest 200 events and keeps 1,500 lines on disk. |
+| **Events** | Every event the client has handled, newest first — one line each, with the group it was for and whether it was **sent**, **waiting**, **withheld** or **failed**. Events held back, for example while paused, are listed too, along with notes such as "Paused" or "Resumed reporting". An event that was for no paired server has the time and the sentence and nothing else. It shows the latest 200 events and keeps 1,500 lines on disk. |
 | **SteamVR** | Whether the [overlay](/companion/overlay) is attached to SteamVR, what it is showing, how many frames it has drawn, and where the panel sits. **Look for SteamVR now** attaches without waiting for the next ten-second look. |
 | **Log** | What the client makes of VRChat's log: **lines seen**, **lines Modbot looks at** and **recognised**. You can open the same file in Notepad and check the counts. |
 | **Settings** | The client's switches, the voice and the VRChat log folder. See [Client settings](/companion/settings). |
@@ -148,10 +148,9 @@ Press `?` in the window for the list. Letters only work when you are not typing 
 ### Filters on Events
 
 **Filter** on the Events page adds a chip: **Kind** (joined, already there, left, changed avatar,
-log stopped, seen, note), **Destination** (Server, Modbot Cloud), **State** (sent, waiting,
-withheld, failed), **Group**, or **Text**. Values inside a chip are "any of"; chips combine. Each
-value shows how many rows it would leave. The chips are kept in `settings.json` under
-`eventsFilters`, so the page opens the way you left it.
+log stopped, seen, note), **State** (sent, waiting, withheld, failed), **Group**, or **Text**.
+Values inside a chip are "any of"; chips combine. Each value shows how many rows it would leave.
+The chips are kept in `settings.json` under `eventsFilters`, so the page opens the way you left it.
 
 ### Warnings in the window
 
@@ -250,10 +249,13 @@ friends-only and private instances, where the group is left empty. It works the 
 after you pair, and a paired server has no say in it. It never sends VRChat's raw log, and never
 the secret part of an instance's address.
 
-What went to Modbot Cloud is listed on **Events**, beside the same event's line for a paired
-server. How the backup works, and how to turn it off in the
-client's settings file or with environment variables, is on
-[Client settings](/companion/settings#modbot-cloud-backup).
+The backup is not shown in the window. **Events** lists what the client handled and how each
+event's own group's server took it; it does not list the backup, does not report its state, and
+does not let you filter by it. Pausing a paired server does not stop the backup either — it is a
+separate flow, and only that PC's settings file or environment turns it off. How the backup works,
+and how to turn it off, is on
+[Client settings](/companion/settings#modbot-cloud-backup); what it sends is in the
+[privacy policy](/privacy).
 
 ### Other connections
 

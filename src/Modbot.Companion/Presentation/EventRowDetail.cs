@@ -1,24 +1,23 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Modbot.Companion.Journal;
 
 namespace Modbot.Companion.Presentation;
 
 /// <summary>
-/// Everything one Events row holds, for the panel that opens under it: each field with a label,
-/// and the row as JSON.
+/// Everything one Events row shows, for the panel that opens under it: each field with a label,
+/// and the same thing as JSON.
 /// </summary>
 /// <remarks>
-/// The sentence in the row says what happened; this says everything the journal folded into it.
-/// The JSON is the row as the window received it, not reworded, so what is on screen and what is
-/// in <c>sent.jsonl</c> can be checked against each other.
+/// The sentence in the row says what happened; this says everything else the row shows, field by
+/// field and then as one object, so a person can copy it. It is the row as the page has it, which
+/// is one state per event rather than one per place — the whole append-only record, every line the
+/// backup wrote included, is in <c>sent.jsonl</c> in Modbot's own folder.
 /// </remarks>
 public static class EventRowDetail
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() },
     };
 
     /// <summary>The fields, in the order the panel lists them.</summary>
@@ -41,8 +40,7 @@ public static class EventRowDetail
         if (row.ServerId is { Length: > 0 } serverId)
             fields.Add(("Server", serverId));
 
-        fields.Add(("Server state", row.ServerState is { } serverState ? Word(serverState) : "—"));
-        fields.Add((SentJournal.CloudName, row.CloudState is { } cloudState ? Word(cloudState) : "—"));
+        fields.Add(("State", State(row)));
         fields.Add(("Seen only", row.Seen ? "yes" : "no"));
         fields.Add(("Note", row.IsNote ? "yes" : "no"));
 
@@ -52,8 +50,20 @@ public static class EventRowDetail
     public static string ToJson(JournalRow row)
     {
         ArgumentNullException.ThrowIfNull(row);
-        return JsonSerializer.Serialize(row, Json);
+
+        return JsonSerializer.Serialize(
+            new Shown(row.At, row.Summary, row.ServerId, row.State?.ToString().ToLowerInvariant(), row.Seen, row.IsNote),
+            Json);
     }
 
-    private static string Word(JournalEntryKind kind) => kind.ToString().ToLowerInvariant();
+    private static string State(JournalRow row) => row.State is { } state ? state.ToString().ToLowerInvariant() : "—";
+
+    /// <summary>The row as the page has it, which is what the JSON box shows.</summary>
+    private sealed record Shown(
+        DateTimeOffset At,
+        string Summary,
+        string? ServerId,
+        string? State,
+        bool Seen,
+        bool IsNote);
 }

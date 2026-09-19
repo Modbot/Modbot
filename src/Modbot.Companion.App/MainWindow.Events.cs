@@ -378,7 +378,7 @@ public sealed partial class MainWindow
             parts.Children.Add(Edged(fixedWords));
         }
 
-        var labels = chip.Values.Select(v => EventFilters.LabelOf(chip.Property, v)).ToList();
+        var labels = chip.Values;
         var shown = labels.Count > 3
             ? $"{string.Join(", ", labels.Take(3))} +{labels.Count - 3}"
             : labels.Count == 0 ? "…" : string.Join(", ", labels);

@@ -8,6 +8,10 @@
   §4–§5; M3 §3
 - **Narrows:** M3 §3.1 and M5.5.1 ("instances outside the managed group are never reported") and central
   services §1.1 ("no facts held centrally"). See §10.
+- **Narrowed by:** the cloud backup stays out of the way design (2026-09-19). The backup runs exactly
+  as described here, and the client's screens no longer name it, show its state, or let anybody filter
+  by it. Everything it does is still written to `sent.jsonl` and to the client's log, and the privacy
+  policy is where a person reads about it.
 
 ---
 

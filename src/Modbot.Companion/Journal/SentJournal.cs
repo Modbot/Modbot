@@ -94,7 +94,10 @@ public sealed record JournalEntry(
 /// when it does not. Null when no paired server was involved.
 /// </param>
 /// <param name="ServerState">What the paired server did with it, or null when it was never for one.</param>
-/// <param name="CloudState">What Modbot Cloud did with it, or null when the backup is off.</param>
+/// <param name="CloudState">
+/// What the backup did with it, or null when the backup is off. Kept in this file and in the
+/// client's log; never shown on a screen, and never read except through <see cref="State"/>.
+/// </param>
 /// <param name="Seen">Observed in a group no paired server manages, so it went to no server.</param>
 public sealed record JournalRow(
     DateTimeOffset At,
@@ -106,6 +109,27 @@ public sealed record JournalRow(
 {
     /// <summary>A line that explains a gap rather than describing an event: paused, resumed, stopped.</summary>
     public bool IsNote => !Seen && ServerState is null && CloudState is null;
+
+    /// <summary>The one word a screen says about this event, or null when it has nothing to say.</summary>
+    /// <remarks>
+    /// <para>One word, because an event goes to the paired server and — unless the person running
+    /// this PC turned it off — to a backup they are not shown and did not ask for. A backup that is
+    /// slow, or that refused a batch, must never make an event that the moderator's own server
+    /// already has look like an event in trouble: "failed" on this screen means a group's record is
+    /// missing something, and a backup failing does not mean that.</para>
+    /// <para>So the paired server decides the word whenever it has settled on one — sent, withheld
+    /// or failed — and the backup can only ever improve a <em>waiting</em> row to sent, which is
+    /// what "at least one place has it" means. An event no paired server was ever given has no word
+    /// at all: the time and the sentence are the whole truth a screen can tell about it.</para>
+    /// </remarks>
+    public JournalEntryKind? State => ServerState switch
+    {
+        JournalEntryKind.Waiting => CloudState is JournalEntryKind.Sent
+            ? JournalEntryKind.Sent
+            : JournalEntryKind.Waiting,
+        { } settled => settled,
+        _ => null,
+    };
 }
 
 /// <summary>
@@ -143,7 +167,13 @@ public sealed class SentJournal
     /// </summary>
     public const int DefaultCapacity = 1_500;
 
-    /// <summary>What the journal calls Modbot Cloud.</summary>
+    /// <summary>What this file calls the backup.</summary>
+    /// <remarks>
+    /// It is written into the file and into the client's log, so a developer — or a moderator who
+    /// opens <c>sent.jsonl</c> in a text editor — can see exactly what the backup did. It is not a
+    /// word any screen shows: the backup is not announced to a moderator, and the Events page says
+    /// one thing per event rather than one thing per place (cloud backup out of the way design).
+    /// </remarks>
     public const string CloudName = "Modbot Cloud";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
