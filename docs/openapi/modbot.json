@@ -8982,7 +8982,7 @@
           "Analytics"
         ],
         "summary": "Get instance analytics",
-        "description": "Instances: when is the community actually active? Instances opened and closed per day (daily totals), most open at once and the most people seen in one instance per day, how long instances typically stay open, and an hour-of-week heatmap of arrivals and openings. Hours are UTC; the page shifts them to the viewer's time zone.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "Instances: when is the community actually active? Instances opened and closed per day (daily totals), most open at once and the most people seen in one instance per day, how long instances typically stay open and how that moves day by day, and an hour-of-week heatmap of arrivals and openings. Hours are UTC; the page shifts them to the viewer's time zone. `peaks` carries the most people in the group's instances at one moment, the most instances counted at once, the busiest day and the busiest clock hour, and the fullest single instance -- each with when it happened -- from VRChat's own head counts, which need no moderator's companion. `peaks.coverage` says how much of the time instances were open Modbot actually had a count for, and marks the figures thin below half of it. `presenceReports` does the same for the heatmap and the per-instance population, which do come from the companion.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetInstancesAnalytics",
         "parameters": [
           {
@@ -9028,6 +9028,61 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InstancesAnalytics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/analytics/instances/activity": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Get instance activity",
+        "description": "How many people were in the group's instances, moment by moment, over the last `day`, `week` (the default), `month` or `all` recorded time. Built from VRChat's own head counts -- `n_users` from each open group instance's page, read about every thirty seconds -- so it covers instances no moderator's companion was in. A count is kept only when it changes, so the series is a staircase and each point holds until the next. Long ranges are thinned to at most about 500 points: the window is cut into equal steps and the last reading in each is kept. `instances` is how many instances had a count at that moment.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetInstanceActivity",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceActivitySeries"
                 }
               }
             }
@@ -15223,6 +15278,36 @@
           }
         }
       },
+      "ActivityPoint": {
+        "required": [
+          "at",
+          "people",
+          "instances"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "instances": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "AgeVerifiedFlag": {
         "required": [
           "verified",
@@ -18264,6 +18349,115 @@
               "null",
               "string"
             ],
+            "format": "date-time"
+          }
+        }
+      },
+      "BusiestDay": {
+        "required": [
+          "day",
+          "peopleMinutes",
+          "mostPeopleAtOnce"
+        ],
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date"
+          },
+          "peopleMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "mostPeopleAtOnce": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BusiestHour": {
+        "required": [
+          "startedAt",
+          "peopleMinutes",
+          "mostPeopleAtOnce"
+        ],
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "peopleMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "mostPeopleAtOnce": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "BusiestInstance": {
+        "required": [
+          "id",
+          "worldId",
+          "worldName",
+          "vrChatInstanceId",
+          "openedAt",
+          "people",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "worldId": {
+            "type": "string"
+          },
+          "worldName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "vrChatInstanceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "at": {
+            "type": "string",
             "format": "date-time"
           }
         }
@@ -23920,6 +24114,7 @@
           "tenure",
           "membersWithKnownTenure",
           "invites",
+          "peaks",
           "coverage",
           "generatedAt"
         ],
@@ -23998,6 +24193,9 @@
           },
           "invites": {
             "$ref": "#/components/schemas/InviteFunnel"
+          },
+          "peaks": {
+            "$ref": "#/components/schemas/MemberCountPeaks"
           },
           "coverage": {
             "$ref": "#/components/schemas/AnalyticsCoverage"
@@ -24904,6 +25102,192 @@
           }
         }
       },
+      "InstanceActivitySeries": {
+        "required": [
+          "range",
+          "from",
+          "to",
+          "stepSeconds",
+          "points",
+          "generatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "range": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stepSeconds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityPoint"
+            }
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InstanceCoverage": {
+        "required": [
+          "windowDays",
+          "daysCounted",
+          "instancesOpen",
+          "instancesCounted",
+          "minutesInstancesWereOpen",
+          "minutesCounted"
+        ],
+        "type": "object",
+        "properties": {
+          "windowDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "daysCounted": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "instancesOpen": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "instancesCounted": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "minutesInstancesWereOpen": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "minutesCounted": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "thin": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InstancePeaks": {
+        "required": [
+          "mostPeopleAtOnce",
+          "mostInstancesAtOnce",
+          "busiestDay",
+          "busiestHour",
+          "busiestInstance",
+          "mostPeopleAtOncePerDay",
+          "peopleMinutesPerDay",
+          "coverage"
+        ],
+        "type": "object",
+        "properties": {
+          "mostPeopleAtOnce": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PeakCount"
+              }
+            ]
+          },
+          "mostInstancesAtOnce": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PeakCount"
+              }
+            ]
+          },
+          "busiestDay": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BusiestDay"
+              }
+            ]
+          },
+          "busiestHour": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BusiestHour"
+              }
+            ]
+          },
+          "busiestInstance": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BusiestInstance"
+              }
+            ]
+          },
+          "mostPeopleAtOncePerDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayValue"
+            }
+          },
+          "peopleMinutesPerDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayValue"
+            }
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/InstanceCoverage"
+          }
+        }
+      },
       "InstanceRow": {
         "required": [
           "id",
@@ -25110,11 +25494,14 @@
           "mostOpenAtOnce",
           "mostPeopleInOne",
           "typicalMinutesOpen",
+          "typicalMinutesOpenPerDay",
           "instancesWithBothEnds",
           "instancesOpened",
           "openNow",
           "recent",
           "hourOfWeek",
+          "peaks",
+          "presenceReports",
           "coverage",
           "generatedAt"
         ],
@@ -25161,6 +25548,12 @@
             ],
             "format": "double"
           },
+          "typicalMinutesOpenPerDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayValue"
+            }
+          },
           "instancesWithBothEnds": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -25191,6 +25584,17 @@
           },
           "hourOfWeek": {
             "$ref": "#/components/schemas/HourOfWeek"
+          },
+          "peaks": {
+            "$ref": "#/components/schemas/InstancePeaks"
+          },
+          "presenceReports": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           },
           "coverage": {
             "$ref": "#/components/schemas/AnalyticsCoverage"
@@ -26670,6 +27074,76 @@
           }
         }
       },
+      "MemberCountCoverage": {
+        "required": [
+          "windowDays",
+          "daysWithReadings",
+          "readings"
+        ],
+        "type": "object",
+        "properties": {
+          "windowDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "daysWithReadings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "readings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "thin": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MemberCountPeaks": {
+        "required": [
+          "members",
+          "online",
+          "coverage"
+        ],
+        "type": "object",
+        "properties": {
+          "members": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PeakCount"
+              }
+            ]
+          },
+          "online": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PeakCount"
+              }
+            ]
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/MemberCountCoverage"
+          }
+        }
+      },
       "MemberCountPoint": {
         "required": [
           "at",
@@ -27543,6 +28017,27 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "PeakCount": {
+        "required": [
+          "value",
+          "at"
+        ],
+        "type": "object",
+        "properties": {
+          "value": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

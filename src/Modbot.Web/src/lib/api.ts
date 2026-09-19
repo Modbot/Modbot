@@ -1314,6 +1314,26 @@ export type InviteFunnel = {
   requestsRejected: number
 }
 
+/** The highest a count reached, and the first moment it was that high. */
+export type PeakCount = { value: number; at: string }
+
+/**
+ * How many readings a member-count peak rests on. `thin` is true when fewer than half the window's
+ * days carry a reading, so the peak is the highest Modbot saw rather than the highest there was.
+ */
+export type MemberCountCoverage = {
+  windowDays: number
+  daysWithReadings: number
+  readings: number
+  thin: boolean
+}
+
+export type MemberCountPeaks = {
+  members: PeakCount | null
+  online: PeakCount | null
+  coverage: MemberCountCoverage
+}
+
 export type GroupAnalytics = {
   from: string
   to: string
@@ -1328,6 +1348,7 @@ export type GroupAnalytics = {
   tenure: TenureBucket[]
   membersWithKnownTenure: number
   invites: InviteFunnel
+  peaks: MemberCountPeaks
   coverage: AnalyticsCoverage
   generatedAt: string
 }
@@ -1513,6 +1534,61 @@ export type ServerAnalytics = {
   generatedAt: string
 }
 
+/** The day the group's instances held the most people-time. */
+export type BusiestDay = { day: string; peopleMinutes: number; mostPeopleAtOnce: number }
+
+/** One real clock hour on one real date -- not "Saturdays at 8". */
+export type BusiestHour = { startedAt: string; peopleMinutes: number; mostPeopleAtOnce: number }
+
+/** The single instance that held the most people at one moment. */
+export type BusiestInstance = {
+  id: string
+  worldId: string
+  worldName: string | null
+  vrChatInstanceId: string | null
+  openedAt: string
+  people: number
+  at: string
+}
+
+/**
+ * How much of the window Modbot had a head count for. The denominator is the time instances were
+ * open, not the window: a quiet group is not thin coverage. `thin` is true below half of it.
+ */
+export type InstanceCoverage = {
+  windowDays: number
+  daysCounted: number
+  instancesOpen: number
+  instancesCounted: number
+  minutesInstancesWereOpen: number
+  minutesCounted: number
+  thin: boolean
+}
+
+/** Peaks from VRChat's own head counts, so they cover instances no companion was in. */
+export type InstancePeaks = {
+  mostPeopleAtOnce: PeakCount | null
+  mostInstancesAtOnce: PeakCount | null
+  busiestDay: BusiestDay | null
+  busiestHour: BusiestHour | null
+  busiestInstance: BusiestInstance | null
+  mostPeopleAtOncePerDay: DayValue[]
+  peopleMinutesPerDay: DayValue[]
+  coverage: InstanceCoverage
+}
+
+/** One moment of the staircase: people in the group's instances, and how many had a count. */
+export type ActivityPoint = { at: string; people: number; instances: number }
+
+export type InstanceActivitySeries = {
+  range: MemberCountRange
+  from: string
+  to: string
+  stepSeconds: number
+  points: ActivityPoint[]
+  generatedAt: string
+}
+
 export type InstancesAnalytics = {
   from: string
   to: string
@@ -1521,11 +1597,14 @@ export type InstancesAnalytics = {
   mostOpenAtOnce: DayValue[]
   mostPeopleInOne: DayValue[]
   typicalMinutesOpen: number | null
+  typicalMinutesOpenPerDay: DayValue[]
   instancesWithBothEnds: number
   instancesOpened: number
   openNow: InstanceRow[]
   recent: InstanceRow[]
   hourOfWeek: HourOfWeek
+  peaks: InstancePeaks
+  presenceReports: number
   coverage: AnalyticsCoverage
   generatedAt: string
 }
@@ -4008,6 +4087,8 @@ export const api = {
   teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),
+  instanceActivity: (range: MemberCountRange) =>
+    request<InstanceActivitySeries>(`/api/analytics/instances/activity?range=${range}`),
   serverAnalytics: (query: string) => request<ServerAnalytics>(`/api/analytics/server?${query}`),
 
   // One world and one instance, for the popup. Read from Modbot's own tables; neither costs VRChat

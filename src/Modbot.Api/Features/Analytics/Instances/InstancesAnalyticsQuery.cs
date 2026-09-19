@@ -58,12 +58,12 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
 
         var lives = await LifetimesAsync(from, to, ct);
 
-        var withBothEnds = lives.Where(l => l.ClosedAt is not null).Select(l => (decimal)(l.ClosedAt!.Value - l.OpenedAt).TotalMinutes).Order().ToList();
-        decimal? typical = withBothEnds.Count == 0
-            ? null
-            : Math.Round(withBothEnds.Count % 2 == 1
-                ? withBothEnds[withBothEnds.Count / 2]
-                : (withBothEnds[withBothEnds.Count / 2 - 1] + withBothEnds[withBothEnds.Count / 2]) / 2, 1);
+        var withBothEnds = lives
+            .Where(l => l.ClosedAt is not null)
+            .Select(l => (decimal)(l.ClosedAt!.Value - l.OpenedAt).TotalMinutes)
+            .ToList();
+
+        decimal? typical = withBothEnds.Count == 0 ? null : Median(withBothEnds);
 
         return new InstancesAnalytics(
             from,
@@ -73,13 +73,49 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
             MostOpenAtOnce(lives, from, to),
             await MostPeopleInOneAsync(from, to, ct),
             typical,
+            TypicalMinutesOpenPerDay(lives),
             withBothEnds.Count,
             lives.Count(l => l.OpenedAt >= AnalyticsSql.DayStart(from)),
             await InstancesAsync(openOnly: true, from, to, now, ct),
             await InstancesAsync(openOnly: false, from, to, now, ct),
             await HourOfWeekAsync(from, to, ct),
+            await new InstancePeaksQuery(db).RunAsync(from, to, ct),
+            await new PresenceCounts(db).ReportsAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
+    }
+
+    /// <summary>
+    /// The median time open, day by day, over the instances that both opened and closed that day.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The window's single median says whether evenings are long; the line says whether they are
+    /// getting longer, which is the question anybody who looks at the number twice actually has.
+    /// </para>
+    /// <para>
+    /// Counted on the day an instance closed, and only where both ends are on record — the same
+    /// rule the window's median uses, so the line and the number beside it cannot disagree. An
+    /// instance that ran past midnight lands on the day it finished.
+    /// </para>
+    /// </remarks>
+    private static IReadOnlyList<DayValue> TypicalMinutesOpenPerDay(IReadOnlyList<Lifetime> lives) => lives
+        .Where(l => l.ClosedAt is not null)
+        .GroupBy(l => AnalyticsSql.DayOf(l.ClosedAt!.Value))
+        .OrderBy(g => g.Key)
+        .Select(g => new DayValue(g.Key, Median(g.Select(l => (decimal)(l.ClosedAt!.Value - l.OpenedAt).TotalMinutes))))
+        .ToList();
+
+    /// <summary>The middle value, or the mean of the middle two. The list is never empty here.</summary>
+    private static decimal Median(IEnumerable<decimal> values)
+    {
+        var sorted = values.Order().ToList();
+
+        return Math.Round(
+            sorted.Count % 2 == 1
+                ? sorted[sorted.Count / 2]
+                : (sorted[sorted.Count / 2 - 1] + sorted[sorted.Count / 2]) / 2,
+            1);
     }
 
     /// <summary>How many instances the "recent" list carries. Enough to read, not a log.</summary>

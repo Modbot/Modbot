@@ -6,8 +6,9 @@ using Modbot.TestSupport;
 namespace Modbot.Api.Tests.Features.Analytics;
 
 /// <summary>
-/// The four pages share one gate: <c>ViewAnalytics</c>. Every one is checked, because a page
-/// added later without the flag would be the one that leaks.
+/// The pages share one gate: <c>ViewAnalytics</c>. Every one is checked, and so is every chart
+/// with a window of its own, because a route added later without the flag would be the one that
+/// leaks.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class AnalyticsAccessTests
@@ -22,7 +23,7 @@ public class AnalyticsAccessTests
         "/api/analytics/server",
     ];
 
-    /// <summary>The pages and the one chart with a window of its own, which is gated the same way.</summary>
+    /// <summary>The pages and the two charts with a window of their own, gated the same way.</summary>
     public static readonly TheoryData<string> Everything =
     [
         "/api/analytics/group",
@@ -30,6 +31,7 @@ public class AnalyticsAccessTests
         "/api/analytics/team",
         "/api/analytics/worlds",
         "/api/analytics/instances",
+        "/api/analytics/instances/activity",
         "/api/analytics/server",
     ];
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Modbot.Analytics.Activity;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Analytics.Group;
 using Modbot.Api.Features.Analytics.Instances;
@@ -208,10 +209,49 @@ public static class AnalyticsEndpoints
             .WithDescription(
                 "Instances: when is the community actually active? "
                 + "Instances opened and closed per day (daily totals), most open at once and the most "
-                + "people seen in one instance per day, how long instances typically stay open, and "
-                + "an hour-of-week heatmap of arrivals and openings. Hours are UTC; the page shifts "
-                + "them to the viewer's time zone.")
+                + "people seen in one instance per day, how long instances typically stay open and how "
+                + "that moves day by day, and an hour-of-week heatmap of arrivals and openings. Hours "
+                + "are UTC; the page shifts them to the viewer's time zone. `peaks` carries the most "
+                + "people in the group's instances at one moment, the most instances counted at once, "
+                + "the busiest day and the busiest clock hour, and the fullest single instance -- each "
+                + "with when it happened -- from VRChat's own head counts, which need no moderator's "
+                + "companion. `peaks.coverage` says how much of the time instances were open Modbot "
+                + "actually had a count for, and marks the figures thin below half of it. "
+                + "`presenceReports` does the same for the heatmap and the per-instance population, "
+                + "which do come from the companion.")
             .Produces<InstancesAnalytics>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        // The second chart with its own range, for the same reason as the member count: readings
+        // taken every thirty seconds are not the page's whole-day window, and one control cannot
+        // honestly mean both.
+        group.MapGet("/instances/activity", async (
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromQuery] string? range,
+                CancellationToken ct) =>
+            {
+                var series = await new InstanceActivityQuery(db)
+                    .RunAsync(range ?? ReadingRange.Week, clock.UtcNow, ct);
+
+                return series is null
+                    ? Results.BadRequest(new { error = "`range` must be day, week, month or all." })
+                    : Results.Ok(series);
+            })
+            .RequiresFlag(ModbotPermissions.ViewAnalytics)
+            .WithName("GetInstanceActivity")
+            .WithSummary("Get instance activity")
+            .WithDescription(
+                "How many people were in the group's instances, moment by moment, over the last "
+                + "`day`, `week` (the default), `month` or `all` recorded time. Built from VRChat's "
+                + "own head counts -- `n_users` from each open group instance's page, read about "
+                + "every thirty seconds -- so it covers instances no moderator's companion was in. "
+                + "A count is kept only when it changes, so the series is a staircase and each "
+                + "point holds until the next. Long ranges are thinned to at most about 500 points: "
+                + "the window is cut into equal steps and the last reading in each is kept. "
+                + "`instances` is how many instances had a count at that moment.")
+            .Produces<InstanceActivitySeries>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 

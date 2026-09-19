@@ -1,20 +1,29 @@
 import { useCallback, useState } from 'react'
-import { DailyBars, Heatmap, Legend, compactNumber, minutes } from '@/components/charts'
+import { DailyBars, DailyLine, Heatmap, Legend, compactNumber, dateTime, longDay, minutes, percent } from '@/components/charts'
 import { InstanceTable } from '@/components/InstanceTable'
-import { api, type HourOfWeek } from '@/lib/api'
+import { api, type HourOfWeek, type InstancePeaks } from '@/lib/api'
+import { InstanceActivityChart } from './InstanceActivityChart'
 import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, Toggle } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const HOURS = Array.from({ length: 24 }, (_, h) => `${h}:00`)
 
+/** Below this many presence reports in the range, the presence panels are shown but called thin. */
+const THIN_REPORTS = 200
+
 /**
  * Instances -- when is the community actually active? (spec 10.1)
  *
- * Opened and closed per day come from the daily totals. How long instances stay open, how many
- * are open at once and how many people were in one come from the fact log. The heatmap is the
- * cyclic answer spec 5.10 says a daily series cannot give: "Tuesdays at 8pm are our busiest
- * hour" is only visible once the days are laid over each other.
+ * Opened and closed per day come from the daily totals. How long instances stay open and how many
+ * are open at once come from the fact log. The heatmap is the cyclic answer spec 5.10 says a daily
+ * series cannot give: "Tuesdays at 8pm are our busiest hour" is only visible once the days are laid
+ * over each other.
+ *
+ * The peaks and the activity line come from a third source, VRChat's own head counts, which need no
+ * moderator's companion and so cover instances presence reports cannot see. Their coverage is its
+ * own figure and is marked when it is thin; the presence panels carry the report count for the same
+ * reason, the same way the Worlds page does.
  */
 export function Instances() {
   const [range, setRange] = useState<Range>(30)
@@ -45,6 +54,8 @@ export function Instances() {
             <Stat label="Most open at once" value={compactNumber(max(data.mostOpenAtOnce))} />
           </div>
 
+          <Peaks peaks={data.peaks} />
+
           {/*
             Before the charts, deliberately. The counts answer "is the community active"; this
             answers "what actually ran last night", which is the question a moderator opening the
@@ -59,6 +70,12 @@ export function Instances() {
           <Panel title="Recent instances">
             {data.recent.length === 0 ? <Nothing>No instances yet.</Nothing> : <InstanceTable instances={data.recent} />}
           </Panel>
+
+          <InstanceActivityChart />
+
+          {data.presenceReports > 0 && data.presenceReports < THIN_REPORTS && (
+            <PageMessage>Only {compactNumber(data.presenceReports)} presence reports in this range.</PageMessage>
+          )}
 
           <Panel
             title={`When the community is active (${zoneLabel()})`}
@@ -112,13 +129,52 @@ export function Instances() {
             </Panel>
           </div>
 
-          <Panel title="Most people in one instance, per day">
-            <DailyBars
-              from={data.from}
-              to={data.to}
-              series={[{ key: 'people', label: 'people', points: data.mostPeopleInOne, slot: 3 }]}
-            />
-          </Panel>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel title="Most people at once, per day">
+              <DailyBars
+                from={data.from}
+                to={data.to}
+                series={[{ key: 'people', label: 'people', points: data.peaks.mostPeopleAtOncePerDay, slot: 3 }]}
+              />
+            </Panel>
+
+            {/*
+              People-time, so a long steady evening outweighs a short rush. Hours rather than
+              minutes on the axis: a busy day is thousands of people-minutes and a chart of
+              thousands is a chart nobody reads.
+            */}
+            <Panel title="Busy time per day">
+              <DailyLine
+                from={data.from}
+                to={data.to}
+                series={[{ key: 'busy', label: 'people-hours', points: toHours(data.peaks.peopleMinutesPerDay), slot: 1 }]}
+                format={(v) => `${compactNumber(v)} h`}
+              />
+            </Panel>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel title="Typical time open, per day">
+              <DailyLine
+                from={data.from}
+                to={data.to}
+                series={[{ key: 'open', label: 'typical time open', points: data.typicalMinutesOpenPerDay, slot: 4 }]}
+                format={minutes}
+              />
+            </Panel>
+
+            <Panel title="Most people seen in one instance, per day">
+              {data.presenceReports === 0 ? (
+                <Nothing>No presence reports in this range.</Nothing>
+              ) : (
+                <DailyBars
+                  from={data.from}
+                  to={data.to}
+                  series={[{ key: 'people', label: 'people', points: data.mostPeopleInOne, slot: 2 }]}
+                />
+              )}
+            </Panel>
+          </div>
 
           <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
         </>
@@ -128,6 +184,62 @@ export function Instances() {
 }
 
 const toPoints = (buckets: number[]) => buckets.map((value) => ({ value }))
+
+const toHours = (points: { day: string; value: number }[]) =>
+  points.map((p) => ({ day: p.day, value: Math.round((p.value / 60) * 10) / 10 }))
+
+/**
+ * How full it ever got, and when.
+ *
+ * Every figure here is from VRChat's own head counts, so it covers instances no moderator's
+ * companion was in. A peak carries its moment because a peak without one cannot be rostered
+ * against, and the coverage line above it says how much of the time instances were open Modbot
+ * actually had a count for -- without which "48 people" could as easily be the week's high as the
+ * highest of the two hours anybody was counting.
+ */
+function Peaks({ peaks }: { peaks: InstancePeaks }) {
+  const { coverage } = peaks
+
+  return (
+    <>
+      {coverage.instancesOpen > 0 && coverage.instancesCounted === 0 ? (
+        <PageMessage>No head counts in this range.</PageMessage>
+      ) : coverage.thin ? (
+        <PageMessage>
+          Head counts cover {percent(coverage.minutesCounted, coverage.minutesInstancesWereOpen)} of the time
+          instances were open.
+        </PageMessage>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Stat
+          label="Most people at once"
+          value={peaks.mostPeopleAtOnce ? compactNumber(peaks.mostPeopleAtOnce.value) : '—'}
+          note={peaks.mostPeopleAtOnce ? dateTime(peaks.mostPeopleAtOnce.at) : undefined}
+        />
+        <Stat
+          label="Fullest instance"
+          value={peaks.busiestInstance ? compactNumber(peaks.busiestInstance.people) : '—'}
+          note={
+            peaks.busiestInstance
+              ? `${peaks.busiestInstance.worldName ?? peaks.busiestInstance.worldId} · ${dateTime(peaks.busiestInstance.at)}`
+              : undefined
+          }
+        />
+        <Stat
+          label="Busiest day"
+          value={peaks.busiestDay ? minutes(peaks.busiestDay.peopleMinutes) : '—'}
+          note={peaks.busiestDay ? longDay(peaks.busiestDay.day) : undefined}
+        />
+        <Stat
+          label="Busiest hour"
+          value={peaks.busiestHour ? minutes(peaks.busiestHour.peopleMinutes) : '—'}
+          note={peaks.busiestHour ? dateTime(peaks.busiestHour.startedAt) : undefined}
+        />
+      </div>
+    </>
+  )
+}
 
 /**
  * Shifts the 168 UTC buckets into the viewer's clock and lays them out by day.
