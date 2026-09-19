@@ -117,7 +117,7 @@ public static class ModerationEndpoints
 
                 var caller = new Caller(actor, http.User.Identity?.Name ?? string.Empty, ModbotAuth.PermissionsOf(http.User));
                 var cases = new CaseFileService(db, clock, facts, partitions, profiles, evidenceOptions, store, monitor);
-                var service = new ModerationActionService(db, clock, vrchat, facts, partitions, cases, profiles);
+                var service = new ModerationActionService(db, clock, vrchat, facts, partitions, cases, profiles: profiles);
 
                 try
                 {

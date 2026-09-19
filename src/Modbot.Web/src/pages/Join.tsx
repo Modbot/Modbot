@@ -59,7 +59,7 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background p-6">
+    <div className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="w-full max-w-[460px]">
         <Brand />
         <form onSubmit={submit} className="overflow-hidden rounded-xl border bg-card shadow-lg">

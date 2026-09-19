@@ -113,6 +113,10 @@ export function FactList({
  * Nearly the whole window, because every kind now carries an Overview, a History and a JSON tab
  * beside what it had, and a raw record or a table of versions wants room. Stacks to one column
  * on a narrow screen, where the whole popup scrolls rather than each column.
+ *
+ * On a phone it is the screen, edge to edge, with no gutter and no corners. This is the screen a
+ * moderator spends the most time on, and a popup floating inside a 16px margin spends 32px of a
+ * 390px screen on the page behind it, which they are not reading.
  */
 export function PopupFrame({
   title,
@@ -136,8 +140,15 @@ export function PopupFrame({
       lead={lead}
       actions={actions}
       aria-describedby={undefined}
-      className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[100rem]"
-      bodyClassName="grid overflow-auto p-0 md:grid-cols-[22rem_minmax(0,1fr)] md:overflow-hidden"
+      className={cn(
+        'top-0 left-0 h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0',
+        'md:top-1/2 md:left-1/2 md:h-[calc(100dvh-2rem)] md:w-[calc(100vw-2rem)] md:max-w-[100rem]',
+        'md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border',
+      )}
+      // `minmax(0,1fr)` on the one-column case as well: a bare `grid` sizes its column to the
+      // widest thing in it, so the stacked popup was as wide as its widest table and scrolled
+      // sideways as a whole rather than letting the table scroll inside itself.
+      bodyClassName="grid grid-cols-[minmax(0,1fr)] overflow-auto p-0 md:grid-cols-[22rem_minmax(0,1fr)] md:overflow-hidden"
     >
       <aside
         className="flex flex-col gap-3 border-b p-4 md:overflow-auto md:border-r md:border-b-0"

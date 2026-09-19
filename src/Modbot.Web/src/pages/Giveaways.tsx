@@ -402,7 +402,7 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
       </div>
 
       {open && entrants && (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead>
               <tr className="text-muted-foreground">

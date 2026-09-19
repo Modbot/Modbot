@@ -178,7 +178,7 @@ export function AiCallLogSettings() {
         ) : rows.length === 0 ? (
           <Placeholder>No calls.</Placeholder>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <Table style={{ fontSize: 'var(--text-small)' }}>
               <TableHeader>
                 <TableRow>

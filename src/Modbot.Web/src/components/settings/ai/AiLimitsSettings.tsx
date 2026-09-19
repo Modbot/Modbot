@@ -104,7 +104,7 @@ function SpendCard({ data }: { data: AiLimits }) {
 
   return (
     <SettingsCard title="Spend by feature" span={12}>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
           <thead className="text-left text-muted-foreground">
             <tr>
@@ -302,7 +302,7 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
       }
     >
       {(rows.length > 0 || tokenRows.length > 0) && (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead className="text-left text-muted-foreground">
               <tr>
@@ -425,7 +425,7 @@ function TopUsersCard({ data }: { data: AiLimits }) {
           None.
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead className="text-left text-muted-foreground">
               <tr>
@@ -558,7 +558,7 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
       }
     >
       {rows.length > 0 && (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead className="text-left text-muted-foreground">
               <tr>

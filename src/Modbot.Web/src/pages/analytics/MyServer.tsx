@@ -38,7 +38,7 @@ export function MyServer() {
 
       {data && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Stat
               label="Members"
               value={latestCount ? compactNumber(latestCount.value) : '—'}

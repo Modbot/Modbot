@@ -21,7 +21,7 @@ export function InsightBody({ insight }: { insight: Insight }) {
       {figures && (
         <details className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           <summary className="w-fit cursor-pointer select-none">Figures</summary>
-          <div className="mt-2 overflow-x-auto">
+          <div className="relative mt-2 overflow-x-auto">
             <table className="w-full">
               <thead className="text-left">
                 <tr>

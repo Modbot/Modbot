@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
 import type { Density, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
-import { Headset, LogOut, Moon, Rows3, Rows2, Search, Sun, UserRound } from 'lucide-react'
+import { Dialog as DialogPrimitive } from 'radix-ui'
+import { Headset, LogOut, Menu, Moon, Rows3, Rows2, Search, Sun, UserRound, X, Zap } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -24,6 +25,8 @@ export function Sidebar({
   onOpenHealth,
   group,
   badges,
+  className,
+  footer,
 }: {
   page: PageId
   me: CurrentUser
@@ -35,6 +38,9 @@ export function Sidebar({
   group?: SidebarGroup | null
   /** A count to show beside an entry -- open reviews beside Reviews. Zero or absent shows nothing. */
   badges?: Partial<Record<PageId, number>>
+  className?: string
+  /** Drawn at the foot, under Modbot's own mark. The phone sheet puts the top bar's controls here. */
+  footer?: React.ReactNode
 }) {
   const visible = NAV.filter((item) => !('hidden' in item && item.hidden) && mayOpen(me, item.id))
 
@@ -48,7 +54,10 @@ export function Sidebar({
   }, [])
 
   return (
-    <aside className="flex flex-col gap-px border-r bg-card px-3 py-4" style={{ borderRightWidth: 'var(--hairline)' }}>
+    <aside
+      className={cn('flex flex-col gap-px overflow-y-auto border-r bg-card px-3 py-4', className)}
+      style={{ borderRightWidth: 'var(--hairline)' }}
+    >
       {/*
         The group at the top: its banner when VRChat has one, its icon and its name. This is the
         community's Modbot, and the sidebar says whose. Modbot's own mark moves to the foot.
@@ -112,6 +121,8 @@ export function Sidebar({
           </span>
         </div>
       )}
+
+      {footer && <div className={cn('pt-4', !group && 'mt-auto')}>{footer}</div>}
     </aside>
   )
 }
@@ -153,16 +164,51 @@ export function Topbar({
 }) {
   return (
     <header
-      className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background/85 px-5 py-3 backdrop-blur"
+      className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background/85 px-4 py-3 backdrop-blur lg:px-5"
       style={{ borderBottomWidth: 'var(--hairline)' }}
     >
-      <h1 className="font-display" style={{ fontSize: 'calc(var(--text-base) + 3px)' }}>{title}</h1>
+      <h1 className="truncate font-display" style={{ fontSize: 'calc(var(--text-base) + 3px)' }}>{title}</h1>
 
       {/* Nothing at all unless this deployment is a demo. */}
       <DemoMarker />
 
       <div className="flex-1" />
 
+      {/* Below the sidebar's breakpoint these five controls would leave no room for the title, so
+          they move into the navigation sheet, which is one tap away at the foot of the screen. */}
+      <div className="hidden items-center gap-3 lg:flex">
+        <AppearanceControls density={density} setDensity={setDensity} theme={theme} setTheme={setTheme} />
+
+        {/* Your account: username, password, where a reset link reaches you, sign out everywhere. */}
+        {onAccount && (
+          <Button variant="ghost" size="sm" onClick={onAccount} title="Your account">
+            <UserRound className="size-4" />
+            {username && <span className="max-w-[10rem] truncate">{username}</span>}
+          </Button>
+        )}
+
+        {/* Disabling an account or changing its roles now takes effect on the next request, so this
+            is the ordinary way out rather than the emergency one -- but a moderator handing back a
+            shared machine still needs it. */}
+        {onSignOut && (
+          <Button variant="ghost" size="sm" onClick={onSignOut} title="Sign out">
+            <LogOut className="size-4" />
+          </Button>
+        )}
+      </div>
+    </header>
+  )
+}
+
+/** Density and theme. In the top bar on a wide screen, in the navigation sheet on a phone. */
+function AppearanceControls({
+  density, setDensity, theme, setTheme,
+}: {
+  density: Density; setDensity: (d: Density) => void
+  theme: Theme; setTheme: (t: Theme) => void
+}) {
+  return (
+    <>
       <Segmented
         label="Density"
         value={density}
@@ -176,25 +222,145 @@ export function Topbar({
 
       <Button variant="ghost" size="sm" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
         {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        <span className="lg:sr-only">{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
       </Button>
+    </>
+  )
+}
 
-      {/* Your account: username, password, where a reset link reaches you, sign out everywhere. */}
-      {onAccount && (
-        <Button variant="ghost" size="sm" onClick={onAccount} title="Your account">
-          <UserRound className="size-4" />
-          {username && <span className="max-w-[10rem] truncate">{username}</span>}
-        </Button>
-      )}
+/**
+ * The sidebar as a sheet, for a screen too narrow to give it a column of its own.
+ *
+ * The same component, not a second navigation: one list of pages, one set of permission checks,
+ * one place a page is added. It slides from the left because that is where the sidebar is on a
+ * wide screen, and it is opened from the bar at the foot, where a thumb reaches.
+ */
+export function NavSheet({
+  open,
+  onOpenChange,
+  nav,
+  appearance,
+  username,
+  onAccount,
+  onSignOut,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  nav: Omit<React.ComponentProps<typeof Sidebar>, 'className' | 'footer'>
+  appearance: React.ComponentProps<typeof AppearanceControls>
+  username?: string
+  onAccount?: () => void
+  onSignOut?: () => void
+}) {
+  const close = () => onOpenChange(false)
 
-      {/* Disabling an account or changing its roles now takes effect on the next request, so this
-          is the ordinary way out rather than the emergency one -- but a moderator handing back a
-          shared machine still needs it. */}
-      {onSignOut && (
-        <Button variant="ghost" size="sm" onClick={onSignOut} title="Sign out">
-          <LogOut className="size-4" />
-        </Button>
-      )}
-    </header>
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-[2px] lg:hidden" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[85vw] flex-col bg-card shadow-lg outline-none lg:hidden"
+        >
+          <DialogPrimitive.Title className="sr-only">Pages</DialogPrimitive.Title>
+          <DialogPrimitive.Close
+            className="absolute top-3 right-3 z-10 grid place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+            style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
+            aria-label="Close"
+          >
+            <X className="size-5" />
+          </DialogPrimitive.Close>
+
+          <Sidebar
+            {...nav}
+            className="min-h-0 flex-1 border-r-0 pb-[max(1rem,env(safe-area-inset-bottom))]"
+            onNavigate={(p) => {
+              close()
+              nav.onNavigate(p)
+            }}
+            onSearch={() => {
+              close()
+              nav.onSearch()
+            }}
+            onOpenHealth={(section) => {
+              close()
+              nav.onOpenHealth(section)
+            }}
+            footer={
+              <div className="flex flex-col items-start gap-2 border-t pt-4" style={{ borderTopWidth: 'var(--hairline)' }}>
+                <AppearanceControls {...appearance} />
+                {onAccount && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      close()
+                      onAccount()
+                    }}
+                  >
+                    <UserRound className="size-4" />
+                    <span className="max-w-[9rem] truncate">{username ?? 'Your account'}</span>
+                  </Button>
+                )}
+                {onSignOut && (
+                  <Button variant="ghost" size="sm" onClick={onSignOut}>
+                    <LogOut className="size-4" />
+                    Sign out
+                  </Button>
+                )}
+              </div>
+            }
+          />
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}
+
+/**
+ * The bar at the foot of the screen on a phone.
+ *
+ * At the foot rather than the top because a phone held in one hand puts the top of a tall screen
+ * out of a thumb's reach, and these are the three controls a moderator reaches for most: the
+ * pages, a person by name, and whatever the screen they are on can do.
+ *
+ * "Actions" is the answer to the keyboard. Every key a page registers carries a label already
+ * (lib/shortcuts.ts), so the sheet that lists them for `?` is also the list of what the page can
+ * do -- and each row runs it (components/ShortcutSheet.tsx). It leaves out "Go to", because that
+ * is what Menu is.
+ */
+export function BottomBar({
+  onMenu,
+  onSearch,
+  onThisPage,
+}: {
+  onMenu: () => void
+  onSearch: () => void
+  onThisPage: () => void
+}) {
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      style={{ borderTopWidth: 'var(--hairline)' }}
+    >
+      <BottomButton icon={<Menu className="size-5" />} label="Menu" onClick={onMenu} />
+      <BottomButton icon={<Search className="size-5" />} label="Search" onClick={onSearch} />
+      <BottomButton icon={<Zap className="size-5" />} label="Actions" onClick={onThisPage} />
+    </nav>
+  )
+}
+
+function BottomButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-muted-foreground active:bg-secondary"
+      style={{ minHeight: 'var(--control-h)' }}
+    >
+      {icon}
+      <span style={{ fontSize: '0.6875rem' }}>{label}</span>
+    </button>
   )
 }
 

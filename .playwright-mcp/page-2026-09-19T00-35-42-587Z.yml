@@ -1,0 +1,978 @@
+- generic:
+  - generic [aria-hidden]:
+    - generic:
+      - main:
+        - generic:
+          - heading [level=1]: Audit log
+          - generic: Demo
+          - button: Reset demo
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: Source
+                - button: is any of
+                - button: VRChat, Discord, Client +1
+                - button
+              - button:
+                - text: Filter
+                - generic: F
+              - button: Clear
+              - generic: "Oldest recorded entry: Sep 18, 2025 · catch-up still running"
+            - generic:
+              - generic:
+                - generic:
+                  - table:
+                    - rowgroup:
+                      - row:
+                        - columnheader
+                        - columnheader: When
+                        - columnheader: Source
+                        - columnheader: What happened
+                    - rowgroup:
+                      - row [selected]:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 10:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Hazelstoat
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 10:15 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Marblelynxish
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 10:09 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Sableshrike
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 10:03 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Yarrowgull
+                          - generic: New User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 09:54 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Neonfox
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 09:37 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: TinselcraneVR
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 09:23 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Duskfox
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 09:08 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Umberstoat_vr
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Thistle Fields
+                            - generic: "#10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 09:04 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Auroraotter01
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 09:01 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Aurorapikex
+                          - generic: New User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:35 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: sam-newt
+                          - generic: Trusted User
+                          - text: joined
+                          - generic:
+                            - button: Night Market
+                            - generic: "#10530"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:34 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Opalfinch_vr
+                          - generic: Trusted User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:33 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Mapleotterish
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Thistle Fields
+                            - generic: "#10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:33 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Duskhare
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:29 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Onyxfinchling
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Night Market
+                            - generic: "#10530"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:28 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Basaltcraneling
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Thistle Fields
+                            - generic: "#10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:21 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Echoternling
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:21 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Lanternwren77
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Night Market
+                            - generic: "#10530"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:18 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Zephyrfoxzz
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Night Market
+                            - generic: "#10530"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:04 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Onyxvoleish
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Night Market
+                            - generic: "#10530"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 08:03 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Pixelheronish
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:58 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Marbleswift
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Thistle Fields
+                            - generic: "#10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:58 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Echocraneish
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:52 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Emberstoatling
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Night Market
+                            - generic: "#10530"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:50 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Aurorawren
+                          - generic: New User
+                          - text: joined
+                          - generic:
+                            - button: Thistle Fields
+                            - generic: "#10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:50 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Onyxcrane
+                          - generic: Trusted User
+                          - text: joined
+                          - generic:
+                            - button: Night Market
+                            - generic: "#10530"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:46 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Echocraneish
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Thistle Fields
+                            - generic: "#10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:46 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Auroranewtling
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:29 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Echoraven
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Cold Station
+                            - generic: "#10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:24 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Cinderminkish
+                          - generic: Known User
+                          - text: joined
+                          - generic:
+                            - button: Night Market
+                            - generic: "#10530"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:22 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Staticotterx
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Tide Pool
+                            - generic: "#10536"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:20 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Glasshare_vr
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Tide Pool
+                            - generic: "#10536"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:18 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Citrusswift
+                          - generic: User
+                          - text: joined
+                          - generic:
+                            - button: Tide Pool
+                            - generic: "#10536"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: VRChat
+                        - cell:
+                          - button: tam-tern
+                          - generic: Trusted User
+                          - text: kicked
+                          - button: Auroranewtling
+                          - generic: User
+                          - text: out of
+                          - button: "Neon Yard #10535"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Willowcrane01
+                          - generic: User
+                          - text: joined
+                          - button: "Tide Pool #10536"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Basaltcraneling
+                          - generic: User
+                          - text: left
+                          - button: "Thistle Fields #10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Umberstoat_vr
+                          - generic: Known User
+                          - text: left
+                          - button: "Thistle Fields #10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Mapleotterish
+                          - generic: Known User
+                          - text: left
+                          - button: "Thistle Fields #10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Aurorawren
+                          - generic: New User
+                          - text: left
+                          - button: "Thistle Fields #10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Marbleswift
+                          - generic: User
+                          - text: left
+                          - button: "Thistle Fields #10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Echocraneish
+                          - generic: Known User
+                          - text: left
+                          - button: "Thistle Fields #10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: VRChat
+                        - cell:
+                          - text: Somebody closed
+                          - button: "Thistle Fields #10532"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Echoraven
+                          - generic: Known User
+                          - text: left
+                          - button: "Cold Station #10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Duskfox
+                          - generic: User
+                          - text: left
+                          - button: "Cold Station #10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Sableshrike
+                          - generic: User
+                          - text: left
+                          - button: "Cold Station #10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Echocraneish
+                          - generic: Known User
+                          - text: left
+                          - button: "Cold Station #10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Auroranewtling
+                          - generic: User
+                          - text: left
+                          - button: "Cold Station #10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Pixelheronish
+                          - generic: Known User
+                          - text: left
+                          - button: "Cold Station #10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Auroraotter01
+                          - generic: User
+                          - text: left
+                          - button: "Cold Station #10531"
+                          - text: .
+                      - row:
+                        - cell
+                        - cell:
+                          - generic:
+                            - generic: 07:16 PM
+                            - generic: Sep 18, 2026
+                        - cell:
+                          - generic: Client
+                        - cell:
+                          - button: Embernewtling
+                          - generic: New User
+                          - text: left
+                          - button: "Cold Station #10531"
+                          - text: .
+                - generic:
+                  - generic: 50 entries shown
+                  - button: Load more
+        - generic:
+          - link:
+            - /url: https://docs.modbot.co
+            - text: Docs
+          - link:
+            - /url: /settings/credits
+            - text: Credits
+      - navigation:
+        - button:
+          - generic: Menu
+        - button:
+          - generic: Search
+        - button:
+          - generic: Actions
+  - dialog [ref=f20e976]:
+    - heading "Search and commands" [level=2] [ref=f20e977]
+    - generic [ref=f20e978]:
+      - combobox "Search people, worlds, pages and actions" [expanded] [active] [ref=f20e982]
+      - generic [ref=f20e983]: Esc
+    - listbox [ref=f20e986]:
+      - generic [ref=f20e987]:
+        - generic [ref=f20e988]: Go to
+        - option "Members G then M" [selected] [ref=f20e989]:
+          - generic [ref=f20e990]: Members
+          - generic [ref=f20e991]:
+            - generic [ref=f20e992]: G
+            - generic [ref=f20e994]:
+              - generic [ref=f20e995]: then
+              - generic [ref=f20e996]: M
+        - option "Discord members G then D" [ref=f20e997]:
+          - generic [ref=f20e998]: Discord members
+          - generic [ref=f20e999]:
+            - generic [ref=f20e1000]: G
+            - generic [ref=f20e1002]:
+              - generic [ref=f20e1003]: then
+              - generic [ref=f20e1004]: D
+        - option "People G then N" [ref=f20e1005]:
+          - generic [ref=f20e1006]: People
+          - generic [ref=f20e1007]:
+            - generic [ref=f20e1008]: G
+            - generic [ref=f20e1010]:
+              - generic [ref=f20e1011]: then
+              - generic [ref=f20e1012]: "N"
+        - option "Live G then L" [ref=f20e1013]:
+          - generic [ref=f20e1014]: Live
+          - generic [ref=f20e1015]:
+            - generic [ref=f20e1016]: G
+            - generic [ref=f20e1018]:
+              - generic [ref=f20e1019]: then
+              - generic [ref=f20e1020]: L
+        - option "Calendar G then E" [ref=f20e1021]:
+          - generic [ref=f20e1022]: Calendar
+          - generic [ref=f20e1023]:
+            - generic [ref=f20e1024]: G
+            - generic [ref=f20e1026]:
+              - generic [ref=f20e1027]: then
+              - generic [ref=f20e1028]: E
+        - option "Giveaways G then P" [ref=f20e1029]:
+          - generic [ref=f20e1030]: Giveaways
+          - generic [ref=f20e1031]:
+            - generic [ref=f20e1032]: G
+            - generic [ref=f20e1034]:
+              - generic [ref=f20e1035]: then
+              - generic [ref=f20e1036]: P
+        - option "Chat G then C" [ref=f20e1037]:
+          - generic [ref=f20e1038]: Chat
+          - generic [ref=f20e1039]:
+            - generic [ref=f20e1040]: G
+            - generic [ref=f20e1042]:
+              - generic [ref=f20e1043]: then
+              - generic [ref=f20e1044]: C
+        - option "Bans G then B" [ref=f20e1045]:
+          - generic [ref=f20e1046]: Bans
+          - generic [ref=f20e1047]:
+            - generic [ref=f20e1048]: G
+            - generic [ref=f20e1050]:
+              - generic [ref=f20e1051]: then
+              - generic [ref=f20e1052]: B
+        - option "Flags G then F" [ref=f20e1053]:
+          - generic [ref=f20e1054]: Flags
+          - generic [ref=f20e1055]:
+            - generic [ref=f20e1056]: G
+            - generic [ref=f20e1058]:
+              - generic [ref=f20e1059]: then
+              - generic [ref=f20e1060]: F
+        - option "Audit log G then A" [ref=f20e1061]:
+          - generic [ref=f20e1062]: Audit log
+          - generic [ref=f20e1063]:
+            - generic [ref=f20e1064]: G
+            - generic [ref=f20e1066]:
+              - generic [ref=f20e1067]: then
+              - generic [ref=f20e1068]: A
+        - option "My Group G then G" [ref=f20e1069]:
+          - generic [ref=f20e1070]: My Group
+          - generic [ref=f20e1071]:
+            - generic [ref=f20e1072]: G
+            - generic [ref=f20e1074]:
+              - generic [ref=f20e1075]: then
+              - generic [ref=f20e1076]: G
+        - option "My Server G then V" [ref=f20e1077]:
+          - generic [ref=f20e1078]: My Server
+          - generic [ref=f20e1079]:
+            - generic [ref=f20e1080]: G
+            - generic [ref=f20e1082]:
+              - generic [ref=f20e1083]: then
+              - generic [ref=f20e1084]: V
+        - option "My Team G then T" [ref=f20e1085]:
+          - generic [ref=f20e1086]: My Team
+          - generic [ref=f20e1087]:
+            - generic [ref=f20e1088]: G
+            - generic [ref=f20e1090]:
+              - generic [ref=f20e1091]: then
+              - generic [ref=f20e1092]: T
+        - option "Worlds G then W" [ref=f20e1093]:
+          - generic [ref=f20e1094]: Worlds
+          - generic [ref=f20e1095]:
+            - generic [ref=f20e1096]: G
+            - generic [ref=f20e1098]:
+              - generic [ref=f20e1099]: then
+              - generic [ref=f20e1100]: W
+        - option "Instances G then I" [ref=f20e1101]:
+          - generic [ref=f20e1102]: Instances
+          - generic [ref=f20e1103]:
+            - generic [ref=f20e1104]: G
+            - generic [ref=f20e1106]:
+              - generic [ref=f20e1107]: then
+              - generic [ref=f20e1108]: I
+        - option "Reviews G then R" [ref=f20e1109]:
+          - generic [ref=f20e1110]: Reviews
+          - generic [ref=f20e1111]:
+            - generic [ref=f20e1112]: G
+            - generic [ref=f20e1114]:
+              - generic [ref=f20e1115]: then
+              - generic [ref=f20e1116]: R
+        - option "Logs G then O" [ref=f20e1117]:
+          - generic [ref=f20e1118]: Logs
+          - generic [ref=f20e1119]:
+            - generic [ref=f20e1120]: G
+            - generic [ref=f20e1122]:
+              - generic [ref=f20e1123]: then
+              - generic [ref=f20e1124]: O
+        - option "Settings G then S" [ref=f20e1125]:
+          - generic [ref=f20e1126]: Settings
+          - generic [ref=f20e1127]:
+            - generic [ref=f20e1128]: G
+            - generic [ref=f20e1130]:
+              - generic [ref=f20e1131]: then
+              - generic [ref=f20e1132]: S
+      - generic [ref=f20e1133]:
+        - generic [ref=f20e1134]: On this page
+        - option "Add a filter F" [ref=f20e1135]:
+          - generic [ref=f20e1136]: Add a filter
+          - generic [ref=f20e1137]: F
+        - option "Next row J" [ref=f20e1140]:
+          - generic [ref=f20e1141]: Next row
+          - generic [ref=f20e1142]: J
+        - option "Previous row K" [ref=f20e1145]:
+          - generic [ref=f20e1146]: Previous row
+          - generic [ref=f20e1147]: K
+        - option "Open the selected row Enter" [ref=f20e1150]:
+          - generic [ref=f20e1151]: Open the selected row
+          - generic [ref=f20e1152]: Enter
+        - option "Open the person, account or instance the selected row is about O" [ref=f20e1155]:
+          - generic [ref=f20e1156]: Open the person, account or instance the selected row is about
+          - generic [ref=f20e1157]: O
+        - option "Keyboard shortcuts ?" [ref=f20e1160]:
+          - generic [ref=f20e1161]: Keyboard shortcuts
+          - generic [ref=f20e1162]: "?"
+      - generic [ref=f20e1165]:
+        - generic [ref=f20e1166]: Appearance
+        - option "Light theme" [ref=f20e1167]
+        - option "Comfortable density" [ref=f20e1169]
+        - option "VR density" [ref=f20e1171]
+      - generic [ref=f20e1173]:
+        - generic [ref=f20e1174]: Account
+        - option "Your account" [ref=f20e1175]

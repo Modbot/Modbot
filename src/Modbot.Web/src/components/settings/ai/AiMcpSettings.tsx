@@ -138,7 +138,7 @@ function ConnectionsCard() {
       ) : connections.length === 0 ? (
         <p className="text-muted-foreground">None.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead className="text-left text-muted-foreground">
               <tr>

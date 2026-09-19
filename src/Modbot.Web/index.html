@@ -10,7 +10,9 @@
     <meta name="theme-color" content="#f7f6fb" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0f0e15" media="(prefers-color-scheme: dark)" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover so the bar at the foot of the app can sit clear of a
+         phone's home indicator: without it env(safe-area-inset-*) is always 0. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Modbot</title>
 
     <!-- The link preview a chat app draws when a moderator pastes a page of this app into a

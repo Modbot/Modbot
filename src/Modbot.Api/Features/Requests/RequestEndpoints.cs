@@ -180,7 +180,7 @@ public static class RequestEndpoints
 
                 var caller = new Caller(actor, http.User.Identity?.Name ?? string.Empty, ModbotAuth.PermissionsOf(http.User));
                 var cases = new CaseFileService(db, clock, facts, partitions, profiles, evidenceOptions, store, monitor);
-                var service = new ModerationActionService(db, clock, moderation, facts, partitions, cases, requests);
+                var service = new ModerationActionService(db, clock, moderation, facts, partitions, cases, requests: requests);
 
                 var ask = new ModerationActionRequest(body.UserId, body.Key, body.ReasonIds, body.Note);
 

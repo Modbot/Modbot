@@ -119,7 +119,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
               <div className="font-medium text-foreground">Nobody yet</div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div data-pin-first className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>

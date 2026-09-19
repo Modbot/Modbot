@@ -87,7 +87,7 @@ export function LinkAccounts() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background p-6">
+    <div className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="w-full max-w-[520px]">
         <Brand />
         <div className="overflow-hidden rounded-xl border bg-card shadow-lg">

@@ -44,7 +44,7 @@ export function Worlds() {
             <PageMessage>Only {compactNumber(data.presenceReports)} presence reports in this range.</PageMessage>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Stat label="Worlds" value={compactNumber(data.worlds.length)} />
             <Stat label="Time seen" value={minutes(totalMinutes)} />
             <Stat label="Visitors" value={compactNumber(totalVisitors)} />
@@ -55,7 +55,7 @@ export function Worlds() {
             {data.worlds.length === 0 ? (
               <Nothing>No worlds in this range.</Nothing>
             ) : (
-              <div className="overflow-x-auto">
+              <div data-pin-first className="relative overflow-x-auto">
                 <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                   <thead className="text-left text-muted-foreground">
                     <tr>
