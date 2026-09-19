@@ -70,7 +70,7 @@ public sealed class DiscordRestMessenger : IDiscordMessenger
             client.BaseAddress = new Uri(ApiBase);
             client.Timeout = TimeSpan.FromSeconds(20);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bot", token);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Modbot (https://github.com/binn/Modbot, 1.0)");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Modbot (https://github.com/Modbot/Modbot, 1.0)");
 
             using var channel = await client.PostAsJsonAsync(
                 "users/@me/channels", new { recipient_id = discordUserId }, ct);

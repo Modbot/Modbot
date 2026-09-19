@@ -7,8 +7,9 @@ using Serilog;
 // Modbot.Landing — modbot.co, the public page that says what Modbot is.
 //
 // Composition only. Every endpoint lives in its feature folder under Features/, and LandingApp
-// wires them together so the tests build the same app over a test server. There is no database
-// and nothing to configure beyond the port: the page is built once by Web/ into wwwroot.
+// wires them together so the tests build the same app over a test server. There is no database:
+// the pages are built once by Web/ into wwwroot, and everything else is an environment variable,
+// listed in this project's README.
 // ─────────────────────────────────────────────────────────────────────────────
 
 Log.Logger = ModbotServiceLog.Create("Modbot.Landing");

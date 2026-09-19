@@ -28,6 +28,10 @@ public class NotFoundTests
     [InlineData("/index.html")]
     [InlineData("/404.html")]
     [InlineData("/INDEX.HTML")]
+    [InlineData("/features.html")]
+    [InlineData("/self-host.html")]
+    [InlineData("/about.html")]
+    [InlineData("/license.html")]
     public async Task TheBuiltPagesAreNotServedByFileName(string path)
     {
         await using var host = await LandingTestHost.StartAsync();
@@ -35,7 +39,7 @@ public class NotFoundTests
         using var response = await host.GetAsync(path);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.NotEqual(LandingTestHost.LandingHtml, await response.Content.ReadAsStringAsync(Ct));
+        Assert.NotEqual("text/html", response.Content.Headers.ContentType?.MediaType);
     }
 
     [Theory]

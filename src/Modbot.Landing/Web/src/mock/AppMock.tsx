@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Headset, Moon, Rows2, Rows3, Sun } from 'lucide-react'
-import { useTheme } from '@/lib/theme'
+import { useTheme } from '@/lib/useTheme'
 import { cn } from '@/lib/utils'
 import { Popups } from './Popups'
 import { GROUP_NAME, clock, initialLive, personById, step, worldById, type InstanceState } from './simulation'

@@ -4,7 +4,7 @@
 
 # Modbot
 
-**Self-hosted moderation for VRChat groups.**
+The open moderation & analytics engine for VRChat & Discord.
 
 Modbot records why each person was banned and who was in the instance at the time. It keeps that
 record for as long as you want, in one container and one PostgreSQL database on a server you control.

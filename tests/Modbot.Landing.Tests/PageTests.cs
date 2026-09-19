@@ -67,11 +67,40 @@ public class PageTests
     }
 
     [Fact]
+    public async Task EachPageBesideTheLandingPageIsServedAtItsOwnAddress()
+    {
+        await using var host = await LandingTestHost.StartAsync();
+
+        foreach (var (path, _, html) in LandingTestHost.OtherPages)
+        {
+            using var response = await host.GetAsync(path);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal(html, await response.Content.ReadAsStringAsync(Ct));
+            Assert.True(response.Headers.CacheControl?.NoCache);
+        }
+    }
+
+    [Fact]
+    public async Task BeforeABuildThosePagesAreTheNotFoundPage()
+    {
+        await using var host = await LandingTestHost.StartAsync(built: false);
+
+        foreach (var (path, _, _) in LandingTestHost.OtherPages)
+        {
+            using var response = await host.GetAsync(path);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task EveryResponseCarriesTheSecurityHeaders()
     {
         await using var host = await LandingTestHost.StartAsync();
 
-        foreach (var path in new[] { "/", LandingTestHost.AssetPath, "/nothing-here", "/health/live" })
+        foreach (var path in new[] { "/", "/about", "/discord", LandingTestHost.AssetPath, "/nothing-here", "/health/live" })
         {
             using var response = await host.GetAsync(path);
 

@@ -1,11 +1,14 @@
 """Build a self-contained page from a template: <name>.template.html -> <name>.html.
 
+Usage:  python build.py [name ...]
+
+Named templates are built; with no names, every *.template.html in this folder is — which is
+landing, og (the share image's page, which og.py then photographs) and banners (the 1024 x 300
+headers, which banners.py then photographs).
+
 Every {{asset:<file>}} in the template becomes a data URI for explore/design/brand/<file>, so the
 output is one file with no external requests except the Google Fonts link used while iterating
 (the real site bundles fonts through @fontsource, see src/Modbot.Landing/Web/src/index.css).
-
-Usage:  python build.py [name ...]
-With no names it builds every *.template.html in this folder.
 """
 import base64
 import glob

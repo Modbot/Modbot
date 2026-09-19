@@ -30,7 +30,7 @@ public sealed record VRChatClientOptions
     public string DeveloperContactEmail { get; init; } = "me@bin.moe";
 
     /// <summary>Where Modbot lives. Sent as <c>X-Modbot-Developer-Contact-URL</c>.</summary>
-    public string DeveloperContactUrl { get; init; } = "https://github.com/binn/Modbot";
+    public string DeveloperContactUrl { get; init; } = "https://github.com/Modbot/Modbot";
 
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(30);
 }

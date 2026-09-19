@@ -148,7 +148,9 @@
   html {
     background: var(--ground);
     scroll-behavior: smooth;
-    scroll-padding-top: 5rem;
+    /* Clears the sticky header, which is two rows tall on a phone, so a link into a section on
+       another page lands under it rather than behind it. */
+    scroll-padding-top: 6.5rem;
     -webkit-text-size-adjust: 100%;
   }
 

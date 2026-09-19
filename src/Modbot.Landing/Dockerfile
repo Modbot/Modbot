@@ -22,9 +22,10 @@ WORKDIR /src
 COPY src/Modbot.Landing/Web/package.json src/Modbot.Landing/Web/package-lock.json src/Modbot.Landing/Web/
 RUN cd src/Modbot.Landing/Web && npm ci
 
-# PRIVACY_POLICY.md becomes /privacy when it exists. The pattern lets the copy succeed while it does
-# not: a COPY with a wildcard that matches nothing is allowed as long as another source matches.
-COPY global.json PRIVACY_POLICY.m[d] ./
+# LICENSE becomes /license and is always there. PRIVACY_POLICY.md becomes /privacy when it exists;
+# the pattern lets the copy succeed while it does not, because a COPY with a wildcard that matches
+# nothing is allowed as long as another source matches.
+COPY global.json LICENSE PRIVACY_POLICY.m[d] ./
 
 COPY src/Modbot.Landing/Web/ src/Modbot.Landing/Web/
 RUN cd src/Modbot.Landing/Web && npm run build

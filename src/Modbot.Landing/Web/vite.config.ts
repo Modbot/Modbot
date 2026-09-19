@@ -14,12 +14,11 @@ export default defineConfig({
     outDir: '../wwwroot',
     emptyOutDir: true,
     rollupOptions: {
-      input: {
-        main: path.resolve(here, 'index.html'),
-        instances: path.resolve(here, 'instances.html'),
-        notFound: path.resolve(here, '404.html'),
-        privacy: path.resolve(here, 'privacy.html'),
-      },
+      input: Object.fromEntries(
+        ['index', '404', 'features', 'self-host', 'about', 'license', 'privacy', 'discord', 'instances'].map(
+          (page) => [page, path.resolve(here, `${page}.html`)],
+        ),
+      ),
     },
   },
 })

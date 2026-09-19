@@ -15,17 +15,29 @@ namespace Modbot.Landing.Features.Pages;
 public sealed record MyModbotAddress(string Url);
 
 /// <summary>
-/// The HTML files <c>Web/</c> builds into <c>wwwroot</c>: the landing page, the instances page, the
-/// not-found page, and the privacy policy when <c>PRIVACY_POLICY.md</c> existed at build time.
+/// The HTML files <c>Web/</c> builds into <c>wwwroot</c>: the landing page, the pages beside it, the
+/// instances page, the not-found page, and the privacy policy when <c>PRIVACY_POLICY.md</c> existed
+/// at build time.
 /// </summary>
 public sealed partial class BuiltPages(IWebHostEnvironment environment, MyModbotAddress myModbot)
 {
     public const string LandingFile = "index.html";
     public const string NotFoundFile = "404.html";
+    public const string FeaturesFile = "features.html";
+    public const string SelfHostFile = "self-host.html";
+    public const string AboutFile = "about.html";
+    public const string LicenseFile = "license.html";
     public const string PrivacyFile = "privacy.html";
     public const string InstancesFile = "instances.html";
 
-    public static readonly string[] All = [LandingFile, NotFoundFile, PrivacyFile, InstancesFile];
+    /// <summary>Shown at <c>/discord</c> when the server has no address to send people to.</summary>
+    public const string NoDiscordFile = "discord.html";
+
+    public static readonly string[] All =
+    [
+        LandingFile, NotFoundFile, FeaturesFile, SelfHostFile,
+        AboutFile, LicenseFile, PrivacyFile, InstancesFile, NoDiscordFile,
+    ];
 
     private readonly Dictionary<string, BuiltPage> _pages = new(StringComparer.Ordinal);
     private readonly Lock _gate = new();

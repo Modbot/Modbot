@@ -3,4 +3,16 @@
   <url>
     <loc>https://modbot.co/</loc>
   </url>
+  <url>
+    <loc>https://modbot.co/features</loc>
+  </url>
+  <url>
+    <loc>https://modbot.co/self-host</loc>
+  </url>
+  <url>
+    <loc>https://modbot.co/about</loc>
+  </url>
+  <url>
+    <loc>https://modbot.co/license</loc>
+  </url>
 </urlset>
