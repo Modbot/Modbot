@@ -54,7 +54,7 @@ public static class PersonLookupEndpoints
                 return Results.Ok(await new PersonLookup(db).ResolveAsync(ask, sight, ct));
             })
             .WithName("GetPerson")
-            .WithSummary("One person's VRChat, Discord and Modbot accounts, from any one of them")
+            .WithSummary("Look up a person")
             .WithDescription(
                 "Give exactly one of `vrchatUserId`, `discordUserId` or `accountId`. The answer "
                 + "carries every account Modbot can tie to it, each with `foundBy` saying what "

@@ -58,7 +58,8 @@ public static class PublicInstancesSettingsEndpoints
                     settings.PublicInstancesReportedAt));
             })
             .WithName("GetPublicInstances")
-            .WithSummary("Whether the group's public instances are listed on modbot.co")
+            .WithSummary("Get instance listing")
+            .WithDescription("Whether the group's public instances are listed on modbot.co.")
             .Produces<PublicInstancesView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -106,7 +107,8 @@ public static class PublicInstancesSettingsEndpoints
                 return Results.Ok(new PublicInstancesView(after.SharePublicInstances, cloud.Disabled, after.PublicInstancesReportedAt));
             })
             .WithName("SetPublicInstances")
-            .WithSummary("Turn the modbot.co listing on or off")
+            .WithSummary("Set instance listing")
+            .WithDescription("Turn the modbot.co listing on or off.")
             .Produces<PublicInstancesView>()
             .Produces(StatusCodes.Status403Forbidden);
 

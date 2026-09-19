@@ -251,9 +251,10 @@ public static class ApiSurface
                 ModbotVersion.Api,
                 ModbotVersion.ApiMinimum)))
             .WithName("GetVersion")
-            .WithSummary("Server and API version")
+            .WithSummary("Get version")
             .WithDescription(
-                "Unauthenticated so a client can negotiate compatibility before it holds "
+                "Server and API version. "
+                + "Unauthenticated so a client can negotiate compatibility before it holds "
                 + "credentials. Clients compare their own supported range against "
                 + "apiVersionMinimum..apiVersion and use the highest both support.")
             .Produces<VersionResponse>();

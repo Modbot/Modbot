@@ -53,7 +53,8 @@ public static class AiChatSettingsEndpoints
                 CancellationToken ct) =>
                 Results.Ok(View(await db.GetSettingsAsync(ct), registry)))
             .WithName("GetAiChatSettings")
-            .WithSummary("Chat's on/off switch, model, extra instructions, limits and tools")
+            .WithSummary("Get AI chat settings")
+            .WithDescription("Chat's on/off switch, model, extra instructions, limits and tools.")
             .Produces<AiChatSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -103,7 +104,8 @@ public static class AiChatSettingsEndpoints
                 return Results.Ok(View(settings, registry));
             })
             .WithName("SetAiChatSettings")
-            .WithSummary("Save Chat's settings")
+            .WithSummary("Update AI chat settings")
+            .WithDescription("Save Chat's settings.")
             .Produces<AiChatSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

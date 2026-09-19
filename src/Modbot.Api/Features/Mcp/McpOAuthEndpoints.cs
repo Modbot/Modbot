@@ -128,14 +128,16 @@ public static class McpOAuthEndpoints
 
         page.MapGet("", DescribeAsync)
             .WithName("DescribeMcpSignIn")
-            .WithSummary("What an AI app is asking for, for the sign-in page")
+            .WithSummary("Get sign-in request")
+            .WithDescription("What an AI app is asking for, for the sign-in page.")
             .Produces<McpAuthorizeView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
         page.MapPost("", DecideAsync)
             .WithName("AnswerMcpSignIn")
-            .WithSummary("Allow or refuse an AI app's sign-in")
+            .WithSummary("Answer sign-in request")
+            .WithDescription("Allow or refuse an AI app's sign-in.")
             .Produces<McpAuthorizeOutcome>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

@@ -85,8 +85,10 @@ public static class InviteEndpoints
                     link.ExpiresAt));
             })
             .WithName("CreateInvite")
-            .WithSummary("Make a one-time invite link carrying these roles")
-            .WithDescription("Shown once; the server keeps only a hash. Good for 72 hours.")
+            .WithSummary("Create an invite")
+            .WithDescription(
+                "Make a one-time invite link carrying these roles. "
+                + "Shown once; the server keeps only a hash. Good for 72 hours.")
             .Produces<LinkCreated>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -122,7 +124,8 @@ public static class InviteEndpoints
                     l.ExpiresAt)).ToList());
             })
             .WithName("ListInvites")
-            .WithSummary("Invite links that have not been used or expired")
+            .WithSummary("List invites")
+            .WithDescription("Invite links that have not been used or expired.")
             .Produces<List<PendingInvite>>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -154,7 +157,8 @@ public static class InviteEndpoints
                 return Results.NoContent();
             })
             .WithName("RevokeInvite")
-            .WithSummary("Take back an unused invite link")
+            .WithSummary("Revoke an invite")
+            .WithDescription("Take back an unused invite link.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -191,7 +195,8 @@ public static class InviteEndpoints
                     reason is null, reason, invitedBy, roles, link.ExpiresAt, canSubscribe));
             })
             .WithName("DescribeInvite")
-            .WithSummary("Whether an invite link can still be used, and what it offers")
+            .WithSummary("Check an invite link")
+            .WithDescription("Whether an invite link can still be used, and what it offers.")
             .Produces<InviteView>();
 
         join.MapPost("/{token}", async (
@@ -281,8 +286,10 @@ public static class InviteEndpoints
                 return Results.Ok(SessionUser.From(user));
             })
             .WithName("AcceptInvite")
-            .WithSummary("Create an account from an invite link and sign in")
-            .WithDescription("The link is spent the moment this succeeds. The new account still has to link its VRChat account.")
+            .WithSummary("Accept an invite")
+            .WithDescription(
+                "Create an account from an invite link and sign in. "
+                + "The link is spent the moment this succeeds. The new account still has to link its VRChat account.")
             .Produces<SessionUser>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict);

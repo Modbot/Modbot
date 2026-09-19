@@ -45,9 +45,10 @@ public static class EvidenceSettingsEndpoints
                 return Results.Ok(await service.DescribeAsync(ct));
             })
             .WithName("GetEvidenceSettings")
-            .WithSummary("The configured evidence backend, its health, and what it is holding")
+            .WithSummary("Get evidence settings")
             .WithDescription(
-                "Counts and bytes come from the blob record rather than from listing the "
+                "The configured evidence backend, its health, and what it is holding. "
+                + "Counts and bytes come from the blob record rather than from listing the "
                 + "store, because LIST is slow everywhere and billed on some providers. The S3 "
                 + "secret is never returned; secretStored says only whether one is on file.")
             .Produces<EvidenceSettingsResponse>()
@@ -64,7 +65,7 @@ public static class EvidenceSettingsEndpoints
                 return Results.Ok(await service.TestAsync(body, ct));
             })
             .WithName("TestEvidenceStore")
-            .WithSummary("Run the setup check without saving anything")
+            .WithSummary("Test evidence store")
             .WithDescription(
                 "Writes a test file, reads it back, compares the bytes, promotes it to its "
                 + "content-addressed key, reads it again, deletes it, and writes the store "
@@ -86,7 +87,7 @@ public static class EvidenceSettingsEndpoints
                 return Results.Ok(await service.SaveBackendAsync(body, actor, ct));
             })
             .WithName("SetEvidenceBackend")
-            .WithSummary("Save a backend, once it has passed the round trip")
+            .WithSummary("Set evidence backend")
             .WithDescription(
                 "The round trip runs first and the row changes only if it passed, so a backend "
                 + "that cannot store evidence cannot be selected. Choosing the filesystem backend "
@@ -113,9 +114,10 @@ public static class EvidenceSettingsEndpoints
                     : Results.Ok(saved);
             })
             .WithName("SetEvidenceLimits")
-            .WithSummary("Per-file, per-report and per-deployment caps, and direct delivery")
+            .WithSummary("Set evidence limits")
             .WithDescription(
-                "No round trip: none of these repoints a store. Zero means no limit on the two "
+                "Per-file, per-report and per-deployment caps, and direct delivery. "
+                + "No round trip: none of these repoints a store. Zero means no limit on the two "
                 + "totals; the per-file cap is enforced three times and cannot be zero.")
             .Produces<EvidenceLimitsView>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -131,7 +133,7 @@ public static class EvidenceSettingsEndpoints
                 return Results.Ok(await service.ProbeAsync(ct));
             })
             .WithName("ProbeEvidenceStore")
-            .WithSummary("Re-read the store marker now")
+            .WithSummary("Check the store marker")
             .WithDescription(
                 "The same three-valued probe startup takes. A store that answers with somebody "
                 + "else's store marker, or with none, locks; a store that does not answer at all "

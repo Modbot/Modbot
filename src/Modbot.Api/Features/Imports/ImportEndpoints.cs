@@ -133,7 +133,7 @@ public static class ImportEndpoints
             // No declared request body, as with the evidence transfer endpoint: the body is a
             // file, and the reference generator cannot draw a sample of one.
             .WithName("StartImport")
-            .WithSummary("Upload old data and start importing it")
+            .WithSummary("Start an import")
             .WithDescription(
                 "The body is the file: a JSON array of records, or one record per line. Send it "
                 + "as the body with Content-Type application/json and the source as a query "
@@ -182,7 +182,8 @@ public static class ImportEndpoints
                 return Results.Ok(new ImportsResponse(imports.Select(ImportView.Of).ToList()));
             })
             .WithName("ListImports")
-            .WithSummary("The latest fifty imports, newest first")
+            .WithSummary("List imports")
+            .WithDescription("The latest fifty imports, newest first.")
             .Produces<ImportsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -221,8 +222,10 @@ public static class ImportEndpoints
                     : Results.Ok(ImportView.Of(import));
             })
             .WithName("GetImport")
-            .WithSummary("One import: its status, counts and rejection reasons")
-            .WithDescription("Counts move while the import runs, so asking again shows progress.")
+            .WithSummary("Get import")
+            .WithDescription(
+                "One import: its status, counts and rejection reasons. "
+                + "Counts move while the import runs, so asking again shows progress.")
             .Produces<ImportView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);

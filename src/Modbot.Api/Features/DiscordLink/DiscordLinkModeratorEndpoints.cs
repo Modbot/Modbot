@@ -66,7 +66,9 @@ public static class DiscordLinkModeratorEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetDiscordLinkForPerson")
-            .WithSummary("The link between a VRChat user and a Discord account, if any, found from either side")
+            .WithSummary("Get account link")
+            .WithDescription(
+                "The link between a VRChat user and a Discord account, if any, found from either side.")
             .Produces<DiscordLinkLookup>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -87,7 +89,9 @@ public static class DiscordLinkModeratorEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageDiscordLinks)
             .WithName("UnlinkDiscordLink")
-            .WithSummary("End a member's link. The roles Modbot gave are taken away; history is kept.")
+            .WithSummary("Unlink an account")
+            .WithDescription(
+                "End a member's link. The roles Modbot gave are taken away; history is kept.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden);

@@ -111,7 +111,8 @@ public static class WebhookEndpoints
                     ModbotAuth.Allows(held, ModbotPermissions.ManageSettings)));
             })
             .WithName("ListWebhooks")
-            .WithSummary("Every webhook, with its delivery state. Never the secret.")
+            .WithSummary("List webhooks")
+            .WithDescription("Every webhook, with its delivery state. Never the secret.")
             .Produces<WebhooksResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -167,7 +168,7 @@ public static class WebhookEndpoints
                 return Results.Ok(new CreatedWebhook(View(hook, names, http), secret));
             })
             .WithName("CreateWebhook")
-            .WithSummary("Set up a webhook")
+            .WithSummary("Add webhook")
             .WithDescription("The response carries the signing secret. It is shown this once.")
             .Produces<CreatedWebhook>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -237,7 +238,8 @@ public static class WebhookEndpoints
                 return Results.Ok(View(hook, names, http));
             })
             .WithName("UpdateWebhook")
-            .WithSummary("Change a webhook, or turn it on or off")
+            .WithSummary("Update webhook")
+            .WithDescription("Change a webhook, or turn it on or off.")
             .Produces<WebhookView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -265,7 +267,8 @@ public static class WebhookEndpoints
                 return Results.NoContent();
             })
             .WithName("DeleteWebhook")
-            .WithSummary("Delete a webhook and its delivery log")
+            .WithSummary("Delete webhook")
+            .WithDescription("Delete a webhook and its delivery log.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -299,7 +302,8 @@ public static class WebhookEndpoints
                 return Results.Ok(new WebhookSecretResponse(secret));
             })
             .WithName("RollWebhookSecret")
-            .WithSummary("Make a new signing secret. The old one stops being used at once.")
+            .WithSummary("Replace webhook secret")
+            .WithDescription("Make a new signing secret. The old one stops being used at once.")
             .Produces<WebhookSecretResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -343,7 +347,8 @@ public static class WebhookEndpoints
                 return Results.Ok(DeliveryView(logged));
             })
             .WithName("TestWebhook")
-            .WithSummary("Send a modbot.webhook.test event now and say what came back")
+            .WithSummary("Test webhook")
+            .WithDescription("Send a modbot.webhook.test event now and say what came back.")
             .Produces<WebhookDeliveryView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -365,7 +370,8 @@ public static class WebhookEndpoints
                 return Results.Ok(rows.Select(DeliveryView).ToList());
             })
             .WithName("ListWebhookDeliveries")
-            .WithSummary("The last attempts to deliver to a webhook, newest first")
+            .WithSummary("List webhook deliveries")
+            .WithDescription("The last attempts to deliver to a webhook, newest first.")
             .Produces<IReadOnlyList<WebhookDeliveryView>>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -407,7 +413,8 @@ public static class WebhookEndpoints
             })
             .WithTags("Settings")
             .WithName("SetWebhookSettings")
-            .WithSummary("Allow or refuse webhooks to private addresses")
+            .WithSummary("Update webhook settings")
+            .WithDescription("Allow or refuse webhooks to private addresses.")
             .Produces<WebhookSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);

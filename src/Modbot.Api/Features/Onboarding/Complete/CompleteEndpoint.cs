@@ -52,9 +52,10 @@ public static class CompleteEndpoint
             // The setup wizard's own steps, for the web app only: left out of the public API reference.
             .ExcludeFromDescription()
             .WithName("CompleteOnboarding")
-            .WithSummary("Mark setup as finished (spec 7.1)")
+            .WithSummary("Finish setup")
             .WithDescription(
-                "Refuses while the VRChat account is unverified or no group is chosen — the two "
+                "Mark setup as finished (spec 7.1). "
+                + "Refuses while the VRChat account is unverified or no group is chosen — the two "
                 + "things Modbot cannot do anything without. The optional step is not among "
                 + "them; skipping it is a supported way to finish.\n\n"
                 + OnboardingAccess.Rule)

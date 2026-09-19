@@ -15,9 +15,10 @@ public static class VerifyVRChatEndpoint
             // The setup wizard's own steps, for the web app only: left out of the public API reference.
             .ExcludeFromDescription()
             .WithName("VerifyVRChatAccount")
-            .WithSummary("Store the VRChat account and log in with it (spec 7.1, step 2)")
+            .WithSummary("Verify VRChat account")
             .WithDescription(
-                "Validated live against the VRChat API, so a wrong credential fails here rather "
+                "Store the VRChat account and log in with it (spec 7.1, step 2). "
+                + "Validated live against the VRChat API, so a wrong credential fails here rather "
                 + "than silently at the first sync.\n\n"
                 + "A rejected attempt answers 422 with a ConnectionDiagnosis explaining which of "
                 + "the failure modes it was — a Cloudflare block, DNS, a timeout or the "

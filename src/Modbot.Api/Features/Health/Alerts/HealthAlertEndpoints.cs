@@ -79,7 +79,8 @@ public static class HealthAlertEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetHealthAlerts")
-            .WithSummary("What Modbot watches about itself, who is emailed, and what is wrong now")
+            .WithSummary("Get health alerts")
+            .WithDescription("What Modbot watches about itself, who is emailed, and what is wrong now.")
             .Produces<HealthAlertView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -160,7 +161,8 @@ public static class HealthAlertEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageSettings)
             .WithName("SetHealthAlerts")
-            .WithSummary("Choose what Modbot watches about itself and who is emailed")
+            .WithSummary("Update health alerts")
+            .WithDescription("Choose what Modbot watches about itself and who is emailed.")
             .Produces<HealthAlertView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

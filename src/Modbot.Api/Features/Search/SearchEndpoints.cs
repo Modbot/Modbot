@@ -75,9 +75,10 @@ public static class SearchEndpoints
             .RequireAuthorization()
             .WithTags("Search")
             .WithName("Search")
-            .WithSummary("People, Discord people and worlds by name or id, for the command palette")
+            .WithSummary("Search people and worlds")
             .WithDescription(
-                "`q` is matched against display names and ids, case-insensitively. People and Discord "
+                "People, Discord people and worlds by name or id, for the command palette. "
+                + "`q` is matched against display names and ids, case-insensitively. People and Discord "
                 + "people need See members; worlds need See analytics. A kind the caller may not see "
                 + "comes back as an empty list. At most `limit` of each kind (default 8, max 25).")
             .Produces<SearchResults>();

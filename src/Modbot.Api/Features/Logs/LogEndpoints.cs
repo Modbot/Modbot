@@ -118,9 +118,10 @@ public static class LogEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetLogs")
-            .WithSummary("Modbot's own log, newest first")
+            .WithSummary("List log lines")
             .WithDescription(
-                "`level` is the lowest level shown, so `Warning` gives warnings, errors and fatal "
+                "Modbot's own log, newest first. "
+                + "`level` is the lowest level shown, so `Warning` gives warnings, errors and fatal "
                 + "lines. `text` matches the message and the exception, anywhere in either.\n\n"
                 + "Outbound API traffic is not in this table. It is written to "
                 + "`modbot_log_http_*.jsonl` and to Seq, and there is far too much of it to keep "
@@ -157,7 +158,8 @@ public static class LogEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetLogFilters")
-            .WithSummary("The sources and areas that have written a line, and how many are stored")
+            .WithSummary("Get log filters")
+            .WithDescription("The sources and areas that have written a line, and how many are stored.")
             .Produces<LogFilters>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -180,7 +182,8 @@ public static class LogEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetLogSettings")
-            .WithSummary("How long stored log lines are kept, and whether they go to Modbot Cloud")
+            .WithSummary("Get log settings")
+            .WithDescription("How long stored log lines are kept, and whether they go to Modbot Cloud.")
             .Produces<LogSettings>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -213,7 +216,9 @@ public static class LogEndpoints
             })
             .RequiresFlag(ModbotPermissions.ManageSettings)
             .WithName("SetLogSettings")
-            .WithSummary("Set how long stored log lines are kept, and whether they go to Modbot Cloud")
+            .WithSummary("Update log settings")
+            .WithDescription(
+                "Set how long stored log lines are kept, and whether they go to Modbot Cloud.")
             .Produces<LogSettings>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

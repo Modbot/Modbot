@@ -15,9 +15,10 @@ public static class TestConnectionEndpoint
             // The setup wizard's own steps, for the web app only: left out of the public API reference.
             .ExcludeFromDescription()
             .WithName("TestVRChatConnection")
-            .WithSummary("Test this host's egress to VRChat, with or without a proxy (spec 7.1.1)")
+            .WithSummary("Test the connection")
             .WithDescription(
-                "Answers 200 whether or not the connection worked: a failed check is still a "
+                "Test this host's egress to VRChat, with or without a proxy (spec 7.1.1). "
+                + "Answers 200 whether or not the connection worked: a failed check is still a "
                 + "successful diagnosis, and the operator asked for the diagnosis.\n\n"
                 + "The outcome distinguishes a Cloudflare WAF block from a DNS failure, a "
                 + "timeout, a network error and rejected credentials, and only the first sets "

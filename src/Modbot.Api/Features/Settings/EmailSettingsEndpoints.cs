@@ -97,8 +97,10 @@ public static class EmailSettingsEndpoints
                 return Results.Ok(new TestEmailResponse(outcome.Sent, outcome.Error, outcome.Queued, outcome.SendsAt));
             })
             .WithName("SendTestEmail")
-            .WithSummary("Send a test message with the saved SMTP settings")
-            .WithDescription("Counts against the daily email limit as other email, and is queued when the limit is used up.")
+            .WithSummary("Send a test email")
+            .WithDescription(
+                "Send a test message with the saved SMTP settings. "
+                + "Counts against the daily email limit as other email, and is queued when the limit is used up.")
             .Produces<TestEmailResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -108,7 +110,8 @@ public static class EmailSettingsEndpoints
                 [FromServices] IModbotClock clock,
                 CancellationToken ct) => Results.Ok(await ViewAsync(db, clock.UtcNow, ct)))
             .WithName("GetEmailSettings")
-            .WithSummary("The daily email limit, how much of it is used, and the email queue")
+            .WithSummary("Get email settings")
+            .WithDescription("The daily email limit, how much of it is used, and the email queue.")
             .Produces<EmailSettingsView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -153,9 +156,10 @@ public static class EmailSettingsEndpoints
                 return Results.Ok(await ViewAsync(db, clock.UtcNow, ct));
             })
             .WithName("SetEmailLimit")
-            .WithSummary("Set the most emails sent in any 24 hours")
+            .WithSummary("Set the email limit")
             .WithDescription(
-                $"At least {EmailLimit.Minimum}. {EmailLimit.KeptForAccountEmails} of the limit are always kept for "
+                "Set the most emails sent in any 24 hours. "
+                + $"At least {EmailLimit.Minimum}. {EmailLimit.KeptForAccountEmails} of the limit are always kept for "
                 + "account email -- reset links, invite links, sign-in and security notices -- and other email may "
                 + "use only the rest. Email over its share is queued and sent when the 24 hours have room again.")
             .Produces<EmailSettingsView>()

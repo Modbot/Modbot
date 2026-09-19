@@ -38,7 +38,8 @@ public static class VRChatProxySettingsEndpoints
                 [FromServices] ModbotContext db,
                 CancellationToken ct) => Results.Ok(await ViewAsync(http, db, ct)))
             .WithName("GetVRChatProxySettings")
-            .WithSummary("The VRChat proxy's switch and address")
+            .WithSummary("Get proxy settings")
+            .WithDescription("The VRChat proxy's switch and address.")
             .Produces<VRChatProxySettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -101,7 +102,8 @@ public static class VRChatProxySettingsEndpoints
                 return Results.Ok(await ViewAsync(http, db, ct));
             })
             .WithName("SetVRChatProxySettings")
-            .WithSummary("Turn the VRChat proxy on or off")
+            .WithSummary("Update proxy settings")
+            .WithDescription("Turn the VRChat proxy on or off.")
             .Produces<VRChatProxySettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 

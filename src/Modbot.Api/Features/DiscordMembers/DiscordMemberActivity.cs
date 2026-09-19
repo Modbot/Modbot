@@ -106,7 +106,7 @@ public static class DiscordMemberActivity
                 Results.Ok(await MessagesAsync(db, id, page, pageSize, at, ct)))
             .RequiresFlag(ModbotPermissions.ReadDiscordMessages)
             .WithName("GetDiscordMemberMessages")
-            .WithSummary("One Discord member's stored messages, newest first, deleted ones included")
+            .WithSummary("List Discord member messages")
             .WithDescription(
                 "Messages in the server in settings, newest first. A deleted message is returned with "
                 + "`deletedAt` set and an edited one with `editedAt`; `text` is the text as it reads now. "
@@ -123,7 +123,9 @@ public static class DiscordMemberActivity
                 Results.Ok(await MetricsAsync(db, clock.UtcNow, id, ct)))
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetDiscordMemberMetrics")
-            .WithSummary("Messages and voice minutes per day, and joins and leaves, for one Discord member")
+            .WithSummary("Get Discord member activity")
+            .WithDescription(
+                "Messages and voice minutes per day, and joins and leaves, for one Discord member.")
             .Produces<DiscordMemberMetrics>()
             .Produces(StatusCodes.Status403Forbidden);
 

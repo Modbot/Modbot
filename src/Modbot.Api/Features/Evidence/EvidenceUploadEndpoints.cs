@@ -73,9 +73,10 @@ public static class EvidenceUploadEndpoints
             })
             .RequiresFlag(ModbotPermissions.UploadEvidence)
             .WithName("BeginEvidenceUpload")
-            .WithSummary("Phase 1: reserve an upload and find out where the bytes go")
+            .WithSummary("Start an upload")
             .WithDescription(
-                "Returns the cap in force, the accepted formats so the client can filter before a "
+                "Phase 1: reserve an upload and find out where the bytes go. "
+                + "Returns the cap in force, the accepted formats so the client can filter before a "
                 + "byte moves, and a target. On a store that can be written to directly the target "
                 + "is a presigned PUT straight to the bucket; otherwise it is Modbot's own transfer "
                 + "endpoint. That is a capability difference, not a failure.")
@@ -112,10 +113,11 @@ public static class EvidenceUploadEndpoints
                 }
             })
             .RequiresFlag(ModbotPermissions.UploadEvidence)
-            .WithSummary("Phase 2: send the bytes, as a raw body")
+            .WithSummary("Send the bytes")
             .WithName("TransferEvidence")
             .WithDescription(
-                "The body is the file and nothing else — no form encoding. The cap is enforced "
+                "Phase 2: send the bytes, as a raw body. "
+                + "The body is the file and nothing else — no form encoding. The cap is enforced "
                 + "against bytes actually seen rather than against Content-Length, because "
                 + "Content-Length is a claim and a chunked body makes none. Retrying the same "
                 + "upload id overwrites its staging object rather than accumulating a second one.")
@@ -166,9 +168,10 @@ public static class EvidenceUploadEndpoints
             })
             .RequiresFlag(ModbotPermissions.UploadEvidence)
             .WithName("CommitEvidenceUpload")
-            .WithSummary("Phase 3: hash it, decide what it is, and attach it")
+            .WithSummary("Finish the upload")
             .WithDescription(
-                "Modbot reads the staged bytes back, hashes them, decides the content type from "
+                "Phase 3: hash it, decide what it is, and attach it. "
+                + "Modbot reads the staged bytes back, hashes them, decides the content type from "
                 + "the bytes themselves — never from the filename and never from what the client "
                 + "claimed — checks the size that was actually stored, promotes the object to its "
                 + "content-addressed key and only then writes the metadata. SVG and HTML are "

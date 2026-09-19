@@ -73,7 +73,9 @@ public static class CloudSettingsEndpoints
                     settings.CloudLastReportProblem));
             })
             .WithName("GetCloudStatus")
-            .WithSummary("Whether this server reports to Modbot Cloud, and how the last report went")
+            .WithSummary("Get Cloud status")
+            .WithDescription(
+                "Whether this server reports to Modbot Cloud, and how the last report went.")
             .Produces<CloudStatusView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -101,9 +103,10 @@ public static class CloudSettingsEndpoints
                     : Results.Ok(new LinkCodeView(code, LinkCodeMinutes));
             })
             .WithName("CreateCloudLinkCode")
-            .WithSummary("A code to type into Modbot Cloud to claim this server")
+            .WithSummary("Create a link code")
             .WithDescription(
-                "The code is shown once and is not stored here. Modbot Cloud is told only its "
+                "A code to type into Modbot Cloud to claim this server. "
+                + "The code is shown once and is not stored here. Modbot Cloud is told only its "
                 + "SHA-256, over this server's own authenticated connection, so Cloud never calls "
                 + "back to an address it was given.")
             .Produces<LinkCodeView>()

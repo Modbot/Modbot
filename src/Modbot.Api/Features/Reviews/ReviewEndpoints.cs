@@ -78,9 +78,10 @@ public static class ReviewEndpoints
             })
             .RequiresFlag(ModbotPermissions.ReviewTickets)
             .WithName("ListReviews")
-            .WithSummary("Reviews of a moderator's pattern: open by default, or closed, or all")
+            .WithSummary("List reviews")
             .WithDescription(
-                "Detection opens a review when one moderator keeps acting on one person across "
+                "Reviews of a moderator's pattern: open by default, or closed, or all. "
+                + "Detection opens a review when one moderator keeps acting on one person across "
                 + "instances where nobody else has, or does far more in a day than the rest of the "
                 + "team. Every review carries the numbers it was opened on and the fact ids behind "
                 + "them. It is a question for a person, never a finding: closing one records who "
@@ -96,7 +97,8 @@ public static class ReviewEndpoints
                     await db.Reviews.AsNoTracking().CountAsync(r => r.State == ReviewState.Open, ct))))
             .RequiresFlag(ModbotPermissions.ReviewTickets)
             .WithName("CountOpenReviews")
-            .WithSummary("How many reviews are waiting -- the number on the nav badge")
+            .WithSummary("Count open reviews")
+            .WithDescription("How many reviews are waiting -- the number on the nav badge.")
             .Produces<OpenReviewCount>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -181,7 +183,7 @@ public static class ReviewEndpoints
             })
             .RequiresFlag(ModbotPermissions.ReviewTickets)
             .WithName("CloseReview")
-            .WithSummary("Close a review with a note saying what you concluded")
+            .WithSummary("Close a review")
             .WithDescription(
                 "The note is required and is kept with the review and in the fact log against your "
                 + "account. Closing does not judge the moderator either way; it records that a "

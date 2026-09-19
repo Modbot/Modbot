@@ -130,9 +130,10 @@ public static class PurgeEndpoints
             })
             .RequiresFlag(ModbotPermissions.Administrator)
             .WithName("PreviewPurge")
-            .WithSummary("What removing everything about one person would destroy, and what it would keep")
+            .WithSummary("Preview a purge")
             .WithDescription(
-                "Counts only; nothing is changed. Every number is counted from the same tables "
+                "What removing everything about one person would destroy, and what it would keep. "
+                + "Counts only; nothing is changed. Every number is counted from the same tables "
                 + "the purge writes to. A field Modbot cannot answer for a platform is null "
                 + "rather than zero: a Discord account has no group ban list and no case files.")
             .Produces<PurgePreviewResponse>()
@@ -177,7 +178,7 @@ public static class PurgeEndpoints
             })
             .RequiresFlag(ModbotPermissions.Administrator)
             .WithName("PurgePerson")
-            .WithSummary("Remove everything Modbot stores about one person")
+            .WithSummary("Purge a person")
             .WithDescription(
                 "Irreversible. `confirmation` must equal `subjectId` exactly.\n\n"
                 + "Erased: every fact where they are the subject, the counted-only daily totals "

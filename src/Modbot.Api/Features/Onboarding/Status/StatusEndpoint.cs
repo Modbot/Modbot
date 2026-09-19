@@ -15,9 +15,10 @@ public static class StatusEndpoint
             // The setup wizard's own steps, for the web app only: left out of the public API reference.
             .ExcludeFromDescription()
             .WithName("GetOnboardingStatus")
-            .WithSummary("What is configured, and what the wizard should show next")
+            .WithSummary("Get setup status")
             .WithDescription(
-                "The SPA calls this before rendering anything. While hasAdministrator is false "
+                "What is configured, and what the wizard should show next. "
+                + "The SPA calls this before rendering anything. While hasAdministrator is false "
                 + "every route leads to /setup (spec 7.1); afterwards /setup is a normal "
                 + "authenticated page.\n\n"
                 + "Returns no secret: never the VRChat password, the TOTP secret, the proxy "

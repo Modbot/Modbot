@@ -124,7 +124,8 @@ public static class AiLimitsSettingsEndpoints
                 CancellationToken ct) =>
                 Results.Ok(await ViewAsync(db, report, ct)))
             .WithName("GetAiLimits")
-            .WithSummary("AI spend by feature, estimates, spend limits, and model prices")
+            .WithSummary("Get AI spend limits")
+            .WithDescription("AI spend by feature, estimates, spend limits, and model prices.")
             .Produces<AiLimitsResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -218,7 +219,8 @@ public static class AiLimitsSettingsEndpoints
                 return Results.Ok(await ViewAsync(db, report, ct));
             })
             .WithName("SetAiLimits")
-            .WithSummary("Replace the AI spend limits")
+            .WithSummary("Update AI spend limits")
+            .WithDescription("Replace the AI spend limits.")
             .Produces<AiLimitsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -274,7 +276,8 @@ public static class AiLimitsSettingsEndpoints
                 return Results.Ok(await ViewAsync(db, report, ct));
             })
             .WithName("SetAiPrices")
-            .WithSummary("Replace the prices the operator entered")
+            .WithSummary("Update AI prices")
+            .WithDescription("Replace the prices the operator entered.")
             .Produces<AiLimitsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -296,8 +299,10 @@ public static class AiLimitsSettingsEndpoints
                 return Results.Ok(await ViewAsync(db, report, ct));
             })
             .WithName("FetchAiPrices")
-            .WithSummary("Fetch model prices from OpenRouter now")
-            .WithDescription("Answers 502 with the reason when OpenRouter could not be reached or refused. Never retried.")
+            .WithSummary("Fetch AI prices")
+            .WithDescription(
+                "Fetch model prices from OpenRouter now. "
+                + "Answers 502 with the reason when OpenRouter could not be reached or refused. Never retried.")
             .Produces<AiLimitsResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status502BadGateway)

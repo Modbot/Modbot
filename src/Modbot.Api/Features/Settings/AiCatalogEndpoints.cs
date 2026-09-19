@@ -109,7 +109,8 @@ public static class AiCatalogEndpoints
                     [.. entered.Select(p => new AiPriceView(p.Model, p.InputPerMillion, p.CachedInputPerMillion, p.OutputPerMillion))]));
             })
             .WithName("GetAiCatalog")
-            .WithSummary("OpenRouter's models, their prices, and what a thousand calls would cost")
+            .WithSummary("Get AI model catalogue")
+            .WithDescription("OpenRouter's models, their prices, and what a thousand calls would cost.")
             .Produces<AiCatalogResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

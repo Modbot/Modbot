@@ -15,9 +15,10 @@ public static class IntegrationsEndpoint
             // The setup wizard's own steps, for the web app only: left out of the public API reference.
             .ExcludeFromDescription()
             .WithName("ConfigureIntegrations")
-            .WithSummary("Discord bot and SMTP, both optional (spec 7.1, step 5)")
+            .WithSummary("Set up integrations")
             .WithDescription(
-                "Every field is optional and the whole step is skippable. Omitting a field leaves "
+                "Discord bot and SMTP, both optional (spec 7.1, step 5). "
+                + "Every field is optional and the whole step is skippable. Omitting a field leaves "
                 + "the stored value alone; sending it empty clears it, which is how an "
                 + "integration is switched off.\n\n"
                 + "Secrets are encrypted at rest and never read back (spec 8.3, 5.9.3).\n\n"

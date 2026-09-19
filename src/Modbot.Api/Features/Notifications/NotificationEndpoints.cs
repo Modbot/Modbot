@@ -109,7 +109,9 @@ public static class NotificationEndpoints
                     views));
             })
             .WithName("ListNotifications")
-            .WithSummary("This account's notifications, and the critical ones still waiting to be seen")
+            .WithSummary("List notifications")
+            .WithDescription(
+                "This account's notifications, and the critical ones still waiting to be seen.")
             .Produces<NotificationsView>();
 
         group.MapPost("/{id:guid}/seen", async (
@@ -136,7 +138,8 @@ public static class NotificationEndpoints
                 return Results.NoContent();
             })
             .WithName("MarkNotificationSeen")
-            .WithSummary("Marks one notification seen by this account")
+            .WithSummary("Mark notification seen")
+            .WithDescription("Marks one notification seen by this account.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
@@ -152,7 +155,8 @@ public static class NotificationEndpoints
                 return Results.Ok(await ChoicesAsync(db, channels, userId, ct));
             })
             .WithName("GetNotificationChoices")
-            .WithSummary("Where this account's notifications go")
+            .WithSummary("Get notification choices")
+            .WithDescription("Where this account's notifications go.")
             .Produces<NotificationChoicesView>();
 
         group.MapPut("/choices", async (
@@ -203,7 +207,8 @@ public static class NotificationEndpoints
                 return Results.Ok(await ChoicesAsync(db, channels, userId, ct));
             })
             .WithName("SetNotificationChoices")
-            .WithSummary("Sets where this account's notifications go")
+            .WithSummary("Update notification choices")
+            .WithDescription("Sets where this account's notifications go.")
             .Produces<NotificationChoicesView>()
             .Produces(StatusCodes.Status400BadRequest);
 

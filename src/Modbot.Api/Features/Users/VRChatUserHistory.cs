@@ -117,7 +117,7 @@ public static class VRChatUserHistory
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetVRChatUserHistory")
-            .WithSummary("This person's profile as it stood after each recorded change, newest first")
+            .WithSummary("Get profile history")
             .WithDescription(
                 "Replayed from the profile facts: the newest version is the profile as stored now, "
                 + "and each earlier one has that change's old values put back. `factId` is the audit "
@@ -149,7 +149,7 @@ public static class VRChatUserHistory
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetVRChatUserRaw")
-            .WithSummary("The bodies VRChat last sent for this person, as stored")
+            .WithSummary("Get raw profile")
             .WithDescription(
                 "The public profile and the full user object, each as VRChat returned it on the last "
                 + "successful read. The user object is stored without instance locations, the "

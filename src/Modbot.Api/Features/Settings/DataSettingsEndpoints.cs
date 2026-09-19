@@ -144,9 +144,10 @@ public static class DataSettingsEndpoints
                         deployment.LogFilesWritten)));
             })
             .WithName("GetDataSettings")
-            .WithSummary("Retention, measured storage, and what this deployment is running on")
+            .WithSummary("Get data settings")
             .WithDescription(
-                "capacityBytes is an optional what-if input. It is not stored: nothing in "
+                "Retention, measured storage, and what this deployment is running on. "
+                + "capacityBytes is an optional what-if input. It is not stored: nothing in "
                 + "Modbot behaves differently for having been told, so it is answered against "
                 + "rather than persisted.")
             .Produces<DataSettingsResponse>()
@@ -174,7 +175,7 @@ public static class DataSettingsEndpoints
                 return Results.Ok(body);
             })
             .WithName("SetRetention")
-            .WithSummary("Set retention windows, or turn them off")
+            .WithSummary("Set retention")
             .WithDescription(
                 "Zero means keep forever, which is the default for both classes. Turning a window "
                 + "on schedules destruction of data that cannot be recovered or filled in later.")

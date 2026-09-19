@@ -144,7 +144,9 @@ public static class ChatEndpoints
             })
             .RequiresFlag(ModbotPermissions.UseAiChat)
             .WithName("GetChat")
-            .WithSummary("Whether Chat answers, the model it uses, and your conversations, newest first")
+            .WithSummary("Get chat")
+            .WithDescription(
+                "Whether Chat answers, the model it uses, and your conversations, newest first.")
             .Produces<ChatHome>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -160,7 +162,8 @@ public static class ChatEndpoints
             })
             .RequiresFlag(ModbotPermissions.UseAiChat)
             .WithName("GetChatConversation")
-            .WithSummary("One of your conversations, the version being read, in order")
+            .WithSummary("Get conversation")
+            .WithDescription("One of your conversations, the version being read, in order.")
             .Produces<ChatConversationView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -191,7 +194,8 @@ public static class ChatEndpoints
             })
             .RequiresFlag(ModbotPermissions.UseAiChat)
             .WithName("RenameChatConversation")
-            .WithSummary("Rename one of your conversations")
+            .WithSummary("Rename conversation")
+            .WithDescription("Rename one of your conversations.")
             .Produces<ChatConversationSummary>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -222,7 +226,8 @@ public static class ChatEndpoints
             })
             .RequiresFlag(ModbotPermissions.UseAiChat)
             .WithName("ReadChatVersion")
-            .WithSummary("Read another version of a message, and the reply that followed it")
+            .WithSummary("Read another version")
+            .WithDescription("Read another version of a message, and the reply that followed it.")
             .Produces<ChatConversationView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -238,7 +243,8 @@ public static class ChatEndpoints
             })
             .RequiresFlag(ModbotPermissions.UseAiChat)
             .WithName("GetChatConversationSpend")
-            .WithSummary("What this conversation has used and cost, every version of it included")
+            .WithSummary("Get conversation spend")
+            .WithDescription("What this conversation has used and cost, every version of it included.")
             .Produces<AiSpent>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -259,7 +265,8 @@ public static class ChatEndpoints
             })
             .RequiresFlag(ModbotPermissions.UseAiChat)
             .WithName("DeleteChatConversation")
-            .WithSummary("Delete one of your conversations")
+            .WithSummary("Delete conversation")
+            .WithDescription("Delete one of your conversations.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -267,9 +274,10 @@ public static class ChatEndpoints
         group.MapPost("/messages", SendAsync)
             .RequiresFlag(ModbotPermissions.UseAiChat)
             .WithName("SendChatMessage")
-            .WithSummary("Ask a question; the reply streams back as server-sent events")
+            .WithSummary("Send chat message")
             .WithDescription(
-                "Events: `conversation` {id, title, updatedAt}, sent again at the end when the model "
+                "Ask a question; the reply streams back as server-sent events. "
+                + "Events: `conversation` {id, title, updatedAt}, sent again at the end when the model "
                 + "named it; `message` for each stored message, the question first; `text` {text} as "
                 + "the reply is written; `tool` {callId, name, label} as a tool starts; `done` "
                 + "{outcome, error} last. Refused before streaming with 400 for an empty or too long "

@@ -101,7 +101,8 @@ public static class DiscordSyncEndpoints
                 [FromServices] ModbotContext db,
                 CancellationToken ct) => Results.Ok(await ViewAsync(db, ct)))
             .WithName("GetDiscordSync")
-            .WithSummary("Role pairs, the sync switches, and what the bot may do in the server")
+            .WithSummary("Get Discord sync")
+            .WithDescription("Role pairs, the sync switches, and what the bot may do in the server.")
             .Produces<DiscordSyncSettingsView>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageDiscordSync);
@@ -152,7 +153,8 @@ public static class DiscordSyncEndpoints
                 return Results.Ok(await ViewAsync(db, ct));
             })
             .WithName("SetDiscordSync")
-            .WithSummary("Save the sync switches")
+            .WithSummary("Update Discord sync")
+            .WithDescription("Save the sync switches.")
             .Produces<DiscordSyncSettingsView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -197,7 +199,8 @@ public static class DiscordSyncEndpoints
                 return Results.Ok(await ViewAsync(db, ct));
             })
             .WithName("AddDiscordRolePair")
-            .WithSummary("Pair a group role with a Discord role")
+            .WithSummary("Add role pair")
+            .WithDescription("Pair a group role with a Discord role.")
             .Produces<DiscordSyncSettingsView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -242,7 +245,8 @@ public static class DiscordSyncEndpoints
                 return Results.Ok(await ViewAsync(db, ct));
             })
             .WithName("SetDiscordRolePair")
-            .WithSummary("Change a role pair")
+            .WithSummary("Update role pair")
+            .WithDescription("Change a role pair.")
             .Produces<DiscordSyncSettingsView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -258,7 +262,8 @@ public static class DiscordSyncEndpoints
                 return Results.Ok(await ViewAsync(db, ct));
             })
             .WithName("DeleteDiscordRolePair")
-            .WithSummary("Stop pairing two roles. Neither role is changed.")
+            .WithSummary("Delete role pair")
+            .WithDescription("Stop pairing two roles. Neither role is changed.")
             .Produces<DiscordSyncSettingsView>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageDiscordSync);
@@ -267,7 +272,8 @@ public static class DiscordSyncEndpoints
                 [FromServices] IDiscordSyncRunner runner,
                 CancellationToken ct) => Results.Ok(View(await runner.PreviewAsync(ct))))
             .WithName("PreviewDiscordSync")
-            .WithSummary("What the two syncs would change right now. Changes nothing.")
+            .WithSummary("Preview Discord sync")
+            .WithDescription("What the two syncs would change right now. Changes nothing.")
             .Produces<SyncPreviewView>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageDiscordSync);
@@ -276,7 +282,8 @@ public static class DiscordSyncEndpoints
                 [FromServices] IDiscordSyncRunner runner,
                 CancellationToken ct) => Results.Ok(View(await runner.CatchUpAsync(ct))))
             .WithName("RunDiscordSync")
-            .WithSummary("Copy the roles and bans that are already different")
+            .WithSummary("Run Discord sync")
+            .WithDescription("Copy the roles and bans that are already different.")
             .Produces<SyncPreviewView>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.RunDiscordSync);

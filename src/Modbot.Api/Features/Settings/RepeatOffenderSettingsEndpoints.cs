@@ -69,7 +69,8 @@ public static class RepeatOffenderSettingsEndpoints
                 return Results.Ok(await ViewAsync(db, ReviewThresholds.Read(settings.ReviewThresholds), ct));
             })
             .WithName("GetRepeatOffenderRules")
-            .WithSummary("The repeat offender threshold and the kinds of action that count")
+            .WithSummary("Get repeat offender rules")
+            .WithDescription("The repeat offender threshold and the kinds of action that count.")
             .Produces<RepeatOffenderRulesView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -146,9 +147,10 @@ public static class RepeatOffenderSettingsEndpoints
                 return Results.Ok(await ViewAsync(db, after, ct));
             })
             .WithName("SetRepeatOffenderRules")
-            .WithSummary("Change the threshold or the kinds of action that count")
+            .WithSummary("Update repeat offender rules")
             .WithDescription(
-                "Both are rules the standings are computed under, so every person's counts are "
+                "Change the threshold or the kinds of action that count. "
+                + "Both are rules the standings are computed under, so every person's counts are "
                 + "rebuilt from the fact log before this answers.")
             .Produces<RepeatOffenderRulesView>()
             .Produces(StatusCodes.Status400BadRequest)

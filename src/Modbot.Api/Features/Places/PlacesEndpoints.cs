@@ -65,9 +65,11 @@ public static class PlacesEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetWorld")
-            .WithSummary("One world: what its page said, the instances that have run in it, and how busy it was")
+            .WithSummary("Get world")
             .WithDescription(
-                "Read from Modbot's own tables; nothing here calls VRChat. `known` is false when "
+                "One world: what its page said, the instances that have run in it, and how busy it "
+                + "was. "
+                + "Read from Modbot's own tables; nothing here calls VRChat. `known` is false when "
                 + "Modbot has only ever seen the id. `name` is null when the world page has not "
                 + "been read yet — ordinary for a few minutes after a new world turns up, and "
                 + "permanent for a private or deleted one. Time and visitors come from the desktop "
@@ -92,9 +94,10 @@ public static class PlacesEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetInstance")
-            .WithSummary("One instance: where it was, when, how busy, who was in it and what happened there")
+            .WithSummary("Get instance")
             .WithDescription(
-                "The id is Modbot's own, not VRChat's number — VRChat hands the same number out "
+                "One instance: where it was, when, how busy, who was in it and what happened there. "
+                + "The id is Modbot's own, not VRChat's number — VRChat hands the same number out "
                 + "again after an instance closes, so two evenings under one number are two instances.\n\n"
                 + "Who was in the instance and the facts recorded there need ViewAuditLog as well: "
                 + "that is moderation history (spec 5.9.4), while the instance's own shape is not. "

@@ -95,7 +95,7 @@ public static class LiveEndpoints
                 Results.Ok(await ReadAsync(db, clock.UtcNow, ct)))
             .RequiresFlag(ModbotPermissions.ViewLiveInstances)
             .WithName("GetLiveInstances")
-            .WithSummary("The group's open instances right now, and who is in each")
+            .WithSummary("List live instances")
             .WithDescription(
                 "Read from Modbot's own tables; nothing here calls VRChat. Every open group "
                 + "instance is listed with its head count whether or not a moderator is in it. "

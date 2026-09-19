@@ -173,7 +173,7 @@ public static class DiscordMemberEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetDiscordMembers")
-            .WithSummary("The Discord server's members, current and past, with search")
+            .WithSummary("List Discord members")
             .WithDescription(
                 "Members in the server by default; `state=left` shows people who left, `state=all` "
                 + "both. `search` matches the display name, username, global name, nickname and the "
@@ -206,7 +206,8 @@ public static class DiscordMemberEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewMembers)
             .WithName("GetDiscordMember")
-            .WithSummary("One member of the Discord server, current or past")
+            .WithSummary("Get Discord member")
+            .WithDescription("One member of the Discord server, current or past.")
             .Produces<DiscordMemberView>()
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status403Forbidden);

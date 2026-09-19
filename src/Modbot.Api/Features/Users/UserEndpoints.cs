@@ -56,7 +56,8 @@ public static class UserEndpoints
                 return Results.Ok(users.Select(UserSummary.From).ToList());
             })
             .WithName("ListUsers")
-            .WithSummary("Every staff account, with roles and state")
+            .WithSummary("List users")
+            .WithDescription("Every staff account, with roles and state.")
             .Produces<List<UserSummary>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden);
@@ -111,9 +112,10 @@ public static class UserEndpoints
                 return Results.Ok(UserSummary.From(user));
             })
             .WithName("CreateUser")
-            .WithSummary("Create an account with a temporary password")
+            .WithSummary("Add user")
             .WithDescription(
-                "The administrator passes the password on. Until the person changes it, this is "
+                "Create an account with a temporary password. "
+                + "The administrator passes the password on. Until the person changes it, this is "
                 + "an account two people can act as -- prefer an invite link, which is why the "
                 + "users page offers that first.")
             .Produces<UserSummary>()
@@ -178,8 +180,10 @@ public static class UserEndpoints
                 return Results.Ok(UserSummary.From(user));
             })
             .WithName("SetUserRoles")
-            .WithSummary("Replace an account's roles")
-            .WithDescription("Takes effect on that person's next request, not their next sign-in.")
+            .WithSummary("Set user roles")
+            .WithDescription(
+                "Replace an account's roles. "
+                + "Takes effect on that person's next request, not their next sign-in.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -221,9 +225,10 @@ public static class UserEndpoints
                 return Results.Ok(UserSummary.From(user));
             })
             .WithName("DisableUser")
-            .WithSummary("Disable an account and end its sessions")
+            .WithSummary("Disable user")
             .WithDescription(
-                "Never delete: facts reference the account. Refused for your own account and for "
+                "Disable an account and end its sessions. "
+                + "Never delete: facts reference the account. Refused for your own account and for "
                 + "the last enabled administrator.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
@@ -257,7 +262,8 @@ public static class UserEndpoints
                 return Results.Ok(UserSummary.From(user));
             })
             .WithName("EnableUser")
-            .WithSummary("Re-enable a disabled account")
+            .WithSummary("Enable user")
+            .WithDescription("Re-enable a disabled account.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -283,7 +289,8 @@ public static class UserEndpoints
                     : Results.Ok(UserSummary.From(user));
             })
             .WithName("SetUserContact")
-            .WithSummary("Set the email address and Discord user id a reset link can be sent to")
+            .WithSummary("Set user contact details")
+            .WithDescription("Set the email address and Discord user id a reset link can be sent to.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -331,9 +338,10 @@ public static class UserEndpoints
                     link.ExpiresAt));
             })
             .WithName("CreateResetLink")
-            .WithSummary("Make a one-time password reset link for this account")
+            .WithSummary("Create a reset link")
             .WithDescription(
-                "Shown once. The server keeps only a hash, so copy it now. Good for 24 hours, "
+                "Make a one-time password reset link for this account. "
+                + "Shown once. The server keeps only a hash, so copy it now. Good for 24 hours, "
                 + "and using it ends every session the account has.")
             .Produces<LinkCreated>()
             .Produces(StatusCodes.Status400BadRequest)

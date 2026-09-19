@@ -64,7 +64,7 @@ public static class VRChatUserEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetVRChatUserProfile")
-            .WithSummary("What Modbot has stored about one VRChat user, and how old it is")
+            .WithSummary("Get VRChat profile")
             .WithDescription(
                 "The profile as of `lastRefreshedAt`, never fresher. `stale` says whether it is "
                 + "older than the sync's own threshold. `eighteenPlus` is Modbot's sticky flag: "
@@ -96,9 +96,10 @@ public static class VRChatUserEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetVRChatUserMetrics")
-            .WithSummary("How long this person has been seen in world, where, and how often")
+            .WithSummary("Get time in world")
             .WithDescription(
-                "Computed from the companion's presence reports, so it only covers time a "
+                "How long this person has been seen in world, where, and how often. "
+                + "Computed from the companion's presence reports, so it only covers time a "
                 + "moderator's client was in the same instance. Somebody who has never shared an instance "
                 + "with the client reads as nothing here, which is not the same as never having "
                 + "been in one — and the screen says so.\n\n"
@@ -139,7 +140,7 @@ public static class VRChatUserEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("RequestVRChatUserRefresh")
-            .WithSummary("Ask for this person's profile to be refreshed as soon as possible")
+            .WithSummary("Refresh a profile")
             .WithDescription(
                 "Queues one request at the 'opened in Modbot' tier, behind only people seen in an "
                 + "instance right now. Answers immediately; the refresh happens on the users lane at "
@@ -178,7 +179,7 @@ public static class VRChatUserEndpoints
             })
             .RequiresFlag(ModbotPermissions.EditAgeVerification)
             .WithName("SetVRChatUserAgeVerified")
-            .WithSummary("Set or clear the 18+ verified flag by hand")
+            .WithSummary("Set 18+ flag")
             .WithDescription(
                 "The only way the flag is ever cleared: a sync sets it and never clears it, "
                 + "because VRChat users can hide their verification again and hidden is not "

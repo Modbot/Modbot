@@ -59,8 +59,10 @@ public static class LiveStreamEndpoints
             })
             .WithTags("Live")
             .WithName("CreateLiveTicket")
-            .WithSummary("A one-use ticket for opening the live updates WebSocket from a browser")
-            .WithDescription("Lasts sixty seconds and works once. It stands for whoever asked for it.")
+            .WithSummary("Create live ticket")
+            .WithDescription(
+                "A one-use ticket for opening the live updates WebSocket from a browser. "
+                + "Lasts sixty seconds and works once. It stands for whoever asked for it.")
             .Produces<EventTicketResponse>()
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
@@ -125,7 +127,7 @@ public static class LiveStreamEndpoints
             })
             .WithTags("Live")
             .WithName("LiveSocket")
-            .WithSummary("The live updates WebSocket")
+            .WithSummary("Live updates socket")
             .WithDescription(
                 "Authenticate with `?ticket=` from POST /api/live/tickets, or `Authorization: Bearer mbk_...`. "
                 + "`?after=` is the cursor to carry on from; without it the stream starts from now. "
@@ -156,7 +158,7 @@ public static class LiveStreamEndpoints
             })
             .WithTags("Live")
             .WithName("PollLive")
-            .WithSummary("Long polling for live updates, the backup for the WebSocket")
+            .WithSummary("Live updates polling")
             .WithDescription(
                 "Returns events after `after` at once when there are any, up to `limit` (default 100, "
                 + "at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one "

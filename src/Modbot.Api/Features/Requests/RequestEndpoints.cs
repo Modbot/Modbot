@@ -111,7 +111,7 @@ public static class RequestEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewJoinRequests)
             .WithName("GetJoinRequests")
-            .WithSummary("The people waiting to be let into the group")
+            .WithSummary("List join requests")
             .WithDescription(
                 "Read from VRChat when you ask, not from a stored copy, so it is the queue as it "
                 + "stands. `page` and `pageSize` page it; `hasMore` is true when the page came back "
@@ -127,15 +127,16 @@ public static class RequestEndpoints
 
         Answer(group, ModerationActionService.Approve)
             .WithName("ApproveJoinRequest")
-            .WithSummary("Let somebody into the group")
+            .WithSummary("Approve join request")
             .WithDescription(
-                "Nothing is recorded as done unless VRChat accepted it. The key makes one "
+                "Let somebody into the group. "
+                + "Nothing is recorded as done unless VRChat accepted it. The key makes one "
                 + "confirmation act once. `gone` is true when the request had already been "
                 + "answered in VRChat: nothing failed, the row was out of date.");
 
         Answer(group, ModerationActionService.Reject)
             .WithName("RejectJoinRequest")
-            .WithSummary("Turn a join request down")
+            .WithSummary("Reject join request")
             .WithDescription(
                 "The person may ask again; Modbot never blocks them from asking, which is what Ban "
                 + "is for. Nothing is recorded as done unless VRChat accepted it, and `gone` is "

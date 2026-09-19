@@ -52,9 +52,10 @@ public static class SyncHealthEndpoints
                 return Results.Ok(health);
             })
             .WithName("GetGateHealth")
-            .WithSummary("Whether Modbot is reaching VRChat, and whether that is a problem")
+            .WithSummary("Get VRChat gate health")
             .WithDescription(
-                "`status` is the load-bearing field. RateLimited and WafBlocked both stop "
+                "Whether Modbot is reaching VRChat, and whether that is a problem. "
+                + "`status` is the load-bearing field. RateLimited and WafBlocked both stop "
                 + "traffic and look identical from outside, and they mean opposite things: a cold "
                 + "stop is spec 4.3.1 working as designed and recovers on its own, while a WAF "
                 + "block needs an egress proxy and will not clear by itself.\n\n"
@@ -175,9 +176,10 @@ public static class SyncHealthEndpoints
             .WithName("GetSyncHealth")
             // The inside of each sync job, for the Health page: left out of the public API reference.
             .ExcludeFromDescription()
-            .WithSummary("Producer poll rate, last runs, bucket budgets, and unmapped audit-log event types")
+            .WithSummary("Get sync health")
             .WithDescription(
-                "`unmappedAuditEvents` lists audit-log event types VRChat has sent that Modbot has "
+                "Producer poll rate, last runs, bucket budgets, and unmapped audit-log event types. "
+                + "`unmappedAuditEvents` lists audit-log event types VRChat has sent that Modbot has "
                 + "no name for yet. Each is still recorded, as `modbot.unrecognised` with VRChat's "
                 + "own wording kept, so nothing is lost — but each is also a mapping worth adding.\n\n"
                 + "The poll rate carries the producer's own reason for the interval it chose. "

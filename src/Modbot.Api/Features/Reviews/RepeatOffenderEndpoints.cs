@@ -78,9 +78,10 @@ public static class RepeatOffenderEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("ListRepeatOffenders")
-            .WithSummary("People acted on more than once, most recent action first")
+            .WithSummary("List repeat offenders")
             .WithDescription(
-                "Per person: instance kicks, warns, bans, removals from the group and join requests "
+                "People acted on more than once, most recent action first. "
+                + "Per person: instance kicks, warns, bans, removals from the group and join requests "
                 + "turned away, all time and over the last 30 and 90 days; how many different "
                 + "moderators acted; the first and last action; and a status decided by the rule in "
                 + "`rule`. Rebuilt from the fact log on the daily totals schedule -- `lastRunAt` says when.")
@@ -110,9 +111,10 @@ public static class RepeatOffenderEndpoints
             })
             .RequiresFlag(ModbotPermissions.ViewProfile)
             .WithName("GetSubjectHistory")
-            .WithSummary("One person's count of being acted on -- the History block on their pane")
+            .WithSummary("Get a person's history")
             .WithDescription(
-                "The id goes in the query string, never the path: VRChat ids are opaque and a legacy "
+                "One person's count of being acted on -- the History block on their pane. "
+                + "The id goes in the query string, never the path: VRChat ids are opaque and a legacy "
                 + "one can contain anything. `known` is false when nobody has ever acted on them.")
             .Produces<SubjectHistory>()
             .Produces(StatusCodes.Status400BadRequest)

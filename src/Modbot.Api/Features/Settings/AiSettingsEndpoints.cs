@@ -109,7 +109,8 @@ public static class AiSettingsEndpoints
                 return Results.Ok(View(settings));
             })
             .WithName("GetAiSettings")
-            .WithSummary("The AI endpoint, model and on/off switch. The API key is never returned.")
+            .WithSummary("Get AI settings")
+            .WithDescription("The AI endpoint, model and on/off switch. The API key is never returned.")
             .Produces<AiSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ManageSettings);
@@ -163,7 +164,8 @@ public static class AiSettingsEndpoints
                 return Results.Ok(View(settings));
             })
             .WithName("SetAiSettings")
-            .WithSummary("Save the AI endpoint, key, model and on/off switch")
+            .WithSummary("Update AI settings")
+            .WithDescription("Save the AI endpoint, key, model and on/off switch.")
             .Produces<AiSettingsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -220,9 +222,11 @@ public static class AiSettingsEndpoints
                 return Results.Ok(View(settings));
             })
             .WithName("AcknowledgeAiSending")
-            .WithSummary("Confirm what member text is sent to the AI provider. Once, before AI can be switched on.")
+            .WithSummary("Confirm AI sending")
             .WithDescription(
-                "M8 §4.5. Recorded as a fact naming the account that confirmed it, the endpoint "
+                "Confirm what member text is sent to the AI provider. Once, before AI can be switched "
+                + "on. "
+                + "M8 §4.5. Recorded as a fact naming the account that confirmed it, the endpoint "
                 + "shown at the time, and the lines they confirmed. Confirming again does nothing.")
             .Produces<AiSettingsResponse>()
             .Produces(StatusCodes.Status403Forbidden)
@@ -277,7 +281,8 @@ public static class AiSettingsEndpoints
                 return Results.Ok(new AiTestResponse(result.Worked, result.Message));
             })
             .WithName("TestAiSettings")
-            .WithSummary("Send one short chat message through the endpoint on the form")
+            .WithSummary("Test AI settings")
+            .WithDescription("Send one short chat message through the endpoint on the form.")
             .Produces<AiTestResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -300,7 +305,8 @@ public static class AiSettingsEndpoints
                 return Results.Ok(new AiModelsResponse(result.Models, result.Error));
             })
             .WithName("ListAiModels")
-            .WithSummary("The models the endpoint on the form lists")
+            .WithSummary("List available models")
+            .WithDescription("The models the endpoint on the form lists.")
             .Produces<AiModelsResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)

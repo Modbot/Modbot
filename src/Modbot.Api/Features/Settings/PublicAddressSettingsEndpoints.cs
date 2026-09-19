@@ -48,7 +48,9 @@ public static class PublicAddressSettingsEndpoints
                 return Results.Ok(new PublicAddressView(settings.PublicAddress, deployment?.PublicAddressSuggestion));
             })
             .WithName("GetPublicAddress")
-            .WithSummary("The address people use to reach this Modbot, and the platform's suggestion")
+            .WithSummary("Get public address")
+            .WithDescription(
+                "The address people use to reach this Modbot, and the platform's suggestion.")
             .Produces<PublicAddressView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -96,7 +98,7 @@ public static class PublicAddressSettingsEndpoints
                 return Results.Ok(new PublicAddressView(address, deployment?.PublicAddressSuggestion));
             })
             .WithName("SetPublicAddress")
-            .WithSummary("Save the public address, or clear it")
+            .WithSummary("Set public address")
             .WithDescription(
                 "Just the start of the address -- https://modbot.example.com -- with no path. "
                 + "Clearing it stops reset links being sent until it is set again.")
