@@ -196,7 +196,7 @@ public sealed class InstancePeopleReader
             using var document = JsonDocument.Parse(data);
             var root = document.RootElement;
 
-            Guid? device = root.TryGetProperty("deviceId", out var d)
+            Guid? device = root.TryGetProperty(ClientReport.DeviceIdKey, out var d)
                 && d.ValueKind == JsonValueKind.String
                 && Guid.TryParse(d.GetString(), out var parsed)
                 ? parsed

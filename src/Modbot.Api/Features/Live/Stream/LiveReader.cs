@@ -208,7 +208,7 @@ public sealed class LiveReader
             }
 
             var byThisDevice = device is not null
-                && string.Equals(AuditJson.Text(data, "deviceId"), device, StringComparison.OrdinalIgnoreCase);
+                && string.Equals(AuditJson.Text(data, ClientReport.DeviceIdKey), device, StringComparison.OrdinalIgnoreCase);
 
             result[fact.Id] = new LiveEvent(
                 id,

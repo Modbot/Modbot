@@ -270,7 +270,7 @@ public static class EventsHandler
         var data = new JsonObject
         {
             // Which device reported it, so a misbehaving client's facts are revocable as a set.
-            ["deviceId"] = deviceId.ToString(),
+            [ClientReport.DeviceIdKey] = deviceId.ToString(),
         };
 
         // Clamped and flagged, never rejected and never trusted. A moderator whose PC clock is
