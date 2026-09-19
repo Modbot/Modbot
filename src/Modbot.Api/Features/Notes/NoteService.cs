@@ -247,8 +247,10 @@ public sealed class NoteService
 
         var takenBack = await TakeBacksAsync(of, subject, notes.Select(n => n.Id).ToList(), ct);
 
+        // TryGetValue, not GetValueOrDefault: a take-back is a struct, so "not found" comes back as
+        // a blank one rather than as null, and every note would read as taken back at the year 1.
         var views = notes
-            .Select(n => Shape(n, takenBack.GetValueOrDefault(n.Id), caller))
+            .Select(n => Shape(n, takenBack.TryGetValue(n.Id, out var back) ? back : null, caller))
             .ToList();
 
         return new NoteListResponse(
