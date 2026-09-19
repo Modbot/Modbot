@@ -43,13 +43,22 @@ the name of the runtime it found).
 
 ## Turning it off
 
-The **SteamVR** page has an **Overlay on** switch at the top. Turn it off and the panel stops:
-nothing is drawn, your controllers are not read, SteamVR is let go, and the live connection to
-your group's server closes. The **SteamVR** page then shows the switch and nothing else, and the
-sidebar reads **off** beside it.
+The **SteamVR** page has an **Overlay on** switch at the top. Turn it off and the main panel
+stops: nothing is drawn, your controllers are not read, and SteamVR is let go. The sidebar reads
+**off** beside it.
 
-The rest of the client is unaffected: it goes on reading VRChat's log and reporting presence to
-every server you paired with.
+The placement settings stay on the page, so you can arrange where the panel will sit before you
+turn it on. What goes away is only what has nothing to report while it is off: how long it has
+been attached, how many frames it has drawn, and what it is showing.
+
+There are three panels and each has its own switch: this one, the
+[notification overlay](/companion/settings#notification-overlay), and the
+[desktop overlay](/companion/settings#desktop-overlay). None of them can take another down. The
+live connection to your group's server is held open while any of the three is on and closes when
+the last one goes off.
+
+The rest of the client is unaffected either way: it goes on reading VRChat's log and reporting
+presence to every server you paired with.
 
 Turn it back on and the panel comes up again where you left it, without restarting the client.
 The setting is remembered in `settings.json` as `overlayOn`, in your own user folder, so it

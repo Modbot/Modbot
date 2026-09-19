@@ -200,7 +200,21 @@ the file:
 | `checkForUpdates` | `true` | Whether an installed client looks for newer versions. See [Check for updates](#check-for-updates). |
 | `startWithWindows` | `true` | The **Start Modbot Companion when my computer starts** switch. |
 | `vrchatLogFolder` | blank | The [VRChat log folder](#vrchat-log-folder). |
-| `overlayOn` | `true` | The **Overlay on** switch on the **SteamVR** page. `false` stops the headset panel entirely. See [Turning it off](/companion/overlay#turning-it-off). |
+| `overlayOn` | `true` | The **Overlay on** switch on the **SteamVR** page. `false` stops the main headset panel entirely. See [Turning it off](/companion/overlay#turning-it-off). |
+| `notifyOverlay.on` | `true` | Whether the notification overlay is drawn. See [Notification overlay](#notification-overlay). |
+| `notifyOverlay.spot` | `topright` | Where on the screen it sits: `topleft`, `topmiddle`, `topright`, `bottomleft`, `bottommiddle` or `bottomright`. |
+| `notifyOverlay.across` | `0` | Fine adjustment left or right, in metres, -1 to 1. |
+| `notifyOverlay.down` | `0` | Fine adjustment up or down, in metres, -1 to 1. |
+| `notifyOverlay.distance` | `1.0` | How far ahead of your head it sits, in metres, 0.3 to 3. |
+| `notifyOverlay.width` | `0.35` | How wide, in metres, 0.1 to 1. |
+| `notifyOverlay.opacity` | `0.95` | 0.1 to 1. |
+| `notifyOverlay.seconds` | `6` | How long one pop-up stays, 2 to 30. |
+| `desktopOverlay.on` | `false` | Whether the window over VRChat is available. See [Desktop overlay](#desktop-overlay). |
+| `desktopOverlay.shortcut` | `mod+alt+m` | The keys that bring it up, `mod` meaning Ctrl. A combination the client cannot ask Windows for falls back to the default. |
+| `desktopOverlay.opacity` | `90` | 20 to 100. |
+| `notifications.bleep` | `true` | Whether a short sound plays when you are told something. See [Notification sound](#notification-sound). |
+| `notifications.volume` | `70` | The sound's own volume, 0 to 100, separate from the voice's. |
+| `notifications.trayNoticesShown` | `0` | How many times you have been told the client is still in the tray. It stops after three. |
 | `voice.on` | `false` | The **Voice on** switch. See [Voice](#voice). |
 | `voice.joins` | `true` | The **Joins** switch. |
 | `voice.leaves` | `true` | The **Leaves** switch. |
@@ -227,8 +241,8 @@ Things to know:
 - If the file is missing, or cannot be read as JSON, **every** setting in it uses its default. That
   includes Cloud backup and starting with Windows being on. The environment variables still apply.
 - When you flip a switch, the client changes only that switch's field and leaves the rest of the
-  file as it was; a change on the Voice card rewrites the whole `voice` object. It never writes
-  the `cloud` field.
+  file as it was; a change on the Voice card rewrites the whole `voice` object, and the same goes
+  for `notifyOverlay`, `desktopOverlay` and `notifications`. It never writes the `cloud` field.
 - If the file is broken, the client does not overwrite it. A switch you flip then only lasts until
   the client restarts.
 
@@ -281,10 +295,11 @@ text.
 
 ## Overlay placement
 
-Only used while the overlay is on; `overlayOn` is the switch, and it is a field of its own so
-that moving the panel never rewrites it.
+`overlayOn` is the switch, and it is a field of its own so that moving the panel never rewrites
+it. The placement can be set with the panel switched off, so you can arrange it before you turn
+it on.
 
-Where the headset panel sits, set on the **SteamVR** page or by [holding it](/companion/overlay#holding-it)
+Where the main headset panel sits, set on the **SteamVR** page or by [holding it](/companion/overlay#holding-it)
 with a controller, and saved as the `overlay` object in `settings.json`:
 
 ```json
@@ -300,6 +315,70 @@ with a controller, and saved as the `overlay` object in `settings.json`:
 `anchor` is `head`, `lefthand`, `righthand` or `world`; `offset` is metres from the anchor and a
 turn as a quaternion; `width` is 0.2 to 1.5 m, `opacity` 0.1 to 1, `curve` 0 to 1. A value outside
 its range is brought inside it when the file is read.
+
+## Notification overlay
+
+A second headset panel, fixed in your view, where pop-ups appear: a flagged arrival, a Modbot
+fault. It has its own switch and its own placement, and it is drawn whether or not the main panel
+is. Nothing on it can be tapped.
+
+`spot` names the corner or edge it sits in; `across` and `down` move it from there by a few
+centimetres; `distance` is how far ahead of you it floats. `seconds` is how long one pop-up stays
+before it fades. At most three pop-ups are drawn at once; older ones fall off the bottom.
+
+```json
+"notifyOverlay": {
+  "on": true,
+  "spot": "topright",
+  "across": 0,
+  "down": 0,
+  "distance": 1.0,
+  "width": 0.35,
+  "opacity": 0.95,
+  "seconds": 6
+}
+```
+
+## Desktop overlay
+
+The same roster, events and person card as the headset panel, in a window that sits over VRChat on
+a monitor. Press the shortcut to bring it up and again to send it away; Escape also closes it.
+
+The shortcut is asked of Windows by name, so it works while VRChat has the keyboard. Another
+program may already own the combination, and then the **Desktop overlay** card on the **Settings**
+page says so and the **Open** button on that card is the way in.
+
+Write the shortcut with `mod` for Ctrl, `alt` for Alt, then the key: `mod+alt+m`. Shift is not
+written for a key that prints a character.
+
+```json
+"desktopOverlay": {
+  "on": false,
+  "shortcut": "mod+alt+m",
+  "opacity": 90
+}
+```
+
+VRChat in exclusive fullscreen will hide the window. Run VRChat in borderless windowed mode if you
+want the overlay over it.
+
+## Notification sound
+
+A short sound when you are told something, with its own switch and its own volume, separate from
+the voice. It plays through the same output device the voice uses. The same thing about the same
+person does not sound twice within half a minute, and nothing sounds twice within two seconds, so
+a rush of arrivals is one sound rather than ten.
+
+```json
+"notifications": {
+  "bleep": true,
+  "volume": 70,
+  "trayNoticesShown": 0
+}
+```
+
+`trayNoticesShown` counts how many times closing the window with the X has told you the client is
+still running in the tray. After three it stops. Set it back to `0` to be told again.
 
 ## Debug mode
 
