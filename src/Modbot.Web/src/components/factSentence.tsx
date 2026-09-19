@@ -3,6 +3,7 @@ import { JsonView } from '@/components/JsonView'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
 import { openPersonVersion } from '@/lib/subject'
+import { avatarWorn, timeInInstance } from '@/lib/factDetails'
 
 /**
  * Every fact, as a sentence naming who did what to whom and where.
@@ -330,11 +331,19 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
-  'vrchat.group.instance.kick': (p) => (
-    <>
-      {p.actor} kicked {p.subject} out of {p.place ?? 'an instance'}.
-    </>
-  ),
+  // The clause is there only when the kick was recorded with an answer, which needs a moderator's
+  // companion to have been reporting that instance at the time. Most groups' kicks carry none, and
+  // the sentence is the one it has always been.
+  'vrchat.group.instance.kick': (p) => {
+    const howLong = timeInInstance(p.entry.data)
+
+    return (
+      <>
+        {p.actor} kicked {p.subject} out of {p.place ?? 'an instance'}
+        {howLong ? ` ${howLong}` : ''}.
+      </>
+    )
+  },
 
   'vrchat.group.instance.warn': (p) => (
     <>
@@ -404,7 +413,21 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
-  'vrchat.avatar.change': (p) => <>{p.subject} changed avatar.</>,
+  // VRChat's log carries an avatar's display name and never an `avtr_…` id, so the name is all
+  // there is to show and two avatars called the same thing cannot be told apart. A row recorded
+  // before the name was kept, or one whose log line could not be split against the roster, still
+  // reads the short way.
+  'vrchat.avatar.change': (p) => {
+    const avatar = avatarWorn(p.entry.data)
+
+    return avatar ? (
+      <>
+        {p.subject} switched to the avatar<Quoted value={avatar} />.
+      </>
+    ) : (
+      <>{p.subject} changed avatar.</>
+    )
+  },
 
   // ── Discord ─────────────────────────────────────────────────────────────────────────────────
   'discord.member.join': (p) => <>{p.subject} joined the Discord server.</>,
