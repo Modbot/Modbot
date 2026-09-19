@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Modbot.Companion.Overlay;
 using Modbot.Companion.Presentation;
 
 namespace Modbot.Companion.App;
@@ -186,6 +187,90 @@ public sealed partial class MainWindow
                     Spacing = 12,
                     Children = { _desktopOverlayOpen, _desktopOverlayLine },
                 },
+            },
+        };
+    }
+
+    // The notification overlay on a monitor: its own switch, its own corner, its own seconds.
+    // Built once and kept, like everything else on this page.
+    private readonly CheckBox _desktopNotifyOn = new();
+    private readonly Slider _desktopNotifySeconds = new()
+    {
+        Minimum = DesktopNotifySettings.MinSeconds,
+        Maximum = DesktopNotifySettings.MaxSeconds,
+        TickFrequency = 1,
+        IsSnapToTickEnabled = true,
+        Width = 220,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private bool _desktopNotifyWired;
+
+    private DesktopNotifySettings DesktopNotifySettingsNow => _snapshot.DesktopNotifyOrDefault;
+
+    private void WireDesktopNotify()
+    {
+        if (_desktopNotifyWired)
+            return;
+
+        _desktopNotifyWired = true;
+
+        _desktopNotifyOn.Content = Ui.Text("Notification overlay", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _desktopNotifyOn.VerticalAlignment = VerticalAlignment.Center;
+
+        _desktopNotifyOn.IsCheckedChanged += (_, _) =>
+        {
+            if (!_renderingSwitches)
+                _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { On = _desktopNotifyOn.IsChecked == true });
+        };
+
+        _desktopNotifySeconds.ValueChanged += (_, e) =>
+        {
+            if (!_renderingSwitches)
+                _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { Seconds = (float)e.NewValue });
+        };
+    }
+
+    /// <summary>What the card says right now, put into the controls it keeps.</summary>
+    private void RefreshDesktopNotifyControls()
+    {
+        WireDesktopNotify();
+
+        var settings = DesktopNotifySettingsNow;
+
+        _desktopNotifyOn.IsChecked = settings.On;
+
+        if (!_desktopNotifySeconds.IsPointerOver && !_desktopNotifySeconds.IsFocused)
+            _desktopNotifySeconds.Value = settings.Clamped().Seconds;
+    }
+
+    /// <summary>The card: the switch, which corner it sits in, and how long a notification stays.</summary>
+    private Control DesktopNotifyCard()
+    {
+        WireDesktopNotify();
+
+        var settings = DesktopNotifySettingsNow;
+
+        foreach (var control in new Control[] { _desktopNotifyOn, _desktopNotifySeconds })
+            DetachFromParent(control);
+
+        var corners = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        foreach (var spot in Enum.GetValues<ScreenSpot>())
+        {
+            var button = Ui.Button(DesktopNotifySettings.Name(spot), primary: spot == settings.Spot);
+            var picked = spot;
+            button.Click += (_, _) => _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { Spot = picked });
+            corners.Children.Add(button);
+        }
+
+        return new StackPanel
+        {
+            Spacing = 12,
+            Children =
+            {
+                _desktopNotifyOn,
+                Ui.Field("Where on the screen", corners),
+                Ui.Field($"Notification stays {settings.Seconds:0} s", _desktopNotifySeconds),
             },
         };
     }

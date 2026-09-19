@@ -71,7 +71,13 @@ public class OverlayDriverTapTests
         var presenter = new RecordingPresenter();
         var reads = new Reads();
         var driver = new OverlayDriver(presenter, reads, new FakeClock());
-        driver.Add(new ServerPairing("cats", new Uri("https://cats.example"), "token", Group), "Cat Lounge");
+        driver.Add(
+            new ServerPairing("cats", new Uri("https://cats.example"), "token", Group)
+            {
+                ManagedGroupName = "Cat Lounge",
+                ManagedGroupIconUrl = "https://cats.example/icon.png",
+            },
+            "Cat Lounge");
         driver.EnteredInstance(Location());
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin", "Kai", "Mira")));
         return (driver, presenter, reads);
@@ -153,6 +159,48 @@ public class OverlayDriverTapTests
         await driver.TickAsync(TestContext.Current.CancellationToken);
 
         Assert.Null(presenter.Last.Alert);
+    }
+
+    [Fact]
+    public async Task TheEventsTabShowsTheEventsScreenAndTheInstanceTabComesBack()
+    {
+        // The tab is the only way to reach the Events screen now that the feed under the window
+        // over VRChat is gone, so the press reaching the loop is worth pinning down.
+        var (driver, presenter, _) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(OverlayPage.Instance, presenter.Last.Page);
+
+        driver.Tap(new OverlayTarget.GoTo(OverlayPage.Events));
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(OverlayPage.Events, driver.Page);
+        Assert.Equal(OverlayPage.Events, presenter.Last.Page);
+
+        driver.Tap(new OverlayTarget.GoTo(OverlayPage.Instance));
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(OverlayPage.Instance, presenter.Last.Page);
+    }
+
+    [Fact]
+    public async Task ThePersonTabWithNobodyOpenShowsTheInstanceRatherThanABlankCard()
+    {
+        var (driver, presenter, _) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        driver.Tap(new OverlayTarget.GoTo(OverlayPage.Person));
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(OverlayPage.Instance, presenter.Last.Page);
+    }
+
+    [Fact]
+    public async Task ThePanelSaysWhoseCommunityItIsAndWhereItsIconIs()
+    {
+        // The group's name and its icon, never the address of the machine the server runs on.
+        var (driver, presenter, _) = Build();
+        await driver.TickAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Cat Lounge", presenter.Last.GroupLabel);
+        Assert.Equal("https://cats.example/icon.png", presenter.Last.GroupIconUrl);
     }
 
     [Fact]

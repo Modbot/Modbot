@@ -175,8 +175,11 @@ public sealed class OverlayDriver : IDisposable
 
     /// <summary>Adds a paired server the overlay may speak for.</summary>
     /// <param name="label">
-    /// The moderator's own name for it, shown on the card so somebody seeing a flag knows whose
-    /// flag it is.
+    /// What to call this community on the panel, so somebody seeing a flag knows whose flag it is:
+    /// the group's name, falling back to the server's address
+    /// (<see cref="ServerPairing.OverlayLabel"/>). It used to be handed the pairing's local id,
+    /// which is in practice the server's hostname — a panel saying a Railway address where it
+    /// should have said the group.
     /// </param>
     public void Add(ServerPairing pairing, string label)
     {
@@ -605,7 +608,11 @@ public sealed class OverlayDriver : IDisposable
             // A copy, not the list itself. The screen is a snapshot, and one that kept changing
             // under the compositor would compare equal to itself and never redraw.
             Events: [.. _events],
-            Clips: Clips);
+            Clips: Clips,
+
+            // The address the server gave at pairing. The panel draws the picture the companion
+            // already holds for it; nothing here fetches anything.
+            GroupIconUrl: server.Pairing.ManagedGroupIconUrl);
     }
 
     /// <summary>

@@ -3,12 +3,18 @@
 **Date:** 2026-09-18
 **Status:** built
 **Touches:** `src/Modbot.Companion/Presentation/DesktopOverlaySettings.cs`,
+`src/Modbot.Companion/Presentation/DesktopNotifySettings.cs`,
 `src/Modbot.Companion/Presentation/CompanionSettings.cs`,
 `src/Modbot.Companion.App/DesktopOverlayWindow.cs`,
+`src/Modbot.Companion.App/DesktopNotifyWindow.cs`,
 `src/Modbot.Companion.App/DesktopOverlayShortcut.cs`,
 `src/Modbot.Companion.App/OverlayScreens.cs`,
 `src/Modbot.Companion.App/MainWindow.DesktopOverlay.cs`,
 `src/Modbot.Companion.App/Program.cs`
+
+**Changed 2026-09-19** after a moderator used it: §3.1 (Escape no longer closes it), §4 (the group's
+name and icon; the roster row's flags; the feed underneath removed), §5.1 (the window starts the
+drive loop, which it never did), and a new §7 for the notification overlay on a monitor.
 
 ---
 
@@ -128,8 +134,12 @@ running.
 ### 3.1 Summoned, dismissed, and focus
 
 - The shortcut **toggles**: visible becomes hidden, hidden becomes visible.
-- **Escape** hides it. So does clicking Modbot's tray icon (which brings the main window up
-  instead).
+- **Escape does not close it, and used to.** Escape is how VRChat opens its own menu. A moderator
+  in a game who presses Escape means the menu, and a window sitting on top of that game that took
+  the press instead put itself in a fight the game could not win — press Escape, lose the overlay,
+  no menu. It closes on the shortcut and on its own **Close** button, and nothing else. (Escape is
+  still refused as a shortcut, for the stronger version of the same reason: a combination
+  registered across the whole machine would take the menu key away in every program.)
 - Showing it calls `Activate()` and then Windows' `SetForegroundWindow`. Windows normally refuses
   to let a background process take the foreground, but it explicitly allows it for *"a process
   processing a hotkey"* — which is exactly the case here, since the shortcut is what asked. If
@@ -222,13 +232,64 @@ The person's card carries the actions the client already has, which today is: op
 close this person, dismiss this alert. The client has no ban button and this does not add one —
 acting on a person is done in Modbot's web interface, by a human, in a browser.
 
-Below the panel the window shows the **last few events** the client handled, drawn with
-`MainWindow`'s own `EventRow` — the same row the Events page draws, with the same time column, the
-same sentence and the same pill. That row builder changed from `private static` to `internal static`
-and nothing else. (It drew one pill per destination until 2026-09-19; see the cloud backup stays out
-of the way design.)
+### 4.1 It says whose community it is, by name and by picture
 
-### 4.1 What was decided against
+The panel opens with **the group's icon and the group's name**, once, above the tabs.
+
+It used to say the product's name and then the address of the machine the server runs on —
+`modbot-production-fbc7.up.railway.app` — in the window's own strip, in the roster card's header
+and in the events card's header. Three times, and all three of them a thing no moderator
+recognises. A moderator knows their community by its name and its picture; the address of its
+server is an implementation detail of somebody else's hosting.
+
+The address was not chosen on purpose. The drive loop is handed a label per paired server, and what
+was handed to it was the pairing's **local id**, which is in practice the hostname. The label is now
+`ServerPairing.OverlayLabel`: the group's name as the server gave it at pairing, falling back to the
+address only when a pairing was made before servers said their group's name. The group id is
+deliberately not the fallback — `grp_` and thirty characters is worse than a hostname.
+
+The icon is an **address on the screen value**, not a picture. `OverlayScreen.GroupIconUrl` carries
+what the server gave at pairing, and the view is handed a function that turns an address into a
+picture — the companion's own `GroupPictures` cache, the same one the window's server cards already
+draw from. So the overlay fetches nothing it was not already holding, and an icon that has not
+arrived leaves the name standing on its own. Both panels get it: the headset's rasterises the same
+control tree, and an `Image` in that tree costs nothing a `TextBlock` does not.
+
+### 4.2 The roster row
+
+`● name · rank · flags`, on one line, everything vertically centred, with the name trimmed at a
+fixed width.
+
+The name used to be unbounded in a horizontal row, so a long one pushed what followed it towards
+the far edge of the panel. What follows it is what is known against that person — "1 prior action",
+a flag's name — and that floating away to the right, in red, next to nobody, was the first thing a
+moderator noticed. It is now a **tinted chip** immediately after the name, which reads as belonging
+to the row rather than as a warning about the panel.
+
+The roster's header line lost the group label, which is now said once at the top, and gained **how
+many people are here**. The events screen's header line went entirely: it said the group and
+nothing else.
+
+### 4.3 The feed underneath is gone
+
+The window used to carry, pinned under the panel, the last five events the client handled — the
+Events page's own rows, out of the client's journal.
+
+It was removed. Three reasons, and the first is the one that matters:
+
+1. **It is the wrong shape for the job.** A list under a panel is read by somebody who has decided
+   to look. The thing a moderator mid-instance actually needs is to be *told* — which is what a
+   notification is, and which is why the headset has a notification overlay separate from its main
+   panel (two overlay modes design §1). The desktop had the reading half and not the telling half.
+2. **It made the panel small.** The feed took the bottom of a 720-pixel window, at desktop density,
+   for five rows about what this client sent where — which is a question for the Events page in the
+   main window, not for a panel over a game.
+3. **It said the same thing twice.** The panel's own Events screen is already "what happened here",
+   from the live link.
+
+Being told as it happens is §7's job now.
+
+### 4.4 What was decided against
 
 - **A bitmap of the headset frame.** `OverlayPreviewWindow` already does that and it is the right
   answer for the Debug page, where the question is *"what did SteamVR actually get"*. It is the
@@ -274,6 +335,24 @@ are built are the halves that are wanted:
 The third row is the new one, and it is the moderator asking for it in as many words. Nothing here
 starts reading from a server that the person running the client did not switch on.
 
+**That third row did not actually work, and it is the bug behind "the Events button does
+nothing".** The table above was the design; the code was not. Two of the three switches started the
+drive loop when they came up — the headset panel's and the notification panel's — and the desktop
+overlay's did not. So a moderator who plays on a monitor, with both headset panels off, got a
+window with no loop behind it: no screen was ever pushed into it, and every tap on it, the Events
+tab included, went to `_overlay?.Tap(…)` on a driver that was null. A tap that lands on nothing and
+a tab that does nothing are the same thing from the outside.
+
+It compounds on a machine with no VR runtime at all. The notification panel's start gives up and
+returns the moment `NotificationHost.Create` throws `DllNotFoundException`, which is every PC
+without SteamVR — and it returns *before* it starts the loop. So even with `notifyOverlay.on` at
+its default of true, a desktop-only moderator had no loop from that half either.
+
+The window's switch now starts the loop and stops it again the way the other two do, and
+`StopDriverIfNobodyWantsIt` counts all four panels. There is no new capability in that: the loop
+reads from a server the moderator paired, because the moderator switched on a panel that shows what
+it reads.
+
 ### 5.2 Nothing is commanded
 
 The desktop overlay is a presenter: something is pushed into it. It has no client of its own, no
@@ -312,9 +391,123 @@ to `mod+alt+m` rather than leaving the moderator with nothing. **A shortcut with
 refused on purpose**: a bare letter registered system-wide would swallow that letter in every
 program on the machine, including the game.
 
+`escape` is refused too, and the reason changed. It used to be "Escape already closes the overlay,
+so a key that both opened and closed it could never do the second thing". Escape no longer closes
+anything (§3.1), and it is still refused, for the better reason: **Escape is VRChat's own menu
+key**, and claiming it across the whole machine would take the game's menu away from the game.
+
 ---
 
-## 7. What is tested
+## 7. The notification overlay, on a monitor
+
+A moderator on a monitor needs the same two things a moderator in a headset needs, and they want
+opposite shapes. The panel §3 describes is read when somebody decides to look. This is the other
+half: **a small window in a corner of the screen that shows a notification as it arrives and lets
+it go again.** It is the desktop's version of the headset's notification overlay, and the argument
+for it being a separate thing is word for word the argument in the two overlay modes design §1.
+
+### 7.1 Separate, and fixed
+
+- **Its own window and its own switch.** It is not summoned by the shortcut, it does not go away
+  when the panel is dismissed, and turning the panel off leaves it running. Four panels, four
+  switches, and none of them can take another down.
+- **It is never dragged.** It sits in the corner the moderator chose. There is nothing on it to
+  press and no handle to grab, because it is a thing that tells you something rather than a thing
+  you use.
+- **It never takes the keyboard from VRChat.** It is shown without being activated
+  (`ShowActivated = false`), and on Windows it is additionally marked `WS_EX_NOACTIVATE`,
+  `WS_EX_TRANSPARENT` and `WS_EX_TOOLWINDOW` — so it cannot be brought to the front by a click, a
+  click on it goes through to the game underneath, and it is not in Alt-Tab. Those are three
+  ex-style bits on Modbot's own window; it asks Windows nothing about anybody else's.
+- **Nothing is drawn while nothing is happening.** An empty stack hides the window outright rather
+  than leaving an empty frame in the corner. An always-on panel that is usually blank is the thing
+  that makes people turn overlays off — the same rule the headset's notification overlay already
+  follows.
+
+### 7.2 Which corner, and which monitor
+
+One of the six `ScreenSpot` values the headset's notification overlay already uses — top-left,
+top-middle, top-right, bottom-left, bottom-middle, bottom-right — rather than a second vocabulary
+for the same six places. Default **bottom right**, which is where a computer has put notifications
+for thirty years.
+
+`DesktopNotifySettings.Corner` turns a spot and a work area into a position in that screen's own
+pixels: the work area rather than the whole screen, so it does not sit on the taskbar, with the
+margin applied on every side so it never touches an edge. It is plain integers and no window, which
+is what lets "which corner lands where" be tested without a screen.
+
+The monitor is the one **Modbot's own window is on**, worked out again each time the window is
+shown — the same rule, and the same reason, as §3.2. The window is as tall as what is in it, so its
+position is worked out again whenever that changes; otherwise a bottom corner would drift as cards
+come and go.
+
+### 7.3 It is the pop-up way of being told, not a fourth way
+
+The Notifications card has one list of kinds and a tick per way of being told: **Pop-up**, **Sound**
+and **Voice**. This window is the Pop-up way, on a monitor. It is not a fourth column.
+
+Why not a fourth: the Pop-up column already means *"show me a card when this happens"*. A moderator
+who asked to be shown a card when a flagged person arrives asked once — they did not ask once for
+the headset and once for the monitor, and most of them will only ever have one of the two switched
+on. A fourth column would make every moderator tick the same boxes twice for one decision, make the
+card five columns wide, and drift apart the first time somebody changed one and forgot the other.
+
+So it reads the same stack. `PopUps` is the one place a card is raised, it asks
+`NotificationFilters.PopUpShows` once at the moment of showing, and both surfaces draw what comes
+back. One decision, two surfaces — which is the rule the two overlay modes design §2.3 already set
+for the alert card and the headset pop-up.
+
+What is genuinely per-surface is **how long a card stays**, because a corner of a monitor and a
+corner of somebody's vision are not the same place. `PopUps.Dwell` is therefore the longest any
+surface wants — so a card is dropped only once nobody wants it any more — and each surface asks
+`Current(dwell)` with its own seconds.
+
+### 7.4 What it draws
+
+`NotificationView`, the headset's own card builder, at **desktop** density rather than VR density.
+VR text is sized for a panel a metre away; a card that size on a monitor would cover a corner of the
+game. That is the one thing parameterised — the palette and the density — and nothing else about the
+card is a second copy.
+
+### 7.5 The setting
+
+One new object in `settings.json`, written and read whole by
+`CompanionSettings.SaveDesktopNotifyOverlay`, which rewrites `desktopNotifyOverlay` and leaves every
+other field exactly as it found it — the same rule as `SaveNotifyOverlay` and `SaveDesktopOverlay`:
+
+```json
+"desktopNotifyOverlay": {
+  "on": false,
+  "spot": "bottomright",
+  "seconds": 6
+}
+```
+
+| Field | Meaning | Default |
+|---|---|---|
+| `on` | Whether the window exists at all | `false` |
+| `spot` | One of the six `ScreenSpot` names | `bottomright` |
+| `seconds` | How long one notification stays, 2 to 30 | `6` |
+
+**Off by default**, unlike the headset's notification overlay, and for the same reason the window
+over VRChat is off by default: this one puts a window over everything else on the machine, VRChat
+not running included. That is asked for rather than assumed. It is one switch on the Settings page,
+beside the window's own.
+
+### 7.6 What was decided against
+
+- **A fourth column on the Notifications card.** See §7.3.
+- **Showing it inside the panel instead.** That is what the feed under the panel was, and §4.3 is
+  why it went.
+- **Letting it be moved with the mouse.** A window that is never focused and never clicked cannot
+  be dragged without teaching it to take the pointer, which is the one thing it must not do. Six
+  corners cover it.
+- **Its own `PopUps`.** Two stacks would mean two copies of every decision about what is worth a
+  card, and a card cleared on one surface and left up on the other.
+
+---
+
+## 8. What is tested
 
 Everything that does not need a window, in `tests/Modbot.Companion.Tests/`:
 
@@ -325,8 +518,20 @@ Everything that does not need a window, in `tests/Modbot.Companion.Tests/`:
 - opacity clamped into 20–100, in the file and in the record
 - `desktopOverlay` round-tripping through the file, including that writing it leaves `voice`,
   `overlay` and the rest alone, and that a file that is not JSON is not overwritten
-- the show/hide rule: the shortcut toggles, Escape only hides, and a press while the overlay is
-  switched off does nothing
+- the show/hide rule: the shortcut toggles, and a press while the overlay is switched off does
+  nothing
+- that `escape` is not a shortcut the client will ask Windows for
+- which corner resolves to which position, on one monitor and on a second one with its own origin,
+  and with a window too big for the screen it is on
+- `desktopNotifyOverlay` round-tripping through the file, including that writing it leaves
+  `voice`, `overlay`, `notifyOverlay` and `desktopOverlay` alone, and that a file that is not JSON
+  is not overwritten
+- the show-and-let-go rule with two surfaces: each sees a card for its own number of seconds, and
+  the shorter one asking does not take the card off the longer one
+- the filter rule: a kind the moderator did not tick never goes up, on either surface
+- the Events tab: that a tap at the middle of the drawn tab is that tab, and that the press reaches
+  the drive loop and moves the panel to the Events screen
+- that the panel is given the group's name and the address of its icon, and never the server's own
 
 The window itself, `RegisterHotKey`, and what a compositor does with a topmost window are checked
 by hand, on a machine with VRChat on it.

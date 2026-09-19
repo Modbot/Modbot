@@ -53,6 +53,12 @@ public enum OverlayPage
 /// What the Save a clip control says, and whether it can be pressed. Nothing is drawn for it while
 /// Clips is switched off, which is what a fresh install has.
 /// </param>
+/// <param name="GroupIconUrl">
+/// Where the group's icon is, as the server gave it at pairing, or null when it gave none. An
+/// address, not a picture: the panel is a value, and what fetches the picture is the companion's
+/// own cache — the same one the window's server cards draw from, so the overlay asks for nothing
+/// the client was not already holding.
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -65,7 +71,8 @@ public sealed record OverlayScreen(
     PanelCursor? Cursor = null,
     OverlayPage Page = OverlayPage.Instance,
     IReadOnlyList<LiveEvent>? Events = null,
-    ClipButton Clips = default)
+    ClipButton Clips = default,
+    string? GroupIconUrl = null)
 {
     /// <summary>What the live link has heard, never null.</summary>
     public IReadOnlyList<LiveEvent> EventsOrNone => Events ?? [];
@@ -94,6 +101,7 @@ public sealed record OverlayScreen(
         ArgumentNullException.ThrowIfNull(other);
 
         return GroupLabel == other.GroupLabel
+            && GroupIconUrl == other.GroupIconUrl
             && Clips == other.Clips
             && ShowIdleCard == other.ShowIdleCard
             && RosterSkip == other.RosterSkip

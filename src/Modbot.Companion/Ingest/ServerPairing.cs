@@ -64,6 +64,20 @@ public sealed record ServerPairing
     /// <summary>What to call this server on a screen: the group's name, or its id until a name is known.</summary>
     public string GroupLabel => string.IsNullOrWhiteSpace(ManagedGroupName) ? ManagedGroupId : ManagedGroupName;
 
+    /// <summary>
+    /// What the overlay calls this community: the group's name, falling back to the server's
+    /// address.
+    /// </summary>
+    /// <remarks>
+    /// A moderator knows their community by its name, not by the address of the machine their
+    /// server runs on and not by <c>grp_</c> and thirty characters. The overlay used to be handed
+    /// <see cref="ServerId"/>, which is whatever local label the pairing was saved under and is in
+    /// practice the address — so the panel over VRChat said a hostname where it should have said
+    /// the group. The address is what is left when a pairing was made before servers gave their
+    /// group's name, and it is at least something a moderator can recognise.
+    /// </remarks>
+    public string OverlayLabel => string.IsNullOrWhiteSpace(ManagedGroupName) ? BaseUri.Authority : ManagedGroupName;
+
     /// <summary>Negotiated once, at pairing. A property of the pairing, not of each request.</summary>
     public int ApiVersion { get; init; }
 

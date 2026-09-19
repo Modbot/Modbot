@@ -1,4 +1,5 @@
 using Modbot.Companion.Overlay;
+using Modbot.Companion.Sounds;
 using Modbot.TestSupport;
 
 namespace Modbot.Companion.Tests.Overlay;
@@ -124,5 +125,66 @@ public class PopUpsTests
         var settings = NotifyOverlaySettings.Default with { Seconds = 9f };
 
         Assert.Equal(TimeSpan.FromSeconds(9), settings.Dwell);
+    }
+
+    [Fact]
+    public void EachSurfaceShowsItForItsOwnNumberOfSeconds()
+    {
+        // Two surfaces read this stack -- the notification overlay in a headset and the one on a
+        // monitor -- and a moderator can want one to linger and the other to be brief.
+        var clock = new FakeClock();
+        var popUps = new PopUps(clock) { Dwell = TimeSpan.FromSeconds(20) };
+
+        popUps.Show(Made());
+        clock.Advance(TimeSpan.FromSeconds(7));
+
+        Assert.Empty(popUps.Current(TimeSpan.FromSeconds(6)));
+        Assert.Single(popUps.Current(TimeSpan.FromSeconds(20)));
+    }
+
+    [Fact]
+    public void TheShorterSurfaceAskingDoesNotTakeItOffTheLongerOne()
+    {
+        // The stack is pruned at the longest anybody wants, so the surface with the short seconds
+        // asking first must not drop a card the other one is still showing.
+        var clock = new FakeClock();
+        var popUps = new PopUps(clock) { Dwell = TimeSpan.FromSeconds(20) };
+
+        popUps.Show(Made());
+        clock.Advance(TimeSpan.FromSeconds(7));
+
+        popUps.Current(TimeSpan.FromSeconds(6));
+
+        Assert.Single(popUps.Current(TimeSpan.FromSeconds(20)));
+    }
+
+    [Fact]
+    public void AskingForLongerThanTheStackKeepsThemGetsWhatTheStackHas()
+    {
+        var clock = new FakeClock();
+        var popUps = new PopUps(clock) { Dwell = TimeSpan.FromSeconds(6) };
+
+        popUps.Show(Made());
+        clock.Advance(TimeSpan.FromSeconds(7));
+
+        Assert.Empty(popUps.Current(TimeSpan.FromSeconds(30)));
+    }
+
+    [Fact]
+    public void AKindTheModeratorDidNotTickNeverGoesUpOnEitherSurface()
+    {
+        // One gate, asked once, whichever surface would have drawn the card. A moderator who
+        // asked not to be shown arrivals asked once, not once per screen.
+        var clock = new FakeClock();
+        var popUps = new PopUps(clock)
+        {
+            Wanted = kind => kind is NotificationKind.FlaggedJoin,
+        };
+
+        popUps.Show(Made("joined:usr_a"), NotificationKind.Joined);
+        Assert.Empty(popUps.Current(TimeSpan.FromSeconds(6)));
+
+        popUps.Show(Made("alert:a1"), NotificationKind.FlaggedJoin);
+        Assert.Single(popUps.Current(TimeSpan.FromSeconds(6)));
     }
 }

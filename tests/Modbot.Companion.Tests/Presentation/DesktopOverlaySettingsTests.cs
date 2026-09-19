@@ -128,19 +128,18 @@ public class DesktopOverlaySettingsTests
     {
         var on = DesktopOverlaySettings.Default with { On = true };
 
-        Assert.True(on.NextShowing(showing: false, escape: false));
-        Assert.False(on.NextShowing(showing: true, escape: false));
+        Assert.True(on.NextShowing(showing: false));
+        Assert.False(on.NextShowing(showing: true));
     }
 
     [Fact]
-    public void EscapeOnlyEverCloses()
+    public void EscapeIsNotAShortcutTheClientWillAskFor()
     {
-        // A key that opened as well as closed would put the overlay in front of somebody who
-        // pressed Escape to get out of a game menu.
-        var on = DesktopOverlaySettings.Default with { On = true };
-
-        Assert.False(on.NextShowing(showing: true, escape: true));
-        Assert.False(on.NextShowing(showing: false, escape: true));
+        // Escape is how VRChat opens its own menu. The window used to close on it, which put the
+        // two in a fight the game could not win; claiming it across the whole machine would be
+        // worse still, because it would take the menu key away in every program.
+        Assert.False(DesktopOverlayKeys.CanBeUsed("escape"));
+        Assert.False(DesktopOverlayKeys.CanBeUsed("mod+escape"));
     }
 
     [Fact]
@@ -148,8 +147,8 @@ public class DesktopOverlaySettingsTests
     {
         var off = DesktopOverlaySettings.Default with { On = false };
 
-        Assert.False(off.NextShowing(showing: false, escape: false));
-        Assert.False(off.NextShowing(showing: true, escape: false));
+        Assert.False(off.NextShowing(showing: false));
+        Assert.False(off.NextShowing(showing: true));
     }
 
     [Fact]

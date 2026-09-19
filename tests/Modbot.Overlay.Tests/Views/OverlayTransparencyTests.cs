@@ -41,7 +41,10 @@ public class OverlayTransparencyTests
         // The idle card is one short card at the top; the bottom of the panel is the world.
         Assert.Equal(0, Alpha(pixels, Size - 1, Size - 1));
         Assert.Equal(0, Alpha(pixels, Size / 2, Size - 8));
-        Assert.Equal(255, Alpha(pixels, Size / 2, 40));
+
+        // Inside the tabs, which are the first thing on the panel with a surface of its own. The
+        // group's name and icon sit above them and paint no ground.
+        Assert.Equal(255, Alpha(pixels, Size / 2, 80));
     }
 
     /// <summary>Outside a group instance the panel says nothing at all; only the debug page asks for the card.</summary>

@@ -197,8 +197,12 @@ public sealed record CompanionAppSnapshot(
     DesktopOverlayStatus? DesktopOverlay = null,
     NotifyOverlayStatus? NotifyOverlay = null,
     NotificationFilters? NotificationFilters = null,
-    ClipsStatus? Clips = null)
+    ClipsStatus? Clips = null,
+    DesktopNotifySettings? DesktopNotifyOverlay = null)
 {
+    /// <summary>The notification overlay on a monitor, never null: off with the defaults until settings have been read.</summary>
+    public DesktopNotifySettings DesktopNotifyOrDefault => DesktopNotifyOverlay ?? DesktopNotifySettings.Default;
+
     /// <summary>The Clips card, never null: off with the default settings until the host has said.</summary>
     public ClipsStatus ClipsOrNone => Clips ?? ClipsStatus.None;
 
@@ -429,7 +433,8 @@ public sealed class CompanionAppState
             DesktopOverlay,
             NotifyOverlay with { Settings = Settings.NotifyOverlay },
             Settings.NotificationFilters,
-            Clips with { Settings = Settings.Clips });
+            Clips with { Settings = Settings.Clips },
+            Settings.DesktopNotifyOverlay);
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)
