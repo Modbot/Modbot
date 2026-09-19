@@ -2,18 +2,36 @@
 # is where installed copies download an update from. What they *ask* is Modbot Cloud, which reads
 # this release and serves the same index (see UPDATE_FEED below).
 #
-# Trigger: push a tag named companion-vYYYY.M.PATCH, for example `companion-v2026.9.1`. The version
-# after `companion-v` is stamped into the build (ModbotVersion.Release, the exe's file version, the
-# installer and the update feed all carry the same string), so the tag is the one place a release
-# is named.
+# Two ways to run it:
 #
-# What comes out, attached to the release:
+#   A release  Push a tag named companion-vYYYY.M.PATCH, for example `companion-v2026.9.1`.
+#   A preview  Run it from the Actions tab (Run workflow) and type the version as
+#              YYYY.M.PATCH-preview.N, for example `2026.9.2-preview.1`. It builds whichever
+#              branch it was run on and makes the tag itself.
+#
+# Running it by hand publishes a preview and nothing else. A general release comes from a tag, so
+# there is always a commit named as the one that went out.
+#
+# The version -- from the tag, or typed in -- is stamped into the build: ModbotVersion.Release, the
+# exe's file version, the installer and the update feed all carry the same string. It is the one
+# place a release is named.
+#
+# A preview goes out on its own channel, win-preview and linux-preview, and is marked a pre-release
+# on GitHub. Velopack writes the channel into the copy it installs and an installed copy asks for
+# its own channel for the rest of its life, so a preview is only ever offered preview versions and
+# a release is only ever offered releases. Neither can be handed the other by accident.
+#
+# What comes out, attached to the release (what a preview is called, in brackets):
 #   Modbot-win-Setup.exe        the Windows installer testers download
+#                               [Modbot-win-preview-Setup.exe]
 #   Modbot-win-Portable.zip     the same files with no installer, for a machine that cannot install
+#                               [Modbot-win-preview-Portable.zip]
 #   Modbot.AppImage             the Linux build: one file, made runnable and run
+#                               [Modbot-linux-preview.AppImage]
 #   Modbot-<version>-full.nupkg, *-delta.nupkg, releases.win.json, RELEASES
 #   Modbot-<version>-linux-full.nupkg, releases.linux.json, RELEASES-linux
 #                               what installed copies read and download when they update
+#                               [the same files with -preview in the channel: releases.win-preview.json]
 #
 # The two builds are separate jobs and Windows goes first: vpk creates the release on the tag and
 # the Linux job merges its files into it, and two jobs creating the same release at once would
@@ -31,6 +49,12 @@ on:
   push:
     tags:
       - 'companion-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Preview version, such as 2026.9.2-preview.1'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -56,16 +80,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read the version from the tag
+      # Both jobs work this out the same way; the only difference is which channel the platform
+      # starts from. Keep the two copies in step.
+      - name: Work out the version and the channel
         shell: bash
+        env:
+          CHANNEL_BASE: win
+          TYPED_VERSION: ${{ inputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#companion-v}"
-          if ! [[ "$version" =~ ^[0-9]{4}\.(1[0-2]|[1-9])\.[0-9]+$ ]]; then
-            echo "::error::The tag must look like companion-v2026.9.1 (year.month.patch, no leading zeros); got '$GITHUB_REF_NAME'."
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            version="${TYPED_VERSION#companion-v}"
+          else
+            version="${GITHUB_REF_NAME#companion-v}"
+          fi
+
+          if ! [[ "$version" =~ ^[0-9]{4}\.(1[0-2]|[1-9])\.[0-9]+(-preview\.[0-9]+)?$ ]]; then
+            echo "::error::The version must look like 2026.9.1 (year.month.patch, no leading zeros), or 2026.9.1-preview.1 for a preview; got '$version'."
             exit 1
           fi
-          echo "VERSION=$version" >> "$GITHUB_ENV"
-          echo "Releasing companion $version"
+
+          if [[ "$version" == *-preview.* ]]; then preview=true; else preview=false; fi
+
+          # A general release is always a tag, so the commit it came from is named for good. Running
+          # this by hand is for previews and nothing else.
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$preview" != true ]; then
+            echo "::error::Running this by hand only publishes a preview, and '$version' is not one. Push a companion-v$version tag to release."
+            exit 1
+          fi
+
+          if [ "$preview" = true ]; then
+            channel="$CHANNEL_BASE-preview"
+            name="Modbot Companion $version (preview)"
+          else
+            channel="$CHANNEL_BASE"
+            name="Modbot Companion $version"
+          fi
+
+          {
+            echo "VERSION=$version"
+            echo "TAG=companion-v$version"
+            echo "PREVIEW=$preview"
+            echo "CHANNEL=$channel"
+            echo "RELEASE_NAME=$name"
+          } >> "$GITHUB_ENV"
+
+          echo "Publishing companion $version on the $channel channel"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -96,11 +155,14 @@ jobs:
         run: dotnet tool install -g vpk --version 1.2.0
 
       # Earlier releases are needed beside the new one for vpk to build delta packages. Absent
-      # on the very first release, which is fine: that one is full-only.
+      # on the very first release, which is fine: that one is full-only. A preview looks among
+      # the pre-releases, which is where the earlier previews are.
       - name: Fetch earlier releases so this one can ship deltas
         continue-on-error: true
         run: >
           vpk download github
+          --channel "${{ env.CHANNEL }}"
+          ${{ env.PREVIEW == 'true' && '--pre' || '' }}
           --repoUrl "https://github.com/${{ env.RELEASES_REPO }}"
           --token "${{ env.RELEASES_TOKEN }}"
           --outputDir artifacts/client/releases
@@ -126,11 +188,14 @@ jobs:
         if: env.VPK_SIGN_PARAMS == ''
         run: echo "::warning::No signing certificate configured (SIGN_CERT_BASE64 / SIGN_CERT_PASSWORD). This release is unsigned and will trip SmartScreen on download."
 
+      # The channel is written into the package, and an installed copy asks for that channel for
+      # the rest of its life. It is what keeps a preview and a release apart on one machine.
       - name: Pack the installer, the portable zip and the update files
         run: >
           vpk pack
           --packId Modbot
           --packVersion "${{ env.VERSION }}"
+          --channel "${{ env.CHANNEL }}"
           --packDir artifacts/client/publish
           --mainExe Modbot.exe
           --packTitle Modbot
@@ -144,14 +209,20 @@ jobs:
         shell: pwsh
         run: Remove-Item -Force $env:SIGNING_PFX -ErrorAction SilentlyContinue
 
+      # A preview is published as a GitHub pre-release, so the releases page keeps its "Latest"
+      # badge on the newest real release and nobody arriving there downloads a preview by mistake.
+      # The commit is named because a run started by hand has no tag yet and makes one.
       - name: Publish the GitHub release
         run: >
           vpk upload github
+          --channel "${{ env.CHANNEL }}"
+          ${{ env.PREVIEW == 'true' && '--pre' || '' }}
           --repoUrl "https://github.com/${{ env.RELEASES_REPO }}"
           --token "${{ env.RELEASES_TOKEN }}"
           --outputDir artifacts/client/releases
-          --tag "${{ github.ref_name }}"
-          --releaseName "Modbot Companion ${{ env.VERSION }}"
+          --tag "${{ env.TAG }}"
+          --targetCommitish "${{ github.sha }}"
+          --releaseName "${{ env.RELEASE_NAME }}"
           --publish
           --merge
 
@@ -169,15 +240,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read the version from the tag
+      # The same reckoning as the Windows job, starting from the Linux channel.
+      - name: Work out the version and the channel
+        env:
+          CHANNEL_BASE: linux
+          TYPED_VERSION: ${{ inputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#companion-v}"
-          if ! [[ "$version" =~ ^[0-9]{4}\.(1[0-2]|[1-9])\.[0-9]+$ ]]; then
-            echo "::error::The tag must look like companion-v2026.9.1 (year.month.patch, no leading zeros); got '$GITHUB_REF_NAME'."
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            version="${TYPED_VERSION#companion-v}"
+          else
+            version="${GITHUB_REF_NAME#companion-v}"
+          fi
+
+          if ! [[ "$version" =~ ^[0-9]{4}\.(1[0-2]|[1-9])\.[0-9]+(-preview\.[0-9]+)?$ ]]; then
+            echo "::error::The version must look like 2026.9.1 (year.month.patch, no leading zeros), or 2026.9.1-preview.1 for a preview; got '$version'."
             exit 1
           fi
-          echo "VERSION=$version" >> "$GITHUB_ENV"
-          echo "Releasing companion $version for Linux"
+
+          if [[ "$version" == *-preview.* ]]; then preview=true; else preview=false; fi
+
+          if [ "$preview" = true ]; then
+            channel="$CHANNEL_BASE-preview"
+            name="Modbot Companion $version (preview)"
+          else
+            channel="$CHANNEL_BASE"
+            name="Modbot Companion $version"
+          fi
+
+          {
+            echo "VERSION=$version"
+            echo "TAG=companion-v$version"
+            echo "PREVIEW=$preview"
+            echo "CHANNEL=$channel"
+            echo "RELEASE_NAME=$name"
+          } >> "$GITHUB_ENV"
+
+          echo "Publishing companion $version on the $channel channel"
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -206,12 +304,13 @@ jobs:
         run: dotnet tool install -g vpk --version 1.2.0
 
       # The Linux files live on their own channel of the same release, so vpk is told which
-      # channel here and when uploading; its default is the Windows one.
+      # channel at every step; its default is the Windows one.
       - name: Fetch earlier releases so this one can ship deltas
         continue-on-error: true
         run: >
           vpk download github
-          --channel linux
+          --channel "${{ env.CHANNEL }}"
+          ${{ env.PREVIEW == 'true' && '--pre' || '' }}
           --repoUrl "https://github.com/${{ env.RELEASES_REPO }}"
           --token "${{ env.RELEASES_TOKEN }}"
           --outputDir artifacts/client/releases-linux
@@ -221,6 +320,7 @@ jobs:
           vpk pack
           --packId Modbot
           --packVersion "${{ env.VERSION }}"
+          --channel "${{ env.CHANNEL }}"
           --packDir artifacts/client/publish-linux
           --mainExe Modbot
           --packTitle Modbot
@@ -231,12 +331,14 @@ jobs:
       - name: Add the Linux files to the GitHub release
         run: >
           vpk upload github
-          --channel linux
+          --channel "${{ env.CHANNEL }}"
+          ${{ env.PREVIEW == 'true' && '--pre' || '' }}
           --repoUrl "https://github.com/${{ env.RELEASES_REPO }}"
           --token "${{ env.RELEASES_TOKEN }}"
           --outputDir artifacts/client/releases-linux
-          --tag "${{ github.ref_name }}"
-          --releaseName "Modbot Companion ${{ env.VERSION }}"
+          --tag "${{ env.TAG }}"
+          --targetCommitish "${{ github.sha }}"
+          --releaseName "${{ env.RELEASE_NAME }}"
           --publish
           --merge
 
