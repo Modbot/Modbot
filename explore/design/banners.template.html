@@ -23,42 +23,42 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
 /* The mark on the left, the section's name pushed to the far right. */
 .row{
   position:relative;z-index:1;
-  display:flex;align-items:center;justify-content:space-between;gap:40px;
+  display:flex;align-items:flex-end;justify-content:space-between;gap:40px;
 }
 
-.mark{display:flex;align-items:center;gap:24px;min-width:0}
+/* Stacked: the head sits over the wordmark rather than beside it. */
+.mark{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0}
 
 /* Above the wash. Without this the gradient lies over the mascot and takes the colour out of it. */
-.icon{width:132px;height:132px;flex:none;filter:drop-shadow(0 12px 22px rgb(40 30 90 / 0.18))}
+.icon{width:116px;height:116px;flex:none;margin-left:-6px;filter:drop-shadow(0 12px 22px rgb(40 30 90 / 0.18))}
 
 .name{
   font-family:"Bricolage Grotesque";font-weight:700;
-  font-size:64px;line-height:1;letter-spacing:-0.02em;
+  font-size:52px;line-height:1;letter-spacing:-0.02em;
 }
 
+/* Sits on the wordmark's line rather than the middle of the stack: with the head above the
+   wordmark, a centred name floated in the gap beside the head with nothing under it. */
 .label{
   font-family:"Bricolage Grotesque";font-weight:600;
-  font-size:34px;line-height:1.1;letter-spacing:-0.01em;color:#5b4bd6;
-  white-space:nowrap;text-align:right;
+  font-size:34px;line-height:1;letter-spacing:-0.01em;color:#5b4bd6;
+  white-space:nowrap;text-align:right;padding-bottom:4px;
 }
 
-/* The separator: squared ends, no rounding, running the width of the lockup. The violet stub at
-   the left end ties it to the mark above it and keeps the line from reading as a stray underline. */
+/* The separator: squared ends, no rounding, violet the whole way across the lockup. */
 .rule{
   position:relative;z-index:1;margin-top:34px;height:6px;width:100%;
-  background:#e4e2ee;
+  background:#5b4bd6;
 }
-.rule::before{content:"";position:absolute;left:0;top:0;width:132px;height:100%;background:#5b4bd6}
 
 /* Dark is the same banner on the dark ground, for a server using a dark theme. */
 .banner.dark{background:#0f0e15;color:#e6e6eb}
 .banner.dark::after{background:radial-gradient(ellipse at 50% 50%, #2a2547 0%, rgb(42 37 71 / 0) 68%)}
 .banner.dark .label{color:#a78bfa}
-.banner.dark .rule{background:#2a2738}
-.banner.dark .rule::before{background:#6d5cf0}
+.banner.dark .rule{background:#6d5cf0}
 
 /* With no name on the right the wordmark carries the banner on its own, so it is set larger. */
-.banner.plain .name{font-size:76px}
+.banner.plain .name{font-size:62px}
 
 .sheet{display:flex;flex-direction:column;align-items:center;gap:28px;padding:28px}
 .caption{color:#a5a3b8;font-size:13px;letter-spacing:0.02em;align-self:flex-start;margin-left:28px}
