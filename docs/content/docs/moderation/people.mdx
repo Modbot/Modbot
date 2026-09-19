@@ -26,16 +26,39 @@ right now.
 
 ## Search, filters and sorting
 
+Filters are chips above the list, the same as on [Members](/moderation/members-and-bans#search-filters-and-sorting).
+Press **Filter** (or `f`), pick what to filter by, then pick the values; click a chip's values to
+change them and **×** to remove it. Chips combine: a person must match every one. **Clear** removes
+them all. The filters are in the page address, so a copied link opens the same list, and the page
+remembers the filters you last used.
+
+| Filter | Values |
+|---|---|
+| **Membership** | **Members**, **Not members**, or **People who left**. Remove the chip for everybody. |
+| **On the ban list** | **Yes** or **No**. The group's ban list as it stands now. |
+| **Ever banned** | **Yes** or **No**. Includes bans that have since been lifted. |
+| **Trust rank** | Any of VRChat's [trust ranks](/moderation/profiles#trust-ranks). |
+| **Platform** | **PC**, **Android** or **iOS** — the platform they last used. |
+| **Discord** | **Linked** (only people with a linked Discord account) or **Not linked**. |
+| **18+ verified** | **Yes** or **No**. Modbot's [18+ mark](/moderation/profiles#the-18-verified-mark). |
+| **Has flags** | **Yes** or **No**. Anybody a [moderation rule](/moderation/flags) has ever flagged, dismissed or not. |
+| **Last seen** | A day, or a stretch of days. |
+| **Profile** | **Fetched** or **Not fetched yet**. |
+
+**Trust rank** and **Platform** have no **is not**. Modbot knows neither for somebody whose profile
+it has never fetched, so "every rank but Visitor" would silently leave out every one of those
+people, which is the opposite of what you would mean by it.
+
 | Control | Options |
 |---|---|
 | **Search by name or id** | Matches any part of the display name or the VRChat id. Capital letters, accents and fancy lettering do not matter (see [Names](/moderation/names)). It waits a moment after you stop typing. |
-| Membership | **Everyone** (the default), **Members**, **Not members**, or **People who left**. |
 | Sort | **Most recently seen first**, **By name**, or **Known longest first**. |
 
 **By name** puts the people whose profile has not been fetched yet at the end, because they have no
 name to sort by.
 
-50 people a page, with **Previous** and **Next** at the bottom and the total on the right.
+50 people a page, with **Previous** and **Next** at the bottom and the total on the right. Changing
+a filter, the search or the sort takes you back to the first page.
 
 ## Columns
 
@@ -58,6 +81,7 @@ history, their case files and their figures.
 | `j` / `k` | Move down and up the rows. |
 | `Enter` | Open the selected person. |
 | `/` | Go to the search box. |
+| `f` | Add a filter. |
 | `g` then `n` | Open People from any page. |
 | `Ctrl`+`K` (`⌘`+`K` on a Mac) | Search people, worlds and pages, and run actions. |
 | `?` | Every shortcut that works on the open page. |
