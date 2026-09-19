@@ -78,7 +78,7 @@ function KeyList({ keys, onChanged }: { keys: ApiKeyView[]; onChanged: () => voi
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
         <thead className="text-left text-muted-foreground">
           <tr>

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { Provider } from '@/components/provider';
-import { siteName, siteUrl } from '@/lib/shared';
+import { shareImage, siteDescription, siteName, siteUrl } from '@/lib/shared';
 import './global.css';
 
 export const metadata: Metadata = {
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     default: siteName,
     template: `%s | ${siteName}`,
   },
-  description: 'How to host, set up and use Modbot, and its API.',
+  description: siteDescription,
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
@@ -19,11 +19,16 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.webmanifest',
+  // The link preview for the site itself. Every documentation page replaces this with its own in
+  // generateMetadata, because a preview that said the same thing for all several hundred of them
+  // would tell a reader nothing about the link they were sent.
   openGraph: {
+    type: 'website',
     siteName,
     title: siteName,
-    description: 'How to host, set up and use Modbot, and its API.',
-    images: [{ url: '/og.png', width: 1200, height: 630 }],
+    description: siteDescription,
+    url: siteUrl,
+    images: [shareImage],
   },
 };
 

@@ -234,7 +234,7 @@ const STATE_LABEL: Record<string, string> = {
 
 function EmailQueueTable({ email }: { email: EmailSettings }) {
   return (
-    <div className="mt-4 overflow-x-auto">
+    <div className="relative mt-4 overflow-x-auto">
       <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
         <thead className="text-left text-muted-foreground">
           <tr>

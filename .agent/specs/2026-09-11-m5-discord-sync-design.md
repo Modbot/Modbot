@@ -6,6 +6,13 @@
 - **Depends on:** M0 (facts, `INotifier`), M2 (audit log → Discord, already shipped), M4 (moderation actions)
 - **Implements:** foundation §9.1
 
+> **What is built, as of 2026-09-18.** §2 (account linking), §5 (Discord as a fact source) and §6
+> (analytics) shipped earlier. **§3 (role sync) and §4 (ban sync) are now built**, along with §7's
+> dry run and permission reporting. The
+> [Discord sync design](2026-09-18-discord-sync-design.md) is what was actually built and narrows
+> both sections — read it before changing either. §2.3 (auto-invite) is still unbuilt, and so is
+> §4.3's classification on a copied ban, for the reason that design's §12 gives.
+
 ---
 
 ## 1. What M5 adds

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
 import { source } from '@/lib/source';
+import { shareImage, siteDescription, siteName } from '@/lib/shared';
 import { getMDXComponents } from '@/components/mdx';
 import { OpenAPIPage } from '@/components/api-page';
 import { TrademarkNote } from '@/components/trademark-note';
@@ -54,8 +55,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = source.getPage(slug);
   if (!page) notFound();
 
+  const title = page.data.title;
+  const description = page.data.description ?? siteDescription;
+
+  // The site name and the share image are repeated here rather than inherited: Next.js replaces the
+  // layout's openGraph whole, so a page that set only a title would lose them.
   return {
-    title: page.data.title,
-    description: page.data.description,
+    title,
+    description,
+    openGraph: {
+      type: 'article',
+      siteName,
+      title,
+      description,
+      url: page.url,
+      images: [shareImage],
+    },
   };
 }

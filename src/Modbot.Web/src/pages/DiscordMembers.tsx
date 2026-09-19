@@ -205,7 +205,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
               {search || chips.length > 0 ? 'Nobody matches' : 'Nobody listed yet'}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div data-pin-first className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>

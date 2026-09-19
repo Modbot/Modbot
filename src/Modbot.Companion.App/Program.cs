@@ -238,6 +238,12 @@ internal sealed class CompanionHost : IOverlayListener
     private bool _overlayTicking;
     private bool _engineTicking;
 
+    /// <summary>Whether the overlay's three timers already have their handlers; they are wired once.</summary>
+    private bool _overlayLoopsWired;
+
+    /// <summary>The overlay's on/off switch; null until the client has read its settings.</summary>
+    private OverlaySwitch? _overlaySwitch;
+
     public MainWindow Window { get; } = new();
 
     public void Start(IClassicDesktopStyleApplicationLifetime desktop, string? startupMessage)
@@ -286,7 +292,11 @@ internal sealed class CompanionHost : IOverlayListener
                 _state.UnusablePairings.Add(pairing);
         }
 
-        StartOverlay();
+        // Off in settings means the panel is never built in the first place, and the switch on the
+        // SteamVR page brings it up or takes it down without a restart.
+        _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, _state.Settings.OverlayOn);
+        _overlaySwitch.StartIfOn();
+
         InstallTray(desktop);
         ListenForLinks();
         StartUpdateChecks();
@@ -754,6 +764,9 @@ internal sealed class CompanionHost : IOverlayListener
     /// <para>A failure to create the Direct3D surface is not allowed to take the client down with
     /// it. Reporting presence is the job that cannot be filled in later; the overlay is the one that
     /// can wait for a restart.</para>
+    /// <para>Switched off, none of this happens: no texture, no drawing loop, no controllers read
+    /// and no VR runtime connected to. Off is a moderator saying they do not want the panel, so
+    /// the honest answer is to do none of the work rather than draw something invisible.</para>
     /// </remarks>
     private void StartOverlay()
     {
@@ -776,9 +789,6 @@ internal sealed class CompanionHost : IOverlayListener
         foreach (var connection in _state?.Connections ?? [])
             _overlay.Add(connection.Pairing, connection.ServerId);
 
-        _overlayLoop.Tick += async (_, _) => await CrashGuard.RunAsync("drawing the overlay", OverlayTickAsync);
-        _overlayLoop.Start();
-
         // A controller's doing goes to the drive loop (taps, scrolling) and to settings (where
         // the panel was left), so it is where it was left next time.
         _overlayHost.Tapped += target => _overlay?.Tap(target);
@@ -794,20 +804,85 @@ internal sealed class CompanionHost : IOverlayListener
             _placementSave.Stop();
             _placementSave.Start();
         };
-        _placementSave.Tick += (_, _) =>
+
+        // The timers outlive any one host -- the switch can put a new one in their place -- so
+        // they are wired once and each turn reads whatever host is there now.
+        if (!_overlayLoopsWired)
         {
-            _placementSave.Stop();
-            if (_state is null)
-                return;
+            _overlayLoopsWired = true;
 
-            if (!CompanionSettings.SaveOverlay(_settingsPath, _state.Settings.Overlay))
-                Log.Warning("The panel's placement could not be saved to {Path}", _settingsPath);
-        };
+            _overlayLoop.Tick += async (_, _) => await CrashGuard.RunAsync("drawing the overlay", OverlayTickAsync);
+            _placementSave.Tick += (_, _) =>
+            {
+                _placementSave.Stop();
+                if (_state is null)
+                    return;
 
-        _inputLoop.Tick += (_, _) => CrashGuard.Run(
-            "reading the controllers",
-            () => _overlayHost.PollInput(TimeSpan.FromMilliseconds(Environment.TickCount64)));
+                if (!CompanionSettings.SaveOverlay(_settingsPath, _state.Settings.Overlay))
+                    Log.Warning("The panel's placement could not be saved to {Path}", _settingsPath);
+            };
+            _inputLoop.Tick += (_, _) => CrashGuard.Run(
+                "reading the controllers",
+                () => _overlayHost?.PollInput(TimeSpan.FromMilliseconds(Environment.TickCount64)));
+        }
+
+        _overlayLoop.Start();
         _inputLoop.Start();
+    }
+
+    /// <summary>
+    /// Takes the overlay down, for the SteamVR page's <strong>Overlay on</strong> switch.
+    /// </summary>
+    /// <remarks>
+    /// Everything the overlay is goes: the drawing loop and the controller loop stop, the driver
+    /// is disposed -- which closes its live connection to each paired server and drops the roster
+    /// it held in memory -- and disposing the host detaches the panel from SteamVR and frees the
+    /// texture. What is left running is the half that reads VRChat's log and reports, which the
+    /// overlay was never part of.
+    /// </remarks>
+    private void StopOverlay()
+    {
+        _overlayLoop.Stop();
+        _inputLoop.Stop();
+        _placementSave.Stop();
+
+        _preview?.Close();
+        _pinnedSample = null;
+
+        _overlay?.Dispose();
+        _overlay = null;
+        _overlayHost?.Dispose();
+        _overlayHost = null;
+
+        _overlayAttachedAt = null;
+        _overlayLastDrewAt = null;
+        _overlayFramesSeen = 0;
+        _overlayAttachTriedAt = DateTimeOffset.MinValue;
+
+        // The Servers page's live column reads this; with no driver there is no live connection,
+        // and an empty list reads as "Off" rather than leaving the last word on screen.
+        if (_state is not null)
+            _state.LiveWords = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        Log.Information("The overlay was switched off; SteamVR has been let go");
+    }
+
+    /// <summary>
+    /// The SteamVR page's <strong>Overlay on</strong> switch: saved, then acted on at once rather
+    /// than at the next restart.
+    /// </summary>
+    private void SetOverlayOn(bool on)
+    {
+        if (_state is null || _state.Settings.OverlayOn == on)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayOn = on };
+
+        if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayOnField, on))
+            Log.Warning("Could not save the overlay switch to {Path}", _settingsPath);
+
+        _overlaySwitch?.Set(on);
+        Render();
     }
 
     /// <summary>
@@ -1041,12 +1116,18 @@ internal sealed class CompanionHost : IOverlayListener
                 AttachSteamVr, ShowOverlayWindow, PinOverlaySample, PlaceOverlay, AnchorOverlay, SetVoice, TestVoice)
             {
                 SetEventsFilters = SetEventsFilters,
+                SetOverlayOn = SetOverlayOn,
             });
     }
 
     /// <summary>The overlay in the window's words: whether it is up, what it shows, how often it has drawn.</summary>
     private OverlayStatus DescribeOverlay()
     {
+        // Off and "could not be set up" are different answers to "why is there no panel", and the
+        // page says which.
+        if (_state?.Settings.OverlayOn is false)
+            return OverlayStatus.Off;
+
         if (_overlayHost is null)
             return OverlayStatus.None;
 

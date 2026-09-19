@@ -47,6 +47,27 @@ a `502`.
 If this Modbot has no VRChat account connected — during setup, or on the demo — the answer is a
 `404`.
 
+## Turning it off
+
+**Settings**, **VRChat Proxy** has a switch: **Proxy VRChat images through Modbot**. It is **on**,
+and changing it needs **Change settings** and is recorded in the operational log.
+
+| | What happens |
+|---|---|
+| **On** | Modbot fetches the picture itself and serves you the bytes, from its own copy after the first time. |
+| **Off** | Modbot answers with a redirect to VRChat's own address and fetches nothing. This is decided before Modbot looks in its own copy, so turning it off stops serving pictures it already holds. |
+
+With it off, a browser usually shows nothing: VRChat's delivery hosts refuse a page that points an
+`<img>` tag straight at them, which is the whole reason this endpoint exists. Leave it on unless
+you have a particular reason, and expect blank faces across the app if you turn it off.
+
+It also decides whether Modbot's Discord cards carry pictures: with it off, instance announcements,
+moderation posts, calendar events and giveaway cards go without them.
+
+This switch is separate from **VRChat proxy on** on the same tab, which is about the
+[VRChat proxy](/api/vrchat-proxy) for API requests and is off until somebody turns it on. Pictures
+work whether or not that one is on.
+
 ## Where Modbot keeps them
 
 A VRChat picture address includes a version, so the picture behind it never changes. Modbot saves

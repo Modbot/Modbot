@@ -16,6 +16,7 @@ using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.Cases;
 using Modbot.Api.Features.DiscordLink;
+using Modbot.Api.Features.DiscordSync;
 using Modbot.Api.Features.DiscordLists;
 using Modbot.Api.Features.DiscordMembers;
 using Modbot.Api.Features.Chat;
@@ -34,6 +35,7 @@ using Modbot.Api.Features.Members;
 using Modbot.Api.Features.People;
 using Modbot.Api.Features.Moderation;
 using Modbot.Api.Features.Alerts;
+using Modbot.Api.Features.Notifications;
 using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
@@ -90,6 +92,10 @@ public static class ApiSurface
         services.AddSingleton<LinkCheckLimit>();
         services.TryAddSingleton<DiscordLinkSignal>();
         services.AddHttpClient(DiscordOAuth.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
+
+        // A host with the bot registers the real one first and wins; a host without it answers
+        // that there is no bot rather than pretending there is nothing to sync.
+        services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
 
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,
@@ -172,6 +178,25 @@ public static class ApiSurface
     public static IServiceCollection AddEmailQueue(this IServiceCollection services)
     {
         services.AddHostedService<Modbot.Core.Email.EmailQueueService>();
+        return services;
+    }
+
+    /// <summary>
+    /// The notification pipeline and its channels (foundation §4.5).
+    /// </summary>
+    /// <remarks>
+    /// The channels are registered here rather than beside the things they wrap, so that the list
+    /// the pipeline sees is one list in one place: adding a channel is one line, and nothing that
+    /// raises a notification has to know what it is.
+    /// </remarks>
+    public static IServiceCollection AddNotifications(this IServiceCollection services)
+    {
+        services.TryAddSingleton(new Modbot.Core.Notifications.NotificationPassOptions());
+        services.AddScoped<Modbot.Core.Notifications.INotificationChannel, Modbot.Core.Notifications.EmailNotificationChannel>();
+        services.AddScoped<Modbot.Core.Notifications.INotificationChannel, Modbot.Core.Notifications.DiscordNotificationChannel>();
+        services.AddScoped<Modbot.Core.Notifications.INotifier, Modbot.Core.Notifications.Notifier>();
+        services.AddScoped<Modbot.Core.Notifications.NotificationPass>();
+        services.AddHostedService<Modbot.Core.Notifications.NotificationService>();
         return services;
     }
 
@@ -269,6 +294,7 @@ public static class ApiSurface
         app.MapServerInfo();
 
         app.MapDataSettings();
+        app.MapPurge();
         app.MapSyncSettings();
         app.MapPublicAddressSettings();
         app.MapServerSettings();
@@ -298,12 +324,17 @@ public static class ApiSurface
 
         // Unusual-activity alerts and what is watched for them (AI insights design §8).
         app.MapAlerts();
+        app.MapNotifications();
 
         // Linking a member's Discord and VRChat accounts: the public link page's API, the moderator's
         // view and unlink, and the settings (Discord account linking design).
         app.MapDiscordLink();
         app.MapDiscordLinkModeration();
         app.MapDiscordLinkingSettings();
+
+        // Which group role goes with which Discord role, which side decides, and whether bans
+        // cross over (M5 §3, §4).
+        app.MapDiscordSync();
 
         // The read surface over the fact log and the daily totals derived from it. Sync health resolves
         // SyncDiagnostics optionally, so a host that maps the API without registering the
@@ -395,6 +426,15 @@ public static class ApiSurface
         // gate and the fact log resolve optionally and a host without them refuses to act rather
         // than pretending to.
         app.MapModerationActions();
+
+        // Notes: one moderator's own words about a person (notes design). Modbot-side only --
+        // nothing here reaches VRChat -- so the fact log is the whole feature, and a host without
+        // a fact writer reads notes and refuses to write one.
+        Features.Notes.NoteEndpoints.MapNotes(app);
+        // The people waiting to be let into the group, read from VRChat when a moderator opens
+        // the screen, and the two answers to one of them (join requests design). The gate and the
+        // fact log resolve optionally here for the same reason they do above.
+        Features.Requests.RequestEndpoints.MapJoinRequests(app);
 
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.

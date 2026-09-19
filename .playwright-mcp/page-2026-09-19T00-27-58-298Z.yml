@@ -1,0 +1,951 @@
+- generic:
+  - generic [aria-hidden]:
+    - generic:
+      - main:
+        - generic:
+          - heading [level=1]: Members
+          - generic: Demo
+          - button: Reset demo
+        - generic:
+          - generic:
+            - generic:
+              - generic: Demo data.
+              - generic: 352 members.
+            - generic:
+              - generic:
+                - generic: Status
+                - generic: is
+                - button: Members
+                - button
+              - button:
+                - text: Filter
+                - generic: F
+              - button: Clear
+              - textbox:
+                - /placeholder: Search by name or id
+              - button:
+                - generic: Newest joiner first
+              - generic: 352 people
+            - generic:
+              - generic:
+                - generic:
+                  - table:
+                    - rowgroup:
+                      - row:
+                        - columnheader: Person
+                        - columnheader: Discord
+                        - columnheader: Roles
+                        - columnheader: Joined
+                        - columnheader: Last seen by Modbot
+                        - columnheader:
+                          - generic: Actions
+                    - rowgroup:
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Marblelynxish
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-7a01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 17, 2026
+                        - cell: 5d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Basaltcraneling
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-7e01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 17, 2026
+                        - cell: 3d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Willowcrane01
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8301-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 17, 2026
+                        - cell: 8d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Sablenewtzz
+                                - generic: 18+
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-7b01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 16, 2026
+                        - cell: 6d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Maplenewt
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-7c01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 16, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Citrusswift
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8401-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 16, 2026
+                        - cell: 13h ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Aurorapikex
+                                - generic: 18+
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-7f01-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Aurorapikex
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 14, 2026
+                        - cell: 4d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Sableshrike
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8e01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 14, 2026
+                        - cell: 5d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: GlasslynxVR
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-a701-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: GlasslynxVR
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 13, 2026
+                        - cell: 2d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Thistlevole
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8001-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Thistlevole
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 12, 2026
+                        - cell: 3d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Duskshrike01
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9c01-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Duskshrike01
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 12, 2026
+                        - cell: 5d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Vellumfox77
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-a301-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Vellumfox77
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 12, 2026
+                        - cell: 5d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Saffroncrane
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8701-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 11, 2026
+                        - cell: 5d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Aurorawrenzz
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-aa01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 11, 2026
+                        - cell: 4d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Tinselheron42
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-a201-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 10, 2026
+                        - cell: 4d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Yarrowgull
+                                - generic: 18+
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-ad01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 10, 2026
+                        - cell: 22h ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: HaloternVR
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-7401-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 9, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Neontern
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-ac01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 9, 2026
+                        - cell: 8d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Embernewtling
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-7201-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 8, 2026
+                        - cell: 3d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Tinselwrenish
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-7601-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Tinselwrenish
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 8, 2026
+                        - cell: 10h ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Duskhare
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9b01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 8, 2026
+                        - cell: 4d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Cinderfox
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8101-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Cinderfox
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 7, 2026
+                        - cell: 6d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Umbershrike
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9d01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 7, 2026
+                        - cell: 6d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Quartztern
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-7801-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Quartztern
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 6, 2026
+                        - cell: 4d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Hazelmoth
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9001-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 6, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Nectarvolex
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-a001-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 6, 2026
+                        - cell: 2h ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Cinderotter_
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-6d01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 5, 2026
+                        - cell: 6d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Cobaltnewtx
+                                - generic: 18+
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-6e01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 3, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Vellumfinch01
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8801-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Vellumfinch01
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 3, 2026
+                        - cell: 6d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Umbercrane_
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-a801-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 3, 2026
+                        - cell: 3d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Quartzmoth
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-6c01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 2, 2026
+                        - cell: 5d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Citruswren42
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-7501-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 1, 2026
+                        - cell: 8d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Glasshare_vr
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8501-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 1, 2026
+                        - cell: 2d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Runeswiftx
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8a01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 1, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: AmberfinchVR
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8c01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Sep 1, 2026
+                        - cell: 22h ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Vellumkoi01
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9601-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 31, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Echokoiling
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-7301-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Echokoiling
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 30, 2026
+                        - cell: 6d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Sablewren
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9e01-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Sablewren
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 30, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Zephyrfinchx
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-9101-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 29, 2026
+                        - cell: 8d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Opalotterling
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9701-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 29, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Pixelmink
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-af01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 29, 2026
+                        - cell: 3d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Ripplelynx01
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9a01-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Ripplelynx01
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 28, 2026
+                        - cell: 1d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Duskpike
+                                - generic: 18+
+                                - generic: Known User
+                              - generic: usr_000030de-0000-0000-bc01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 28, 2026
+                        - cell: 2d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Indigopike
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-6801-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Indigopike
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 27, 2026
+                        - cell: 7h ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Auroraotter01
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-6b01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 27, 2026
+                        - cell: 2d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Glassmoth
+                                - generic: 18+
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-9901-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 26, 2026
+                        - cell: 3d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Lanternwren_vr
+                                - generic: 18+
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-7901-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 25, 2026
+                        - cell: 5d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Emberswift
+                                - generic: 18+
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-8d01-000000000000
+                        - cell:
+                          - generic:
+                            - generic:
+                              - button: Emberswift
+                              - generic: In server
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 24, 2026
+                        - cell: 4d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Driftotterling
+                                - generic: User
+                              - generic: usr_000030de-0000-0000-8901-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 23, 2026
+                        - cell: 7d ago
+                        - cell:
+                          - button
+                      - row:
+                        - cell:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - button: Juniperheron77
+                                - generic: 18+
+                                - generic: New User
+                              - generic: usr_000030de-0000-0000-ab01-000000000000
+                        - cell: —
+                        - cell:
+                          - generic: Member
+                        - cell: Aug 23, 2026
+                        - cell: 5d ago
+                        - cell:
+                          - button
+                - generic:
+                  - button [disabled]: Previous
+                  - button: Next
+        - generic:
+          - link:
+            - /url: https://docs.modbot.co
+            - text: Docs
+          - link:
+            - /url: /settings/credits
+            - text: Credits
+      - navigation:
+        - button:
+          - generic: Menu
+        - button:
+          - generic: Search
+        - button:
+          - generic: This page
+  - dialog [ref=f7e5]:
+    - heading "Pages" [level=2] [ref=f7e6]
+    - button "Close" [active] [ref=f7e7]
+    - complementary [ref=f7e11]:
+      - generic [ref=f7e12]: The Long Porch
+      - button "Search Ctrl K" [ref=f7e15]:
+        - generic [ref=f7e19]: Search
+        - generic [ref=f7e20]: Ctrl K
+      - button "Members" [ref=f7e24]
+      - button "Discord members" [ref=f7e27]
+      - button "People" [ref=f7e30]
+      - button "Live" [ref=f7e33]
+      - button "Calendar" [ref=f7e36]
+      - button "Giveaways" [ref=f7e39]
+      - button "Chat" [ref=f7e42]
+      - button "Bans" [ref=f7e45]
+      - button "Flags" [ref=f7e48]
+      - button "Audit log" [ref=f7e51]
+      - generic [ref=f7e53]:
+        - generic [ref=f7e54]: Analytics
+        - button "My Group" [ref=f7e55]
+      - button "My Server" [ref=f7e58]
+      - button "My Team" [ref=f7e61]
+      - button "Worlds" [ref=f7e64]
+      - button "Instances" [ref=f7e67]
+      - generic [ref=f7e69]:
+        - generic [ref=f7e70]: Team
+        - button "Reviews" [ref=f7e71]
+      - generic [ref=f7e73]:
+        - generic [ref=f7e74]: System
+        - button "Logs" [ref=f7e75]
+      - button "Settings" [ref=f7e78]
+      - generic [ref=f7e80]:
+        - button "VRChat not configured" [ref=f7e81]:
+          - generic [ref=f7e83]: VRChat
+          - generic [ref=f7e84]: not configured
+        - button "Discord not set up" [ref=f7e85]:
+          - generic [ref=f7e87]: Discord
+          - generic [ref=f7e88]: not set up
+        - button "Database online" [ref=f7e89]:
+          - generic [ref=f7e91]: Database
+          - generic [ref=f7e92]: online
+        - button "Sync stopped" [ref=f7e93]:
+          - generic [ref=f7e95]: Sync
+          - generic [ref=f7e96]: stopped
+      - generic [ref=f7e97]: Modbot
+      - generic [ref=f7e100]:
+        - group "Density" [ref=f7e101]:
+          - button "Dense" [pressed] [ref=f7e102]
+          - button "Comfy" [ref=f7e105]
+          - button "VR" [ref=f7e108]
+        - button "Light theme" [ref=f7e112]
+        - button "demo" [ref=f7e114]

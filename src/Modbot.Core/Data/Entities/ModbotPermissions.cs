@@ -245,6 +245,77 @@ public enum ModbotPermissions : long
     /// </remarks>
     ImportOldData = 1L << 30,
 
+    // --- Notes (notes design §4) ----------------------------------------------------------
+
+    /// <summary>
+    /// Write a note about a person, and take one back.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="Warn"/>, <see cref="Kick"/> or
+    /// <see cref="EditClassifications"/>. A note is not a warning and does nothing in VRChat; it
+    /// puts one moderator's words about a named person into the log every other moderator reads
+    /// before deciding what to do about them, and it stays there. That is the same power
+    /// <see cref="ImportOldData"/> was given a flag of its own for, and the volunteer who should
+    /// be able to write one is not automatically the one who should be able to ban.
+    /// <para>
+    /// Reading notes is not this flag: a note is a fact, and <see cref="ViewAuditLog"/> already
+    /// decides who may read the facts it is stored as. Not added to the built-in roles.
+    /// </para>
+    /// </remarks>
+    WriteNotes = 1L << 31,
+    // --- Join requests (join requests design §6) ---
+    //
+    // Bits 32 and 33. Bit 31 was spoken for by work in flight when these were added, and a bit
+    // claimed twice is the one mistake this enum cannot recover from.
+
+    /// <summary>
+    /// See the people waiting to be let into the group, and who each of them is.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ViewMembers"/>. The member list is who is
+    /// already in; this is a queue of people asking, read live from VRChat, and every read of it
+    /// spends VRChat request budget that the member list does not. Not added to the built-in
+    /// roles; Administrator already holds it.
+    /// </remarks>
+    ViewJoinRequests = 1L << 32,
+
+    /// <summary>Approve or reject a join request.</summary>
+    /// <remarks>
+    /// Separate from <see cref="ViewJoinRequests"/> the way <see cref="ManageCalendar"/> is
+    /// separate from <see cref="ViewCalendar"/>: approving one puts a stranger inside the group.
+    /// Deliberately not folded into <see cref="Kick"/> or <see cref="Ban"/> either — deciding who
+    /// gets in is a different job from removing somebody who is already in, and plenty of groups
+    /// hand the first out more freely than the second.
+    /// </remarks>
+    AnswerJoinRequests = 1L << 33,
+    // --- Role and ban sync (Discord sync design §8) ---
+    //
+    // Bits 31 to 34 belong to work landing alongside this; these two are 35 and 36.
+
+    /// <summary>
+    /// Pair VRChat group roles with Discord roles, say which side decides each pair, and switch
+    /// each direction of ban sync on and off. Includes seeing what a sync would do.
+    /// </summary>
+    /// <remarks>
+    /// Its own flag rather than part of <see cref="ManageSettings"/>. Everything else under
+    /// settings changes what Modbot does to its own data; this decides that a ban in one place
+    /// becomes a ban in another, which is a moderation policy rather than a configuration detail.
+    /// Not added to the built-in roles.
+    /// </remarks>
+    ManageDiscordSync = 1L << 35,
+
+    /// <summary>
+    /// Run a sync now, including copying the bans and roles that are already different.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="ManageDiscordSync"/> because the first run against an established
+    /// server can ban or move hundreds of people in one press. Setting the pairs up and seeing
+    /// what would happen is one decision; making it happen is another, and the person who should
+    /// be able to do the first is not automatically the person who should be able to do the
+    /// second. Not added to the built-in roles.
+    /// </remarks>
+    RunDiscordSync = 1L << 36,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

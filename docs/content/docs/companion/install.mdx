@@ -36,6 +36,9 @@ Releases are published on the Modbot repository's
 | `Modbot.AppImage` | The Linux build. One file: make it runnable and run it. |
 | `Modbot-…-full.nupkg`, `…-delta.nupkg`, `releases.win.json`, `releases.linux.json`, `RELEASES`, `RELEASES-linux` | What installed clients download when they update. You never need these. |
 
+If somebody sent you a build to try before it is released, that is a
+[preview](/companion/preview), and it installs and updates a little differently.
+
 ## Install on Windows
 
 <Steps>
@@ -113,7 +116,7 @@ reporting** in the tray menu really does stop it: the log stops being read at on
 Only one copy runs per Windows account. Opening Modbot again while it is already running just
 brings up the window.
 
-The window has five pages:
+The window has six pages:
 
 | Page | What it shows |
 |---|---|
@@ -122,6 +125,7 @@ The window has five pages:
 | **SteamVR** | Whether the [overlay](/companion/overlay) is attached to SteamVR, what it is showing, how many frames it has drawn, and where the panel sits. **Look for SteamVR now** attaches without waiting for the next ten-second look. |
 | **Log** | What the client makes of VRChat's log: **lines seen**, **lines Modbot looks at** and **recognised**. You can open the same file in Notepad and check the counts. |
 | **Settings** | The client's switches, the voice and the VRChat log folder. See [Client settings](/companion/settings). |
+| **Credits** | Sponsors, early adopters and contributors, read from Modbot Cloud. See [Credits in the client](/companion/credits). |
 
 The line at the bottom of the sidebar says **reading VRChat's log**, **VRChat not running**, or
 **log not recognised**.

@@ -20,14 +20,24 @@ namespace Modbot.Discord.Tests;
 /// </summary>
 public sealed class TestServices : IAsyncDisposable
 {
-    private TestServices(IsolatedDatabase database, ServiceProvider provider, FakeClock clock, DiscordBotStatus status, RecordingChecker checker)
+    private TestServices(
+        IsolatedDatabase database,
+        ServiceProvider provider,
+        FakeClock clock,
+        DiscordBotStatus status,
+        RecordingChecker checker,
+        FakeVRChatActions vrchat)
     {
         Database = database;
         Provider = provider;
         Clock = clock;
         Status = status;
         Checker = checker;
+        VRChat = vrchat;
     }
+
+    /// <summary>What role and ban sync asked VRChat to do.</summary>
+    public FakeVRChatActions VRChat { get; }
 
     public IsolatedDatabase Database { get; }
 
@@ -49,6 +59,7 @@ public sealed class TestServices : IAsyncDisposable
         var status = new DiscordBotStatus();
         var protector = new FakeSecretProtector();
         var checker = new RecordingChecker();
+        var vrchat = new FakeVRChatActions();
 
         var services = new ServiceCollection();
         services.AddDbContext<ModbotContext>(o => o.UseNpgsql(database.ConnectionString));
@@ -77,9 +88,13 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<Modbot.Analytics.DailyTotals.IDailyTotalCounter, Modbot.Analytics.DailyTotals.DailyTotalCounter>();
         services.AddSingleton(checker);
         services.AddScoped<Modbot.Core.Moderation.IModerationChecker>(p => p.GetRequiredService<RecordingChecker>());
+        services.AddSingleton<Modbot.Core.Moderation.IVRChatModerationActions>(vrchat);
+        services.AddScoped<Modbot.Discord.Sync.CopyRecords>();
+        services.AddScoped<Modbot.Discord.Sync.RoleSync>();
+        services.AddScoped<Modbot.Discord.Sync.BanSync>();
 
         var provider = services.BuildServiceProvider();
-        var built = new TestServices(database, provider, clock, status, checker);
+        var built = new TestServices(database, provider, clock, status, checker, vrchat);
 
         // Facts in these tests all fall around the fake clock's month.
         using var scope = provider.CreateScope();

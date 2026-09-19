@@ -270,6 +270,67 @@ export type DiscordLinkingSettingsInput = {
   eighteenPlusRoleId: string
 }
 
+/** One VRChat group role paired with one Discord role (M5 §3). */
+export type RolePair = {
+  id: string
+  vrchatRoleId: string
+  vrchatRoleName: string | null
+  discordRoleId: string
+  discordRoleName: string | null
+  /** vrchat, discord or nobody. */
+  decides: string
+  enabled: boolean
+  botCanAssign: boolean
+  problem: string | null
+}
+
+/** Settings → Discord → Role and ban sync. */
+export type DiscordSyncSettings = {
+  roleSyncOn: boolean
+  banSyncToDiscord: boolean
+  banSyncToVRChat: boolean
+  /** ban or remove. */
+  banCopyAction: string
+  botCanBanMembers: boolean
+  botCanRemoveMembers: boolean
+  botCanManageRoles: boolean
+  rolesRanAt: string | null
+  rolesProblem: string | null
+  bansReadAt: string | null
+  bansProblem: string | null
+  pairs: RolePair[]
+  groupRoles: { id: string; name: string }[]
+}
+
+export type DiscordSyncSettingsInput = {
+  roleSyncOn: boolean
+  banSyncToDiscord: boolean
+  banSyncToVRChat: boolean
+  banCopyAction: string
+}
+
+export type RolePairInput = {
+  vrchatRoleId: string
+  discordRoleId: string
+  decides: string
+  enabled: boolean
+}
+
+/** One change a sync would make, or has made. */
+export type PlannedChange = {
+  /** ban, unban, remove, role-given, role-taken or disagree. */
+  what: string
+  /** vrchat or discord. */
+  platform: string
+  vrchatUserId: string | null
+  discordUserId: string | null
+  name: string | null
+  roleName: string | null
+  why: string
+}
+
+export type SyncPreview = { total: number; changes: PlannedChange[]; problem: string | null }
+
 export type PublicAddressView = { publicAddress: string | null; suggestion: string | null }
 
 /** Settings → VRChat Proxy (VRChat proxy design). */
@@ -554,6 +615,49 @@ export type DataSettings = {
     platformEvidence: string | null
     logFilesWritten: boolean
   }
+}
+
+/** The other account a proved link ties to this one. A purge never follows it. */
+export type PurgeLinkedAccount = {
+  platform: 'VRChat' | 'Discord'
+  subjectId: string
+  name: string | null
+}
+
+/**
+ * What removing everything about one person would destroy, and what it would keep.
+ *
+ * `isMember` is null when Modbot never saw a membership row, and `isBanned` is null for a Discord
+ * account — neither is the same as false, so neither is drawn as one.
+ */
+export type PurgePreview = {
+  platform: 'VRChat' | 'Discord'
+  subjectId: string
+  name: string | null
+  isMember: boolean | null
+  isBanned: boolean | null
+  facts: number
+  countedDailyTotals: number
+  days: number
+  messages: number
+  giveawayEntries: number
+  giveawayPlaces: number
+  importRecords: number
+  caseFilesKept: number
+  evidenceFilesKept: number
+  linkedAccount: PurgeLinkedAccount | null
+}
+
+/** What a purge destroyed, and what it kept. */
+export type PurgeReceipt = {
+  facts: number
+  countedDailyTotals: number
+  days: number
+  messages: number
+  giveawayEntries: number
+  giveawayPlaces: number
+  caseFilesKept: number
+  evidenceFilesKept: number
 }
 
 /**
@@ -866,8 +970,21 @@ export type PeopleList = {
 export type PeopleQuery = {
   search?: string
   membership?: 'member' | 'not-member' | 'left' | 'all'
+  /** On the group's ban list as it stands. */
   banned?: boolean
+  /** Banned from the group at any time, lifted or not. */
+  everBanned?: boolean
   profile?: 'fetched' | 'not-fetched'
+  eighteenPlus?: boolean
+  /** Any of these trust ranks. Nobody whose tags have not been read matches. */
+  trustRanks?: string[]
+  /** Any of these `last_platform` values, as VRChat sent them. */
+  platforms?: string[]
+  linked?: 'linked' | 'not-linked' | 'all'
+  /** Ever flagged by a moderation rule, dismissed or not. */
+  flagged?: boolean
+  seenFrom?: string
+  seenTo?: string
   sort?: 'seen' | 'name' | 'known'
   page?: number
   pageSize?: number
@@ -1008,6 +1125,11 @@ export type ModerationActionResult = {
   rateLimited: boolean
   /** This key had already been used: the answer is the first press's, and nothing was sent again. */
   repeat: boolean
+  /**
+   * VRChat said there was nothing there to act on — a join request somebody had already answered,
+   * say. Nothing failed; the row was out of date.
+   */
+  gone: boolean
 }
 
 /**
@@ -1021,6 +1143,38 @@ export type ModerationActionBody = {
   key: string
   reasonIds: string[]
   note: string
+}
+
+/**
+ * One note about a person: a moderator's own words, kept beside everything else recorded about
+ * them (notes design).
+ *
+ * `id` is the id of the fact the note is stored as, because the fact is the note. `text` is text
+ * and is rendered as text — never as markup, and never through the Markdown renderer case files
+ * use.
+ */
+export type Note = {
+  id: number
+  writtenAt: string
+  text: string
+  subjectPlatform: string
+  subjectId: string
+  /** The Modbot account that wrote it. Null for one carried in from another system. */
+  authorAccountId: string | null
+  authorName: string | null
+  imported: boolean
+  /** Taken back: it still exists and still shows, it simply no longer stands. */
+  takenBack: boolean
+  takenBackAt: string | null
+  takenBackByName: string | null
+  canTakeBack: boolean
+}
+
+export type NoteList = {
+  notes: Note[]
+  /** How many still stand. */
+  standing: number
+  canWrite: boolean
 }
 
 /** One row of the group's ban list, as the ban sweep last read it. */
@@ -1053,6 +1207,54 @@ export type GroupBanQuery = {
   page?: number
   pageSize?: number
 }
+
+/** One person waiting to be let into the group, as VRChat had the queue a moment ago. */
+export type JoinRequestRow = {
+  userId: string
+  displayName: string | null
+  /** The display name in plain letters, when that differs from it. */
+  plainName: string | null
+  avatarThumbnailUrl: string | null
+  trustRank: TrustRank | null
+  eighteenPlus: boolean
+  askedAt: string | null
+  /** The group's ban list holds them right now. */
+  banned: boolean
+  /** The group banned them once and the ban was lifted. */
+  bannedBefore: boolean
+  /** Modbot has them as a member who left, or was removed. */
+  wasMember: boolean
+  leftAt: string | null
+  /** False when Modbot has never recorded anything about this person at all. */
+  known: boolean
+}
+
+/**
+ * One page of the join queue.
+ *
+ * `hasMore` rather than a total: VRChat sends no count for this list, so a full page is all a
+ * next-page control has to go on.
+ */
+export type JoinRequestList = {
+  requests: JoinRequestRow[]
+  page: number
+  pageSize: number
+  hasMore: boolean
+  readAt: string
+}
+
+export type JoinRequestQuery = { page?: number; pageSize?: number }
+
+/** What one press of an approve or reject confirmation sends. */
+export type JoinRequestAnswerBody = {
+  userId: string
+  key: string
+  reasonIds: string[]
+  note: string
+}
+
+/** Approve or reject, as the Requests screen names them. */
+export type JoinRequestAnswer = 'approve' | 'reject'
 
 export type DayValue = { day: string; value: number }
 
@@ -2769,6 +2971,33 @@ export type AiInsightsSettingsInput = {
   kinds: Omit<InsightKindSettings, 'label' | 'last'>[]
 }
 
+export type NotificationSeverity = 'critical' | 'warning' | 'information'
+
+export type NotificationLevel = 'off' | 'critical' | 'warning' | 'everything'
+
+/** One thing Modbot decided this account should be told about. */
+export type ModbotNotification = {
+  id: string
+  kind: string
+  severity: NotificationSeverity
+  title: string
+  body: string
+  link: string | null
+  at: string
+  repeats: number
+  /** Critical, and it reached this account on no channel at all. */
+  waiting: boolean
+  seen: boolean
+}
+
+export type NotificationChoice = {
+  channel: string
+  label: string
+  level: NotificationLevel
+  dailySummary: boolean
+  canReach: boolean
+}
+
 export type AlertWatcher =
   | 'vrchat-joins'
   | 'discord-joins'
@@ -3222,6 +3451,23 @@ export const api = {
   setDiscordLinkingSettings: (body: DiscordLinkingSettingsInput) =>
     put<DiscordLinkingSettings>('/api/settings/discord-linking', body),
 
+  discordSync: () => request<DiscordSyncSettings>('/api/discord-sync'),
+
+  setDiscordSync: (body: DiscordSyncSettingsInput) => put<DiscordSyncSettings>('/api/discord-sync', body),
+
+  addRolePair: (body: RolePairInput) => post<DiscordSyncSettings>('/api/discord-sync/pairs', body),
+
+  setRolePair: (id: string, body: RolePairInput) =>
+    put<DiscordSyncSettings>(`/api/discord-sync/pairs/${encodeURIComponent(id)}`, body),
+
+  deleteRolePair: (id: string) => del<DiscordSyncSettings>(`/api/discord-sync/pairs/${encodeURIComponent(id)}`),
+
+  /** What the two syncs would change right now. Changes nothing. */
+  previewDiscordSync: () => post<SyncPreview>('/api/discord-sync/preview'),
+
+  /** Copies the roles and bans that are already different. */
+  runDiscordSync: () => post<SyncPreview>('/api/discord-sync/run'),
+
 
   /** Reports what the deployment can do. Nothing about any account. */
   forgotPasswordWays: () => request<ForgotPasswordWays>('/api/auth/forgot-password'),
@@ -3360,6 +3606,17 @@ export const api = {
   insights: (kind?: InsightKind, limit = 10) =>
     request<{ insights: Insight[] }>(`/api/insights?limit=${limit}${kind ? `&kind=${kind}` : ''}`),
 
+  /** This account's notifications, newest first, plus the critical ones still waiting to be seen. */
+  notifications: () =>
+    request<{ waiting: ModbotNotification[]; recent: ModbotNotification[] }>('/api/notifications'),
+
+  markNotificationSeen: (id: string) => post<void>(`/api/notifications/${id}/seen`),
+
+  notificationChoices: () => request<{ channels: NotificationChoice[] }>('/api/notifications/choices'),
+
+  setNotificationChoices: (channels: { channel: string; level: NotificationLevel; dailySummary: boolean }[]) =>
+    put<{ channels: NotificationChoice[] }>('/api/notifications/choices', { channels }),
+
   aiAlertSettings: () => request<AiAlertSettings>('/api/settings/ai/alerts'),
 
   setAiAlertSettings: (body: AiAlertSettingsInput) => put<AiAlertSettings>('/api/settings/ai/alerts', body),
@@ -3473,6 +3730,20 @@ export const api = {
     method: 'PUT',
     body: JSON.stringify(body),
   }),
+
+  // ── Purge a person ─────────────────────────────────────────────────────────────────────────
+
+  purgePreview: (platform: 'VRChat' | 'Discord', subjectId: string) => {
+    const q = new URLSearchParams({ platform, subjectId })
+    return request<PurgePreview>(`/api/settings/purge?${q.toString()}`)
+  },
+
+  /** Irreversible. `confirmation` is the id typed again and must match exactly. */
+  purgePerson: (body: {
+    platform: 'VRChat' | 'Discord'
+    subjectId: string
+    confirmation: string
+  }) => post<PurgeReceipt>('/api/settings/purge', body),
 
   /** Read-only in this build: a control whose value is silently discarded is worse than no control. */
   syncSettings: () => request<SyncSettings>('/api/settings/sync'),
@@ -3645,7 +3916,15 @@ export const api = {
     if (query.search) q.set('search', query.search)
     if (query.membership && query.membership !== 'all') q.set('membership', query.membership)
     if (query.banned !== undefined) q.set('banned', String(query.banned))
+    if (query.everBanned !== undefined) q.set('everBanned', String(query.everBanned))
     if (query.profile) q.set('profile', query.profile)
+    if (query.eighteenPlus !== undefined) q.set('eighteenPlus', String(query.eighteenPlus))
+    query.trustRanks?.forEach((r) => q.append('trustRank', r))
+    query.platforms?.forEach((p) => q.append('platform', p))
+    if (query.linked && query.linked !== 'all') q.set('linked', query.linked)
+    if (query.flagged !== undefined) q.set('flagged', String(query.flagged))
+    if (query.seenFrom) q.set('seenFrom', query.seenFrom)
+    if (query.seenTo) q.set('seenTo', query.seenTo)
     if (query.sort && query.sort !== 'seen') q.set('sort', query.sort)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
@@ -3948,6 +4227,37 @@ export const api = {
   banPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/ban', body),
 
   unbanPerson: (body: ModerationActionBody) => post<ModerationActionResult>('/api/moderation/unban', body),
+
+  // ── Notes (notes design). Modbot's own record about a person; nothing reaches VRChat. ─────
+
+  /** One person's notes, newest first. Needs ViewAuditLog — a note is a fact in that log. */
+  notes: (query: { userId: string; platform?: string; limit?: number }) => {
+    const q = new URLSearchParams({ userId: query.userId })
+    if (query.platform) q.set('platform', query.platform)
+    if (query.limit) q.set('limit', String(query.limit))
+    return request<NoteList>(`/api/notes?${q.toString()}`)
+  },
+
+  /** Write a note about somebody. Needs WriteNotes. */
+  writeNote: (body: { userId: string; platform?: string; text: string }) => post<Note>('/api/notes', body),
+
+  /** Take a note back. Nothing is deleted; a second fact records that it no longer stands. */
+  takeBackNote: (id: number) => post<Note>(`/api/notes/${id}/take-back`),
+  // ── Join requests (join requests design). Read live from VRChat every time. ───────────────
+
+  joinRequests: (query: JoinRequestQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.page && query.page > 1) q.set('page', String(query.page))
+    if (query.pageSize) q.set('pageSize', String(query.pageSize))
+    const search = q.toString()
+    return request<JoinRequestList>(`/api/requests${search ? `?${search}` : ''}`)
+  },
+
+  approveJoinRequest: (body: JoinRequestAnswerBody) =>
+    post<ModerationActionResult>('/api/requests/approve', body),
+
+  rejectJoinRequest: (body: JoinRequestAnswerBody) =>
+    post<ModerationActionResult>('/api/requests/reject', body),
 
   // ── The MCP server (MCP server design) ───────────────────────────────────────────────────
 

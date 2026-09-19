@@ -8,6 +8,8 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 using Modbot.VRChat;
 using Modbot.VRChat.Moderation;
+using Modbot.VRChat.Sync;
+using Modbot.VRChat.Users;
 using Npgsql;
 
 namespace Modbot.Api.Features.Moderation;
@@ -47,6 +49,24 @@ public sealed class ModerationRefused(int status, string message) : Exception(me
 /// and ban sweeps then confirm it on their next pass exactly as they confirm everything else. The
 /// sweeps stay the only thing that decides what those tables mean.
 /// </para>
+/// <para>
+/// <strong>A ban does not need a membership.</strong> VRChat's group ban takes a user id in the
+/// body — not a membership id, not a member — so banning somebody who has never joined is an
+/// ordinary request, and it is an ordinary thing to want: a moderator hears about a person from
+/// another group, from Discord or from a flag, and keeps them out before they ever arrive. Nothing
+/// here reads the member list before banning, and the ban-list row is written whether or not there
+/// was ever a member row. A person Modbot has never seen is recorded as a person by the ban
+/// itself, so the Bans page has somebody to name rather than a bare id.
+/// </para>
+/// <para>
+/// <strong>Kick and unban are not the same question, and are not pre-refused either.</strong>
+/// Kicking somebody who is not in the group and unbanning somebody who was never banned are both
+/// meaningless, and VRChat answers both with a 404. Modbot does not refuse them itself from what
+/// it has stored: the member list rests fifteen minutes between sweeps and the ban list thirty, so
+/// a check against them would block a moderator from kicking somebody who joined a minute ago —
+/// exactly when a kick matters most. VRChat decides, and the refusal is turned into a sentence a
+/// moderator can read instead of the status line VRChat sends back.
+/// </para>
 /// </remarks>
 public sealed class ModerationActionService
 {
@@ -54,8 +74,17 @@ public sealed class ModerationActionService
     public const string Ban = "ban";
     public const string Unban = "unban";
 
+    /// <summary>Let somebody in who asked to join (join requests design §4).</summary>
+    public const string Approve = "approve";
+
+    /// <summary>Turn a join request down.</summary>
+    public const string Reject = "reject";
+
     public const int MaxKeyLength = 128;
     public const int MaxNoteLength = 20_000;
+
+    /// <summary>What a moderator is told when VRChat says there is nothing there to act on.</summary>
+    public const string Gone = "That request is no longer waiting. Somebody may have answered it in VRChat.";
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -63,6 +92,8 @@ public sealed class ModerationActionService
     private readonly IFactWriter _facts;
     private readonly EventPartitionMaintainer _partitions;
     private readonly CaseFileService? _cases;
+    private readonly GroupJoinRequests? _requests;
+    private readonly VRChatUserProfiles? _profiles;
 
     public ModerationActionService(
         ModbotContext db,
@@ -70,7 +101,9 @@ public sealed class ModerationActionService
         GroupModeration vrchat,
         IFactWriter facts,
         EventPartitionMaintainer partitions,
-        CaseFileService? cases = null)
+        CaseFileService? cases = null,
+        GroupJoinRequests? requests = null,
+        VRChatUserProfiles? profiles = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
@@ -84,6 +117,8 @@ public sealed class ModerationActionService
         _facts = facts;
         _partitions = partitions;
         _cases = cases;
+        _requests = requests;
+        _profiles = profiles;
     }
 
     public async Task<ModerationActionResult> RunAsync(
@@ -167,10 +202,15 @@ public sealed class ModerationActionService
 
         var factId = await RecordSuccessAsync(row, action, userId, groupId, caller, reasons, note, now, ct);
 
-        // The case file is written after the ban, outside its transaction, and its failure is not
-        // allowed to unsay the ban: the ban happened in VRChat whether or not the write-up saved.
         if (action == Ban)
+        {
+            await RememberPersonAsync(userId, ct);
+
+            // The case file is written after the ban, outside its transaction, and its failure is
+            // not allowed to unsay the ban: the ban happened in VRChat whether or not the write-up
+            // saved.
             row.CaseFileId = await WriteCaseFileAsync(userId, factId, now, reasons, note, caller, ct);
+        }
 
         await _db.SaveChangesAsync(ct);
 
@@ -200,18 +240,64 @@ public sealed class ModerationActionService
                 return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind);
             }
 
+            case Approve or Reject:
+            {
+                if (_requests is null)
+                    throw new ModerationRefused(503, "This deployment is not set up to answer join requests.");
+
+                var result = action == Approve
+                    ? await _requests.ApproveAsync(groupId, userId, ct)
+                    : await _requests.RejectAsync(groupId, userId, ct);
+
+                // A 404 here is the ordinary ending, not a fault: somebody answered the request
+                // in VRChat, or the person withdrew it, between the list being read and the
+                // button being pressed. Said in words, because "Not Found" in front of a
+                // moderator reads as a bug in Modbot (join requests design §5).
+                if (!result.Success && result.StatusCode == 404)
+                    return (false, 404, Gone, false);
+
+                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind);
+            }
+
             default:
                 throw new ModerationRefused(400, $"'{action}' is not something Modbot can do.");
         }
 
-        static (bool, int, string?, bool) Read(
+        (bool, int, string?, bool) Read(
             bool success, int statusCode, string? error, bool rateLimited, VRChatFailureKind kind)
         {
             var waiting = rateLimited || kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting;
+            var said = PlainRefusal(action, statusCode) ?? error ?? "VRChat did not say why.";
 
-            return (success, statusCode, success ? null : error ?? "VRChat did not say why.", waiting);
+            return (success, statusCode, success ? null : said, waiting);
         }
     }
+
+    /// <summary>
+    /// The sentence for the one refusal VRChat cannot word for a moderator: a 404.
+    /// </summary>
+    /// <remarks>
+    /// VRChat answers a kick of somebody who is not in the group, and an unban of somebody who is
+    /// not banned, with a bare 404, which reaches the screen as "VRChat returned 404 for
+    /// groups.moderate/…" — text that reads like a fault in Modbot rather than the plain fact that
+    /// there was nothing to undo. What each 404 means is different for each action, which is the
+    /// whole reason the three are not treated alike here:
+    /// <list type="bullet">
+    /// <item>a kick 404 means they are not in the group;</item>
+    /// <item>an unban 404 means no ban stands against them;</item>
+    /// <item>a ban 404 means VRChat could not find the person at all, since the group is the same
+    /// one every other call reaches — so the id is the thing to doubt.</item>
+    /// </list>
+    /// Nothing else is rewritten. Every other refusal is VRChat's own words, because a sentence
+    /// Modbot made up over a refusal it does not understand is how "I thought I banned them" starts.
+    /// </remarks>
+    private static string? PlainRefusal(string action, int statusCode) => statusCode != 404 ? null : action switch
+    {
+        Kick => "VRChat says they are not in the group.",
+        Unban => "VRChat says they are not banned.",
+        Ban => "VRChat has no account with that id.",
+        _ => null,
+    };
 
     // ── What Modbot records and stores once VRChat has said yes ─────────────────────────────
 
@@ -235,6 +321,8 @@ public sealed class ModerationActionService
             Kick => FactType.ActionKick,
             Ban => FactType.ActionBan,
             Unban => FactType.ActionUnban,
+            Approve => FactType.ActionJoinRequestApproved,
+            Reject => FactType.ActionJoinRequestRejected,
             _ => throw new ModerationRefused(400, $"'{action}' is not something Modbot can do."),
         };
 
@@ -357,6 +445,49 @@ public sealed class ModerationActionService
             case Unban:
                 if (ban is not null) ban.LiftedAt ??= now;
                 break;
+
+            // Approve and Reject deliberately change nothing. Neither table is what the Requests
+            // screen reads -- that list comes from VRChat every time it is opened -- so there is
+            // no stale page to patch up, and the member sweep lists an approved person on its
+            // next pass exactly as it lists anybody else who joined (join requests design §3).
+        }
+    }
+
+    /// <summary>
+    /// Records the banned person as somebody Modbot knows about, and asks for their profile.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A ban can name somebody Modbot has never seen — a moderator acting on a warning from
+    /// another group or a Discord message has an id and nothing else. Without this the Bans page
+    /// would show that ban as a bare id until the ban sweep came round, up to half an hour later,
+    /// and the People page would not list them at all.
+    /// </para>
+    /// <para>
+    /// What is recorded is the id and that Modbot has now seen it; the display name, the picture
+    /// and the rest arrive when the profile sync gets to the request, exactly as they do for
+    /// anybody the ban sweep discovers. Nothing is fetched here — the write-up must never wait on
+    /// VRChat (evidence design §12.2).
+    /// </para>
+    /// <para>
+    /// Separate from the case file, which asks for the same refresh, because the case file is
+    /// allowed to fail and this is not the thing that should disappear with it. A failure here
+    /// disappears entirely: the ban has happened, and telling the moderator it did not because
+    /// Modbot could not write down who they were would be the lie this whole service avoids.
+    /// </para>
+    /// </remarks>
+    private async Task RememberPersonAsync(string userId, CancellationToken ct)
+    {
+        if (_profiles is null)
+            return;
+
+        try
+        {
+            await _profiles.RequestRefreshAsync(userId, RefreshReason.SeenInFactLog, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            // Deliberately swallowed. See the remarks above.
         }
     }
 
@@ -530,6 +661,8 @@ public sealed class ModerationActionService
             Kick => "kicked from the group",
             Ban => "banned from the group",
             Unban => "unbanned",
+            Approve => "let into the group",
+            Reject => "turned down for the group",
             _ => action,
         };
 
@@ -558,6 +691,9 @@ public sealed class ModerationActionService
             row.CaseFileId,
             error,
             row.RateLimited,
-            repeat);
+            repeat,
+            // Read off the row rather than held in a column of its own, so a second press of the
+            // same key is told the same thing the first one was.
+            Gone: row.Succeeded == false && row.StatusCode == 404);
     }
 }

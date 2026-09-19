@@ -20,6 +20,10 @@ namespace Modbot.My;
 /// </remarks>
 public static class MyApp
 {
+    /// <summary>The built pages, which only their own routes serve.</summary>
+    private static readonly string[] BuiltPages =
+        [$"/{AppPage.Home}", $"/{AppPage.Register}", $"/{AppPage.Go}"];
+
     public static void AddServices(IServiceCollection services, CloudAddress cloud)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -60,10 +64,12 @@ public static class MyApp
 
         // Static files run before routing. The page fallback matches every path, and the static
         // files middleware stands aside for any request routing has already given an endpoint.
-        // index.html is only ever served through its routes, so /index.html is a 404 like any other
-        // path the app does not own.
+        // The built pages are only ever served through their routes, so /index.html and the two
+        // beside it are a 404 like any other path the app does not own.
         app.UseWhen(
-            context => !context.Request.Path.Equals("/index.html", StringComparison.OrdinalIgnoreCase),
+            context => !Array.Exists(
+                BuiltPages,
+                page => context.Request.Path.Equals(page, StringComparison.OrdinalIgnoreCase)),
             branch => branch.UseStaticFiles(new StaticFileOptions
             {
                 OnPrepareResponse = file =>

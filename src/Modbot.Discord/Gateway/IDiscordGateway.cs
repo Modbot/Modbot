@@ -261,6 +261,34 @@ public sealed record DiscordRoleOutcome(bool Done, bool NotInServer, bool RoleGo
     public static DiscordRoleOutcome Failed(string error) => new(false, false, false, error);
 }
 
+/// <summary>
+/// Whether banning, unbanning or removing somebody went through.
+/// </summary>
+/// <remarks>
+/// Its own type rather than <see cref="DiscordPostOutcome"/> because the two ways these fail are
+/// different decisions for the caller. <see cref="NotAllowed"/> is a setup problem an operator has
+/// to fix and no amount of trying again will help; <see cref="NothingToDo"/> is not a failure at
+/// all -- Discord says the person is already banned, or was never banned -- and a sync that treated
+/// it as one would report a problem every pass forever.
+/// </remarks>
+/// <param name="NotAllowed">The bot lacks the permission in that server, or the person outranks it.</param>
+/// <param name="NotInServer">Discord does not know that person in the server.</param>
+/// <param name="NothingToDo">Discord says it is already so: already banned, or not banned at all.</param>
+public sealed record DiscordModerationOutcome(
+    bool Done, string? Error, bool NotAllowed = false, bool NotInServer = false, bool NothingToDo = false)
+{
+    public static DiscordModerationOutcome Ok { get; } = new(true, null);
+
+    /// <summary>Discord had nothing to change. Counts as done, so nothing retries it.</summary>
+    public static DiscordModerationOutcome Already { get; } = new(true, null, NothingToDo: true);
+
+    public static DiscordModerationOutcome MemberNotInServer { get; } = new(false, "That person is not in the server.", NotInServer: true);
+
+    public static DiscordModerationOutcome Refused(string error) => new(false, error, NotAllowed: true);
+
+    public static DiscordModerationOutcome Failed(string error) => new(false, error);
+}
+
 /// <summary>What the bot may do in one channel, after the category's and the channel's overwrites.</summary>
 public sealed record DiscordChannelPermissions(
     bool ViewChannel,
@@ -299,6 +327,8 @@ public sealed record DiscordRoleSnapshot(
 
 /// <summary>Every channel and role in one server, and the bot's server-wide permissions.</summary>
 /// <param name="BotCanManageEvents">Manage Events, which the calendar's Discord events need (calendar design §3.2).</param>
+/// <param name="BotCanBanMembers">Ban Members, which copying a VRChat ban into Discord needs (Discord sync design §6).</param>
+/// <param name="BotCanRemoveMembers">Kick Members, which removing somebody from the server needs.</param>
 public sealed record DiscordServerSnapshot(
     string GuildId,
     string Name,
@@ -306,7 +336,9 @@ public sealed record DiscordServerSnapshot(
     bool BotCanManageRoles,
     IReadOnlyList<DiscordChannelSnapshot> Channels,
     IReadOnlyList<DiscordRoleSnapshot> Roles,
-    bool BotCanManageEvents = false);
+    bool BotCanManageEvents = false,
+    bool BotCanBanMembers = false,
+    bool BotCanRemoveMembers = false);
 
 /// <summary>
 /// A server event as the calendar describes it: an external event whose location is a line of text.
@@ -334,6 +366,16 @@ public sealed record DiscordScheduledEventDetails(
 public interface IDiscordGateway : IAsyncDisposable
 {
     DiscordGatewayState State { get; }
+
+    /// <summary>
+    /// The bot's own Discord account id, once it has signed in; null before that.
+    /// </summary>
+    /// <remarks>
+    /// Read so that a ban Modbot performed can be told apart from one a person performed: Discord's
+    /// audit log names the bot as the actor on its own bans, and only a person's ban is worth
+    /// copying anywhere (Discord sync design §4).
+    /// </remarks>
+    string? BotUserId { get; }
 
     /// <summary>The session is signed in and the guild list has arrived. May fire again after a reconnect.</summary>
     event Func<Task>? Ready;
@@ -502,11 +544,57 @@ public interface IDiscordGateway : IAsyncDisposable
     /// </summary>
     Task<DiscordPostOutcome> EndEventAsync(string guildId, string eventId, CancellationToken ct);
 
+    // ── Bans and removals (M5 spec §4; Discord sync design §4) ───────────────────────────
+    //
+    // All three take ids and go over REST, so the member does not have to be in the session's
+    // cache and no gateway intent is needed. The reason is written to the server's audit log,
+    // which is also how the bot's own actions are recognised when they come back as events.
+
+    /// <summary>
+    /// Bans somebody from the server. Needs Ban Members, and the bot's highest role above theirs.
+    /// </summary>
+    /// <param name="deleteMessageDays">
+    /// How many days of their messages Discord should delete as well, 0 to 7. Zero keeps them,
+    /// which is what a copied ban does: Modbot stores those messages and a moderator still needs
+    /// to be able to read what the person said.
+    /// </param>
+    Task<DiscordModerationOutcome> BanAsync(
+        string guildId, string userId, string reason, int deleteMessageDays, CancellationToken ct);
+
+    /// <summary>Lifts a ban. Somebody who is not banned counts as nothing to do.</summary>
+    Task<DiscordModerationOutcome> UnbanAsync(string guildId, string userId, string reason, CancellationToken ct);
+
+    /// <summary>
+    /// Everybody the server has banned, by id. Null when the bot may not read the ban list.
+    /// </summary>
+    /// <remarks>
+    /// Read only when somebody asks what the first run of ban sync would do (M5 §7). A settled
+    /// deployment never calls it: bans arrive as events after that. Needs Ban Members, and pages
+    /// a thousand at a time.
+    /// </remarks>
+    Task<IReadOnlyList<string>?> ReadBansAsync(string guildId, CancellationToken ct);
+
+    /// <summary>
+    /// Removes somebody from the server without banning them. Needs Kick Members. Somebody who is
+    /// not in the server counts as nothing to do: they are already out.
+    /// </summary>
+    Task<DiscordModerationOutcome> RemoveAsync(string guildId, string userId, string reason, CancellationToken ct);
+
     /// <summary>Gives a member a role. Needs Manage Roles and the role below the bot's highest.</summary>
     Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct);
 
     /// <summary>Takes a role away from a member.</summary>
     Task<DiscordRoleOutcome> RemoveRoleAsync(string guildId, string userId, string roleId, CancellationToken ct);
+
+    /// <summary>
+    /// Gives or takes away a role, saying why in the server's audit log.
+    /// </summary>
+    /// <remarks>
+    /// Role sync writes its own reason so that the entry Discord records -- and which Modbot then
+    /// reads back as a fact -- says the change came from a sync rather than from a person.
+    /// </remarks>
+    Task<DiscordRoleOutcome> ChangeRoleAsync(
+        string guildId, string userId, string roleId, bool add, string reason, CancellationToken ct);
 
     // ── Messages (M5 spec §5.1) ──────────────────────────────────────────────────────────
     //

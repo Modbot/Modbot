@@ -775,7 +775,7 @@
           "People"
         ],
         "summary": "Everyone Modbot has a record of, member or not",
-        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false; `profile` is `fetched` or `not-fetched`. Sorted by when Modbot last saw them, most recent first, unless `sort=name` or `sort=known` (longest known first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet.\n\nNeeds the `ViewProfile` permission.",
+        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false for the group's ban list as it stands, `everBanned` true or false for a ban at any time, lifted or not; `profile` is `fetched` or `not-fetched`. `eighteenPlus` is true or false for Modbot's 18+ mark. `trustRank` is a trust rank name and may be repeated: people holding any of them, and never anybody whose tags have not been read. `platform` is the platform they last used, matched case-insensitively against whatever VRChat sent, and may be repeated. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without. `flagged` is true or false for having ever been flagged by a moderation rule, dismissed or not. `seenFrom` and `seenTo` narrow the list to people Modbot last saw inside that stretch. Sorted by when Modbot last saw them, most recent first, unless `sort=name` or `sort=known` (longest known first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "GetPeople",
         "parameters": [
           {
@@ -800,10 +800,74 @@
             }
           },
           {
+            "name": "everBanned",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "profile",
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "eighteenPlus",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "trustRank",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "linked",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "flagged",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "seenFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "seenTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
             }
           },
           {
@@ -3109,6 +3173,122 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RetentionSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/settings/purge": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "What removing everything about one person would destroy, and what it would keep",
+        "description": "Counts only; nothing is changed. Every number is counted from the same tables the purge writes to. A field Modbot cannot answer for a platform is null rather than zero: a Discord account has no group ban list and no case files.\n\nNeeds the `Administrator` permission.",
+        "operationId": "PreviewPurge",
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subjectId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurgePreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Remove everything Modbot stores about one person",
+        "description": "Irreversible. `confirmation` must equal `subjectId` exactly.\n\nErased: every fact where they are the subject, the counted-only daily totals dimensioned on them, the rows saying a record about them was imported, their Discord messages including earlier texts of edited ones, and their standing giveaway entries. Their place in a past draw keeps its position and weight and loses its name and ids, so an old result still checks out.\n\nKept: facts where they were the actor rather than the subject — somebody else's moderation history — case files about them with their evidence and profile snapshots (evidence storage design §15.1), the current-state rows the next sync would write again, and the fact that this purge happened.\n\nA purge of somebody Modbot has never seen removes nothing and is not an error.\n\nNeeds the `Administrator` permission.",
+        "operationId": "PurgePerson",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurgeReceipt"
                 }
               }
             }
@@ -7264,6 +7444,166 @@
         ]
       }
     },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "This account's notifications, and the critical ones still waiting to be seen",
+        "operationId": "ListNotifications",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/notifications/{id}/seen": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Marks one notification seen by this account",
+        "operationId": "MarkNotificationSeen",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/notifications/choices": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Where this account's notifications go",
+        "operationId": "GetNotificationChoices",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationChoicesView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Sets where this account's notifications go",
+        "operationId": "SetNotificationChoices",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationChoicesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationChoicesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/discord-links": {
       "get": {
         "tags": [
@@ -7445,6 +7785,346 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Role pairs, the sync switches, and what the bot may do in the server",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "GetDiscordSync",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Save the sync switches",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "SetDiscordSync",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscordSyncSettingsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync/pairs": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Pair a group role with a Discord role",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "AddDiscordRolePair",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePairUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync/pairs/{id}": {
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Change a role pair",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "SetDiscordRolePair",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePairUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Stop pairing two roles. Neither role is changed.",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "DeleteDiscordRolePair",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordSyncSettingsView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync/preview": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "What the two syncs would change right now. Changes nothing.",
+        "description": "Needs the `ManageDiscordSync` permission.",
+        "operationId": "PreviewDiscordSync",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPreviewView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/discord-sync/run": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Copy the roles and bans that are already different",
+        "description": "Needs the `RunDiscordSync` permission.",
+        "operationId": "RunDiscordSync",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPreviewView"
                 }
               }
             }
@@ -12446,7 +13126,7 @@
           "Moderation"
         ],
         "summary": "Remove a person from the group",
-        "description": "Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once: send the same key again and you get the first answer back, not a second kick.\n\nNeeds the `Kick` permission.",
+        "description": "Only somebody who is in the group can be kicked out of it; VRChat answers a kick of anybody else with \"they are not in the group\". Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once: send the same key again and you get the first answer back, not a second kick.\n\nNeeds the `Kick` permission.",
         "operationId": "KickPerson",
         "requestBody": {
           "content": {
@@ -12522,7 +13202,7 @@
           "Moderation"
         ],
         "summary": "Ban a person from the group",
-        "description": "A reason is required, and the ban's case file is written from it and the note. Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once.\n\nNeeds the `Ban` permission.",
+        "description": "Works on anybody, member or not: VRChat's group ban takes a user id, so somebody who has never joined can be kept out before they arrive. A person Modbot has never seen is recorded as a person by the ban, and their profile is fetched afterwards. A reason is required, and the ban's case file is written from it and the note. Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once.\n\nNeeds the `Ban` permission.",
         "operationId": "BanPerson",
         "requestBody": {
           "content": {
@@ -12598,13 +13278,466 @@
           "Moderation"
         ],
         "summary": "Lift a person's ban",
-        "description": "Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once.\n\nNeeds the `Unban` permission.",
+        "description": "There has to be a ban to lift; VRChat answers an unban of anybody who is not banned with \"they are not banned\". Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once.\n\nNeeds the `Unban` permission.",
         "operationId": "UnbanPerson",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ModerationActionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/notes": {
+      "get": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "One person's notes, newest first",
+        "description": "platform is VRChat or Discord and defaults to VRChat. Notes that were taken back are listed too and say so; standing counts only the ones that still stand.\n\nNeeds the `ViewAuditLog` permission.",
+        "operationId": "ListNotes",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Write a note about a person",
+        "description": "The text is stored and shown as text, never as markup, and is at most 2000 characters. The note is one fact in the moderation log, so it shows in the person's history and can be read by anyone who may read that log.\n\nNeeds the `WriteNotes` permission.",
+        "operationId": "WriteNote",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WriteNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/notes/{id}/take-back": {
+      "post": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Take a note back, so it no longer stands",
+        "description": "Nothing is deleted. The note stays in the log and a second entry records that it was taken back, by whom and when. Open to whoever wrote it, and to anyone who may write notes. Taking back a note that is already taken back changes nothing.",
+        "operationId": "TakeBackNote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/requests": {
+      "get": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "The people waiting to be let into the group",
+        "description": "Read from VRChat when you ask, not from a stored copy, so it is the queue as it stands. `page` and `pageSize` page it; `hasMore` is true when the page came back full, because VRChat sends no total for this list. Each row carries what Modbot already knows about the person: their profile, whether the group has banned them before, and whether they have been a member before.\n\nNeeds the `ViewJoinRequests` permission.",
+        "operationId": "GetJoinRequests",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JoinRequestList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/requests/approve": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Let somebody into the group",
+        "description": "Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once. `gone` is true when the request had already been answered in VRChat: nothing failed, the row was out of date.\n\nNeeds the `AnswerJoinRequests` permission.",
+        "operationId": "ApproveJoinRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequestAnswerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModerationActionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/requests/reject": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Turn a join request down",
+        "description": "The person may ask again; Modbot never blocks them from asking, which is what Ban is for. Nothing is recorded as done unless VRChat accepted it, and `gone` is true when the request had already been answered in VRChat.\n\nNeeds the `AnswerJoinRequests` permission.",
+        "operationId": "RejectJoinRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JoinRequestAnswerRequest"
               }
             }
           },
@@ -20046,6 +21179,111 @@
           }
         }
       },
+      "DiscordSyncSettingsUpdate": {
+        "required": [
+          "roleSyncOn",
+          "banSyncToDiscord",
+          "banSyncToVRChat",
+          "banCopyAction"
+        ],
+        "type": "object",
+        "properties": {
+          "roleSyncOn": {
+            "type": "boolean"
+          },
+          "banSyncToDiscord": {
+            "type": "boolean"
+          },
+          "banSyncToVRChat": {
+            "type": "boolean"
+          },
+          "banCopyAction": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "DiscordSyncSettingsView": {
+        "required": [
+          "roleSyncOn",
+          "banSyncToDiscord",
+          "banSyncToVRChat",
+          "banCopyAction",
+          "botCanBanMembers",
+          "botCanRemoveMembers",
+          "botCanManageRoles",
+          "rolesRanAt",
+          "rolesProblem",
+          "bansReadAt",
+          "bansProblem",
+          "pairs",
+          "groupRoles"
+        ],
+        "type": "object",
+        "properties": {
+          "roleSyncOn": {
+            "type": "boolean"
+          },
+          "banSyncToDiscord": {
+            "type": "boolean"
+          },
+          "banSyncToVRChat": {
+            "type": "boolean"
+          },
+          "banCopyAction": {
+            "type": "string"
+          },
+          "botCanBanMembers": {
+            "type": "boolean"
+          },
+          "botCanRemoveMembers": {
+            "type": "boolean"
+          },
+          "botCanManageRoles": {
+            "type": "boolean"
+          },
+          "rolesRanAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "rolesProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bansReadAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "bansProblem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pairs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RolePairView"
+            }
+          },
+          "groupRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupRoleView"
+            }
+          }
+        }
+      },
       "EmailQueueRow": {
         "required": [
           "id",
@@ -22713,6 +23951,21 @@
           }
         }
       },
+      "GroupRoleView": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "HealthAlertUpdate": {
         "required": [
           "quietHours",
@@ -23934,6 +25187,157 @@
           "subscribeToUpdates": {
             "type": "boolean",
             "default": false
+          }
+        }
+      },
+      "JoinRequestAnswerRequest": {
+        "required": [
+          "userId",
+          "key"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "reasonIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "JoinRequestList": {
+        "required": [
+          "requests",
+          "page",
+          "pageSize",
+          "hasMore",
+          "readAt"
+        ],
+        "type": "object",
+        "properties": {
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JoinRequestRow"
+            }
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JoinRequestRow": {
+        "required": [
+          "userId",
+          "displayName",
+          "plainName",
+          "avatarThumbnailUrl",
+          "trustRank",
+          "eighteenPlus",
+          "askedAt",
+          "banned",
+          "bannedBefore",
+          "wasMember",
+          "leftAt",
+          "known"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "plainName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarThumbnailUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "trustRank": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TrustRank"
+              }
+            ]
+          },
+          "eighteenPlus": {
+            "type": "boolean"
+          },
+          "askedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "banned": {
+            "type": "boolean"
+          },
+          "bannedBefore": {
+            "type": "boolean"
+          },
+          "wasMember": {
+            "type": "boolean"
+          },
+          "leftAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "known": {
+            "type": "boolean"
           }
         }
       },
@@ -25615,6 +27019,10 @@
           },
           "repeat": {
             "type": "boolean"
+          },
+          "gone": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -25701,6 +27109,108 @@
           }
         }
       },
+      "NoteListResponse": {
+        "required": [
+          "notes",
+          "standing",
+          "canWrite"
+        ],
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteView"
+            }
+          },
+          "standing": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "canWrite": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NoteView": {
+        "required": [
+          "id",
+          "writtenAt",
+          "text",
+          "subjectPlatform",
+          "subjectId",
+          "authorAccountId",
+          "authorName",
+          "imported",
+          "takenBack",
+          "takenBackAt",
+          "takenBackByName",
+          "canTakeBack"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "writtenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "text": {
+            "type": "string"
+          },
+          "subjectPlatform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "authorAccountId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "authorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imported": {
+            "type": "boolean"
+          },
+          "takenBack": {
+            "type": "boolean"
+          },
+          "takenBackAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "takenBackByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "canTakeBack": {
+            "type": "boolean"
+          }
+        }
+      },
       "NoticeMessage": {
         "required": [
           "kind",
@@ -25717,6 +27227,158 @@
           },
           "message": {
             "type": "string"
+          }
+        }
+      },
+      "NotificationChoiceUpdate": {
+        "required": [
+          "channel",
+          "level",
+          "dailySummary"
+        ],
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "dailySummary": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationChoiceView": {
+        "required": [
+          "channel",
+          "label",
+          "level",
+          "dailySummary",
+          "canReach"
+        ],
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "level": {
+            "type": "string"
+          },
+          "dailySummary": {
+            "type": "boolean"
+          },
+          "canReach": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationChoicesUpdate": {
+        "required": [
+          "channels"
+        ],
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationChoiceUpdate"
+            }
+          }
+        }
+      },
+      "NotificationChoicesView": {
+        "required": [
+          "channels"
+        ],
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationChoiceView"
+            }
+          }
+        }
+      },
+      "NotificationView": {
+        "required": [
+          "id",
+          "kind",
+          "severity",
+          "title",
+          "body",
+          "link",
+          "at",
+          "repeats",
+          "waiting",
+          "seen"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "link": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "repeats": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "waiting": {
+            "type": "boolean"
+          },
+          "seen": {
+            "type": "boolean"
+          }
+        }
+      },
+      "NotificationsView": {
+        "required": [
+          "waiting",
+          "recent"
+        ],
+        "type": "object",
+        "properties": {
+          "waiting": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationView"
+            }
+          },
+          "recent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationView"
+            }
           }
         }
       },
@@ -26304,6 +27966,53 @@
           }
         }
       },
+      "PlannedChangeView": {
+        "required": [
+          "what",
+          "platform",
+          "vrChatUserId",
+          "discordUserId",
+          "name",
+          "roleName",
+          "why"
+        ],
+        "type": "object",
+        "properties": {
+          "what": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "vrChatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      },
       "ProfileFields": {
         "required": [
           "displayName",
@@ -26533,6 +28242,254 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "PurgeLinkedAccountView": {
+        "required": [
+          "platform",
+          "subjectId",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PurgePreviewResponse": {
+        "required": [
+          "platform",
+          "subjectId",
+          "name",
+          "isMember",
+          "isBanned",
+          "facts",
+          "countedDailyTotals",
+          "days",
+          "messages",
+          "giveawayEntries",
+          "giveawayPlaces",
+          "importRecords",
+          "caseFilesKept",
+          "evidenceFilesKept",
+          "linkedAccount"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isMember": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "isBanned": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "facts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "countedDailyTotals": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "days": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "messages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "giveawayEntries": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "giveawayPlaces": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "importRecords": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "caseFilesKept": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "evidenceFilesKept": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "linkedAccount": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PurgeLinkedAccountView"
+              }
+            ]
+          }
+        }
+      },
+      "PurgeReceipt": {
+        "required": [
+          "facts",
+          "countedDailyTotals",
+          "days",
+          "messages",
+          "giveawayEntries",
+          "giveawayPlaces",
+          "caseFilesKept",
+          "evidenceFilesKept"
+        ],
+        "type": "object",
+        "properties": {
+          "facts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "countedDailyTotals": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "days": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "messages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "giveawayEntries": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "giveawayPlaces": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "caseFilesKept": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "evidenceFilesKept": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PurgeRequest": {
+        "required": [
+          "platform",
+          "subjectId",
+          "confirmation"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "string"
           }
         }
       },
@@ -27153,6 +29110,82 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "RolePairUpdate": {
+        "required": [
+          "vrChatRoleId",
+          "discordRoleId",
+          "decides",
+          "enabled"
+        ],
+        "type": "object",
+        "properties": {
+          "vrChatRoleId": {
+            "type": "string"
+          },
+          "discordRoleId": {
+            "type": "string"
+          },
+          "decides": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RolePairView": {
+        "required": [
+          "id",
+          "vrChatRoleId",
+          "vrChatRoleName",
+          "discordRoleId",
+          "discordRoleName",
+          "decides",
+          "enabled",
+          "botCanAssign",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vrChatRoleId": {
+            "type": "string"
+          },
+          "vrChatRoleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordRoleId": {
+            "type": "string"
+          },
+          "discordRoleName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "decides": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "botCanAssign": {
+            "type": "boolean"
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -28456,6 +30489,36 @@
           "Account",
           "Other"
         ]
+      },
+      "SyncPreviewView": {
+        "required": [
+          "total",
+          "changes",
+          "problem"
+        ],
+        "type": "object",
+        "properties": {
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlannedChangeView"
+            }
+          },
+          "problem": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
       },
       "TeamAnalytics": {
         "required": [
@@ -30889,6 +32952,27 @@
             "format": "date-time"
           }
         }
+      },
+      "WriteNoteRequest": {
+        "required": [
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "platform": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "default": ""
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -31087,6 +33171,18 @@
     {
       "name": "Logs",
       "x-displayName": "Logs"
+    },
+    {
+      "name": "Notes",
+      "x-displayName": "Notes"
+    },
+    {
+      "name": "Notifications",
+      "x-displayName": "Notifications"
+    },
+    {
+      "name": "Requests",
+      "x-displayName": "Requests"
     },
     {
       "name": "Search",

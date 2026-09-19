@@ -28,37 +28,46 @@ export function Tabs<T extends string>({
 
   return (
     <div className={cn('flex min-h-0 flex-col', className)}>
-      <div
-        role="tablist"
-        className="flex shrink-0 items-center gap-1 border-b px-1"
-        style={{ borderBottomWidth: 'var(--hairline)' }}
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab.value}
-            type="button"
-            role="tab"
-            id={`${id}-${tab.value}`}
-            aria-selected={value === tab.value}
-            aria-controls={`${id}-panel`}
-            onClick={() => onChange(tab.value)}
-            className={cn(
-              'relative rounded-t px-3 py-2 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring',
-              value === tab.value
-                ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            {tab.label}
-            {typeof tab.badge === 'number' && tab.badge > 0 && (
-              <span className="ml-1.5 tabular-nums text-muted-foreground">{tab.badge}</span>
-            )}
-            {value === tab.value && (
-              <span className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-foreground" />
-            )}
-          </button>
-        ))}
+      {/*
+        The row scrolls sideways rather than wrapping or shrinking. Settings has twelve tabs, and
+        a dozen labels squeezed into a phone's width are twelve unreadable words; four readable
+        ones and a swipe is the trade. `whitespace-nowrap` keeps a label on one line, and the
+        thin scrollbar stays out of the way on a mouse.
+      */}
+      {/* The line under the row belongs to the wrapper, not to the scrolling row: a scrolling box
+          clips both axes, and an underline drawn one pixel below a tab would be cut off. */}
+      <div className="shrink-0 border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+        <div
+          role="tablist"
+          className="flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:thin]"
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              role="tab"
+              id={`${id}-${tab.value}`}
+              aria-selected={value === tab.value}
+              aria-controls={`${id}-panel`}
+              onClick={() => onChange(tab.value)}
+              className={cn(
+                'relative flex shrink-0 items-center rounded-t px-3 py-2 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                value === tab.value
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              style={{ fontSize: 'var(--text-small)', minHeight: 'var(--control-h)' }}
+            >
+              {tab.label}
+              {typeof tab.badge === 'number' && tab.badge > 0 && (
+                <span className="ml-1.5 tabular-nums text-muted-foreground">{tab.badge}</span>
+              )}
+              {value === tab.value && (
+                <span className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-foreground" />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div

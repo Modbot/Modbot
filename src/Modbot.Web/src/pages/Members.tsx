@@ -252,17 +252,17 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div data-pin-first className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                    <th className="px-3 py-2 text-left font-normal">Person</th>
-                    {seesLinks && <th className="px-3 py-2 text-left font-normal">Discord</th>}
-                    <th className="px-3 py-2 text-left font-normal">Roles</th>
-                    <th className="px-3 py-2 text-left font-normal">Joined</th>
-                    <th className="px-3 py-2 text-left font-normal">Last seen by Modbot</th>
-                    {status !== 'current' && <th className="px-3 py-2 text-left font-normal">Left</th>}
-                    {canAct && <th className="px-3 py-2 text-left font-normal"><span className="sr-only">Actions</span></th>}
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
+                    {seesLinks && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Discord</th>}
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Roles</th>
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Joined</th>
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Last seen by Modbot</th>
+                    {status !== 'current' && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Left</th>}
+                    {canAct && <th className="px-3 py-2 text-left font-normal whitespace-nowrap"><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -289,7 +289,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                             <div className="size-7 shrink-0 rounded-full bg-muted" />
                           )}
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <SubjectLink id={m.userId} name={m.displayName} onOpen={onOpenSubject} />
                               {m.eighteenPlus && (
                                 <span
@@ -342,14 +342,14 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                           {m.roleNames.length === 0 && <span className="text-muted-foreground">—</span>}
                         </div>
                       </td>
-                      <td className="px-3 tabular-nums">
+                      <td className="px-3 whitespace-nowrap tabular-nums">
                         {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
                       </td>
-                      <td className="px-3 text-muted-foreground">
+                      <td className="px-3 whitespace-nowrap text-muted-foreground">
                         {m.lastSeenAt ? ago(m.lastSeenAt, list.coverage.now) : '—'}
                       </td>
                       {status !== 'current' && (
-                        <td className="px-3 tabular-nums">{m.leftAt ? formatDay(m.leftAt) : ''}</td>
+                        <td className="px-3 whitespace-nowrap tabular-nums">{m.leftAt ? formatDay(m.leftAt) : ''}</td>
                       )}
                       {canAct && (
                         <td className="px-3 text-right">

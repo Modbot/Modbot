@@ -122,7 +122,7 @@ Voice hours and message counts are exact.
 
 #### When Modbot cannot answer
 
-If you have set a retention window under **Settings**, **Data**, Modbot eventually deletes old facts.
+If you have set a retention window under **Settings**, **Host &amp; Database**, Modbot eventually deletes old facts.
 A rule reaching further back than the facts it still has cannot be answered, and the preview says so
 instead of giving a number:
 
@@ -259,8 +259,9 @@ before**, **Banned**, **Kept out by name** or **Withdrew**.
 A number that came from presence reports is shown as **about**, and a row near a threshold is
 highlighted.
 
-Somebody who asked to be erased shows as **(erased)**. Their position and weight stay, so the draw
-can still be checked; their name and ids are gone.
+An erased person shows as **(erased)**: their position and weight stay, so the draw can still be
+checked, and their name and ids are gone. Nobody can be erased yet — see
+[If somebody asks to be erased](#if-somebody-asks-to-be-erased).
 
 ## In Discord
 
@@ -312,13 +313,13 @@ fix itself. Deal with the reason and press **Draw**.
 
 ## If somebody asks to be erased
 
-Erasing a person (**Settings**, **Data**) takes them out of every giveaway:
+**Settings → Purge a person** removes everything Modbot stores about somebody. It asks for
+Administrator, and it cannot be undone.
 
-- their standing entries are deleted, so they cannot be drawn;
-- on past draws their name and ids are removed and their row shows **(erased)**.
-
-Their position and weight stay, so old draws can still be checked by anyone who kept the seed. The
-row then says only "somebody, with this weight, in this position".
+It takes the person out of every giveaway: their standing entries deleted so they cannot be drawn,
+and their name and ids removed from past draws. Their position and weight
+stay, so old draws can still be checked by anyone who kept the seed, and the row then says only
+"somebody, with this weight, in this position".
 
 ## In the audit log
 
@@ -341,7 +342,7 @@ Every change is recorded in the [audit log](/moderation/audit-log):
 ## Common problems
 
 **The preview says Modbot cannot answer.** A rule reaches further back than the facts Modbot still
-keeps. Shorten its window, or raise the retention window under **Settings**, **Data**.
+keeps. Shorten its window, or raise the retention window under **Settings**, **Host &amp; Database**.
 
 **Nobody matches.** Press **Preview** with the rules emptied to see how many people Modbot knows
 about at all, then add the rules back one at a time.

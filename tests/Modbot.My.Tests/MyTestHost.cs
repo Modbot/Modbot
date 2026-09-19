@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.My.Cloud;
 using Modbot.My.Configuration;
+using Modbot.My.Features.Pages;
 using Modbot.My.Features.Visits;
 
 namespace Modbot.My.Tests;
@@ -26,9 +27,15 @@ namespace Modbot.My.Tests;
 /// </remarks>
 public sealed class MyTestHost : IAsyncDisposable
 {
-    /// <summary>Stands in for the Vite build, which the .NET tests do not run.</summary>
-    public const string AppHtml =
-        "<!doctype html><html><head><title>my.modbot.co</title></head><body><div id=\"root\"></div></body></html>";
+    /// <summary>
+    /// Stands in for the Vite build, which the .NET tests do not run. One file per route, each
+    /// naming itself, so a test can tell which of the three a route served.
+    /// </summary>
+    public static string HtmlFor(string file) =>
+        $"<!doctype html><html><head><title>{file}</title></head><body><div id=\"root\"></div></body></html>";
+
+    /// <summary>The page the register route serves, which is the one most tests here ask for.</summary>
+    public static readonly string RegisterHtml = HtmlFor(AppPage.Register);
 
     public const string AssetPath = "/assets/app-test.js";
 
@@ -73,7 +80,9 @@ public sealed class MyTestHost : IAsyncDisposable
         var time = new ManualTime(new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero));
 
         var webRoot = Directory.CreateTempSubdirectory("modbot-my-tests-");
-        await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "index.html"), AppHtml, Ct);
+        foreach (var file in new[] { AppPage.Home, AppPage.Register, AppPage.Go })
+            await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, file), HtmlFor(file), Ct);
+
         Directory.CreateDirectory(Path.Combine(webRoot.FullName, "assets"));
         await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, "assets", "app-test.js"), "export {}", Ct);
 

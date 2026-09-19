@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
 import { OtherTags } from '@/components/ProfileBadges'
 import { ProfileHeader } from '@/components/ProfileHeader'
@@ -68,19 +69,24 @@ export function ProfileIdentity({
 
   const fetched = profile.known && profile.lastRefreshedAt
 
+  const mark = <AgeMark profile={profile} canEdit={can(me, 'EditAgeVerification')} onChanged={setProfile} />
+
   return (
     <div className="flex flex-col gap-3">
       {fetched ? (
-        <Identity profile={profile} />
+        <Identity profile={profile} mark={mark} />
       ) : (
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {profile.known ? 'Profile not fetched yet.' : 'Not seen before.'}
-        </p>
+        // No header to hang the mark on, so it stands on its own: the flag is known for an id
+        // whose profile has never been fetched, and it is the one thing worth saying about them.
+        <div className="flex flex-col gap-2">
+          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {profile.known ? 'Profile not fetched yet.' : 'Not seen before.'}
+          </p>
+          <div className="flex flex-wrap items-center gap-1">{mark}</div>
+        </div>
       )}
 
       <Freshness profile={profile} refreshing={refreshing} note={note} />
-
-      <AgeVerified profile={profile} canEdit={can(me, 'EditAgeVerification')} onChanged={setProfile} />
     </div>
   )
 }
@@ -170,7 +176,7 @@ function Freshness({
   )
 }
 
-function Identity({ profile }: { profile: VRChatUserProfile }) {
+function Identity({ profile, mark }: { profile: VRChatUserProfile; mark: React.ReactNode }) {
   return (
     <ProfileHeader
       bannerUrl={profile.bannerUrl}
@@ -182,18 +188,29 @@ function Identity({ profile }: { profile: VRChatUserProfile }) {
       lastPlatform={profile.lastPlatform}
       rank={profile.trustRank}
       representedGroup={profile.representedGroup}
+      marks={mark}
     />
   )
 }
 
 /**
- * The sticky flag, with its source and when it was set, next to what VRChat said last.
+ * The sticky flag as a badge, with its source, when it was set, what VRChat said last and the
+ * control that changes it in a card beside it.
  *
- * The two can disagree and the disagreement is the point (user profile sync design §4): a user
- * who showed 18+ once and hides it now is still 18+. Clearing it is a decision, so it asks for a
- * reason and is recorded against the account that made it.
+ * The flag itself is one of the things read at a glance, so it belongs with the badges rather
+ * than in a block of its own. The rest is what somebody asks for only once they have noticed the
+ * badge, and that is what the card is for: the two sides can disagree and the disagreement is the
+ * point (user profile sync design §4) -- a user who showed 18+ once and hides it now is still
+ * 18+. Clearing it is a decision, so it asks for a reason and is recorded against the account
+ * that made it.
+ *
+ * **Three ways in, because the card holds a control.** A pointer opens it by hovering. A tap
+ * opens it, since a touch screen has no hover to give. From the keyboard, Enter or Space on the
+ * badge opens it and moves the focus into the card, so Clear flag is the next thing Tab reaches
+ * and Escape closes the card and gives the focus back. A hover never takes the focus, or the page
+ * would move under whoever was typing somewhere else.
  */
-function AgeVerified({
+function AgeMark({
   profile,
   canEdit,
   onChanged,
@@ -202,12 +219,39 @@ function AgeVerified({
   canEdit: boolean
   onChanged: (next: VRChatUserProfile) => void
 }) {
+  const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<boolean | null>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
+  /** Which of the three opened it, which is what decides whether the card takes the focus. */
+  const openedBy = useRef<'hover' | 'press'>('press')
+  const closing = useRef<number | undefined>(undefined)
+
   const flag = profile.eighteenPlus
+
+  const stopClosing = () => {
+    window.clearTimeout(closing.current)
+    closing.current = undefined
+  }
+
+  // A moment's grace, so a pointer can cross the gap between the badge and the card. Never while
+  // a reason is half typed: leaving the badge is not a decision to throw the form away.
+  const closeSoon = () => {
+    if (editing !== null) return
+    stopClosing()
+    closing.current = window.setTimeout(() => setOpen(false), 150)
+  }
+
+  const openOnHover = (event: React.PointerEvent) => {
+    if (event.pointerType !== 'mouse') return
+    stopClosing()
+    openedBy.current = 'hover'
+    setOpen(true)
+  }
+
+  useEffect(() => stopClosing, [])
 
   const submit = () => {
     if (editing === null) return
@@ -232,74 +276,110 @@ function AgeVerified({
   }
 
   return (
-    <div
-      className="rounded-xl border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        stopClosing()
+        setOpen(next)
+        if (!next) {
+          setEditing(null)
+          setProblem(null)
+        }
+      }}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span
+      <Popover.Trigger asChild>
+        <button
+          type="button"
+          onPointerEnter={openOnHover}
+          onPointerLeave={closeSoon}
+          onClick={(event) => {
+            // Already open because the pointer is resting on it: a click keeps the card rather
+            // than shutting the thing the moderator was reaching for.
+            if (open && openedBy.current === 'hover') event.preventDefault()
+            openedBy.current = 'press'
+          }}
           className={cn(
-            'inline-flex items-center rounded-full border px-2 py-0.5 font-medium',
+            'inline-flex shrink-0 items-center rounded-full border px-1.5 py-0 font-medium whitespace-nowrap outline-none',
+            'focus-visible:ring-[3px] focus-visible:ring-ring/50',
             flag.verified ? 'border-transparent bg-ok/15 text-ok' : 'text-muted-foreground',
           )}
-          style={{ borderWidth: 'var(--hairline)' }}
+          style={{ fontSize: '0.6875rem', borderWidth: 'var(--hairline)' }}
         >
           {flag.verified ? '18+ verified' : 'Not seen as 18+ verified'}
-        </span>
+        </button>
+      </Popover.Trigger>
 
-        <span className="text-muted-foreground">
+      <Popover.Portal>
+        {/* Drawn at the top of the page like the dropdown's list, so the popup's own scrolling
+            column cannot clip it. */}
+        <Popover.Content
+          side="right"
+          align="start"
+          sideOffset={8}
+          collisionPadding={8}
+          onPointerEnter={stopClosing}
+          onPointerLeave={closeSoon}
+          onOpenAutoFocus={(event) => {
+            if (openedBy.current === 'hover') event.preventDefault()
+          }}
+          onCloseAutoFocus={(event) => {
+            if (openedBy.current === 'hover') event.preventDefault()
+          }}
+          className="z-50 flex w-64 max-w-[min(20rem,var(--radix-popover-content-available-width))] flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-md outline-none"
+          style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+        >
           {flag.verified && flag.source === 'vrchat' && flag.since && (
-            <>first seen on VRChat {formatDay(flag.since)}</>
+            <div className="text-muted-foreground">First seen on VRChat {formatDay(flag.since)}.</div>
           )}
           {flag.source === 'manual' && flag.since && (
-            <>
-              {flag.verified ? 'set' : 'cleared'} by {flag.setByUsername ?? 'a moderator'} on{' '}
-              {formatDay(flag.since)}
-            </>
+            <div className="text-muted-foreground">
+              {flag.verified ? 'Set' : 'Cleared'} by {flag.setByUsername ?? 'a moderator'} on{' '}
+              {formatDay(flag.since)}.
+            </div>
           )}
-        </span>
 
-        <span className="flex-1" />
-
-        {canEdit && editing === null && (
-          <Button variant="outline" size="xs" onClick={() => setEditing(!flag.verified)}>
-            {flag.verified ? 'Clear flag' : 'Mark 18+ verified'}
-          </Button>
-        )}
-      </div>
-
-      <p className="mt-1 text-muted-foreground">
-        VRChat shows this person as{' '}
-        <span className="font-mono">{profile.ageVerificationStatusLastSeen ?? 'unknown'}</span>
-        {profile.lastRefreshedAt ? ` as of ${ago(profile.lastRefreshedAt, profile.now)}` : ''}.
-      </p>
-
-      {editing !== null && (
-        <div className="mt-2 flex flex-col gap-2">
-          <label className="flex flex-col gap-1">
-            <span className="text-muted-foreground">
-              {editing ? 'Why are you marking this person 18+ verified?' : 'Why are you clearing the flag?'}
-            </span>
-            <input
-              className="rounded-md border bg-background px-2 py-1"
-              style={{ borderWidth: 'var(--hairline)' }}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Reason"
-              maxLength={500}
-            />
-          </label>
-          <div className="flex gap-2">
-            <Button size="xs" onClick={submit} disabled={busy}>
-              {editing ? 'Mark 18+ verified' : 'Clear flag'}
-            </Button>
-            <Button size="xs" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
-              Cancel
-            </Button>
+          <div className="text-muted-foreground">
+            VRChat shows this person as{' '}
+            <span className="font-mono">{profile.ageVerificationStatusLastSeen ?? 'unknown'}</span>
+            {profile.lastRefreshedAt ? ` as of ${ago(profile.lastRefreshedAt, profile.now)}` : ''}.
           </div>
-          {problem && <div className="text-destructive">{problem}</div>}
-        </div>
-      )}
-    </div>
+
+          {canEdit && editing === null && (
+            <Button
+              variant="outline"
+              size="xs"
+              className="self-start"
+              onClick={() => setEditing(!flag.verified)}
+            >
+              {flag.verified ? 'Clear flag' : 'Mark 18+ verified'}
+            </Button>
+          )}
+
+          {editing !== null && (
+            <div className="flex flex-col gap-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-muted-foreground">Reason</span>
+                <input
+                  className="rounded-md border bg-background px-2 py-1"
+                  style={{ borderWidth: 'var(--hairline)' }}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  maxLength={500}
+                />
+              </label>
+              <div className="flex gap-2">
+                <Button size="xs" onClick={submit} disabled={busy}>
+                  {editing ? 'Mark 18+ verified' : 'Clear flag'}
+                </Button>
+                <Button size="xs" variant="ghost" onClick={() => setEditing(null)} disabled={busy}>
+                  Cancel
+                </Button>
+              </div>
+              {problem && <div className="text-destructive">{problem}</div>}
+            </div>
+          )}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }

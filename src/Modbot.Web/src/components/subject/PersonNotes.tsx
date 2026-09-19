@@ -1,0 +1,213 @@
+import { useCallback, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { dateTime } from '@/components/charts'
+import { Note as Muted } from '@/components/subject/shared'
+import { api, ApiError, type Note, type NoteList } from '@/lib/api'
+import { MAX_NOTE_LENGTH, noteAuthor, noteProblem, notesBeforeActing } from '@/lib/notes'
+import { useLoad } from '@/lib/useLoad'
+
+/**
+ * A person's notes: what moderators have written about them, and a box to write another.
+ *
+ * **Its own tab, not a corner of Logs.** The merged timeline already carries every note as a fact,
+ * and that is exactly the problem — a note is somebody's deliberate sentence about this person,
+ * and reading twelve of them means scrolling past four hundred joins, leaves and avatar changes.
+ * A short list of the group's own remarks is a different question from "what has happened to
+ * them", and it gets its own answer.
+ *
+ * **Taken-back notes stay on the list, marked.** A note that was written and withdrawn is not the
+ * same thing as one nobody ever wrote, and a list that hid them would let somebody write a note,
+ * take it back, and leave no trace on the screen where notes are read.
+ *
+ * The text is rendered as text. Not Markdown — the case file's written reason is Markdown because
+ * it is a document; a note is a remark, and a remark that can draw a heading or an image is a
+ * remark that can be made to look like something Modbot said.
+ */
+export function PersonNotes({
+  subjectId,
+  platform,
+}: {
+  subjectId: string
+  /** `VRChat` or `Discord`. Which of the person's accounts these notes are filed under. */
+  platform?: string
+}) {
+  // Bumped after a write or a take-back, which reloads the list from the server rather than
+  // guessing at what it now says.
+  const [version, setVersion] = useState(0)
+
+  const load = useCallback(
+    () => api.notes({ userId: subjectId, platform, limit: 100 }),
+    [subjectId, platform],
+  )
+  const { data, error } = useLoad<NoteList>(load, version)
+
+  const again = () => setVersion((n) => n + 1)
+
+  return (
+    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
+      {error && <Muted className="text-destructive">{error}</Muted>}
+      {!error && !data && <Muted>Loading…</Muted>}
+
+      {data?.canWrite && <WriteNote subjectId={subjectId} platform={platform} onWritten={again} />}
+
+      {data && data.notes.length === 0 && <Muted>No notes.</Muted>}
+
+      {data && data.notes.length > 0 && (
+        <ol className="flex flex-col gap-2">
+          {data.notes.map((note) => (
+            <NoteRow key={note.id} note={note} onTakenBack={again} />
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
+function NoteRow({ note, onTakenBack }: { note: Note; onTakenBack: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const takeBack = () => {
+    setBusy(true)
+    setProblem(null)
+
+    api
+      .takeBackNote(note.id)
+      .then(onTakenBack)
+      .catch((e: unknown) =>
+        setProblem(e instanceof ApiError ? e.message : 'Could not take that note back.'),
+      )
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <li
+      className="rounded-md border px-3 py-2"
+      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">{noteAuthor(note)}</span>
+        {note.imported && <Badge variant="secondary">imported</Badge>}
+        {note.takenBack && <Badge variant="secondary">taken back</Badge>}
+        <span className="flex-1" />
+        <span className="text-muted-foreground">{dateTime(note.writtenAt)}</span>
+        {note.canTakeBack && (
+          <Button size="xs" variant="ghost" onClick={takeBack} disabled={busy}>
+            Take back
+          </Button>
+        )}
+      </div>
+
+      <p className={`mt-1 break-words whitespace-pre-wrap ${note.takenBack ? 'text-muted-foreground' : ''}`}>
+        {note.text}
+      </p>
+
+      {note.takenBack && note.takenBackAt && (
+        <Muted>
+          {note.takenBackByName ?? 'Somebody'} · {dateTime(note.takenBackAt)}
+        </Muted>
+      )}
+
+      {problem && <Muted className="text-destructive">{problem}</Muted>}
+    </li>
+  )
+}
+
+function WriteNote({
+  subjectId,
+  platform,
+  onWritten,
+}: {
+  subjectId: string
+  platform?: string
+  onWritten: () => void
+}) {
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const stops = noteProblem(text)
+
+  const send = () => {
+    setSending(true)
+    setProblem(null)
+
+    api
+      .writeNote({ userId: subjectId, platform, text: text.trim() })
+      .then(() => {
+        setText('')
+        onWritten()
+      })
+      .catch((e: unknown) =>
+        setProblem(e instanceof ApiError ? e.message : 'Could not write that note.'),
+      )
+      .finally(() => setSending(false))
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+        <span className="text-muted-foreground">Note</span>
+        <textarea
+          className="w-full rounded-md border bg-background px-2 py-1"
+          style={{ borderWidth: 'var(--hairline)' }}
+          rows={3}
+          maxLength={MAX_NOTE_LENGTH}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </label>
+
+      <div className="flex justify-end">
+        <Button size="sm" onClick={send} disabled={sending || stops !== null}>
+          {sending ? 'Saving…' : 'Add note'}
+        </Button>
+      </div>
+
+      {problem && <Muted className="text-destructive">{problem}</Muted>}
+    </div>
+  )
+}
+
+/**
+ * This person's standing notes, on the confirmation that opens before a kick, a ban or an unban.
+ *
+ * M4 §8.1: the moment a moderator is about to act is the moment the group's own remarks about
+ * somebody are worth having, and the only moment at which showing them costs nothing. Read-only
+ * and short — three at most — because this is a confirmation, not the notes tab.
+ *
+ * Draws nothing at all when there are none, when the caller may not read them, or when the read
+ * fails. A confirmation must not grow a row that says "no notes": the question on the screen is
+ * whether to ban somebody, and an absence is not evidence.
+ */
+export function NotesBeforeActing({ userId }: { userId: string }) {
+  const load = useCallback(() => api.notes({ userId, limit: 20 }), [userId])
+  const { data } = useLoad<NoteList>(userId.length > 0 ? load : null)
+
+  const showing = notesBeforeActing(data?.notes ?? [])
+
+  if (showing.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+      <span className="text-muted-foreground">Notes</span>
+      <ol className="flex flex-col gap-1">
+        {showing.map((note) => (
+          <li
+            key={note.id}
+            className="rounded-md border px-2 py-1"
+            style={{ borderWidth: 'var(--hairline)' }}
+          >
+            <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+              <span>{noteAuthor(note)}</span>
+              <span className="flex-1" />
+              <span>{dateTime(note.writtenAt)}</span>
+            </div>
+            <p className="break-words whitespace-pre-wrap">{note.text}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}

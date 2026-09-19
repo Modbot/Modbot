@@ -199,6 +199,47 @@ public static class VRChatEndpointClass
     public const string GroupsModerate = "groups.moderate";
 
     /// <summary>
+    /// The people waiting to be let into the managed group —
+    /// <c>GET /groups/{groupId}/requests</c> (join requests design §2).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not measured.</strong> Nobody has asked VRChat what this allows, and spec 4.3.4
+    /// forbids borrowing a neighbour's number, so it is budgeted at <c>groups.read</c>'s
+    /// 0.2 req/s — one request per five seconds — which is the conservative reading spec 4.3.4.1
+    /// already applies to an unmeasured endpoint that returns group data. Treat it as a guess
+    /// that is meant to be too low.
+    /// </para>
+    /// <para>
+    /// Its own lane and its own class, so a 429 here stops the Requests screen and nothing else:
+    /// not the sweeps, and not <see cref="GroupsRequestsAnswer"/>, which a moderator needs most
+    /// at the moment a list read has just been refused. One request per page a moderator asks
+    /// for; nothing polls it.
+    /// </para>
+    /// </remarks>
+    public const string GroupsRequests = "groups.requests";
+
+    /// <summary>
+    /// Approving or rejecting one join request —
+    /// <c>PUT /groups/{groupId}/requests/{userId}</c> (join requests design §4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not measured.</strong> One request per two seconds, shared by approve and reject:
+    /// deliberately low, and the same starting point the maintainer chose for the other group
+    /// writes rather than a number inferred from them. It needs confirming.
+    /// </para>
+    /// <para>
+    /// Apart from <see cref="GroupsModerate"/> on purpose. Working a join queue is many small
+    /// writes in a row and a ban is one; if the two shared a bucket, a moderator clearing a
+    /// backlog of requests could cold stop the ban button, which is the one action that must
+    /// still work. Counted against the <see cref="Interactive"/> backstop, scoped to the group,
+    /// and never retried on a 429 (spec 4.3.1) — the answer simply did not reach VRChat.
+    /// </para>
+    /// </remarks>
+    public const string GroupsRequestsAnswer = "groups.requests.answer";
+
+    /// <summary>
     /// A request forwarded to VRChat as it was written, on the service account's session --
     /// <c>/api/proxy/vrchat/…</c> (VRChat proxy design). Any endpoint, any method.
     /// </summary>

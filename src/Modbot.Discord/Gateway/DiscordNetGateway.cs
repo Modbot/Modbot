@@ -113,6 +113,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     public DiscordGatewayState State => _state;
 
+    public string? BotUserId => _client.CurrentUser is { } me ? Text(me.Id) : null;
+
     public event Func<DiscordMemberJoin, Task>? MemberJoined;
 
     public event Func<string, DiscordChannelSnapshot, Task>? ChannelChanged;
@@ -477,6 +479,130 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }
     }
 
+    // ── Bans and removals (Discord sync design §4) ─────────────────────────────────────────
+    //
+    // All three by id over REST, like the timeout above: no members intent, one request each, and
+    // the reason written to the server's audit log -- which is also how these come back as facts.
+
+    public Task<DiscordModerationOutcome> BanAsync(
+        string guildId, string userId, string reason, int deleteMessageDays, CancellationToken ct)
+    {
+        // Discord takes the count in days and refuses anything outside nought to seven.
+        var days = Math.Clamp(deleteMessageDays, 0, 7);
+
+        return ModerationAsync("ban", guildId, userId, (guild, user) =>
+            guild.AddBanAsync(user, days, reason, new RequestOptions { AuditLogReason = reason, CancelToken = ct }));
+    }
+
+    public Task<DiscordModerationOutcome> UnbanAsync(string guildId, string userId, string reason, CancellationToken ct)
+        => ModerationAsync("unban", guildId, userId, (guild, user) =>
+            guild.RemoveBanAsync(user, new RequestOptions { AuditLogReason = reason, CancelToken = ct }));
+
+    public async Task<DiscordModerationOutcome> RemoveAsync(string guildId, string userId, string reason, CancellationToken ct)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var guild)
+            || !ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var user))
+        {
+            return DiscordModerationOutcome.Failed("That is not a Discord server or user id.");
+        }
+
+        try
+        {
+            // REST rather than the member cache, for the reason the timeout above gives.
+            var member = await _client.Rest.GetGuildUserAsync(guild, user, new RequestOptions { CancelToken = ct })
+                .ConfigureAwait(false);
+
+            // Already out of the server. Nothing to remove, and nothing to report as a problem.
+            if (member is null)
+                return DiscordModerationOutcome.Already;
+
+            await member.KickAsync(reason, new RequestOptions { AuditLogReason = reason, CancelToken = ct })
+                .ConfigureAwait(false);
+
+            return DiscordModerationOutcome.Ok;
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return Explain("remove", e);
+        }
+    }
+
+    public async Task<IReadOnlyList<string>?> ReadBansAsync(string guildId, CancellationToken ct)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            || _client.GetGuild(id) is not { } guild)
+        {
+            return null;
+        }
+
+        try
+        {
+            var banned = new List<string>();
+
+            await foreach (var page in guild.GetBansAsync(options: new RequestOptions { CancelToken = ct })
+                               .WithCancellation(ct).ConfigureAwait(false))
+            {
+                banned.AddRange(page.Select(b => Text(b.User.Id)));
+            }
+
+            return banned;
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not read the Discord server's ban list");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// One ban or unban, by ids, against the server the session already holds.
+    /// </summary>
+    private async Task<DiscordModerationOutcome> ModerationAsync(
+        string what, string guildId, string userId, Func<SocketGuild, ulong, Task> act)
+    {
+        if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            || !ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var user))
+        {
+            return DiscordModerationOutcome.Failed("That is not a Discord server or user id.");
+        }
+
+        if (_client.GetGuild(id) is not { } guild)
+            return DiscordModerationOutcome.Failed("The bot is not in that server.");
+
+        try
+        {
+            await act(guild, user).ConfigureAwait(false);
+            return DiscordModerationOutcome.Ok;
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            return Explain(what, e);
+        }
+    }
+
+    /// <summary>
+    /// What Discord's refusal means for the caller.
+    /// </summary>
+    /// <remarks>
+    /// The permission case is separated out on purpose (M5 §7): "the bot may not ban here" is a
+    /// setup problem an operator fixes once, and a sync that reported it as an ordinary failure
+    /// would try again every minute and never say what to do about it.
+    /// </remarks>
+    private static DiscordModerationOutcome Explain(string what, Exception e) => e switch
+    {
+        HttpException { DiscordCode: DiscordErrorCode.UnknownBan } => DiscordModerationOutcome.Already,
+        HttpException { DiscordCode: DiscordErrorCode.UnknownMember } => DiscordModerationOutcome.MemberNotInServer,
+        HttpException { DiscordCode: DiscordErrorCode.UnknownUser } => DiscordModerationOutcome.MemberNotInServer,
+        HttpException { HttpCode: HttpStatusCode.NotFound } when what == "unban" => DiscordModerationOutcome.Already,
+        HttpException { HttpCode: HttpStatusCode.Forbidden } => DiscordModerationOutcome.Refused(
+            what == "remove"
+                ? "The bot may not remove people from this server. Give it Kick Members and a role above theirs."
+                : "The bot may not ban in this server. Give it Ban Members and a role above theirs."),
+        HttpException http => DiscordModerationOutcome.Failed($"Could not {what} on Discord: Discord answered {(int)http.HttpCode}."),
+        RateLimitedException => DiscordModerationOutcome.Failed("Discord is rate limiting the bot."),
+        _ => DiscordModerationOutcome.Failed($"Could not {what} on Discord: {e.Message}"),
+    };
+
     // ── Server events (calendar design §3.2) ───────────────────────────────────────────────
 
     public Task<DiscordPostOutcome> CreateEventAsync(
@@ -700,16 +826,22 @@ public sealed class DiscordNetGateway : IDiscordGateway
     }
 
     public Task<DiscordRoleOutcome> AddRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
-        => RoleAsync(guildId, userId, roleId, add: true);
+        => RoleAsync(guildId, userId, roleId, add: true, LinkedRoleReason);
 
     public Task<DiscordRoleOutcome> RemoveRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
-        => RoleAsync(guildId, userId, roleId, add: false);
+        => RoleAsync(guildId, userId, roleId, add: false, LinkedRoleReason);
+
+    public Task<DiscordRoleOutcome> ChangeRoleAsync(
+        string guildId, string userId, string roleId, bool add, string reason, CancellationToken ct)
+        => RoleAsync(guildId, userId, roleId, add, reason);
+
+    private const string LinkedRoleReason = "Modbot: linked VRChat account";
 
     /// <summary>
     /// One role change by ids, over REST. The member does not have to be in the session's cache,
     /// which without the members intent they usually are not.
     /// </summary>
-    private async Task<DiscordRoleOutcome> RoleAsync(string guildId, string userId, string roleId, bool add)
+    private async Task<DiscordRoleOutcome> RoleAsync(string guildId, string userId, string roleId, bool add, string reason)
     {
         if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var guild)
             || !ulong.TryParse(userId, NumberStyles.None, CultureInfo.InvariantCulture, out var user))
@@ -720,7 +852,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         if (!ulong.TryParse(roleId, NumberStyles.None, CultureInfo.InvariantCulture, out var role))
             return DiscordRoleOutcome.NoSuchRole;
 
-        var options = new RequestOptions { AuditLogReason = "Modbot: linked VRChat account" };
+        var options = new RequestOptions { AuditLogReason = reason };
 
         try
         {
@@ -830,7 +962,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
             serverWide.ManageRoles,
             channels,
             roles,
-            BotCanManageEvents: serverWide.ManageEvents);
+            BotCanManageEvents: serverWide.ManageEvents,
+            BotCanBanMembers: serverWide.BanMembers,
+            BotCanRemoveMembers: serverWide.KickMembers);
     }
 
     // ── Channel and role changes ───────────────────────────────────────────────────────────

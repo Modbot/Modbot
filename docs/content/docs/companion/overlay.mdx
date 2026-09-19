@@ -9,7 +9,8 @@ kicks or bans has just walked in. Inside VRChat you cannot see email, Discord or
 panel is how Modbot reaches you there.
 
 The overlay is part of the same client you [install](/companion/install) and
-[pair](/companion/pairing). There is nothing extra to download and nothing to switch on.
+[pair](/companion/pairing). There is nothing extra to download and nothing to switch on. If you do
+not want it, [turn it off](#turning-it-off).
 
 ## What it needs
 
@@ -39,6 +40,20 @@ running WiVRn or Monado already has; there is nothing to install. xrizer alone i
 because it runs OpenVR games only and turns overlay programs away, so the companion goes to the
 OpenXR runtime itself. When the panel is up, the **SteamVR** page reads **Attached to WiVRn.** (or
 the name of the runtime it found).
+
+## Turning it off
+
+The **SteamVR** page has an **Overlay on** switch at the top. Turn it off and the panel stops:
+nothing is drawn, your controllers are not read, SteamVR is let go, and the live connection to
+your group's server closes. The **SteamVR** page then shows the switch and nothing else, and the
+sidebar reads **off** beside it.
+
+The rest of the client is unaffected: it goes on reading VRChat's log and reporting presence to
+every server you paired with.
+
+Turn it back on and the panel comes up again where you left it, without restarting the client.
+The setting is remembered in `settings.json` as `overlayOn`, in your own user folder, so it
+survives both restarts and updates.
 
 ## What it shows
 
@@ -144,22 +159,24 @@ server or quit the client.
 - **The roster follows the instance.** While you are in a group instance the companion keeps a
   [live connection](/api/live-updates) to that group's server; a join or a leave re-reads the
   roster at once, and it is re-read every 20 seconds regardless.
-- **Nothing on the panel can be pressed.** There are no ban, kick or warn buttons, and the
-  client's token could not do those things anyway. To act on something, use the web app.
-- **The panel is 0.45 metres wide** in the headset and drawn at 1024 by 1024 pixels.
+- **Nothing on the panel moderates.** The trigger dismisses a card, opens a person's card and
+  closes it again, and that is all: there are no ban, kick or warn buttons, and the client's token
+  could not do those things anyway. To act on something, use the web app.
+- **The panel starts 0.45 metres wide** in the headset and is drawn at 1024 by 1024 pixels.
 - **Long names are cut to one line**, so a display name full of line breaks cannot push the rest of
   the panel out of view.
 - **SteamVR, WiVRn or Monado, on Windows or Linux.** The panel is an OpenVR overlay for SteamVR
   and an OpenXR overlay session for the other two; VRChat and the runtime run on the same machine
   as the companion. Other OpenXR runtimes, SteamVR's own included, have no overlay extension, so
   the companion has nothing to hand them.
-- **It sits below and to the right of your view**, about an arm's length away, and follows your
-  head. There is no setting to move it yet.
+- **It starts below and to the right of your view**, about an arm's length away, following your
+  head. Move it with a controller or from the **SteamVR** page; see
+  [Holding it](#holding-it).
 
 ## What it sends
 
-Only while you are in an instance belonging to one of your paired groups, and only to that group's
-server:
+Nothing at all while the overlay is [switched off](#turning-it-off). Otherwise, only while you are
+in an instance belonging to one of your paired groups, and only to that group's server:
 
 - a request for the roster of the instance you are in, every 20 seconds and again after each
   join or leave, which tells the server the instance id;

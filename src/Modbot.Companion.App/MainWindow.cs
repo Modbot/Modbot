@@ -71,6 +71,7 @@ public sealed partial class MainWindow : Window
 
     // Built once for the same reason: a switch rebuilt every second can lose the click on it.
     private readonly CheckBox _startupBox;
+    private readonly CheckBox _overlayOnBox;
     private readonly TextBox _logFolderBox;
     private bool _renderingSwitches;
 
@@ -123,6 +124,14 @@ public sealed partial class MainWindow : Window
         {
             if (!_renderingSwitches)
                 _actions.SetStartWithWindows(_startupBox.IsChecked == true);
+        };
+
+        _overlayOnBox = new CheckBox { Content = Ui.Text("Overlay on", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
+        _overlayOnBox.VerticalAlignment = VerticalAlignment.Center;
+        _overlayOnBox.IsCheckedChanged += (_, _) =>
+        {
+            if (!_renderingSwitches)
+                _actions.SetOverlayOn(_overlayOnBox.IsChecked == true);
         };
 
         _logFolderBox = Ui.Input();
@@ -360,7 +369,14 @@ public sealed partial class MainWindow : Window
             Page.Servers, "Servers", _snapshot.Servers.Count == 0 ? null : $"{_snapshot.Servers.Count}"));
         _nav.Children.Add(NavItem(
             Page.Events, "Events", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}"));
-        _nav.Children.Add(NavItem(Page.SteamVr, "SteamVR", _snapshot.OverlayOrNone.Attached ? "on" : null));
+        // "on" is the panel actually up in a headset; "off" is the switch. Between them sits the
+        // ordinary case -- switched on, SteamVR not running -- which says nothing, because it is
+        // what most of the day looks like and a badge for it would mean nothing.
+        var overlay = _snapshot.OverlayOrNone;
+        _nav.Children.Add(NavItem(
+            Page.SteamVr,
+            "SteamVR",
+            !overlay.On ? "off" : overlay.Attached ? "on" : null));
         _nav.Children.Add(NavItem(Page.Log, "Log", null));
         _nav.Children.Add(NavItem(Page.Settings, "Settings", null));
         _nav.Children.Add(NavItem(Page.Credits, "Credits", null));
@@ -985,14 +1001,35 @@ public sealed partial class MainWindow : Window
     {
         var overlay = _snapshot.OverlayOrNone;
 
-        var pill = overlay.Attached
-            ? Ui.Pill("Attached", Ui.T.Palette.Ok, Ui.T.Palette.OkDim)
-            : overlay.State switch
-            {
-                "refused" => Ui.Pill("Refused", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
-                "SteamVR not installed" or "not set up" => Ui.Pill("No SteamVR", Ui.T.Palette.Info, Ui.T.Palette.InfoDim),
-                _ => Ui.Pill("Not running", Ui.T.Palette.Warn, Ui.T.Palette.WarnDim),
-            };
+        _renderingSwitches = true;
+        try
+        {
+            _overlayOnBox.IsChecked = overlay.On;
+        }
+        finally
+        {
+            _renderingSwitches = false;
+        }
+
+        DetachFromParent(_overlayOnBox);
+
+        var pill = !overlay.On
+            ? Ui.Pill("Off", Ui.T.Palette.TextFaint, Ui.T.Palette.Surface2)
+            : overlay.Attached
+                ? Ui.Pill("Attached", Ui.T.Palette.Ok, Ui.T.Palette.OkDim)
+                : overlay.State switch
+                {
+                    "refused" => Ui.Pill("Refused", Ui.T.Palette.Danger, Ui.T.Palette.DangerDim),
+                    "SteamVR not installed" or "not set up" => Ui.Pill("No SteamVR", Ui.T.Palette.Info, Ui.T.Palette.InfoDim),
+                    _ => Ui.Pill("Not running", Ui.T.Palette.Warn, Ui.T.Palette.WarnDim),
+                };
+
+        // Nothing is running to look for, to report on, or to place, so the page is the switch.
+        if (!overlay.On)
+        {
+            _body.Children.Add(Ui.Card(_overlayOnBox, "SteamVR", pill));
+            return;
+        }
 
         var attach = Ui.Button("Look for SteamVR now");
         attach.Click += (_, _) => _actions.AttachSteamVr();
@@ -1022,6 +1059,7 @@ public sealed partial class MainWindow : Window
                 Spacing = 12,
                 Children =
                 {
+                    _overlayOnBox,
                     Ui.Text(overlay.Detail, Ui.T.Density.TextSmall, Ui.T.TextBrush),
                     stats,
                 },
@@ -1289,6 +1327,9 @@ public sealed record MainWindowActions(
 {
     /// <summary>Added after the positional list so nothing that builds the record has to change.</summary>
     public Action<EventFilterSet> SetEventsFilters { get; init; } = _ => { };
+
+    /// <summary>The SteamVR page's <strong>Overlay on</strong> switch. Added the same way.</summary>
+    public Action<bool> SetOverlayOn { get; init; } = _ => { };
 
     public static MainWindowActions None { get; } = new(
         _ => { },

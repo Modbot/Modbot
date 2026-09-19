@@ -57,10 +57,10 @@ public sealed class HealthAlertService : BackgroundService
             if (run.Problems.Count > 0 || run.Recoveries.Count > 0)
             {
                 _log.Information(
-                    "Health alerts: {Problems} went wrong, {Recoveries} came back, {Sent} email(s) sent",
+                    "Health alerts: {Problems} went wrong, {Recoveries} came back, {Raised} notification(s) raised",
                     run.Problems,
                     run.Recoveries,
-                    run.Sent);
+                    run.Raised);
             }
 
             return true;

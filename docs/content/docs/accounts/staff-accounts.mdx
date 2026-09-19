@@ -249,7 +249,8 @@ whether or not the username is real, disabled, or has no contact details. Behind
 - a person can get at most one link every **10 minutes**,
 - many requests from one address slow down, the same way failed sign-ins do.
 
-Nothing is ever sent to a person's email or Discord except a reset link they asked for.
+Apart from a reset link they asked for, the only mail Modbot sends a person is the
+[health alerts](/self-hosting/alerts) an administrator has ticked them for.
 
 ### You make them a link
 
@@ -268,6 +269,33 @@ twice. Using the link:
 
 They then sign in with the new password. Making a new reset link for an account cancels any older
 unused ones.
+
+## The email limit
+
+Modbot sends at most **100 emails per 24 hours**. That is a rolling 24 hours, not a calendar day:
+each email frees its place again exactly 24 hours after it went, rather than the whole count
+resetting at midnight.
+
+**The last 20 places are reserved for email about an account**, which today means reset links.
+Everything else, health [alerts](/self-hosting/alerts) and the test email included, stops at 80. So
+a Modbot that has spent its whole allowance on alerts can still send a reset link to somebody
+locked out.
+
+Nothing is ever thrown away when the limit is reached. The email is **queued** instead, and Modbot
+sends it when there is room again, checking every 30 seconds and putting account email first. A
+reset link that waits past its 24 hours is marked **expired** rather than sent dead, and an email
+the mail server refuses is retried 5 times with a growing wait before it is marked **failed**.
+
+### Where to see it and change it
+
+**Settings**, **Integrations**, **Email (SMTP)** shows **Sent in the last 24 hours** against the
+limit, how many are **Queued** and **Failed**, when the next queued email goes, and a table of
+everything still waiting with its address, kind, state and, for a failure, what the mail server
+said.
+
+**Email limit per 24 hours** on the same card changes the number. The lowest you can set is 20, and
+changing it is recorded in the audit log. Queued and failed email also raises the **Email** card on
+[Sync health](/self-hosting/health) and can be alerted on.
 
 ## Your own account
 

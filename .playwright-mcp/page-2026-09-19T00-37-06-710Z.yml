@@ -1,0 +1,237 @@
+- generic:
+  - generic [aria-hidden]:
+    - generic:
+      - main:
+        - generic:
+          - heading [level=1]: Calendar
+          - generic: Demo
+          - button: Reset demo
+        - generic:
+          - generic:
+            - generic:
+              - group:
+                - button [pressed]: Month
+                - button: Agenda
+              - generic:
+                - button
+                - generic: September 2026
+                - button
+                - button: Today
+              - button: New event
+            - generic:
+              - generic: Calendar feed
+              - textbox: http://localhost:5173/api/calendar/feed/lXR67/xRPuqnAREm09octLQSBzBrQ0tM.ics
+              - button: Copy
+              - button: New link
+            - generic:
+              - generic:
+                - generic: Mon
+                - generic: Tue
+                - generic: Wed
+                - generic: Thu
+                - generic: Fri
+                - generic: Sat
+                - generic: Sun
+                - generic: "31"
+                - generic: "1"
+                - generic: "2"
+                - generic: "3"
+                - generic:
+                  - generic: "4"
+                  - generic:
+                    - button: Friday Hangout
+                - generic:
+                  - generic: "5"
+                  - generic:
+                    - button: Friday Hangout
+                    - button: Movie Night
+                - generic: "6"
+                - generic: "7"
+                - generic: "8"
+                - generic: "9"
+                - generic: "10"
+                - generic:
+                  - generic: "11"
+                  - generic:
+                    - button: Friday Hangout
+                - generic:
+                  - generic: "12"
+                  - generic:
+                    - button: Friday Hangout
+                    - button: Newcomer Welcome
+                - generic: "13"
+                - generic: "14"
+                - generic: "15"
+                - generic: "16"
+                - generic:
+                  - generic: "17"
+                  - generic:
+                    - button: Avatar Workshop
+                - generic:
+                  - generic: "18"
+                  - generic:
+                    - button: Friday Hangout
+                - generic:
+                  - generic: "19"
+                  - generic:
+                    - button: Friday Hangout
+                - generic: "20"
+                - generic: "21"
+                - generic:
+                  - generic: "22"
+                  - generic:
+                    - button: Quiz
+                - generic: "23"
+                - generic: "24"
+                - generic:
+                  - generic: "25"
+                  - generic:
+                    - button: Friday Hangout
+                - generic:
+                  - generic: "26"
+                  - generic:
+                    - button: Friday Hangout
+                - generic: "27"
+                - generic:
+                  - generic: "28"
+                  - generic:
+                    - button: Night Market
+                - generic: "29"
+                - generic: "30"
+                - generic: "1"
+                - generic:
+                  - generic: "2"
+                  - generic:
+                    - button: Friday Hangout
+                - generic:
+                  - generic: "3"
+                  - generic:
+                    - button: Friday Hangout
+                - generic: "4"
+                - generic: "5"
+                - generic: "6"
+                - generic: "7"
+                - generic: "8"
+                - generic:
+                  - generic: "9"
+                  - generic:
+                    - button: Friday Hangout
+                - generic:
+                  - generic: "10"
+                  - generic:
+                    - button: Friday Hangout
+                - generic: "11"
+        - generic:
+          - link:
+            - /url: https://docs.modbot.co
+            - text: Docs
+          - link:
+            - /url: /settings/credits
+            - text: Credits
+      - navigation:
+        - button:
+          - generic: Menu
+        - button:
+          - generic: Search
+        - button:
+          - generic: Actions
+  - dialog [ref=f23e5]:
+    - generic [ref=f23e6]:
+      - heading "New event" [level=2] [ref=f23e8]
+      - button "Close" [active] [ref=f23e9]
+    - generic [ref=f23e14]:
+      - generic [ref=f23e15]:
+        - generic [ref=f23e16]: Title
+        - textbox "Title" [ref=f23e17]:
+          - /placeholder: ""
+      - generic [ref=f23e18]:
+        - generic [ref=f23e19]: Description
+        - textbox "Description" [ref=f23e20]:
+          - /placeholder: ""
+      - group "When" [ref=f23e21]:
+        - generic [ref=f23e23]:
+          - generic [ref=f23e24]:
+            - generic [ref=f23e25]: Starts
+            - textbox "Starts" [ref=f23e26]: 2026-09-18T20:00
+          - generic [ref=f23e27]:
+            - generic [ref=f23e28]: Ends
+            - textbox "Ends" [ref=f23e29]: 2026-09-18T22:00
+          - generic [ref=f23e30]:
+            - generic [ref=f23e31]: Time zone
+            - button "Time zone" [ref=f23e32]:
+              - generic [ref=f23e33]: America/Chicago
+          - generic [ref=f23e36]:
+            - generic [ref=f23e37]: Repeat
+            - button "Repeat" [ref=f23e38]:
+              - generic [ref=f23e39]: Does not repeat
+      - group "Where" [ref=f23e42]:
+        - generic [ref=f23e44]:
+          - generic [ref=f23e45]:
+            - generic [ref=f23e46]: World
+            - button "World" [ref=f23e47]:
+              - generic [ref=f23e48]: None
+          - generic [ref=f23e51]:
+            - generic [ref=f23e52]: Who can join
+            - button "Who can join" [ref=f23e53]:
+              - generic [ref=f23e54]: Group members
+          - generic [ref=f23e57]:
+            - generic [ref=f23e58]: Region
+            - button "Region" [ref=f23e59]:
+              - generic [ref=f23e60]: US West
+        - generic [ref=f23e63]:
+          - generic [ref=f23e64]: Picture link
+          - textbox "Picture link" [ref=f23e65]:
+            - /placeholder: https://
+      - group "VRChat calendar" [ref=f23e66]:
+        - generic [ref=f23e68]:
+          - checkbox "Publish to VRChat calendar" [checked] [ref=f23e69]
+          - text: Publish to VRChat calendar
+        - generic [ref=f23e70]:
+          - generic [ref=f23e71]:
+            - generic [ref=f23e72]: Category
+            - button "Category" [ref=f23e73]:
+              - generic [ref=f23e74]: Hangout
+          - generic [ref=f23e77]:
+            - generic [ref=f23e78]: Visible to
+            - button "Visible to" [ref=f23e79]:
+              - generic [ref=f23e80]: Group
+          - generic [ref=f23e83]:
+            - generic [ref=f23e84]: Languages
+            - textbox "Languages" [ref=f23e85]:
+              - /placeholder: eng, jpn
+          - generic [ref=f23e86]:
+            - generic [ref=f23e87]: Tags
+            - textbox "Tags" [ref=f23e88]:
+              - /placeholder: ""
+          - generic [ref=f23e89]:
+            - generic [ref=f23e90]: VRChat image id
+            - textbox "VRChat image id" [ref=f23e91]:
+              - /placeholder: file_…
+        - generic [ref=f23e92]:
+          - generic [ref=f23e93]:
+            - checkbox "PC" [ref=f23e94]
+            - text: PC
+          - generic [ref=f23e95]:
+            - checkbox "Android" [ref=f23e96]
+            - text: Android
+          - generic [ref=f23e97]:
+            - checkbox "iOS" [ref=f23e98]
+            - text: iOS
+        - generic [ref=f23e99]:
+          - checkbox "Notify group members" [ref=f23e100]
+          - text: Notify group members
+      - group "Discord" [ref=f23e101]:
+        - generic [ref=f23e103]:
+          - checkbox "Discord event" [ref=f23e104]
+          - text: Discord event
+        - generic [ref=f23e105]:
+          - checkbox "Post to channel" [ref=f23e106]
+          - text: Post to channel
+      - group "Instance" [ref=f23e107]:
+        - generic [ref=f23e109]:
+          - checkbox "Open the instance automatically" [ref=f23e110]
+          - text: Open the instance automatically
+      - generic [ref=f23e111]:
+        - button "Close" [ref=f23e112]
+        - button "Save draft" [ref=f23e113]
+        - button "Schedule" [ref=f23e114]

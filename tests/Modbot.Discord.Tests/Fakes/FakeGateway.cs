@@ -82,6 +82,62 @@ public sealed class FakeGateway : IDiscordGateway
     public Task<DiscordRoleOutcome> RemoveRoleAsync(string guildId, string userId, string roleId, CancellationToken ct)
         => RoleAsync(false, guildId, userId, roleId);
 
+    public Task<DiscordRoleOutcome> ChangeRoleAsync(
+        string guildId, string userId, string roleId, bool add, string reason, CancellationToken ct)
+    {
+        RoleReasons.Add(reason);
+        return RoleAsync(add, guildId, userId, roleId);
+    }
+
+    /// <summary>The reason given for each role change made through <see cref="ChangeRoleAsync"/>.</summary>
+    public List<string> RoleReasons { get; } = [];
+
+    /// <summary>The bot's own Discord account id, as the sync reads it back off its own actions.</summary>
+    public string? BotUserId { get; set; } = "999000999";
+
+    /// <summary>Every ban, unban and removal asked for, in order.</summary>
+    public List<(string Action, string GuildId, string UserId, string Reason)> Moderation { get; } = [];
+
+    /// <summary>Set to make every ban, unban and removal fail as a missing permission does.</summary>
+    public string? ModerationRefused { get; set; }
+
+    /// <summary>Set to make every ban, unban and removal fail for some other reason.</summary>
+    public string? ModerationError { get; set; }
+
+    /// <summary>People Discord will say are already banned, or were never banned.</summary>
+    public HashSet<string> NothingToDo { get; } = [];
+
+    public Task<DiscordModerationOutcome> BanAsync(
+        string guildId, string userId, string reason, int deleteMessageDays, CancellationToken ct)
+        => ModerationAsync("ban", guildId, userId, reason);
+
+    public Task<DiscordModerationOutcome> UnbanAsync(string guildId, string userId, string reason, CancellationToken ct)
+        => ModerationAsync("unban", guildId, userId, reason);
+
+    public Task<DiscordModerationOutcome> RemoveAsync(string guildId, string userId, string reason, CancellationToken ct)
+        => ModerationAsync("remove", guildId, userId, reason);
+
+    /// <summary>Who the Discord server has banned. Null makes the ban list unreadable.</summary>
+    public List<string>? Banned { get; set; } = [];
+
+    public Task<IReadOnlyList<string>?> ReadBansAsync(string guildId, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<string>?>(Banned);
+
+    private Task<DiscordModerationOutcome> ModerationAsync(string action, string guildId, string userId, string reason)
+    {
+        if (ModerationRefused is { } refused)
+            return Task.FromResult(DiscordModerationOutcome.Refused(refused));
+
+        if (ModerationError is { } error)
+            return Task.FromResult(DiscordModerationOutcome.Failed(error));
+
+        if (NothingToDo.Contains(userId))
+            return Task.FromResult(DiscordModerationOutcome.Already);
+
+        Moderation.Add((action, guildId, userId, reason));
+        return Task.FromResult(DiscordModerationOutcome.Ok);
+    }
+
     private Task<DiscordRoleOutcome> RoleAsync(bool added, string guildId, string userId, string roleId)
     {
         if (NotInServer.Contains(userId))

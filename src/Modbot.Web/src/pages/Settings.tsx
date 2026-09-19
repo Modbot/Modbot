@@ -11,6 +11,7 @@ import { VRChatSection } from '@/components/settings/VRChatSection'
 import { AiSection } from '@/components/settings/ai/AiSection'
 import { ApiSection } from '@/components/settings/api/ApiSection'
 import { VRChatProxySection } from '@/components/settings/proxy/VRChatProxySection'
+import { PurgeSection } from '@/components/settings/PurgeSection'
 import { Tabs } from '@/components/ui/tabs'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { canAny } from '@/lib/permissions'
@@ -19,9 +20,10 @@ import { canAny } from '@/lib/permissions'
  * The tabs, in order. The id is what `/settings#evidence` names, so a pasted link opens that tab.
  * Adding a topic means one entry here and one line in `Panel` below.
  *
- * `needs` is the permission a tab asks for. Every tab but IAM is a setting of the deployment and
- * asks for Manage settings; IAM is Modbot's own accounts and roles, which are managed by their
- * own two permissions (accounts and access design §3, §4).
+ * `needs` is the permission a tab asks for. Most tabs are a setting of the deployment and ask for
+ * Manage settings; IAM is Modbot's own accounts and roles, which are managed by their own two
+ * permissions (accounts and access design §3, §4); Purge a person asks for Administrator, the
+ * permission evidence storage design §14 already gives it.
  */
 const TABS = [
   { value: 'data', label: 'Host & Database', needs: ['ManageSettings'] },
@@ -36,6 +38,7 @@ const TABS = [
   { value: 'ai', label: 'AI', needs: ['ManageSettings'] },
   { value: 'api', label: 'API', needs: ['ManageSettings'] },
   { value: 'proxy', label: 'VRChat Proxy', needs: ['ManageSettings'] },
+  { value: 'purge', label: 'Purge a person', needs: ['Administrator'] },
 ] as const
 
 type TabId = (typeof TABS)[number]['value']
@@ -153,5 +156,7 @@ function Panel({
       return <ApiSection />
     case 'proxy':
       return <VRChatProxySection />
+    case 'purge':
+      return <PurgeSection />
   }
 }

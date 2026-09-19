@@ -4,6 +4,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ReasonButtons } from '@/components/CaseFileForm'
+import { NotesBeforeActing } from '@/components/subject/PersonNotes'
 import {
   api,
   ApiError,
@@ -65,7 +66,10 @@ export function ModerationActions({
     <Button
       key={o.action}
       size={size}
-      variant={o.destructive ? 'outline' : 'ghost'}
+      // Red, not an outline. These are the buttons that take somebody out of the group, and a
+      // row where Kick and Unban look the same is a row where the wrong one gets pressed. The
+      // confirmation is what stops a misclick; the colour is what stops the reach.
+      variant={o.destructive ? 'destructive' : 'ghost'}
       onClick={() => setOpen(o.action)}
     >
       {o.label}
@@ -105,6 +109,7 @@ export function ModerationActions({
             action={open}
             userId={person.userId ?? ''}
             name={name ?? person.userId ?? ''}
+            isMember={person.isMember}
             onClose={() => setOpen(null)}
             onDone={onDone}
           />
@@ -118,12 +123,15 @@ function ConfirmAction({
   action,
   userId,
   name,
+  isMember,
   onClose,
   onDone,
 }: {
   action: ModerationActionName
   userId: string
   name: string
+  /** What the member list last said. Undefined or null: Modbot has not read it. */
+  isMember?: boolean | null
   onClose: () => void
   onDone?: (result: ModerationActionResult) => void
 }) {
@@ -169,13 +177,20 @@ function ConfirmAction({
 
   return (
     <DialogContent
-      title={confirmTitle(action, name)}
+      title={confirmTitle(action, name, isMember)}
       subtitle={<span className="font-mono" title={userId}>{userId}</span>}
       className="max-w-[460px]"
     >
       <div className="flex flex-col gap-3">
         {result === null && (
           <>
+            {/*
+              What the group has already written down about this person, before the button is
+              pressed. M4 §8.1: this is the moment that information is worth having and the only
+              moment at which showing it costs nothing. Nothing is drawn when there are none.
+            */}
+            <NotesBeforeActing userId={userId} />
+
             {reasons === null ? (
               <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                 Loading the reasons…

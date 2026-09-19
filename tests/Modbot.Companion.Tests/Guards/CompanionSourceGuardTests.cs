@@ -278,6 +278,10 @@ public class CompanionSourceGuardTests
         // spec), one fetches the voice -- once, from one pinned address, with nothing attached --
         // and one reads the sponsors, early adopters and contributors the Credits page shows.
         // Nothing else reaches the network.
+        //
+        // Two of the eight are the overlay's: HttpOverlayReadClient and LiveSocket. Neither runs
+        // while the overlay is switched off, because the switch never builds the driver that owns
+        // them (TheOverlayIsOnlyEverBuiltThroughItsOnOffSwitch).
         var senders = ClientSources()
             .Where(f => Regex.IsMatch(
                 File.ReadAllText(f),
@@ -344,6 +348,28 @@ public class CompanionSourceGuardTests
             foreach (Match ask in Regex.Matches(source, @"(EnumerateAudioEndPoints|GetDefaultAudioEndpoint|HasDefaultAudioEndpoint)\s*\(\s*DataFlow\s*\.\s*(\w+)"))
                 Assert.Equal("Render", ask.Groups[2].Value);
         }
+    }
+
+    [Fact]
+    public void TheOverlayIsOnlyEverBuiltThroughItsOnOffSwitch()
+    {
+        // "What does this program start, and when" should stay as answerable as "what does it
+        // send". The panel connects to SteamVR and its driver opens a live connection to a paired
+        // server, so a moderator who switched the overlay off must not get either by some second
+        // path that forgot to ask. One place builds it, and only the switch calls that place.
+        var building = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("OverlayHost.Create", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal(["Program.cs"], building);
+
+        var program = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "Program.cs"));
+
+        Assert.Contains("new OverlaySwitch(StartOverlay, StopOverlay", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartOverlay();", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("StopOverlay();", program, StringComparison.Ordinal);
     }
 
     [Fact]

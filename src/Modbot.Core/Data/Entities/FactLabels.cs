@@ -97,6 +97,14 @@ public static class FactLabels
         [FactType.DiscordLinkRoleRemoved] = "Discord role taken away for a link",
         [FactType.DiscordLinkPrompted] = "Asked to link on Discord",
 
+        [FactType.CopiedBan] = "Ban copied from the other platform",
+        [FactType.CopiedUnban] = "Unban copied from the other platform",
+        [FactType.CopiedRemove] = "Removed from Discord for a VRChat ban",
+        [FactType.CopiedRoleGiven] = "Role given to match the other platform",
+        [FactType.CopiedRoleTaken] = "Role taken away to match the other platform",
+        [FactType.CopyFailed] = "A copy between platforms failed",
+        [FactType.RolesDisagree] = "The two platforms disagree about a role",
+
         [FactType.Login] = "Signed in",
         [FactType.LoginFailed] = "Failed sign-in",
         [FactType.PasswordChanged] = "Password changed",
@@ -167,6 +175,8 @@ public static class FactLabels
         [FactType.ActionBan] = "Banned from Modbot",
         [FactType.ActionUnban] = "Unbanned from Modbot",
         [FactType.ActionFailed] = "Action failed",
+        [FactType.ActionJoinRequestApproved] = "Let into the group from Modbot",
+        [FactType.ActionJoinRequestRejected] = "Join request turned down from Modbot",
 
         [FactType.EvidenceAttached] = "Evidence attached",
         [FactType.EvidenceAccessed] = "Evidence opened",
@@ -183,6 +193,7 @@ public static class FactLabels
         [FactType.ChatLookup] = "Asked about in chat",
         [FactType.UserPurged] = "User data purged",
         [FactType.NoteAdded] = "Note added",
+        [FactType.NoteTakenBack] = "Note taken back",
         [FactType.ImportDone] = "Import finished",
         [FactType.Unrecognised] = "Event Modbot has no name for yet",
 

@@ -52,8 +52,9 @@ rather than making you read the tag:
 | **Early adopter** | `system_early_adopter` |
 | One badge per language, such as **English** or **Japanese** | the `language_*` tags. A language Modbot has no name for shows its code. |
 
-The 18+ mark has its own block, so the age tags are not repeated as badges. Every tag not in this
-table is behind the **more tags** control on the **Overview** tab.
+The [18+ mark](#the-18-verified-mark) is a badge of its own beside the name, so the age tags are not
+repeated here. Every tag not in this table is behind the **more tags** control on the **Overview**
+tab.
 
 Modbot keeps everything else VRChat returns too, **except** these, which are dropped before
 anything is saved:
@@ -171,18 +172,28 @@ them still knows the person, Modbot goes on showing them normally.
 VRChat lets people choose whether their age verification is visible. Somebody who showed as 18+
 yesterday can hide it today, and to anyone who looks them up they then appear unverified.
 
+In the [person popup](/moderation/popups#person-popup) the mark is a badge beside the name: **18+
+verified** in green, or **Not seen as 18+ verified** in grey. The two are different states and not
+the same claim, so they always read as different words.
+
+The rest of what Modbot knows about the mark is in a card beside the badge. Hover the badge to open
+it, tap it on a touch screen, or press `Enter` or `Space` with the badge selected — which also moves
+you into the card, so `Tab` reaches **Clear flag** and `Esc` closes the card and puts you back on
+the badge.
+
 Modbot treats verification as something it has **seen**, not something it checks again:
 
 - **A refresh can set the mark and can never clear it.** The first time any refresh sees the person
-  as 18+ verified, the mark is set and the card says **18+ verified**, **first seen on VRChat** and
-  the date. Hiding the badge in VRChat later changes nothing.
-- **The card shows both sides.** Under the mark, **VRChat shows this person as** gives what VRChat
-  said at the last refresh (for example `18+` or `hidden`). When the two disagree, that is the
-  point: hidden is not the same as unverified.
+  as 18+ verified, the mark is set and the card says **First seen on VRChat** and the date. Hiding
+  the badge in VRChat later changes nothing.
+- **The card shows both sides.** **VRChat shows this person as** gives what VRChat said at the last
+  refresh (for example `18+` or `hidden`). When the two disagree, that is the point: hidden is not
+  the same as unverified.
 - **Only a moderator can clear it.** Anyone with **Edit 18+ verified** sees a **Clear flag** button
-  on a marked person, and **Mark 18+ verified** on an unmarked one.
+  in the card on a marked person, and **Mark 18+ verified** on an unmarked one.
 
-The **18+** mark on the Members page and in case files is this same mark.
+The **18+** mark on the Members page, on the [People](/moderation/people) page and in case files is
+this same mark. **18+ verified** is also a filter on both lists.
 
 ### Changing the mark by hand
 
@@ -198,9 +209,10 @@ Click their name anywhere to open the [person popup](/moderation/popups#person-p
 
 <Step>
 
-### Press Clear flag or Mark 18+ verified
+### Open the 18+ badge, and press Clear flag or Mark 18+ verified
 
-The button is at the right of the 18+ block. You need **Edit 18+ verified**.
+Hover the badge beside their name, tap it, or select it and press `Enter`. The button is in the
+card. You need **Edit 18+ verified**.
 
 </Step>
 
@@ -208,14 +220,14 @@ The button is at the right of the 18+ block. You need **Edit 18+ verified**.
 
 ### Say why, and confirm
 
-Type a reason (up to 500 characters) and press the button again. The reason is optional but worth
-writing: it is kept with the change.
+Type a **Reason** (up to 500 characters) and press the button again. The reason is optional but
+worth writing: it is kept with the change.
 
 </Step>
 
 </Steps>
 
-The card then says **set by** or **cleared by** your username and the date. The change is written
+The card then says **Set by** or **Cleared by** your username and the date. The change is written
 to the [audit log](/moderation/audit-log) against your account, with the reason.
 
 If you clear the mark and a later refresh sees the person as 18+ verified again, the mark is set

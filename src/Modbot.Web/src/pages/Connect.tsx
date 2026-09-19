@@ -60,7 +60,7 @@ export function Connect() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background p-6">
+    <div className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="w-full max-w-[460px]">
         <Brand subtitle="connect" />
         <div className="overflow-hidden rounded-xl border bg-card shadow-lg">

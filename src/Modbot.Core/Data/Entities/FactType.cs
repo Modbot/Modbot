@@ -260,6 +260,42 @@ public static class FactType
     /// </summary>
     public const string DiscordLinkPrompted = "discord.link.prompt";
 
+    // ── Role and ban sync (M5 §3 and §4; Discord sync design) ──────────────────────────────
+    //
+    // Modbot changed somebody's standing on one platform because of something that happened on the
+    // other. The subject is the person on the platform that was changed; there is no actor,
+    // because nobody pressed anything at that moment -- the payload names the fact that caused it
+    // and the person who did that. Kept at moderation retention: a copied ban is a ban, and "why
+    // am I banned here when I did nothing here" has to stay answerable.
+
+    /// <summary>A ban was copied to the other platform. Payload: which way, the cause, the reason sent.</summary>
+    public const string CopiedBan = "modbot.copy.ban";
+
+    /// <summary>An unban was copied to the other platform.</summary>
+    public const string CopiedUnban = "modbot.copy.unban";
+
+    /// <summary>A ban was copied into Discord as a removal from the server rather than a ban.</summary>
+    public const string CopiedRemove = "modbot.copy.remove";
+
+    /// <summary>A paired role was given, because the deciding side had it.</summary>
+    public const string CopiedRoleGiven = "modbot.copy.role.give";
+
+    /// <summary>A paired role was taken away, because the deciding side did not have it.</summary>
+    public const string CopiedRoleTaken = "modbot.copy.role.take";
+
+    /// <summary>
+    /// A copy was refused by the platform it was sent to. Its own type, for the reason
+    /// <see cref="ActionFailed"/> is: nothing that counts bans may ever count one that did not
+    /// happen. Distinct from <see cref="SyncFailed"/>, which is a background sync job giving up.
+    /// </summary>
+    public const string CopyFailed = "modbot.copy.failed";
+
+    /// <summary>
+    /// A pair with nobody deciding found the two sides disagreeing, and changed nothing (M5 §3.1).
+    /// Written once per person per pair until they agree again.
+    /// </summary>
+    public const string RolesDisagree = "modbot.copy.disagree";
+
     /// <summary>
     /// A moderator deleted somebody's messages. The subject is the author, the actor the moderator.
     /// Payload: <c>channelId</c> and <c>count</c>. The messages themselves stay stored, marked deleted.
@@ -494,6 +530,17 @@ public static class FactType
     /// </remarks>
     public const string ActionFailed = "modbot.action.failed";
 
+    /// <summary>A moderator let somebody into the group from Modbot, and VRChat accepted.</summary>
+    /// <remarks>
+    /// Separate from <see cref="JoinRequestCreated"/> and the rest of the <c>vrchat.group.request.*</c>
+    /// family for the reason the three above are separate from the member facts: VRChat's own log
+    /// says Modbot's account answered the request and cannot say which moderator decided to.
+    /// </remarks>
+    public const string ActionJoinRequestApproved = "modbot.action.request.approve";
+
+    /// <summary>A moderator turned a join request down from Modbot, and VRChat accepted.</summary>
+    public const string ActionJoinRequestRejected = "modbot.action.request.reject";
+
     // ── Evidence (evidence design §6, §14.1) ───────────────────────────────────────────────
 
     /// <summary>Evidence was attached to a case file.</summary>
@@ -599,10 +646,29 @@ public static class FactType
     public const string UserPurged = "modbot.user.purged";
 
     /// <summary>
-    /// A written note about a person (import design §3.3). Subject is the person; the actor is
-    /// whoever wrote it. Payload: whatever the note said, under <c>data</c>.
+    /// A written note about a person (import design §3.3, notes design §3). Subject is the person;
+    /// the actor is whoever wrote it. Payload: the note's text under <c>text</c>, and the same text
+    /// as <c>description</c> so every reader of a timeline already knows where to find it.
     /// </summary>
+    /// <remarks>
+    /// The importer wrote these before Modbot could, and it still does. A note written here and a
+    /// note carried in from another system are the same fact, which is what lets one list show both
+    /// without knowing which is which.
+    /// </remarks>
     public const string NoteAdded = "modbot.note.add";
+
+    /// <summary>
+    /// A note was taken back: it stops being shown as one of this person's notes, and both facts
+    /// stay in the log (notes design §3.2).
+    /// </summary>
+    /// <remarks>
+    /// Not a deletion, and not an edit. The fact log is append-only (M4 §10), so the way to undo
+    /// something here is the way a ban is undone — another fact that says so. Subject is the person
+    /// the note was about, so the take-back sits beside the note in their timeline; the actor is
+    /// whoever took it back. Payload: <c>noteFactId</c>, and the note's text again, so the log
+    /// still answers "what did it say" from one entry.
+    /// </remarks>
+    public const string NoteTakenBack = "modbot.note.take-back";
 
     /// <summary>
     /// An import of old data finished (import design §4.4). Subject is the import id; the actor

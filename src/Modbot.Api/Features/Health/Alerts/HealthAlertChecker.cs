@@ -6,6 +6,7 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
 using Modbot.Core.Email;
 using Modbot.Core.Logging.Store;
+using Modbot.Core.Notifications;
 using Modbot.Core.Time;
 using Modbot.VRChat;
 
@@ -18,28 +19,34 @@ namespace Modbot.Api.Features.Health.Alerts;
 public sealed record CheckReading(string Check, bool Problem, string Detail);
 
 /// <summary>What one pass did.</summary>
-/// <param name="Problems">Checks that went wrong and were emailed about.</param>
-/// <param name="Recoveries">Checks that came back and were emailed about.</param>
-/// <param name="Sent">Emails handed to the queue.</param>
+/// <param name="Problems">Checks that went wrong and were said out loud.</param>
+/// <param name="Recoveries">Checks that came back and were said out loud.</param>
+/// <param name="Raised">Notifications raised. Repeats inside the quiet time are not counted.</param>
 public sealed record HealthAlertRun(
     IReadOnlyList<string> Problems,
     IReadOnlyList<string> Recoveries,
-    int Sent);
+    int Raised);
 
 /// <summary>
-/// Watches what the Health page already knows, and emails the staff accounts that asked.
+/// Watches what the Health page already knows, and tells the staff accounts that asked.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Each check has a state, so a problem is said once.</strong> Going wrong sends one email;
-/// staying wrong sends nothing until the quiet time is up, and then says it again, because a problem
-/// nobody has fixed is still a problem; coming back sends one email saying it is over. Without the
-/// state this is a mail every five minutes, which is how alerting gets turned off.
+/// <strong>Each check has a state, so a problem is said once.</strong> Going wrong raises one
+/// notification; staying wrong raises the same one every pass and the pipeline counts it rather than
+/// sending it, until the quiet time is up and it goes out again, because a problem nobody has fixed
+/// is still a problem; coming back says once that it is over.
 /// </para>
 /// <para>
-/// The quiet time works the same way the unusual-activity alerts' does (AI insights design §8), and
-/// for the same reason, but there is no "much worse" exception here: a sync that is broken is not
-/// twice as broken an hour later.
+/// <strong>This used to send its own email</strong> and no longer does (notifications design,
+/// 2026-09-18). It raises through <see cref="INotifier"/>, which decides channels from severity and
+/// each person's own settings, and email is one of those channels — still through the same sender,
+/// so the daily email limit is exactly as it was. Nothing here sends anything itself: two paths to
+/// the same inbox is how a deployment gets told twice.
+/// </para>
+/// <para>
+/// The quiet time is still the one on the health alerts card, handed to the pipeline with each
+/// notification, so a number an operator chose keeps meaning what it meant.
 /// </para>
 /// <para>
 /// <strong>What this half cannot see.</strong> A Modbot whose process is not running, or whose
@@ -48,8 +55,9 @@ public sealed record HealthAlertRun(
 /// while it is up.
 /// </para>
 /// <para>
-/// Mail goes through the ordinary sender, so it obeys the daily email limit and the queue (accounts
-/// and access design §4.4). A deployment with no SMTP set up records the state and sends nothing.
+/// A deployment that can reach nobody at all records the state and sends nothing — and because a
+/// stopped sync is <see cref="NotificationSeverity.Critical"/>, it is waiting on the recipients'
+/// accounts the next time they sign in (foundation §4.5.3).
 /// </para>
 /// </remarks>
 public sealed class HealthAlertChecker
@@ -74,7 +82,7 @@ public sealed class HealthAlertChecker
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
-    private readonly IEmailSender _email;
+    private readonly INotifier _notifier;
     private readonly IVRChatGate? _gate;
     private readonly IDiscordBotStatus? _discord;
     private readonly Modbot.AI.Usage.AiSpendReport? _aiSpend;
@@ -85,7 +93,7 @@ public sealed class HealthAlertChecker
     public HealthAlertChecker(
         ModbotContext db,
         IModbotClock clock,
-        IEmailSender email,
+        INotifier notifier,
         IVRChatGate? gate = null,
         IDiscordBotStatus? discord = null,
         Modbot.AI.Usage.AiSpendReport? aiSpend = null,
@@ -95,11 +103,11 @@ public sealed class HealthAlertChecker
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
-        ArgumentNullException.ThrowIfNull(email);
+        ArgumentNullException.ThrowIfNull(notifier);
 
         _db = db;
         _clock = clock;
-        _email = email;
+        _notifier = notifier;
         _gate = gate;
         _discord = discord;
         _aiSpend = aiSpend;
@@ -121,16 +129,14 @@ public sealed class HealthAlertChecker
         var now = _clock.UtcNow;
         var readings = await ReadAsync(watches.Select(w => w.Check).ToHashSet(StringComparer.Ordinal), settings, ct);
 
-        var problems = new List<string>();
-        var recoveries = new List<string>();
-        var messages = new List<(string Subject, string Body)>();
+        var quiet = TimeSpan.FromHours(Math.Clamp(settings.QuietHours, 0, HealthAlertSettings.MaxQuietHours));
+        var audience = await AudienceAsync(ct);
+        var raising = new List<(HealthWatch Watch, Notification Note, bool IsProblem)>();
 
         foreach (var watch in watches)
         {
             if (readings.FirstOrDefault(r => r.Check == watch.Check) is not { } reading)
                 continue;
-
-            var quiet = TimeSpan.FromHours(Math.Clamp(settings.QuietHours, 0, HealthAlertSettings.MaxQuietHours));
 
             if (reading.Problem)
             {
@@ -142,13 +148,10 @@ public sealed class HealthAlertChecker
 
                 watch.Detail = Short(reading.Detail);
 
-                var due = watch.LastSentAt is not { } last || now - last >= quiet;
-                if (!due)
-                    continue;
-
-                watch.LastSentAt = now;
-                problems.Add(watch.Check);
-                messages.Add(ProblemMail(watch, now));
+                // Raised every pass while the problem is there. Saying it once and then counting
+                // is the pipeline's job, not this checker's: the quiet time this deployment chose
+                // is handed over with the notification and the pipeline holds it.
+                raising.Add((watch, ProblemNotification(watch, now, quiet, audience), IsProblem: true));
             }
             else if (watch.Problem)
             {
@@ -166,8 +169,7 @@ public sealed class HealthAlertChecker
                 if (!said)
                     continue;
 
-                recoveries.Add(watch.Check);
-                messages.Add(RecoveryMail(watch.Check, wasFor));
+                raising.Add((watch, RecoveryNotification(watch.Check, wasFor, quiet, audience), IsProblem: false));
             }
         }
 
@@ -180,9 +182,49 @@ public sealed class HealthAlertChecker
 
         await _db.SaveChangesAsync(ct);
 
-        var sent = messages.Count == 0 ? 0 : await SendAsync(messages, ct);
+        var problems = new List<string>();
+        var recoveries = new List<string>();
+        var raised = 0;
 
-        return new HealthAlertRun(problems, recoveries, sent);
+        foreach (var (watch, note, isProblem) in raising)
+        {
+            var outcome = await _notifier.RaiseAsync(note, ct);
+
+            // A repeat inside the quiet time is not news and is not counted. The watch's own
+            // "something was said" mark only moves when something actually was.
+            if (outcome.Repeat)
+                continue;
+
+            raised++;
+
+            if (isProblem)
+            {
+                watch.LastSentAt = now;
+                problems.Add(watch.Check);
+            }
+            else
+            {
+                recoveries.Add(watch.Check);
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        return new HealthAlertRun(problems, recoveries, raised);
+    }
+
+    /// <summary>Who hears about Modbot's own health: the accounts somebody chose, and nobody else.</summary>
+    /// <remarks>
+    /// An explicit list rather than a permission, because the person who keeps the server running is
+    /// often not the person who moderates, and mail nobody wanted is mail everybody filters.
+    /// </remarks>
+    private async Task<NotificationAudience> AudienceAsync(CancellationToken ct)
+    {
+        var ids = await _db.HealthAlertRecipients.AsNoTracking()
+            .Select(r => r.UserId)
+            .ToListAsync(ct);
+
+        return NotificationAudience.These(ids);
     }
 
     /// <summary>Everything the watched checks need, read once.</summary>
@@ -295,7 +337,23 @@ public sealed class HealthAlertChecker
         return readings;
     }
 
-    private (string Subject, string Body) ProblemMail(HealthWatch watch, DateTimeOffset now)
+    /// <summary>
+    /// How serious each check is (foundation §4.5.1).
+    /// </summary>
+    /// <remarks>
+    /// Most of these are §4.5.1's own critical class said another way: Modbot cannot reach VRChat,
+    /// cannot read the audit log, cannot send mail, cannot ship its logs. The two that are not are
+    /// the ones that are a line somebody drew rather than something that has stopped working: the
+    /// database passing a size, and a spending limit reached.
+    /// </remarks>
+    private static NotificationSeverity SeverityOf(string check) => check switch
+    {
+        HealthChecks.Storage or HealthChecks.AiSpend => NotificationSeverity.Warning,
+        _ => NotificationSeverity.Critical,
+    };
+
+    private static Notification ProblemNotification(
+        HealthWatch watch, DateTimeOffset now, TimeSpan quiet, NotificationAudience audience)
     {
         var label = HealthChecks.LabelOf(watch.Check);
 
@@ -304,45 +362,44 @@ public sealed class HealthAlertChecker
                    + $"Since: {watch.Since ?? now:u}\n\n"
                    + "Open Sync health in Modbot for the whole picture.";
 
-        return ($"Modbot: {label} needs looking at", body);
+        return new Notification(
+            NotificationKinds.HealthProblem,
+            SeverityOf(watch.Check),
+            $"Modbot: {label} needs looking at",
+            body,
+            audience)
+        {
+            // One key per check, not per pass: the check being broken is one thing however many
+            // times it is noticed, and a key that moved would send every five minutes.
+            SameAs = $"{NotificationKinds.HealthProblem}:{watch.Check}",
+            Link = "/health",
+            Quiet = quiet,
+        };
     }
 
-    private static (string Subject, string Body) RecoveryMail(string check, TimeSpan wasFor)
+    private static Notification RecoveryNotification(
+        string check, TimeSpan wasFor, TimeSpan quiet, NotificationAudience audience)
     {
         var label = HealthChecks.LabelOf(check);
 
         var body = $"{label} is working again on your Modbot.\n\n"
                    + $"It was a problem for {Words(wasFor)}.";
 
-        return ($"Modbot: {label} is working again", body);
-    }
+        return new Notification(
+            NotificationKinds.HealthRecovered,
 
-    /// <summary>One email per recipient per message. Disabled accounts and accounts with no address are skipped.</summary>
-    private async Task<int> SendAsync(List<(string Subject, string Body)> messages, CancellationToken ct)
-    {
-        if (!await _email.IsConfiguredAsync(ct))
-            return 0;
-
-        var addresses = await _db.HealthAlertRecipients.AsNoTracking()
-            .Where(r => !r.User.IsDisabled && r.User.Email != null && r.User.Email != "")
-            .Select(r => r.User.Email!)
-            .Distinct()
-            .ToListAsync(ct);
-
-        var sent = 0;
-
-        foreach (var address in addresses)
+            // The same severity as the problem it closes. "It is over" belongs to the incident that
+            // interrupted somebody: telling them about the break at once and about the fix in
+            // tomorrow's summary would leave them investigating something already fixed.
+            SeverityOf(check),
+            $"Modbot: {label} is working again",
+            body,
+            audience)
         {
-            foreach (var (subject, body) in messages)
-            {
-                var outcome = await _email.SendAsync(new EmailMessage(address, subject, body, EmailKind.Other), ct);
-
-                if (outcome.Sent || outcome.Queued)
-                    sent++;
-            }
-        }
-
-        return sent;
+            SameAs = $"{NotificationKinds.HealthRecovered}:{check}",
+            Link = "/health",
+            Quiet = quiet,
+        };
     }
 
     private static string Short(string detail) => detail.Length <= 512 ? detail : detail[..512];

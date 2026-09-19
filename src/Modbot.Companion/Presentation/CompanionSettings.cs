@@ -11,13 +11,14 @@ namespace Modbot.Companion.Presentation;
 
 /// <summary>
 /// What a moderator can change about the client itself: which page "Pair with a server" opens,
-/// whether it checks for newer versions of itself, whether it starts with Windows, where its
-/// event backup to Modbot Cloud goes, and what its voice says.
+/// whether it checks for newer versions of itself, whether it starts with Windows, whether it
+/// draws the headset panel, where its event backup to Modbot Cloud goes, and what its voice says.
 /// </summary>
 /// <remarks>
 /// <para><strong>What this reads and writes.</strong> One file, <c>settings.json</c>, in Modbot's own
 /// folder under your user profile — beside <c>pairings.json</c>. It is plain JSON with optional fields:
-/// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c>, <c>vrchatLogFolder</c>, <c>overlay</c>, <c>cloud</c>
+/// <c>pairingPage</c>, <c>checkForUpdates</c>, <c>startWithWindows</c>, <c>vrchatLogFolder</c>, <c>overlayOn</c>,
+/// <c>overlay</c>, <c>cloud</c>
 /// (<c>{ "endpoint": "…", "disabled": true }</c>), <c>voice</c>
 /// (<c>{ "on": true, "joins": true, "leaves": true, "flaggedJoins": true, "volume": 80, "outputDevice": "…" }</c>)
 /// and <c>eventsFilters</c> (the Events page's filter chips, one line each, such as <c>"kind:is:joined,left"</c>).
@@ -63,6 +64,17 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public VoiceSettings Voice { get; init; } = VoiceSettings.Default;
 
     /// <summary>
+    /// Whether the headset panel is drawn at all. On unless <c>"overlayOn": false</c> is in the
+    /// file, which is what the SteamVR page's <strong>Overlay on</strong> switch writes.
+    /// </summary>
+    /// <remarks>
+    /// Its own field rather than a member of the <c>overlay</c> object below, because that object
+    /// is rewritten whole every time a controller moves the panel, and the switch must not be able
+    /// to be lost in one of those writes.
+    /// </remarks>
+    public bool OverlayOn { get; init; } = true;
+
+    /// <summary>
     /// Where the headset panel is and how big. Saved as the <c>overlay</c> object whenever a
     /// controller moves it or the settings page changes it, so it is where it was left.
     /// </summary>
@@ -83,6 +95,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public const string StartWithWindowsField = "startWithWindows";
 
     public const string VRChatLogFolderField = "vrchatLogFolder";
+
+    public const string OverlayOnField = "overlayOn";
 
     public const string OverlayField = "overlay";
 
@@ -116,6 +130,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             StartWithWindows = shape?.StartWithWindows ?? true,
             VRChatLogFolder = string.IsNullOrWhiteSpace(shape?.VRChatLogFolder) ? null : shape.VRChatLogFolder.Trim(),
             Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
+            OverlayOn = shape?.OverlayOn ?? true,
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
             Voice = FromShape(shape?.Voice),
             EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
@@ -259,6 +274,7 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("startWithWindows")] bool? StartWithWindows,
         [property: JsonPropertyName("vrchatLogFolder")] string? VRChatLogFolder,
         [property: JsonPropertyName("cloud")] CloudShape? Cloud,
+        [property: JsonPropertyName("overlayOn")] bool? OverlayOn,
         [property: JsonPropertyName("overlay")] JsonObject? Overlay,
         [property: JsonPropertyName("voice")] VoiceShape? Voice,
         [property: JsonPropertyName("eventsFilters")] JsonArray? EventsFilters);

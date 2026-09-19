@@ -164,6 +164,52 @@ public class CompanionSettingsTests : IDisposable
     }
 
     [Fact]
+    public void TheOverlayIsOnUnlessTheFileSaysOtherwise()
+    {
+        // It shipped on before there was a switch, and it stays on: turning it off is the new
+        // choice, not the new default. Off has to be a deliberate word in the file.
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).OverlayOn);
+        Assert.True(CompanionSettings.Default.OverlayOn);
+
+        Write("""{ "overlayOn": false }""");
+        Assert.False(CompanionSettings.Load(Path_, NoEnvironment).OverlayOn);
+
+        Write("""{ "overlayOn": "no" }""");
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).OverlayOn);
+    }
+
+    [Fact]
+    public void TurningTheOverlayOffIsRememberedAndKeepsEveryOtherField()
+    {
+        // The point of saving it: a moderator who does not want a panel should not be handed one
+        // again at the next start, or by the next update -- the file is in their own profile and
+        // an update replaces only the program.
+        Write("""{ "pairingPage": "https://modbot.example/pair", "checkForUpdates": false }""");
+
+        Assert.True(CompanionSettings.SaveSwitch(Path_, CompanionSettings.OverlayOnField, false));
+
+        var loaded = CompanionSettings.Load(Path_, NoEnvironment);
+        Assert.False(loaded.OverlayOn);
+        Assert.Equal(new Uri("https://modbot.example/pair"), loaded.PairingPage);
+        Assert.False(loaded.CheckForUpdates);
+
+        Assert.True(CompanionSettings.SaveSwitch(Path_, CompanionSettings.OverlayOnField, true));
+        Assert.True(CompanionSettings.Load(Path_, NoEnvironment).OverlayOn);
+    }
+
+    [Fact]
+    public void MovingThePanelDoesNotTurnTheSwitchBackOn()
+    {
+        // Why the switch is its own field rather than a member of the overlay object: that object
+        // is rewritten whole every time a controller moves the panel, and a switch inside it would
+        // be lost in one of those writes.
+        Assert.True(CompanionSettings.SaveSwitch(Path_, CompanionSettings.OverlayOnField, false));
+        Assert.True(CompanionSettings.SaveOverlay(Path_, Modbot.Companion.Overlay.OverlayPlacement.Default));
+
+        Assert.False(CompanionSettings.Load(Path_, NoEnvironment).OverlayOn);
+    }
+
+    [Fact]
     public void TheEventsFiltersAreReadFromTheFile()
     {
         Write("""{ "eventsFilters": ["kind:is:joined,left", "not a chip", "text:contains:rin"] }""");

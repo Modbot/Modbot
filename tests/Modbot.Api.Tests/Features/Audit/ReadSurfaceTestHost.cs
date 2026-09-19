@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.DailyTotals;
+using Modbot.Analytics.Retention;
 using Modbot.Analytics.Reviews;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Audit;
@@ -109,6 +110,9 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         // through AddModbotVRChat, which would bring the hosted syncs with it.
         builder.Services.AddSingleton<Modbot.VRChat.Moderation.GroupModeration>();
 
+        // The join queue and the two answers to one of it, over the same scripted gate.
+        builder.Services.AddSingleton<Modbot.VRChat.Moderation.GroupJoinRequests>();
+
         builder.Services.AddSingleton<ISecretProtector>(services =>
         {
             using var scope = services.CreateScope();
@@ -126,6 +130,12 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         // service: a test runs detection when it wants to assert on the result.
         builder.Services.AddScoped<ReviewFacts>();
         builder.Services.AddScoped<ReviewJob>();
+
+        // Settings → Purge a person, which counts through one of these and erases through the
+        // other. Registered here for the same reason as the rest: the hosted retention service
+        // would be pruning partitions underneath a test that is asserting on them.
+        builder.Services.AddScoped<IUserPurger, UserPurger>();
+        builder.Services.AddScoped<PurgePreviewer>();
 
         var diagnostics = new SyncDiagnostics(clock);
         var queue = new UserRefreshQueue();

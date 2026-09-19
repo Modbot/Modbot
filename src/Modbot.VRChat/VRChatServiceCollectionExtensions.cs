@@ -162,6 +162,11 @@ public static class VRChatServiceCollectionExtensions
         // rather than in the API so that the endpoint class, the interactive priority and the
         // ...WithHttpInfoAsync rule are decided once beside the syncs (M4 §4).
         services.AddSingleton<Moderation.GroupModeration>();
+        services.AddSingleton<Moderation.GroupRoles>();
+
+        // The join queue and the two answers to one of it, for the same reason and in the same
+        // place: the endpoint classes and the interactive priority are decided beside the syncs.
+        services.AddSingleton<Moderation.GroupJoinRequests>();
 
         // What an AutoMod rule set to act may do in the group (AutoMod design §5), through the
         // same wrapper. Scoped: it reads the settings row for the group and the signed-in account.
@@ -278,7 +283,9 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Time.IModbotClock>(),
             // Optional: a host that does not report public instances registers no nudge, and the poll
             // is unchanged.
-            provider.GetService<Core.Cloud.PublicInstancesNudge>()));
+            provider.GetService<Core.Cloud.PublicInstancesNudge>(),
+            // Optional for the same reason: without it the poll records the close and says nothing.
+            provider.GetService<Core.Notifications.INotifier>()));
 
         services.AddScoped<WorldSync>(provider => new WorldSync(
             provider.GetRequiredService<IVRChatGate>(),

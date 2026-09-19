@@ -238,6 +238,15 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The Discord server's members as last seen. Current state; the history is in <see cref="Events"/>.</summary>
     public DbSet<DiscordMember> DiscordMembers => Set<DiscordMember>();
 
+    /// <summary>VRChat group roles paired with Discord roles, and which side decides each (M5 §3.1).</summary>
+    public DbSet<DiscordRolePair> DiscordRolePairs => Set<DiscordRolePair>();
+
+    /// <summary>What Modbot copied from one platform to the other, and how the loop is broken (M5 §4.2).</summary>
+    public DbSet<CopiedAction> CopiedActions => Set<CopiedAction>();
+
+    /// <summary>How far the role and ban sync have got. One row.</summary>
+    public DbSet<DiscordSyncState> DiscordSyncState => Set<DiscordSyncState>();
+
     /// <summary>Planned events and their repeat rules (calendar design §2).</summary>
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
 
@@ -278,6 +287,20 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
     /// <summary>The staff accounts the health emails go to.</summary>
     public DbSet<HealthAlertRecipient> HealthAlertRecipients => Set<HealthAlertRecipient>();
+
+    /// <summary>Everything Modbot has decided somebody should be told (foundation §4.5).</summary>
+    public DbSet<NotificationRecord> Notifications => Set<NotificationRecord>();
+
+    /// <summary>Who each notification was addressed to, and whether they have seen it.</summary>
+    public DbSet<NotificationForPerson> NotificationsForPeople => Set<NotificationForPerson>();
+
+    /// <summary>What each channel did with each notification.</summary>
+    public DbSet<NotificationSend> NotificationSends => Set<NotificationSend>();
+
+    /// <summary>What each person wants on each channel. A row exists only where somebody changed something.</summary>
+    public DbSet<NotificationChoice> NotificationChoices => Set<NotificationChoice>();
+
+    public DbSet<NotificationSettings> NotificationSettings => Set<NotificationSettings>();
 
     /// <summary>
     /// Reads the singleton, creating it on first call. Every caller uses this rather than
@@ -1221,6 +1244,60 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.GuildId).HasDatabaseName("ix_discord_role_guild");
         });
 
+        builder.Entity<DiscordRolePair>(entity =>
+        {
+            entity.ToTable("discord_role_pair");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.VRChatRoleId).HasColumnType("text");
+            entity.Property(e => e.DiscordRoleId).HasColumnType("text");
+            entity.Property(e => e.Decides).HasMaxLength(16);
+            entity.Property(e => e.Problem).HasMaxLength(1000);
+
+            // One pair per VRChat role and one per Discord role. Two pairs naming the same role
+            // with different sides deciding would have the two passes undo each other forever,
+            // which is exactly the flapping §3.1 exists to prevent -- so the database refuses it.
+            entity.HasIndex(e => e.VRChatRoleId).IsUnique().HasDatabaseName("ux_discord_role_pair_vrchat");
+            entity.HasIndex(e => e.DiscordRoleId).IsUnique().HasDatabaseName("ux_discord_role_pair_discord");
+        });
+
+        builder.Entity<CopiedAction>(entity =>
+        {
+            entity.ToTable("discord_copied_action");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Direction).HasMaxLength(16);
+            entity.Property(e => e.Kind).HasMaxLength(16);
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+            entity.Property(e => e.OtherSideId).HasColumnType("text");
+            entity.Property(e => e.RoleId).HasColumnType("text");
+            entity.Property(e => e.Error).HasMaxLength(1000);
+
+            // The one question asked of this table on every incoming event: "did Modbot just do
+            // this to this person, and has that copy not already been answered for?" Filtered, so
+            // the index holds only the rows that can still excuse something -- which, on a settled
+            // deployment, is almost none of them.
+            entity.HasIndex(e => new { e.Direction, e.SubjectId, e.Kind, e.StartedAt })
+                .HasDatabaseName("ix_discord_copied_action_waiting")
+                .HasFilter("seen_back_at IS NULL");
+
+            // The sync screen's list: what was copied lately, newest first.
+            entity.HasIndex(e => e.StartedAt).HasDatabaseName("ix_discord_copied_action_started").IsDescending();
+        });
+
+        builder.Entity<DiscordSyncState>(entity =>
+        {
+            entity.ToTable("discord_sync_state", t =>
+                t.HasCheckConstraint("ck_discord_sync_state_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.BansProblem).HasMaxLength(1000);
+            entity.Property(e => e.RolesProblem).HasMaxLength(1000);
+        });
+
         builder.Entity<Insight>(entity =>
         {
             entity.ToTable("modbot_insight");
@@ -2040,6 +2117,88 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<NotificationRecord>(entity =>
+        {
+            entity.ToTable("notification");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Kind).HasMaxLength(128);
+            entity.Property(e => e.Severity).HasMaxLength(16);
+            entity.Property(e => e.SameAs).HasMaxLength(256);
+            entity.Property(e => e.Title).HasMaxLength(256);
+            entity.Property(e => e.Body).HasMaxLength(2000);
+            entity.Property(e => e.Link).HasMaxLength(512);
+
+            // The deduplication lookup: the newest row sharing a key. Every raise does exactly this
+            // one query before it decides whether to write anything at all.
+            entity.HasIndex(e => new { e.SameAs, e.LastAt }).HasDatabaseName("ix_notification_same_as");
+        });
+
+        builder.Entity<NotificationForPerson>(entity =>
+        {
+            entity.ToTable("notification_person");
+
+            entity.HasKey(e => new { e.NotificationId, e.UserId });
+
+            entity.HasOne(e => e.Notification)
+                .WithMany(n => n.People)
+                .HasForeignKey(e => e.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // What the banner at sign-in reads: this person's unseen criticals that reached nothing.
+            entity.HasIndex(e => new { e.UserId, e.Waiting, e.SeenAt })
+                .HasDatabaseName("ix_notification_person_waiting");
+        });
+
+        builder.Entity<NotificationSend>(entity =>
+        {
+            entity.ToTable("notification_send");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Channel).HasMaxLength(32);
+            entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.LastError).HasMaxLength(512);
+
+            entity.HasOne(e => e.Notification)
+                .WithMany()
+                .HasForeignKey(e => e.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => new { e.State, e.QueuedAt }).HasDatabaseName("ix_notification_send_state");
+            entity.HasIndex(e => new { e.NotificationId, e.UserId }).HasDatabaseName("ix_notification_send_for");
+        });
+
+        builder.Entity<NotificationChoice>(entity =>
+        {
+            entity.ToTable("notification_choice");
+
+            entity.HasKey(e => new { e.UserId, e.Channel });
+
+            entity.Property(e => e.Channel).HasMaxLength(32);
+            entity.Property(e => e.Level).HasMaxLength(16);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<NotificationSettings>(entity =>
+        {
+            entity.ToTable("notification_settings", t =>
+                t.HasCheckConstraint("ck_notification_settings_singleton", "id = 1"));
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
         });
 
         builder.Entity<LogEntry>(entity =>

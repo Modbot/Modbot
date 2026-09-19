@@ -3,18 +3,27 @@ using Modbot.Api.Features.Health.Alerts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Email;
+using Modbot.Core.Notifications;
 using Modbot.Core.Time;
 using Modbot.TestSupport;
 
 namespace Modbot.Api.Tests.Features.Health;
 
 /// <summary>
-/// Modbot emailing somebody about its own health: said once, repeated after the quiet time, and
+/// Modbot telling somebody about its own health: said once, repeated after the quiet time, and
 /// said to be over.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Against the real database, because the whole point of the design is that the state is a row: a
 /// restart in the middle of a problem must not start the emails over.
+/// </para>
+/// <para>
+/// These run the checker and then the notification send pass, which is what the host does a moment
+/// later. The assertions are still about email arriving, on purpose: the health checker moved onto
+/// the notification pipeline (notifications design, 2026-09-18) and the thing that must not have
+/// changed is what lands in somebody's inbox.
+/// </para>
 /// </remarks>
 [Collection(nameof(PostgresCollection))]
 public class HealthAlertTests
@@ -60,6 +69,10 @@ public class HealthAlertTests
         await db.HealthAlertRecipients.ExecuteDeleteAsync(ct);
         await db.HealthAlertSettings.ExecuteDeleteAsync(ct);
         await db.EmailQueue.ExecuteDeleteAsync(ct);
+        await db.NotificationSends.ExecuteDeleteAsync(ct);
+        await db.NotificationsForPeople.ExecuteDeleteAsync(ct);
+        await db.Notifications.ExecuteDeleteAsync(ct);
+        await db.NotificationChoices.ExecuteDeleteAsync(ct);
         // Email became unique per account, so the user this method creates below must not be
         // left behind for the next test in the file to collide with.
         await db.Users.Where(u => u.Email == "keeper@example.com").ExecuteDeleteAsync(ct);
@@ -83,8 +96,21 @@ public class HealthAlertTests
         return (db, new MovingClock(Start), new StubSender());
     }
 
+    private static IEnumerable<INotificationChannel> Channels(StubSender sender) =>
+        [new EmailNotificationChannel(sender)];
+
     private static HealthAlertChecker Checker(ModbotContext db, MovingClock clock, StubSender sender) =>
-        new(db, clock, sender);
+        new(db, clock, new Notifier(db, clock, Channels(sender)));
+
+    /// <summary>One pass of the checker, then the send pass that carries what it raised.</summary>
+    private static async Task<HealthAlertRun> RunAsync(
+        ModbotContext db, MovingClock clock, StubSender sender, CancellationToken ct)
+    {
+        var run = await Checker(db, clock, sender).RunOnceAsync(ct);
+        await new NotificationPass(db, clock, Channels(sender)).RunOnceAsync(ct);
+
+        return run;
+    }
 
     /// <summary>Puts a failed email in the queue, which is what the Email check looks at.</summary>
     private static void Fail(ModbotContext db, DateTimeOffset at) =>
@@ -108,7 +134,7 @@ public class HealthAlertTests
         Fail(db, Start);
         await db.SaveChangesAsync(ct);
 
-        var first = await Checker(db, clock, sender).RunOnceAsync(ct);
+        var first = await RunAsync(db, clock, sender, ct);
 
         Assert.Equal([HealthChecks.Email], first.Problems);
         Assert.Single(sender.Sent);
@@ -116,12 +142,12 @@ public class HealthAlertTests
 
         // Inside the quiet time: nothing more.
         clock.Advance(TimeSpan.FromHours(1));
-        Assert.Empty((await Checker(db, clock, sender).RunOnceAsync(ct)).Problems);
+        Assert.Empty((await RunAsync(db, clock, sender, ct)).Problems);
         Assert.Single(sender.Sent);
 
         // Past it: a problem nobody fixed is still a problem.
         clock.Advance(TimeSpan.FromHours(6));
-        Assert.Equal([HealthChecks.Email], (await Checker(db, clock, sender).RunOnceAsync(ct)).Problems);
+        Assert.Equal([HealthChecks.Email], (await RunAsync(db, clock, sender, ct)).Problems);
         Assert.Equal(2, sender.Sent.Count);
     }
 
@@ -135,12 +161,12 @@ public class HealthAlertTests
         Fail(db, Start);
         await db.SaveChangesAsync(ct);
 
-        Assert.Single((await Checker(db, clock, sender).RunOnceAsync(ct)).Problems);
+        Assert.Single((await RunAsync(db, clock, sender, ct)).Problems);
 
         await db.EmailQueue.ExecuteDeleteAsync(ct);
         clock.Advance(TimeSpan.FromMinutes(10));
 
-        var back = await Checker(db, clock, sender).RunOnceAsync(ct);
+        var back = await RunAsync(db, clock, sender, ct);
 
         Assert.Equal([HealthChecks.Email], back.Recoveries);
         Assert.Equal(2, sender.Sent.Count);
@@ -148,7 +174,7 @@ public class HealthAlertTests
 
         // And nothing after that.
         clock.Advance(TimeSpan.FromHours(12));
-        var quiet = await Checker(db, clock, sender).RunOnceAsync(ct);
+        var quiet = await RunAsync(db, clock, sender, ct);
 
         Assert.Empty(quiet.Problems);
         Assert.Empty(quiet.Recoveries);
@@ -167,7 +193,7 @@ public class HealthAlertTests
         Fail(db, Start);
         await db.SaveChangesAsync(ct);
 
-        var run = await Checker(db, clock, sender).RunOnceAsync(ct);
+        var run = await RunAsync(db, clock, sender, ct);
 
         Assert.Empty(run.Problems);
         Assert.Empty(sender.Sent);
@@ -183,14 +209,14 @@ public class HealthAlertTests
         Fail(db, Start);
         await db.SaveChangesAsync(ct);
 
-        Assert.Single((await Checker(db, clock, sender).RunOnceAsync(ct)).Problems);
+        Assert.Single((await RunAsync(db, clock, sender, ct)).Problems);
 
         // A different context and a different sender: what a restart looks like from here.
         await using var again = _db.NewContext();
         var afterRestart = new StubSender();
 
         clock.Advance(TimeSpan.FromMinutes(5));
-        var run = await Checker(again, clock, afterRestart).RunOnceAsync(ct);
+        var run = await RunAsync(again, clock, afterRestart, ct);
 
         Assert.Empty(run.Problems);
         Assert.Empty(afterRestart.Sent);
@@ -212,10 +238,12 @@ public class HealthAlertTests
         Fail(db, Start);
         await db.SaveChangesAsync(ct);
 
-        var run = await Checker(db, clock, sender).RunOnceAsync(ct);
+        var run = await RunAsync(db, clock, sender, ct);
 
+        // Still raised -- the record of what went wrong does not depend on anybody hearing it --
+        // and sent to nobody, because nobody was chosen.
         Assert.Equal([HealthChecks.Email], run.Problems);
-        Assert.Equal(0, run.Sent);
+        Assert.Equal(1, run.Raised);
         Assert.Empty(sender.Sent);
 
         var watch = await db.HealthWatches.AsNoTracking().SingleAsync(w => w.Check == HealthChecks.Email, ct);

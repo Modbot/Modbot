@@ -133,6 +133,17 @@ public static class AuditVisibility
         [FactType.DiscordLinkRoleRemoved] = AuditCategory.Moderation,
         [FactType.DiscordLinkPrompted] = AuditCategory.Operational,
 
+        // A copied ban is a ban and a copied role is a role change, so they sit with the rest of
+        // a person's moderation history. A copy that failed and a disagreement nobody resolved
+        // are about the sync rather than about the person, and belong in the operational log.
+        [FactType.CopiedBan] = AuditCategory.Moderation,
+        [FactType.CopiedUnban] = AuditCategory.Moderation,
+        [FactType.CopiedRemove] = AuditCategory.Moderation,
+        [FactType.CopiedRoleGiven] = AuditCategory.Moderation,
+        [FactType.CopiedRoleTaken] = AuditCategory.Moderation,
+        [FactType.CopyFailed] = AuditCategory.Operational,
+        [FactType.RolesDisagree] = AuditCategory.Operational,
+
         // Auth and config: spec 5.9.2's first two rows, and the reason the split exists.
         [FactType.Login] = AuditCategory.Operational,
         [FactType.LoginFailed] = AuditCategory.Operational,
@@ -221,6 +232,12 @@ public static class AuditVisibility
         [FactType.ActionUnban] = AuditCategory.Moderation,
         [FactType.ActionFailed] = AuditCategory.Moderation,
 
+        // Letting somebody into the group, or turning them down, is a decision about a person and
+        // belongs in their timeline beside VRChat's own record of the same event (join requests
+        // design §7).
+        [FactType.ActionJoinRequestApproved] = AuditCategory.Moderation,
+        [FactType.ActionJoinRequestRejected] = AuditCategory.Moderation,
+
         // Looking somebody up through Chat is the same kind of access record as opening a piece of
         // evidence, and it belongs in the timeline of the person who was looked at rather than in
         // the operator's log: a moderator reading their own history should see who has been asking
@@ -252,9 +269,12 @@ public static class AuditVisibility
         // for Modbot's internal events, and this is not one of those.
         [FactType.Unrecognised] = AuditCategory.Moderation,
 
-        // A note is moderation history about the person it was written about. An import
-        // finishing is the operator's business, like a settings change (import design §3.3).
+        // A note is moderation history about the person it was written about, and so is the
+        // record that one was taken back -- a note that was written and withdrawn is a different
+        // thing from one nobody ever wrote (notes design §3.2). An import finishing is the
+        // operator's business, like a settings change (import design §3.3).
         [FactType.NoteAdded] = AuditCategory.Moderation,
+        [FactType.NoteTakenBack] = AuditCategory.Moderation,
         [FactType.ImportDone] = AuditCategory.Operational,
 
         // Giveaways: a Modbot feature Modbot runs itself, gated by its own ViewGiveaways and

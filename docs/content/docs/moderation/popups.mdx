@@ -53,12 +53,13 @@ said either way.
 
 ### Left side
 
-- **Who they are.** Their banner with their picture over it, display name and pronouns, then a row of badges: the
+- **Who they are.** Their banner with their picture over it, display name, pronouns and the
+  [18+ verified mark](/moderation/profiles#the-18-verified-mark), then a row of badges: the
   [trust rank](/moderation/profiles#trust-ranks), **VRC+** (in gold) if they subscribe, the
   platform they last used (**PC**, **Android** or **iOS**), **VRChat staff**, **Nuisance**,
   **Early adopter**, and one badge per language on their profile. Under that, the group they
-  represent (its icon and name; hover for the group id), how old the stored profile is, and the
-  18+ verified mark. Opening the popup asks for a fresh copy. See
+  represent (its icon and name; hover for the group id) and how old the stored profile is.
+  Opening the popup asks for a fresh copy. See
   [Profiles](/moderation/profiles). The rest of the profile is on the **Overview** tab.
 - **Discord.** Only when Modbot knows a Discord account for them: the Discord name and id. When
   the two accounts proved a link, also when they linked, the roles Modbot gave them, and **Not in
@@ -80,13 +81,14 @@ said either way.
 |---|---|
 | **Overview** | **Profile**: their status line, bio, **Joined VRChat**, **Last seen by Modbot**, and the tags that have no badge behind a control that counts them (**12 more tags** / **Hide tags**). Then the **History** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#history-on-a-persons-popup)), the main time-in-world figures, and the newest 8 audit log entries about them. |
 | **Logs** | **Everything recorded about this person**: the newest 50 audit log entries about any of their accounts or done by them, newest first. Each row says which account it was found under, so a Discord ban is never mistaken for a group one. |
+| **Notes** | What moderators have written down about them, newest first, and a box to add another. Notes that were taken back are still listed and marked. See [Notes](/moderation/notes). |
 | **History** | Their VRChat profile as it stood after each change Modbot recorded, newest first. Pick a version on the left to see it in full, pictures, banner and represented group included; the fields that change carried are marked. **JSON** under a version shows that version's record as stored; **Hide JSON** puts it away. **Now** is the profile as stored; **First seen** is where the record begins. See [Profile history](#profile-history). |
 | **Cases** | Their case files, withdrawn ones included and marked as such. Click one to open it. See [Bans and case files](/moderation/case-files). |
 | **Discord** | Their Discord details and their own comings and goings in the server. See [Discord members](/discord/members). |
 | **Messages** | Everything they wrote in Discord that Modbot has stored. Needs **Read Discord messages**. |
 | **Account** | Everything their Modbot account did and everything done to it: sign-ins, role changes, settings they changed, and every kick, ban and unban they pressed in Modbot. |
 | **Metrics** | **Time in world**: **Time seen**, **Instances visited**, **Worlds visited**, **Arrivals**, **Last seen** and **First seen**, then a table of the instances they were seen in (newest 25). Their Discord activity is under it. |
-| **JSON** | The stored records as Modbot's API answers them: the profile, the membership and ban standing, the two bodies VRChat last sent (the public profile and the user object), the Discord member row and the Modbot account. Each has a copy button. |
+| **JSON** | The stored records as Modbot's API answers them, as **one document with one copy button**. Its named parts are the profile, the membership and ban standing, the two bodies VRChat last sent (the public profile and the user object), the Discord member row, their Discord activity and the Modbot account. A part you do not hold the permission for is left out rather than shown empty; if you hold none of them the tab says so. |
 
 A tab is only there when there is an account behind it and you hold its permission.
 
@@ -182,6 +184,7 @@ for a person the version too (`?version=`); switching tabs by hand does not chan
 | Person popup: **Modbot account** card — knowing who holds which account | **See the operational log** or **Manage staff accounts** |
 | Person popup: **Account** tab | **See the audit log** for what they did as a moderator, **See the operational log** for their sign-ins and role changes |
 | Person popup: entries in **Logs** | **See the audit log** (and **See the operational log** for Modbot's own entries such as sign-ins) |
+| Person popup: **Notes** tab | **See the audit log** to read them, **Write notes** to add one |
 | World popup | **See analytics** |
 | Instance popup | **See analytics** |
 | Instance popup: **People**, **Logs** and **Seen by a moderator's client** | **See analytics** and **See the audit log** |

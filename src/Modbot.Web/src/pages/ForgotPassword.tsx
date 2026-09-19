@@ -31,7 +31,7 @@ export function ForgotPassword({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background p-6">
+    <div className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="w-full max-w-[420px]">
         <Brand />
         <form onSubmit={submit} className="overflow-hidden rounded-xl border bg-card shadow-lg">

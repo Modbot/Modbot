@@ -191,7 +191,7 @@ function Shell({
   groupName?: string
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background">
       {/* The same banner as the app shell (foundation spec 4.1.2). It stays empty until somebody is
           signed in, because the health it reads needs a session. */}
       <SignInWaitBanner />

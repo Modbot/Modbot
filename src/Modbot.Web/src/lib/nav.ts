@@ -14,6 +14,9 @@ import { can, canAny } from './permissions.ts'
 // bits -- see lib/permissions.ts for why.
 export const NAV = [
   { id: 'members', label: 'Members', needs: 'ViewMembers' },
+  // The people asking to be let in, read from VRChat when the page is opened. Beside Members
+  // because it is the same roster one step earlier.
+  { id: 'requests', label: 'Requests', needs: 'ViewJoinRequests' },
   // The Discord server's own member list. Secondary to Members: separate, because most people are
   // on one side only and most never link.
   { id: 'discord-members', label: 'Discord members', needs: 'ViewMembers' },
@@ -101,6 +104,7 @@ export type PageId = NavItem['id']
  */
 export const GO_TO_KEYS: Record<PageId, string> = {
   members: 'm',
+  requests: 'j',
   'discord-members': 'd',
   people: 'n',
   live: 'l',

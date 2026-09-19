@@ -25,11 +25,12 @@ public static class PermissionCatalog
     public static IReadOnlyList<PermissionInfo> All { get; } =
     [
         Describe(ModbotPermissions.ViewMembers, "See members", "The member list and who is in the group.", "Reading"),
-        Describe(ModbotPermissions.ViewProfile, "See profiles", "A member's history, notes and past actions.", "Reading"),
+        Describe(ModbotPermissions.ViewProfile, "See profiles", "A member's profile, their history and their past actions.", "Reading"),
         Describe(ModbotPermissions.ViewAnalytics, "See analytics", "Charts and daily totals.", "Reading"),
         Describe(ModbotPermissions.ViewLiveInstances, "See live instances", "Open instances right now and who is in each.", "Reading"),
         Describe(ModbotPermissions.ViewCalendar, "See calendar", "Planned events and where each is published.", "Reading"),
         Describe(ModbotPermissions.ViewGiveaways, "See giveaways", "Giveaways, their rules, who entered and how each draw went.", "Reading"),
+        Describe(ModbotPermissions.ViewJoinRequests, "See join requests", "The people waiting to be let into the group.", "Reading"),
         Describe(ModbotPermissions.ViewAuditLog, "See the audit log", "Bans, kicks, role changes and other moderation history.", "Reading"),
         Describe(ModbotPermissions.UseAiChat, "Use AI chat", "Ask questions in Chat. Answers only use what this person can already see.", "Reading"),
         Describe(ModbotPermissions.UseAiPastLimits, "Use AI in excess of usage limits", "Not stopped by spend limits on this person or their roles. The limit for everyone still applies.", "Reading"),
@@ -42,9 +43,11 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.Warn, "Warn", "Send somebody a warning.", "Moderation"),
         Describe(ModbotPermissions.Ban, "Ban", "Ban somebody from the group. Needs a written report.", "Moderation"),
         Describe(ModbotPermissions.Unban, "Unban", "Lift a ban.", "Moderation"),
+        Describe(ModbotPermissions.AnswerJoinRequests, "Answer join requests", "Approve or reject somebody asking to join the group.", "Moderation"),
         Describe(ModbotPermissions.BulkAction, "Act on many at once", "Kick, ban or warn a whole list in one go.", "Moderation"),
         Describe(ModbotPermissions.ReviewTickets, "Review tickets", "Close the reviews that open when a moderator's pattern looks unusual, and dismiss moderation flags.", "Moderation"),
         Describe(ModbotPermissions.EditClassifications, "Edit the reason list", "Change the reasons moderators pick from when they act.", "Moderation"),
+        Describe(ModbotPermissions.WriteNotes, "Write notes", "Write a note about somebody, and take one back. Reading notes needs the audit log.", "Moderation"),
         Describe(ModbotPermissions.ManageDiscordLinks, "Manage Discord links", "Unlink a member's Discord and VRChat accounts. Removes the roles Modbot gave them.", "Moderation"),
         Describe(ModbotPermissions.EditAgeVerification, "Edit 18+ verified", "Set or clear the 18+ verified mark on a VRChat user by hand. Syncs can only set it.", "Moderation"),
         Describe(ModbotPermissions.ManageCalendar, "Manage calendar", "Create, change and cancel events, and the calendar feed link.", "Administration"),
@@ -55,6 +58,8 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ManageApiKeys, "Manage API keys and webhooks", "Create and revoke API keys, and set up webhooks.", "Administration"),
         Describe(ModbotPermissions.UseVRChatProxy, "Use the VRChat proxy", "Send requests to VRChat's API through Modbot as the service account.", "Administration"),
         Describe(ModbotPermissions.ImportOldData, "Import old data", "Upload another platform's records and write them into the log as history.", "Administration"),
+        Describe(ModbotPermissions.ManageDiscordSync, "Manage role and ban sync", "Pair group roles with Discord roles, choose which side decides, and switch ban sync on.", "Administration"),
+        Describe(ModbotPermissions.RunDiscordSync, "Run role and ban sync", "Copy the roles and bans that are already different between the two platforms.", "Administration"),
         Describe(ModbotPermissions.Administrator, "Administrator", "Everything, including things added in future versions.", "Administration"),
     ];
 

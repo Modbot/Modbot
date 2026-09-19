@@ -342,7 +342,10 @@ export function Chat({
   )
 
   return (
-    <div className="flex h-[calc(100vh-11rem)] min-h-[26rem] gap-4">
+    // `dvh`, and more taken off it on a phone: the bar at the foot of the screen stands over the
+    // page, and a `26rem` floor is taller than what is left on a small phone, which pushed the
+    // box somebody types in off the bottom.
+    <div className="flex h-[calc(100dvh-16rem)] min-h-[20rem] gap-4 lg:h-[calc(100dvh-11rem)] lg:min-h-[26rem]">
       {sidebar && <nav aria-label="Conversations" className="hidden w-60 shrink-0 lg:block">{list}</nav>}
 
       <div className="flex min-w-0 flex-1 flex-col">

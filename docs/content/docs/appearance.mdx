@@ -1,0 +1,100 @@
+---
+title: Appearance
+description: The light and dark themes, the three densities, what the VR density changes, and how Modbot works on a phone.
+---
+
+Modbot's appearance is set per browser, not per account. Change it on your laptop and your phone
+keeps its own setting. Nothing here is a permission and nothing here changes what anybody else
+sees.
+
+The controls are at the top right of every page: the density buttons and a button that swaps the
+theme. On a phone they are at the foot of the **Menu**.
+
+They are also in the command palette. Press **Ctrl + K** (or **⌘ K**) and type "theme" or
+"density".
+
+## Theme
+
+**Dark** and **light**. Dark is the default.
+
+## Density
+
+Three settings, which change row heights, control sizes, text size and border weight together.
+
+| | |
+|---|---|
+| **Dense** | The default. The most rows on screen at once, for scanning a member list of tens of thousands. |
+| **Comfy** | Taller rows and larger text. Easier over a long session. |
+| **VR** | For the web app seen through a headset. |
+
+VR is not "Comfy, but more". A headset shows your desktop through a virtual panel, and a laser
+pointer is far less precise than a mouse, so VR mode raises the size of everything you can click
+past the point where you can hit it with a pointer, lifts text above the size where it turns to
+mush, thickens the one-pixel borders that otherwise disappear entirely, and pulls the blacks and
+whites back from the extremes, because both bloom on a headset panel.
+
+Pick it when you are reading Modbot in VR, whichever theme you use.
+
+## What VR changes
+
+VR is not "Comfy, but more". A headset shows a desktop through a virtual panel at a low effective
+resolution, and a laser pointer is much less precise than a mouse, so VR changes four things at
+once:
+
+| | Dense | VR |
+|---|---|---|
+| Row height | 34px | 56px |
+| Height of a button or a box you type in | 30px | 48px |
+| Text | 13px, with 12px for small print | 18px, with 16px for small print |
+| Lines and borders | 1px | 2px |
+| Lines on a chart | 2px | 3px |
+
+It also pulls the colours back from the extremes: the darkest background is lifted off black and
+the lightest off white, because a headset panel blooms around a hard edge, and grey text is
+lightened so it is still readable at that resolution.
+
+Corners are rounded a little more, which is the one change that is only there to keep everything
+looking of a piece at the larger size.
+
+Nothing else changes. Every page, every column and every button is the same one; there is no
+separate VR version of a screen to get out of step.
+
+## If your choice does not stick
+
+Modbot remembers both in your browser's own storage. A private window, a browser set to clear site
+data when it closes, or one that blocks storage for the site, all forget it and start again at
+dark and Dense the next time. Nothing else about Modbot is affected.
+## On a phone
+
+The whole app works on a phone. There is no separate mobile version and no page you can reach on a
+laptop that you cannot reach on a phone.
+
+Three differences from a wide screen:
+
+- **The sidebar becomes a sheet.** Tap **Menu** at the foot of the screen for the pages, your
+  account, the theme and density controls, and sign out.
+- **There is a bar at the foot**, not more controls at the top, so the things you use most are
+  where your thumb already is: **Menu**, **Search** and **Actions**.
+- **Tap targets are larger**, by the same reasoning as VR mode. Dense and Comfy are both raised to
+  a size a fingertip can hit; VR keeps its own sizes, which are already larger.
+
+### Actions
+
+**Actions** lists everything the screen you are on can do, and each row does it when you tap it.
+It is the same list as the keyboard shortcuts — on the audit log it holds *Open the person the
+selected row is about*, which has no other control — so nothing in Modbot is reachable only from a
+keyboard.
+
+### Tables
+
+A members row has a name, a Discord account, roles and two dates, and Modbot does not drop any of
+them to make the row fit. The table scrolls sideways instead, and the **name column stays put**
+while the rest of the row moves under it, so you always know whose row you are reading.
+
+Tap a row to open the person, where everything in it is written out in full.
+
+### Popups
+
+A person, world or instance popup fills the whole screen on a phone, with the identity at the top
+and the tabs under it. Everything else works as it does on a laptop — see
+[Popups](/moderation/popups).

@@ -1,0 +1,230 @@
+- generic:
+  - generic [aria-hidden]:
+    - generic:
+      - main:
+        - generic:
+          - heading [level=1]: Sync health
+          - generic: Demo
+          - button: Reset demo
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: VRChat · Not configured
+                      - generic: "gate state: Unconfigured"
+                    - paragraph: No VRChat account is configured.
+                    - generic:
+                      - term: Last signed in
+                      - definition: Never
+                      - term: Sign-ins this hour
+                      - definition: 0 of 0
+            - generic:
+              - generic:
+                - generic:
+                  - generic: Database
+                  - generic: online
+            - generic: Sync is not running in this process.
+            - generic:
+              - generic:
+                - generic: Logs
+                - generic:
+                  - term: Stored
+                  - definition: 0 written · Cannot write DateTimeOffset with Offset=-05:00:00 to PostgreSQL type 'timestamp with time zone', only offset 0 (UTC) is supported. (Parameter 'value')
+                  - term: To Modbot Cloud
+                  - definition: "Off"
+            - generic:
+              - generic:
+                - generic: Producers
+                - generic:
+                  - generic:
+                    - generic: Group audit log
+                    - generic: last completed a pass never
+                - generic:
+                  - generic:
+                    - generic: Group info
+                    - generic: last completed a pass 19m ago
+                - generic:
+                  - generic:
+                    - generic: User profiles
+                    - generic: last completed a pass never
+                - generic:
+                  - generic:
+                    - generic: User details
+                    - generic: last completed a pass never
+                - generic:
+                  - generic:
+                    - generic: Member list
+                    - generic: last completed a pass never
+                  - paragraph: Not running
+                - generic:
+                  - generic:
+                    - generic: Ban list
+                    - generic: last completed a pass never
+                  - paragraph: Not running
+                - paragraph: Audit log catch-up running
+            - generic:
+              - generic:
+                - generic: Rate-limit budgets
+                - paragraph: None used yet.
+            - generic:
+              - generic:
+                - generic: Audit-log event types Modbot does not understand
+                - paragraph: None seen.
+        - generic:
+          - link:
+            - /url: https://docs.modbot.co
+            - text: Docs
+          - link:
+            - /url: /settings/credits
+            - text: Credits
+      - navigation:
+        - button:
+          - generic: Menu
+        - button:
+          - generic: Search
+        - button:
+          - generic: This page
+  - dialog [ref=f19e5]:
+    - generic [ref=f19e6]:
+      - heading "This page" [level=2] [ref=f19e8]
+      - button "Close" [active] [ref=f19e9]
+    - generic [ref=f19e14]:
+      - generic [ref=f19e15]:
+        - generic [ref=f19e16]: General
+        - button "Search and commands Ctrl K" [ref=f19e17]:
+          - generic [ref=f19e18]: Search and commands
+          - generic [ref=f19e19]: Ctrl K
+        - button "Keyboard shortcuts ?" [ref=f19e22]:
+          - generic [ref=f19e23]: Keyboard shortcuts
+          - generic [ref=f19e24]: "?"
+      - generic [ref=f19e27]:
+        - generic [ref=f19e28]: Go to
+        - button "Members G then M" [ref=f19e29]:
+          - generic [ref=f19e30]: Members
+          - generic [ref=f19e31]:
+            - generic [ref=f19e32]: G
+            - generic [ref=f19e34]:
+              - generic [ref=f19e35]: then
+              - generic [ref=f19e36]: M
+        - button "Discord members G then D" [ref=f19e37]:
+          - generic [ref=f19e38]: Discord members
+          - generic [ref=f19e39]:
+            - generic [ref=f19e40]: G
+            - generic [ref=f19e42]:
+              - generic [ref=f19e43]: then
+              - generic [ref=f19e44]: D
+        - button "People G then N" [ref=f19e45]:
+          - generic [ref=f19e46]: People
+          - generic [ref=f19e47]:
+            - generic [ref=f19e48]: G
+            - generic [ref=f19e50]:
+              - generic [ref=f19e51]: then
+              - generic [ref=f19e52]: "N"
+        - button "Live G then L" [ref=f19e53]:
+          - generic [ref=f19e54]: Live
+          - generic [ref=f19e55]:
+            - generic [ref=f19e56]: G
+            - generic [ref=f19e58]:
+              - generic [ref=f19e59]: then
+              - generic [ref=f19e60]: L
+        - button "Calendar G then E" [ref=f19e61]:
+          - generic [ref=f19e62]: Calendar
+          - generic [ref=f19e63]:
+            - generic [ref=f19e64]: G
+            - generic [ref=f19e66]:
+              - generic [ref=f19e67]: then
+              - generic [ref=f19e68]: E
+        - button "Giveaways G then P" [ref=f19e69]:
+          - generic [ref=f19e70]: Giveaways
+          - generic [ref=f19e71]:
+            - generic [ref=f19e72]: G
+            - generic [ref=f19e74]:
+              - generic [ref=f19e75]: then
+              - generic [ref=f19e76]: P
+        - button "Chat G then C" [ref=f19e77]:
+          - generic [ref=f19e78]: Chat
+          - generic [ref=f19e79]:
+            - generic [ref=f19e80]: G
+            - generic [ref=f19e82]:
+              - generic [ref=f19e83]: then
+              - generic [ref=f19e84]: C
+        - button "Bans G then B" [ref=f19e85]:
+          - generic [ref=f19e86]: Bans
+          - generic [ref=f19e87]:
+            - generic [ref=f19e88]: G
+            - generic [ref=f19e90]:
+              - generic [ref=f19e91]: then
+              - generic [ref=f19e92]: B
+        - button "Flags G then F" [ref=f19e93]:
+          - generic [ref=f19e94]: Flags
+          - generic [ref=f19e95]:
+            - generic [ref=f19e96]: G
+            - generic [ref=f19e98]:
+              - generic [ref=f19e99]: then
+              - generic [ref=f19e100]: F
+        - button "Audit log G then A" [ref=f19e101]:
+          - generic [ref=f19e102]: Audit log
+          - generic [ref=f19e103]:
+            - generic [ref=f19e104]: G
+            - generic [ref=f19e106]:
+              - generic [ref=f19e107]: then
+              - generic [ref=f19e108]: A
+        - button "My Group G then G" [ref=f19e109]:
+          - generic [ref=f19e110]: My Group
+          - generic [ref=f19e111]:
+            - generic [ref=f19e112]: G
+            - generic [ref=f19e114]:
+              - generic [ref=f19e115]: then
+              - generic [ref=f19e116]: G
+        - button "My Server G then V" [ref=f19e117]:
+          - generic [ref=f19e118]: My Server
+          - generic [ref=f19e119]:
+            - generic [ref=f19e120]: G
+            - generic [ref=f19e122]:
+              - generic [ref=f19e123]: then
+              - generic [ref=f19e124]: V
+        - button "My Team G then T" [ref=f19e125]:
+          - generic [ref=f19e126]: My Team
+          - generic [ref=f19e127]:
+            - generic [ref=f19e128]: G
+            - generic [ref=f19e130]:
+              - generic [ref=f19e131]: then
+              - generic [ref=f19e132]: T
+        - button "Worlds G then W" [ref=f19e133]:
+          - generic [ref=f19e134]: Worlds
+          - generic [ref=f19e135]:
+            - generic [ref=f19e136]: G
+            - generic [ref=f19e138]:
+              - generic [ref=f19e139]: then
+              - generic [ref=f19e140]: W
+        - button "Instances G then I" [ref=f19e141]:
+          - generic [ref=f19e142]: Instances
+          - generic [ref=f19e143]:
+            - generic [ref=f19e144]: G
+            - generic [ref=f19e146]:
+              - generic [ref=f19e147]: then
+              - generic [ref=f19e148]: I
+        - button "Reviews G then R" [ref=f19e149]:
+          - generic [ref=f19e150]: Reviews
+          - generic [ref=f19e151]:
+            - generic [ref=f19e152]: G
+            - generic [ref=f19e154]:
+              - generic [ref=f19e155]: then
+              - generic [ref=f19e156]: R
+        - button "Logs G then O" [ref=f19e157]:
+          - generic [ref=f19e158]: Logs
+          - generic [ref=f19e159]:
+            - generic [ref=f19e160]: G
+            - generic [ref=f19e162]:
+              - generic [ref=f19e163]: then
+              - generic [ref=f19e164]: O
+        - button "Settings G then S" [ref=f19e165]:
+          - generic [ref=f19e166]: Settings
+          - generic [ref=f19e167]:
+            - generic [ref=f19e168]: G
+            - generic [ref=f19e170]:
+              - generic [ref=f19e171]: then
+              - generic [ref=f19e172]: S

@@ -39,7 +39,7 @@ export function MyTeam({
 
       {data && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Stat label="Moderators active" value={compactNumber(data.moderators.length)} />
             <Stat label="Actions" value={compactNumber(totalActions)} />
             <Stat label="Coverage gaps" value={compactNumber(data.coverageGaps.length)} />
@@ -72,7 +72,7 @@ export function MyTeam({
             ) : shownGaps.length === 0 ? (
               <Nothing>No gaps with that many people.</Nothing>
             ) : (
-              <div className="overflow-x-auto">
+              <div data-pin-first className="relative overflow-x-auto">
                 <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                   <thead className="text-left text-muted-foreground">
                     <tr>
@@ -112,7 +112,7 @@ export function MyTeam({
             {data.moderators.length === 0 ? (
               <Nothing>No moderation actions recorded in this range.</Nothing>
             ) : (
-              <div className="overflow-x-auto">
+              <div data-pin-first className="relative overflow-x-auto">
                 <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                   <thead className="text-left text-muted-foreground">
                     <tr>
