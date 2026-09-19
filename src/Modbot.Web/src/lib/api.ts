@@ -872,8 +872,21 @@ export type PeopleList = {
 export type PeopleQuery = {
   search?: string
   membership?: 'member' | 'not-member' | 'left' | 'all'
+  /** On the group's ban list as it stands. */
   banned?: boolean
+  /** Banned from the group at any time, lifted or not. */
+  everBanned?: boolean
   profile?: 'fetched' | 'not-fetched'
+  eighteenPlus?: boolean
+  /** Any of these trust ranks. Nobody whose tags have not been read matches. */
+  trustRanks?: string[]
+  /** Any of these `last_platform` values, as VRChat sent them. */
+  platforms?: string[]
+  linked?: 'linked' | 'not-linked' | 'all'
+  /** Ever flagged by a moderation rule, dismissed or not. */
+  flagged?: boolean
+  seenFrom?: string
+  seenTo?: string
   sort?: 'seen' | 'name' | 'known'
   page?: number
   pageSize?: number
@@ -3660,7 +3673,15 @@ export const api = {
     if (query.search) q.set('search', query.search)
     if (query.membership && query.membership !== 'all') q.set('membership', query.membership)
     if (query.banned !== undefined) q.set('banned', String(query.banned))
+    if (query.everBanned !== undefined) q.set('everBanned', String(query.everBanned))
     if (query.profile) q.set('profile', query.profile)
+    if (query.eighteenPlus !== undefined) q.set('eighteenPlus', String(query.eighteenPlus))
+    query.trustRanks?.forEach((r) => q.append('trustRank', r))
+    query.platforms?.forEach((p) => q.append('platform', p))
+    if (query.linked && query.linked !== 'all') q.set('linked', query.linked)
+    if (query.flagged !== undefined) q.set('flagged', String(query.flagged))
+    if (query.seenFrom) q.set('seenFrom', query.seenFrom)
+    if (query.seenTo) q.set('seenTo', query.seenTo)
     if (query.sort && query.sort !== 'seen') q.set('sort', query.sort)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))

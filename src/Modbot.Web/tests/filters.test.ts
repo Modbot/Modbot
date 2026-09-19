@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { dateRange, decodeChip, encodeChip, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
-import { AUDIT_DEFAULTS, auditQueryFrom, discordMemberQueryFrom, memberQueryFrom } from '../src/lib/pageFilters.ts'
+import {
+  AUDIT_DEFAULTS,
+  auditQueryFrom,
+  discordMemberQueryFrom,
+  memberQueryFrom,
+  PEOPLE_DEFAULTS,
+  peopleQueryFrom,
+} from '../src/lib/pageFilters.ts'
 
 test('a chip survives the trip through the address, commas in values included', () => {
   const chip: FilterChip = { property: 'subject', operator: 'is', values: ['weird,id:with/stuff %'] }
@@ -101,4 +108,58 @@ test('the Discord list reads its yes/no chips', () => {
   assert.equal(query.timedOut, true)
   assert.equal(query.state, 'left')
   assert.equal(query.pending, undefined)
+})
+
+test('People opens on the whole record and every chip narrows it', () => {
+  const nothing = peopleQueryFrom(PEOPLE_DEFAULTS)
+  assert.equal(nothing.membership, 'all')
+  assert.equal(nothing.banned, undefined)
+  assert.equal(nothing.everBanned, undefined)
+  assert.equal(nothing.eighteenPlus, undefined)
+  assert.equal(nothing.trustRanks, undefined)
+  assert.equal(nothing.platforms, undefined)
+  assert.equal(nothing.linked, undefined)
+  assert.equal(nothing.flagged, undefined)
+  assert.equal(nothing.profile, undefined)
+  assert.equal(nothing.seenFrom, undefined)
+
+  const query = peopleQueryFrom([
+    { property: 'membership', operator: 'is', values: ['not-member'] },
+    { property: 'banned', operator: 'no', values: [] },
+    { property: 'everBanned', operator: 'yes', values: [] },
+    { property: 'trustRank', operator: 'is', values: ['Visitor', 'NewUser'] },
+    { property: 'platform', operator: 'is', values: ['android'] },
+    { property: 'linked', operator: 'is', values: ['not-linked'] },
+    { property: 'eighteenPlus', operator: 'no', values: [] },
+    { property: 'flagged', operator: 'yes', values: [] },
+    { property: 'profile', operator: 'is', values: ['not-fetched'] },
+    { property: 'seen', operator: 'after', values: ['2026-03-10'] },
+  ])
+
+  assert.equal(query.membership, 'not-member')
+  assert.equal(query.banned, false)
+  assert.equal(query.everBanned, true)
+  assert.deepEqual(query.trustRanks, ['Visitor', 'NewUser'])
+  assert.deepEqual(query.platforms, ['android'])
+  assert.equal(query.linked, 'not-linked')
+  assert.equal(query.eighteenPlus, false)
+  assert.equal(query.flagged, true)
+  assert.equal(query.profile, 'not-fetched')
+  assert.equal(query.seenFrom, '2026-03-10T00:00:00Z')
+  assert.equal(query.seenTo, undefined)
+})
+
+test('trust rank and platform ask only for what was picked, never for the rest of the list', () => {
+  // Neither is negatable in the bar, and a chip that somehow says "is not" asks for nothing rather
+  // than for every rank but one -- which would drop everybody whose tags have never been read.
+  const negated = peopleQueryFrom([
+    { property: 'trustRank', operator: 'is-not', values: ['Visitor'] },
+    { property: 'platform', operator: 'is-not', values: ['android'] },
+  ])
+
+  assert.equal(negated.trustRanks, undefined)
+  assert.equal(negated.platforms, undefined)
+
+  const empty = peopleQueryFrom([{ property: 'trustRank', operator: 'is', values: [] }])
+  assert.equal(empty.trustRanks, undefined)
 })
