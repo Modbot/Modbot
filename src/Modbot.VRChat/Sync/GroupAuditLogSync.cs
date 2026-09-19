@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Live;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Serilog;
@@ -568,6 +569,8 @@ public sealed class GroupAuditLogSync
 
         var known = await AlreadyRecordedAsync(mapped, ct).ConfigureAwait(false);
 
+        var fresh = new List<FactRecord>(mapped.Count);
+
         foreach (var mapping in mapped)
         {
             var fact = mapping.Fact!;
@@ -581,11 +584,15 @@ public sealed class GroupAuditLogSync
                 : known.Shapes.Contains(ShapeOf(fact));
 
             if (recorded)
-            {
                 totals.AlreadyRecorded++;
-                continue;
-            }
+            else
+                fresh.Add(fact);
+        }
 
+        await NoteTimeInInstanceAsync(fresh, ct).ConfigureAwait(false);
+
+        foreach (var fact in fresh)
+        {
             // An entry from the catch-up can predate every partition the maintainer's rolling window
             // covers, and an insert with nowhere to land fails the whole page -- including the
             // entries after it, which have done nothing wrong.
@@ -596,6 +603,64 @@ public sealed class GroupAuditLogSync
         }
 
         return totals;
+    }
+
+    /// <summary>
+    /// Writes onto each new instance kick how long that person had been in the instance.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Measured now, and stored, rather than worked out whenever somebody reads the
+    /// log.</strong> Presence facts are kept ninety days and kicks are kept forever (spec 5.5), so
+    /// a derived answer would drain out of the moderation record months later as unrelated data
+    /// expired. A record whose content quietly empties is not a record. The price is that presence
+    /// arriving after the kick was written is never folded in, and the entry then says nothing --
+    /// which is the direction this has to fail in.</para>
+    /// <para>Nothing is written when nobody's companion was reporting. There is no zero and no
+    /// nearest guess; a made-up duration in a moderation record is worse than an absent one.</para>
+    /// <para>A failure here is swallowed. The kick is the fact, and losing the record of it to a
+    /// query about how long somebody had been standing somewhere would be the wrong trade by a
+    /// wide margin.</para>
+    /// </remarks>
+    private async Task NoteTimeInInstanceAsync(IReadOnlyList<FactRecord> fresh, CancellationToken ct)
+    {
+        var kicks = fresh
+            .Where(f => f.Type == FactType.GroupInstanceKick
+                     && f.InstanceId is { Length: > 0 }
+                     && f.Data is not null)
+            .ToList();
+
+        if (kicks.Count == 0)
+            return;
+
+        try
+        {
+            var moments = kicks
+                .Select(f => new InstanceMoment(f.SubjectId, f.WorldId, f.InstanceId!, f.OccurredAt))
+                .Distinct()
+                .ToList();
+
+            var answers = await new InstancePeopleReader(_db)
+                .TimeInInstanceAsync(moments, ct)
+                .ConfigureAwait(false);
+
+            if (answers.Count == 0)
+                return;
+
+            foreach (var fact in kicks)
+            {
+                var moment = new InstanceMoment(fact.SubjectId, fact.WorldId, fact.InstanceId!, fact.OccurredAt);
+
+                if (!answers.TryGetValue(moment, out var there))
+                    continue;
+
+                fact.Data![TimeInInstance.SecondsKey] = (long)Math.Round(there.HowLong.TotalSeconds);
+                fact.Data![TimeInInstance.SeenArrivingKey] = there.SeenArriving;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.Warning(ex, "Could not work out how long the people in this page of kicks had been in their instances.");
+        }
     }
 
     private async Task EnsureRoomForAsync(DateTimeOffset occurredAt, CancellationToken ct)

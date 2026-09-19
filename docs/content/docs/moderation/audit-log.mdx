@@ -79,6 +79,50 @@ open the same [person popup](/moderation/popups#person-popup), which shows every
 can tie to the one you clicked, and the **Account** tab there is everything that Modbot account
 did and everything done to it.
 
+### Which avatar somebody switched to
+
+An avatar change names the avatar:
+
+> Ada switched to the avatar “Nardoragon”.
+
+The name is the whole of what anybody can know. VRChat's log gives an avatar's **display name**
+and never an avatar id, so Modbot cannot tell two avatars called the same thing apart, and an
+avatar that has been renamed reads as a different one. Entries from before Modbot kept the name,
+and entries whose log line Modbot could not read with certainty, say **Ada changed avatar** and
+cannot be filled in later.
+
+### How long somebody had been in the instance
+
+A kick out of an instance can say how long that person had been standing there:
+
+> Mira kicked Ada out of The Black Cat #39047 after 12 minutes in the instance.
+
+**Modbot only knows this while a companion was reporting from that instance.** Presence comes from
+[companions](/companion/install), not from VRChat, so a kick in an instance nobody from your
+team was in carries no time at all.
+
+| The entry says | What it means |
+|---|---|
+| **after 12 minutes in the instance** | A companion watched them walk in and was still reporting when they were kicked. This is exactly how long they were there. |
+| **after at least 12 minutes in the instance** | No companion saw them arrive — one turned up later and found them already there. They had been there at least that long, and nobody knows how much longer. |
+| *nothing* | Nobody's companion was reporting that instance at the time, so Modbot does not know. It shows nothing rather than a zero or a guess. |
+
+The same rule decides it that decides who Live believes is in an instance: see
+[When a moderator counts as watching](/moderation/live#when-a-moderator-counts-as-watching). A gap
+in watching starts the count again — if your companion stopped and another moderator's found the
+person there an hour later, the entry says *at least* the time since that later moment, not the
+whole hour.
+
+The time is worked out when the kick is recorded and kept with the entry, so it stays the same
+however long afterwards you read it — presence entries are removed long before kicks are, and the
+kick keeps the answer regardless. It also means a companion that was offline and sent its reports
+in hours later is too late for the kicks in between, which then say nothing.
+
+Only **kicks out of an instance** carry a time. Bans and removals from the group are not instance
+events and have no instance to measure against — but VRChat usually writes an instance kick beside
+them when the person was in one of your instances, and that entry, shown in the same row under
+**Same decision**, carries the time.
+
 ### Who reported it
 
 An entry a companion reported carries **Reported by** and the moderator whose companion it was,

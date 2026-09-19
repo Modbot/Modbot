@@ -125,6 +125,60 @@ public sealed class InstancePeopleReader
     }
 
     /// <summary>
+    /// How long each of these people had been in their instance by the moment asked about.
+    /// </summary>
+    /// <remarks>
+    /// <para>A moment Modbot cannot answer is simply absent from the result. There is no entry
+    /// meaning "zero" and none meaning "unknown": the caller writes nothing where there is
+    /// nothing, which is the whole point of asking.</para>
+    /// <para>One load per distinct instance, not one per person. A kick spree is one instance, and
+    /// reading its day once answers every question about it.</para>
+    /// </remarks>
+    public async Task<IReadOnlyDictionary<InstanceMoment, TimeThere>> TimeInInstanceAsync(
+        IReadOnlyCollection<InstanceMoment> moments,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(moments);
+
+        var answers = new Dictionary<InstanceMoment, TimeThere>();
+        if (moments.Count == 0)
+            return answers;
+
+        var owners = await DeviceOwnersAsync(ct).ConfigureAwait(false);
+
+        foreach (var group in moments.GroupBy(m => new InstanceKey(m.WorldId, m.InstanceId)))
+        {
+            var key = group.Key;
+            var worldId = key.WorldId;
+            var number = key.InstanceId;
+            var from = group.Min(m => m.At) - TimeInInstance.LongestStay;
+            var to = group.Max(m => m.At);
+
+            var inInstance = await LoadAsync(
+                _db.Events.Where(e => e.InstanceId == number
+                    && (worldId == null || e.WorldId == worldId)
+                    && e.OccurredAt >= from
+                    && e.OccurredAt <= to),
+                ct).ConfigureAwait(false);
+
+            if (inInstance.Count == 0)
+                continue;
+
+            var watchers = InstanceWatching.PossibleWatchers(key, inInstance, owners);
+            var elsewhere = await ElsewhereAsync(watchers, from, ct).ConfigureAwait(false);
+            var marks = inInstance.Concat(elsewhere.Where(m => !key.Holds(m))).ToList();
+
+            foreach (var moment in group)
+            {
+                if (TimeInInstance.Work(key, marks, owners, moment) is { } there)
+                    answers[moment] = there;
+            }
+        }
+
+        return answers;
+    }
+
+    /// <summary>
     /// Facts placing these moderators anywhere, which is how "their presence turned up in a
     /// different instance" is noticed. Few people, a bounded stretch of time.
     /// </summary>
