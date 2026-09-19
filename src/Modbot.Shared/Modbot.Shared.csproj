@@ -38,16 +38,22 @@
     ModbotVersion.cs so that the version a built exe reports and the version its installer, its
     update feed and its GitHub release carry are the same string from the same place, and cannot
     drift apart by somebody forgetting to edit a constant.
+
+    A client build handed to testers before the release adds `-preview.N`: 2026.9.2-preview.1. It
+    is deliberately not a version ReleaseVersion can read, so a preview never answers "newer" or
+    "older" than anything and never turns into an update anybody was offered by accident. Only the
+    client is ever built this way; the server's release tag stays plain.
   -->
   <PropertyGroup>
     <ModbotRelease Condition="'$(ModbotRelease)' == ''">2026.9.0</ModbotRelease>
   </PropertyGroup>
 
   <Target Name="WriteModbotVersion" BeforeTargets="CoreCompile">
-    <!-- Year, month without a leading zero, patch. Unpadded components are the rule, because
-         2026.09.1 and 2026.9.1 would otherwise be two spellings of one release. -->
-    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(ModbotRelease)', '^\d{4}\.(1[0-2]|[1-9])\.\d+$'))"
-           Text="ModbotRelease must look like 2026.9.1 (year.month.patch, no leading zeros); got '$(ModbotRelease)'." />
+    <!-- Year, month without a leading zero, patch, and `-preview.N` on a preview client. Unpadded
+         components are the rule, because 2026.09.1 and 2026.9.1 would otherwise be two spellings
+         of one release. -->
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(ModbotRelease)', '^\d{4}\.(1[0-2]|[1-9])\.\d+(-preview\.\d+)?$'))"
+           Text="ModbotRelease must look like 2026.9.1 (year.month.patch, no leading zeros), or 2026.9.1-preview.1 for a preview client; got '$(ModbotRelease)'." />
 
     <PropertyGroup>
       <_ModbotVersionFile>$(IntermediateOutputPath)ModbotVersion.g.cs</_ModbotVersionFile>
@@ -58,7 +64,7 @@ namespace Modbot.Core%3B
 
 public static partial class ModbotVersion
 {
-    /// &lt;summary&gt;Calendar version, YYYY.M.PATCH. The development default unless the build set ModbotRelease.&lt;/summary&gt;
+    /// &lt;summary&gt;Calendar version, YYYY.M.PATCH, with -preview.N on a preview client. The development default unless the build set ModbotRelease.&lt;/summary&gt;
     public const string Release = "$(ModbotRelease)"%3B
 }
       </_ModbotVersionSource>

@@ -22,7 +22,11 @@ public sealed record ReleaseView(
     DateTimeOffset? ImagePushedAt);
 
 /// <param name="Releases">The newest release of each thing Modbot ships.</param>
-/// <param name="CompanionFeeds">The client's own release feed, by channel. Served as it stands.</param>
+/// <param name="CompanionFeeds">
+/// The client's own release feed, by channel. Served as it stands. <c>win</c> and <c>linux</c> are
+/// what installed clients read; <c>win-preview</c> and <c>linux-preview</c> are there when a
+/// preview client is out, and only the copies installed from one ever ask for them.
+/// </param>
 /// <param name="At">When this answer was fetched.</param>
 public sealed record UpdatesAnswer(
     IReadOnlyList<ReleaseView> Releases,
@@ -76,6 +80,12 @@ public sealed class LatestReleases(
     public const string ServerName = "server";
 
     public const string CompanionName = "companion";
+
+    /// <summary>
+    /// What a preview channel's name ends with: <c>win-preview</c>, <c>linux-preview</c>. The
+    /// release workflow packs a preview on one of these and nothing else does.
+    /// </summary>
+    public const string PreviewChannelEnds = "-preview";
 
     /// <summary>Tag prefixes, as <c>&lt;prefix&gt;-v&lt;version&gt;</c>, and what each one is called here.</summary>
     private static readonly Dictionary<string, string> NamesByTagPrefix = new(StringComparer.OrdinalIgnoreCase)
@@ -162,9 +172,11 @@ public sealed class LatestReleases(
                 downloads.TryAdd(file.Name, file.DownloadUrl);
         }
 
-        var feeds = newest.TryGetValue(CompanionName, out var companion)
-            ? await CompanionFeedsAsync(companion, downloads, ct).ConfigureAwait(false)
-            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var feeds = await CompanionFeedsAsync(
+            NewestPreviewClient(releases),
+            newest.GetValueOrDefault(CompanionName),
+            downloads,
+            ct).ConfigureAwait(false);
 
         // Docker Hub is asked separately and may fail on its own. When it does, the server's answer
         // still names the image and the version to pull; only the pushed date is missing.
@@ -200,13 +212,20 @@ public sealed class LatestReleases(
         return true;
     }
 
-    /// <summary>The newest release of each thing, by the version in its tag.</summary>
+    /// <summary>
+    /// The newest release of each thing, by the version in its tag. Pre-releases are not in the
+    /// running: one is somebody's trial balloon, and telling every deployment in the world to
+    /// update to one is not what publishing it meant.
+    /// </summary>
     private static Dictionary<string, Release> Newest(IReadOnlyList<Release> releases)
     {
         var newest = new Dictionary<string, Release>(StringComparer.Ordinal);
 
         foreach (var release in releases)
         {
+            if (release.Preview)
+                continue;
+
             if (NameOf(release.Tag) is not { } name || VersionOf(release.Tag) is not { } version)
                 continue;
 
@@ -224,36 +243,71 @@ public sealed class LatestReleases(
     }
 
     /// <summary>
-    /// The client's own release feed for each channel, taken from the newest client release and
-    /// served with every file name turned into the address it downloads from.
+    /// The newest client release GitHub has marked a pre-release, which is where a preview's feed
+    /// is attached, or null when no preview is out.
     /// </summary>
     /// <remarks>
+    /// By when GitHub published them rather than by their number, because a preview version is
+    /// deliberately one <see cref="ReleaseVersion"/> cannot read — the same property that keeps a
+    /// preview from ever looking newer than a release. Previews come out one after another, so the
+    /// most recently published one is the one.
+    /// </remarks>
+    private static Release? NewestPreviewClient(IReadOnlyList<Release> releases) =>
+        releases
+            .Where(r => r.Preview && string.Equals(NameOf(r.Tag), CompanionName, StringComparison.Ordinal))
+            .OrderByDescending(r => r.PublishedAt ?? DateTimeOffset.MinValue)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// The client's own release feed for each channel, served with every file name turned into the
+    /// address it downloads from.
+    /// </summary>
+    /// <remarks>
+    /// <para>
     /// Velopack's web source reads <c>releases.{channel}.json</c> beside the address it was given,
     /// and follows an absolute address in a file name rather than looking beside that address. So
     /// Cloud serves the small index and the packages themselves come straight from where the
     /// release workflow put them — no download passes through Cloud.
+    /// </para>
+    /// <para>
+    /// Two releases are read, because a preview and a release are published separately and a
+    /// tester's copy has to be able to ask for a newer preview the same way everybody else asks
+    /// for a newer release. <strong>A pre-release answers for preview channels and nothing else</strong>:
+    /// whatever happens to be attached to one, it can never become what released clients read.
+    /// </para>
     /// </remarks>
     private async Task<Dictionary<string, string>> CompanionFeedsAsync(
-        Release release,
+        Release? preview,
+        Release? release,
         IReadOnlyDictionary<string, string> downloads,
         CancellationToken ct)
     {
         var feeds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var file in release.Files)
+        // The preview first, so the release wins any channel both publish.
+        foreach (var (from, previewOnly) in new[] { (preview, true), (release, false) })
         {
-            if (ChannelOf(file.Name) is not { } channel)
+            if (from is null)
                 continue;
 
-            var text = await github.ReadFileAsync(file, ct).ConfigureAwait(false);
-            if (text is null)
+            foreach (var file in from.Files)
             {
-                _log.LogDebug("Could not read {File} from the client release {Tag}", file.Name, release.Tag);
-                continue;
-            }
+                if (ChannelOf(file.Name) is not { } channel)
+                    continue;
 
-            if (WithDownloadAddresses(text, downloads) is { } feed)
-                feeds[channel] = feed;
+                if (previewOnly && !channel.EndsWith(PreviewChannelEnds, StringComparison.Ordinal))
+                    continue;
+
+                var text = await github.ReadFileAsync(file, ct).ConfigureAwait(false);
+                if (text is null)
+                {
+                    _log.LogDebug("Could not read {File} from the client release {Tag}", file.Name, from.Tag);
+                    continue;
+                }
+
+                if (WithDownloadAddresses(text, downloads) is { } feed)
+                    feeds[channel] = feed;
+            }
         }
 
         return feeds;
