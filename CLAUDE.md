@@ -43,6 +43,25 @@ an error message says what failed. That is all the text a screen needs.
 The reasoning behind a design belongs in `.agent/specs/` and in code comments, not in front of a
 moderator. If a screen seems to need a paragraph to be understood, fix the screen.
 
+## Link previews — every page gets one
+
+**A new page carries the tags a chat app reads to draw its preview.** Moderators paste Modbot links
+into Discord all day. A link with no tags shows as a bare address, and a link whose preview is word
+for word every other page's is worse, because it reads as broken. A preview needs four things: a
+title, a description, an image and the site's name, with Twitter's `twitter:card` tags beside them.
+The image address must be the whole `https://` one, because the crawler that fetches it has no page
+to work a relative address out from. The share image is `og.png`, and the brand spec (§7) says where
+it lives.
+
+A crawler runs no script, so tags the app sets once it has loaded are never read. They belong in the
+file the server sends: the page's own `.html` in a Vite app, `generateMetadata` in the docs site.
+Where a site has real pages each one says its own name; where every path serves a single file, one
+honest set for the whole site is all it can have.
+
+A preview is public, and that decides what it may say. The moderator app names the product and never
+the page: the links moderators paste carry a person, a ban or a case file in them, and a preview
+would spell that into a channel the app itself keeps behind a sign-in.
+
 ## Where things live
 
 | Path | Contents |
