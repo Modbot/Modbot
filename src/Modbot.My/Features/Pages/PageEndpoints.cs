@@ -6,9 +6,14 @@ using Modbot.My.Features.Visits;
 namespace Modbot.My.Features.Pages;
 
 /// <summary>
-/// The web app's routes. Each serves the same <c>index.html</c>, so a deep link works on first load.
+/// The web app's routes. Each serves a built page, so a deep link works on first load.
 /// </summary>
 /// <remarks>
+/// <para>
+/// The three pages are the same app. They differ only in the head, which carries the title and the
+/// link preview tags for that route: a chat app asked to draw a preview runs no script, so the only
+/// words it can read are the ones the built file already had.
+/// </para>
 /// <para>
 /// Only the app's real routes serve it. Every other path is a 404, so the retired <c>/pair</c> and
 /// <c>/instanceredirect</c> stay dead instead of coming back as pages that happen to render;
@@ -32,9 +37,29 @@ public static class PageEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        app.MapGet("/", ServeAndRecord);
-        app.MapGet("/register", ServeAndRecord);
-        app.MapGet("/go", ServeAndRecord);
+        app.MapGet("/", (
+            [FromQuery] string? url,
+            [FromServices] CloudClient cloud,
+            [FromServices] ServerLookup lookup,
+            [FromServices] SiteLimits limits,
+            [FromServices] AppPage page,
+            HttpContext http) => ServeAndRecord(url, cloud, lookup, limits, page, http, AppPage.Home));
+
+        app.MapGet("/register", (
+            [FromQuery] string? url,
+            [FromServices] CloudClient cloud,
+            [FromServices] ServerLookup lookup,
+            [FromServices] SiteLimits limits,
+            [FromServices] AppPage page,
+            HttpContext http) => ServeAndRecord(url, cloud, lookup, limits, page, http, AppPage.Register));
+
+        app.MapGet("/go", (
+            [FromQuery] string? url,
+            [FromServices] CloudClient cloud,
+            [FromServices] ServerLookup lookup,
+            [FromServices] SiteLimits limits,
+            [FromServices] AppPage page,
+            HttpContext http) => ServeAndRecord(url, cloud, lookup, limits, page, http, AppPage.Go));
 
         // Lowest priority, so it only answers what no other route claimed.
         app.MapFallback("{**path}", NotFound);
@@ -48,7 +73,8 @@ public static class PageEndpoints
         [FromServices] ServerLookup lookup,
         [FromServices] SiteLimits limits,
         [FromServices] AppPage page,
-        HttpContext http)
+        HttpContext http,
+        string file = AppPage.Home)
     {
         if (InstanceUrl.TryNormalise(url, out var origin))
         {
@@ -66,7 +92,7 @@ public static class PageEndpoints
             }
         }
 
-        return page.Serve(http);
+        return page.Serve(http, file);
     }
 
     internal static IResult NotFound(HttpContext http)

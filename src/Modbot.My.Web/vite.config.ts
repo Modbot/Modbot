@@ -11,6 +11,15 @@ export default defineConfig({
     // output only and is not committed.
     outDir: '../Modbot.My/wwwroot',
     emptyOutDir: true,
+    rollupOptions: {
+      // One file per route. They load the same app; they differ only in the head, so the link
+      // preview a chat app draws is the one for the page the link opens.
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        register: path.resolve(__dirname, 'register.html'),
+        go: path.resolve(__dirname, 'go.html'),
+      },
+    },
   },
   server: {
     proxy: { '/api': 'http://localhost:8080' },

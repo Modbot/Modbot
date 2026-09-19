@@ -31,7 +31,7 @@ public class RegisterDetailsTests
             Visitor);
 
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.Equal(MyTestHost.AppHtml, await page.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(MyTestHost.RegisterHtml, await page.Content.ReadAsStringAsync(Ct));
 
         var asked = await host.Server.NextAskAsync(Ct);
         Assert.Equal(new Uri($"{Server}/api/server"), asked);
@@ -238,7 +238,7 @@ public class RegisterDetailsTests
             .WaitAsync(TimeSpan.FromSeconds(5), Ct);
 
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.Equal(MyTestHost.AppHtml, await page.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(MyTestHost.RegisterHtml, await page.Content.ReadAsStringAsync(Ct));
     }
 
     /// <summary>The newest call that carried what the address said about itself.</summary>
