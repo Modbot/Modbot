@@ -7,7 +7,6 @@ using Modbot.Analytics.Reviews;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Analytics;
 using Modbot.Api.Features.Audit;
-using Modbot.Api.Lists;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -28,9 +27,6 @@ public static class RepeatOffenderEndpoints
     public const int DefaultLimit = 100;
     public const int MaxLimit = 500;
 
-    /// <summary>This list has one ordering, and this is its name in a cursor.</summary>
-    public const string Sort = "recent";
-
     public static IEndpointRouteBuilder MapRepeatOffenders(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -40,7 +36,6 @@ public static class RepeatOffenderEndpoints
         group.MapGet("/", async (
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
-                [FromQuery] string? cursor,
                 [FromQuery] int? offset,
                 [FromQuery] int? limit,
                 [FromQuery] string? status,
@@ -60,42 +55,12 @@ public static class RepeatOffenderEndpoints
                     query = query.Where(r => r.Status == wanted);
 
                 var total = await query.CountAsync(ct);
-
-                // A cursor that will not read is no cursor: the first page, not an error page.
-                var at = ListCursor.Read(cursor, Sort);
-                var back = at?.Direction == ListDirection.Back;
-
-                // The whole table is rebuilt from the fact log on the daily totals schedule, so a
-                // reader holding page three across a run would otherwise see rows shift under it.
-                // The subject id breaks ties, and the ties are real: everyone acted on in the
-                // same minute of a mass ban shares a last-action time.
-                if (at is { } mark && ListCursor.Time(mark.Value) is { } acted)
-                {
-                    var id = mark.Id;
-
-                    query = mark.Direction == ListDirection.Next
-                        ? query.Where(r =>
-                            r.LastActionAt < acted
-                            || (r.LastActionAt == acted && string.Compare(r.SubjectId, id) > 0))
-                        : query.Where(r =>
-                            r.LastActionAt > acted
-                            || (r.LastActionAt == acted && string.Compare(r.SubjectId, id) < 0));
-                }
-
-                var ordered = back
-                    ? query.OrderBy(r => r.LastActionAt).ThenByDescending(r => r.SubjectId)
-                    : query.OrderByDescending(r => r.LastActionAt).ThenBy(r => r.SubjectId);
-
-                // `offset` still works for whoever was already sending one, and the answer hands
-                // them a cursor to move to. A cursor, when sent, wins.
-                IQueryable<RepeatOffender> counted = ordered;
-                if (at is null && skip > 0)
-                    counted = counted.Skip(skip);
-
-                var read = await ListPaging.ReadAsync(
-                    counted, Sort, take, at, r => (ListCursor.Text(r.LastActionAt), r.SubjectId), ct);
-
-                var rows = read.Rows;
+                var rows = await query
+                    .OrderByDescending(r => r.LastActionAt)
+                    .ThenBy(r => r.SubjectId)
+                    .Skip(skip)
+                    .Take(take)
+                    .ToListAsync(ct);
 
                 var thresholds = await ReviewEndpoints.ThresholdsAsync(db, ct);
                 var names = await PeopleNames.LookupAsync(
@@ -106,9 +71,7 @@ public static class RepeatOffenderEndpoints
                 return Results.Ok(new RepeatOffenderListResponse(
                     rows.Select(r => View(r, names)).ToList(),
                     total,
-                    at is null ? skip : 0,
-                    read.Next,
-                    read.Previous,
+                    skip,
                     Rule(thresholds),
                     await LastRunAsync(db, ct),
                     clock.UtcNow));
@@ -120,12 +83,7 @@ public static class RepeatOffenderEndpoints
                 "Per person: instance kicks, warns, bans, removals from the group and join requests "
                 + "turned away, all time and over the last 30 and 90 days; how many different "
                 + "moderators acted; the first and last action; and a status decided by the rule in "
-                + "`rule`. Rebuilt from the fact log on the daily totals schedule -- `lastRunAt` says when.\n\n"
-                + "Paged by cursor: read the first page with no `cursor`, then send back the "
-                + "`next` or `previous` the answer carries, exactly as it came. A cursor that will "
-                + "not read is ignored and the first page comes back. `offset` still works, but "
-                + "the whole table is rebuilt on a schedule, so a row can shift across a numbered "
-                + "boundary between one request and the next.")
+                + "`rule`. Rebuilt from the fact log on the daily totals schedule -- `lastRunAt` says when.")
             .Produces<RepeatOffenderListResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

@@ -93,24 +93,11 @@ public sealed record MemberListCoverage(
     int MemberCount,
     DateTimeOffset Now);
 
-/// <param name="Total">
-/// People matching the filters, across every page. Still counted: a group is thousands of rows
-/// behind an index, the number is the one a moderator reads off the filter bar, and dropping it
-/// to save a count would take away the only figure on the screen that says how big the answer is.
-/// </param>
-/// <param name="Page">
-/// Which numbered page this is, for a caller still sending <c>page</c>. Always 1 for a caller
-/// paging by <c>cursor</c>, which has no page numbers.
-/// </param>
-/// <param name="Next">The cursor for the following page, or null on the last one.</param>
-/// <param name="Previous">The cursor for the page before, or null on the first one.</param>
 public sealed record MemberListResponse(
     IReadOnlyList<MemberRow> Members,
     int Total,
     int Page,
     int PageSize,
-    string? Next,
-    string? Previous,
     IReadOnlyList<RoleOption> Roles,
     MemberListCoverage Coverage);
 
@@ -160,14 +147,9 @@ public sealed record BanListCoverage(
     int BanCount,
     DateTimeOffset Now);
 
-/// <param name="Page">1 for a caller paging by <c>cursor</c>. See <see cref="MemberListResponse"/>.</param>
-/// <param name="Next">The cursor for the following page, or null on the last one.</param>
-/// <param name="Previous">The cursor for the page before, or null on the first one.</param>
 public sealed record GroupBanListResponse(
     IReadOnlyList<BanRow> Bans,
     int Total,
     int Page,
     int PageSize,
-    string? Next,
-    string? Previous,
     BanListCoverage Coverage);
