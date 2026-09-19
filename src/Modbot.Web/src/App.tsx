@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
-import { Footer, Sidebar, Topbar } from '@/components/Chrome'
+import { BottomBar, Footer, NavSheet, Sidebar, Topbar } from '@/components/Chrome'
 import { CommandPalette, type PaletteAction } from '@/components/CommandPalette'
 import { ShortcutSheet } from '@/components/ShortcutSheet'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
@@ -349,13 +349,16 @@ function Shell({
   useKeyboard()
 
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [sheetOpen, setSheetOpen] = useState(false)
+  // The same sheet, named for how it was asked for: `?` asks for the keys, the bar at the foot of
+  // a phone asks for what this page can do. It is one list either way.
+  const [sheet, setSheet] = useState<'keys' | 'page' | null>(null)
+  const [navOpen, setNavOpen] = useState(false)
 
   const signOut = demo ? undefined : () => void api.logout().finally(() => window.location.assign('/'))
 
   useShortcuts([
     { keys: 'mod+k', label: 'Search and commands', group: 'General', run: () => setPaletteOpen((o) => !o) },
-    { keys: '?', label: 'Keyboard shortcuts', group: 'General', run: () => setSheetOpen((o) => !o) },
+    { keys: '?', label: 'Keyboard shortcuts', group: 'General', run: () => setSheet((s) => (s ? null : 'keys')) },
     ...NAV.filter((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id) && GO_TO_KEYS[n.id]).map((n) => ({
       keys: `g ${GO_TO_KEYS[n.id]}`,
       label: n.label,
@@ -384,20 +387,28 @@ function Shell({
     ...(signOut ? [{ id: 'sign-out', label: 'Sign out', group: 'Account', run: signOut }] : []),
   ]
 
+  // What the sidebar needs, in one place: the column on a wide screen and the sheet on a phone
+  // draw the same component from it, so a page is added to the navigation once.
+  const nav = {
+    page,
+    me,
+    onNavigate: (p: PageId) => navigate(PATHS[p]),
+    onSearch: () => setPaletteOpen(true),
+    // `go` rather than `navigate`: the hash names the card to open, and only `go` wakes the
+    // page already on screen when nothing but the hash changed.
+    onOpenHealth: (section: StatusRowId) => go(`${PATHS.health}#${section}`),
+    group: status.group,
+    badges: { reviews: openReviews },
+  }
+
   return (
-    <div className="grid h-screen grid-cols-[13.5rem_1fr]">
-      <Sidebar
-        page={page}
-        me={me}
-        onNavigate={(p) => navigate(PATHS[p])}
-        onSearch={() => setPaletteOpen(true)}
-        // `go` rather than `navigate`: the hash names the card to open, and only `go` wakes the
-        // page already on screen when nothing but the hash changed.
-        onOpenHealth={(section: StatusRowId) => go(`${PATHS.health}#${section}`)}
-        group={status.group}
-        badges={{ reviews: openReviews }}
-      />
-      <main className="flex flex-col overflow-auto">
+    // `dvh` rather than `vh`: a phone browser's own bars are part of `vh`, so a `vh` screen is
+    // taller than the screen and the foot of the app sits under them.
+    <div className="grid h-[100dvh] grid-cols-1 lg:grid-cols-[13.5rem_1fr]">
+      <Sidebar {...nav} className="hidden lg:flex" />
+      {/* `min-w-0`: a grid item is as wide as its widest child unless told otherwise, so without
+          it a table that means to scroll inside its own box widens the whole app instead. */}
+      <main className="flex min-w-0 flex-col overflow-auto pb-[calc(3.25rem+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Above everything, for everyone signed in, on every page (foundation spec 4.1.2). */}
         <SignInWaitBanner />
         <Topbar
@@ -410,7 +421,7 @@ function Shell({
           // session to end, so the control is not there.
           onSignOut={signOut}
         />
-        <div className="p-5">
+        <div className="p-4 lg:p-5">
           {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}
           {page === 'discord-members' && <DiscordMembers me={me} />}
           {page === 'people' && <People />}
@@ -468,7 +479,28 @@ function Shell({
         onGoTo={(p) => navigate(PATHS[p])}
         actions={paletteActions}
       />
-      <ShortcutSheet open={sheetOpen} onOpenChange={setSheetOpen} />
+      <ShortcutSheet
+        open={sheet !== null}
+        onOpenChange={(open) => setSheet(open ? 'keys' : null)}
+        title={sheet === 'page' ? 'This page' : 'Keyboard shortcuts'}
+      />
+
+      {/* The phone's shell: the pages in a sheet, and the bar at the foot that opens it, the
+          palette and the page's own keys. Not drawn at all from `lg` up. */}
+      <NavSheet
+        open={navOpen}
+        onOpenChange={setNavOpen}
+        nav={nav}
+        appearance={prefs}
+        username={me.username}
+        onAccount={() => navigate(PATHS.account)}
+        onSignOut={signOut}
+      />
+      <BottomBar
+        onMenu={() => setNavOpen(true)}
+        onSearch={() => setPaletteOpen(true)}
+        onThisPage={() => setSheet('page')}
+      />
     </div>
   )
 }

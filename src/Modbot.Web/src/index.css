@@ -159,6 +159,71 @@
   --chart-grid: #cfcbe0;
 }
 
+/* A phone, by the same reasoning as VR.
+   A fingertip covers roughly 10mm of glass and cannot be aimed at a 30px
+   button, so the floor here is 44px -- the smallest target a finger hits
+   reliably. VR's floor is 48px because a laser pointer wobbles over a
+   distance; a finger touching the thing it is aiming at does not, so 44 is
+   enough and 48 would cost a row of the list.
+   A phone is picked out by a coarse pointer AND a narrow screen together:
+   a touch laptop has a coarse pointer and a mouse, and an operator who chose
+   Dense on it meant it. VR keeps its own numbers, which are already larger. */
+@media (pointer: coarse) and (max-width: 63.9375rem) {
+  :root:not([data-density="vr"]) {
+    --row-h: 2.875rem;     /* a list row is a tap target too */
+    --control-h: 2.75rem;  /* 44px, the fingertip floor */
+    --text-base: 0.875rem; /* 13px is a scanning size for a mouse, not a phone */
+    --text-small: 0.8125rem;
+  }
+
+  /* Safari zooms the page when a field with text under 16px takes focus, and
+     never zooms back out. Fields are 16px here for that reason alone. */
+  input,
+  textarea,
+  select {
+    font-size: max(1rem, var(--text-base));
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Tables on a narrow screen.
+
+   A members row is a name, a Discord account, roles, two dates and the
+   actions. None of those is spare, so nothing is dropped: the table scrolls
+   sideways, which is what it already did. What was wrong is that scrolling
+   right took the name away with it and left an anonymous row of dates. So the
+   first column stays put, and the rest of the row moves under it.
+
+   Marked with `data-pin-first` on the box that scrolls, and only where the
+   first column is what names the row -- pinning a chevron would cost a third
+   of the screen and say nothing. The cell repeats the row's own background,
+   because a see-through cell would show the row sliding underneath it.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 63.9375rem) {
+  [data-pin-first] tr > :first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--card);
+    box-shadow: inset calc(0px - var(--hairline)) 0 0 0 var(--border);
+
+    /* A VRChat id is forty characters with nothing to break at, so left to
+       itself the name column claims the whole screen and pins the very thing
+       the moderator was scrolling past. Capped, it clips to an ellipsis the
+       way a long name already does at any width, and the row still opens the
+       person, where the id is written out in full. */
+    max-width: 14rem;
+  }
+
+  [data-pin-first] tr:hover > :first-child {
+    background: color-mix(in oklab, var(--muted) 40%, var(--card));
+  }
+
+  [data-pin-first] tr[data-selected] > :first-child {
+    background: color-mix(in oklab, var(--accent) 60%, var(--card));
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
