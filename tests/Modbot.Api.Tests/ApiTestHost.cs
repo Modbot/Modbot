@@ -181,6 +181,28 @@ public sealed class ApiTestHost : IAsyncDisposable
         await context.AiFetchedPrices.ExecuteDeleteAsync(ct);
         await context.AiLimitsReached.ExecuteDeleteAsync(ct);
 
+        // The notification pipeline says a thing once and then counts repeats, and it decides that
+        // from rows rather than from anything in memory -- which is the point of it, since a
+        // pipeline that forgets on restart says everything twice. So one test's notification is
+        // the next test's repeat, and its sends are counted against the next test's daily email
+        // limit. Cleared in dependency order.
+        await context.NotificationSends.ExecuteDeleteAsync(ct);
+        await context.NotificationsForPeople.ExecuteDeleteAsync(ct);
+        await context.Notifications.ExecuteDeleteAsync(ct);
+        await context.NotificationChoices.ExecuteDeleteAsync(ct);
+        await context.NotificationSettings.ExecuteDeleteAsync(ct);
+
+        // The Discord server, its roles and the sync's own marker are part of "set up", so a
+        // deployment put back to untouched has none of them. Without this, the second test to seed
+        // the same server and role hits the primary key, and the sync marker a previous test moved
+        // is the one the next test reads back.
+        await context.CopiedActions.ExecuteDeleteAsync(ct);
+        await context.DiscordRolePairs.ExecuteDeleteAsync(ct);
+        await context.DiscordSyncState.ExecuteDeleteAsync(ct);
+        await context.DiscordRoles.ExecuteDeleteAsync(ct);
+        await context.DiscordChannels.ExecuteDeleteAsync(ct);
+        await context.DiscordServers.ExecuteDeleteAsync(ct);
+
         // Several test files reuse the same VRChat and Discord ids ("author-1" and the like) for
         // an unrelated person in an unrelated scenario, the same way ReadSurfaceTestHost.ResetAsync
         // already has to for the audit-log tests. Without this, a fact one test wrote survives to

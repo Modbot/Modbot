@@ -93,6 +93,14 @@ public class NotificationPipelineTests
     {
         var db = _db.NewContext();
 
+        // The administrator this makes has to be the only one. Every notification here goes to
+        // the administrators, so an administrator left behind by an earlier test is a second
+        // person the pipeline reaches -- and the counts these tests assert on are per person, so
+        // the numbers grow by one test's worth each time rather than failing in a way that names
+        // the cause.
+        await db.UserRoles.ExecuteDeleteAsync(ct);
+        await db.Users.ExecuteDeleteAsync(ct);
+
         await db.NotificationSends.ExecuteDeleteAsync(ct);
         await db.NotificationsForPeople.ExecuteDeleteAsync(ct);
         await db.Notifications.ExecuteDeleteAsync(ct);

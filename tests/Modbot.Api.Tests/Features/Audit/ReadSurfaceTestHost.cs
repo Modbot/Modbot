@@ -243,6 +243,14 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.DiscordEventRoutes.ExecuteDeleteAsync(ct);
         await context.DiscordAccountLinks.ExecuteDeleteAsync(ct);
         await context.DiscordEventChannels.ExecuteDeleteAsync(ct);
+
+        // Accounts and the clients paired to them, for the reason ApiTestHost.ResetDeploymentAsync
+        // clears accounts: the user table is shared by the whole assembly, so a test that wants a
+        // moderator called "ada" finds the last test's "ada" already there and the username index
+        // refuses the second one.
+        await context.CompanionDevices.ExecuteDeleteAsync(ct);
+        await context.Users.ExecuteDeleteAsync(ct);
+
         await context.Settings.ExecuteDeleteAsync(ct);
     }
 
