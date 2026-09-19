@@ -45,7 +45,12 @@ public class ModerationActionTests
     // ── Setting the scene ──────────────────────────────────────────────────────────────────
 
     /// <summary>A group Modbot manages, signed in as its own account, with the person a member.</summary>
-    private static async Task SeedAsync(ReadSurfaceTestHost host, CancellationToken ct, bool banned = false)
+    /// <param name="member">
+    /// False leaves the member list without them, which is the state a stranger is in: somebody a
+    /// moderator heard about from another group or a Discord message and has never seen join.
+    /// </param>
+    private static async Task SeedAsync(
+        ReadSurfaceTestHost host, CancellationToken ct, bool banned = false, bool member = true)
     {
         host.Clock.UtcNow = Day;
 
@@ -56,15 +61,18 @@ public class ModerationActionTests
         settings.ManagedGroupId = Group;
         settings.VRChatSessionUserId = ModbotAccount;
 
-        db.GroupMembers.Add(new GroupMember
+        if (member)
         {
-            GroupId = Group,
-            UserId = Person,
-            Roles = "[]",
-            JoinedAt = Day.AddDays(-20),
-            FirstSeenAt = Day.AddDays(-20),
-            LastSeenAt = Day.AddHours(-1),
-        });
+            db.GroupMembers.Add(new GroupMember
+            {
+                GroupId = Group,
+                UserId = Person,
+                Roles = "[]",
+                JoinedAt = Day.AddDays(-20),
+                FirstSeenAt = Day.AddDays(-20),
+                LastSeenAt = Day.AddHours(-1),
+            });
+        }
 
         if (banned)
         {
@@ -268,6 +276,207 @@ public class ModerationActionTests
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
 
         Assert.Equal(Day, (await db.GroupBans.AsNoTracking().SingleAsync(b => b.UserId == Person, ct)).LiftedAt);
+    }
+
+    // ── Banning somebody who is not in the group ───────────────────────────────────────────
+
+    /// <summary>
+    /// The case the whole of this section exists for: a moderator hears about somebody from
+    /// another group, from Discord or from a flag, and keeps them out before they ever arrive.
+    /// VRChat's group ban takes a user id, not a membership, so nothing about this is unusual —
+    /// and nothing in Modbot may quietly assume the member row is there.
+    /// </summary>
+    [Fact]
+    public async Task ABanOnSomebodyWhoIsNotAMember_GoesThrough_AndWritesTheBanListRow()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = Accepting();
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, member: false);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync(
+                "/api/moderation/ban",
+                Body(Person, "key-ban-stranger", reason, "Named in another group's warning."),
+                cookie,
+                ct),
+            ct);
+
+        Assert.True(result.Done);
+        Assert.Null(result.Error);
+        Assert.NotNull(result.CaseId);
+
+        Assert.Single(gate.Calls, c => c.Endpoint.Operation == "BanGroupMember");
+
+        var fact = Assert.Single(await FactsAboutAsync(host, Person, ct), e => e.Type == FactType.ActionBan);
+        Assert.Equal(Person, fact.SubjectId);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        // The ban list holds them straight away, so the Bans page is right on its next load and
+        // the sweep only has to confirm it.
+        var ban = await db.GroupBans.AsNoTracking().SingleAsync(b => b.UserId == Person, ct);
+        Assert.Null(ban.LiftedAt);
+        Assert.Equal(Day, ban.BannedAt);
+
+        // And no member row was invented to hang the ban off.
+        Assert.Empty(await db.GroupMembers.AsNoTracking().ToListAsync(ct));
+
+        // The write-up is there, with nothing about a membership there never was.
+        var caseFile = await db.CaseFiles.AsNoTracking().SingleAsync(c => c.Id == result.CaseId, ct);
+        Assert.Equal(fact.Id, caseFile.BanFactId);
+        Assert.Null(caseFile.MembershipAtBan);
+    }
+
+    /// <summary>
+    /// Somebody Modbot has no profile row for at all — the id arrived from outside. The ban
+    /// records them as a person so the Bans page has somebody to name rather than a bare id.
+    /// </summary>
+    [Fact]
+    public async Task ABanOnSomebodyModbotHasNeverSeen_RecordsThemAsAPerson()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var gate = Accepting();
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, member: false);
+
+        using (var before = host.Services.CreateScope())
+        {
+            var db = before.ServiceProvider.GetRequiredService<ModbotContext>();
+            Assert.Empty(await db.VRChatUsers.AsNoTracking().Where(u => u.UserId == Person).ToListAsync(ct));
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-ban-stranger-2", reason), cookie, ct), ct);
+
+        Assert.True(result.Done);
+
+        using var scope = host.Services.CreateScope();
+        var db2 = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        // The id and that Modbot has now seen it. The name and the picture arrive when the
+        // profile sync reaches the request the ban queued -- nothing is fetched in the request.
+        var person = await db2.VRChatUsers.AsNoTracking().SingleAsync(u => u.UserId == Person, ct);
+        Assert.Equal(Day, person.LastSeenAt);
+        Assert.Null(person.DisplayName);
+        Assert.Null(person.LastRefreshedAt);
+    }
+
+    /// <summary>
+    /// A ban still needs somebody real behind the id. VRChat's 404 reaches the moderator as a
+    /// sentence, not as "VRChat returned 404 for groups.moderate/...".
+    /// </summary>
+    [Fact]
+    public async Task ABanOnAnIdVRChatDoesNotKnow_SaysSo_AndRecordsNothingAsDone()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var gate = new FakeVRChatGate()
+            .SignedInAs()
+            .Returns("BanGroupMember", VRChatResult<VRChatGroupMember>.Failure(404, "404 Not Found"));
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, member: false);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-ban-nobody", reason), cookie, ct), ct);
+
+        Assert.False(result.Done);
+        Assert.Equal("VRChat has no account with that id.", result.Error);
+        Assert.Null(result.CaseId);
+
+        var facts = await FactsAboutAsync(host, Person, ct);
+        Assert.Single(facts, e => e.Type == FactType.ActionFailed);
+        Assert.DoesNotContain(facts, e => e.Type == FactType.ActionBan);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        Assert.Empty(await db.GroupBans.AsNoTracking().ToListAsync(ct));
+        Assert.Empty(await db.CaseFiles.AsNoTracking().ToListAsync(ct));
+    }
+
+    // ── Kick and unban are different questions ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Kicking somebody who is not in the group is meaningless, and Modbot lets VRChat say so
+    /// rather than refusing from its own member list: that list rests fifteen minutes between
+    /// sweeps, and a check against it would block the kick of somebody who joined a minute ago.
+    /// </summary>
+    [Fact]
+    public async Task AKickOnSomebodyWhoIsNotInTheGroup_IsSentAndRefused_AndReadsAsWhatItIs()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var gate = new FakeVRChatGate()
+            .SignedInAs()
+            .Returns("KickGroupMember", VRChatResult<VRChatSuccess>.Failure(404, "404 Not Found"));
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, member: false);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Kick, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/kick", Body(Person, "key-kick-stranger"), cookie, ct), ct);
+
+        Assert.False(result.Done);
+        Assert.Equal("VRChat says they are not in the group.", result.Error);
+        Assert.False(result.RateLimited);
+
+        // Sent, not pre-refused: Modbot's member list does not get to decide this.
+        Assert.Single(gate.Calls, c => c.Endpoint.Operation == "KickGroupMember");
+        Assert.Single(await FactsAboutAsync(host, Person, ct), e => e.Type == FactType.ActionFailed);
+    }
+
+    /// <summary>
+    /// Unbanning somebody who was never banned is meaningless in the other direction: there is no
+    /// ban to lift. VRChat says so, and nothing is written to the ban list to say otherwise.
+    /// </summary>
+    [Fact]
+    public async Task AnUnbanOnSomebodyWhoIsNotBanned_IsSentAndRefused_AndWritesNoBanRow()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var gate = new FakeVRChatGate()
+            .SignedInAs()
+            .Returns("UnbanGroupMember", VRChatResult<VRChatGroupMember>.Failure(404, "404 Not Found"));
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Unban, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-unban-nothing"), cookie, ct), ct);
+
+        Assert.False(result.Done);
+        Assert.Equal("VRChat says they are not banned.", result.Error);
+
+        Assert.Single(gate.Calls, c => c.Endpoint.Operation == "UnbanGroupMember");
+        Assert.Single(await FactsAboutAsync(host, Person, ct), e => e.Type == FactType.ActionFailed);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        Assert.Empty(await db.GroupBans.AsNoTracking().ToListAsync(ct));
     }
 
     // ── A refusal is a refusal ─────────────────────────────────────────────────────────────
