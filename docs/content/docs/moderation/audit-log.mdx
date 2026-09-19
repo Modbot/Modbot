@@ -63,7 +63,7 @@ history.
 
 **Click a row** (anywhere that is not a name) to open it. Under the row: every field the entry
 holds (type, log, source, when, when it was recorded, who it is about, who did it, the world and
-instance, the description, the entry id); a **Changed** table with each field's before and after
+instance, who reported it, the description, the entry id); a **Changed** table with each field's before and after
 for entries that record a change; the **Snapshot** the entry stands for, where it is one; and the
 entry's **Payload** and the whole **Entry** as JSON, each with a copy button. Click the row again
 to close it.
@@ -78,6 +78,23 @@ Discord name, or the Modbot account a sign-in or a settings change is recorded a
 open the same [person popup](/moderation/popups#person-popup), which shows every account Modbot
 can tie to the one you clicked, and the **Account** tab there is everything that Modbot account
 did and everything done to it.
+
+### Who reported it
+
+An entry a companion reported carries **Reported by** and the moderator whose companion it was,
+under the sentence. It is on the row, on the **Logs** tab of a [person popup](/moderation/popups#person-popup)
+and on the **Logs** tab of an instance popup.
+
+Where several companions saw the same thing, all of them are named, in the order their reports
+arrived. Modbot keeps one entry per event — six moderators in one instance all see the same person
+walk in, and counting that six times would wreck every figure built on it — but it now remembers
+who else reported it. Two companions agreeing is better evidence than one, which matters when
+somebody disputes what an entry says.
+
+Open the row and **Reported by** lists each one with the time its report reached the server.
+
+Entries from any other source have no reporter: a ban read out of VRChat's audit log or a setting
+changed in Modbot has a source, not a companion.
 
 ### One decision, several entries
 
