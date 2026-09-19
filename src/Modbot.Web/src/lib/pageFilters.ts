@@ -1,4 +1,4 @@
-import type { AuditRequest, DiscordMemberQuery, MemberQuery } from './api.ts'
+import type { AuditRequest, DiscordMemberQuery, MemberQuery, PeopleQuery } from './api.ts'
 import { chipFor, dateRange, yesNo, type FilterChip } from './filters.ts'
 
 /**
@@ -76,6 +76,49 @@ export function memberQueryFrom(chips: FilterChip[]): Omit<MemberQuery, 'search'
     seenFrom: seen.from,
     seenTo: seen.to,
   }
+}
+
+/**
+ * The People page's default: nothing narrowed.
+ *
+ * The member list opens on current members because that is what its page is about. This page is
+ * about finding somebody in the whole record, so it opens on the whole record and every chip is
+ * something a moderator chose to add.
+ */
+export const PEOPLE_DEFAULTS: FilterChip[] = []
+
+export function peopleQueryFrom(chips: FilterChip[]): Omit<PeopleQuery, 'search' | 'sort' | 'page' | 'pageSize'> {
+  const membership = chipFor(chips, 'membership')
+  const profile = chipFor(chips, 'profile')
+  const linked = chipFor(chips, 'linked')
+  const rank = chipFor(chips, 'trustRank')
+  const platform = chipFor(chips, 'platform')
+  const seen = dateRange(chips, 'seen')
+
+  return {
+    membership: (membership?.values[0] as PeopleQuery['membership']) ?? 'all',
+    banned: yesNo(chips, 'banned'),
+    everBanned: yesNo(chips, 'everBanned'),
+    profile: profile?.values[0] as PeopleQuery['profile'],
+    eighteenPlus: yesNo(chips, 'eighteenPlus'),
+    trustRanks: anyOf(rank),
+    platforms: anyOf(platform),
+    linked: (linked?.values[0] as PeopleQuery['linked']) ?? undefined,
+    flagged: yesNo(chips, 'flagged'),
+    seenFrom: seen.from,
+    seenTo: seen.to,
+  }
+}
+
+/**
+ * The values a choice chip asks for.
+ *
+ * Only "is any of": trust rank and platform are both unset for people nobody has read yet, and
+ * "is not PC" turned into the rest of a list would quietly drop every one of them. The bar offers
+ * neither property an "is not" for the same reason.
+ */
+function anyOf(chip: FilterChip | undefined): string[] | undefined {
+  return chip?.operator === 'is' && chip.values.length ? chip.values : undefined
 }
 
 /** The Discord member list's default: people in the server. */

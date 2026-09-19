@@ -1,16 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { SubjectLink } from '@/components/facts'
+import { FilterBar } from '@/components/filters/FilterBar'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { api, ApiError, type PeopleList, type PeopleQuery } from '@/lib/api'
+import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { ago, howLong } from '@/lib/format'
 import { changesMembers } from '@/lib/liveRules'
 import { useListSelection } from '@/lib/listSelection'
+import { PEOPLE_DEFAULTS, peopleQueryFrom } from '@/lib/pageFilters'
 import { useShortcuts } from '@/lib/shortcuts'
 import { openPerson } from '@/lib/subject'
+import { trustRankColour, trustRankLabel, type TrustRank } from '@/lib/trustRank'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -27,18 +31,106 @@ import { Empty } from '@/pages/Members'
  *
  * Search, the filters and paging all run on the server, for the reason Members gives and more so:
  * this table outgrows the member list by an order of magnitude.
+ *
+ * The filter bar is the member list's, because finding one person in the whole record is what this
+ * page is for and a search box on its own is not enough to do it. Every chip asks the server, and
+ * every chip puts the list back on page one: a page number counted against one set of matches
+ * means nothing against another.
  */
 
 const PAGE_SIZE = 50
 
+/**
+ * What the bar can narrow the list by.
+ *
+ * Fixed rather than read from the list, unlike the member list's roles: none of these come from
+ * the group's own settings, so there is nothing to wait for a response to learn.
+ *
+ * Trust rank and platform take "is any of" and no "is not". Both are unset for anybody whose
+ * profile has never been read, and "is not PC" turned into the rest of the list would quietly
+ * drop every one of them -- which is the opposite of what somebody asking that would mean.
+ */
+const RANKS: TrustRank[] = ['Visitor', 'NewUser', 'User', 'KnownUser', 'TrustedUser', 'Legend', 'Nuisance', 'VRChatTeam']
+
+const PROPERTIES: FilterProperty[] = [
+  {
+    id: 'membership',
+    label: 'Membership',
+    kind: 'choice',
+    multi: false,
+    negatable: false,
+    options: [
+      { value: 'member', label: 'Members' },
+      { value: 'not-member', label: 'Not members' },
+      { value: 'left', label: 'People who left' },
+    ],
+  },
+  { id: 'banned', label: 'On the ban list', kind: 'yesno' },
+  { id: 'everBanned', label: 'Ever banned', kind: 'yesno' },
+  {
+    id: 'trustRank',
+    label: 'Trust rank',
+    kind: 'choice',
+    negatable: false,
+    options: RANKS.map((rank) => ({ value: rank, label: trustRankLabel(rank), color: trustRankColour(rank) })),
+  },
+  {
+    id: 'platform',
+    label: 'Platform',
+    kind: 'choice',
+    negatable: false,
+    options: [
+      { value: 'standalonewindows', label: 'PC' },
+      { value: 'android', label: 'Android' },
+      { value: 'ios', label: 'iOS' },
+    ],
+  },
+  {
+    id: 'linked',
+    label: 'Discord',
+    kind: 'choice',
+    multi: false,
+    negatable: false,
+    options: [
+      { value: 'linked', label: 'Linked' },
+      { value: 'not-linked', label: 'Not linked' },
+    ],
+  },
+  { id: 'eighteenPlus', label: '18+ verified', kind: 'yesno' },
+  { id: 'flagged', label: 'Has flags', kind: 'yesno' },
+  { id: 'seen', label: 'Last seen', kind: 'date' },
+  {
+    id: 'profile',
+    label: 'Profile',
+    kind: 'choice',
+    multi: false,
+    negatable: false,
+    options: [
+      { value: 'fetched', label: 'Fetched' },
+      { value: 'not-fetched', label: 'Not fetched yet' },
+    ],
+  },
+]
+
 export function People() {
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
-  const [membership, setMembership] = useState<NonNullable<PeopleQuery['membership']>>('all')
   const [sort, setSort] = useState<NonNullable<PeopleQuery['sort']>>('seen')
   const [page, setPage] = useState(1)
   const [list, setList] = useState<PeopleList | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // The chips: in the address, remembered per page (lib/filters.ts). Nothing narrowed by default.
+  const [chips, setChipsOnly] = useFilters('people', PEOPLE_DEFAULTS)
+
+  // Every filter puts the list back on page one. A page number counted against one set of matches
+  // means nothing against another, and page four of a list that now has two pages is empty.
+  const setChips = (next: FilterChip[]) => {
+    setChipsOnly(next)
+    setPage(1)
+  }
+
+  const filter = useMemo(() => peopleQueryFrom(chips), [chips])
 
   // Read again when the live stream says somebody joined, left, was banned or had their profile
   // refreshed: every one of those changes a row here.
@@ -56,7 +148,7 @@ export function People() {
     let cancelled = false
 
     api
-      .people({ search, membership, sort, page, pageSize: PAGE_SIZE })
+      .people({ ...filter, search, sort, page, pageSize: PAGE_SIZE })
       .then((next) => {
         if (cancelled) return
         setList(next)
@@ -74,7 +166,7 @@ export function People() {
     return () => {
       cancelled = true
     }
-  }, [search, membership, sort, page, live])
+  }, [search, filter, sort, page, live])
 
   const searchBox = useRef<HTMLInputElement>(null)
   useShortcuts([{ keys: '/', label: 'Search', group: 'Filters', page: true, run: () => searchBox.current?.select() }])
@@ -96,7 +188,7 @@ export function People() {
         <span>{list.coverage.members.toLocaleString()} in the group.</span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <FilterBar properties={PROPERTIES} chips={chips} onChange={setChips}>
         <Input
           ref={searchBox}
           value={typed}
@@ -105,20 +197,6 @@ export function People() {
           className="h-7 w-56"
           aria-label="Search people"
         />
-
-        <Select
-          value={membership}
-          onChange={(v) => {
-            setMembership(v as typeof membership)
-            setPage(1)
-          }}
-          aria-label="Membership"
-        >
-          <option value="all">Everyone</option>
-          <option value="member">Members</option>
-          <option value="not-member">Not members</option>
-          <option value="left">People who left</option>
-        </Select>
 
         <Select
           value={sort}
@@ -133,16 +211,16 @@ export function People() {
           <option value="known">Known longest first</option>
         </Select>
 
-        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span className="text-muted-foreground">
           {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
         </span>
-      </div>
+      </FilterBar>
 
       <Card>
         <CardContent className="p-0">
           {list.people.length === 0 ? (
             <div className="py-10 text-center font-medium">
-              {search || membership !== 'all' ? 'Nobody matches' : 'Nobody seen yet'}
+              {search || chips.length > 0 ? 'Nobody matches' : 'Nobody seen yet'}
             </div>
           ) : (
             <div className="overflow-x-auto">

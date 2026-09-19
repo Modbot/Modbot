@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.DiscordLink;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Names;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
@@ -55,7 +57,15 @@ public static class PeopleEndpoints
                 [FromQuery] string? search,
                 [FromQuery] string? membership,
                 [FromQuery] bool? banned,
+                [FromQuery] bool? everBanned,
                 [FromQuery] string? profile,
+                [FromQuery] bool? eighteenPlus,
+                [FromQuery(Name = "trustRank")] string[]? trustRanks,
+                [FromQuery(Name = "platform")] string[]? platforms,
+                [FromQuery] string? linked,
+                [FromQuery] bool? flagged,
+                [FromQuery] DateTimeOffset? seenFrom,
+                [FromQuery] DateTimeOffset? seenTo,
                 [FromQuery] string? sort,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
@@ -67,8 +77,24 @@ public static class PeopleEndpoints
                 if (profile is not (null or "" or "fetched" or "not-fetched"))
                     return Results.BadRequest(new { error = "`profile` is fetched or not-fetched." });
 
+                if (!LinkFilter.IsValid(linked))
+                    return Results.BadRequest(new { error = LinkFilter.Error });
+
+                if (!Ranks(trustRanks, out var ranks))
+                    return Results.BadRequest(new { error = "`trustRank` is a trust rank name, such as KnownUser." });
+
                 return Results.Ok(await ListAsync(
-                    db, clock, search, membership, banned, profile, sort, page, pageSize, ct));
+                    db,
+                    clock,
+                    search,
+                    membership,
+                    profile,
+                    sort,
+                    page,
+                    pageSize,
+                    new PeopleFilters(
+                        banned, everBanned, eighteenPlus, ranks, Platforms(platforms), linked, flagged, seenFrom, seenTo),
+                    ct));
             })
             .RequireAuthorization()
             .RequiresFlag(ModbotPermissions.ViewProfile)
@@ -79,8 +105,17 @@ public static class PeopleEndpoints
                 "Every VRChat account Modbot has ever seen: members, people who left, people it "
                 + "only ever saw in an instance or in the audit log. `search` matches the display "
                 + "name and the id, case-insensitively and literally. `membership` is `member`, "
-                + "`not-member`, `left` or `all` (the default); `banned` is true or false; "
-                + "`profile` is `fetched` or `not-fetched`. Sorted by when Modbot last saw them, "
+                + "`not-member`, `left` or `all` (the default); `banned` is true or false for the "
+                + "group's ban list as it stands, `everBanned` true or false for a ban at any time, "
+                + "lifted or not; `profile` is `fetched` or `not-fetched`. `eighteenPlus` is true or "
+                + "false for Modbot's 18+ mark. `trustRank` is a trust rank name and may be "
+                + "repeated: people holding any of them, and never anybody whose tags have not been "
+                + "read. `platform` is the platform they last used, matched case-insensitively "
+                + "against whatever VRChat sent, and may be repeated. `linked=linked` shows only "
+                + "people with a linked Discord account and `linked=not-linked` only people without. "
+                + "`flagged` is true or false for having ever been flagged by a moderation rule, "
+                + "dismissed or not. `seenFrom` and `seenTo` narrow the list to people Modbot last "
+                + "saw inside that stretch. Sorted by when Modbot last saw them, "
                 + "most recent first, unless `sort=name` or `sort=known` (longest known first). "
                 + "Names and pictures come from the profile sync and are null for anybody it has "
                 + "not fetched yet.")
@@ -91,24 +126,91 @@ public static class PeopleEndpoints
         return app;
     }
 
+    /// <summary>
+    /// Everything the list is narrowed by beyond the search box, the membership word and the sort.
+    /// </summary>
+    /// <remarks>
+    /// A record rather than nine more parameters, for the reason the member list gives: the
+    /// endpoint's own signature is already the whole query string, and a filter added later should
+    /// not have to be threaded through every call.
+    /// </remarks>
+    /// <param name="Banned">On the group's ban list as it stands.</param>
+    /// <param name="EverBanned">Banned from the group at any time, lifted or not.</param>
+    /// <param name="EighteenPlus">Modbot's sticky 18+ mark.</param>
+    /// <param name="TrustRanks">Any of these trust ranks. Empty means the rank is not filtered.</param>
+    /// <param name="Platforms">Any of these <c>last_platform</c> values, lower-cased. Empty means the platform is not filtered.</param>
+    /// <param name="Linked">A linked Discord account, in <see cref="LinkFilter"/>'s words.</param>
+    /// <param name="Flagged">Ever flagged by a moderation rule, dismissed or not.</param>
+    /// <param name="SeenFrom">Modbot last saw them on or after this.</param>
+    /// <param name="SeenTo">Modbot last saw them before this.</param>
+    internal sealed record PeopleFilters(
+        bool? Banned = null,
+        bool? EverBanned = null,
+        bool? EighteenPlus = null,
+        IReadOnlyList<TrustRank>? TrustRanks = null,
+        IReadOnlyList<string>? Platforms = null,
+        string? Linked = null,
+        bool? Flagged = null,
+        DateTimeOffset? SeenFrom = null,
+        DateTimeOffset? SeenTo = null);
+
+    /// <summary>
+    /// The trust ranks a repeated <c>trustRank</c> names, or false when one of them is not a rank.
+    /// </summary>
+    /// <remarks>
+    /// Refused rather than ignored: a moderator who mistypes a rank should be told, not handed the
+    /// whole list back as though they had asked for it.
+    /// </remarks>
+    private static bool Ranks(string[]? values, out IReadOnlyList<TrustRank> ranks)
+    {
+        var read = new List<TrustRank>();
+        ranks = read;
+
+        foreach (var value in values ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(value)) continue;
+            if (!Enum.TryParse<TrustRank>(value.Trim(), ignoreCase: true, out var rank)) return false;
+            if (!read.Contains(rank)) read.Add(rank);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The <c>last_platform</c> values a repeated <c>platform</c> names, lower-cased.
+    /// </summary>
+    /// <remarks>
+    /// Never checked against a list of known platforms: VRChat documents the field as free text
+    /// and it is stored exactly as sent, so a value this build has no word for is a value a
+    /// moderator may still want to pick out. An unknown one simply matches nobody.
+    /// </remarks>
+    private static IReadOnlyList<string> Platforms(string[]? values)
+        => [.. (values ?? [])
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)];
+
     internal static async Task<PeopleListResponse> ListAsync(
         ModbotContext db,
         IModbotClock clock,
         string? search,
         string? membership,
-        bool? banned,
         string? profile,
         string? sort,
         int? page,
         int? pageSize,
+        PeopleFilters? filters,
         CancellationToken ct)
     {
+        filters ??= new PeopleFilters();
+
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var groupId = settings?.ManagedGroupId ?? string.Empty;
         var (pageNumber, size) = Paging(page, pageSize);
 
         var members = db.GroupMembers.AsNoTracking().Where(m => m.GroupId == groupId);
         var bans = db.GroupBans.AsNoTracking().Where(b => b.GroupId == groupId && b.LiftedAt == null);
+        var everBanned = db.GroupBans.AsNoTracking().Where(b => b.GroupId == groupId);
 
         var query =
             from u in db.VRChatUsers.AsNoTracking()
@@ -139,11 +241,20 @@ public static class PeopleEndpoints
             _ => query,
         };
 
-        if (banned is { } onTheBanList)
+        if (filters.Banned is { } onTheBanList)
         {
             query = onTheBanList
                 ? query.Where(x => bans.Any(b => b.UserId == x.u.UserId))
                 : query.Where(x => !bans.Any(b => b.UserId == x.u.UserId));
+        }
+
+        // Ever banned is a different question from on the ban list: an unbanned person is off the
+        // list and still somebody the group has banned once.
+        if (filters.EverBanned is { } wasBanned)
+        {
+            query = wasBanned
+                ? query.Where(x => everBanned.Any(b => b.UserId == x.u.UserId))
+                : query.Where(x => !everBanned.Any(b => b.UserId == x.u.UserId));
         }
 
         query = Trimmed(profile) switch
@@ -152,6 +263,41 @@ public static class PeopleEndpoints
             "not-fetched" => query.Where(x => x.u.LastRefreshedAt == null),
             _ => query,
         };
+
+        if (filters.EighteenPlus is { } eighteenPlus)
+            query = query.Where(x => x.u.Is18PlusVerified == eighteenPlus);
+
+        // Null is not a rank: somebody whose tags have never been read is unknown, not a Visitor
+        // (the entity says so), so picking any rank leaves them out rather than lumping them in.
+        if (filters.TrustRanks is { Count: > 0 } ranks)
+            query = query.Where(x => x.u.TrustRank != null && ranks.Contains(x.u.TrustRank.Value));
+
+        if (filters.Platforms is { Count: > 0 } platforms)
+            query = query.Where(x => x.u.LastPlatform != null && platforms.Contains(x.u.LastPlatform.ToLower()));
+
+        var links = db.ActiveAccountLinks();
+
+        query = LinkFilter.Normalised(filters.Linked) switch
+        {
+            LinkFilter.Linked => query.Where(x => links.Any(l => l.VRChatUserId == x.u.UserId)),
+            LinkFilter.NotLinked => query.Where(x => !links.Any(l => l.VRChatUserId == x.u.UserId)),
+            _ => query,
+        };
+
+        if (filters.Flagged is { } flagged)
+        {
+            var flags = db.ModerationFlags.AsNoTracking().Where(f => f.SubjectPlatform == FactPlatform.VRChat);
+
+            query = flagged
+                ? query.Where(x => flags.Any(f => f.SubjectId == x.u.UserId))
+                : query.Where(x => !flags.Any(f => f.SubjectId == x.u.UserId));
+        }
+
+        if (filters.SeenFrom is { } seenFrom)
+            query = query.Where(x => x.u.LastSeenAt >= seenFrom);
+
+        if (filters.SeenTo is { } seenTo)
+            query = query.Where(x => x.u.LastSeenAt < seenTo);
 
         query = Trimmed(sort)?.ToLowerInvariant() switch
         {
