@@ -245,4 +245,24 @@ public class CompanionAppStateTests : IDisposable
         Assert.Equal(3, snapshot.OverlayOrNone.FramesDrawn);
         Assert.True(snapshot.DebugMode);
     }
+
+    [Fact]
+    public void SwitchedOffAndCouldNotBeSetUpAreDifferentAnswers()
+    {
+        // "You turned it off" and "this PC could not build a panel" send a moderator to different
+        // places, so the SteamVR page and the sidebar must be able to tell them apart. Neither is
+        // "on but SteamVR is not running", which is the ordinary case and says nothing new.
+        Assert.False(OverlayStatus.Off.On);
+        Assert.False(OverlayStatus.Off.Attached);
+        Assert.Equal("off", OverlayStatus.Off.State);
+
+        Assert.True(OverlayStatus.None.On);
+        Assert.False(OverlayStatus.None.Attached);
+        Assert.Equal("not set up", OverlayStatus.None.State);
+
+        // Everything else defaults to on, so nothing that builds a status by hand accidentally
+        // reads as switched off.
+        Assert.True(new OverlayStatus(
+            true, "attached", "", null, 0, null, "Cat Lounge", 0, "up to date", null, null, null).On);
+    }
 }

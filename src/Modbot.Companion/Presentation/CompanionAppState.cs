@@ -80,7 +80,7 @@ public sealed record PairingNotice(PairingNoticeKind Kind, string Message);
 /// know OpenVR, and the page needs only what a moderator can check against the headset.
 /// </remarks>
 /// <param name="Attached">Whether the panel is up in SteamVR right now.</param>
-/// <param name="State">One short phrase: attached, SteamVR not running, SteamVR not installed, refused, not set up.</param>
+/// <param name="State">One short phrase: attached, SteamVR not running, SteamVR not installed, refused, not set up, off.</param>
 /// <param name="Detail">The sentence under it, from the overlay runtime.</param>
 /// <param name="Showing">The group the panel speaks for, or the idle screen's wording.</param>
 /// <param name="People">How many people the roster lists.</param>
@@ -89,6 +89,11 @@ public sealed record PairingNotice(PairingNoticeKind Kind, string Message);
 /// <param name="Problem">The problem banner's text, or null.</param>
 /// <param name="FollowingServer">The server the overlay reads from, or null when not in a group instance.</param>
 /// <param name="PinnedSample">The sample screen the debug page has pinned over the live one, or null.</param>
+/// <param name="On">
+/// Whether the overlay is switched on. Off is the moderator's own choice on the SteamVR page:
+/// nothing is drawn and no VR runtime is connected to, which is a different thing from being on
+/// with no SteamVR running.
+/// </param>
 public sealed record OverlayStatus(
     bool Attached,
     string State,
@@ -104,7 +109,8 @@ public sealed record OverlayStatus(
     string? FollowingServer,
     string? PinnedSample = null,
     OverlayPlacement? Placement = null,
-    string? Holding = null)
+    string? Holding = null,
+    bool On = true)
 {
     /// <summary>Where the panel is, never null: the default until the host has said.</summary>
     public OverlayPlacement PlacementOrDefault => Placement ?? OverlayPlacement.Default;
@@ -113,6 +119,11 @@ public sealed record OverlayStatus(
     public static OverlayStatus None { get; } = new(
         false, "not set up", "The overlay could not be set up on this PC.", null, 0, null,
         "Not in a group instance", 0, "not loaded", null, null, null);
+
+    /// <summary>The overlay switched off on the SteamVR page: nothing is running to report on.</summary>
+    public static OverlayStatus Off { get; } = new(
+        false, "off", "", null, 0, null,
+        "Not in a group instance", 0, "not loaded", null, null, null, On: false);
 }
 
 /// <summary>What the client window is showing right now.</summary>
