@@ -196,12 +196,11 @@ fix is visible explanatory text and CLAUDE.md forbids that without being asked.
 
 ## 9. What was left
 
-- **`pages/People.tsx` and `components/filters/FilterBar.tsx`** were being changed by another
-  contributor and were not touched. Two things there: `People`'s table wrapper is the last one
-  without `relative` (harmless today, because that table has no `sr-only` header cell to escape,
-  and a trap for whoever adds one), and `FilterBar`'s `<span className="flex-1" />` spacer becomes
-  a full-width blank row when the bar wraps, which pushes the search box into the middle of a line
-  on a phone.
+- ~~**`pages/People.tsx` and `components/filters/FilterBar.tsx`**~~ — done by the contributor who
+  had them open, on the same day. `People`'s table pins its first column, stops its headers
+  wrapping and has its `relative`; the filter bar's right end is one wrapped group rather than a
+  `flex-1` spacer, so a wrapped bar no longer leaves a blank row with the search box indented
+  after it.
 - **`components/moderation/ModerationActions.tsx`**, **`UserProfileCard.tsx`**,
   **`ProfileBadges.tsx`** and **`ProfileHeader.tsx`**, same reason. Nothing looked wrong on a phone
   in any of them.
