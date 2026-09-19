@@ -66,7 +66,10 @@ export function ModerationActions({
     <Button
       key={o.action}
       size={size}
-      variant={o.destructive ? 'outline' : 'ghost'}
+      // Red, not an outline. These are the buttons that take somebody out of the group, and a
+      // row where Kick and Unban look the same is a row where the wrong one gets pressed. The
+      // confirmation is what stops a misclick; the colour is what stops the reach.
+      variant={o.destructive ? 'destructive' : 'ghost'}
       onClick={() => setOpen(o.action)}
     >
       {o.label}
