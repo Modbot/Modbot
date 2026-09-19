@@ -39,7 +39,7 @@ export function MyTeam({
 
       {data && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Stat label="Moderators active" value={compactNumber(data.moderators.length)} />
             <Stat label="Actions" value={compactNumber(totalActions)} />
             <Stat label="Coverage gaps" value={compactNumber(data.coverageGaps.length)} />

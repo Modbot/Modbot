@@ -174,6 +174,9 @@ export function Select({
           disabled={disabled}
           aria-haspopup="listbox"
           onKeyDown={onTriggerKeyDown}
+          // Named so the phone's touch floor can find it: the trigger is a button with a fixed
+          // height, and 32px is under what a fingertip hits (see index.css).
+          data-slot="select-trigger"
           className={cn(
             'flex h-8 min-w-0 items-center justify-between gap-1.5 rounded-md border border-input bg-transparent px-2 text-left text-foreground outline-none',
             'text-(length:--text-small) focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',

@@ -45,7 +45,7 @@ export function MyGroup() {
 
       {data && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Stat
               label="Members"
               value={latestCount ? compactNumber(latestCount.value) : '—'}
@@ -86,7 +86,7 @@ export function MyGroup() {
           </div>
 
           <Panel title="Invites and join requests">
-            <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mb-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
               <Stat label="Invites sent" value={compactNumber(data.invites.invitesSent)} />
               <Stat
                 label="Invites accepted"

@@ -20,19 +20,30 @@ export function ShortcutSheet({
   open,
   onOpenChange,
   title = 'Keyboard shortcuts',
+  omit,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   title?: string
+  /** Groups to leave out. The bar at the foot of a phone drops "Go to", which is the Menu's job. */
+  omit?: readonly ShortcutGroup[]
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {open && <Sheet title={title} onDone={() => onOpenChange(false)} />}
+      {open && <Sheet title={title} omit={omit} onDone={() => onOpenChange(false)} />}
     </Dialog>
   )
 }
 
-function Sheet({ title, onDone }: { title: string; onDone: () => void }) {
+function Sheet({
+  title,
+  omit,
+  onDone,
+}: {
+  title: string
+  omit?: readonly ShortcutGroup[]
+  onDone: () => void
+}) {
   useModal()
   const all = useShortcutList()
 
@@ -40,10 +51,12 @@ function Sheet({ title, onDone }: { title: string; onDone: () => void }) {
   const byKeys = new Map<string, Shortcut>()
   for (const s of all) if (!s.hidden) byKeys.set(s.keys, s)
 
-  const groups = ORDER.map((group) => ({
-    group,
-    items: [...byKeys.values()].filter((s) => s.group === group),
-  })).filter((g) => g.items.length > 0)
+  const groups = ORDER.filter((group) => !omit?.includes(group))
+    .map((group) => ({
+      group,
+      items: [...byKeys.values()].filter((s) => s.group === group),
+    }))
+    .filter((g) => g.items.length > 0)
 
   // Closed before it runs, the same order the command palette uses: a shortcut that opens a popup
   // or moves the list underneath should not have to fight this sheet for the screen.

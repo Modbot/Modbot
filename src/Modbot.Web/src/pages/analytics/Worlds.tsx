@@ -44,7 +44,7 @@ export function Worlds() {
             <PageMessage>Only {compactNumber(data.presenceReports)} presence reports in this range.</PageMessage>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Stat label="Worlds" value={compactNumber(data.worlds.length)} />
             <Stat label="Time seen" value={minutes(totalMinutes)} />
             <Stat label="Visitors" value={compactNumber(totalVisitors)} />

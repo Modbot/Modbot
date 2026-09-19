@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { Kbd } from '@/components/ui/kbd'
 import { api, type CurrentUser, type SearchResults } from '@/lib/api'
@@ -214,7 +214,17 @@ function Palette({
             aria-activedescendant={items[cursor] ? `palette-${items[cursor].id}` : undefined}
             className="h-11 w-full bg-transparent outline-none placeholder:text-muted-foreground"
           />
-          <Kbd keys="escape" />
+          <Kbd keys="escape" className="hidden lg:inline-flex" />
+          {/* Escape is the way out on a keyboard; this is the way out without one. */}
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Close"
+            className="grid shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground lg:hidden"
+            style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
+          >
+            <X className="size-4" />
+          </button>
         </div>
 
         <div ref={listRef} id="palette-list" role="listbox" className="min-h-0 flex-1 overflow-auto py-1">

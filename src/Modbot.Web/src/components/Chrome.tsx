@@ -10,7 +10,7 @@ import { DOCS_URL } from '@/lib/docs'
 import type { Density, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { Headset, Keyboard, LogOut, Menu, Moon, Rows3, Rows2, Search, Sun, UserRound, X } from 'lucide-react'
+import { Headset, LogOut, Menu, Moon, Rows3, Rows2, Search, Sun, UserRound, X, Zap } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -324,9 +324,10 @@ export function NavSheet({
  * out of a thumb's reach, and these are the three controls a moderator reaches for most: the
  * pages, a person by name, and whatever the screen they are on can do.
  *
- * "This page" is the answer to the keyboard. Every key a page registers carries a label already
+ * "Actions" is the answer to the keyboard. Every key a page registers carries a label already
  * (lib/shortcuts.ts), so the sheet that lists them for `?` is also the list of what the page can
- * do -- and each row runs it (components/ShortcutSheet.tsx).
+ * do -- and each row runs it (components/ShortcutSheet.tsx). It leaves out "Go to", because that
+ * is what Menu is.
  */
 export function BottomBar({
   onMenu,
@@ -344,7 +345,7 @@ export function BottomBar({
     >
       <BottomButton icon={<Menu className="size-5" />} label="Menu" onClick={onMenu} />
       <BottomButton icon={<Search className="size-5" />} label="Search" onClick={onSearch} />
-      <BottomButton icon={<Keyboard className="size-5" />} label="This page" onClick={onThisPage} />
+      <BottomButton icon={<Zap className="size-5" />} label="Actions" onClick={onThisPage} />
     </nav>
   )
 }

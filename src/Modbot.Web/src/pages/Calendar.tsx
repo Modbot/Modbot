@@ -229,7 +229,17 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
 
   return (
     <div className="relative overflow-x-auto">
-      <div className="grid min-w-[720px] grid-cols-7 overflow-hidden rounded-xl border" style={{ borderWidth: 'var(--hairline)' }}>
+      {/*
+        All seven days fit on a phone rather than four of them and a sideways scroll. A month view
+        that has to be scrolled through is not a month view: the point of it is the shape of the
+        month, and four days at a time shows no shape at all. The cells get narrow and an event
+        title clips to a word or two, which is what tapping the day is for — and the Agenda beside
+        this reads the same events out in full.
+      */}
+      <div
+        className="grid grid-cols-7 overflow-hidden rounded-xl border sm:min-w-[720px]"
+        style={{ borderWidth: 'var(--hairline)' }}
+      >
         {WEEKDAYS.map((d) => (
           <div
             key={d}
@@ -246,7 +256,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
           return (
             <div
               key={day.toISOString()}
-              className={cn('min-h-24 border-r border-b p-1', !inMonth && 'bg-secondary/40')}
+              className={cn('min-h-16 border-r border-b p-1 sm:min-h-24', !inMonth && 'bg-secondary/40')}
               style={{ borderWidth: 'var(--hairline)' }}
             >
               <div
@@ -273,7 +283,11 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
                     style={{ fontSize: 'var(--text-small)' }}
                     title={entry.event.title}
                   >
-                    <span className="tabular-nums text-muted-foreground">{time(entry.startsAt)}</span> {entry.event.title}
+                    {/* The title, not the clock, in a cell a seventh of a phone wide: "3:0…" says
+                        nothing about the event and "Qu…" at least says which one. The time is
+                        back from `sm` up, and the Agenda states both at any width. */}
+                    <span className="hidden tabular-nums text-muted-foreground sm:inline">{time(entry.startsAt)} </span>
+                    {entry.event.title}
                   </button>
                 ))}
               </div>

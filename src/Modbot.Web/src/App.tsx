@@ -482,7 +482,8 @@ function Shell({
       <ShortcutSheet
         open={sheet !== null}
         onOpenChange={(open) => setSheet(open ? 'keys' : null)}
-        title={sheet === 'page' ? 'This page' : 'Keyboard shortcuts'}
+        title={sheet === 'page' ? 'Actions' : 'Keyboard shortcuts'}
+        omit={sheet === 'page' ? ['Go to'] : undefined}
       />
 
       {/* The phone's shell: the pages in a sheet, and the bar at the foot that opens it, the
