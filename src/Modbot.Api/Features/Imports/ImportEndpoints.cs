@@ -47,6 +47,7 @@ public static class ImportEndpoints
                 [FromQuery] string? source,
                 [FromQuery] string? seenBy,
                 [FromQuery] bool? dryRun,
+                [FromQuery] bool? dedup,
                 [FromQuery] string? fileName,
                 [FromServices] ModbotContext db,
                 [FromServices] ImportSignal signal,
@@ -65,6 +66,9 @@ public static class ImportEndpoints
                 var label = source;
                 var seen = seenBy;
                 var dry = dryRun ?? false;
+                // On unless the upload says otherwise: the check exists because a file almost
+                // always overlaps what Modbot recorded itself.
+                var skipKnown = dedup ?? true;
                 var name = fileName;
 
                 if (http.Request.HasFormContentType)
@@ -83,6 +87,9 @@ public static class ImportEndpoints
 
                     if (dryRun is null && bool.TryParse(form["dryRun"].ToString(), out var formDry))
                         dry = formDry;
+
+                    if (dedup is null && bool.TryParse(form["dedup"].ToString(), out var formDedup))
+                        skipKnown = formDedup;
 
                     await using var stream = file.OpenReadStream();
                     body = await ReadCappedAsync(stream, ct);
@@ -117,6 +124,7 @@ public static class ImportEndpoints
                     Source = label,
                     FileName = name,
                     DryRun = dry,
+                    Dedup = skipKnown,
                     SeenBy = seenSource,
                     StartedByUserId = actor.Id,
                     StartedByName = actor.Username,
@@ -139,7 +147,10 @@ public static class ImportEndpoints
                 + "as the body with Content-Type application/json and the source as a query "
                 + "parameter, or as a multipart form with a file part and a source field. At most "
                 + "64 MB. The import runs in the background; ask GET /api/imports/{id} how it is "
-                + "going. dryRun=true reads and counts without writing anything. seenBy is the "
+                + "going. dryRun=true reads and counts without writing anything. dedup=false "
+                + "writes every record even when Modbot already has the event from somewhere "
+                + "else; it does not turn off the check that stops the same file being imported "
+                + "twice, which always runs. seenBy is the "
                 + "source every record is filed under unless the record sets its own: one of "
                 + "AuditLog, SyncDiff, Client, Discord, Manual or Modbot, and Manual when nothing "
                 + "says otherwise. The format is documented at "
@@ -162,6 +173,7 @@ public static class ImportEndpoints
                         Source = i.Source,
                         FileName = i.FileName,
                         DryRun = i.DryRun,
+                        Dedup = i.Dedup,
                         SeenBy = i.SeenBy,
                         Status = i.Status,
                         Received = i.Received,
@@ -199,6 +211,7 @@ public static class ImportEndpoints
                         Source = i.Source,
                         FileName = i.FileName,
                         DryRun = i.DryRun,
+                        Dedup = i.Dedup,
                         SeenBy = i.SeenBy,
                         Status = i.Status,
                         Received = i.Received,

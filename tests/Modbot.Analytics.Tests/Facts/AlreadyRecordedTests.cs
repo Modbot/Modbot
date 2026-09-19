@@ -84,6 +84,67 @@ public class AlreadyRecordedTests : FactTestBase
         Assert.Null(await writer.AlreadyRecordedAsync(Ban(somebodyElse, Now), TimeSpan.Zero, Ct));
     }
 
+    /// <summary>
+    /// The bug behind the paired audit entries: one kick recorded twice, once knowing the
+    /// instance and once not. An imported record never carries an instance, so before this the
+    /// check could never fire for anything that happened in one.
+    /// </summary>
+    [Fact]
+    public async Task AFactThatKnowsTheInstance_AndOneThatDoesNot_AreTheSameEvent()
+    {
+        var kicked = UniqueId("usr");
+        var alsoKicked = UniqueId("usr");
+
+        await using var context = Db.NewContext();
+        var writer = NewWriter(context, new FakeClock(Now));
+
+        // Modbot read this kick from VRChat's own audit log, which names the instance.
+        var inAnInstance = await writer.WriteAsync(
+            Ban(kicked, Now) with { Type = FactType.GroupInstanceKick, WorldId = "wrld_test", InstanceId = "11032" },
+            Ct);
+
+        Assert.Equal(
+            inAnInstance.Id,
+            await writer.AlreadyRecordedAsync(Ban(kicked, Now) with { Type = FactType.GroupInstanceKick }, TimeSpan.Zero, Ct));
+
+        // And the other way round: what is stored is quiet about the instance, what arrives
+        // names one.
+        var nowhereInParticular = await writer.WriteAsync(
+            Ban(alsoKicked, Now) with { Type = FactType.GroupInstanceKick },
+            Ct);
+
+        Assert.Equal(
+            nowhereInParticular.Id,
+            await writer.AlreadyRecordedAsync(
+                Ban(alsoKicked, Now) with { Type = FactType.GroupInstanceKick, WorldId = "wrld_test", InstanceId = "11032" },
+                TimeSpan.Zero,
+                Ct));
+    }
+
+    [Fact]
+    public async Task TwoInstancesBothKnown_AndDifferent_AreTwoEvents()
+    {
+        var subject = UniqueId("usr");
+
+        await using var context = Db.NewContext();
+        var writer = NewWriter(context, new FakeClock(Now));
+
+        await writer.WriteAsync(
+            Ban(subject, Now) with { Type = FactType.GroupInstanceKick, WorldId = "wrld_test", InstanceId = "11032" },
+            Ct);
+
+        Assert.Null(await writer.AlreadyRecordedAsync(
+            Ban(subject, Now) with { Type = FactType.GroupInstanceKick, WorldId = "wrld_test", InstanceId = "11033" },
+            TimeSpan.Zero,
+            Ct));
+
+        // A different world is a different event too, even where the instance number repeats.
+        Assert.Null(await writer.AlreadyRecordedAsync(
+            Ban(subject, Now) with { Type = FactType.GroupInstanceKick, WorldId = "wrld_elsewhere", InstanceId = "11032" },
+            TimeSpan.Zero,
+            Ct));
+    }
+
     [Fact]
     public async Task ItWritesNothing()
     {

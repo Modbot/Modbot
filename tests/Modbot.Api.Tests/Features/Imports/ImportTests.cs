@@ -821,6 +821,213 @@ public class ImportTests
         Assert.Equal(subject, row.SubjectId);
     }
 
+    /// <summary>
+    /// The audit log in pairs: one kick knowing the instance it happened in and one not. A record
+    /// in a file never says which instance, so requiring the two to agree meant an import wrote
+    /// down every in-instance action a second time.
+    /// </summary>
+    [Fact]
+    public async Task AKickModbotReadFromTheAuditLog_IsAlreadyKnown_ThoughTheFileDoesNotSayWhichInstance()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var subject = NewUser();
+        var at = new DateTimeOffset(2025, 2, 14, 21, 5, 30, TimeSpan.Zero);
+
+        var existing = await WriteExistingFactAsync(host, FactType.GroupInstanceKick, subject, at, instanceId: "11032");
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("kick", "2025-02-14T21:05:30Z", "vrchat", subject),
+        });
+
+        var done = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, source, body)).GetProperty("id").GetString()!);
+
+        Assert.Equal("Done", done.GetProperty("status").GetString());
+        Assert.Equal(0, done.GetProperty("imported").GetInt32());
+        Assert.Equal(1, done.GetProperty("alreadyKnown").GetInt32());
+
+        var fact = Assert.Single(await host.FactsAsync(FactType.GroupInstanceKick, subject, Ct));
+        Assert.Equal(existing, fact.Id);
+
+        // The one Modbot already had is untouched: it still knows where the kick happened, and
+        // nothing reached back into it.
+        Assert.Equal("11032", fact.InstanceId);
+    }
+
+    [Fact]
+    public async Task TwoInstancesBothKnown_StayTwoFacts()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var subject = NewUser();
+        var at = new DateTimeOffset(2025, 2, 15, 19, 0, 0, TimeSpan.Zero);
+
+        await WriteExistingFactAsync(host, FactType.GroupInstanceKick, subject, at, instanceId: "11032");
+        await WriteExistingFactAsync(host, FactType.GroupInstanceKick, subject, at, instanceId: "11040");
+
+        Assert.Equal(2, (await host.FactsAsync(FactType.GroupInstanceKick, subject, Ct)).Count);
+
+        // And the imported record, which names neither, meets the first of them rather than
+        // becoming a third.
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("kick", "2025-02-15T19:00:00Z", "vrchat", subject),
+        });
+
+        var done = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, source, body)).GetProperty("id").GetString()!);
+
+        Assert.Equal(1, done.GetProperty("alreadyKnown").GetInt32());
+        Assert.Equal(2, (await host.FactsAsync(FactType.GroupInstanceKick, subject, Ct)).Count);
+    }
+
+    /// <summary>
+    /// An export writes whole seconds; Modbot's own record keeps the fraction it saw. Two seconds
+    /// either way is one moment; further off is another event.
+    /// </summary>
+    [Fact]
+    public async Task ATimeALittleOut_IsTheSameMoment_AndATimeWellOut_IsNot()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var rounded = NewUser();
+        var muchLater = NewUser();
+
+        await WriteExistingFactAsync(
+            host, FactType.MemberBanned, rounded, new DateTimeOffset(2025, 3, 4, 12, 0, 7, 412, TimeSpan.Zero));
+
+        await WriteExistingFactAsync(
+            host, FactType.MemberBanned, muchLater, new DateTimeOffset(2025, 3, 4, 12, 0, 0, TimeSpan.Zero));
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("ban", "2025-03-04T12:00:07Z", "vrchat", rounded),
+            Record("ban", "2025-03-04T12:01:00Z", "vrchat", muchLater),
+        });
+
+        var done = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, source, body)).GetProperty("id").GetString()!);
+
+        Assert.Equal("Done", done.GetProperty("status").GetString());
+        Assert.Equal(1, done.GetProperty("alreadyKnown").GetInt32());
+        Assert.Equal(1, done.GetProperty("imported").GetInt32());
+
+        Assert.Single(await host.FactsAsync(FactType.MemberBanned, rounded, Ct));
+        Assert.Equal(2, (await host.FactsAsync(FactType.MemberBanned, muchLater, Ct)).Count);
+    }
+
+    [Fact]
+    public async Task TheCheckIsOnUnlessTheUploadSaysOtherwise()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("ban", "2025-04-01T08:00:00Z", "vrchat", NewUser()),
+        });
+
+        var onByDefault = await UploadAsync(host, cookie, NewSource(), body);
+        Assert.True(onByDefault.GetProperty("dedup").GetBoolean());
+
+        var askedOff = await UploadAsync(host, cookie, NewSource(), body, dedup: false);
+        Assert.False(askedOff.GetProperty("dedup").GetBoolean());
+
+        // And it is still there to read once the run is over.
+        var done = await FinishedAsync(host, cookie, askedOff.GetProperty("id").GetString()!);
+        Assert.False(done.GetProperty("dedup").GetBoolean());
+    }
+
+    [Fact]
+    public async Task DedupFalse_WritesARecordThatWouldOtherwiseHaveBeenSkipped()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var subject = NewUser();
+        var at = new DateTimeOffset(2025, 5, 6, 17, 30, 0, TimeSpan.Zero);
+
+        await WriteExistingFactAsync(host, FactType.MemberBanned, subject, at, instanceId: "11032");
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("ban", "2025-05-06T17:30:00Z", "vrchat", subject),
+        });
+
+        // With the check on, this is the record the fix skips.
+        var skipped = await FinishedAsync(
+            host, cookie, (await UploadAsync(host, cookie, NewSource(), body)).GetProperty("id").GetString()!);
+
+        Assert.Equal(0, skipped.GetProperty("imported").GetInt32());
+        Assert.Equal(1, skipped.GetProperty("alreadyKnown").GetInt32());
+        Assert.Single(await host.FactsAsync(FactType.MemberBanned, subject, Ct));
+
+        // A different source label, so the record key does not skip it, and the check off.
+        var written = await FinishedAsync(
+            host,
+            cookie,
+            (await UploadAsync(host, cookie, NewSource(), body, dedup: false)).GetProperty("id").GetString()!);
+
+        Assert.Equal(1, written.GetProperty("imported").GetInt32());
+        Assert.Equal(0, written.GetProperty("alreadyKnown").GetInt32());
+        Assert.Equal(2, (await host.FactsAsync(FactType.MemberBanned, subject, Ct)).Count);
+    }
+
+    /// <summary>
+    /// The two checks are not the same thing. Turning off "Modbot already has this from somewhere
+    /// else" leaves "I have imported this record before" exactly where it was.
+    /// </summary>
+    [Fact]
+    public async Task TheSameFileTwice_IsStillSkipped_WithTheCheckOnOrOff()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var withTheCheck = NewSource();
+        var without = NewSource();
+        var subject = NewUser();
+
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            new
+            {
+                kind = "ban",
+                at = "2025-06-07T09:15:00Z",
+                subject = new { platform = "vrchat", id = subject },
+                externalId = "ban-3001",
+            },
+            // No external id, so this one is keyed by its contents instead.
+            Record("warn", "2025-06-07T09:16:00Z", "vrchat", subject),
+        });
+
+        foreach (var (source, dedup) in new[] { (withTheCheck, true), (without, false) })
+        {
+            var first = await FinishedAsync(
+                host, cookie, (await UploadAsync(host, cookie, source, body, dedup: dedup)).GetProperty("id").GetString()!);
+
+            Assert.Equal(2, first.GetProperty("imported").GetInt32());
+            Assert.Equal(0, first.GetProperty("skipped").GetInt32());
+
+            var second = await FinishedAsync(
+                host, cookie, (await UploadAsync(host, cookie, source, body, dedup: dedup)).GetProperty("id").GetString()!);
+
+            Assert.Equal(0, second.GetProperty("imported").GetInt32());
+            Assert.Equal(2, second.GetProperty("skipped").GetInt32());
+            Assert.Equal(0, second.GetProperty("alreadyKnown").GetInt32());
+        }
+
+        // Two uploads under two source labels, and nothing wrote a third ban.
+        Assert.Equal(2, (await host.FactsAsync(FactType.MemberBanned, subject, Ct)).Count);
+    }
+
     private static object Record(string kind, string at, string platform, string id)
         => new { kind, at, subject = new { platform, id } };
 
@@ -832,9 +1039,10 @@ public class ImportTests
         bool dryRun = false,
         string contentType = "application/json",
         string? seenBy = null,
-        string? fileName = null)
+        string? fileName = null,
+        bool? dedup = null)
     {
-        var response = await UploadRawAsync(host, cookie, source, body, dryRun, contentType, seenBy, fileName);
+        var response = await UploadRawAsync(host, cookie, source, body, dryRun, contentType, seenBy, fileName, dedup);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await ApiTestHost.BodyOf(response, Ct);
     }
@@ -847,9 +1055,12 @@ public class ImportTests
         bool dryRun,
         string contentType,
         string? seenBy = null,
-        string? fileName = null)
+        string? fileName = null,
+        bool? dedup = null)
     {
         var query = $"{Path}?source={Uri.EscapeDataString(source)}&dryRun={dryRun}";
+        if (dedup is { } wanted)
+            query += $"&dedup={wanted}";
         if (seenBy is not null)
             query += $"&seenBy={Uri.EscapeDataString(seenBy)}";
         if (fileName is not null)
@@ -861,8 +1072,12 @@ public class ImportTests
     }
 
     /// <summary>A fact Modbot recorded itself, so an import can meet one it already has.</summary>
+    /// <param name="instanceId">
+    /// Where it happened, the way VRChat's own audit entry says it for a kick. A record in a file
+    /// never carries one.
+    /// </param>
     private static async Task<long> WriteExistingFactAsync(
-        ApiTestHost host, string type, string subject, DateTimeOffset at)
+        ApiTestHost host, string type, string subject, DateTimeOffset at, string? instanceId = null)
     {
         using var scope = host.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<EventPartitionMaintainer>().EnsureForAsync(at, Ct);
@@ -874,6 +1089,8 @@ public class ImportTests
                 OccurredAt = at,
                 SubjectPlatform = FactPlatform.VRChat,
                 SubjectId = subject,
+                WorldId = instanceId is null ? null : "wrld_midnight_bar",
+                InstanceId = instanceId,
                 Source = FactSource.AuditLog,
                 Data = new JsonObject { ["reason"] = "VRChat's own wording" },
             },

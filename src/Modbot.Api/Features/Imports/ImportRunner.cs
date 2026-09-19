@@ -32,11 +32,19 @@ public sealed class ImportRunner
 
     /// <summary>
     /// How far either side of a record's time a fact counts as the same event (import design
-    /// §6.1): nowhere. An imported time is a time somebody wrote down, not a time observed with a
-    /// clock that might be off, so there is nothing to smear -- and a window would swallow the
-    /// second and third of three warnings a spreadsheet dates only to the day.
+    /// §6.1): two seconds.
     /// </summary>
-    public static readonly TimeSpan SameMoment = TimeSpan.Zero;
+    /// <remarks>
+    /// Two systems writing down one action almost never agree to the tick. An export usually
+    /// carries whole seconds while Modbot's own record carries fractions, and two systems each
+    /// rounding or truncating on their own can land just under a second apart in either
+    /// direction; two seconds covers that with a second to spare for a recorder that stamps the
+    /// row rather than the action. It stays far below the fifteen seconds it takes somebody to
+    /// leave and come back, so two things that really did happen to one person are never merged,
+    /// and records inside one file are told apart by their key (§6), never by their time --
+    /// three warnings a spreadsheet dates only to the day are still three warnings.
+    /// </remarks>
+    public static readonly TimeSpan SameMoment = TimeSpan.FromSeconds(2);
 
     private readonly ModbotContext _db;
     private readonly IFactWriter _facts;
@@ -132,7 +140,7 @@ public sealed class ImportRunner
             throw new InvalidOperationException("The upload was empty.");
 
         var months = new HashSet<DateTimeOffset>();
-        var written = new HashSet<SameEvent>();
+        var written = new WrittenEvents();
         var batch = new List<ImportItem>(BatchSize);
 
         foreach (var item in ImportFile.Read(body))
@@ -157,7 +165,7 @@ public sealed class ImportRunner
         Import import,
         List<ImportItem> items,
         HashSet<DateTimeOffset> months,
-        HashSet<SameEvent> written,
+        WrittenEvents written,
         Progress progress,
         CancellationToken ct)
     {
@@ -196,18 +204,19 @@ public sealed class ImportRunner
         // What Modbot already has from somewhere else (import design §6.1). Asked of the fact
         // writer, which is where the question is answered for every other producer, and asked
         // before anything is written so a dry run counts the same skips a real run would make.
+        // Turned off by the upload, it is not asked at all -- which leaves the record key above
+        // doing its own job untouched (§6).
         var planned = new List<(ParsedRecord Record, FactRecord Fact, long? Existing)>(toWrite.Count);
         foreach (var record in toWrite)
         {
             var fact = ToFact(import, record);
-            var sameEvent = EventOf(record);
 
-            var existing = written.Contains(sameEvent)
+            var existing = !import.Dedup || written.Has(record)
                 ? null
                 : await _facts.AlreadyRecordedAsync(fact, SameMoment, ct);
 
             if (existing is null)
-                written.Add(sameEvent);
+                written.Add(record);
             else
                 progress.AlreadyKnown++;
 
@@ -268,14 +277,6 @@ public sealed class ImportRunner
                     .SetProperty(i => i.Rejections, progress.RejectionsJson()),
                 ct);
     }
-
-    /// <summary>
-    /// What makes two records the same event for §6.1: the same person, the same thing happening
-    /// to them, at the same moment. Exactly what <see cref="IFactWriter.AlreadyRecordedAsync"/>
-    /// compares at a window of zero, so this set and that query never disagree.
-    /// </summary>
-    private static SameEvent EventOf(ParsedRecord record)
-        => new(record.SubjectPlatform, record.SubjectId, record.Type, record.At.UtcDateTime);
 
     private static FactRecord ToFact(Import import, ParsedRecord record)
     {
@@ -379,15 +380,54 @@ public sealed class ImportRunner
 
         public string RejectionsJson() => ImportView.RejectionsJson(_rejections);
     }
+
+    /// <summary>
+    /// The events this run has put in, so a second record describing one of them is not mistaken
+    /// for something Modbot knew beforehand (import design §6.1).
+    /// </summary>
+    /// <remarks>
+    /// It answers the same question <see cref="IFactWriter.AlreadyRecordedAsync"/> answers, over
+    /// the same window, so this set and that query never disagree. Were it to compare instants
+    /// exactly while the query allows <see cref="SameMoment"/> either side, the second of two
+    /// records a fraction apart in one file would be reported as something Modbot already had --
+    /// when what it had was the fact this very import wrote a moment earlier.
+    /// </remarks>
+    private sealed class WrittenEvents
+    {
+        private readonly Dictionary<SameEvent, SortedSet<DateTime>> _at = [];
+
+        public bool Has(ParsedRecord record)
+        {
+            if (!_at.TryGetValue(KeyOf(record), out var times))
+                return false;
+
+            // Clamped, for the same reason the writer's own window is: a record dated to the
+            // year 1 is junk, and a window that ran off the calendar would throw.
+            var at = record.At.UtcDateTime;
+            var from = SameMoment < at - DateTime.MinValue ? at - SameMoment : DateTime.MinValue;
+            var to = SameMoment < DateTime.MaxValue - at ? at + SameMoment : DateTime.MaxValue;
+
+            return times.GetViewBetween(from, to).Count > 0;
+        }
+
+        public void Add(ParsedRecord record)
+        {
+            if (!_at.TryGetValue(KeyOf(record), out var times))
+                _at[KeyOf(record)] = times = [];
+
+            times.Add(record.At.UtcDateTime);
+        }
+
+        private static SameEvent KeyOf(ParsedRecord record)
+            => new(record.SubjectPlatform, record.SubjectId, record.Type);
+    }
 }
 
 /// <summary>
-/// The event one imported record describes, as the thing two records are compared on when the
-/// question is whether Modbot already has it (import design §6.1).
+/// What two imported records have to share before their times are even worth comparing, when the
+/// question is whether Modbot already has the event (import design §6.1).
 /// </summary>
-/// <param name="At">The instant in UTC. Nothing either side of it is the same event.</param>
 public readonly record struct SameEvent(
     FactPlatform SubjectPlatform,
     string SubjectId,
-    string Type,
-    DateTime At);
+    string Type);

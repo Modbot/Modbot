@@ -41,6 +41,17 @@ public class Import
     public bool DryRun { get; set; }
 
     /// <summary>
+    /// Whether this import skipped records Modbot already had a fact for from somewhere else
+    /// (import design §6.1). True unless the upload asked for it off.
+    /// </summary>
+    /// <remarks>
+    /// Not the same thing as the re-upload check, which is the <see cref="ImportRecord"/> key
+    /// (§6) and runs whatever this says. Off means "write the record even though Modbot has the
+    /// event from another source", never "import this file twice".
+    /// </remarks>
+    public bool Dedup { get; set; } = true;
+
+    /// <summary>
     /// The source every record in this upload is filed under unless the record names its own
     /// (import design §5). Never <see cref="FactSource.Import"/>.
     /// </summary>

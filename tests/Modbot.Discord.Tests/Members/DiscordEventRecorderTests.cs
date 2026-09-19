@@ -258,6 +258,29 @@ public class DiscordEventRecorderTests
         Assert.Equal(at.AddDays(-3), facts[0].OccurredAt);
     }
 
+    /// <summary>
+    /// Discord answers "have I got this already" its own way — by the audit entry's id, falling
+    /// back to a window that only ever suppresses a gateway fact. Two audit entries are two
+    /// things that happened, however close together, and widening the fact writer's own check for
+    /// imports must not reach in here: Discord's facts do not go through it at all.
+    /// </summary>
+    [Fact]
+    public async Task TwoAuditEntries_ForOneMember_SecondsApart_AreTwoFacts()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var at = services.Clock.UtcNow;
+
+        await ReadyBotAsync(services, canViewAuditLog: true, configure: g =>
+        {
+            g.AuditLog.Add(new DiscordAuditEntry("800", at.AddDays(-1), DiscordAuditKinds.Kick, "9", "1"));
+            g.AuditLog.Add(new DiscordAuditEntry("801", at.AddDays(-1).AddSeconds(1), DiscordAuditKinds.Kick, "9", "1"));
+        });
+
+        var kicks = (await FactsAsync(services)).Where(f => f.Type == FactType.DiscordMemberKicked).ToList();
+        Assert.Equal(2, kicks.Count);
+        Assert.Equal(["800", "801"], kicks.Select(f => Data(f, "auditEntryId")));
+    }
+
     [Fact]
     public async Task ABanTheGatewayRecordedBeforeTheBotCouldReadTheAuditLog_IsNotRecordedAgainFromIt()
     {

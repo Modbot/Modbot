@@ -572,6 +572,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // Rows that already exist ran before records could be mapped, so they wrote the
             // legacy Import source and the list should keep saying so. New rows always set it.
             entity.Property(e => e.SeenBy).HasDefaultValue(FactSource.Import);
+            // True, not EF's false for a new bool: every import that already ran did skip what
+            // Modbot already knew, and a row reading "off" would misreport what it did.
+            entity.Property(e => e.Dedup).HasDefaultValue(true);
             entity.Property(e => e.StartedByName).HasMaxLength(64);
             entity.Property(e => e.Rejections).HasColumnType("jsonb");
 
