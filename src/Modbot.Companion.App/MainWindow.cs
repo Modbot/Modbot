@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Modbot.Companion.Clips;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
 using Modbot.Companion.Overlay;
@@ -39,13 +40,16 @@ internal enum Page
 /// and for nobody else, so the answer for everybody else is a screen: exactly what left the
 /// machine, in plain English, on demand; a pause that stops transmission immediately and shows it;
 /// and a program that is never invisible while it runs.</para>
-/// <para><strong>What this window does not have, and will not get.</strong> There is no screen
-/// capture, no "attach a screenshot", and nothing that reads VRChat's screenshot folder or any
-/// other folder on the machine. A moderator attaching evidence to a case does it in the web UI, in
-/// a browser, by choosing a file — a human action in an application people already trust with file
-/// dialogs. Putting it here instead would hand this program the one capability that would make its
-/// resemblance to an infostealer complete, and <c>CompanionSourceGuardTests</c> fails the build if it
-/// ever appears.</para>
+/// <para><strong>What this window can record, and what it cannot.</strong> The Settings page has a
+/// Clips card. Switched on — and it is off until somebody switches it on — the client keeps the last
+/// two to five minutes of the picture on one monitor, in memory and in two files of its own, while
+/// VRChat is running, and writes them out when <strong>Save a clip</strong> is pressed. That is the
+/// whole of it: no sound, no keyboard, no clipboard, no list of other programs, and nothing read
+/// from VRChat's screenshot folder or any other folder on the machine. No clip is ever uploaded —
+/// this program has no path to a server that could take one, and did not gain one. Attaching a clip
+/// to a case is still what it always was: a moderator, in the web UI, in a browser, choosing a file.
+/// <c>CompanionSourceGuardTests</c> holds every part of that, and fails the build if a second file
+/// learns to capture anything.</para>
 /// <para>Built in code rather than markup because a reader auditing this program should be able to
 /// see what it displays without also learning a XAML dialect.</para>
 /// </remarks>
@@ -174,6 +178,7 @@ public sealed partial class MainWindow : Window
         SetUpKeyboard();
         SetUpEvents();
         SetUpNotifications();
+        SetUpClips();
 
         // The palette and the shortcut sheet open over the page, inside this window, so the
         // window's own keys still reach them and nothing else appears in the taskbar.
@@ -839,10 +844,12 @@ public sealed partial class MainWindow : Window
         _body.Children.Add(Ui.Card(
             Ui.Dim(
                 "Modbot reads VRChat's log directory and nothing else on this machine. It does "
-                + "not capture the screen, read your screenshots folder, read the clipboard or "
-                + "the keyboard, or look at what other programs are running. Attaching evidence "
-                + "to a case is something you do in Modbot's web interface, in a browser, by "
-                + "choosing a file."),
+                + "not read your screenshots folder, the clipboard or the keyboard, and it does "
+                + "not look at what other programs are running. It records the picture on one "
+                + "monitor only while Clips is switched on in Settings, only while VRChat is "
+                + "running, and never the sound. Nothing it records leaves this PC: attaching a "
+                + "clip or any other evidence to a case is something you do in Modbot's web "
+                + "interface, in a browser, by choosing a file."),
             "What it does not read"));
     }
 
@@ -860,6 +867,7 @@ public sealed partial class MainWindow : Window
 
             RefreshVoiceControls(_snapshot.VoiceOrNone);
             RefreshNotificationControls(_snapshot.NotificationsOrDefault);
+            RefreshClipControls(_snapshot.ClipsOrNone);
         }
         finally
         {
@@ -877,6 +885,8 @@ public sealed partial class MainWindow : Window
         _body.Children.Add(Ui.Card(NotificationsCard(), "Notifications"));
 
         _body.Children.Add(Ui.Card(VoiceSettingsCard(_snapshot.VoiceOrNone), "Voice"));
+
+        _body.Children.Add(Ui.Card(ClipsCard(), "Clips"));
 
         _body.Children.Add(Ui.Card(LogFolderSettings(), "VRChat log folder"));
 
@@ -1416,6 +1426,18 @@ public sealed record MainWindowActions(
 
     /// <summary>The Notification overlay card changed: the whole settings record as it now reads.</summary>
     public Action<NotifyOverlaySettings> SetNotifyOverlay { get; init; } = _ => { };
+
+    /// <summary>
+    /// The Clips card changed: the switch, the minutes and the folder as the controls now read.
+    /// Added after the positional list the same way the others were.
+    /// </summary>
+    public Action<ClipSettings> SetClips { get; init; } = _ => { };
+
+    /// <summary>
+    /// <strong>Save a clip</strong>: write out the last few minutes that are being kept. Does
+    /// nothing at all when nothing is being kept.
+    /// </summary>
+    public Action SaveClip { get; init; } = () => { };
 
     public static MainWindowActions None { get; } = new(
         _ => { },

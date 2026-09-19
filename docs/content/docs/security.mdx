@@ -209,6 +209,11 @@ The companion pairs with your server through the pairing page. See
   any other part of Modbot.
 - A pairing code can only be made by a signed-in person, never by a device, so one compromised client
   cannot create more.
+- The companion can record one of that person's monitors if they switch
+  [Clips](/companion/clips) on, and **a device token reaches none of it**. Nothing recorded is ever
+  uploaded — the client has no upload path, and the evidence endpoints need a signed-in person
+  holding the **Upload evidence** permission, which no device token has. A stolen device token
+  cannot start a recording, cannot read one, and cannot attach one to a case.
 
 ## What Modbot tells VRChat about you
 
