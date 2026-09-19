@@ -29,6 +29,13 @@ public sealed record MemberCountCoverage(int WindowDays, int DaysWithReadings, i
     /// <summary>Below this share of the window's days carrying a reading, the peak is called thin.</summary>
     public const decimal ThinBelow = 0.5m;
 
-    /// <summary>Whether fewer than half the window's days carry a reading.</summary>
-    public bool Thin => WindowDays > 0 && DaysWithReadings < WindowDays * ThinBelow;
+    /// <summary>
+    /// Whether fewer than half the window's days carry a reading.
+    /// </summary>
+    /// <remarks>
+    /// A window with no readings at all is not thin, it is empty: the peaks come back as nothing
+    /// and that already says there is no answer. Calling it thin as well would put a warning on a
+    /// figure that is not there.
+    /// </remarks>
+    public bool Thin => WindowDays > 0 && Readings > 0 && DaysWithReadings < WindowDays * ThinBelow;
 }

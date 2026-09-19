@@ -54,6 +54,12 @@ public static class AuditVisibility
         [FactType.RoleGranted] = AuditCategory.Moderation,
         [FactType.RoleRevoked] = AuditCategory.Moderation,
         [FactType.InviteCreated] = AuditCategory.Moderation,
+
+        // Modbot inviting somebody on its own is an action taken on a person, so it sits with the
+        // other actions rather than with the operational log: the group should read it the same
+        // way it reads a kick.
+        [FactType.GroupAutoInvited] = AuditCategory.Moderation,
+        [FactType.GroupAutoInviteFailed] = AuditCategory.Moderation,
         [FactType.GroupInfoChanged] = AuditCategory.Moderation,
 
         // The first read of each list: a headcount with a date on it, which is membership
