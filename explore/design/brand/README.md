@@ -33,7 +33,8 @@ on every PNG tops out at 254, which renders as opaque.
 ## Banners
 
 `banners/` holds a 1024 x 300 header for each place that wants one, on the light ground and on the
-dark one. The mascot head and the wordmark sit centred, with the section's name under the wordmark.
+dark one. The mascot head and the wordmark sit on the left, the section's name is pushed to the far
+right, and a squared rule runs under both with a violet stub at its left end.
 
 | File | Says |
 |---|---|
@@ -56,9 +57,10 @@ python build.py banners && python banners.py
 with nothing to crop. They are saved at 2x — 2048 x 600 — because Discord downscales a banner to
 fit and a 1x file goes soft on a high-density screen.
 
-The name sits **under** the wordmark rather than beside it. Beside it, a long one such as
-"3rd Party Service Health" either wrapped or forced the wordmark smaller, so the banners stopped
-matching each other. Stacked, every banner carries the same wordmark at the same size.
+The rule has squared ends, no rounding. The violet stub at its left end sits under the mark and
+ties the two together; without it the line reads as a stray underline rather than part of the
+design. Every banner carries the same wordmark at the same size, whatever the name on the right
+is, so a row of them lines up.
 
 ## Tokens
 
