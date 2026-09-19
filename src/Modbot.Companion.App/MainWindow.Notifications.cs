@@ -82,6 +82,7 @@ public sealed partial class MainWindow
             _bleepVolume.Value = NotificationSettings.ClampVolume(notifications.Volume);
 
         _bleepVolumeValue.Text = $"{(int)_bleepVolume.Value}";
+        _bleepTest.IsEnabled = _snapshot.VoiceOrNone.HasOutput;
     }
 
     /// <summary>The Notifications card: the sound, how loud, and a Test button.</summary>
@@ -89,8 +90,6 @@ public sealed partial class MainWindow
     {
         foreach (var control in new Control[] { _bleepOn, _bleepVolume, _bleepVolumeValue, _bleepTest })
             DetachFromParent(control);
-
-        _bleepTest.IsEnabled = _snapshot.VoiceOrNone.HasOutput;
 
         return new StackPanel
         {

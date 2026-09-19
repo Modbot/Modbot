@@ -121,25 +121,20 @@ public sealed partial class MainWindow
         RenderPage();
     }
 
-    /// <summary>The card: the switch, the shortcut, the opacity, and what failed if anything did.</summary>
-    private Control DesktopOverlayCard()
+    /// <summary>
+    /// What the card says right now, put into its controls. Called from the Settings page's own
+    /// refresh, which has already stopped the controls answering back, so this one does not.
+    /// </summary>
+    private void RefreshDesktopOverlayControls()
     {
         WireDesktopOverlay();
 
         var desktop = _snapshot.DesktopOverlayOrNone;
 
-        _renderingSwitches = true;
-        try
-        {
-            _desktopOverlayOn.IsChecked = desktop.Settings.On;
+        _desktopOverlayOn.IsChecked = desktop.Settings.On;
 
-            if (!_desktopOverlayOpacity.IsPointerOver && !_desktopOverlayOpacity.IsFocused)
-                _desktopOverlayOpacity.Value = DesktopOverlaySettings.ClampOpacity(desktop.Settings.Opacity);
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
+        if (!_desktopOverlayOpacity.IsPointerOver && !_desktopOverlayOpacity.IsFocused)
+            _desktopOverlayOpacity.Value = DesktopOverlaySettings.ClampOpacity(desktop.Settings.Opacity);
 
         _desktopOverlayOpacityValue.Text = $"{(int)_desktopOverlayOpacity.Value}";
         _desktopOverlayShortcutText.Text = _capturingShortcut
@@ -152,6 +147,12 @@ public sealed partial class MainWindow
         _desktopOverlayOpacity.IsEnabled = desktop.Settings.On;
         _desktopOverlayShortcut.IsEnabled = desktop.Settings.On;
         _desktopOverlayOpen.IsEnabled = desktop.Settings is { On: true } && !desktop.Showing;
+    }
+
+    /// <summary>The card: the switch, the shortcut, the opacity, and what failed if anything did.</summary>
+    private Control DesktopOverlayCard()
+    {
+        WireDesktopOverlay();
 
         foreach (var control in new Control[]
                  {

@@ -27,6 +27,17 @@ internal sealed class GroupPictures
     private readonly Action _changed;
     private readonly ConcurrentDictionary<string, Bitmap?> _pictures = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, bool> _inFlight = new(StringComparer.Ordinal);
+    private int _arrived;
+
+    /// <summary>
+    /// How many pictures have landed so far.
+    /// </summary>
+    /// <remarks>
+    /// The window leaves the page alone when the snapshot has not changed, and a picture arriving
+    /// changes what the page would draw without changing the snapshot. This is how the window
+    /// notices.
+    /// </remarks>
+    public int Arrived => Volatile.Read(ref _arrived);
 
     /// <param name="changed">Called on the UI thread when a picture has arrived, so the window redraws.</param>
     public GroupPictures(HttpClient http, Action changed)
@@ -70,6 +81,9 @@ internal sealed class GroupPictures
         _inFlight.TryRemove(key, out _);
 
         if (picture is not null)
+        {
+            Interlocked.Increment(ref _arrived);
             Dispatcher.UIThread.Post(_changed);
+        }
     }
 }

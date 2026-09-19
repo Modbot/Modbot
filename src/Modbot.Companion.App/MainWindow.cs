@@ -54,6 +54,21 @@ public sealed partial class MainWindow : Window
     private readonly StackPanel _body = new() { Spacing = 14 };
     private readonly StackPanel _nav = new() { Spacing = 2 };
 
+    // The warnings sit above the page and change on their own, so they have their own panel: the
+    // page below them can then be left alone on a tick that changed nothing.
+    private readonly StackPanel _warnings = new() { Spacing = 14, IsVisible = false };
+
+    // What the page was last built from. The window is drawn once a second, and everything built
+    // again is a new control: a button under the pointer starts its hover from nothing and a list
+    // that was open closes, because the control it belonged to no longer exists. So the page is
+    // built again only when it would come out different, and refreshed where it stands otherwise.
+    private CompanionAppSnapshot? _drawnFrom;
+    private Page? _drawnPage;
+    private int _drawnPictures;
+
+    /// <summary>One sidebar row, kept so the sidebar is refreshed rather than built again.</summary>
+    private readonly Dictionary<Page, NavRow> _navRows = [];
+
     // The top of the sidebar is the group this companion reports to, like the web app's; Modbot's
     // own mark moves to the foot. Both are rebuilt from the snapshot, because the group's name and
     // picture arrive with pairing and the picture arrives a moment after that.
@@ -74,6 +89,7 @@ public sealed partial class MainWindow : Window
     private readonly CheckBox _startupBox;
     private readonly CheckBox _overlayOnBox;
     private readonly TextBox _logFolderBox;
+    private readonly TextBlock _logFolderWatching = Ui.Faint("");
     private bool _renderingSwitches;
 
     // The panel's size, opacity and curve: sliders, built once so a drag is not cut short by the
@@ -89,6 +105,7 @@ public sealed partial class MainWindow : Window
     private readonly ComboBox _voiceDevice;
     private readonly ComboBox _voiceName;
     private readonly TextBlock _voiceLine;
+    private readonly Button _voiceTest = Ui.Button("Test");
     private readonly List<string?> _voiceDeviceIds = [];
     private readonly List<string> _voiceNames = [];
 
@@ -161,8 +178,15 @@ public sealed partial class MainWindow : Window
         _voiceDevice = VoiceDropDown();
         _voiceName = VoiceDropDown();
         _voiceLine = Ui.Faint("");
+        _voiceTest.Click += (_, _) => _actions.TestVoice();
 
-        var main = new ScrollViewer { Padding = new Thickness(20), Content = _body };
+        // The warnings and the page are two panels rather than one list, so a warning appearing or
+        // going does not disturb the page under it.
+        var main = new ScrollViewer
+        {
+            Padding = new Thickness(20),
+            Content = new StackPanel { Spacing = 14, Children = { _warnings, _body } },
+        };
         Grid.SetColumn(main, 1);
 
         SetUpKeyboard();
@@ -256,7 +280,15 @@ public sealed partial class MainWindow : Window
         _actions.ClosedToTray();
     }
 
-    /// <summary>Rebuilds the window from a snapshot. Cheap enough to call on a timer.</summary>
+    /// <summary>
+    /// Draws the window from a snapshot. Called on a timer, once a second.
+    /// </summary>
+    /// <remarks>
+    /// A snapshot saying exactly what the last one said is drawn by doing nothing at all, because
+    /// building the page again would only take the hover out from under the pointer and close
+    /// whatever was open. The counts, the states and the log line all reach the screen through the
+    /// snapshot, so a tick that changes any of them is not one of these.
+    /// </remarks>
     public void Render(CompanionAppSnapshot snapshot, MainWindowActions actions)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -265,11 +297,22 @@ public sealed partial class MainWindow : Window
         _snapshot = snapshot;
         _actions = actions;
 
+        if (_drawnPage == _page
+            && _drawnPictures == PicturesArrived
+            && _drawnFrom is { } drawn
+            && drawn.LooksTheSameAs(snapshot))
+        {
+            return;
+        }
+
         RenderIdentity();
         RenderHealth();
         RenderNav();
-        RenderPage();
+        DrawPage();
     }
+
+    /// <summary>How many group pictures have landed, so a page drawn before one arrived is drawn again.</summary>
+    private int PicturesArrived => Pictures?.Arrived ?? 0;
 
     private Control Sidebar()
     {
@@ -379,26 +422,20 @@ public sealed partial class MainWindow : Window
 
     private void RenderNav()
     {
-        _nav.Children.Clear();
+        NavItem(Page.Servers, "Servers", _snapshot.Servers.Count == 0 ? null : $"{_snapshot.Servers.Count}");
+        NavItem(Page.Events, "Events", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}");
 
-        _nav.Children.Add(NavItem(
-            Page.Servers, "Servers", _snapshot.Servers.Count == 0 ? null : $"{_snapshot.Servers.Count}"));
-        _nav.Children.Add(NavItem(
-            Page.Events, "Events", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}"));
         // "on" is the panel actually up in a headset; "off" is the switch. Between them sits the
         // ordinary case -- switched on, SteamVR not running -- which says nothing, because it is
         // what most of the day looks like and a badge for it would mean nothing.
         var overlay = _snapshot.OverlayOrNone;
-        _nav.Children.Add(NavItem(
-            Page.SteamVr,
-            "SteamVR",
-            !overlay.On ? "off" : overlay.Attached ? "on" : null));
-        _nav.Children.Add(NavItem(Page.Log, "Log", null));
-        _nav.Children.Add(NavItem(Page.Settings, "Settings", null));
-        _nav.Children.Add(NavItem(Page.Credits, "Credits", null));
+        NavItem(Page.SteamVr, "SteamVR", !overlay.On ? "off" : overlay.Attached ? "on" : null);
+        NavItem(Page.Log, "Log", null);
+        NavItem(Page.Settings, "Settings", null);
+        NavItem(Page.Credits, "Credits", null);
 
         if (_snapshot.DebugMode)
-            _nav.Children.Add(NavItem(Page.Debug, "Debug", null));
+            NavItem(Page.Debug, "Debug", null);
 
         RegisterWindowKeys();
     }
@@ -408,27 +445,39 @@ public sealed partial class MainWindow : Window
     /// so the page takes precedence, and the open page lit in the accent's tint rather than
     /// a heavier surface.
     /// </summary>
-    private Control NavItem(Page page, string caption, string? badge)
+    /// <remarks>
+    /// Built the first time its page is named and only refreshed after that. The sidebar is drawn
+    /// on every tick, and a row built again is a new button: the one under the pointer would start
+    /// its hover from nothing every second.
+    /// </remarks>
+    private void NavItem(Page page, string caption, string? badge)
     {
+        if (!_navRows.TryGetValue(page, out var row))
+        {
+            row = BuildNavItem(page, caption);
+            _navRows[page] = row;
+            _nav.Children.Add(row.Button);
+        }
+
         var selected = _page == page;
+        row.Label.Foreground = selected ? Ui.T.TextBrush : Ui.T.TextDimBrush;
+        row.Button.Background = selected ? Ui.T.AccentDimBrush : Brushes.Transparent;
+        row.Badge.Text = badge ?? "";
+        row.Badge.IsVisible = badge is not null;
+    }
+
+    private NavRow BuildNavItem(Page page, string caption)
+    {
+        var label = Ui.Text(caption, Ui.T.Density.TextSmall, Ui.T.TextDimBrush, FontWeight.Medium, wrap: false);
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        var badge = Ui.Faint("");
+        badge.VerticalAlignment = VerticalAlignment.Center;
+        badge.IsVisible = false;
 
         var row = new DockPanel { LastChildFill = false };
-        var label = Ui.Text(
-            caption,
-            Ui.T.Density.TextSmall,
-            selected ? Ui.T.TextBrush : Ui.T.TextDimBrush,
-            FontWeight.Medium,
-            wrap: false);
-
-        label.VerticalAlignment = VerticalAlignment.Center;
         row.Children.Add(Dock(label, Avalonia.Controls.Dock.Left));
-
-        if (badge is not null)
-        {
-            var count = Ui.Faint(badge);
-            count.VerticalAlignment = VerticalAlignment.Center;
-            row.Children.Add(Dock(count, Avalonia.Controls.Dock.Right));
-        }
+        row.Children.Add(Dock(badge, Avalonia.Controls.Dock.Right));
 
         var button = new Button
         {
@@ -437,15 +486,18 @@ public sealed partial class MainWindow : Window
             Padding = new Thickness(8, 0),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background = selected ? Ui.T.AccentDimBrush : Brushes.Transparent,
+            Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             CornerRadius = new CornerRadius(Ui.T.Density.Radius),
         };
 
         button.Click += (_, _) => GoTo(page);
 
-        return button;
+        return new NavRow(button, label, badge);
     }
+
+    /// <summary>The three parts of a sidebar row that a refresh touches.</summary>
+    private sealed record NavRow(Button Button, TextBlock Label, TextBlock Badge);
 
     /// <summary>Shows a page: from the sidebar, the palette, or <c>g</c> then its letter.</summary>
     private void GoTo(Page page)
@@ -458,12 +510,167 @@ public sealed partial class MainWindow : Window
         RenderPage();
     }
 
-    private void RenderPage()
+    /// <summary>
+    /// Draws the page for a new snapshot: built again when it would come out different, and
+    /// refreshed where it stands when it would not.
+    /// </summary>
+    private void DrawPage()
     {
-        _body.Children.Clear();
+        if (!PageAlreadyDrawn())
+        {
+            RenderPage();
+            return;
+        }
+
+        RefreshPage();
+        _drawnFrom = _snapshot;
+    }
+
+    /// <summary>
+    /// Whether the open page is already showing exactly what this snapshot would draw.
+    /// </summary>
+    /// <remarks>
+    /// <para>Each page names the parts of the snapshot it can ignore: the ones it never shows, and
+    /// the ones it puts into controls it keeps rather than building again. Those are taken from
+    /// the snapshot the page was drawn from so they cannot ask for a page nobody would see a
+    /// difference in. Everything else is compared.</para>
+    /// <para>The naming runs that way round on purpose. A part added to the snapshot later is
+    /// named by nobody, so it is compared, so the page is built again — which is what every page
+    /// did before this existed. Getting it wrong costs a rebuild; it cannot leave a page saying
+    /// something that is no longer true.</para>
+    /// </remarks>
+    private bool PageAlreadyDrawn()
+    {
+        if (_drawnPage != _page || _drawnPictures != PicturesArrived || _drawnFrom is not { } drawn)
+            return false;
+
+        var ignored = _page switch
+        {
+            Page.Events => Parts.Log | Parts.Overlays | Parts.Settings,
+            Page.SteamVr => Parts.Log | Parts.Events | Parts.Settings | Parts.Servers,
+            Page.Log => Parts.Events | Parts.Overlays | Parts.Servers,
+            Page.Settings => Parts.Log | Parts.Events | Parts.Overlays | Parts.Settings | Parts.Servers,
+            Page.Credits => Parts.Log | Parts.Events | Parts.Overlays | Parts.Settings | Parts.Servers,
+            Page.Debug => Parts.Log | Parts.Events | Parts.Settings | Parts.Servers,
+            _ => Parts.Log | Parts.Events | Parts.Overlays | Parts.Settings,
+        };
+
+        return drawn.LooksTheSameAs(Ignoring(_snapshot, drawn, ignored));
+    }
+
+    /// <summary>The parts of a snapshot a page can ignore.</summary>
+    [Flags]
+    private enum Parts
+    {
+        None = 0,
+
+        /// <summary>The log counters and the sentence made out of them. The Log page shows them.</summary>
+        Log = 1,
+
+        /// <summary>The events. The Events page shows them; every other page shows only how many, in the sidebar.</summary>
+        Events = 2,
+
+        /// <summary>The three panels. The SteamVR page shows two and the Settings page refreshes the third.</summary>
+        Overlays = 4,
+
+        /// <summary>Everything the Settings page keeps controls for, and puts into them on every tick.</summary>
+        Settings = 8,
+
+        /// <summary>The paired servers and the last pairing attempt. The Servers page shows them.</summary>
+        Servers = 16,
+    }
+
+    /// <summary>
+    /// <paramref name="next"/> with the named parts taken from the snapshot the page was drawn
+    /// from, so a page that does not show them is not built again on their account.
+    /// </summary>
+    private static CompanionAppSnapshot Ignoring(CompanionAppSnapshot next, CompanionAppSnapshot drawn, Parts parts)
+    {
+        if (parts.HasFlag(Parts.Log))
+        {
+            next = next with
+            {
+                LogStatus = drawn.LogStatus,
+                LogDetail = drawn.LogDetail,
+                LinesRead = drawn.LinesRead,
+                BehaviourLines = drawn.BehaviourLines,
+                RecognisedEvents = drawn.RecognisedEvents,
+            };
+        }
+
+        if (parts.HasFlag(Parts.Events))
+            next = next with { Events = drawn.Events };
+
+        if (parts.HasFlag(Parts.Overlays))
+        {
+            next = next with
+            {
+                Overlay = drawn.Overlay,
+                NotifyOverlay = drawn.NotifyOverlay,
+                DesktopOverlay = drawn.DesktopOverlay,
+            };
+        }
+
+        if (parts.HasFlag(Parts.Settings))
+        {
+            next = next with
+            {
+                Startup = drawn.Startup,
+                Voice = drawn.Voice,
+                Notifications = drawn.Notifications,
+                NotificationFilters = drawn.NotificationFilters,
+                LogFolder = drawn.LogFolder,
+                LogFolderConfigured = drawn.LogFolderConfigured,
+            };
+        }
+
+        if (parts.HasFlag(Parts.Servers))
+        {
+            next = next with
+            {
+                Servers = drawn.Servers,
+                LastPairing = drawn.LastPairing,
+                PairingPage = drawn.PairingPage,
+            };
+        }
+
+        return next;
+    }
+
+    /// <summary>
+    /// The parts of the open page that are put into controls it keeps rather than built again.
+    /// Run after a rebuild as well, so a card is filled in one way however it came to be there.
+    /// </summary>
+    private void RefreshPage()
+    {
+        switch (_page)
+        {
+            case Page.Settings:
+                RefreshSettings();
+                break;
+            case Page.Events or Page.SteamVr or Page.Log or Page.Credits or Page.Debug:
+                break;
+            default:
+                RenderPairingNotice();
+                break;
+        }
+    }
+
+    private void RenderWarnings()
+    {
+        _warnings.Children.Clear();
 
         foreach (var warning in _snapshot.Warnings)
-            _body.Children.Add(Ui.Note(warning.Message, Severity(warning.Severity)));
+            _warnings.Children.Add(Ui.Note(warning.Message, Severity(warning.Severity)));
+
+        _warnings.IsVisible = _warnings.Children.Count > 0;
+    }
+
+    /// <summary>Builds the page again from the ground up. Every way into the page but the timer's.</summary>
+    private void RenderPage()
+    {
+        RenderWarnings();
+        _body.Children.Clear();
 
         switch (_page)
         {
@@ -489,6 +696,11 @@ public sealed partial class MainWindow : Window
                 RenderServers();
                 break;
         }
+
+        _drawnPage = _page;
+        _drawnFrom = _snapshot;
+        _drawnPictures = PicturesArrived;
+        RefreshPage();
     }
 
     private static Color Severity(WarningSeverity severity) => severity switch
@@ -511,7 +723,6 @@ public sealed partial class MainWindow : Window
         foreach (var server in _snapshot.Servers)
             _body.Children.Add(ServerCard(server));
 
-        RenderPairingNotice();
         _body.Children.Add(_pairingCard);
     }
 
@@ -842,27 +1053,18 @@ public sealed partial class MainWindow : Window
             "What it does not read"));
     }
 
+    /// <summary>
+    /// The Settings page: a card for each group of controls, all of them kept between renders.
+    /// </summary>
+    /// <remarks>
+    /// Everything on this page that changes reaches the screen through <see cref="RefreshSettings"/>
+    /// instead of a rebuild, which is why the page can stand while the client works: a list left
+    /// open stays open, a slider being dragged is not cut short, and the pointer keeps the button
+    /// it is on. Anything added to this page follows the same rule — kept control, value put into
+    /// it by the refresh.
+    /// </remarks>
     private void RenderSettings()
     {
-        _renderingSwitches = true;
-        try
-        {
-            // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
-            // and cannot be turned back on from here.
-            var startup = _snapshot.Startup;
-            _startupBox.IsVisible = startup is { Visible: true };
-            _startupBox.IsChecked = startup is { On: true };
-            _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
-
-            RefreshVoiceControls(_snapshot.VoiceOrNone);
-            RefreshNotificationControls(_snapshot.NotificationsOrDefault);
-            RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
-
         DetachFromParent(_startupBox);
         DetachFromParent(_logFolderBox);
 
@@ -874,11 +1076,39 @@ public sealed partial class MainWindow : Window
         _body.Children.Add(Ui.Card(NotificationsCard(), "Notifications"));
         _body.Children.Add(Ui.Card(NotificationFiltersCard(), "Tell me about"));
 
-        _body.Children.Add(Ui.Card(VoiceSettingsCard(_snapshot.VoiceOrNone), "Voice"));
+        _body.Children.Add(Ui.Card(VoiceSettingsCard(), "Voice"));
 
         _body.Children.Add(Ui.Card(LogFolderSettings(), "VRChat log folder"));
 
         _body.Children.Add(Ui.Card(RestartCard(), "Restart"));
+    }
+
+    /// <summary>
+    /// What the Settings page says right now, put into the controls it keeps, with none of them
+    /// answering back. Run on every tick, whether or not the page was built again.
+    /// </summary>
+    private void RefreshSettings()
+    {
+        _renderingSwitches = true;
+        try
+        {
+            // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
+            // and cannot be turned back on from here.
+            var startup = _snapshot.Startup;
+            _startupBox.IsVisible = startup is { Visible: true };
+            _startupBox.IsChecked = startup is { On: true };
+            _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
+
+            RefreshDesktopOverlayControls();
+            RefreshVoiceControls(_snapshot.VoiceOrNone);
+            RefreshNotificationControls(_snapshot.NotificationsOrDefault);
+            RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
+            RefreshLogFolderControls();
+        }
+        finally
+        {
+            _renderingSwitches = false;
+        }
     }
 
     /// <summary>
@@ -944,6 +1174,7 @@ public sealed partial class MainWindow : Window
         _voiceVolume.IsEnabled = enabled;
         _voiceDevice.IsEnabled = enabled;
         _voiceName.IsEnabled = enabled;
+        _voiceTest.IsEnabled = enabled && !voice.IsDownloading;
 
         // The size is named beside the progress: a percentage on its own tells somebody on a slow
         // connection nothing about whether to wait.
@@ -962,14 +1193,13 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>The Voice card: on or off, how loud, through what, and a Test button.</summary>
-    private Control VoiceSettingsCard(VoiceStatus voice)
+    private Control VoiceSettingsCard()
     {
-        foreach (var control in new Control[] { _voiceOn, _voiceVolume, _voiceVolumeValue, _voiceDevice, _voiceName, _voiceLine })
+        foreach (var control in new Control[]
+                 { _voiceOn, _voiceVolume, _voiceVolumeValue, _voiceDevice, _voiceName, _voiceLine, _voiceTest })
+        {
             DetachFromParent(control);
-
-        var test = Ui.Button("Test");
-        test.IsEnabled = voice.HasOutput && !voice.IsDownloading;
-        test.Click += (_, _) => _actions.TestVoice();
+        }
 
         return new StackPanel
         {
@@ -989,7 +1219,7 @@ public sealed partial class MainWindow : Window
                 {
                     Orientation = Orientation.Horizontal,
                     Spacing = 12,
-                    Children = { test, _voiceLine },
+                    Children = { _voiceTest, _voiceLine },
                 },
             },
         };
@@ -1002,12 +1232,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private Control LogFolderSettings()
     {
-        // Only refilled while the person is not typing in it: the window redraws on a timer.
-        if (!_logFolderBox.IsFocused)
-        {
-            _logFolderBox.Text = _snapshot.LogFolderConfigured ?? "";
-            _logFolderBox.Watermark = _snapshot.LogFolder;
-        }
+        DetachFromParent(_logFolderWatching);
 
         var save = Ui.Button("Save", primary: true);
         save.Click += (_, _) => _actions.SetLogFolder(_logFolderBox.Text);
@@ -1025,7 +1250,7 @@ public sealed partial class MainWindow : Window
             Children =
             {
                 Ui.Field("Folder", _logFolderBox),
-                Ui.Faint($"Watching {_snapshot.LogFolder}"),
+                _logFolderWatching,
                 new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
@@ -1034,6 +1259,21 @@ public sealed partial class MainWindow : Window
                 },
             },
         };
+    }
+
+    /// <summary>
+    /// The folder the log reader is watching, and the box that can point it somewhere else. The
+    /// box is only refilled while the person is not typing in it.
+    /// </summary>
+    private void RefreshLogFolderControls()
+    {
+        if (!_logFolderBox.IsFocused)
+        {
+            _logFolderBox.Text = _snapshot.LogFolderConfigured ?? "";
+            _logFolderBox.Watermark = _snapshot.LogFolder;
+        }
+
+        _logFolderWatching.Text = $"Watching {_snapshot.LogFolder}";
     }
 
     /// <summary>The headset panel: whether it is up, what it shows, and where it sits.</summary>

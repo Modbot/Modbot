@@ -221,6 +221,75 @@ public sealed record CompanionAppSnapshot(
     /// <summary>The filters, never null: the defaults until settings have been read.</summary>
     public NotificationFilters NotificationFiltersOrDefault => NotificationFilters ?? NotificationFilters.Default;
 
+    /// <summary>
+    /// Whether this snapshot says exactly what another one says, so the window would draw what it
+    /// is already showing.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Why the window asks.</strong> The window is built again from a snapshot once
+    /// a second, and a control that is built again is a different control: a button under the
+    /// pointer starts its hover from nothing, a list that was open belongs to something that no
+    /// longer exists and closes. So the window asks this first and leaves the page alone when the
+    /// answer is yes.</para>
+    /// <para><strong>Why plain equality is not enough.</strong> <see cref="CompanionAppState.Snapshot"/>
+    /// builds new lists every time it is called, and two lists holding the same things are never
+    /// the same list, so the record's own equality is never true however still the client is.
+    /// The lists are therefore compared item by item; then this snapshot is rebuilt with the
+    /// other's lists in it and the two are compared whole, so every other field is compared
+    /// without anybody having to remember it here. A list-bearing field added later is compared by
+    /// reference, which says "not the same" and draws the page again — which is what the window
+    /// did before this method existed, and is therefore safe.</para>
+    /// </remarks>
+    public bool LooksTheSameAs(CompanionAppSnapshot other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+
+        if (ReferenceEquals(this, other))
+            return true;
+
+        return Servers.SequenceEqual(other.Servers)
+            && Events.SequenceEqual(other.Events)
+            && Warnings.SequenceEqual(other.Warnings)
+            && SameVoice(Voice, other.Voice)
+            && SameCredits(Credits, other.Credits)
+            && (this with
+            {
+                Servers = other.Servers,
+                Events = other.Events,
+                Warnings = other.Warnings,
+                Voice = other.Voice,
+                Credits = other.Credits,
+            }) == other;
+    }
+
+    /// <summary>The voice: its two lists item by item, the rest left to the record.</summary>
+    private static bool SameVoice(VoiceStatus? a, VoiceStatus? b)
+    {
+        if (a is null || b is null)
+            return ReferenceEquals(a, b);
+
+        return a.Devices.SequenceEqual(b.Devices)
+            && a.Voices.SequenceEqual(b.Voices)
+            && (a with { Devices = b.Devices, Voices = b.Voices }) == b;
+    }
+
+    /// <summary>The three thank-you lists, item by item.</summary>
+    private static bool SameCredits(CreditsList? a, CreditsList? b)
+    {
+        if (a is null || b is null)
+            return ReferenceEquals(a, b);
+
+        return a.Sponsors.SequenceEqual(b.Sponsors)
+            && a.EarlyAdopters.SequenceEqual(b.EarlyAdopters)
+            && a.Contributors.SequenceEqual(b.Contributors)
+            && (a with
+            {
+                Sponsors = b.Sponsors,
+                EarlyAdopters = b.EarlyAdopters,
+                Contributors = b.Contributors,
+            }) == b;
+    }
+
     public static CompanionAppSnapshot Empty { get; } =
         new([], [], LogHealthStatus.Idle, "Starting up.", 0, 0, 0, [], null, CompanionSettings.DefaultPairingPage);
 }
