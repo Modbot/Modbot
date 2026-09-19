@@ -280,8 +280,10 @@ public class CompanionSourceGuardTests
         // Nothing else reaches the network.
         //
         // Two of the eight are the overlay's: HttpOverlayReadClient and LiveSocket. Neither runs
-        // while the overlay is switched off, because the switch never builds the driver that owns
-        // them (TheOverlayIsOnlyEverBuiltThroughItsOnOffSwitch).
+        // while both overlays are switched off, because nothing then builds the driver that owns
+        // them (TheOverlaysAreOnlyEverBuiltThroughTheirOnOffSwitches). The notification overlay is
+        // fed by the same two, so it is reason enough on its own for them to be running -- which
+        // is exactly what a moderator asking to be told about flagged arrivals has asked for.
         var senders = ClientSources()
             .Where(f => Regex.IsMatch(
                 File.ReadAllText(f),
@@ -351,18 +353,18 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void TheOverlayIsOnlyEverBuiltThroughItsOnOffSwitch()
+    public void TheOverlaysAreOnlyEverBuiltThroughTheirOnOffSwitches()
     {
         // "What does this program start, and when" should stay as answerable as "what does it
-        // send". The panel connects to SteamVR and its driver opens a live connection to a paired
-        // server, so a moderator who switched the overlay off must not get either by some second
-        // path that forgot to ask. One place builds it, and only the switch calls that place.
-        //
-        // The overlay has two panels now -- the headset one and the desktop overlay -- and the
-        // switch is asked whether either of them wants it. That is still one place and still
-        // nothing that forgot to ask: the desktop overlay is a switch a moderator turned on.
+        // send". A panel connects to SteamVR and the driver behind it opens a live connection to a
+        // paired server, so a moderator who switched an overlay off must not get either by some
+        // second path that forgot to ask. There are three switches now -- the main headset panel,
+        // the notification panel and the desktop overlay -- and one place builds each; only its own
+        // switch calls that place, and the driver behind them is asked whether anything still
+        // wants it rather than being stopped because one switch went off.
         var building = EverythingTheClientShips()
-            .Where(f => File.ReadAllText(f).Contains("OverlayHost.Create", StringComparison.Ordinal))
+            .Where(f => File.ReadAllText(f).Contains("OverlayHost.Create", StringComparison.Ordinal)
+                || File.ReadAllText(f).Contains("NotificationHost.Create", StringComparison.Ordinal))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
@@ -372,11 +374,10 @@ public class CompanionSourceGuardTests
         var program = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == "Program.cs"));
 
         Assert.Contains("new OverlaySwitch(StartOverlay, StopOverlay", program, StringComparison.Ordinal);
-        Assert.DoesNotContain("StartOverlay();", program, StringComparison.Ordinal);
-        Assert.DoesNotContain("StopOverlay();", program, StringComparison.Ordinal);
+        Assert.Contains("new OverlaySwitch(StartNotifyOverlay, StopNotifyOverlay", program, StringComparison.Ordinal);
 
-        // Both switches reach the overlay through that one place and nowhere else.
-        Assert.Contains("Settings.OverlayOn || _state.Settings.DesktopOverlay.On", program, StringComparison.Ordinal);
+        foreach (var direct in new[] { "StartOverlay();", "StopOverlay();", "StartNotifyOverlay();", "StopNotifyOverlay();" })
+            Assert.DoesNotContain(direct, program, StringComparison.Ordinal);
     }
 
     [Fact]

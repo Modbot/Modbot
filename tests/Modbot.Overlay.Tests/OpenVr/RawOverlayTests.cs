@@ -9,6 +9,7 @@ namespace Modbot.Overlay.Tests.OpenVr;
 /// bytes SteamVR is handed -- and the shapes handed to native code, which nothing at run time
 /// checks.
 /// </summary>
+[Collection(OpenVrCollection.Name)]
 public class RawOverlayTests
 {
     [Fact]

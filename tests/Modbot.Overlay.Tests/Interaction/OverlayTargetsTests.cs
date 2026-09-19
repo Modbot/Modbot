@@ -20,14 +20,20 @@ public class OverlayTargetsTests
         "39911",
         [.. Enumerable.Range(0, people).Select(i => new RosterMember($"usr_{i}", $"Person {i}", RosterStanding.Member, 0, []))]);
 
-    private static OverlayScreen Screen(FlaggedJoinAlert? alert = null, UserSummary? person = null, int skip = 0, PanelCursor? cursor = null) => new(
+    private static OverlayScreen Screen(
+        FlaggedJoinAlert? alert = null,
+        UserSummary? person = null,
+        int skip = 0,
+        PanelCursor? cursor = null,
+        OverlayPage page = OverlayPage.Instance) => new(
         "Cat Lounge",
         new Cached<InstanceContext>(Roster(), Freshness.Fresh, TimeSpan.Zero),
         Freshness.Fresh,
         alert,
         Person: person,
         RosterSkip: skip,
-        Cursor: cursor);
+        Cursor: cursor,
+        Page: page);
 
     private static FlaggedJoinAlert Alert() => new("a1", "usr_1", "Person 1", "39911", "kicked before", 2, DateTimeOffset.UnixEpoch);
 
@@ -104,11 +110,15 @@ public class OverlayTargetsTests
     [Fact]
     public void APersonCardIsATargetThatCloses()
     {
+        // The person is a screen of its own now, reached by tapping a row; the card carries Back
+        // and Refresh rather than closing on a tap anywhere in it.
         var person = new UserSummary("usr_1", "Person 1", RosterStanding.Flagged, 2, DateTimeOffset.UnixEpoch, ["kicked before"], ["Regular"]);
+        var open = Screen(person: person, page: OverlayPage.Person);
 
-        var found = AvaloniaTestHost.Run(() => OverlayTargets.Find(LaidOut(Screen(person: person))));
+        var found = AvaloniaTestHost.Run(() => OverlayTargets.Find(LaidOut(open)));
 
         Assert.Contains(found, t => t.Target is OverlayTarget.ClosePerson);
-        Assert.False(Screen().LooksTheSameAs(Screen(person: person)));
+        Assert.Contains(found, t => t.Target is OverlayTarget.RefreshPerson);
+        Assert.False(Screen().LooksTheSameAs(open));
     }
 }

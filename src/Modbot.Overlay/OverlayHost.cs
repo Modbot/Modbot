@@ -32,6 +32,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// </summary>
     public const int DefaultResolution = 1024;
 
+    /// <summary>
+    /// The notification panel's texture. A quarter of the main panel's across, because a pop-up
+    /// is three lines and a megabyte of texture to say one name would be a poor trade on a
+    /// machine that is also running VRChat.
+    /// </summary>
+    public const int DefaultNotificationResolution = 256;
+
     private readonly OverlayCompositor _compositor;
     private readonly IOverlayRuntime _runtime;
     private readonly IOverlaySurface _surface;
@@ -79,7 +86,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// </summary>
     public static OverlayHost Create(int resolution = DefaultResolution, IOverlayRuntime? runtime = null, OverlayPlacement? placement = null)
         => new(
-            runtime ?? FallbackOverlayRuntime.Create(resolution),
+            runtime ?? FallbackOverlayRuntime.CreateFor(OverlayKind.Main, resolution),
             OperatingSystem.IsWindows()
                 ? D3D11OverlaySurface.Create(resolution, resolution)
                 : new MemoryOverlaySurface(resolution, resolution),
@@ -158,7 +165,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             Tapped?.Invoke(TargetAt(click.Across, click.Down));
 
         if (result.Pointer is { } pointer && result.Scroll.Y != 0f
-            && TargetAt(pointer.Across, pointer.Down) is OverlayTarget.Roster or OverlayTarget.Person)
+            && TargetAt(pointer.Across, pointer.Down) is OverlayTarget.Roster or OverlayTarget.Person or OverlayTarget.Events)
         {
             // Thumbstick up scrolls the list up, towards the rows above.
             _scroll -= result.Scroll.Y / ScrollPerRow;

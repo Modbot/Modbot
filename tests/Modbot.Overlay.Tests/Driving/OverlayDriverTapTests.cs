@@ -110,16 +110,25 @@ public class OverlayDriverTapTests
     }
 
     [Fact]
-    public async Task ATapAnywhereElseClosesTheCard()
+    public async Task BackClosesTheCardAndReturnsToTheRoster()
     {
+        // A tap on the empty panel used to close the card, because the card sat above the roster.
+        // The person is now a screen of its own, so it takes Back to leave it -- and a stray tap
+        // on nothing must not throw the moderator out of the card they just opened.
         var (driver, presenter, _) = Build();
         await driver.TickAsync(TestContext.Current.CancellationToken);
         await driver.OpenPersonAsync("usr_Rin");
 
         driver.Tap(null);
         await driver.TickAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(presenter.Last.Person);
+        Assert.Equal(OverlayPage.Person, presenter.Last.Page);
+
+        driver.Tap(new OverlayTarget.ClosePerson());
+        await driver.TickAsync(TestContext.Current.CancellationToken);
 
         Assert.Null(presenter.Last.Person);
+        Assert.Equal(OverlayPage.Instance, presenter.Last.Page);
     }
 
     [Fact]

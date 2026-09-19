@@ -127,6 +127,35 @@ public sealed record OverlayStatus(
         "Not in a group instance", 0, "not loaded", null, null, null, On: false);
 }
 
+/// <summary>The notification overlay, for the SteamVR page.</summary>
+/// <param name="Attached">Whether it is showing in a headset right now.</param>
+/// <param name="State">The runtime's answer in one word.</param>
+/// <param name="Detail">The runtime's answer in a sentence.</param>
+/// <param name="FramesDrawn">How many pop-up frames have been drawn.</param>
+/// <param name="PopUps">How many pop-ups are up right now.</param>
+/// <param name="Settings">
+/// The moderator's own choices, so the card can be filled in whether or not anything is running.
+/// </param>
+public sealed record NotifyOverlayStatus(
+    bool Attached,
+    string State,
+    string Detail,
+    DateTimeOffset? AttachedAt,
+    int FramesDrawn,
+    DateTimeOffset? LastDrawnAt,
+    int PopUps,
+    NotifyOverlaySettings? Settings = null)
+{
+    /// <summary>The moderator's choices, never null.</summary>
+    public NotifyOverlaySettings SettingsOrDefault => Settings ?? NotifyOverlaySettings.Default;
+
+    /// <summary>Whether the moderator wants it. The switch lives in the settings themselves.</summary>
+    public bool On => SettingsOrDefault.On;
+
+    /// <summary>Before the host exists, or when it could not be set up on this PC.</summary>
+    public static NotifyOverlayStatus None { get; } = new(false, "not set up", "", null, 0, null, 0);
+}
+
 /// <summary>What the client window is showing right now.</summary>
 /// <param name="Events">
 /// Every event this client processed, newest first — one row each, whatever became of it at each
@@ -163,13 +192,17 @@ public sealed record CompanionAppSnapshot(
     EventFilterSet? EventsFilters = null,
     CreditsList? Credits = null,
     NotificationSettings? Notifications = null,
-    DesktopOverlayStatus? DesktopOverlay = null)
+    DesktopOverlayStatus? DesktopOverlay = null,
+    NotifyOverlayStatus? NotifyOverlay = null)
 {
     /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
     public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
 
     /// <summary>The overlay row, never null: <see cref="OverlayStatus.None"/> until the host has said.</summary>
     public OverlayStatus OverlayOrNone => Overlay ?? OverlayStatus.None;
+
+    /// <summary>The notification overlay's row, never null.</summary>
+    public NotifyOverlayStatus NotifyOverlayOrNone => NotifyOverlay ?? NotifyOverlayStatus.None;
 
     /// <summary>The voice, never null: <see cref="VoiceStatus.None"/> until the host has said.</summary>
     public VoiceStatus VoiceOrNone => Voice ?? VoiceStatus.None;
@@ -234,6 +267,9 @@ public sealed class CompanionAppState
 
     /// <summary>The SteamVR overlay as of the last render; set by the host that owns it.</summary>
     public OverlayStatus Overlay { get; set; } = OverlayStatus.None;
+
+    /// <summary>The notification overlay; set by the host that owns it.</summary>
+    public NotifyOverlayStatus NotifyOverlay { get; set; } = NotifyOverlayStatus.None;
 
     /// <summary>Each server's live link in one word, by server id; set by the host that owns the overlay.</summary>
     public IReadOnlyDictionary<string, string> LiveWords { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -304,7 +340,8 @@ public sealed class CompanionAppState
             Settings.EventsFilters,
             Credits,
             Settings.Notifications,
-            DesktopOverlay);
+            DesktopOverlay,
+            NotifyOverlay with { Settings = Settings.NotifyOverlay });
     }
 
     private IEnumerable<CompanionWarning> Warnings(LogHealthStatus logStatus)

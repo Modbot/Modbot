@@ -8,6 +8,7 @@ namespace Modbot.Overlay.Tests.OpenVr;
 /// comes from moderators reporting, and only some of them wear a headset. So "no runtime" is the
 /// ordinary case, and it must be a state rather than an error.
 /// </summary>
+[Collection(OpenVrCollection.Name)]
 public class OverlayRuntimeTests
 {
     private sealed class FakeSurface : IOverlaySurface
@@ -28,6 +29,8 @@ public class OverlayRuntimeTests
     [Fact]
     public void AMachineWithoutSteamVrGetsAStateRatherThanAnException()
     {
+        Assert.SkipWhen(OpenVrSession.IsSteamVrInstalled, "This says what happens with no SteamVR; this PC has one.");
+
         using var runtime = new OpenVrOverlayRuntime();
 
         var status = runtime.Start();

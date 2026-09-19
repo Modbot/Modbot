@@ -1078,69 +1078,68 @@ public sealed partial class MainWindow : Window
                     _ => Ui.Pill("Not running", Ui.T.Palette.Warn, Ui.T.Palette.WarnDim),
                 };
 
-        // Nothing is running to look for, to report on, or to place, so the page is the switch.
-        if (!overlay.On)
+        // The placement settings stay whichever way the switch is set: a moderator arranges where
+        // the panel will sit and then turns it on, not the other way round. What goes away while
+        // it is off is only what there is nothing to report on.
+        var top = new StackPanel { Spacing = 12, Children = { _overlayOnBox } };
+        Control header = pill;
+
+        if (overlay.On)
         {
-            _body.Children.Add(Ui.Card(_overlayOnBox, "SteamVR", pill));
-            return;
-        }
+            var attach = Ui.Button("Look for SteamVR now");
+            attach.Click += (_, _) => _actions.AttachSteamVr();
+            header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { pill, attach } };
 
-        var attach = Ui.Button("Look for SteamVR now");
-        attach.Click += (_, _) => _actions.AttachSteamVr();
-
-        var stats = new Grid
-        {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
-            ColumnSpacing = 10,
-        };
-
-        Control[] tiles =
-        [
-            Ui.Stat("attached since", Clock(overlay.AttachedAt)),
-            Ui.Stat("frames drawn", $"{overlay.FramesDrawn:N0}"),
-            Ui.Stat("last drawn", Clock(overlay.LastDrawnAt)),
-        ];
-
-        for (var index = 0; index < tiles.Length; index++)
-        {
-            Grid.SetColumn(tiles[index], index);
-            stats.Children.Add(tiles[index]);
-        }
-
-        _body.Children.Add(Ui.Card(
-            new StackPanel
+            var stats = new Grid
             {
-                Spacing = 12,
+                ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+                ColumnSpacing = 10,
+            };
+
+            Control[] tiles =
+            [
+                Ui.Stat("attached since", Clock(overlay.AttachedAt)),
+                Ui.Stat("frames drawn", $"{overlay.FramesDrawn:N0}"),
+                Ui.Stat("last drawn", Clock(overlay.LastDrawnAt)),
+            ];
+
+            for (var index = 0; index < tiles.Length; index++)
+            {
+                Grid.SetColumn(tiles[index], index);
+                stats.Children.Add(tiles[index]);
+            }
+
+            top.Children.Add(Ui.Text(overlay.Detail, Ui.T.Density.TextSmall, Ui.T.TextBrush));
+            top.Children.Add(stats);
+        }
+
+        _body.Children.Add(Ui.Card(top, "SteamVR", header));
+
+        if (overlay.On)
+        {
+            var showing = new StackPanel
+            {
+                Spacing = 6,
                 Children =
                 {
-                    _overlayOnBox,
-                    Ui.Text(overlay.Detail, Ui.T.Density.TextSmall, Ui.T.TextBrush),
-                    stats,
+                    Line("Screen", overlay.Showing),
+                    Line("People", $"{overlay.People:N0}"),
+                    Line("Roster", overlay.RosterAge),
+                    Line("Alert", overlay.Alert ?? "none"),
+                    Line("Problem", overlay.Problem ?? "none"),
+                    Line("Reading from", overlay.FollowingServer ?? "no server"),
                 },
-            },
-            "SteamVR",
-            new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { pill, attach } }));
+            };
 
-        var showing = new StackPanel
-        {
-            Spacing = 6,
-            Children =
-            {
-                Line("Screen", overlay.Showing),
-                Line("People", $"{overlay.People:N0}"),
-                Line("Roster", overlay.RosterAge),
-                Line("Alert", overlay.Alert ?? "none"),
-                Line("Problem", overlay.Problem ?? "none"),
-                Line("Reading from", overlay.FollowingServer ?? "no server"),
-            },
-        };
+            if (overlay.PinnedSample is { } pinned)
+                showing.Children.Add(Line("Pinned sample", pinned));
 
-        if (overlay.PinnedSample is { } pinned)
-            showing.Children.Add(Line("Pinned sample", pinned));
-
-        _body.Children.Add(Ui.Card(showing, "Showing"));
+            _body.Children.Add(Ui.Card(showing, "Showing"));
+        }
 
         _body.Children.Add(Ui.Card(PlacementControls(overlay.PlacementOrDefault, overlay.Holding), "Placement"));
+
+        RenderNotificationOverlay();
     }
 
     /// <summary>
@@ -1414,6 +1413,9 @@ public sealed record MainWindowActions(
     /// could not be registered. Added the same way.
     /// </summary>
     public Action ShowDesktopOverlay { get; init; } = () => { };
+
+    /// <summary>The Notification overlay card changed: the whole settings record as it now reads.</summary>
+    public Action<NotifyOverlaySettings> SetNotifyOverlay { get; init; } = _ => { };
 
     public static MainWindowActions None { get; } = new(
         _ => { },

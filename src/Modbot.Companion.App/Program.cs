@@ -21,6 +21,7 @@ using Modbot.Core.Time;
 using Modbot.Overlay;
 using Modbot.Overlay.Driving;
 using Modbot.Overlay.OpenVr;
+using Modbot.Overlay.Views;
 using Serilog;
 
 namespace Modbot.Companion.App;
@@ -227,6 +228,7 @@ internal sealed class CompanionHost : IOverlayListener
     private IIngestTransport? _transport;
     private OverlayDriver? _overlay;
     private OverlayHost? _overlayHost;
+    private NotificationHost? _notifyHost;
     private OverlayPreviewWindow? _preview;
 
     /// <summary>The window that sits over VRChat on a monitor, and the key that brings it up.</summary>
@@ -237,6 +239,16 @@ internal sealed class CompanionHost : IOverlayListener
     private DateTimeOffset? _overlayAttachedAt;
     private DateTimeOffset? _overlayLastDrewAt;
     private int _overlayFramesSeen;
+    private DateTimeOffset? _notifyAttachedAt;
+    private DateTimeOffset? _notifyLastDrewAt;
+    private int _notifyFramesSeen;
+
+    /// <summary>
+    /// The pop-ups the notification overlay shows. Made once, at start, and kept whether or not
+    /// either panel is up: the drive loop fills it, and the notification host draws it when there
+    /// is one.
+    /// </summary>
+    private PopUps? _popUps;
     private Updates? _updates;
     private CloudCredits? _credits;
     private CloudEventBackup? _cloudBackup;
@@ -254,8 +266,14 @@ internal sealed class CompanionHost : IOverlayListener
     /// <summary>Whether the overlay's three timers already have their handlers; they are wired once.</summary>
     private bool _overlayLoopsWired;
 
-    /// <summary>The overlay's on/off switch; null until the client has read its settings.</summary>
+    /// <summary>The main overlay's on/off switch; null until the client has read its settings.</summary>
     private OverlaySwitch? _overlaySwitch;
+
+    /// <summary>The notification overlay's own switch. Independent of the one above.</summary>
+    private OverlaySwitch? _notifySwitch;
+
+    /// <summary>The switch for the window that sits over VRChat on a monitor. Independent of both.</summary>
+    private OverlaySwitch? _desktopSwitch;
 
     public MainWindow Window { get; } = new();
 
@@ -306,12 +324,17 @@ internal sealed class CompanionHost : IOverlayListener
                 _state.UnusablePairings.Add(pairing);
         }
 
-        // Off in settings means the overlay is never built in the first place, and either switch --
-        // the SteamVR page's for the headset panel, the Settings page's for the desktop overlay --
-        // brings it up or takes it down without a restart. It runs when either panel wants it.
-        var overlayWanted = _state.Settings.OverlayOn || _state.Settings.DesktopOverlay.On;
-        _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, overlayWanted);
+        // Off in settings means a panel is never built in the first place, and its own switch
+        // brings it up or takes it down without a restart. Three panels -- the main headset one,
+        // the notification one, and the window over VRChat on a monitor -- so three switches, and
+        // none of them can take another down.
+        _popUps = new PopUps(_clock) { Dwell = _state.Settings.NotifyOverlay.Dwell };
+        _overlaySwitch = new OverlaySwitch(StartOverlay, StopOverlay, _state.Settings.OverlayOn);
+        _notifySwitch = new OverlaySwitch(StartNotifyOverlay, StopNotifyOverlay, _state.Settings.NotifyOverlay.On);
+        _desktopSwitch = new OverlaySwitch(StartDesktopOverlay, StopDesktopOverlay, _state.Settings.DesktopOverlay.On);
         _overlaySwitch.StartIfOn();
+        _notifySwitch.StartIfOn();
+        _desktopSwitch.StartIfOn();
 
         InstallTray(desktop);
         ListenForLinks();
@@ -880,20 +903,6 @@ internal sealed class CompanionHost : IOverlayListener
             }
         }
 
-        if (_state?.Settings.DesktopOverlay.On is true)
-            StartDesktopOverlay();
-
-        // One screen, both panels. Either may be absent, and the loop neither knows nor cares.
-        _overlay = new OverlayDriver(
-            new OverlayScreens(() => _overlayHost, () => _desktopOverlay),
-            new HttpOverlayReadClient(_http!, _clock),
-            _clock,
-            listener: this,
-            sockets: new ClientLiveSocketFactory());
-
-        foreach (var connection in _state?.Connections ?? [])
-            _overlay.Add(connection.Pairing, connection.ServerId);
-
         if (_overlayHost is not null)
         {
             // A controller's doing goes to the drive loop (taps, scrolling) and to settings (where
@@ -913,57 +922,32 @@ internal sealed class CompanionHost : IOverlayListener
             };
         }
 
-        // The timers outlive any one host -- the switch can put a new one in their place -- so
-        // they are wired once and each turn reads whatever host is there now.
-        if (!_overlayLoopsWired)
-        {
-            _overlayLoopsWired = true;
+        StartDriver();
 
-            _overlayLoop.Tick += async (_, _) => await CrashGuard.RunAsync("drawing the overlay", OverlayTickAsync);
-            _placementSave.Tick += (_, _) =>
-            {
-                _placementSave.Stop();
-                if (_state is null)
-                    return;
-
-                if (!CompanionSettings.SaveOverlay(_settingsPath, _state.Settings.Overlay))
-                    Log.Warning("The panel's placement could not be saved to {Path}", _settingsPath);
-            };
-            _inputLoop.Tick += (_, _) => CrashGuard.Run(
-                "reading the controllers",
-                () => _overlayHost?.PollInput(TimeSpan.FromMilliseconds(Environment.TickCount64)));
-        }
-
-        _overlayLoop.Start();
-
-        if (_overlayHost is not null)
-            _inputLoop.Start();
+        WireOverlayLoops();
+        _inputLoop.Start();
     }
 
     /// <summary>
-    /// Takes the overlay down, for either panel's switch.
+    /// Takes the main headset panel down, for the SteamVR page's <strong>Overlay on</strong> switch.
     /// </summary>
     /// <remarks>
-    /// Everything the overlay is goes: the drawing loop and the controller loop stop, the driver
-    /// is disposed -- which closes its live connection to each paired server and drops the roster
-    /// it held in memory -- disposing the host detaches the panel from SteamVR and frees the
-    /// texture, and the desktop overlay's window and its keyboard shortcut go with them. What is
-    /// left running is the half that reads VRChat's log and reports, which the overlay was never
-    /// part of.
+    /// The controller loop stops and disposing the host detaches the panel from the VR runtime and
+    /// frees the texture. The drive loop keeps running while the notification overlay or the
+    /// window over VRChat is on, because both are fed by the same reads and the same live link;
+    /// with all three off it stops too, which closes the live connection to each paired server and
+    /// drops the roster held in memory. What is left running either way is the half that reads
+    /// VRChat's log and reports, which the overlay was never part of.
     /// </remarks>
     private void StopOverlay()
     {
-        _overlayLoop.Stop();
         _inputLoop.Stop();
         _placementSave.Stop();
 
         _preview?.Close();
         _pinnedSample = null;
 
-        StopDesktopOverlay();
 
-        _overlay?.Dispose();
-        _overlay = null;
         _overlayHost?.Dispose();
         _overlayHost = null;
 
@@ -972,12 +956,131 @@ internal sealed class CompanionHost : IOverlayListener
         _overlayFramesSeen = 0;
         _overlayAttachTriedAt = DateTimeOffset.MinValue;
 
+        StopDriverIfNobodyWantsIt();
+
+        Log.Information("The main overlay was switched off");
+    }
+
+    /// <summary>
+    /// Brings up the notification overlay: the pop-ups, fixed to a corner of the view.
+    /// </summary>
+    /// <remarks>
+    /// <para>Its own host, its own texture and its own placement, worked out from the screen spot
+    /// the moderator chose. It takes no controller input at all — it is never pointed at, so the
+    /// controllers are not read for it and no cursor is drawn on it.</para>
+    /// <para>It shares the drive loop with the main panel, because it is fed by the same reads and
+    /// the same live link, and it goes on working when the main panel is switched off — which is
+    /// the point of having two (two overlay modes design §1).</para>
+    /// </remarks>
+    private void StartNotifyOverlay()
+    {
+        var settings = _state?.Settings.NotifyOverlay ?? NotifyOverlaySettings.Default;
+
+        try
+        {
+            _notifyHost = NotificationHost.Create(placement: settings.ToPlacement());
+            AttachNotifyOverlay();
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        {
+            Log.Information(ex, "The notification overlay could not be set up on this machine; presence reporting is unaffected");
+            _notifyHost = null;
+            return;
+        }
+
+        if (_popUps is not null)
+            _popUps.Dwell = settings.Dwell;
+
+        StartDriver();
+        WireOverlayLoops();
+    }
+
+    /// <summary>Takes the notification overlay down, leaving the main panel as it was.</summary>
+    private void StopNotifyOverlay()
+    {
+        _notifyHost?.Dispose();
+        _notifyHost = null;
+
+        _notifyAttachedAt = null;
+        _notifyLastDrewAt = null;
+        _notifyFramesSeen = 0;
+        _notifyAttachTriedAt = DateTimeOffset.MinValue;
+        _popUps?.ClearAll();
+
+        StopDriverIfNobodyWantsIt();
+
+        Log.Information("The notification overlay was switched off");
+    }
+
+    /// <summary>
+    /// Brings up the loop that reads from the paired servers, if it is not already up.
+    /// </summary>
+    /// <remarks>
+    /// One loop serves both panels: it is the thing that polls a roster, waits on a server's live
+    /// events and turns a flagged arrival into both a card on the main panel and a pop-up on the
+    /// notification one. Either panel being on is reason enough for it to run.
+    /// </remarks>
+    private void StartDriver()
+    {
+        if (_overlay is not null)
+            return;
+
+        // One screen, every panel that shows it. Any of them may be absent, and the loop neither
+        // knows nor cares.
+        _overlay = new OverlayDriver(
+            new OverlayScreens(() => _overlayHost, () => _desktopOverlay),
+            new HttpOverlayReadClient(_http!, _clock),
+            _clock,
+            listener: this,
+            sockets: new ClientLiveSocketFactory(),
+            popUps: _popUps);
+
+        foreach (var connection in _state?.Connections ?? [])
+            _overlay.Add(connection.Pairing, connection.ServerId);
+
+        _overlayLoop.Start();
+    }
+
+    /// <summary>Stops the loop once neither panel is up, and lets go of what it held.</summary>
+    private void StopDriverIfNobodyWantsIt()
+    {
+        if (_overlayHost is not null || _notifyHost is not null || _desktopOverlay is not null)
+            return;
+
+        _overlayLoop.Stop();
+        _overlay?.Dispose();
+        _overlay = null;
+
         // The Servers page's live column reads this; with no driver there is no live connection,
         // and an empty list reads as "Off" rather than leaving the last word on screen.
         if (_state is not null)
             _state.LiveWords = new Dictionary<string, string>(StringComparer.Ordinal);
+    }
 
-        Log.Information("The overlay was switched off; SteamVR has been let go");
+    /// <summary>
+    /// The timers outlive any one host -- a switch can put a new one in their place -- so they are
+    /// wired once and each turn reads whatever host is there now.
+    /// </summary>
+    private void WireOverlayLoops()
+    {
+        if (_overlayLoopsWired)
+            return;
+
+        _overlayLoopsWired = true;
+
+        _overlayLoop.Tick += async (_, _) => await CrashGuard.RunAsync("drawing the overlay", OverlayTickAsync);
+        _placementSave.Tick += (_, _) =>
+        {
+            _placementSave.Stop();
+            if (_state is null)
+                return;
+
+            if (!CompanionSettings.SaveOverlay(_settingsPath, _state.Settings.Overlay))
+                Log.Warning("The panel's placement could not be saved to {Path}", _settingsPath);
+        };
+        _inputLoop.Tick += (_, _) => CrashGuard.Run(
+            "reading the controllers",
+            () => _overlayHost?.PollInput(TimeSpan.FromMilliseconds(Environment.TickCount64)));
     }
 
     /// <summary>
@@ -1113,6 +1216,43 @@ internal sealed class CompanionHost : IOverlayListener
     }
 
     /// <summary>
+    /// The notification overlay card changed: saved as the whole <c>notifyOverlay</c> object, then
+    /// acted on at once rather than at the next restart.
+    /// </summary>
+    /// <remarks>
+    /// The placement follows even while the overlay is switched off — the settings are the truth,
+    /// and the panel is put where they say when it next comes up. That is what lets a moderator
+    /// arrange the pop-ups before turning them on.
+    /// </remarks>
+    private void SetNotifyOverlay(NotifyOverlaySettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (_state is null)
+            return;
+
+        var clamped = settings.Clamped();
+        if (_state.Settings.NotifyOverlay == clamped)
+            return;
+
+        var wasOn = _state.Settings.NotifyOverlay.On;
+        _state.Settings = _state.Settings with { NotifyOverlay = clamped };
+
+        if (!CompanionSettings.SaveNotifyOverlay(_settingsPath, clamped))
+            Log.Warning("The notification overlay's settings could not be saved to {Path}", _settingsPath);
+
+        if (_popUps is not null)
+            _popUps.Dwell = clamped.Dwell;
+
+        _notifyHost?.Place(clamped.ToPlacement());
+
+        if (wasOn != clamped.On)
+            _notifySwitch?.Set(clamped.On);
+
+        Render();
+    }
+
+    /// <summary>
     /// One turn of the overlay loop, never overlapping itself.
     /// </summary>
     /// <remarks>
@@ -1123,6 +1263,8 @@ internal sealed class CompanionHost : IOverlayListener
     private static readonly TimeSpan OverlayAttachInterval = TimeSpan.FromSeconds(10);
 
     private DateTimeOffset _overlayAttachTriedAt = DateTimeOffset.MinValue;
+
+    private DateTimeOffset _notifyAttachTriedAt = DateTimeOffset.MinValue;
 
     /// <summary>
     /// Attaches to SteamVR if it is running, and says so once. Never launches it: a program that
@@ -1158,6 +1300,33 @@ internal sealed class CompanionHost : IOverlayListener
         }
     }
 
+    /// <summary>
+    /// Attaches the notification overlay if a VR runtime is running, and says so once. Never
+    /// launches one, for the same reason the main panel does not.
+    /// </summary>
+    private void AttachNotifyOverlay()
+    {
+        if (_notifyHost is null)
+            return;
+
+        _notifyAttachTriedAt = _clock.UtcNow;
+        var before = _notifyHost.Status;
+        var status = _notifyHost.Start();
+
+        if (status.State == before.State && status.Detail == before.Detail)
+            return;
+
+        if (status.State is OverlayRuntimeState.Running)
+        {
+            _notifyAttachedAt = _clock.UtcNow;
+            Log.Information("The notification overlay is attached: {Detail}", status.Detail);
+        }
+        else
+        {
+            Log.Information("The notification overlay is not showing: {Detail}", status.Detail);
+        }
+    }
+
     private async Task OverlayTickAsync()
     {
         if (_overlay is null || _overlayTicking)
@@ -1166,12 +1335,13 @@ internal sealed class CompanionHost : IOverlayListener
         _overlayTicking = true;
         try
         {
-            // The headset half only, and only when it was built: a moderator running the desktop
-            // overlay alone has no runtime to poll and no panel to attach.
+            // The headset panels only, and only when they were built: a moderator running the
+            // window over VRChat alone has no runtime to poll and no panel to attach.
+            //
+            // A VR runtime closing detaches the overlay; one started since the last look is picked
+            // up here, a few seconds after the moderator starts it.
             if (_overlayHost is not null)
             {
-                // SteamVR closing detaches the overlay; a SteamVR started since the last look is picked
-                // up here, a few seconds after the moderator starts it.
                 var wasRunning = _overlayHost.Status.State is OverlayRuntimeState.Running;
                 _overlayHost.Poll();
                 if (wasRunning && _overlayHost.Status.State is not OverlayRuntimeState.Running)
@@ -1187,10 +1357,29 @@ internal sealed class CompanionHost : IOverlayListener
                 }
             }
 
+            if (_notifyHost is not null)
+            {
+                var wasRunning = _notifyHost.Status.State is OverlayRuntimeState.Running;
+                _notifyHost.Poll();
+                if (wasRunning && _notifyHost.Status.State is not OverlayRuntimeState.Running)
+                    _notifyAttachedAt = null;
+
+                if (_notifyHost.Status.State is OverlayRuntimeState.NotStarted
+                    && _clock.UtcNow - _notifyAttachTriedAt >= OverlayAttachInterval)
+                {
+                    AttachNotifyOverlay();
+                }
+            }
+
             // The instance the log reader last understood. The overlay follows the moderator: the
             // server that manages this instance is the only one it reads from or speaks for.
             _overlay.EnteredInstance(CurrentInstance);
             await _overlay.TickAsync();
+
+            // The pop-ups, after the tick that may have made one: what is still within its time,
+            // newest first. Empty draws nothing at all.
+            if (_notifyHost is not null && _popUps is not null)
+                _notifyHost.Update(new NotificationScreen(_popUps.Current()));
         }
         catch (OperationCanceledException)
         {
@@ -1269,6 +1458,7 @@ internal sealed class CompanionHost : IOverlayListener
         _backupStop.Cancel();
         _overlay?.Dispose();
         _overlayHost?.Dispose();
+        _notifyHost?.Dispose();
 
         // Gives the keyboard shortcut back to Windows rather than leaving it claimed by a process
         // that is going away.
@@ -1374,6 +1564,7 @@ internal sealed class CompanionHost : IOverlayListener
             _state.LogHealth = _engine.LogHealth;
 
         _state.Overlay = DescribeOverlay();
+        _state.NotifyOverlay = DescribeNotifyOverlay();
         _state.LiveWords = _overlay?.LiveWords() ?? _state.LiveWords;
 
         if (_voice is not null)
@@ -1407,19 +1598,55 @@ internal sealed class CompanionHost : IOverlayListener
                 RestartAsync = RestartAsync,
                 SetDesktopOverlay = SetDesktopOverlay,
                 ShowDesktopOverlay = ShowDesktopOverlay,
+                SetNotifyOverlay = SetNotifyOverlay,
             });
+    }
+
+    /// <summary>The notification overlay in the window's words.</summary>
+    private NotifyOverlayStatus DescribeNotifyOverlay()
+    {
+        var popUps = _popUps?.Current().Count ?? 0;
+
+        if (_notifyHost is null)
+            return NotifyOverlayStatus.None with { PopUps = popUps };
+
+        if (_notifyHost.FramesDrawn != _notifyFramesSeen)
+        {
+            _notifyFramesSeen = _notifyHost.FramesDrawn;
+            _notifyLastDrewAt = _clock.UtcNow;
+        }
+
+        var status = _notifyHost.Status;
+
+        return new NotifyOverlayStatus(
+            status.State is OverlayRuntimeState.Running,
+            status.State switch
+            {
+                OverlayRuntimeState.Running => "attached",
+                OverlayRuntimeState.NoRuntime => "SteamVR not installed",
+                OverlayRuntimeState.Refused => "refused",
+                _ => "SteamVR not running",
+            },
+            status.Detail ?? "",
+            _notifyAttachedAt,
+            _notifyHost.FramesDrawn,
+            _notifyLastDrewAt,
+            popUps);
     }
 
     /// <summary>The overlay in the window's words: whether it is up, what it shows, how often it has drawn.</summary>
     private OverlayStatus DescribeOverlay()
     {
         // Off and "could not be set up" are different answers to "why is there no panel", and the
-        // page says which.
+        // page says which. Both carry the saved placement, because the Placement card stays on
+        // the page either way: a moderator arranges where the panel will sit and then turns it on.
+        var saved = _state?.Settings.Overlay;
+
         if (_state?.Settings.OverlayOn is false)
-            return OverlayStatus.Off;
+            return OverlayStatus.Off with { Placement = saved };
 
         if (_overlayHost is null)
-            return OverlayStatus.None;
+            return OverlayStatus.None with { Placement = saved };
 
         if (_overlayHost.FramesDrawn != _overlayFramesSeen)
         {
@@ -1460,24 +1687,70 @@ internal sealed class CompanionHost : IOverlayListener
             });
     }
 
-    /// <summary>The SteamVR page moving the panel: a size, an opacity, a curve, or back in front of the head.</summary>
+    /// <summary>
+    /// The SteamVR page moving the panel: a size, an opacity, a curve, or back in front of the
+    /// head.
+    /// </summary>
+    /// <remarks>
+    /// It works with the overlay switched off, and that is deliberate: a moderator setting up for
+    /// the first time arranges where the panel will sit and then turns it on, rather than the
+    /// other way round. With nothing running there is no host to tell, so the change goes straight
+    /// to settings and the panel is put there when it next comes up.
+    /// </remarks>
     private void PlaceOverlay(OverlayPlacement placement)
     {
-        if (_overlayHost is null)
-            return;
+        ArgumentNullException.ThrowIfNull(placement);
 
-        _overlayHost.Place(placement);
+        if (_overlayHost is not null)
+        {
+            // The host raises PlacementChanged, which is what saves it.
+            _overlayHost.Place(placement);
+        }
+        else
+        {
+            RememberPlacement(placement);
+        }
+
         Render();
     }
 
     /// <summary>The SteamVR page fixing the panel to the head, a hand or the room.</summary>
     private void AnchorOverlay(OverlayAnchor anchor)
     {
-        if (_overlayHost is null)
+        if (_overlayHost is not null)
+        {
+            _overlayHost.Anchor(anchor);
+        }
+        else if (_state is not null)
+        {
+            // With nothing running there is no head and no hand to put it in front of, so the
+            // offset is the one that anchor starts at.
+            var current = _state.Settings.Overlay;
+            RememberPlacement(current with
+            {
+                Anchor = anchor,
+                Offset = anchor switch
+                {
+                    OverlayAnchor.LeftHand or OverlayAnchor.RightHand => OverlayPlacement.HandOffset,
+                    OverlayAnchor.World => current.Offset,
+                    _ => OverlayPlacement.Default.Offset,
+                },
+            });
+        }
+
+        Render();
+    }
+
+    /// <summary>Keeps a placement made with no panel running, and saves it a moment later.</summary>
+    private void RememberPlacement(OverlayPlacement placement)
+    {
+        if (_state is null)
             return;
 
-        _overlayHost.Anchor(anchor);
-        Render();
+        _state.Settings = _state.Settings with { Overlay = placement.Clamped() };
+        WireOverlayLoops();
+        _placementSave.Stop();
+        _placementSave.Start();
     }
 
     /// <summary>The Debug page's "Attach to SteamVR now", and the SteamVR page's.</summary>
