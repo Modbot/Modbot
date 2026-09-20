@@ -19,6 +19,12 @@ namespace Modbot.Companion.Pipeline;
 /// <para><strong>Lines already in the file when Modbot started are read but not reported.</strong>
 /// They are needed — they are how the client works out which instance the moderator is sitting in
 /// right now — but reporting them would re-submit hours of old observations on every restart.</para>
+/// <para><strong>The people those lines leave behind are reported, once.</strong> An evening's
+/// arrivals and departures are over and are nobody's news, but the roster they end with is not
+/// history: those people are standing in the instance now, and no later line will ever mention
+/// them. So the first line written <em>after</em> the client caught up restates them as "already
+/// here" — the same restatement a resumed log gets, for the same reason, and the reason it waits
+/// for a live line is that a log VRChat stopped writing days ago must restate nobody.</para>
 /// </remarks>
 public sealed class PresenceObserver
 {
@@ -72,6 +78,15 @@ public sealed class PresenceObserver
     /// poll: this is not a heartbeat, and a client that repeated it would be one.
     /// </summary>
     private bool _stopReported;
+
+    /// <summary>
+    /// Whether the people the replayed history left standing in the instance have been reported.
+    /// </summary>
+    /// <remarks>
+    /// One report per log file, not per poll: it says who was there when this client caught up,
+    /// and repeating it would be a heartbeat, which the client does not send.
+    /// </remarks>
+    private bool _reportedPeopleAlreadyHere;
 
     public PresenceObserver(VRChatLogTail tail, IModbotClock clock, InstanceSessionTracker? tracker = null)
     {
@@ -141,8 +156,12 @@ public sealed class PresenceObserver
         // rather than carried into the new one -- otherwise the client would spend the minute
         // between VRChat launching and the first world load reporting the moderator as still being
         // wherever they were last night.
-        if (previousFile is not null
-            && !string.Equals(previousFile, _tail.CurrentFile, StringComparison.OrdinalIgnoreCase))
+        //
+        // No "was there a file before" test: pointing the reader at a different folder leaves it
+        // following nothing, and the log sitting in that folder is then a fresh start in every
+        // sense -- replayed as history, and owed the same one report of who it leaves standing
+        // there. On the genuine first pass there is nothing yet to forget and this costs nothing.
+        if (!string.Equals(previousFile, _tail.CurrentFile, StringComparison.OrdinalIgnoreCase))
         {
             _tracker.ForgetSession();
 
@@ -151,6 +170,7 @@ public sealed class PresenceObserver
             // its own arrival burst.
             _sawLiveLine = false;
             _stopReported = false;
+            _reportedPeopleAlreadyHere = false;
         }
 
         foreach (var line in pending)
@@ -165,6 +185,22 @@ public sealed class PresenceObserver
             if (!line.IsReplay)
             {
                 _sawLiveLine = true;
+
+                // The history this client replayed to find out where the moderator is standing
+                // also told it who is standing there with them. Those people are here now, and
+                // nothing later in the log will mention them again -- a moderator who started
+                // Modbot in a busy instance would otherwise be reported as alone in it until
+                // somebody happened to walk in. So they are restated once, as "already here",
+                // which is all that is known: they arrived at some earlier time nobody saw.
+                //
+                // Held until a live line rather than done the moment the replay runs out, because
+                // a log VRChat stopped writing on Friday still ends with a roster, and restating
+                // it on Monday would put people in an instance that closed days ago.
+                if (!_reportedPeopleAlreadyHere)
+                {
+                    _reportedPeopleAlreadyHere = true;
+                    observations.AddRange(_tracker.SeenAgain(parsed.Timestamp));
+                }
 
                 // The log had stopped and this client said so; now it is growing again -- a slept
                 // laptop woke, a paused VM resumed. The server ended the watch at the stop, so the
