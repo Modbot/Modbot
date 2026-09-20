@@ -1,6 +1,6 @@
 # Modbot — The notification bleep, the tray notice and Restart
 
-- **Date:** 2026-09-18
+- **Date:** 2026-09-18, with the sound itself rewritten on 2026-09-19 (§2.6, §2.7)
 - **Status:** Implemented with this document
 - **Covers:** the short sound the client plays when it has something to tell the moderator; the
   notice shown when the window is closed to the tray; the **Restart Modbot Companion** button on the
@@ -17,7 +17,7 @@ Three things a moderator asked for, all of them on the machine the client runs o
 
 | | What it is |
 |---|---|
-| The bleep | A short two-tone sound when the client has something worth telling: a flagged arrival, or a fault that has stopped reporting |
+| The bleep | A short sound when the client has something worth telling: a flagged arrival, or a fault that has stopped reporting. Five of them since 2026-09-19 (§2.6), one family, told apart by how many notes there are and which way they go |
 | The tray notice | A small panel by the clock saying the client is still running, shown the first few times the window is closed with the X |
 | Restart | A button on the Settings page that stops this copy cleanly and brings up a fresh one |
 
@@ -33,16 +33,21 @@ counts and switches they keep live in `settings.json` beside every other client 
 ### 2.1 Made in code, not shipped as a file
 
 The voice stack already works in `float[]` samples (`VoiceClip` in `Voice/VoiceOutput.cs`), so the
-bleep is two sine tones written into an array: **880 Hz for 80 ms, then 1245 Hz for 110 ms**, each
-with a 6 ms fade in and out so neither tone starts or ends on a click. Sample rate 48 kHz; the
-Windows player resamples to whatever the device wants and OpenAL takes it as it is.
+bleep is notes written into an array by arithmetic. Sample rate 48 kHz; the Windows player resamples
+to whatever the device wants and OpenAL takes it as it is.
 
-Two tones rather than one because one tone is a beep from anything — a UPS, a microwave, a dozen
-programs. A rising pair is recognisable as *this* program's, and it is still under a fifth of a
+Two notes rather than one because one tone is a beep from anything — a UPS, a microwave, a dozen
+programs. A pair a fifth apart is recognisable as *this* program's, and it is still under half a
 second.
 
-Generating it costs nothing to ship and nothing to license, and it means there is no audio file in
+Generating them costs nothing to ship and nothing to license, and it means there is no audio file in
 the repository whose provenance somebody has to check. `Sounds/Bleep.cs` is the whole of it.
+
+**What the notes actually are has been rewritten twice and is §2.6.** This first said two bare sine
+tones, 880 then 1245 Hz, switched on and off in 6 milliseconds; the listening design of 2026-09-19
+§8 replaced that with two struck notes at 440 and 660 after a moderator called the old one a smoke
+alarm; §2.6 below turns those two notes into a family of five. What has not changed through any of
+it is this section's own decision: made in code, never shipped as a file.
 
 ### 2.2 Through the voice's device, on its own switch
 
@@ -69,33 +74,147 @@ same reason: events are not paced like sounds.
 - **The same thing does not bleep twice.** The same kind about the same person inside 30 seconds is
   one bleep. The overlay and the reading half can both notice the same rejected token; the moderator
   hears it once.
-- **A rush is still one bleep.** After a bleep, nothing bleeps again for 2 seconds. Ten people
-  arriving at once is one sound, not ten.
+- **A rush is still one bleep.** After a bleep has *finished*, nothing bleeps again for 2 seconds.
+  Ten people arriving at once is one sound, not ten.
+- **Something worse gets through the gap.** §2.7.
 - **The Test button always sounds.** A person pressed it; refusing them a sound because of a rule
-  they cannot see would read as broken. It still sets the 2-second gap for whatever comes next.
+  they cannot see would read as broken. It still sets the gap for whatever comes next.
 
 Unlike the voice's queue, a bleep that is refused is dropped rather than held: a sound played two
 seconds late says nothing the sound played on time did not.
 
-### 2.4 What bleeps
+**Counted from the end, not from the start.** The gap used to be measured from the moment a sound
+began, which was indistinguishable from measuring it from the end while every sound was 480
+milliseconds long. The doubled alert (§2.6) is 1,180, and a gap measured from its start would let
+the next sound begin while it was still playing. One line, and it holds for whatever the longest
+sound turns out to be.
 
-The two kinds the voice treats as alerts, and the test:
+### 2.4 What bleeps, and which sound it gets
 
-| Kind | When |
-|---|---|
-| Flagged join | The paired server raised a flagged-join alert for the instance the moderator is in — the same moment the overlay draws its card |
-| Problem | A server rejected this device, so reporting to it has stopped and will not restart on its own |
-| Test | The **Test** button on the Notifications card |
+Five sounds and eight kinds of event, so the mapping is the decision (`Sounds/Tune.cs`). A
+moderator's list is written in terms of what they care about; the client knows
+`NotificationKind`. This is where one becomes the other:
 
-Joins and leaves do not bleep. They are the ordinary traffic of a busy instance and a sound for each
-would be a sound all evening; the voice already says them for anybody who wants them said.
+| What the moderator asked for | Sound | What raises it in the client |
+|---|---|---|
+| Informational | Soft single chime | `Joined`, `AlreadyThere`, `Left`, `ChangedAvatar` — and a clip saved because somebody said "Modbot, clip that" |
+| Flagged or problem user joined | Two-note alert | `FlaggedJoin` |
+| Multiple flagged users | The two-note alert, twice | More than one **different** flagged arrival inside 10 seconds (§2.7) |
+| High-priority moderation issue | Three-note, sharper | `Problem` — a server rejected this device, so reporting has stopped — and `LogStopped` — VRChat's log stopped growing, so the client can no longer see the instance |
+| Resolved or dismissed | Quiet falling tone | **Nothing.** The sound is built and the Test button plays it; no event in the client raises it |
+
+Two rows need saying plainly rather than being dressed up.
+
+**"High priority" is only those two.** Nothing else the client knows about rises to it. A flagged
+arrival is already the alert; an arrival, a departure and an avatar change are information. What
+`Problem` and `LogStopped` share, and what nothing else shares, is that the client has stopped
+doing the job it was left running to do and will not start again on its own. That is worth the
+sharper sound, and inventing a third thing to keep it company would have been inventing an event to
+justify a sound.
+
+**Nothing resolves.** The client has no event today that means "this is over". A problem is never
+told it has been put right, a flagged arrival is never withdrawn, and a card dismissed on the
+overlay is dismissed there without anything coming back. So the falling tone exists, is reachable
+from the Test button, and is raised by nothing — which is the honest answer, and better than either
+leaving the row out or making up an event for it. `TunesTests` pins that down, so the day something
+does resolve, the test that says nothing does will be the thing that fails.
+
+The three ordinary kinds and `LogStopped` are still **off by default**, as the notification filters
+design set them: giving them a gentler sound does not turn them on. A sound for every arrival is a
+sound all evening, and the voice already says them for anybody who wants them said — but a
+moderator who does tick them now gets something they can live with rather than the alert forty
+times.
 
 Pausing does not silence the bleep. Pausing means "stop watching what I do", and it does silence the
 voice, which narrates the instance. A flagged-join alert comes from the server and the overlay draws
 its card whether or not reporting is paused, so a sound pointing at a card that is on screen is
 honest. Nothing about the moderator is observed to make it.
 
-### 2.5 When it cannot play
+### 2.6 The five sounds
+
+All five come out of `Sounds/Bleep.cs`, out of the same arithmetic: notes struck into an array, each
+coming up along a quarter-cosine, decaying by a third every 90 milliseconds, taken to exactly zero
+over the last 45, with three quiet overtones above each one dying faster the higher they are. What
+differs between them is how many notes, how high, which way, how hard struck and how loud the whole
+thing is made. **One instrument.** That is the whole reason a moderator can tell them apart without
+being taught them: they are heard as the same thing saying different words.
+
+| Sound | Notes | Made to | Struck over | Long |
+|---|---|---|---|---|
+| Chime | 660 Hz, one note | 0.35 | 26 ms | 340 ms |
+| Alert | 440 Hz, then 660 at 140 ms | 0.70 | 18 ms | 480 ms |
+| Alert twice | the alert, then the alert again from 700 ms | 0.70 | 18 ms | 1,180 ms |
+| Urgent | 660, 880 at 100 ms, 1,100 at 200 ms | 0.70 | 8 ms | 540 ms |
+| All clear | 660 Hz, then 440 at 160 ms | 0.40 | 26 ms | 500 ms |
+
+Every pitch is the alert's own 440 or something simple above it: 660 is a fifth, 880 the octave,
+1,100 a major third above that. The urgent one is therefore a chord climbing rather than three
+pitches picked out of the air, and the all-clear is the alert's two notes the other way up.
+
+- **The chime is half the height of the alert.** It is the one a moderator hears most, so it is the
+  one that must never be the reason they switch the sound off. Quieter *and* slower to come up:
+  gentle is not the same thing as quiet, and a quiet sound that still snaps on is still a snap.
+- **The alert is untouched.** The sound a moderator already knows is still exactly the sound a
+  flagged arrival makes. A family built by changing the one sound everybody had learnt would have
+  been a worse family.
+- **The doubled alert has 220 milliseconds of exact silence in the middle**, which is deliberately
+  longer than the 140 between the two notes of one pair. That is what the ear uses to hear "the same
+  thing twice" rather than "four notes". The second half is the first half sample for sample.
+- **The urgent one is sharper, not louder.** Its peak is exactly the alert's. What makes it urgent
+  is that it is higher, that its notes come 100 milliseconds apart rather than 140, that it reaches
+  half its height in under 5 milliseconds where the alert takes 9, and that its overtones are
+  half again as loud — brighter, harder struck, three of them climbing. Making it louder instead
+  would have made a smoke alarm, which is the mistake this whole section exists to have fixed.
+- **The all-clear falls.** Falling is what makes a sound an ending rather than a question, and it is
+  quiet because news that something no longer needs attention is not a demand for any.
+
+**Neither the person who asked for these nor the person who wrote them can hear them.** So every
+claim above is a number, and `BleepTests` checks each one: every sound starts and ends on exactly
+zero; every one is made to exactly its own height and never past it; none reaches more than a
+fraction of its height in the first 2 milliseconds; the chime is exactly half the alert's height
+and the urgent one is exactly equal to it; the chime's single note measures 660 Hz off its zero
+crossings; the doubled alert's middle is exactly zero and its two halves are identical arrays; the
+urgent one reaches half height sooner than the alert and the alert sooner than the two soft ones;
+the all-clear crosses zero less often in its second half than its first while the alert does the
+opposite; and no two of the five are the same array. Somebody with speakers still has to listen to
+them.
+
+### 2.7 More than one flagged arrival
+
+**More than one means two different flagged people inside 10 seconds.** Counted by person, so the
+same person noticed twice by two halves of the client is one of them; ten seconds because that is
+how long a group takes to come through a door one after another, and because two unrelated arrivals
+in a quiet evening should not be reported as a crowd.
+
+That alone would be no use, because the second arrival usually lands inside the quiet gap the first
+one left and would be dropped — the sound would say "one flagged person" and stop, which is the one
+moment a moderator most needs the truth. So:
+
+**A sound may begin inside the quiet gap if it is more serious than everything already heard in that
+gap.** Seriousness runs chime and all-clear, then alert, then doubled alert, then urgent. The second
+flagged arrival is therefore heard, as the doubled alert, right behind the first.
+
+This cannot run away, for three reasons and it is worth naming all three:
+
+1. **Seriousness only goes up.** Once the doubled alert has been heard in a gap, another doubled
+   alert is not worse than it and is dropped. There are four steps, so a gap can hold at most four
+   sounds, each strictly worse than the last, and then silence.
+2. **Nothing interrupts a sound that is playing.** `NotificationSound` claims the player before it
+   asks the rule, not after, so a cut-in can only ever start after the previous sound has finished.
+   That also means the rule never records having sounded something nobody heard.
+3. **The gap is counted from the end.** Each cut-in pushes the next gap out by its own length.
+
+A hundred different flagged people arriving one every tenth of a second for ten solid seconds makes
+**five** sounds: the alert, the doubled alert behind it, and then one doubled alert about every
+three seconds. `BleepRuleTests` runs exactly that and holds it to at most six, with at most one pair
+closer together than a quiet gap.
+
+The alternative was to hold the second arrival and decide later, which the voice's queue does. It
+was refused for the reason §2.3 already gives: a sound two seconds late says nothing the sound on
+time did not, and a held sound needs a timer, which is a thing to get wrong in a feature whose
+worst failure should be silence.
+
+### 2.8 When it cannot play
 
 No output device, a device that vanished mid-clip, an audio library that will not load: the failure
 is written to the client's log and everything else carries on. The bleep is the least important
@@ -224,6 +343,7 @@ one that a file which cannot be read as JSON is never overwritten.
 | `bleep` | Play the sound | `true` |
 | `volume` | 0 to 100, its own, not the voice's | `70` |
 | `trayNoticesShown` | How many times the tray notice has been shown; at 3 it stops | `0` |
+| `sound` | A `.wav` of the moderator's own to play instead of all five of Modbot's; left out of the file when there is none (listening design 2026-09-19 §8.3, and §7 below on why one and not five) | absent |
 
 A missing object, a missing field or a field of the wrong shape takes the default, and the volume is
 clamped on the way in and on the way out. No server is told any of it, and nothing here is sent
@@ -239,9 +359,10 @@ voice to their headset has moved the bleep with it.
 
 | Path | What |
 |---|---|
-| `src/Modbot.Companion/Sounds/Bleep.cs` | The two tones, as samples |
-| `src/Modbot.Companion/Sounds/BleepRule.cs` | One event one bleep; the kinds |
-| `src/Modbot.Companion/Sounds/NotificationSound.cs` | Plays it, through the voice's output |
+| `src/Modbot.Companion/Sounds/Bleep.cs` | The five sounds, as samples |
+| `src/Modbot.Companion/Sounds/Tune.cs` | The five by name; which kind gets which; which of two is the more serious |
+| `src/Modbot.Companion/Sounds/BleepRule.cs` | One event one bleep; the kinds; more than one flagged arrival |
+| `src/Modbot.Companion/Sounds/NotificationSound.cs` | Plays them, through the voice's output |
 | `src/Modbot.Companion/Sounds/NotificationSettings.cs` | The `notifications` object, and the tray-notice count rule |
 | `src/Modbot.Companion/Startup/CompanionRestart.cs` | The restart link, and waiting for the old copy |
 | `src/Modbot.Companion.App/MainWindow.Notifications.cs` | The Notifications card and the Restart card |
@@ -254,9 +375,26 @@ list it already owns, so the bleep can use them instead of opening a second audi
 
 ## 7. What was deliberately left
 
-- **No bleep for joins and leaves.** §2.4.
-- **No third sound.** One sound for "something wants you", not a sound per kind: a moderator cannot
-  learn a vocabulary of tones from a program they run once a week, and the screen is two feet away.
+- **No bleep for joins and leaves unless they are ticked**, and they are not ticked to begin with.
+  §2.4.
+- **~~No third sound.~~ Reversed on 2026-09-19.** This said: one sound for "something wants you",
+  not a sound per kind, because a moderator cannot learn a vocabulary of tones from a program they
+  run once a week. A moderator asked for five anyway, and the reasoning was wrong in a way worth
+  recording. It assumed the sounds would have to be *learnt* — that a moderator would have to
+  remember which of five arbitrary noises meant what. They do not, because the five are one
+  instrument getting longer, higher and harder struck as the news gets worse (§2.6): a sound with
+  more notes in it, sooner, reads as more urgent without anybody being taught anything, and
+  somebody who never notices the difference still hears a notification. What the old text got right
+  is still respected: nothing here needs a legend, and nothing on the screen explains it.
+- **One sound file, not five.** `notifications.sound` still points at one `.wav` and it replaces
+  every one of the five. Five paths would be five boxes and five Save buttons on a card that has to
+  stay readable, and somebody who brings their own sound has said they do not want Modbot's — not
+  that they want four of Modbot's and one of theirs. The cost is real: a moderator who names a file
+  hears one sound for everything and loses the difference between the five, which is exactly what
+  the client did before there were five.
+- **No sound interrupts one that is already playing.** Cutting a clip off mid-way is a click, and
+  two sounds on top of each other are neither. Something worse cuts into the *silence* after a
+  sound, never into the sound (§2.7).
 - **No Windows toast.** §3.1.
 - **No "don't show again".** §3.2.
 - **No restart on a schedule, and none after an update.** An update is installed at the next start

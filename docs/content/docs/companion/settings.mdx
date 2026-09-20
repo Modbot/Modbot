@@ -227,7 +227,7 @@ the file:
 | `notifications.bleep` | `true` | Whether a short sound plays when you are told something. See [Notification sound](#notification-sound). |
 | `notifications.volume` | `70` | The sound's own volume, 0 to 100, separate from the voice's. |
 | `notifications.trayNoticesShown` | `0` | How many times you have been told the client is still in the tray. It stops after three. |
-| `notifications.sound` | absent | A `.wav` file of your own to play instead of Modbot's sound. Absent means Modbot's own. See [Notification sound](#notification-sound). |
+| `notifications.sound` | absent | A `.wav` file of your own to play instead of all five of Modbot's sounds. Absent means Modbot's own. See [Notification sound](#notification-sound). |
 | `notificationFilters.popUp` | `["flagged join", "problem"]` | Which kinds raise a notification, in the headset and on a monitor alike. See [Tell me about](#tell-me-about). |
 | `notificationFilters.sound` | `["flagged join", "problem"]` | Which kinds play the sound. |
 | `notificationFilters.voice` | `["joined", "left", "flagged join", "problem"]` | Which kinds the voice says. |
@@ -409,8 +409,8 @@ or the mouse from VRChat: a click where it is goes through to the game.
 
 A short sound when you are told something, with its own switch and its own volume, separate from
 the voice. It plays through the same output device the voice uses. The same thing about the same
-person does not sound twice within half a minute, and nothing sounds twice within two seconds, so
-a rush of arrivals is one sound rather than ten.
+person does not sound twice within half a minute, and nothing sounds again until two seconds after
+the last sound finished, so a rush of arrivals is one sound rather than ten.
 
 ```json
 "notifications": {
@@ -423,22 +423,40 @@ a rush of arrivals is one sound rather than ten.
 `trayNoticesShown` counts how many times closing the window with the X has told you the client is
 still running in the tray. After three it stops. Set it back to `0` to be told again.
 
-### What it sounds like
+### Which sound plays for what
 
-Two struck notes, made by the client rather than read from a file, so there is no audio file in the
-download whose origin anybody has to check. The first is A above middle C, the second a perfect
-fifth above it, struck while the first is still ringing; each comes up softly and decays with a
-tail, with a few quiet overtones so it reads as an instrument. The whole thing is under half a
-second.
+There are five, and they are the same instrument saying different things: struck notes that come up
+softly and decay with a tail, made by the client rather than read from a file, so there is no audio
+file in the download whose origin anybody has to check.
 
-It changed on 19 September 2026. Before that it was two bare sine tones, 880 then 1245 hertz, each
-switched on and off in six milliseconds — a smoke alarm rather than a notification, and a moderator
-hearing it forty times an evening said so.
+| Sound | Plays when |
+|---|---|
+| **Chime** — one soft note | Somebody joined, left, was already there, or changed avatar, if you have ticked those in **Tell me about**. Also when a clip is saved because you said "Modbot, clip that" and the voice is off. |
+| **Alert** — two notes, rising | Your group's server flagged somebody who has just arrived. |
+| **Alert twice** — the same, twice | More than one different flagged person arrived within ten seconds. |
+| **Urgent** — three notes, climbing | A paired server rejected this device so reporting has stopped, or VRChat's log stopped growing so the client can no longer see who is in the instance. |
+| **All clear** — two quiet notes, falling | Nothing yet. It is built and you can hear it with the **All clear** button, but the client has nothing today that means "this is over". |
+
+Nothing needs learning: the sounds get longer, higher and harder struck as the news gets worse. The
+**Urgent** one is not louder than **Alert** — it is exactly the same height — it is brighter and
+struck faster, which is what your ear reads as urgency.
+
+A more serious sound is allowed to start inside the two-second gap a less serious one left behind
+it, which is how two flagged people walking in together are heard as two. It only ever goes up, so
+it cannot run away: a flood of flagged arrivals is about one sound every three seconds. Nothing ever
+interrupts a sound that is already playing.
+
+The sounds changed on 19 September 2026. Before that there was one, and before that it was two bare
+sine tones, 880 then 1245 hertz, each switched on and off in six milliseconds — a smoke alarm rather
+than a notification, and a moderator hearing it forty times an evening said so.
+
+**Settings** → **Notifications** → **Test** has a button for each of the five.
 
 ### Using a sound of your own
 
 **Settings** → **Notifications** → **Sound file**. Point it at a `.wav` file on your PC and that
-plays instead. Leave it empty, or press **Use Modbot's sound**, to go back.
+plays instead — for all five, not one of them, so you lose the difference between them. Leave it
+empty, or press **Use Modbot's sound**, to go back.
 
 - **`.wav` only.** A WAV file is a header and the samples, which the client can read in sixty lines
   and no extra library. Any program on your machine will save one.
@@ -446,7 +464,7 @@ plays instead. Leave it empty, or press **Use Modbot's sound**, to go back.
   is refused rather than played as noise.
 - **At most 10 seconds** is played, and files over 16 MB are refused.
 - **A file that has gone missing, or that cannot be read, plays Modbot's own sound** and says why on
-  the **Notifications** card. Press **Test** to see it.
+  the **Notifications** card. Press one of the **Test** buttons to see it.
 
 The file is read once and then held, so forty sounds in an evening is one read. It is never copied
 anywhere and no server is told it exists.

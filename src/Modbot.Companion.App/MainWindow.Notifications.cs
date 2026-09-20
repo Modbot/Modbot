@@ -29,7 +29,13 @@ public sealed partial class MainWindow
     private readonly CheckBox _bleepOn = new();
     private readonly Slider _bleepVolume = new();
     private readonly TextBlock _bleepVolumeValue = Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextDimBrush, wrap: false, mono: true);
-    private readonly Button _bleepTest = Ui.Button("Test");
+    /// <summary>
+    /// One button per sound rather than one button that cycles. A button that plays a different
+    /// thing each press cannot say which one it played without a sentence explaining itself, and
+    /// five buttons named after the five sounds need no sentence at all.
+    /// </summary>
+    private readonly IReadOnlyList<(Tune Tune, Button Button)> _bleepTests =
+        [.. Tunes.All.Select(tune => (tune, Ui.Button(Tunes.Name(tune))))];
     private readonly TextBox _bleepFileBox = Ui.Input();
     private readonly Button _bleepFileSave = Ui.Button("Save");
     private readonly Button _bleepFileReset = Ui.Button("Use Modbot's sound");
@@ -63,7 +69,8 @@ public sealed partial class MainWindow
             NotificationsChanged();
         };
 
-        _bleepTest.Click += (_, _) => _actions.TestBleep();
+        foreach (var (tune, button) in _bleepTests)
+            button.Click += (_, _) => _actions.TestBleep(tune);
 
         _bleepFileProblem.Foreground = Ui.T.DangerBrush;
         _bleepFileBox.FontFamily = Ui.Mono;
@@ -100,7 +107,9 @@ public sealed partial class MainWindow
             _bleepVolume.Value = NotificationSettings.ClampVolume(notifications.Volume);
 
         _bleepVolumeValue.Text = $"{(int)_bleepVolume.Value}";
-        _bleepTest.IsEnabled = _snapshot.VoiceOrNone.HasOutput;
+
+        foreach (var (_, button) in _bleepTests)
+            button.IsEnabled = _snapshot.VoiceOrNone.HasOutput;
 
         // Only refilled while nobody is typing in it: the window redraws on a timer.
         if (!_bleepFileBox.IsFocused)
@@ -112,11 +121,18 @@ public sealed partial class MainWindow
     {
         foreach (var control in new Control[]
         {
-            _bleepOn, _bleepVolume, _bleepVolumeValue, _bleepTest,
+            _bleepOn, _bleepVolume, _bleepVolumeValue,
             _bleepFileBox, _bleepFileSave, _bleepFileReset, _bleepFileProblem,
         })
         {
             DetachFromParent(control);
+        }
+
+        var tests = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
+        foreach (var (_, button) in _bleepTests)
+        {
+            DetachFromParent(button);
+            tests.Children.Add(button);
         }
 
         // An error says what failed, and nothing else on this card needs a sentence.
@@ -150,12 +166,7 @@ public sealed partial class MainWindow
                     },
                 }),
                 _bleepFileProblem,
-                new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 12,
-                    Children = { _bleepTest },
-                },
+                Ui.Field("Test", tests),
             },
         };
     }
