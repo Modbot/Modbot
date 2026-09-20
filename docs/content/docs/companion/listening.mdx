@@ -1,11 +1,12 @@
 ---
 title: Listening
-description: Say "Modbot, clip that" and the companion saves a clip, so you never have to reach a keyboard in a headset. Off unless you switch it on, and nothing it hears is recorded, kept or sent.
+description: Say "Modbot" and then what you want — clip that, show overlay, hide overlay — so you never have to reach a keyboard in a headset. Off unless you switch it on, and nothing it hears is recorded, kept or sent.
 ---
 
 You are in a headset, something happens, and **Save a clip** is on a panel you have to find and
-point at. **Listening** is the answer to that: with it on, saying **"Modbot, clip that"** out loud
-saves a clip, and the companion tells you whether it worked.
+point at. **Listening** is the answer to that: with it on, you say the companion's name and then
+what you want — **"Modbot, clip that"**, **"Modbot, show overlay"**, **"Modbot, hide overlay"** —
+and it tells you whether it worked.
 
 <Callout type="warn" title="This narrows something the companion used to promise">
 Until 19 September 2026 the companion said, in its own source and on this site, that it **never**
@@ -24,12 +25,34 @@ A fresh install has it off. An existing companion updated into a version that ca
 While it is off, **no microphone is opened** and nothing is asked of Windows' audio system at all —
 there is no listener, no phrase matcher and no extra thread.
 
-**Settings** → **Listening** → **Listen for "Modbot, clip that"** is the whole of the consent.
+**Settings** → **Listening** → **Listen for "Modbot"** is the whole of the consent.
+
+## It listens for its name, and only then for what you want
+
+Nothing is listened for but the companion's own name. Sound goes to a matcher that has been given
+two spellings of **Modbot** and can answer nothing else at all.
+
+Only once one of those has been heard is the matcher that knows the commands handed any sound —
+and only for the **next five seconds**. "Clip that" said across a table, or "hide overlay" in the
+middle of a sentence, reaches nothing, because there is nothing there for it to reach.
+
+Saying **"Modbot"** and nothing else does nothing. It starts those five seconds; if you say nothing
+else, they end and the companion goes back to listening for its name. Nobody's clip is saved and no
+panel moves because somebody said the word.
+
+While it is waiting, the companion says so — on the **Listening** card and at the top of every page
+of its window — and stops saying it the moment it would stop acting on you.
+
+<Callout type="info" title="Leave a beat after the name">
+The companion cannot hear a word that was said before it started listening for one, because it
+keeps no sound. So "Modbot" and then, after a beat, "show overlay" is more reliable than running the
+two together. One name gets one command; say the name again for the next one.
+</Callout>
 
 ## What happens to the sound
 
-Sound arrives from Windows in fifths of a second, is checked against four short phrases, and is
-thrown away. That is the whole of it.
+Sound arrives from Windows in fifths of a second, is checked against the name — and, in those five
+seconds, against the commands — and is thrown away. That is the whole of it.
 
 - **Nothing is written to disk.** Not a recording, not a transcript, not a log of what you said. The
   one file allowed to open a microphone cannot open a file for writing, and the build fails if it
@@ -42,9 +65,9 @@ thrown away. That is the whole of it.
 ### It is not transcribing you
 
 The thing doing the checking is a **phrase matcher**, not a speech recogniser. It is a 3.3-megabyte
-model that is handed four phrases and answers one question: *was one of those just said?* It has no
-ability to produce a transcript of anything else, and the companion does not ship a recogniser that
-could.
+model that is handed a short list of phrases and answers one question: *was one of those just
+said?* It has no ability to produce a transcript of anything else, and the companion does not ship a
+recogniser that could.
 
 That is most of why it was chosen. The same library the companion already uses for the
 [voice](/companion/settings#voice) also offers a full speech recogniser; a program that runs
@@ -99,26 +122,60 @@ and an id for each device. Nothing is opened and nothing is heard by asking.
 
 ## What you can say
 
-Four spellings of the same request, because the matcher hears sounds rather than spellings and
-"Modbot" is not a word it was trained on:
+**The name**, which is all it listens for until it hears one of them. Two spellings, because the
+matcher hears sounds rather than spellings and "Modbot" is not a word it was trained on:
 
-- **Modbot, clip that**
-- **Mod bot, clip that**
-- **Modbot, clip this**
-- **Mod bot, clip this**
+- **Modbot**
+- **Mod bot**
 
-Say it normally. All four mean the same thing.
+**Then, within five seconds, one of these:**
 
-**The phrase cannot be changed.** The matcher is not given words — it is given the small pieces its
-own vocabulary is built from, and working those out from a sentence needs a second library the
-companion does not ship. The four above were worked out once, from the model's own vocabulary, and
-written into the client.
+| What you say | What it does |
+|---|---|
+| **clip that** / **clip this** | Saves a clip, the same as pressing **Save a clip** |
+| **show overlay** | Puts the headset panel back in front of you |
+| **hide overlay** | Takes the headset panel away |
 
-### Saying it twice does not make two clips
+So: *"Modbot, clip that"*, *"Modbot, show overlay"*, *"Modbot, hide overlay"*. Say it normally.
+"Clip this" means what "clip that" means.
 
-One spoken sentence is one clip. After a phrase fires, nothing fires again for six seconds, which
-covers the matcher offering the same words twice as the rest of the sentence arrives and covers you
-repeating yourself because you were not sure it heard.
+### Which overlay show and hide act on
+
+**The panel in your headset** — the one in front of your face, which is what you mean when you say
+it while wearing one.
+
+It does **not** touch the [notification pop-ups](/companion/overlay): those come and go by
+themselves and are how you are told a flagged person walked in, so hiding them would lose the thing
+you most need. It does not touch the
+[window over VRChat](/companion/settings#desktop-overlay) either — that one takes your
+keyboard when it comes up, which is right when you pressed a key for it and wrong when you said a
+word inside a headset, and it has its own shortcut.
+
+"Hide overlay" is a curtain, not a switch. It does not change anything in your settings file, the
+panel is not taken down and rebuilt, and "show overlay" brings it straight back — showing what is
+happening now, not what was happening when it went away. If you want it gone for good, untick
+**Overlay** on the Settings page.
+
+If the overlay is switched off altogether, or your headset is not running, it says so rather than
+pretending it did something.
+
+### The phrases cannot be changed
+
+The matcher is not given words — it is given the small pieces its own vocabulary is built from, and
+working those out from a sentence needs a second library the companion does not ship. Every phrase
+above was worked out once, using the model's own tokenizer, with every piece checked against the
+model's vocabulary before it was written into the client.
+
+### Saying it twice does not do it twice
+
+One spoken sentence is one action, and there are two rules holding that:
+
+- **One name, one command.** The five seconds end the moment a command is taken. Anything else has
+  to start again with the name.
+- **Nothing fires twice within six seconds**, whichever command it was, which covers the matcher
+  offering the same words twice as the rest of your sentence arrives and covers you repeating
+  yourself because you were not sure it heard. It also means *"Modbot, show overlay"* immediately
+  followed by *"Modbot, hide overlay"* does the first only — leave a few seconds between them.
 
 ## What it says back
 
@@ -132,19 +189,24 @@ repeating yourself because you were not sure it heard.
 | VRChat's window has not been found yet | *Modbot has not found VRChat's window yet, so there was nothing to save.* |
 | The clips folder cannot be written to | *The clips folder cannot be used, so nothing was saved.* |
 | The recorder had stopped | *Recording has stopped, so nothing was saved.* |
+| The panel was put up | *Overlay shown.* |
+| The panel was taken away | *Overlay hidden.* |
+| The overlay is switched off | *The overlay is switched off, so there was nothing to show.* |
+| The headset is not running | *The headset is not running, so there was nothing to show.* |
 
-**If the voice is off**, a clip that was saved plays the
-[notification sound](/companion/settings#notification-sound), and a clip that was **not** saved
-plays nothing. One short sound cannot say which of six reasons it was, and a sound that meant both
-"kept" and "not kept" would be worse than silence.
+**If the voice is off**, something that worked plays the
+[notification sound](/companion/settings#notification-sound), and something that did not plays
+nothing. One short sound cannot say which reason it was, and a sound that meant both "done" and
+"not done" would be worse than silence.
 
 Either way it is written into the companion's **Events** page — including every time it heard you
-and could not save anything — and the **Save a clip** control on the overlay says **Clip saved** or
-**Clip not saved** for eight seconds, the same as when you press it yourself.
+and nothing could be done — and for a clip the **Save a clip** control on the overlay says **Clip
+saved** or **Clip not saved** for eight seconds, the same as when you press it yourself.
 
-The answer arrives a moment after you speak, because the recorder writes the file on its own thread.
-If nothing has happened after ten seconds it is called a failure, which is deliberately generous:
-saying "not saved" about a clip that did land is the worse of the two mistakes.
+A clip's answer arrives a moment after you speak, because the recorder writes the file on its own
+thread. If nothing has happened after ten seconds it is called a failure, which is deliberately
+generous: saying "not saved" about a clip that did land is the worse of the two mistakes. Showing
+and hiding the panel happens there and then, so those answer immediately.
 
 ## The one download
 
@@ -159,9 +221,10 @@ About 17 MB, with nothing attached to the request: no token, no id, nothing abou
 pairings. GitHub sees your IP address, as it does for any download. A download whose size or hash
 does not match exactly is thrown away rather than used.
 
-It lands in `%APPDATA%\Modbot\phrases`, and only the five files that are actually needed are
-written: the three parts of the model, its vocabulary, and the list of phrases. The archive's spare
-8-bit copies, its sample recordings and its readme are not written at all.
+It lands in `%APPDATA%\Modbot\phrases`, and only the six files that are actually needed are
+written: the three parts of the model, its vocabulary, `name.txt`, and `commands.txt`. The archive's
+spare 8-bit copies, its sample recordings and its readme are not written at all. Those last two are
+plain text and you can open them: they are exactly what your PC listens for.
 
 The model is Apache-2.0, from the sherpa-onnx project. It is listed in the repository's
 `THIRD-PARTY-NOTICES.md` beside the voice.
@@ -175,9 +238,9 @@ VRChat.
 
 ## On Linux
 
-**Listening only works on Windows**, for the same reason [Clips](/companion/clips) does: saying
-"Modbot, clip that" saves a clip, and there are no clips anywhere else. The Linux client says so on
-the card rather than quietly doing nothing.
+**Listening only works on Windows**, for the same reason [Clips](/companion/clips) does: the first
+thing it was built for was saving a clip, and there are no clips anywhere else. The Linux client
+says so on the card rather than quietly doing nothing.
 
 ## Turning it off
 

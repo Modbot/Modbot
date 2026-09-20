@@ -106,4 +106,37 @@ public class ListeningRuleTests
         Assert.Null(ListeningStatus.None.Unsupported);
         Assert.NotNull((ListeningStatus.None with { Supported = false }).Unsupported);
     }
+
+    [Fact]
+    public void TheCardOnlySaysItIsWaitingWhenAnInstructionWouldActuallyBeTaken()
+    {
+        var waiting = ListeningStatus.None with
+        {
+            State = ListeningState.Listening,
+            HeardItsName = true,
+        };
+
+        Assert.True(waiting.IsWaitingForCommand);
+
+        // Heard its name, then VRChat closed and the microphone with it. Nothing would be acted on
+        // now, so nothing may say it would be.
+        foreach (var state in new[]
+                 {
+                     ListeningState.Off, ListeningState.Waiting, ListeningState.Getting,
+                     ListeningState.NoModel, ListeningState.NoMicrophone, ListeningState.NotOnThisMachine,
+                 })
+        {
+            Assert.False((waiting with { State = state }).IsWaitingForCommand);
+        }
+
+        // And listening is not waiting: the name has to be said first.
+        Assert.False((waiting with { HeardItsName = false }).IsWaitingForCommand);
+    }
+
+    [Fact]
+    public void TheCardStartsOutListeningForTheClientsOwnName()
+    {
+        Assert.Equal("Modbot", ListeningStatus.None.Called);
+        Assert.False(ListeningStatus.None.HeardItsName);
+    }
 }

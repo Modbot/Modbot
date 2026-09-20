@@ -1,8 +1,8 @@
 namespace Modbot.Companion.Listening;
 
 /// <summary>
-/// Whether the client listens for a spoken phrase, so a moderator wearing a headset can save a
-/// clip without reaching a keyboard.
+/// Whether the client listens for its own name, so a moderator wearing a headset can save a clip
+/// or move the panel in front of them without reaching a keyboard.
 /// </summary>
 /// <remarks>
 /// <para><strong>Off is the default and stays the default.</strong> A microphone that opened
@@ -11,7 +11,9 @@ namespace Modbot.Companion.Listening;
 /// prevent. Nothing is opened, and no listener is built at all, until somebody turns this on
 /// themselves.</para>
 /// <para><strong>Nothing is recorded, kept or sent.</strong> When it is on, sound from the
-/// microphone is examined for the phrase and thrown away as it goes. Nothing is written to disk,
+/// microphone is examined for the client's own name and thrown away as it goes; what it can be
+/// asked to do is only listened for in the few seconds after that name was heard
+/// (<see cref="NameHeard"/>). Nothing is written to disk,
 /// nothing is held for longer than the fraction of a second it takes to look at it, and no server
 /// is told that this exists or that it fired.</para>
 /// <para>Kept in the <c>listenForPhrase</c> object of <c>settings.json</c>

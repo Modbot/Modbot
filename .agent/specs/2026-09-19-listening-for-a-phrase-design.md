@@ -1,7 +1,9 @@
 # Listening for a phrase, and a notification sound somebody can live with
 
-**Status:** built, 2026-09-19. Changed the same evening, after it was run for the first time; see
-§11 and §3.3.
+**Status:** built, 2026-09-19, then changed twice the same evening. It was run for the first time
+and the microphone turned out never to have opened at all (§11, §3.3); and it was widened so the
+client listens for its **name** first and for a **command** only in the few seconds after it, with
+three commands rather than one — save a clip, show the overlay, hide the overlay (§12 onwards).
 **Narrows:** M3 client and overlay design §10 ("sound — never recorded") and the clips design
 (2026-09-19) §5, which said the ban on every microphone, line-in and loopback API was "untouched
 and still total".
@@ -338,6 +340,10 @@ moderator is right to be afraid of, so it is never quiet about it.
 
 ### 5.1 What is listened for
 
+> **Narrowed the same day by §11–§12.** These four lines were later cut at the name: the client
+> listens for "Modbot" on its own, and for `▁C LI P ▁THAT` only in the five seconds afterwards.
+> What a moderator says is unchanged; §12.1 has the whole list as it stands.
+
 Four spellings of one request:
 
 | Said | Pieces the matcher is given |
@@ -406,6 +412,10 @@ asked for.
 
 ## 6. What happens when it fires
 
+> **Widened the same day by §12.** `HeardAPhrase` now takes a command rather than a sentence, and a
+> command that is not "save a clip" goes to §12.3 instead of everything below. The answering rule
+> below is unchanged and is now shared by both (§12.4).
+
 `HeardAPhrase` in `Program.cs`, on the window's thread.
 
 1. **The fire-once rule** (§5.4). A refused match does nothing at all.
@@ -466,7 +476,7 @@ has an answer on the Events page, which is the shape every other capability in t
 | Path | What |
 |---|---|
 | `src/Modbot.Companion/Listening/ListeningSettings.cs` | The switch. Off. |
-| `src/Modbot.Companion/Listening/PhraseModel.cs` | The pinned model, and the four phrases as pieces and as English |
+| `src/Modbot.Companion/Listening/PhraseModel.cs` | The pinned model, and the phrases as pieces and as English (two lists after §12) |
 | `src/Modbot.Companion/Listening/PhraseDownload.cs` | Fetch, check, unpack five files, write the phrase list |
 | `src/Modbot.Companion/Listening/ListeningRule.cs` | When it listens, and what the card shows |
 | `src/Modbot.Companion/Listening/PhraseHeard.cs` | One sentence, one clip |
@@ -660,3 +670,238 @@ cause: the parts of this client that touch hardware are checked by reading them.
 test above adds is the one kind of check that does work without hardware — the shape of the call,
 named in a test, because the mistake was not subtle and would have been caught by anybody who had
 read the two files side by side.
+
+---
+
+## 12. Its name first, and then what to do
+
+### 12.1 What was asked for
+
+> *"needs to have like support for "Modbot, show overlay" and "Modbot, hide overlay" and shouldn't
+> process or listen to audio unless "modbot or "Mod bot" is said out loud first"*
+
+Two things: two more commands (§12), and the name as a gate in front of everything.
+
+### 12.2 What is genuinely new, and what was already true
+
+This is the part worth being straight about, because it is easy to write this section as though a
+microphone had been closed when no microphone was closed.
+
+**What was already true.** All four shipped phrases began with "Modbot". Nothing that did not start
+with the name could ever match, because the matcher's whole list started with it. Somebody looking
+at the old design could fairly have said the gate already existed. And keyword spotting works by
+examining sound continuously — that is how it hears anything at all — so "does not listen to audio
+until the name is said" was never available to build, in the old design or in this one.
+
+**What is genuinely new.** Four things, and the first is the one that matters.
+
+1. **There are two lists now, and the second is handed no sound until the first has matched.** The
+   matcher that is always fed has been given two lines — the two spellings of "Modbot" — and can
+   answer nothing else, at all, ever. The commands live on a second stream of the same model, and
+   that stream receives **no samples** until the name matches, and receives none again once the
+   wait has ended. Not samples it ignores. Not matches that are dropped. None. The part of the
+   engine that can recognise "show overlay" is, for almost all of the time the microphone is open,
+   not running.
+2. **A command can be two words.** §5.1 required three, and gave the reason: a short phrase in a
+   voice chat full of people talking fires for no reason. That reason is now covered by the wait
+   instead, and covered better — "clip that" said across a table reaches nothing, because there is
+   nothing listening for it. So "show overlay" and "hide overlay" are two words each and that is
+   safe in a way three words alone never were.
+3. **The client says when it is waiting**, on the card and on every page, and the saying is worked
+   out from the clock each time a snapshot is taken rather than held as a flag that somebody has to
+   remember to clear. A screen that said "waiting" for a second after the client had stopped
+   waiting would be a screen a moderator learns not to believe.
+4. **One name buys one command.** `NameHeard.Take` ends the wait as it answers, so an instruction
+   that arrives without a fresh name in front of it reaches nothing.
+
+**What did not change.** The microphone is open exactly as often as it was: while the switch is on
+and VRChat is running, and not otherwise. Sound is examined the whole of that time, because that is
+how the name is heard. Nothing is recorded, kept or sent (§4.2), and nothing about the promises in
+§4 moved.
+
+**The one-line honest version.** The microphone was already only ever heard for phrases that began
+with the name. What changed is that the client can now *only recognise the name* until it has heard
+the name — which is a smaller claim than "it does not listen", and a bigger one than "the phrases
+happen to start with Modbot".
+
+### 12.3 The wait: five seconds
+
+`NameHeard.Window` is **five seconds**, and it has to sit between two failures.
+
+Too short and a moderator who says "Modbot", looks at the panel to see whether it heard, and then
+says what they want, has lost it. "Modbot, show overlay" takes about a second and a half to say;
+the sound arrives in fifths of a second and the matcher is a beat behind the speaker; a person
+pausing to think costs another second or two. Five covers all of that comfortably.
+
+Too long and it stops being a wait. At ten seconds, somebody saying "hide overlay" to a person in
+the instance a full sentence after anybody said "Modbot" hides a panel. Five is short enough that
+the two have to be said as one request.
+
+**It interacts with the six-second fire-once gap (§5.4), and that gap wins.** Saying "Modbot, show
+overlay" and then immediately "Modbot, hide overlay" does the first only: the second name arms the
+client again, the second command is matched, and `PhraseHeard` refuses it because six seconds have
+not passed. That is a real cost and it is documented on the page. It was not worth changing the
+gap: it exists because one utterance is offered to the matcher more than once, that is still true,
+and making it per-command would mean reasoning about which commands can be confused with which.
+Waiting a few seconds between two opposite instructions is a small thing to ask.
+
+### 12.4 What it costs: the one-breath phrase
+
+**A matcher cannot hear sound it was never given.** The command stream starts receiving samples at
+the moment the name matches, which is a beat *after* the name was actually said. "Modbot, show
+overlay" run together as one breath may therefore have the start of "show" gone before anything was
+listening for it.
+
+The one thing done about it: **the stretch of sound the name was heard in is handed to the command
+stream too.** These are the same samples, used twice and then dropped — not a second copy kept
+against the future — and they recover up to the fifth of a second Windows hands sound over in.
+
+The thing deliberately *not* done: **a held tail of sound**. §2.4 turned down a circular buffer on
+the grounds that sound kept so the start of an utterance is not lost "is the one thing in this
+design that would be a *recording*, however short". Nothing about that changed, and reversing it in
+the same document to save a moderator a beat would be the wrong trade. So the documentation says to
+leave a beat after the name, and the page says why.
+
+**Whether one-breath "Modbot, clip that" still works is unmeasured.** It is the first thing to find
+out with a headset, along with everything else in §10. If it turns out not to, the fix is a longer
+buffer handed over at the moment of arming, not a held one.
+
+### 12.5 Rejected: feeding the command matcher all the time and only acting while waiting
+
+Cheaper, simpler, and it would have no latency cost at all: give one matcher both lists, and drop
+any command match that arrives while the client is not waiting.
+
+**It is the weaker claim, and the weaker claim is the one this was asked to stop making.** "It
+recognises what you said and promises to ignore it" and "it cannot recognise what you said" are
+different sentences, and only the second survives a suspicious reader — which is the same argument
+§2.2 used to turn down the full speech recogniser. Having made that argument once, making the
+opposite one here would be indefensible.
+
+### 12.6 Rejected: a second copy of the model
+
+Two `KeywordSpotter`s, one per list, would have been the obvious way to hold two lists, and would
+have cost another thirteen megabytes of resident model and a second load.
+
+Not needed: `KeywordSpotter.CreateStream(keywords)` makes a stream with a list of its own from the
+model that is already loaded. One model, two streams, and the second list costs some bookkeeping.
+
+---
+
+## 13. Show overlay, hide overlay
+
+### 13.1 The whole list, as pieces
+
+| Heard | Pieces the matcher is given | Which list |
+|---|---|---|
+| Modbot | `▁MO D B O T` | the name |
+| Mod bot | `▁MO D ▁BO T` | the name |
+| clip that | `▁C LI P ▁THAT` | command — save a clip |
+| clip this | `▁C LI P ▁THIS` | command — save a clip |
+| show overlay | `▁SHOW ▁OVER LA Y` | command — show the overlay |
+| hide overlay | `▁HI DE ▁OVER LA Y` | command — hide the overlay |
+
+The four clip lines of §5.1 are these six lines cut at the name. `▁C LI P ▁THAT` is character for
+character what stood after `▁MO D B O T` before, so what a moderator says to save a clip has not
+changed.
+
+### 13.2 How the pieces were produced, and that they were checked
+
+§5.2 says a wrong piece is not a phrase that fails to match — `sherpa-onnx/csrc/utils.cc` logs it
+and calls `SHERPA_ONNX_EXIT(-1)`, which ends the client. So the pieces were not guessed. The
+procedure is the model's own, it is written down here, and anybody can run it:
+
+```
+curl -sL -o kws.tar.bz2 <the address in §2.1>
+stat -c %s kws.tar.bz2      # 17626723
+sha256sum kws.tar.bz2       # f170013b…
+tar -xjf kws.tar.bz2 <model folder>/bpe.model <model folder>/tokens.txt
+```
+
+then, with the `sentencepiece` package and the model's own `bpe.model`:
+
+```python
+import sentencepiece as spm
+sp = spm.SentencePieceProcessor(); sp.load("bpe.model")
+sp.encode("SHOW OVERLAY", out_type=str)      # ['▁SHOW', '▁OVER', 'LA', 'Y']
+```
+
+and every piece it answers with looked up in the model's own 500-line `tokens.txt`.
+
+**It was run, and it was verified twice over.**
+
+1. The download matched the pinned size and the pinned SHA-256 in §2.1 exactly, so the vocabulary
+   and tokenizer used here are the ones the client will load.
+2. Feeding the same tokenizer the **four phrases already shipped** — "MODBOT CLIP THAT", "MOD BOT
+   CLIP THAT", "MODBOT CLIP THIS", "MOD BOT CLIP THIS" — gave back
+   `▁MO D B O T ▁C LI P ▁THAT` and its three siblings, character for character identical to the
+   constants standing in `PhraseModel.cs` since this morning. A procedure that reproduces the
+   shipped list exactly is the procedure that produced it.
+3. Every piece of every line above appears in `tokens.txt`: ids 107, 11, 34, 22, 4 for the name;
+   40, 96, 26, 21 / 61 for the clip commands; 391, 266, 118, 17 for "show overlay"; 397, 169, 266,
+   118, 17 for "hide overlay". Nothing is missing, so nothing here can end the process.
+
+What could **not** be checked without a headset and a microphone is whether the model *hears* these
+phrases well — §10's last row still stands, and now covers two more phrases.
+
+### 13.3 Which overlay show and hide act on
+
+There are three surfaces now, and "the overlay" means a different one to each of them. The choice:
+
+**The main headset panel — the one in front of the moderator's face.** Somebody wearing a headset
+who says "hide overlay" means the thing they are looking at. That is the whole of the reasoning and
+it is enough.
+
+**Not the notification panel.** It comes and goes by itself, and it is how a moderator is told that
+a flagged person walked in. A spoken word that quietly stopped those arriving would take away the
+one thing they cannot afford to miss, and they would not find out until it mattered.
+
+**Not the window over VRChat.** It takes the keyboard when it comes up — `Summon()` calls
+`Activate()` and `Focus()` — which is exactly right when a person pressed a key for it and exactly
+wrong when a person inside a headset said a word: it would pull focus off the game they are
+standing in. It has the keyboard shortcut of its own for that job (clips §11.2), and that shortcut
+is still the only thing that moves it.
+
+**Which call.** `OverlayHost.Show()` and `OverlayHost.Hide()` — the OpenVR `ShowOverlay` and
+`HideOverlay` the panel is already put up with when it is built. **Not** `OverlaySwitch.Set`, the
+settings switch beside it: that switch builds the panel, its texture, its drawing loop and its
+connection to SteamVR, and drops all of it again, and a curtain should not do that. It also means
+saying "hide overlay" writes nothing to `settings.json`: a moderator who wants it gone for good
+still has the switch, and one who hid it by voice gets it back with a word or at the next start.
+
+A panel that comes back is showing what is happening now, not what was happening when it went away,
+because the drive loop kept pushing screens into it the whole time.
+
+**When there is nothing to show.** The overlay switched off, or the headset not running, is
+answered out loud in the same shape as the six clip reasons (§6.1) — *"The overlay is switched off,
+so there was nothing to show."* Saying "show overlay" does **not** turn the switch on: that is a
+settings decision and a spoken word is not where it belongs. Listed in §13 as not built.
+
+### 13.4 One answer rule, not two
+
+`SayBack` is now the one place the client answers somebody who spoke to it, and the clip answer
+(§6.1) goes through it. The rule it holds is the one §6.1 argued for: the voice says the sentence
+when the voice is on and reporting is not paused; otherwise something that worked plays the
+notification sound and something that did not plays nothing. Showing and hiding happen there and
+then, so they answer immediately rather than through the recorder's ten-second wait.
+
+---
+
+## 14. Where the new code is, and what is still not built
+
+| Path | What |
+|---|---|
+| `src/Modbot.Companion/Listening/NameHeard.cs` | The name, and the five seconds after it |
+| `src/Modbot.Companion/Listening/PhraseModel.cs` | Two lists now: `Names` and `Commands`, `WhatToDo`, `name.txt` and `commands.txt` |
+| `src/Modbot.Companion/Listening/PhraseDownload.cs` | Writes both files beside the model |
+| `src/Modbot.Companion/Listening/ListeningRule.cs` | `ListeningStatus.Called` and `IsWaitingForCommand` |
+| `src/Modbot.Companion.App/Listening/PhraseListening.cs` | Two streams from one model; the command stream is fed only while waiting |
+| `src/Modbot.Companion.App/Program.cs` | `HeardAPhrase(Command)`, `ShowOrHideTheOverlay`, `SayBack` |
+| `src/Modbot.Companion/Presentation/CompanionAppState.cs` | The banner says which of the two it is doing |
+
+Off the §10 list: **choosing the phrase** stays decided rather than pending, but the reason a phrase
+had to be three words is gone. On to it:
+
+- **Turning the overlay on by voice** (§12.3). Showing is a curtain; the switch is a decision.
+- **Hiding the notification pop-ups by voice** (§12.3). Decided rather than pending.
+- **Whether "Modbot, show overlay" works said as one breath** (§11.4). Unmeasured, like everything
+  else here, and the first thing to try.

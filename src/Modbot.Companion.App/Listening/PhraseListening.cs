@@ -26,10 +26,17 @@ namespace Modbot.Companion.App.Listening;
 /// needs, and nothing here reaches the network: this file opens no socket and there is no upload
 /// path in the client to reach. What leaves the machine: nothing.</para>
 /// <para><strong>It is not transcribing you.</strong> The engine here is a phrase matcher, not a
-/// recogniser. It is told four short phrases and answers one question — "was one of those just
-/// said" — and it has no ability to produce a transcript of anything else, because it is a 3.3
+/// recogniser. It is told a handful of short phrases and answers one question — "was one of those
+/// just said" — and it has no ability to produce a transcript of anything else, because it is a 3.3
 /// megabyte model whose decoding is constrained to those phrases (listening design §2). That is
 /// most of why it was chosen over the general recogniser the same library also offers.</para>
+/// <para><strong>It listens for its name, and only then for what to do.</strong> Sound is handed to
+/// a matcher that has been given two spellings of "Modbot" and can answer nothing else. The
+/// matcher that knows the commands is handed <em>no sound at all</em> until one of those has been
+/// heard, and is handed none again once the few seconds afterwards have passed
+/// (<see cref="NameHeard"/>). "Clip that" said across a table, or "hide overlay" in the middle of a
+/// sentence, reaches nothing — not a matcher that ignores it, not a match that is dropped: nothing.
+/// </para>
 /// <para><strong>The microphone is shared, never taken.</strong> Windows is asked for the
 /// microphone in <em>shared</em> mode, which is what VRChat, Discord and every voice chat program
 /// ask for: Windows mixes them and every program hears the same sound. Exclusive mode — the mode
@@ -79,7 +86,9 @@ internal sealed class PhraseListening : IDisposable
     private const int FeatureSize = 80;
 
     private readonly Action<string, Exception?> _log;
-    private readonly Action<string> _heard;
+    private readonly NameHeard _name;
+    private readonly Action _heardItsName;
+    private readonly Action<Command> _heard;
     private readonly Lock _gate = new();
     private readonly AutoResetEvent _wake = new(false);
 
@@ -101,13 +110,28 @@ internal sealed class PhraseListening : IDisposable
     /// </summary>
     private float[] _mono = [];
 
+    /// <param name="name">
+    /// The few seconds after the client's name in which it will take an instruction. Held here as
+    /// well as by the host, because this is what decides whether the command matcher is handed any
+    /// sound at all, and the host is what puts "waiting" on the screen.
+    /// </param>
+    /// <param name="heardItsName">
+    /// Called on this class's own thread when the name was said, so the screen can say it is
+    /// waiting straight away rather than at the next redraw.
+    /// </param>
     /// <param name="heard">
-    /// Called on this class's own thread when one of the phrases was said. Whatever is handed this
-    /// has to get itself onto the right thread.
+    /// Called on this class's own thread when an instruction was said while it was waiting for
+    /// one. Whatever is handed this has to get itself onto the right thread.
     /// </param>
     /// <param name="log">Where one-line notes go: a microphone that could not be opened, a phrase heard.</param>
-    public PhraseListening(Action<string> heard, Action<string, Exception?> log)
+    public PhraseListening(
+        NameHeard name,
+        Action heardItsName,
+        Action<Command> heard,
+        Action<string, Exception?> log)
     {
+        _name = name;
+        _heardItsName = heardItsName;
         _heard = heard;
         _log = log;
     }
@@ -239,6 +263,10 @@ internal sealed class PhraseListening : IDisposable
         CloseMicrophone();
         IsListening = false;
 
+        // A client that has stopped listening is not waiting to be told anything, and must not
+        // still say it is.
+        _name.Forget();
+
         lock (_gate)
             _waiting.Clear();
     }
@@ -256,12 +284,19 @@ internal sealed class PhraseListening : IDisposable
     private void Run(PhraseModel model, string phrasesFolder)
     {
         KeywordSpotter? matcher = null;
-        OnlineStream? stream = null;
+        OnlineStream? nameSound = null;
+        OnlineStream? commandSound = null;
 
         try
         {
             matcher = Load(model, phrasesFolder);
-            stream = matcher.CreateStream();
+
+            // Two streams from the one model: the first is given the client's own name, which is
+            // the list in the file the matcher was built with; the second is given the commands.
+            // One model loaded once, so the second list costs a little bookkeeping rather than
+            // another thirteen megabytes.
+            nameSound = matcher.CreateStream();
+            commandSound = matcher.CreateStream(model.CommandsText());
 
             if (!OpenMicrophone())
                 return;
@@ -269,7 +304,7 @@ internal sealed class PhraseListening : IDisposable
             IsListening = true;
             _log(
                 (Using is { } picked ? $"The microphone “{picked.Name}”" : "The default microphone")
-                + " is open, shared, and is being listened to for a phrase only.",
+                + " is open, shared, and is being listened to for this client's own name.",
                 null);
 
             var taken = new List<float>();
@@ -288,7 +323,7 @@ internal sealed class PhraseListening : IDisposable
                     _waiting.Clear();
                 }
 
-                Match(matcher, stream, model, [.. taken]);
+                Match(matcher, nameSound, commandSound, model, [.. taken]);
             }
         }
         catch (Exception ex)
@@ -300,52 +335,101 @@ internal sealed class PhraseListening : IDisposable
         {
             IsListening = false;
             CloseMicrophone();
-            stream?.Dispose();
+            _name.Forget();
+            commandSound?.Dispose();
+            nameSound?.Dispose();
             matcher?.Dispose();
         }
     }
 
     /// <summary>
-    /// Hands one stretch of sound to the matcher and asks whether a phrase was in it.
+    /// Hands one stretch of sound to the matcher that knows the client's name, and — only while the
+    /// client is waiting to be told what to do — to the one that knows the commands.
     /// </summary>
     /// <remarks>
-    /// The samples are handed over and immediately go out of scope; nothing here writes them
-    /// anywhere or keeps them. The matcher is reset after a match, which is what stops one sentence
+    /// <para>The samples are handed over and immediately go out of scope; nothing here writes them
+    /// anywhere or keeps them. A matcher is reset after a match, which is what stops one sentence
     /// matching over and over as the rest of it arrives; <see cref="PhraseHeard"/> is the second
-    /// guard against that, on the other side of the event.
+    /// guard against that, on the other side of the event.</para>
+    /// <para><strong>The stretch the name was heard in goes to the command matcher too.</strong>
+    /// These are the same samples, used twice and then dropped, not a second copy kept against the
+    /// future: the design turned down a buffer of held sound and this does not sneak one in. It is
+    /// there because "Modbot, show overlay" is one breath, the name is not matched until a beat
+    /// after it was said, and without it the beginning of "show" would be gone before anything was
+    /// listening for it.</para>
+    /// <para>While the client is not waiting, the command matcher is handed nothing. It is not
+    /// handed sound it ignores and it does not match things that are then dropped — the sound never
+    /// reaches it.</para>
     /// </remarks>
-    private void Match(KeywordSpotter matcher, OnlineStream stream, PhraseModel model, float[] samples)
+    private void Match(
+        KeywordSpotter matcher,
+        OnlineStream nameSound,
+        OnlineStream commandSound,
+        PhraseModel model,
+        float[] samples)
     {
         if (samples.Length == 0)
             return;
 
-        stream.AcceptWaveform(model.SampleRate, samples);
+        nameSound.AcceptWaveform(model.SampleRate, samples);
 
-        while (matcher.IsReady(stream))
-            matcher.Decode(stream);
+        while (matcher.IsReady(nameSound))
+            matcher.Decode(nameSound);
 
-        var result = matcher.GetResult(stream);
-        if (string.IsNullOrWhiteSpace(result.Keyword))
+        // Any answer at all resets the stream, whether or not this client knows what to make of
+        // it. A stream that is not reset goes on offering the same answer for ever.
+        var toTheName = matcher.GetResult(nameSound).Keyword;
+        if (!string.IsNullOrWhiteSpace(toTheName))
+        {
+            matcher.Reset(nameSound);
+
+            if (model.IsTheName(toTheName))
+            {
+                // A fresh wait starts from silence, so whatever half a word was left in the
+                // command matcher from a wait that lapsed cannot join on to this one.
+                matcher.Reset(commandSound);
+
+                _name.Heard();
+                _log($"Heard “{model.Called}”, and is waiting to be told what to do.", null);
+                _heardItsName();
+            }
+        }
+
+        if (!_name.Waiting)
             return;
 
-        matcher.Reset(stream);
+        commandSound.AcceptWaveform(model.SampleRate, samples);
 
-        // Every phrase in the list means the same thing, so which of the four spellings the matcher
-        // landed on is not worth telling a moderator; it goes in the client's log and the first
-        // spelling is what the screen says.
-        var said = model.Spoken.Count > 0 ? model.Spoken[0] : result.Keyword;
+        while (matcher.IsReady(commandSound))
+            matcher.Decode(commandSound);
+
+        var toTheCommand = matcher.GetResult(commandSound).Keyword;
+        if (string.IsNullOrWhiteSpace(toTheCommand))
+            return;
+
+        matcher.Reset(commandSound);
+
+        // An answer this client does not know is dropped rather than guessed at.
+        if (model.CommandFor(toTheCommand) is not { } command || !_name.Take())
+            return;
+
+        var said = $"{model.Called}, {command.Said}";
         LastHeard = said;
         _log($"Heard “{said}”.", null);
-        _heard(said);
+        _heard(command);
     }
 
     /// <summary>
-    /// Loads the phrase matcher: the three parts of the model, its vocabulary, and the phrases.
+    /// Loads the phrase matcher: the three parts of the model, its vocabulary, and the name.
     /// </summary>
     /// <remarks>
-    /// One thread, on the processor. The model is 3.3 million numbers, which is about a thousandth
-    /// of the voice, and it is loaded once when listening starts rather than kept loaded while the
-    /// client sits in the tray.
+    /// <para>One thread, on the processor. The model is 3.3 million numbers, which is about a
+    /// thousandth of the voice, and it is loaded once when listening starts rather than kept loaded
+    /// while the client sits in the tray.</para>
+    /// <para>The file it is pointed at holds the client's own name and nothing else, so the matcher
+    /// a stray noise reaches can answer nothing but "that was the name". The commands are handed to
+    /// a second stream as text, from <c>PhraseModel</c>, because this file is not allowed to open a
+    /// file — the same rule that stops it writing one.</para>
     /// </remarks>
     private static KeywordSpotter Load(PhraseModel model, string phrasesFolder)
     {
@@ -362,7 +446,7 @@ internal sealed class PhraseListening : IDisposable
         config.ModelConfig.Provider = "cpu";
         config.ModelConfig.Debug = 0;
 
-        config.KeywordsFile = model.PhrasesPath(phrasesFolder);
+        config.KeywordsFile = model.NamesPath(phrasesFolder);
 
         return new KeywordSpotter(config);
     }

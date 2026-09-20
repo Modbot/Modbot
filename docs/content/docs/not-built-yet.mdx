@@ -34,20 +34,22 @@ is coming on any date. The rest of these docs only describe what Modbot does tod
 - **Saving a clip automatically when you ban or kick somebody.** A ban taken in Modbot never
   reaches the companion, so it cannot know one happened. You press **Save a clip**, or say
   [**"Modbot, clip that"**](/companion/listening), and then attach the file to the case yourself.
-- **Choosing your own phrase for [Listening](/companion/listening).** The phrase matcher is given
+- **Choosing your own phrases for [Listening](/companion/listening).** The phrase matcher is given
   the small pieces its vocabulary is built from rather than words, and turning a sentence into
-  those pieces needs a library the companion does not ship. The four spellings of "Modbot, clip
-  that" were worked out once and written into the client.
+  those pieces needs a library the companion does not ship. The name and the commands were worked
+  out once, using the model's own tokenizer, and written into the client.
+- **Turning the overlay on by voice.** Saying "Modbot, show overlay" puts the headset panel back in
+  front of you; it does not switch the overlay on when you have switched it off. It says so rather
+  than appearing to work.
 - **A second saved microphone for [Listening](/companion/listening), to switch between.** There is
   one list of the microphones your PC has and you pick one, which covers a headset microphone and a
   desk microphone without a second control that does the same job as the first.
 - **Listening on Linux.** Windows only, for the same reason recording is: saying "Modbot, clip
   that" saves a clip, and there are no clips anywhere else.
-- **A spoken reason when the voice is off.** With the voice on, saying "Modbot, clip that" is
-  answered out loud, including when nothing could be saved. With the voice off, a saved clip plays
-  the notification sound and a clip that was not saved plays nothing — one short sound cannot say
-  which of six reasons it was. The reason is on the **Clips** card and in the **Events** page
-  either way.
+- **A spoken reason when the voice is off.** With the voice on, everything you say is answered out
+  loud, including when nothing could be done. With the voice off, something that worked plays the
+  notification sound and something that did not plays nothing — one short sound cannot say which
+  reason it was. The reason is on the card it belongs to and in the **Events** page either way.
 
 ## Discord
 
