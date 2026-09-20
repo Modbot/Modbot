@@ -100,7 +100,7 @@ namespace Modbot.Companion.App;
 /// One file — <c>ScreenRecording.cs</c> — is allowed to record, one file — <c>ClipsFolder.cs</c> —
 /// is allowed to name your Videos folder, and <c>CompanionSourceGuardTests</c> fails the build if
 /// any other file the client ships learns either trick.</para>
-/// <para><strong>It can listen for one phrase, and only when you switch that on.</strong> Until
+/// <para><strong>It can listen for its own name, and only when you switch that on.</strong> Until
 /// 2026-09-19 this program could not open a microphone at all, and the build failed if any code
 /// that could appeared in it. That ban is now narrowed by exactly one file, because a moderator
 /// wearing a headset cannot reach a keyboard and asked to be able to say <strong>"Modbot, clip
@@ -108,11 +108,16 @@ namespace Modbot.Companion.App;
 /// <strong>off</strong> in a fresh install and off in an updated one, and while it is off no
 /// microphone is opened and nothing is asked of Windows' audio system at all.
 /// <list type="bullet">
+/// <item><description><strong>Nothing is listened for but the name.</strong> Sound goes to a
+/// matcher that has been given two spellings of "Modbot" and can answer nothing else. Only once
+/// one of those has been heard is the matcher that knows what this program can be asked to do
+/// handed any sound at all, and only for the next few seconds. Say the name and nothing else and
+/// nothing happens; the waiting ends by itself.</description></item>
 /// <item><description><strong>Nothing is recorded, kept or sent.</strong> Sound arrives in
-/// fractions of a second, is checked against four short phrases, and is thrown away. It is never
-/// written to a file, never held for more than a moment, and never sent anywhere — there is no
-/// upload path in this program and it did not gain one. This is not a transcriber: the thing doing
-/// the checking is a three-megabyte phrase matcher that can only answer "was one of those four
+/// fractions of a second, is checked against a handful of short phrases, and is thrown away. It is
+/// never written to a file, never held for more than a moment, and never sent anywhere — there is
+/// no upload path in this program and it did not gain one. This is not a transcriber: the thing
+/// doing the checking is a three-megabyte phrase matcher that can only answer "was one of those
 /// things just said".</description></item>
 /// <item><description><strong>The microphone is shared, never taken.</strong> Windows is asked for
 /// the default microphone in shared mode — the same way VRChat and Discord ask for it — so VRChat
@@ -122,8 +127,10 @@ namespace Modbot.Companion.App;
 /// recorder uses, so the microphone is not open whenever this program is. VRChat closing closes it.
 /// While it is open this program says so at the top of every page of its own window.</description></item>
 /// <item><description><strong>What it does.</strong> Saves a clip, the same as pressing
-/// <strong>Save a clip</strong>, and says out loud whether that worked. If Clips is off or nothing
-/// is being recorded, it says that instead of appearing to work.</description></item>
+/// <strong>Save a clip</strong>, or puts the headset panel up or takes it away, the same as the
+/// panel's own show and hide. Either way it says out loud whether that worked. If Clips is off, if
+/// nothing is being recorded, or if there is no panel to show, it says that instead of appearing to
+/// work.</description></item>
 /// </list>
 /// One file — <c>PhraseListening.cs</c> — is allowed to open a microphone, and
 /// <c>CompanionSourceGuardTests</c> fails the build if any other file the client ships names a
@@ -371,6 +378,12 @@ internal sealed class CompanionHost : IOverlayListener
 
     /// <summary>The one rule that stops one spoken sentence becoming three clips.</summary>
     private PhraseHeard? _phraseRule;
+
+    /// <summary>
+    /// The few seconds after the client's own name in which it will take an instruction. Nothing
+    /// is acted on outside them, and the screen says so while they last.
+    /// </summary>
+    private NameHeard? _nameRule;
 
     /// <summary>The one download of the phrase model, while it is running.</summary>
     private Task<PhraseDownloadResult>? _phraseDownload;
@@ -1044,7 +1057,8 @@ internal sealed class CompanionHost : IOverlayListener
             if (_listener is null)
             {
                 _phraseRule ??= new PhraseHeard(_clock);
-                _listener = new PhraseListening(HeardFromAnotherThread, LogListening);
+                _nameRule ??= new NameHeard(_clock);
+                _listener = new PhraseListening(_nameRule, HeardItsNameFromAnotherThread, HeardFromAnotherThread, LogListening);
 
                 if (!_listener.Start(PhraseModel.Default, folder))
                 {
@@ -1064,6 +1078,7 @@ internal sealed class CompanionHost : IOverlayListener
             _listener.Dispose();
             _listener = null;
             _phraseRule?.Forget();
+            _nameRule?.Forget();
         }
 
         _state.Listening = new ListeningStatus(
@@ -1074,7 +1089,12 @@ internal sealed class CompanionHost : IOverlayListener
             PhraseModel.Default.Size,
             _listener?.LastHeard ?? _listeningLastHeard,
             _listener?.LastProblem ?? _listeningProblem,
-            PhraseListening.Supported);
+            PhraseListening.Supported,
+            PhraseModel.Default.Called,
+
+            // Asked of the clock here rather than remembered from when the name was heard, so the
+            // screen cannot go on saying "waiting" after the client has stopped waiting.
+            _listener is not null && _nameRule?.Waiting is true);
     }
 
     /// <summary>
@@ -1131,8 +1151,23 @@ internal sealed class CompanionHost : IOverlayListener
     /// The listener heard a phrase, on its own thread. Brought onto the window's thread, because
     /// everything below saves a clip and redraws.
     /// </summary>
-    private void HeardFromAnotherThread(string said)
-        => Dispatcher.UIThread.Post(() => CrashGuard.Run("acting on a phrase", () => HeardAPhrase(said)));
+    private void HeardFromAnotherThread(Command command)
+        => Dispatcher.UIThread.Post(() => CrashGuard.Run("acting on a phrase", () => HeardAPhrase(command)));
+
+    /// <summary>
+    /// The listener heard the client's own name, on its own thread. Brought onto the window's
+    /// thread so the screen can say it is waiting now rather than at the next redraw, and asked to
+    /// say it again when the waiting is over — a screen that said "waiting" for a second after the
+    /// client had stopped would be a screen that lies.
+    /// </summary>
+    private void HeardItsNameFromAnotherThread()
+        => Dispatcher.UIThread.Post(() => CrashGuard.Run("hearing its name", () =>
+        {
+            Render();
+            DispatcherTimer.RunOnce(
+                () => CrashGuard.Run("refreshing the window", Render),
+                NameHeard.Window + TimeSpan.FromMilliseconds(100));
+        }));
 
     private static void LogListening(string line, Exception? ex)
     {
@@ -1143,25 +1178,37 @@ internal sealed class CompanionHost : IOverlayListener
     }
 
     /// <summary>
-    /// Somebody said "Modbot, clip that": save a clip, and answer them.
+    /// Somebody said the client's name and then told it to do something: do it, and answer them.
     /// </summary>
     /// <remarks>
     /// <para><strong>It never looks like it worked when it did not.</strong> Inside a headset there
     /// is no settings screen and no file explorer, so a phrase that quietly did nothing would leave
-    /// a moderator believing they had kept a moment. Every reason a clip cannot be saved is
-    /// answered out loud instead (listening design §6), and a save that goes ahead is answered once
+    /// a moderator believing they had kept a moment or hidden a panel. Every reason something could
+    /// not be done is answered out loud instead (listening design §6), and a clip is answered once
     /// the recorder has actually written the file, through the same wait the button uses.</para>
-    /// <para><strong>One sentence, one clip.</strong> <see cref="PhraseHeard"/> refuses a second
-    /// match within a few seconds, which covers the matcher offering the same words twice and a
-    /// moderator repeating themselves.</para>
+    /// <para><strong>One sentence, one action.</strong> Two guards, and neither replaces the other:
+    /// <see cref="NameHeard"/> stops waiting the moment it answers, so an instruction that arrives
+    /// without a fresh name reaches nothing; <see cref="PhraseHeard"/> refuses a second match
+    /// within a few seconds, whichever it was, which covers the matcher offering the same words
+    /// twice and a moderator repeating themselves.</para>
     /// <para>It is written into the client's own journal every time, so the Events page shows every
-    /// occasion the microphone acted on something — including the ones where nothing was
-    /// saved.</para>
+    /// occasion the microphone acted on something — including the ones where nothing
+    /// happened.</para>
     /// </remarks>
-    private void HeardAPhrase(string said)
+    private void HeardAPhrase(Command command)
     {
+        ArgumentNullException.ThrowIfNull(command);
+
         if (_state is null || _phraseRule?.Ask() is not true)
             return;
+
+        var said = $"{PhraseModel.Default.Called}, {command.Said}";
+
+        if (command.Does is not WhatToDo.SaveClip)
+        {
+            ShowOrHideTheOverlay(command.Does, said);
+            return;
+        }
 
         var clips = _state.Clips;
 
@@ -1193,6 +1240,66 @@ internal sealed class CompanionHost : IOverlayListener
     }
 
     /// <summary>
+    /// Somebody asked for the panel in front of them to be put up or taken away.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>The panel in the headset, and only that one.</strong> A moderator wearing a
+    /// headset who says "hide overlay" means the thing in front of their face. The notification
+    /// panel is not touched, because it comes and goes by itself and is how they are told a flagged
+    /// person walked in — hiding that is losing the thing they most need. The window over VRChat is
+    /// not touched either: it takes the keyboard when it comes up, which is what somebody who
+    /// pressed a key for it wanted and is not what somebody inside a headset wants, and it has the
+    /// shortcut of its own for exactly that reason (listening design §12.3).</para>
+    /// <para><strong>The same show and hide the panel already uses.</strong> It is the one the
+    /// panel is put up with when it is first built, rather than the settings switch beside it: the
+    /// switch is what builds the panel and connects to SteamVR, and turning that off and on again
+    /// by voice would tear down a texture and a drawing loop to do the work of a curtain. Saying
+    /// "hide overlay" does not change what is in <c>settings.json</c>; a moderator who wants it
+    /// gone for good still has the switch.</para>
+    /// </remarks>
+    private void ShowOrHideTheOverlay(WhatToDo what, string said)
+    {
+        var show = what is WhatToDo.ShowOverlay;
+
+        if (_overlayHost is null)
+        {
+            var off = show
+                ? "The overlay is switched off, so there was nothing to show."
+                : "The overlay is switched off, so there was nothing to hide.";
+
+            _journal?.RecordNote("this PC", $"Heard “{said}”, but nothing happened. {off}");
+            SayBack(off, worked: false);
+            Render();
+            return;
+        }
+
+        if (_overlayHost.Status.State is not OverlayRuntimeState.Running)
+        {
+            var away = show
+                ? "The headset is not running, so there was nothing to show."
+                : "The headset is not running, so there was nothing to hide.";
+
+            _journal?.RecordNote("this PC", $"Heard “{said}”, but nothing happened. {away}");
+            SayBack(away, worked: false);
+            Render();
+            return;
+        }
+
+        if (show)
+            _overlayHost.Show();
+        else
+            _overlayHost.Hide();
+
+        _journal?.RecordNote(
+            "this PC",
+            $"Heard “{said}” and {(show ? "showed" : "hid")} the overlay. "
+            + "Nothing of what was said was recorded or sent.");
+
+        SayBack(show ? "Overlay shown." : "Overlay hidden.", worked: true);
+        Render();
+    }
+
+    /// <summary>
     /// Answers a moderator who asked for a clip out loud, and nobody else.
     /// </summary>
     /// <remarks>
@@ -1212,12 +1319,25 @@ internal sealed class CompanionHost : IOverlayListener
 
         _clipAskedBySpeaking = false;
 
-        var sentence = instead ?? (saved ? "Clip saved." : "The clip could not be saved.");
+        SayBack(instead ?? (saved ? "Clip saved." : "The clip could not be saved."), saved);
+    }
 
+    /// <summary>
+    /// The one way the client answers somebody who spoke to it, whatever they asked for.
+    /// </summary>
+    /// <remarks>
+    /// The voice says the sentence when the voice is on and reporting is not paused. When it is
+    /// not, something that worked gets the notification sound — as long as the sound itself is
+    /// switched on — and something that did not gets nothing, because one short sound cannot say
+    /// which reason it was, and a sound that meant both "done" and "not done" would be worse than
+    /// silence.
+    /// </remarks>
+    private void SayBack(string sentence, bool worked)
+    {
         if (_voice?.Announcer.Answer(sentence) is true)
             return;
 
-        if (saved && _state?.Settings.Notifications.Bleep is true)
+        if (worked && _state?.Settings.Notifications.Bleep is true)
             _bleep?.Ask(NotificationKind.Test);
     }
 

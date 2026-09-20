@@ -106,4 +106,33 @@ public class OverlayHostTests
             Assert.Equal(Size * Size * 4, host.LastFrame.Length);
         });
     }
+
+    [Fact]
+    public void ShowAndHideReachThePanelWithoutTakingItDown()
+    {
+        // This is what "Modbot, show overlay" and "Modbot, hide overlay" arrive at. It is the show
+        // and hide the panel is already put up with when it is built, rather than the settings
+        // switch beside it: the switch builds the panel, connects to the headset and drops all of
+        // it again, and a curtain should not do that. So the host stays, its texture stays, and a
+        // screen pushed while it is hidden is still drawn -- it comes back showing what is
+        // happening now rather than what was happening when it went away.
+        AvaloniaTestHost.Run(() =>
+        {
+            var runtime = new HeadlessOverlayRuntime();
+            using var host = new OverlayHost(runtime, new FakeSurface(), new AvaloniaFrameRenderer(Size, Size));
+
+            host.Show();
+            Assert.True(runtime.IsShowing);
+
+            host.Hide();
+            Assert.False(runtime.IsShowing);
+
+            Assert.True(host.Update(Roster("Rin")));
+            Assert.Equal("Rin", FirstName(host.Showing));
+            Assert.False(runtime.IsShowing);
+
+            host.Show();
+            Assert.True(runtime.IsShowing);
+        });
+    }
 }

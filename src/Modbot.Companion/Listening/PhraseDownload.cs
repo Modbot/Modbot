@@ -41,9 +41,9 @@ public sealed record PhraseDownloadResult(PhraseDownloadOutcome Outcome, string?
 /// other.</para>
 /// <para><strong>What is written to your disk.</strong> The download, into the companion's own
 /// <c>phrases</c> folder, first as a temporary file and then, once its SHA-256 matches the pinned
-/// hash exactly, unpacked into a folder named for the model. Only five files are kept: the three
-/// parts of the model, its vocabulary, and the list of phrases it listens for, which is the only
-/// form the engine takes them in. The archive's spare 8-bit copies, its sample recordings and its
+/// hash exactly, unpacked into a folder named for the model. Only six files are kept: the three
+/// parts of the model, its vocabulary, the client's own name, and the list of things it can be
+/// asked to do once its name has been heard. The archive's spare 8-bit copies, its sample recordings and its
 /// readme are not written at all. Beside them goes a small marker saying what it is and where it came
 /// from. A file whose hash or size does not match is deleted, not used. An archive entry that
 /// would land outside that folder is refused.</para>
@@ -104,12 +104,15 @@ public sealed class PhraseDownload
                 return new PhraseDownloadResult(PhraseDownloadOutcome.WrongFile, "The archive did not hold the model's files.");
             }
 
-            // Written rather than downloaded: the phrases are Modbot's own and come from
-            // PhraseModel. They go in a file beside the model because that is the only way the
-            // engine takes them, and because a folder whose every file has a reason to be there is
-            // one somebody can check.
+            // Written rather than downloaded: the name and the commands are Modbot's own and come
+            // from PhraseModel. Two files rather than one, because they are two lists and the
+            // client listens for them at two different times -- its name always, a command only in
+            // the few seconds after its name. The name goes in a file because that is the only way
+            // the engine takes the list it always listens for; the commands go in a file so that a
+            // folder whose every file has a reason to be there is one somebody can check.
             var utf8 = new UTF8Encoding(false);
-            File.WriteAllText(Path.Combine(unpacking, PhraseModel.PhrasesFile), model.PhrasesText(), utf8);
+            File.WriteAllText(Path.Combine(unpacking, PhraseModel.NamesFile), model.NamesText(), utf8);
+            File.WriteAllText(Path.Combine(unpacking, PhraseModel.CommandsFile), model.CommandsText(), utf8);
             File.WriteAllText(Path.Combine(unpacking, PhraseModel.MarkerFile), model.MarkerText(), utf8);
 
             var folder = model.Folder(phrasesFolder);

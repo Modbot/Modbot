@@ -5,7 +5,7 @@ using Modbot.Companion.Listening;
 namespace Modbot.Companion.App;
 
 /// <summary>
-/// The Settings page's Listening card: saying a phrase to save a clip.
+/// The Settings page's Listening card: saying the client's name, and then what you want.
 /// </summary>
 /// <remarks>
 /// <para>The switch is the whole of the consent, and it is the biggest switch in this client: off
@@ -15,7 +15,8 @@ namespace Modbot.Companion.App;
 /// do.</para>
 /// <para>While the microphone is open the window says so at the top of every page, not only here,
 /// because somebody who is looking at the Events list should not have to come back to this card to
-/// find out.</para>
+/// find out. In the few seconds after the name has been heard it says that instead, and stops
+/// saying it the moment the client would stop acting on anything.</para>
 /// <para>Built once, like the Voice and Clips cards: the window redraws on a timer and a control
 /// being pressed dies under a rebuild.</para>
 /// </remarks>
@@ -55,10 +56,11 @@ public sealed partial class MainWindow
 
         var listening = _snapshot.ListeningOrNone;
 
-        // The label names the control and says the words out loud, because a control called
-        // "Listen for a phrase" would leave somebody guessing which phrase.
-        var phrase = listening.Phrases.Count > 0 ? listening.Phrases[0] : "Modbot, clip that";
-        _listeningOn.Content = Ui.Text($"Listen for “{phrase}”", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        // The label names the control and says the word out loud, because a control called "Listen
+        // for a phrase" would leave somebody guessing which phrase. Its own name is the whole of
+        // what it listens for until that name is heard, so that is what the switch is called.
+        _listeningOn.Content = Ui.Text(
+            $"Listen for “{listening.Called}”", Ui.T.Density.TextSmall, Ui.T.TextBrush);
 
         // A machine that cannot listen says so and its switch does nothing, rather than reading
         // "Off" like a choice somebody made.
@@ -88,6 +90,11 @@ public sealed partial class MainWindow
     }
 
     /// <summary>The one word beside the switch: what the listener is doing, and nothing more.</summary>
+    /// <remarks>
+    /// "Listening for what to do" is only ever said while the client would actually act on one,
+    /// because the snapshot works that out from the same clock the wait itself is worked out from.
+    /// A screen that said it a second late would be a screen a moderator learns not to believe.
+    /// </remarks>
     private static string Describe(ListeningStatus listening) => listening.State switch
     {
         ListeningState.Off => "Off",
@@ -97,6 +104,7 @@ public sealed partial class MainWindow
         ListeningState.NoModel => "Not downloaded",
         ListeningState.Waiting => "Waiting for VRChat",
         ListeningState.NoMicrophone => "Waiting for the microphone",
+        _ when listening.IsWaitingForCommand => "Listening for what to do",
         _ => listening.LastHeard is { } heard ? $"Listening. Last heard: {heard}" : "Listening",
     };
 }

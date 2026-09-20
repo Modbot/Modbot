@@ -470,11 +470,23 @@ public sealed class CompanionAppState
         // else in this client needs that, and this does: a program listening quietly is the thing
         // a moderator is right to be afraid of, so it is never quiet about it. It goes away by
         // itself the moment VRChat closes or the switch is turned off.
-        if (Listening.IsListening)
+        //
+        // The second wording is the few seconds after the name was heard, when an instruction
+        // would actually be acted on. It is worked out from the clock every time a snapshot is
+        // taken, so it appears when the client starts waiting and is gone when it stops -- the one
+        // thing this banner must never do is say "waiting" about a client that is not.
+        if (Listening.IsWaitingForCommand)
         {
             yield return new CompanionWarning(
                 WarningSeverity.Info,
-                "Modbot is listening for “Modbot, clip that”. Nothing is recorded or sent; the "
+                "Modbot heard its name and is listening for what to do. Nothing is recorded or "
+                + "sent; the microphone closes when VRChat does.");
+        }
+        else if (Listening.IsListening)
+        {
+            yield return new CompanionWarning(
+                WarningSeverity.Info,
+                $"Modbot is listening for “{Listening.Called}”. Nothing is recorded or sent; the "
                 + "microphone closes when VRChat does.");
         }
 

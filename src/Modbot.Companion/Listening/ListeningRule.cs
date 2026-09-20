@@ -104,15 +104,19 @@ public static class ListeningRule
 /// <summary>What the Listening card shows. Set by whatever owns the listener.</summary>
 /// <param name="Settings">The card's switch as settings hold it.</param>
 /// <param name="State">Off, waiting, listening, or the reason it is none of those.</param>
-/// <param name="Phrases">The phrases it listens for, as somebody would say them.</param>
+/// <param name="Phrases">The whole of what somebody can say, name and command together.</param>
 /// <param name="Progress">How far the one download has got, 0 to 1.</param>
 /// <param name="ModelBytes">How big that download is, so the card can say before it starts.</param>
-/// <param name="LastHeard">The phrase heard most recently this run, or null.</param>
+/// <param name="LastHeard">What was acted on most recently this run, or null.</param>
 /// <param name="LastProblem">What went wrong the last time something was tried, or null.</param>
 /// <param name="Supported">
 /// Whether this machine can listen at all. Read separately from <paramref name="State"/>, which
 /// answers Off before it looks at anything else: a moderator who turned it off chose that, and a
 /// machine that cannot listen did not, so the card has to tell them apart.
+/// </param>
+/// <param name="Called">The name it listens for first, as somebody would say it.</param>
+/// <param name="HeardItsName">
+/// Whether it heard its name a moment ago and is waiting to be told what to do.
 /// </param>
 public sealed record ListeningStatus(
     ListeningSettings Settings,
@@ -122,17 +126,30 @@ public sealed record ListeningStatus(
     long ModelBytes = 0,
     string? LastHeard = null,
     string? LastProblem = null,
-    bool Supported = true)
+    bool Supported = true,
+    string Called = "Modbot",
+    bool HeardItsName = false)
 {
     /// <summary>Before the host has said anything: off, with the default settings.</summary>
     public static ListeningStatus None { get; } = new(
         ListeningSettings.Default,
         ListeningState.Off,
         PhraseModel.Default.Spoken,
-        ModelBytes: PhraseModel.Default.Size);
+        ModelBytes: PhraseModel.Default.Size,
+        Called: PhraseModel.Default.Called);
 
     /// <summary>True while the microphone is actually open.</summary>
     public bool IsListening => State is ListeningState.Listening;
+
+    /// <summary>
+    /// True only while the microphone is open <em>and</em> the name was heard a moment ago.
+    /// </summary>
+    /// <remarks>
+    /// The screen shows this, so it must never be true when the client would refuse an
+    /// instruction. It is worked out from the same clock the wait itself is, every time a snapshot
+    /// is taken, rather than being left over from a wait that has ended.
+    /// </remarks>
+    public bool IsWaitingForCommand => IsListening && HeardItsName;
 
     /// <summary>What the card says when this machine cannot listen, or null when it can.</summary>
     public string? Unsupported => Supported
