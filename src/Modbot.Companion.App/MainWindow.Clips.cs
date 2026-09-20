@@ -5,18 +5,24 @@ using Modbot.Companion.Clips;
 namespace Modbot.Companion.App;
 
 /// <summary>
-/// The Settings page's Clips card: keeping the last few minutes, and saving them.
+/// The Settings page's Clips card: keeping the last few minutes and their sound, and saving them.
 /// </summary>
 /// <remarks>
 /// <para>The switch is the whole of the consent. Off is what a fresh install has, off is what an
 /// updated install has, and nothing is recorded until somebody moves it — see the clips design
 /// spec, §2, and <see cref="ScreenRecording"/> for what is recorded when they do.</para>
+/// <para>The switch says <em>with VRChat's sound</em> because that is what it does. Since
+/// 2026-09-19 a clip carries what people said in the instance, which is a different thing to keep
+/// on somebody's disk from a silent picture, and the one place a moderator decides about it is
+/// this line of text. Discord's sound is the second box and is off until somebody ticks it; there
+/// is no third box, and nothing else the machine is playing can be recorded at all.</para>
 /// <para>Built once, like the Voice and Notifications cards: the window redraws on a timer and a
 /// slider being dragged or a folder being typed into dies under a rebuild.</para>
 /// </remarks>
 public sealed partial class MainWindow
 {
     private readonly CheckBox _clipsOn = new();
+    private readonly CheckBox _clipsDiscordSound = new();
     private readonly Slider _clipsMinutes = new();
     private readonly TextBlock _clipsMinutesValue = Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextDimBrush, wrap: false, mono: true);
     private readonly TextBox _clipsFolderBox = Ui.Input();
@@ -29,8 +35,14 @@ public sealed partial class MainWindow
     /// <summary>Wires the Clips card. Called once, from the constructor.</summary>
     private void SetUpClips()
     {
-        _clipsOn.Content = Ui.Text("Keep the last few minutes", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        // The switch names what it does, sound included. A moderator turning this on is turning on
+        // a recording of what people say in the instance, and finding that out afterwards would be
+        // the wrong way round.
+        _clipsOn.Content = Ui.Text("Keep the last few minutes, with VRChat's sound", Ui.T.Density.TextSmall, Ui.T.TextBrush);
         _clipsOn.IsCheckedChanged += (_, _) => ClipsChanged();
+
+        _clipsDiscordSound.Content = Ui.Text("Discord's sound too", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _clipsDiscordSound.IsCheckedChanged += (_, _) => ClipsChanged();
 
         _clipsMinutesValue.VerticalAlignment = VerticalAlignment.Center;
         _clipsMinutesValue.Width = 32;
@@ -70,6 +82,7 @@ public sealed partial class MainWindow
         {
             On = _clipsOn.IsChecked == true,
             Minutes = (int)_clipsMinutes.Value,
+            DiscordSound = _clipsDiscordSound.IsChecked == true,
         });
     }
 
@@ -77,6 +90,7 @@ public sealed partial class MainWindow
     private void RefreshClipControls(ClipsStatus clips)
     {
         _clipsOn.IsChecked = clips.Settings.On;
+        _clipsDiscordSound.IsChecked = clips.Settings.DiscordSound;
 
         if (!_clipsMinutes.IsPointerOver && !_clipsMinutes.IsFocused)
             _clipsMinutes.Value = ClipSettings.ClampMinutes(clips.Settings.Minutes);
@@ -96,7 +110,7 @@ public sealed partial class MainWindow
     {
         foreach (var control in new Control[]
         {
-            _clipsOn, _clipsMinutes, _clipsMinutesValue, _clipsFolderBox,
+            _clipsOn, _clipsDiscordSound, _clipsMinutes, _clipsMinutesValue, _clipsFolderBox,
             _clipsFolderSave, _clipsFolderReset, _clipsSave, _clipsLine, _clipsProblem,
         })
         {
@@ -111,6 +125,7 @@ public sealed partial class MainWindow
         // A machine that cannot record says so and its switch does nothing, rather than reading
         // "Off" like a choice somebody made.
         _clipsOn.IsEnabled = clips.Supported;
+        _clipsDiscordSound.IsEnabled = clips.Supported;
         _clipsMinutes.IsEnabled = clips.Supported;
         _clipsFolderBox.IsEnabled = clips.Supported;
 
@@ -125,6 +140,7 @@ public sealed partial class MainWindow
             Children =
             {
                 _clipsOn,
+                _clipsDiscordSound,
                 Ui.Field("Minutes", new StackPanel
                 {
                     Orientation = Orientation.Horizontal,

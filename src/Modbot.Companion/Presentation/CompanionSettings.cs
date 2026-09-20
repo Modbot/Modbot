@@ -137,13 +137,15 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public NotificationSettings Notifications { get; init; } = NotificationSettings.Default;
 
     /// <summary>
-    /// Keeping the last few minutes of the screen while VRChat runs: off until turned on, then how
-    /// many minutes, where saved clips go and how much room they may take. Saved as the
-    /// <c>clips</c> object.
+    /// Keeping the last few minutes of VRChat's window and its sound while VRChat runs: off until
+    /// turned on, then how many minutes, whether Discord's sound goes in too, where saved clips go
+    /// and how much room they may take. Saved as the <c>clips</c> object.
     /// </summary>
     /// <remarks>
     /// Off is the default and a missing object means off, so a client that is updated into a
-    /// version that can record does not start recording. See the clips design spec, §2.
+    /// version that can record does not start recording. See the clips design spec, §2. Discord's
+    /// sound is its own field and is off in the same way, and there is no field anywhere for the
+    /// machine's own sound (§14).
     /// </remarks>
     public ClipSettings Clips { get; init; } = ClipSettings.Default;
 
@@ -298,7 +300,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             clips.On ?? false,
             ClipSettings.ClampMinutes(clips.Minutes ?? ClipSettings.DefaultMinutes),
             string.IsNullOrWhiteSpace(clips.Folder) ? null : clips.Folder.Trim(),
-            ClipSettings.ClampKeepGigabytes(clips.KeepGigabytes ?? ClipSettings.DefaultKeepGigabytes));
+            ClipSettings.ClampKeepGigabytes(clips.KeepGigabytes ?? ClipSettings.DefaultKeepGigabytes),
+            clips.DiscordSound ?? false);
 
     /// <summary>
     /// Writes the whole <c>clips</c> object, keeping every other field in the file. The same rules
@@ -315,6 +318,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             ["on"] = clips.On,
             ["minutes"] = ClipSettings.ClampMinutes(clips.Minutes),
             ["keepGigabytes"] = ClipSettings.ClampKeepGigabytes(clips.KeepGigabytes),
+
+            // Always written, false included, so a file somebody opens says plainly whether
+            // Discord's sound is being recorded rather than leaving them to know the default.
+            ["discordSound"] = clips.DiscordSound,
         };
 
         if (!string.IsNullOrWhiteSpace(clips.Folder))
@@ -579,7 +586,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("on")] bool? On,
         [property: JsonPropertyName("minutes")] int? Minutes,
         [property: JsonPropertyName("folder")] string? Folder,
-        [property: JsonPropertyName("keepGigabytes")] int? KeepGigabytes);
+        [property: JsonPropertyName("keepGigabytes")] int? KeepGigabytes,
+        [property: JsonPropertyName("discordSound")] bool? DiscordSound);
 
     private sealed record ListeningShape(
         [property: JsonPropertyName("on")] bool? On,

@@ -41,9 +41,10 @@ namespace Modbot.Companion.App;
 /// holding three things: which servers you paired with and their tokens (the tokens encrypted to
 /// your Windows account), observations queued to send, and the plain-English record of what has
 /// been sent — and, once you turn the voice on, the downloaded voice under <c>voices</c>; once
-/// you turn Clips on, two rolling recordings under <c>clips</c> that are deleted as they are
-/// replaced and when recording stops; and, once you turn Listening on, the small phrase model under
-/// <c>phrases</c>. No sound from your microphone is ever written anywhere. Plus
+/// you turn Clips on, two rolling recordings — VRChat's window and VRChat's sound — under
+/// <c>clips</c> that are deleted as they are replaced and when recording stops; and, once you turn
+/// Listening on, the small phrase model under <c>phrases</c>. No sound from your microphone is ever
+/// written anywhere. Plus
 /// one registry key under your own account saying that <c>modbot-companion://</c>
 /// links open this program, which is how pairing from the browser reaches it, and — in an installed
 /// copy, unless you turn it off — one value under your own account's startup list so Modbot starts
@@ -59,19 +60,20 @@ namespace Modbot.Companion.App;
 /// voice then says is made and played on this PC and goes nowhere. And once, if you turn Listening
 /// on: one download of the phrase model from GitHub, with nothing attached (see
 /// <c>PhraseDownload</c>).
-/// Never chat, never a recorded clip or any other picture of your screen, never a recording of
-/// anything your microphone heard, never keystrokes, never your friends list and never a list of
-/// your processes.</para>
+/// Never chat, never a recorded clip — neither its picture nor its sound — never any other picture
+/// of your screen, never a recording of anything your microphone heard, never keystrokes, never
+/// your friends list and never a list of your processes.</para>
 /// <para><strong>It never reads the keyboard.</strong> Turning the desktop overlay on asks Windows
 /// for exactly one keyboard combination, by name, so that panel can be brought up while VRChat has
 /// the keyboard (<c>DesktopOverlayShortcut</c>). Windows then sends one message when those keys are
 /// pressed and says nothing about any other key. There is no keyboard hook here and there will not
 /// be one; <c>CompanionSourceGuardTests</c> fails the build if one appears.</para>
-/// <para><strong>It can record VRChat's window, and only when you switch that on.</strong> Until
-/// 2026-09-19 this paragraph said the program never captured a screen by any route. That is no
-/// longer true, and the honest replacement is this. The Settings page has a <strong>Clips</strong>
-/// switch. It is <strong>off</strong> in a fresh install and off in an updated one, and while it is
-/// off nothing is captured and no recorder is even built.
+/// <para><strong>It can record VRChat's window and VRChat's sound, and only when you switch that
+/// on.</strong> Until 2026-09-19 this paragraph said the program never captured a screen by any
+/// route, and then that a clip had no sound in it. Neither is true any more, and the honest
+/// replacement is this. The Settings page has a <strong>Clips</strong> switch. It is
+/// <strong>off</strong> in a fresh install and off in an updated one, and while it is off nothing
+/// is captured and no recorder is even built.
 /// <list type="bullet">
 /// <item><description><strong>What is recorded.</strong> <strong>VRChat's window</strong>, not your
 /// monitor — this program asks Windows for VRChat's own window by name and records the part of the
@@ -79,10 +81,19 @@ namespace Modbot.Companion.App;
 /// drawn on top of VRChat while you are in it — a chat program's in-game overlay, a notification,
 /// Modbot's own panel — is inside that rectangle and is in the clip; nothing outside it ever is, and
 /// while you are working in another program the last picture of VRChat is written again rather than
-/// what you moved to. <strong>No sound at all</strong> — the ban on every microphone, line-in and
-/// loopback API stands untouched, so voice chat is still never recorded. Not the keyboard, not the
-/// clipboard, not a list of the programs you are running or of their windows, and nothing read out
-/// of VRChat's screenshot folder or any other folder.</description></item>
+/// what you moved to. Not the keyboard, not the clipboard, not a list of the programs you are
+/// running or of their windows, and nothing read out of VRChat's screenshot folder or any other
+/// folder.</description></item>
+/// <item><description><strong>And its sound, which means voices.</strong> A clip carries
+/// <strong>VRChat's own sound</strong> — in an instance, that is what the people around you said.
+/// Say so out loud rather than leaving it to be discovered: a clip is now a recording of a
+/// conversation as well as a picture of a screen, and it sits on your disk until you delete it.
+/// <strong>Discord's sound</strong> can go in beside it, and that is its own switch, off unless you
+/// turn it on. <strong>Nothing else this PC is playing is ever recorded</strong> — not music, not a
+/// browser, not another chat program, not Windows' own sounds — because Windows is asked for one
+/// named program's sound rather than for what is coming out of the speakers, and there is no
+/// setting anywhere that would ask for the speakers. <strong>No microphone is opened for this</strong>;
+/// that is a separate switch described below.</description></item>
 /// <item><description><strong>When.</strong> Only while VRChat is running, which this program knows
 /// because lines are arriving in VRChat's own log — never by looking for a running program. VRChat
 /// closing stops the recording and deletes what was kept.</description></item>
@@ -97,9 +108,10 @@ namespace Modbot.Companion.App;
 /// still a deliberate human action taken in Modbot's web interface, in a browser, by choosing a
 /// file.</description></item>
 /// </list>
-/// One file — <c>ScreenRecording.cs</c> — is allowed to record, one file — <c>ClipsFolder.cs</c> —
+/// One file — <c>ScreenRecording.cs</c> — is allowed to record a picture, one file —
+/// <c>ClipSound.cs</c> — is allowed to record a program's sound, one file — <c>ClipsFolder.cs</c> —
 /// is allowed to name your Videos folder, and <c>CompanionSourceGuardTests</c> fails the build if
-/// any other file the client ships learns either trick.</para>
+/// any other file the client ships learns any of those tricks.</para>
 /// <para><strong>It can listen for its own name, and only when you switch that on.</strong> Until
 /// 2026-09-19 this program could not open a microphone at all, and the build failed if any code
 /// that could appeared in it. That ban is now narrowed by exactly one file, because a moderator
@@ -831,7 +843,7 @@ internal sealed class CompanionHost : IOverlayListener
                             Log.Warning(ex, "Clips: {Line}", line);
                     });
 
-                if (!_recorder.Start(settings.Length))
+                if (!_recorder.Start(settings.Length, settings.DiscordSound))
                 {
                     _clipsFailed = true;
                     _clipsProblem = _recorder.LastProblem;
@@ -916,7 +928,8 @@ internal sealed class CompanionHost : IOverlayListener
 
     /// <summary>
     /// The Clips card changed. Saved as the whole <c>clips</c> object, then acted on at once: a
-    /// length or a folder that changed rebuilds the recorder rather than waiting for a restart.
+    /// length, a folder or Discord's sound that changed rebuilds the recorder rather than waiting
+    /// for a restart.
     /// </summary>
     private void SetClips(ClipSettings clips)
     {
@@ -938,7 +951,10 @@ internal sealed class CompanionHost : IOverlayListener
         // A recorder already running was built around the old length; the switch going off, or any
         // of the numbers changing, means the one that is running is the wrong one.
         if (_recorder is not null
-            && (before.On != clamped.On || before.Minutes != clamped.Minutes || before.Folder != clamped.Folder))
+            && (before.On != clamped.On
+                || before.Minutes != clamped.Minutes
+                || before.Folder != clamped.Folder
+                || before.DiscordSound != clamped.DiscordSound))
         {
             _recorder.Stop();
             _recorder.Dispose();

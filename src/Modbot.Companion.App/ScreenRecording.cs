@@ -21,10 +21,13 @@ namespace Modbot.Companion.App;
 /// rather than an open one are in the clips design spec and are enforced here and in
 /// <c>CompanionSourceGuardTests</c>: one file may record, and no other file the client ships may
 /// name a capture API.</para>
-/// <para><strong>What it records: VRChat's window.</strong> Not the monitor. This file asks Windows
-/// for VRChat's own window by name, takes the part of the screen that window is drawn in, and
-/// records that, shrunk to at most 1280 pixels wide, at 15 frames a second. It does not ask Windows
-/// for a list of the programs that are running or a list of their windows, and it never has.</para>
+/// <para><strong>What it records: VRChat's window, and VRChat's sound.</strong> Not the monitor and
+/// not the machine's sound. This file asks Windows for VRChat's own window by name, takes the part
+/// of the screen that window is drawn in, and records that, shrunk to at most 1280 pixels wide, at
+/// 15 frames a second. It also asks that one window which process VRChat is, which is how
+/// <see cref="ClipSound"/> can be handed one program rather than the speakers. It does not ask
+/// Windows for a list of the programs that are running or a list of their windows, and it never
+/// has.</para>
 /// <para><strong>The picture fills the frame.</strong> The frame's size is fixed when recording
 /// starts, because a video file cannot change size part way through and closing both rolling files
 /// on every resize would throw away the minutes a moderator is about to want. So VRChat's window as
@@ -33,6 +36,7 @@ namespace Modbot.Companion.App;
 /// black. A window that changes size changes the scale. <see cref="ClipWindowRule.Fit"/> decides
 /// where it goes and <see cref="ClipPicture"/> draws it, and both are arithmetic that can be
 /// checked without a screen.</para>
+
 /// <para><strong>What can still end up in a clip.</strong> Windows hands this file a copy of what
 /// the desktop already drew, and what the desktop drew inside VRChat's rectangle is whatever is on
 /// top of it — a chat program's in-game overlay, a notification, Modbot's own panel over the game.
@@ -51,9 +55,17 @@ namespace Modbot.Companion.App;
 /// What it is doing instead — which graphics card and screen, where VRChat's window is, how many
 /// pictures have been copied and how many frames held — goes into the client's own log file, so a
 /// clip that still comes out wrong can be read about rather than guessed at.</para>
-/// <para><strong>No sound.</strong> The ban on every recording API for microphones, line-in and
-/// loopback stands untouched, so voice chat stays in the never-recorded column. No keyboard, no
-/// clipboard, no file anywhere else on the disk.</para>
+/// <para><strong>Sound: VRChat's own, and Discord's only if that was switched on.</strong> Until
+/// 2026-09-19 a clip was a silent picture and this paragraph said so. It now carries the sound
+/// VRChat is playing — which in an instance is what the people around the moderator said — because
+/// a silent picture of somebody being abusive shows nothing. Discord's sound is a second switch,
+/// off unless a person turned it on. <strong>Nothing else the machine is playing is ever
+/// recorded</strong>: not music, not a browser, not another chat program, not Windows' own sounds.
+/// Windows hands over one named program's sound rather than the speakers', which is what makes that
+/// a fact rather than a promise; the capture itself is in <see cref="ClipSound"/>, the one file
+/// allowed to do it, and this one only writes what it is handed into the same file as the picture.
+/// No microphone is opened here or there. No keyboard, no clipboard, no file anywhere else on the
+/// disk.</para>
 /// <para><strong>When it records.</strong> Only while the Clips switch is on — off unless a person
 /// turned it on — and only while VRChat is running, which the client knows because lines are
 /// arriving in VRChat's log (<see cref="ClipRecordingRule"/>). VRChat closing stops it and deletes
@@ -156,6 +168,18 @@ internal sealed class ScreenRecording : IDisposable
     private long _screenTakenAway;
     private long _windowOffThisScreen;
 
+    /// <summary>
+    /// Samples a second in the clip's sound, or zero when this clip is a silent picture.
+    /// </summary>
+    /// <remarks>
+    /// Settled once, when the sound is opened, and read by every rolling file made afterwards: a
+    /// video file's sound cannot change rate part way through any more than its picture can change
+    /// size. Zero — no sound could be opened, or this machine cannot hand over one program's sound
+    /// — means no sound track is put in the file at all, which is a silent clip rather than a
+    /// broken one. Touched only by the recording thread.
+    /// </remarks>
+    private int _soundRate;
+
     private readonly IModbotClock _clock;
     private readonly string _temporaryFolder;
     private readonly Action<string, Exception?> _log;
@@ -212,10 +236,15 @@ internal sealed class ScreenRecording : IDisposable
     }
 
     /// <summary>
-    /// Starts keeping the last <paramref name="length"/> of VRChat's window. Returns false, having
-    /// changed nothing, when this machine cannot do it; the reason is in <see cref="LastProblem"/>.
+    /// Starts keeping the last <paramref name="length"/> of VRChat's window and its sound. Returns
+    /// false, having changed nothing, when this machine cannot do it; the reason is in
+    /// <see cref="LastProblem"/>.
     /// </summary>
-    public bool Start(TimeSpan length)
+    /// <param name="discordSound">
+    /// Whether Discord's sound goes into the clip beside VRChat's. Nothing else the machine is
+    /// playing is ever recorded, whatever this says.
+    /// </param>
+    public bool Start(TimeSpan length, bool discordSound = false)
     {
         if (_thread is not null)
             return true;
@@ -229,7 +258,7 @@ internal sealed class ScreenRecording : IDisposable
         _stopping = false;
         LastProblem = null;
 
-        _thread = new Thread(() => Run(length))
+        _thread = new Thread(() => Run(length, discordSound))
         {
             IsBackground = true,
             Name = "Modbot clips",
@@ -255,6 +284,7 @@ internal sealed class ScreenRecording : IDisposable
         IsRecording = false;
         WindowFound = false;
         AnyPictureTaken = false;
+        _soundRate = 0;
         EmptyTemporaryFolder();
     }
 
@@ -286,6 +316,17 @@ internal sealed class ScreenRecording : IDisposable
     {
         public IMFSinkWriter? Writer;
         public int Stream;
+
+        /// <summary>Where the sound goes, or -1 when this clip is a silent picture.</summary>
+        public int SoundStream = -1;
+
+        /// <summary>
+        /// How much sound has gone into this file. What places the next stretch of it: the sound is
+        /// positioned by how much of it there is, exactly as the picture is positioned by how many
+        /// frames there have been, so the two describe the same moment however long the file runs.
+        /// </summary>
+        public long SoundSamples;
+
         public string Path = string.Empty;
         public long StartedAtFrame;
         public long RotateAtFrame;
@@ -309,11 +350,12 @@ internal sealed class ScreenRecording : IDisposable
         Nothing,
     }
 
-    private void Run(TimeSpan length)
+    private void Run(TimeSpan length, bool discordSound)
     {
         if (!OperatingSystem.IsWindows())
             return;
 
+        ClipSound? sound = null;
         ID3D11Device? device = null;
         ID3D11DeviceContext? context = null;
         IDXGIOutputDuplication? duplication = null;
@@ -337,6 +379,12 @@ internal sealed class ScreenRecording : IDisposable
                 return;
 
             var (width, height) = ClipWindowRule.RecordedSize(start.Window.Width, start.Window.Height);
+
+            // VRChat's own sound, and Discord's when that was switched on. Nothing else the machine
+            // is playing, ever. A program that will not hand its sound over costs the clip that
+            // program's sound and nothing else — the picture is recorded exactly as before.
+            sound = ClipSound.Start(start.Owner, discordSound, _clock.UtcNow, _log);
+            _soundRate = sound?.SampleRate ?? 0;
 
             // The graphics card that drives the screen VRChat is on, rather than whichever card
             // Windows lists first. On a laptop with two of them those are routinely not the same
@@ -374,6 +422,12 @@ internal sealed class ScreenRecording : IDisposable
             // Where VRChat's picture last landed in the frame. When it moves, the frame is painted
             // black once rather than on every turn.
             var drawnAt = default(ClipFit?);
+
+            // One buffer for the sound that goes beside one picture, made once at the most any
+            // picture can call for. Empty when this machine has no sound to record.
+            var soundBytes = _soundRate == 0
+                ? Array.Empty<byte>()
+                : new byte[ClipSoundRule.MostSamplesInAFrame(_soundRate, FramesPerSecond) * ClipSoundRule.BytesPerSample];
             var clock = Stopwatch.StartNew();
             long frame = 0;
             var lookAgainAt = TimeSpan.Zero;
@@ -463,16 +517,40 @@ internal sealed class ScreenRecording : IDisposable
 
                 // The two rolling files start at the first picture rather than at the first turn
                 // of the loop.
-                legs ??=
-                [
-                    // The two are staggered by half the chosen length, so whichever has been
-                    // running longer always holds between half and all of it.
-                    OpenLeg(0, frame, frame + (framesPerLeg / 2), width, height),
-                    OpenLeg(1, frame, frame + framesPerLeg, width, height),
-                ];
+                if (legs is null)
+                {
+                    legs =
+                    [
+                        // The two are staggered by half the chosen length, so whichever has been
+                        // running longer always holds between half and all of it.
+                        OpenLeg(0, frame, frame + (framesPerLeg / 2), width, height),
+                        OpenLeg(1, frame, frame + framesPerLeg, width, height),
+                    ];
+
+                    // Sound has been gathering since VRChat's window was found, which can be
+                    // seconds before the first picture. Putting that in front of the first picture
+                    // would be a clip whose sound runs ahead of it, so it is thrown away here and
+                    // the two start level.
+                    sound?.Forget();
+                }
+
+                // How much sound belongs with this one picture, worked out from running totals so
+                // that it comes out exact however long the recording runs. One count serves both
+                // rolling files, which is right because each keeps its own total of what it has
+                // been given and the two rates a clip can be written at — 48,000 and 44,100 — both
+                // divide evenly by fifteen pictures a second. Each file therefore starts its sound
+                // at zero when it is started again, and stays level with its own picture.
+                var soundForThisFrame = sound is null
+                    ? 0
+                    : ClipSoundRule.SamplesForFrame(frame, _soundRate, FramesPerSecond) * ClipSoundRule.BytesPerSample;
+
+                sound?.Take(soundBytes, soundForThisFrame, _clock.UtcNow);
 
                 foreach (var leg in legs)
+                {
                     WriteFrame(leg, frame, pixels);
+                    WriteSound(leg, soundBytes, soundForThisFrame, _soundRate);
+                }
 
                 _framesWritten++;
 
@@ -518,6 +596,7 @@ internal sealed class ScreenRecording : IDisposable
                     Finish(leg, discard: true);
             }
 
+            sound?.Dispose();
             staging?.Dispose();
             windowView?.Dispose();
             windowCopy?.Dispose();
@@ -1022,6 +1101,39 @@ internal sealed class ScreenRecording : IDisposable
         writer.WriteSample(leg.Stream, sample);
     }
 
+    /// <summary>Puts the sound that belongs with one picture into one rolling file.</summary>
+    /// <remarks>
+    /// <para>Where it goes in the file is worked out from how much sound has already gone in,
+    /// never from a clock — so the sound is placed by how much of it there is, exactly as the
+    /// picture is placed by how many frames there have been, and the two cannot drift apart
+    /// (<see cref="ClipSoundRule"/>).</para>
+    /// <para>A file with no sound track — this machine could not hand over one program's sound, or
+    /// nothing could be opened — passes straight through here, and what comes out is a silent clip
+    /// rather than a failed one.</para>
+    /// </remarks>
+    private static void WriteSound(Leg leg, byte[] bytes, int count, int sampleRate)
+    {
+        if (leg.Writer is not { } writer || leg.SoundStream < 0 || count <= 0 || sampleRate <= 0)
+            return;
+
+        var samples = count / ClipSoundRule.BytesPerSample;
+
+        using var buffer = MediaFactory.MFCreateMemoryBuffer(count);
+        buffer.Lock(out var target, out _, out _);
+        Marshal.Copy(bytes, 0, target, count);
+        buffer.Unlock();
+        buffer.CurrentLength = count;
+
+        using var sample = MediaFactory.MFCreateSample();
+        sample.AddBuffer(buffer);
+        sample.SampleTime = ClipSoundRule.TimeFor(leg.SoundSamples, sampleRate);
+        sample.SampleDuration = ClipSoundRule.TimeFor(samples, sampleRate);
+
+        writer.WriteSample(leg.SoundStream, sample);
+
+        leg.SoundSamples += samples;
+    }
+
     /// <summary>
     /// Saves the last few minutes: the rolling file that has been running longer is closed, moved
     /// into the moderator's clips folder, and started again.
@@ -1121,6 +1233,8 @@ internal sealed class ScreenRecording : IDisposable
     {
         leg.Serial++;
         leg.StartedAtFrame = frame;
+        leg.SoundSamples = 0;
+        leg.SoundStream = -1;
         leg.Path = Path.Combine(_temporaryFolder, $"rolling-{leg.Index}-{leg.Serial}{ClipLibrary.ClipExtension}");
 
         using var attributes = MediaFactory.MFCreateAttributes(4);
@@ -1157,9 +1271,74 @@ internal sealed class ScreenRecording : IDisposable
         input.Set(MediaTypeAttributeKeys.DefaultStride, (uint)(width * 4));
 
         writer.SetInputMediaType(leg.Stream, input, null);
+
+        // The sound, beside the picture, in the same file. Windows' own encoder again — nothing is
+        // shipped for this and no other program is started. A clip with no sound to put in it gets
+        // no sound track at all, which plays everywhere as a silent video rather than as a broken
+        // one.
+        if (_soundRate > 0)
+        {
+            try
+            {
+                AddSound(writer, leg, _soundRate);
+            }
+            catch (Exception ex)
+            {
+                // A machine whose encoder will not take the sound gets a clip of the picture
+                // rather than no clip. Said once: the rate goes to zero, so the rolling files made
+                // after this one are silent too rather than trying and failing every few minutes.
+                leg.SoundStream = -1;
+                _soundRate = 0;
+                _log("The clip's sound could not be set up on this machine, so clips are silent.", ex);
+            }
+        }
+
         writer.BeginWriting();
 
         leg.Writer = writer;
+    }
+
+    /// <summary>Adds the sound track to one rolling file, and says where to write it.</summary>
+    /// <remarks>
+    /// <para>What goes in is plain sound as Windows handed it over — two channels, sixteen bits, at
+    /// the rate the programs were opened at. What comes out is AAC, which is what an <c>.mp4</c>
+    /// carries and what every player and every browser can open, at 128 kilobits a second: about a
+    /// megabyte a minute, beside the picture's eleven.</para>
+    /// <para>The sound is added after the picture, so the picture is the first track in the file.
+    /// Both are added before writing starts, because a video file cannot grow a track part way
+    /// through.</para>
+    /// </remarks>
+    private static void AddSound(IMFSinkWriter writer, Leg leg, int sampleRate)
+    {
+        // 16,000 bytes a second — 128 kilobits — which is one of the handful of rates Windows'
+        // own AAC encoder accepts. A rate it does not accept is not a worse clip; it is no clip.
+        const int BytesASecond = 16_000;
+
+        // AAC Profile L2, which is what Windows' encoder produces for two channels at these rates.
+        const uint ProfileLevel = 0x29;
+
+        using var output = MediaFactory.MFCreateMediaType();
+        output.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Audio);
+        output.Set(MediaTypeAttributeKeys.Subtype, AudioFormatGuids.Aac);
+        output.Set(MediaTypeAttributeKeys.AudioBitsPerSample, (uint)(ClipSoundRule.BytesPerChannel * 8));
+        output.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)sampleRate);
+        output.Set(MediaTypeAttributeKeys.AudioNumChannels, (uint)ClipSoundRule.Channels);
+        output.Set(MediaTypeAttributeKeys.AudioAvgBytesPerSecond, (uint)BytesASecond);
+        output.Set(MediaTypeAttributeKeys.AacPayloadType, 0u);
+        output.Set(MediaTypeAttributeKeys.AacAudioProfileLevelIndication, ProfileLevel);
+
+        leg.SoundStream = writer.AddStream(output);
+
+        using var input = MediaFactory.MFCreateMediaType();
+        input.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Audio);
+        input.Set(MediaTypeAttributeKeys.Subtype, AudioFormatGuids.Pcm);
+        input.Set(MediaTypeAttributeKeys.AudioBitsPerSample, (uint)(ClipSoundRule.BytesPerChannel * 8));
+        input.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)sampleRate);
+        input.Set(MediaTypeAttributeKeys.AudioNumChannels, (uint)ClipSoundRule.Channels);
+        input.Set(MediaTypeAttributeKeys.AudioBlockAlignment, (uint)ClipSoundRule.BytesPerSample);
+        input.Set(MediaTypeAttributeKeys.AudioAvgBytesPerSecond, (uint)(sampleRate * ClipSoundRule.BytesPerSample));
+
+        writer.SetInputMediaType(leg.SoundStream, input, null);
     }
 
     /// <summary>Two numbers in the one value Media Foundation stores a size or a rate as.</summary>
@@ -1208,11 +1387,17 @@ internal sealed class ScreenRecording : IDisposable
     /// <param name="Window">Whether it is there, in front, minimised, and how big its picture is.</param>
     /// <param name="Left">Where its picture starts across the whole desktop.</param>
     /// <param name="Top">Where its picture starts down the whole desktop.</param>
+    /// <param name="Owner">
+    /// Which process drew that window, or zero when Windows would not say. It is asked of the one
+    /// window that was already found by name, never of a list, and it is the whole of how the sound
+    /// in a clip can be VRChat's rather than the machine's.
+    /// </param>
     internal readonly record struct GameWindowLook(
         nint Handle,
         GameWindow Window,
         int Left,
-        int Top)
+        int Top,
+        uint Owner = 0)
     {
         public int CentreX => Left + (Window.Width / 2);
 
@@ -1257,6 +1442,11 @@ internal sealed class ScreenRecording : IDisposable
             if (!ClientToScreen(handle, ref corner))
                 return new GameWindowLook(handle, GameWindow.Missing with { Found = true }, 0, 0);
 
+            // Which process drew this one window. One more named ask about the window already
+            // found by name, and never a walk over what else is running: it is what lets the sound
+            // in a clip be VRChat's own rather than everything the speakers are playing.
+            _ = GetWindowThreadProcessId(handle, out var owner);
+
             return new GameWindowLook(
                 handle,
                 new GameWindow(
@@ -1266,7 +1456,8 @@ internal sealed class ScreenRecording : IDisposable
                     Width: client.Right - client.Left,
                     Height: client.Bottom - client.Top),
                 corner.X,
-                corner.Y);
+                corner.Y,
+                owner);
         }
 
         /// <summary>
@@ -1316,5 +1507,8 @@ internal sealed class ScreenRecording : IDisposable
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool ClientToScreen(nint hWnd, ref Point lpPoint);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
     }
 }

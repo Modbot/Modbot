@@ -82,12 +82,16 @@ which is how a group learns you were there even if no moderator interacted with 
   them and when you deleted them. An edit keeps the old text. A delete keeps the message.
 - Your Discord account id, username and nickname, your roles, and when you joined.
 - **Voice presence, not voice.** When you joined, moved between and left a voice channel, and how
-  many minutes that adds up to. **Modbot does not record or transcribe audio.** Nothing in Modbot
-  touches a voice stream, in Discord or in VRChat, and nothing anywhere in Modbot keeps or sends a
-  recording of anybody's voice. The one microphone Modbot can open is on a moderator's own PC, is
-  off unless that person switches it on, and is described under
-  [What does the companion send?](#what-does-the-companion-send) — nothing it hears is recorded,
-  kept or sent.
+  many minutes that adds up to. **Modbot's servers do not record or transcribe audio.** Nothing that
+  Modbot runs touches a Discord voice stream, and **nothing anybody records on their own PC is ever
+  sent to a Modbot server or to us**.
+
+  Two things happen on a moderator's own PC and are described under
+  [What does the companion send?](#what-does-the-companion-send), because both are things that PC
+  does rather than things we receive. A moderator can switch on **Clips**, and a clip carries the
+  sound VRChat is playing — which in an instance is the voices of the people around them. It stays
+  on their PC. And a moderator can switch on **Listening**, which opens their microphone to hear one
+  phrase; nothing it hears is recorded, kept or sent. Both are off unless that person turns them on.
 - If you linked your Discord and VRChat accounts through Modbot, the link between them.
 
 ## Is any of that sent anywhere else?
@@ -259,16 +263,26 @@ flow — and a moderator who wants to see what the backup did has to look outsid
 client's own log file and in `%APPDATA%\Modbot\sent.jsonl`, which records every line it wrote.
 Turning it off is below, and it is the only thing that stops it.
 
-**It does not send a recording of anyone's screen, ever.** Since 19 September 2026 the client *can*
-record: if the person using that PC switches **Clips** on in its settings, it keeps the last two to
-five minutes of **VRChat's own window** while VRChat is running, so they can save those minutes as a
-video file when something happens. That is off unless they switch it on, it records no sound at all,
-it records nothing while VRChat is not running, it records nothing outside VRChat's window — while
-they are working in another program it holds the last picture of VRChat rather than recording what
-they moved to — and **the recording never leaves that PC**: not to us, not to Modbot Cloud, not to
-the Modbot server they paired with. There is no way for the client to upload one. A saved clip is a
-file in their own Videos folder, and if it ever becomes evidence on a case it is because they chose
-that file in a browser, the same as any other attachment.
+**It does not send a recording of anyone's screen or anyone's voice, ever.** Since 19 September 2026
+the client *can* record: if the person using that PC switches **Clips** on in its settings, it keeps
+the last two to five minutes of **VRChat's own window, with VRChat's own sound**, while VRChat is
+running, so they can save those minutes as a video file when something happens. That is off unless
+they switch it on, it records nothing while VRChat is not running, it records nothing outside
+VRChat's window — while they are working in another program it holds the last picture of VRChat
+rather than recording what they moved to — and **the recording never leaves that PC**: not to us,
+not to Modbot Cloud, not to the Modbot server they paired with. There is no way for the client to
+upload one. A saved clip is a file in their own Videos folder, and if it ever becomes evidence on a
+case it is because they chose that file in a browser, the same as any other attachment.
+
+**A clip has sound in it, and in a VRChat instance that sound is other people's voices.** Until 19
+September 2026 a clip was silent, and this policy said so; that is no longer true and this paragraph
+is the replacement. The sound in a clip is **VRChat's own**, and **Discord's** if the person using
+that PC ticked a second box that is off by default. **Nothing else that PC is playing is ever
+recorded** — not music, not a browser, not another chat program, not the operating system's own
+sounds — because Windows is asked for one named program's sound rather than for what the speakers
+are playing, and the route that hands over the speakers does not exist anywhere in the client. **No
+microphone is opened for a clip.** As with everything else on this page about the companion, none of
+it leaves that PC.
 
 **It does not send anything your microphone heard, ever.** Since 19 September 2026 the client *can*
 open a microphone: if the person using that PC switches **Listening** on in its settings, saying

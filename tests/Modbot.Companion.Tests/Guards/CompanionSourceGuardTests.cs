@@ -304,6 +304,14 @@ public class CompanionSourceGuardTests
         Assert.Matches(SoundCapture, "stream.AcceptWaveform(16000, samples);");
         Assert.DoesNotMatch(SoundCapture, "enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)");
         Assert.DoesNotMatch(SoundCapture, "await player.PlayAsync(clip, device, cancellationToken);");
+        Assert.Matches(SoundCapture, "await AudioClient.ActivateProcessLoopbackAsync(id, mode);");
+        Assert.Matches(WholeMachineSound, "using var everything = new WasapiLoopbackCapture();");
+        Assert.Matches(WholeMachineSound, "builder.WithLoopbackCapture().Build();");
+        Assert.DoesNotMatch(WholeMachineSound, "builder.WithProcessLoopback(id, ProcessLoopbackMode.IncludeTargetProcessTree);");
+        Assert.Matches(ListsWhatElseIsRunning, "var snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);");
+        Assert.Matches(ListsWhatElseIsRunning, "foreach (var session in device.AudioSessionManager.Sessions)");
+        Assert.Matches(AsksWhoPublishedAPipe, "if (GetNamedPipeServerProcessId(pipe, out var owner))");
+        Assert.DoesNotMatch(AsksWhoPublishedAPipe, "var client = new NamedPipeClientStream(\".\", pipeName);");
     }
 
     [Fact]
@@ -333,10 +341,17 @@ public class CompanionSourceGuardTests
             EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
 
         // The same plain-language disclosure every reading and sending file carries, and the two
-        // claims that make this one bounded: no sound, and nothing sent.
+        // claims that make this one bounded.
+        //
+        // One of those two used to be "No sound". It was true until 2026-09-19 and it is not true
+        // now: a clip carries VRChat's own sound, and pretending otherwise in the file that writes
+        // the clip would be the worst place in the codebase to leave a stale promise. What stands
+        // in its place is the claim that survived -- two named programs and never the machine --
+        // and the one that never moved: nothing leaves the PC.
         Assert.Contains("<remarks>", source, StringComparison.Ordinal);
         Assert.Matches(Discloses, source);
-        Assert.Contains("No sound", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("No sound.", source, StringComparison.Ordinal);
+        Assert.Contains("Nothing else the machine is playing is ever", source, StringComparison.Ordinal);
         Assert.Contains("What leaves the machine: nothing", source, StringComparison.Ordinal);
     }
 
@@ -523,13 +538,19 @@ public class CompanionSourceGuardTests
             senders);
     }
 
-    /// <summary>Anything that would open a microphone, a line-in or a loopback, by any route.</summary>
+    /// <summary>Anything that would record sound, by any route: a microphone, a line-in, the
+    /// machine's own output, or one named program's output.</summary>
     /// <remarks>
-    /// The list grew on 2026-09-19 with the routes the phrase listener itself uses — the WASAPI
-    /// recorder, the callback it hands sound over on, and the phrase matcher and its neighbours in
-    /// the same library — so that the way in which this ban was narrowed cannot be used a second
-    /// time by a second file. Exactly one file is allowed to match this, and
-    /// <see cref="TheOnlyFileThatCanListenIsPhraseListeningCs"/> names it.
+    /// <para>The list grew on 2026-09-19 with the routes the phrase listener itself uses — the
+    /// WASAPI recorder, the callback it hands sound over on, and the phrase matcher and its
+    /// neighbours in the same library — so that the way in which this ban was narrowed cannot be
+    /// used a second time by a second file.</para>
+    /// <para>It grew again the same day, with the routes the clip recorder's sound uses — the
+    /// per-program activation, its parameter block and the flag that asks for a program's output —
+    /// for exactly the same reason. <strong>Two</strong> files are allowed to match this now, and
+    /// each is named by its own test: <see cref="TheOnlyFileThatCanListenIsPhraseListeningCs"/> and
+    /// <see cref="TheOnlyFileThatCanRecordAProgramsSoundIsClipSoundCs"/>. Nothing else may name a
+    /// sound-recording API at all.</para>
     /// </remarks>
     private static readonly Regex SoundCapture = new(
         @"\b(WaveIn|WaveInEvent|WaveInProvider|WasapiCapture|WasapiLoopbackCapture|AudioCaptureClient|IAudioCaptureClient"
@@ -537,14 +558,66 @@ public class CompanionSourceGuardTests
         + @"|MediaCapture|AudioRecord|SoundRecorder|eCapture"
         + @"|WasapiRecorder|WasapiRecorderBuilder|CaptureDataAvailableHandler|CaptureBufferLease"
         + @"|WithLoopbackCapture|WithProcessLoopback|StartRecording"
+        + @"|ActivateProcessLoopbackAsync|ProcessLoopbackMode|AudioClientActivationParams"
+        + @"|AudioClientProcessLoopbackParams|VirtualAudioDeviceProcessLoopback|ActivateAudioInterfaceAsync"
         + @"|KeywordSpotter|KeywordSpotterConfig|KeywordResult|OnlineRecognizer|VoiceActivityDetector"
         + @"|AcceptWaveform|SoundArrived)\b"
         + @"|DataFlow\s*\.\s*(Capture|All)\b"
+        + @"|AudioClientStreamFlags\s*\.\s*Loopback\b"
         + @"|Extensions\s*\.\s*EXT\s*\.\s*Capture\b",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// Anything that would hand over <em>everything</em> a PC is playing rather than one named
+    /// program's sound.
+    /// </summary>
+    /// <remarks>
+    /// This is the line between recording VRChat and recording somebody's music, and it is banned
+    /// everywhere — in the file allowed to record a program's sound as much as anywhere else. There
+    /// is no carve-out and there is not meant to be one: a clip may carry VRChat's sound and
+    /// Discord's, and a route that hands over the speakers would make "nothing else on your PC" a
+    /// promise instead of a fact.
+    /// </remarks>
+    private static readonly Regex WholeMachineSound = new(
+        @"\b(WasapiLoopbackCapture|WithLoopbackCapture|GetDefaultLoopbackCaptureDevice)\b",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// Anything that would tell the client what else is running on the machine.
+    /// </summary>
+    /// <remarks>
+    /// Banned everywhere, with no exception anywhere, including in the two files that record.
+    /// Recording one program's sound means naming that program, and there are three easy ways to
+    /// name one that all amount to reading a list of somebody's programs: walking what is running,
+    /// walking what has windows, or asking the sound system which programs are playing through it.
+    /// None of them is used. VRChat is named by its own window and Discord by the connection point
+    /// it publishes for other programs to find it by (see
+    /// <see cref="TheOnlyFileThatAsksWhichProgramDiscordIsIsClipSoundCs"/>).
+    /// </remarks>
+    private static readonly Regex ListsWhatElseIsRunning = new(
+        @"\b(CreateToolhelp32Snapshot|Process32First|Process32Next|EnumProcesses|OpenProcess"
+        + @"|QueryFullProcessImageName|NtQuerySystemInformation|GetProcessesByName"
+        + @"|IAudioSessionManager|IAudioSessionManager2|AudioSessionManager|AudioSessionControl"
+        + @"|IAudioSessionControl2|GetSessionEnumerator|GetSessionIdentifier)\b",
+        RegexOptions.Compiled);
+
+    /// <summary>Anything that asks Windows which program published a named connection point.</summary>
+    /// <remarks>
+    /// The connection point itself is not the capability and is not banned: the client already
+    /// opens one of its own, so that a second copy started by a browser link hands the link to the
+    /// copy already running (<c>PairingLinkInbox</c>). What is held to one file is asking Windows
+    /// <em>whose</em> a connection point is, which is how Discord is named without reading a list
+    /// of somebody's programs.
+    /// </remarks>
+    private static readonly Regex AsksWhoPublishedAPipe = new(
+        @"\bGetNamedPipeServerProcessId\b",
         RegexOptions.Compiled);
 
     /// <summary>The one file allowed to open a microphone.</summary>
     private const string ListeningFile = "PhraseListening.cs";
+
+    /// <summary>The one file allowed to record another program's sound.</summary>
+    private const string ClipSoundFile = "ClipSound.cs";
 
     [Fact]
     public void TheOnlyFileThatCanListenIsPhraseListeningCs()
@@ -564,17 +637,18 @@ public class CompanionSourceGuardTests
         // ban stands everywhere else, the list of routes above grew to include the ones the new
         // file uses, and a second file learning any of them fails the build.
         //
-        // What did NOT move: clips are still silent. A clip records no sound at all, and this file
-        // records none either -- it matches four phrases and throws the sound away. The client
-        // still has no way to keep or send a recording of anybody's voice, which is most of what
-        // keeps both of these narrow.
+        // What moved later the same day, and what did not. A clip is no longer silent: it carries
+        // VRChat's own sound, which means voices, and ClipSound.cs is the second file allowed to
+        // match the ban above. That is a second file, not a wider rule -- it records what a named
+        // program *plays* and cannot open a microphone, and this file can open a microphone and
+        // still keeps nothing it hears. Neither of them can record what the machine is playing.
         var listening = EverythingTheClientShips()
             .Where(f => SoundCapture.IsMatch(File.ReadAllText(f)))
             .Select(Path.GetFileName)
             .Order()
             .ToList();
 
-        Assert.Equal([ListeningFile], listening);
+        Assert.Equal([ClipSoundFile, ListeningFile], listening);
 
         var source = File.ReadAllText(
             EverythingTheClientShips().Single(f => Path.GetFileName(f) == ListeningFile));
@@ -603,6 +677,166 @@ public class CompanionSourceGuardTests
         // build time rather than on somebody's PC.
         Assert.Contains("BuildAsync()", source, StringComparison.Ordinal);
         Assert.DoesNotMatch(new Regex(@"\.Build\s*\("), source);
+    }
+
+    [Fact]
+    public void TheOnlyFileThatCanRecordAProgramsSoundIsClipSoundCs()
+    {
+        // A clip was a silent picture until 2026-09-19, and the client said so in its source, on
+        // its documentation site and in its privacy policy. A moderator asked for clips to carry
+        // VRChat's own sound, because a silent picture of somebody being abusive shows nothing,
+        // and the promise was narrowed rather than dropped: one file may record sound a program is
+        // playing, VRChat always and Discord only when somebody ticked that box, with nothing else
+        // the machine is playing reachable from anywhere in the client.
+        //
+        // The shape is the same as every other narrowing here. One named file, so "show me where
+        // this program records sound" has a two-word answer; the ban list above grew to include
+        // the routes this file uses, so a second file cannot reuse the exception; and the route
+        // that would hand over the speakers is banned everywhere, this file included, which is
+        // what makes "never your music" a fact rather than a promise.
+        var recording = EverythingTheClientShips()
+            .Where(f => AsksWhoPublishedAPipe.IsMatch(File.ReadAllText(f))
+                || File.ReadAllText(f).Contains("WithProcessLoopback", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([ClipSoundFile], recording);
+
+        // And it is started in one place: the recorder, which only exists while Clips is on and
+        // VRChat is running. No sound is recorded at any other time, by anything.
+        var starting = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("ClipSound.Start(", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([RecordingFile], starting);
+
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == ClipSoundFile));
+
+        // The same plain-language disclosure every reading and sending file carries.
+        Assert.Contains("<remarks>", source, StringComparison.Ordinal);
+        Assert.Matches(Discloses, source);
+        Assert.Contains("What leaves the machine: nothing", source, StringComparison.Ordinal);
+
+        // One named program at a time, and its own children -- because the part of a program that
+        // plays the sound is rarely the part with the window.
+        Assert.Contains(
+            "WithProcessLoopback(processId, ProcessLoopbackMode.IncludeTargetProcessTree)",
+            source,
+            StringComparison.Ordinal);
+
+        // It records what a program plays. It is not a microphone, does not ask for one, and does
+        // not ask Windows which recording devices exist.
+        Assert.DoesNotContain("WithDefaultDeviceStreamRouting", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MMDeviceEnumerator", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("WithExclusiveMode", source, StringComparison.Ordinal);
+
+        // And it keeps nothing and sends nothing of its own: the sound it hands over goes into the
+        // clip the recorder is already writing, on the same disk, and nowhere else.
+        foreach (var forbidden in new[]
+                 {
+                     "File.", "FileStream", "StreamWriter", "Directory.",
+                     "HttpClient", "ClientWebSocket", "WaveFileWriter",
+                 })
+        {
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void NothingTheClientShipsCanRecordWhatTheWholeMachineIsPlaying()
+    {
+        // This is the whole of the difference between recording VRChat and recording somebody's
+        // music, and it is the thing the moderator who asked for sound in clips asked for by name:
+        // VRChat, optionally Discord, and no other system audio.
+        //
+        // There is no carve-out, not even for the file that records a program's sound. A clip is
+        // built from one named program's output at a time. Handing over the speakers and filtering
+        // afterwards is not the same thing and is not available here.
+        var offenders = EverythingTheClientShips()
+            .Where(f => WholeMachineSound.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "A clip carries VRChat's sound and Discord's, never the machine's; found a route to "
+            + "everything this PC is playing in " + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void NothingTheClientShipsAsksWhatElseIsRunningOnThePc()
+    {
+        // Recording one program's sound means naming that program, and the three obvious ways to
+        // name one all come down to reading a list of somebody's programs: walking what is
+        // running, walking what has windows, or asking the sound system which programs are playing
+        // through it. Taking any of them to get sound into a clip would have cost a promise this
+        // client makes everywhere -- no list of your processes, no list of your windows -- for a
+        // convenience.
+        //
+        // So none of them is used. VRChat is named by its own window, which the recorder already
+        // had, and Discord by the connection point Discord itself publishes for other programs to
+        // find it by. This is the ban that keeps the alternatives out.
+        var offenders = EverythingTheClientShips()
+            .Where(f => ListsWhatElseIsRunning.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            "The client never asks what else is running on the machine; found it in "
+            + string.Join(", ", offenders));
+    }
+
+    [Fact]
+    public void TheOnlyFileThatAsksWhichProgramDiscordIsIsClipSoundCs()
+    {
+        // Discord has no window Windows can be asked for by name -- its title is whichever channel
+        // is open -- so it is named by the connection point it publishes so that games can tell it
+        // what somebody is playing. One named ask for one named thing, the same shape as asking
+        // for VRChat's window by name.
+        //
+        // What that ask may do is as narrow as the ask itself: it opens the connection, asks
+        // Windows which process published it, and closes it. Nothing is written to it and nothing
+        // is read from it, so Discord is never spoken to and no account, presence or anything else
+        // is exchanged.
+        var asking = EverythingTheClientShips()
+            .Where(f => AsksWhoPublishedAPipe.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([ClipSoundFile], asking);
+
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == ClipSoundFile));
+
+        Assert.Contains("GetNamedPipeServerProcessId", source, StringComparison.Ordinal);
+
+        // Nothing is ever written to it or read from it.
+        foreach (var forbidden in new[] { ".Write(", ".WriteAsync(", ".Read(", ".ReadAsync(", "StreamReader" })
+            Assert.DoesNotContain(forbidden, source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ThereIsNoSettingForAnythingButVRChatsSoundAndDiscords()
+    {
+        // The settings file is the other place a "record everything" could appear, and it would
+        // look entirely reasonable sitting beside the folder and the minutes. There are two sound
+        // fields and there is meant to be no third: VRChat's, which has no field at all because it
+        // is what Clips means, and Discord's, which is its own and is off.
+        var settings = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "src", "Modbot.Companion", "Clips", "ClipSettings.cs"));
+
+        Assert.Contains("bool DiscordSound = false", settings, StringComparison.Ordinal);
+
+        foreach (var forbidden in new[] { "SystemSound", "AllSound", "DesktopSound", "MachineSound" })
+            Assert.DoesNotContain(forbidden, settings, StringComparison.Ordinal);
     }
 
     [Fact]

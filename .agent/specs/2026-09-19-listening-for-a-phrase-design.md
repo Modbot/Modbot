@@ -7,6 +7,10 @@ three commands rather than one — save a clip, show the overlay, hide the overl
 **Narrows:** M3 client and overlay design §10 ("sound — never recorded") and the clips design
 (2026-09-19) §5, which said the ban on every microphone, line-in and loopback API was "untouched
 and still total".
+**Overtaken in part:** this design's claim that "a clip records no sound" was true when it was
+written and stopped being true the same day — clips design (2026-09-19) §14. A clip now carries
+VRChat's own sound. Nothing here changed: this file still opens a microphone, still keeps nothing,
+and a clip's sound comes from a different file that cannot open one.
 **Also covers:** the notification sound, rewritten the same day
 (2026-09-18 notification sound design §2.1).
 
@@ -319,7 +323,7 @@ moderator is right to be afraid of, so it is never quiet about it.
 | `src/Modbot.Companion.App/Program.cs` §"What it writes to your disk" | class doc | voices and clips | also names the phrase model under `phrases`, and that no sound from a microphone is written anywhere |
 | `src/Modbot.Companion.App/Program.cs` §"What leaves the machine" | class doc | "never a recorded clip…" | also "never a recording of anything your microphone heard", and the one phrase-model download |
 | `src/Modbot.Companion.App/Program.cs` | class doc | — | New §"It can listen for one phrase, and only when you switch that on" |
-| `src/Modbot.Companion.App/ScreenRecording.cs` | class doc | "the ban on every recording API … stands untouched" | left as it is: a **clip** still records no sound, which is what that sentence is about, and §4.2 keeps it true |
+| `src/Modbot.Companion.App/ScreenRecording.cs` | class doc | "the ban on every recording API … stands untouched" | left as it was here — and **overtaken later the same day**: clips gained VRChat's own sound (clips design §14), so "a clip still records no sound" is no longer true. What survives of it, and is what §4.2 is actually about, is that **no microphone is opened for a clip** and that nothing anywhere in the client can send a recording of a voice |
 | `docs/content/docs/companion/listening.mdx` | docs | — | New page: the whole of it, for a suspicious reader |
 | `docs/content/docs/companion/install.mdx` | docs | listed Clips as the one thing it can do | names Listening as the other, off by default, nothing kept or sent |
 | `docs/content/docs/companion/clips.mdx` | docs | Save a clip from inside VR | gains "Or say it", pointing at the new page |

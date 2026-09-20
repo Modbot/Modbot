@@ -1,15 +1,25 @@
 namespace Modbot.Companion.Clips;
 
 /// <summary>
-/// Whether the client keeps the last few minutes of the screen, how many minutes, where saved clips
-/// go, and how much room they may take.
+/// Whether the client keeps the last few minutes of VRChat's window and its sound, how many
+/// minutes, whether Discord's sound goes in too, where saved clips go, and how much room they may
+/// take.
 /// </summary>
 /// <remarks>
 /// <para><strong>Off is the default and stays the default.</strong> A client that started recording
 /// on first run would be exactly the surprise the old "it never captures the screen" promise existed
 /// to prevent (see the clips design spec, §2). Nothing is captured, and no recorder is built at all,
 /// until somebody turns this on themselves.</para>
-/// <para>Nothing here leaves the machine. These four values decide what the client does on this PC;
+/// <para><strong>VRChat's sound has no switch, and Discord's is off.</strong> A clip has carried
+/// VRChat's own sound since 2026-09-19 — what people said in the instance is most of what a clip is
+/// for, and a silent picture of somebody talking shows nothing. That is why there is one switch
+/// rather than two: turning Clips on is turning VRChat's sound on, and the settings screen says so
+/// on the switch itself.</para>
+/// <para>Discord is a second program and a second set of people, some of whom are not in the
+/// instance at all, so it is its own switch and it is off. Nothing else on the PC is ever recorded:
+/// there is no setting for the machine's own sound, for music or for any other program, and the
+/// recorder has no way to ask for one (clips design spec §14).</para>
+/// <para>Nothing here leaves the machine. These five values decide what the client does on this PC;
 /// no server is told any of them, and no server can change them.</para>
 /// </remarks>
 /// <param name="On">
@@ -28,11 +38,15 @@ namespace Modbot.Companion.Clips;
 /// How much room saved clips may take before the oldest are deleted to make space. No control on the
 /// settings screen; it is in <c>settings.json</c> for somebody with a small disk.
 /// </param>
+/// <param name="DiscordSound">
+/// Whether Discord's own sound goes into a clip beside VRChat's. False unless a person turned it on.
+/// </param>
 public sealed record ClipSettings(
     bool On = false,
     int Minutes = ClipSettings.DefaultMinutes,
     string? Folder = null,
-    int KeepGigabytes = ClipSettings.DefaultKeepGigabytes)
+    int KeepGigabytes = ClipSettings.DefaultKeepGigabytes,
+    bool DiscordSound = false)
 {
     /// <summary>The shortest length on offer. Below this a clip rarely holds what happened.</summary>
     public const int MinMinutes = 2;

@@ -40,6 +40,22 @@ the top-left corner, with the rest black. That is §14, and it moved one more de
 | What changed | Where | Why |
 |---|---|---|
 | **The picture is scaled into the frame, rather than drawn at whatever size it comes out at with the rest painted black.** | §3.1, §5.1, new §14 | The arithmetic that picked a size could only halve, so the picture only ever filled the frame when the window happened to be an exact number of halvings bigger than it. One odd pixel was enough to force a halving too many and drop the picture to a quarter of the frame. Padding was also the wrong answer on its own terms: a window that changes size should change the scale, not the amount of black. |
+## What changed when clips gained sound, the same day
+
+A clip was a silent picture. It is not any more, and this is the largest of the day's changes to
+what a clip *is*: §2, §5 and §9 all said, in so many words, that sound was the one thing this
+feature would never take.
+
+> *"Clipping needs to only get VRChat source audio and optional Discord audio if it's checked in
+> settings by default off. but no other system audio like music or etc"*
+
+| What changed | Where | Why |
+|---|---|---|
+| **A clip carries VRChat's own sound.** | new §14, §2, §5 | A silent picture of somebody being abusive shows nothing. What people said is most of what a clip is evidence *of*, and the feature was half-built without it. |
+| **Discord's sound is a second switch, off.** | §15.5 | Discord is a second program and a second set of people, some of whom were never in the instance. |
+| **Nothing else the machine is playing, ever.** | §15.1, §15.6 | The route that hands over the speakers — music, a browser, every notification sound — is banned everywhere, including in the file that records. It is a fact about which call is made, not a promise about filtering. |
+| **The sound is lined up with the picture by counting samples, never a clock.** | §15.4 | A sample lost per picture is a clip whose voices are a second behind the mouths by the time anybody watches it, and the mistake is invisible until then. |
+| **Three promises were narrowed and one was widened.** | §15.6 | "No sound, at all" is gone from the source, the documentation site, the privacy policy and the security page. In its place: two named programs, no microphone, and nothing still leaving the PC. |
 
 ---
 
@@ -80,7 +96,10 @@ What survives, unchanged:
   interface, in a browser, by choosing a file.
 - **VRChat's screenshot folder, and Pictures, Documents and the Desktop, stay out of bounds.** The
   client still never *reads* an image it did not make.
-- **Sound is still never recorded, at all.** See §5.
+- ~~**Sound is still never recorded, at all.**~~ **This did not survive.** Clips gained sound later
+  the same day, and §14 is the whole of that argument. What survives of it: **no microphone is
+  opened for a clip**, **nothing else the machine is playing is ever recorded**, and everything
+  above about nothing leaving the PC is unchanged.
 - **The keyboard, the clipboard and the process list are all still untouched.**
 
 What changes: **with a switch a person turned on themselves, while VRChat is running, the client
@@ -334,6 +353,10 @@ running, while the switch is on, and while VRChat is the window in front. Anythi
 VRChat while that is true is inside its window and is therefore in the clip; §3.1.1 is the honest
 account of that, and the documentation page says the same thing in a moderator's words.
 
+**And VRChat's own sound** — which in an instance is the voices of the people around the moderator
+— for as long as the picture is being recorded, whether or not VRChat is the window in front.
+**Discord's sound too, if the moderator ticked that box.** §14.
+
 **Not recorded, and each for a reason:**
 
 - **Nothing outside VRChat's window.** Not another monitor, not a window beside the game, not the
@@ -342,18 +365,23 @@ account of that, and the documentation page says the same thing in a moderator's
   the thing that changed on 2026-09-19, and the reason it matters is that VRChat's own default is
   borderless fullscreen, which means "the window" and "the monitor" would otherwise be the same
   rectangle at exactly the wrong moment.
-- **No sound, at all.** What a moderator asked for was to be able to show what happened; a recording
-  of everybody's voice in an instance is a different and much larger thing to take off a PC.
-  `TheOnlyFileThatCanListenIsPhraseListeningCs` passes over every file the client ships, this one
-  included, so nothing in a clip is ever a recording of anybody's voice.
+- **Nothing else the machine is playing.** Not music, not a browser, not another chat program, not
+  Windows' own sounds — and there is no setting that could ask for any of them. §14 is the whole of
+  it.
 
-  This sentence used to read *"the ban on every microphone, line-in and loopback API is untouched
-  and still total"*, and that stopped being true later the same day: the listening design
-  (2026-09-19) narrowed it by one file so a moderator in a headset can say "Modbot, clip that". What
-  survives, and is what this bullet is actually about, is that **a clip records no sound** and that
-  **nothing anywhere in the client can keep or send a recording of a voice** — the one file allowed
-  to open a microphone cannot write a file and cannot reach the network, and a guard fails the build
-  if that changes. The recorder is untouched by any of it.
+  This bullet has been rewritten twice in one day and both rewritings are worth keeping, because
+  the sentence that was here at breakfast is the one a suspicious reader will find quoted
+  somewhere. It first read *"the ban on every microphone, line-in and loopback API is untouched and
+  still total"*; the listening design narrowed that by one file so a moderator in a headset can say
+  "Modbot, clip that". It then read *"a clip records no sound"*, and **that stopped being true too**
+  — a moderator asked for clips to carry VRChat's sound, and a silent picture of somebody being
+  abusive shows nothing.
+
+  What is left of the original, and is what this bullet is now about: **no microphone is opened for
+  a clip**; **only two named programs can be recorded, VRChat always and Discord only when somebody
+  ticked that box**; and **nothing anywhere in the client can send a recording of a voice** — the
+  clip stays on the moderator's own disk, exactly as §6 says, and the one file allowed to open a
+  microphone still cannot write a file or reach the network.
 - **No keyboard**, no clipboard, no list of other programs and no list of their windows. Finding
   VRChat's window is one named ask for one named window — `FindWindowW` with VRChat's class and
   title — and never a walk over what else is open.
@@ -938,3 +966,249 @@ read from. A clip that is still not right can be read about rather than guessed 
 Not repairable. The picture that went into the file is the picture in the file, and nothing about
 it says what it should have been. The documentation page says so plainly rather than leaving
 somebody to try.
+## 15. Sound in a clip
+
+A clip was a silent picture. This is the section that changed that, and it is the largest change to
+what a clip *is* since the feature was built, because it changes what a moderator is holding on
+their disk rather than how well they are holding it.
+
+> *"Clipping needs to only get VRChat source audio and optional Discord audio if it's checked in
+> settings by default off. but no other system audio like music or etc"*
+
+Three things in one sentence: VRChat's sound always, Discord's sound behind a switch that is off,
+and nothing else on the machine. The third is the hard one, and it is what the rest of this section
+is mostly about.
+
+### 15.1 What was rejected first, and why it decides everything else
+
+**Rejected: recording what the speakers are playing.** This is the obvious route, it is four lines,
+and every recording program on Windows uses it: ask Windows for the default output device and read
+back what the audio engine mixed. `NAudio.Wasapi` offers it as `WasapiLoopbackCapture`, or as
+`WithLoopbackCapture()` on the same builder the phrase listener already uses.
+
+It is the wrong thing, and it is wrong in precisely the way the request named. What the engine mixes
+is **everything**: VRChat, Discord, a browser playing a video in another tab, a music player, every
+notification sound Windows makes, and whatever else somebody has open. Recording that and calling it
+"VRChat's sound" would carry a moderator's music library into a moderation case.
+
+**And filtering afterwards is not a fix.** Once the sounds are mixed they cannot be separated; there
+is nothing left to filter. The only honest version of "everything but the music" is "everything",
+said less plainly.
+
+So the whole design rests on the opposite of the easy route: **Windows is asked for one named
+program's sound, and never for the speakers'**. `WasapiLoopbackCapture`, `WithLoopbackCapture` and
+`GetDefaultLoopbackCaptureDevice` are banned **everywhere the client ships, including in the file
+that records sound**, by `NothingTheClientShipsCanRecordWhatTheWholeMachineIsPlaying`. There is no
+carve-out, because a carve-out is exactly what would make "never your music" a promise rather than a
+fact.
+
+### 15.2 Chosen: one program's own sound, from the library the client already has
+
+Windows 10 version 2004 added **process loopback**: the audio engine will mix one process's playback
+separately and hand that over, given a process id. It is activated through a different call from an
+ordinary capture device — `ActivateAudioInterfaceAsync` against a virtual device, with a parameter
+block naming the process — and it takes a choice of whether to include the process's children.
+
+**`NAudio.Wasapi` 3.1.0 exposes it, and no interop had to be written.** The version already pinned
+in `Directory.Packages.props` for the voice and the phrase listener carries
+`WasapiRecorderBuilder.WithProcessLoopback(processId, ProcessLoopbackMode)` and
+`AudioClient.ActivateProcessLoopbackAsync`, which build the parameter block and drive the
+asynchronous activation themselves. This was checked in the installed package before a line was
+written, because the alternative — hand-written COM against an activation callback — is the kind of
+code nothing in CI can run, and shipping the whole machine's sound with a filter over it would have
+been worse than shipping no sound at all.
+
+What it costs: the activation is asynchronous, so the recorder is built through `BuildAsync` rather
+than `Build`; and the virtual device has no mix format to ask for, so a format has to be named
+rather than taken. 48,000 samples a second, sixteen bits, two channels, falling back to 44,100 if
+Windows refuses — the two rates Windows' own encoder will write into an `.mp4`.
+
+**The process tree is included, not excluded.** A modern program is several processes and the one
+playing the sound is rarely the one with the window: Discord plays through a helper it started, and
+asking only about the program a moderator can see would record silence.
+
+### 15.3 Finding the two programs without a list
+
+This is the part that had to be got right rather than made to work. There are three easy ways to
+turn "Discord" into a process id, and **all three are a list of somebody else's programs**: walk
+what is running, walk what has windows, or ask the sound system which programs are playing through
+it. "No list of the programs you are running or of their windows" is a promise this client makes on
+its own front page, in its own source, and in a guard that fails the build. Spending it on a
+convenience would have been a bad trade.
+
+**VRChat: from the window the recorder already had.** `ScreenRecording.cs` finds VRChat's window by
+name — `FindWindowW` with VRChat's class and title — and has done since a clip became a window
+rather than a monitor. `GetWindowThreadProcessId` on that one handle gives the process that drew it.
+One more named ask about one named window, in the file that was already allowed to ask about it, so
+`TheOnlyFileThatAsksWindowsAboutVRChatsWindowIsScreenRecordingCs` did not have to move — and
+`GetWindowThreadProcessId` was already in its ban list, which is the sort of thing that only looks
+like luck.
+
+**Discord: from the connection point Discord publishes.** Discord has no window that can be found by
+name — its title is whichever channel is open, and its window class is Chromium's, shared with every
+Electron program and every browser on the machine. So it is found the way a game finds it: Discord
+publishes a named connection point, `discord-ipc-0` and up, so that games can tell it what somebody
+is playing. Windows will say which process published a named connection point —
+`GetNamedPipeServerProcessId` — and that is the whole of the ask.
+
+- It is **one named ask for one named thing**, the same shape as asking for VRChat's window by name.
+- **Nothing is written to it and nothing is read from it.** Discord is never spoken to: no
+  handshake, no Rich Presence, no account, nothing. The connection is opened, the question is asked
+  of Windows, and it is closed. `TheOnlyFileThatAsksWhichProgramDiscordIsIsClipSoundCs` checks that
+  the file contains no read or write at all.
+- **Discord not running is the ordinary answer**, not a failure. It costs the clip Discord's sound.
+- Four connection points are tried rather than one, because a second Discord — the public test build
+  beside the ordinary one — takes the first; and rather than ten, because each one that is not there
+  costs a short wait and this happens while a moderator is waiting for recording to start.
+- Discord started **after** recording is looked for again every thirty seconds, so a moderator who
+  opens Discord mid-session is not quietly given a silent half.
+
+**Honestly, about that route.** It depends on something Discord does rather than something Discord
+promises, and Discord could stop publishing it. What happens then is that Discord's sound stops
+appearing in clips and nothing else changes: no error, no failed recording, no crash. That is an
+acceptable failure for the optional half of an optional feature, and it was the price of not reading
+a list of somebody's programs. The alternatives are written down here so whoever revisits this knows
+they were considered and rejected rather than missed.
+
+`NothingTheClientShipsAsksWhatElseIsRunningOnThePc` bans all three of them — the process snapshot
+calls, `OpenProcess`, and the audio session enumeration — **everywhere, with no exception, including
+in the file that records sound**.
+
+### 15.4 Lining the sound up with the picture
+
+This is the part that is easy to get subtly wrong and impossible to notice until somebody watches a
+clip and finds the voices a second behind the mouths.
+
+**The clip is written one picture at a time**, fifteen a second, and every picture carries the sound
+that belongs beside it. How much sound that is has to come out exactly right every time.
+
+- **The count is a difference between two running totals**, never a rounded share of a second:
+  samples up to picture *n+1*, less samples up to picture *n*. At 48,000 samples and 15 pictures a
+  second that is 3,200 every time; at rates that do not divide evenly it is one more on some
+  pictures than on others, and the total after any number of them is still exact. A share rounded
+  the same way every time is a clip whose sound slides.
+- **Where each stretch belongs in the file is worked out from how much sound went in before it**,
+  never from a clock. The picture is placed by how many frames there have been, the sound by how
+  much of it there is, so the two describe the same moment for as long as the file runs. The picture
+  is the one that drifts, very slightly: one frame at fifteen a second is 666,666⅔ of the
+  hundred-nanosecond units a frame is measured in, and it can only be told a whole number of them,
+  which loses three tenths of a millisecond over the longest clip anybody can ask for. Nothing
+  audible — and it is the picture's arithmetic, not the sound's.
+- **The counting lives in `ClipSoundRule`**, with no Windows in it at all, so `ClipSoundRuleTests`
+  checks it on a machine with no sound hardware. The same reason `ClipWindowRule` exists.
+
+**Sound arrives on Windows' schedule and pictures are written on the recorder's**, so a little has
+to be waiting. `HeldSound` holds **half a second** for each program, in a buffer that never grows:
+
+| What happens | What it does |
+|---|---|
+| A program is closed, muted, or was never being recorded | Nothing ever arrives and every picture gets **silence**. Never a shorter stretch — a stretch shorter than the picture it belongs to is exactly how sound slides. |
+| A program has less than a picture needs | What there is, and silence for the rest. |
+| The machine falls behind and more than half a second piles up | The **oldest** goes, because the oldest is the part no picture still to be written is level with. |
+| The first picture lands | Everything held is thrown away, so the clip starts level. Sound has been gathering since VRChat's window was found, which can be seconds earlier. |
+
+`HeldSound` sits in the engine rather than beside the capture, so `HeldSoundTests` checks every row
+of that table with no sound hardware — including the first, which is where "the clip still records
+if a program is not running" is actually decided.
+
+**Two programs are mixed by adding them**, with the sum held at the ends rather than allowed to roll
+over: a number that rolls over sounds like a gunshot in the middle of a clip.
+
+### 15.5 In the file, and on the screen
+
+**The sound track.** Media Foundation's sink writer already had one stream; it now has two, the
+picture first and the sound second, both added before writing starts because a video file cannot
+grow a track part way through. In goes plain sound as Windows handed it over; out comes AAC at 128
+kilobits a second, which is what an `.mp4` carries and what every player and every browser opens.
+About a megabyte a minute, beside the picture's eleven. Windows' own encoder again — nothing is
+shipped for it and no other program is started, so §3.2 is untouched.
+
+**A clip that could not get sound is a silent clip, never a failed one.** If no program's sound
+could be opened, no sound track is added at all and what comes out is a silent video that plays
+everywhere. If the encoder refuses the sound on some machine, the same, said once in the log. Nothing
+about sound can stop a recording, and nothing about it can stop the client reading VRChat's log and
+reporting presence.
+
+**The settings.** One new field in the existing `clips` object, written by the writer that was
+already there:
+
+```json
+"clips": {
+  "on": true,
+  "minutes": 3,
+  "keepGigabytes": 5,
+  "discordSound": false
+}
+```
+
+| Field | Means | Default |
+|---|---|---|
+| — | **VRChat's sound has no field.** Clips being on *is* VRChat's sound being on. | — |
+| `clips.discordSound` | Discord's sound goes into the clip as well | `false` |
+
+`discordSound` is always written, `false` included, so somebody who opens the file to find out
+whether Modbot is recording Discord reads the answer rather than having to know what a missing field
+means. There is **no field for the machine's own sound** and there is not going to be one;
+`ThereIsNoSettingForAnythingButVRChatsSoundAndDiscords` fails the build if one appears.
+
+**Why VRChat's sound has no switch of its own.** Two switches would invite the state "on, but
+silent", which is a clip that shows somebody being abusive and proves nothing. One switch also means
+one sentence has to carry the disclosure, which is the next paragraph.
+
+**The switch says what it does.** The Clips card's box reads **"Keep the last few minutes, with
+VRChat's sound"**, and Discord's is a second box reading **"Discord's sound too"**. That first line
+is the whole of where a moderator decides about this, so it has to be true on its face: a clip is
+now a recording of a conversation as well as a picture of a screen, and finding that out afterwards
+is the wrong way round. No paragraph is added to the screen to explain it — the label names the
+control, and the documentation page carries the reasoning, as everywhere else.
+
+### 15.6 The promises this narrows, and what is left of them
+
+A clip carrying voices is a different thing to keep on somebody's disk from a silent picture, and
+saying so is the price of the feature.
+
+| Where | What it said | What it says now |
+|---|---|---|
+| `src/Modbot.Companion.App/ScreenRecording.cs` class doc | *"No sound. The ban on every recording API … stands untouched"* | VRChat's sound, Discord's behind a switch, nothing else the machine is playing, and no microphone |
+| `src/Modbot.Companion.App/ClipSound.cs` | — | New: the one file that can record another program's sound, carrying the whole disclosure |
+| `src/Modbot.Companion.App/Program.cs` §"It can record VRChat's window" | *"No sound at all"* | Renamed, and a new bullet — **and its sound, which means voices** — said plainly rather than left to be discovered |
+| `src/Modbot.Companion.App/Program.cs` "What it writes to your disk", "What leaves the machine" | "two rolling recordings" | "VRChat's window and VRChat's sound"; and never a clip, "neither its picture nor its sound" |
+| `src/Modbot.Companion.App/MainWindow.cs` class doc and the "What it does not read" card | *"never the sound"* | It records VRChat's sound, which is the voices of the people you are with; Discord's only if you ticked it; nothing else this PC plays; no microphone for a clip |
+| `src/Modbot.Companion.App/MainWindow.Clips.cs` | "Keep the last few minutes" | "Keep the last few minutes, with VRChat's sound", and a second box for Discord's |
+| `tests/…/Guards/CompanionSourceGuardTests.cs` `TheOnlyFileThatCanListenIsPhraseListeningCs` | one file may match the sound ban | **Two**: `PhraseListening.cs` and `ClipSound.cs`, each with its own test and its own rules, and the ban list grew with the routes the second uses |
+| the same file, `TheOnlyFileThatCanRecordIsScreenRecordingCs` | asserted the recorder says "No sound" | Asserts it does **not**, and asserts the claim that replaced it |
+| the same file | — | New: `TheOnlyFileThatCanRecordAProgramsSoundIsClipSoundCs`, `NothingTheClientShipsCanRecordWhatTheWholeMachineIsPlaying`, `NothingTheClientShipsAsksWhatElseIsRunningOnThePc`, `TheOnlyFileThatAsksWhichProgramDiscordIsIsClipSoundCs`, `ThereIsNoSettingForAnythingButVRChatsSoundAndDiscords` |
+| `docs/content/docs/companion/clips.mdx` | *"No sound, at all… That has not changed and is not going to."* | A section of its own: what is recorded, what is not, why it cannot be the machine's sound, and that a clip holds what people said |
+| `docs/content/docs/companion/install.mdx` | "it records no sound" | "it records VRChat's sound, which is people's voices" |
+| `docs/content/docs/companion/settings.mdx` | the `clips` rows | `clips.discordSound` added, and the switch's new wording |
+| `docs/content/docs/privacy.mdx` | *"it records no sound at all"* | What it does record, and that nothing else the PC plays ever can be |
+| `docs/content/docs/security.mdx` | the companion section | The same, framed as what a stolen device token cannot reach: it still cannot switch this on, hear anything, or fetch a clip |
+| `PRIVACY_POLICY.md` companion section | *"it records no sound at all"* | Says what is in a clip, other people's voices included, and that it never leaves that PC |
+| `.agent/specs/2026-09-19-listening-for-a-phrase-design.md` §4.5 | said a clip still records no sound | Marked as overtaken, with what still stands |
+| `src/Modbot.Landing/` | never made a sound claim | **Left alone**, checked rather than missed |
+
+**What did not move**, and is most of why this stays narrow:
+
+- **Nothing leaves the PC.** §6 is untouched. No clip, no frame, no sound and no fact that a clip
+  exists is sent to a paired server, to Modbot Cloud or anywhere else, and the client still has no
+  upload path to gain one from.
+- **No microphone is opened for a clip.** This records what programs *play*. The one file that may
+  open a microphone is still `PhraseListening.cs`, still off by default, and still cannot write a
+  file or reach the network.
+- **No list of what is running, and no list of windows.** §15.3.
+- **Off by default.** §8 is untouched, and Discord's sound is off inside it.
+- **No process is ever started.** §3.2 is untouched; the encoder is still Windows' own.
+
+### 15.7 What is not built
+
+- **Any measurement.** The estimate is that one or two more encodes at 128 kilobits, and a copy of a
+  tenth of a second of sound fifteen times a second, are lost in the noise beside the picture. That
+  is an estimate, like every number in §4.
+- **Anything but two programs.** Not a chooser, not a list, not "and this one as well". A third
+  would be a third named program in one file, and it would need a reason.
+- **Sound on Linux.** Follows recording, which is Windows only (§3.6). Per-program capture is
+  reachable through PipeWire, so this is not what blocks Linux either — the encoder still is.
+- **Anything about what a clip sounds like.** Nobody has heard one. Whether VRChat is loud enough
+  against Discord, whether half a second of holding is right on a machine under load, and whether
+  the mix needs anything but addition are all unknown until somebody plays one back. That is the
+  first thing to do with a headset and a build, beside the frame rate §4 has never measured.
