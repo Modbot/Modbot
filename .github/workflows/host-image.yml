@@ -2,17 +2,36 @@
 # container, from the Dockerfile at the root -- and pushes it to GitHub's container registry as
 # ghcr.io/<owner>/modbot.
 #
-# Two kinds of build, told apart by what was pushed:
+# Three kinds of build, told apart by what was pushed:
 #
 #   a commit on master        ghcr.io/<owner>/modbot:edge
 #                             ghcr.io/<owner>/modbot:sha-<short commit>
 #   a tag host-vYYYY.M.PATCH  ghcr.io/<owner>/modbot:vYYYY.M.PATCH
 #                             ghcr.io/<owner>/modbot:latest
+#   a tag host-vYYYY.M.PATCH-preview.N
+#                             ghcr.io/<owner>/modbot:vYYYY.M.PATCH-preview.N
+#                             ghcr.io/<owner>/modbot:latest-preview
 #
 # `latest` is a named release and nothing else, so an operator who pulls it gets a version somebody
-# chose to name. `edge` follows master. The version after `host-v` is stamped into the build
-# (ModbotVersion.Release, the assembly version, the Deployment card), the same way companion-v tags
-# name the companion, so the tag is the one place a server release is named.
+# chose to name -- and a preview never lands there, because somebody pulling `latest` is asking for
+# the version that was deliberately called ready. Previews have their own moving tag,
+# `latest-preview`, the same separation the client keeps between its release and preview channels.
+# `edge` follows master. The version after `host-v` is stamped into the build (ModbotVersion.Release,
+# the assembly version, the Deployment card), the same way companion-v tags name the client, so the
+# tag is the one place a server release is named. The version shape here is the one
+# companion-release.yml already accepts, so both workflows agree on what a preview is called.
+#
+# Every tag serves both linux/amd64 and linux/arm64, so a pull on an Apple Silicon machine or an
+# arm64 server gets a working image from the same tag. The two are built on their own native
+# runners rather than one runner emulating the other: this image runs a full .NET SDK build, and
+# compiling .NET under QEMU turns minutes into most of an hour. GitHub's arm64 runners are free to
+# public repositories, so the native pair is also the cheaper one.
+#
+# That shape is why there are three jobs. `version` reads and checks the tag once. `build` runs
+# twice, once per architecture, and each copy pushes an image with no tag at all -- only its
+# digest -- because two jobs pushing the same tag would leave whichever finished last, and the
+# other architecture would be gone. `join` then points every tag at a manifest that lists both
+# digests, which is what makes one tag serve two architectures.
 #
 # The package takes the repository's visibility. While the repository is private, pulling needs
 # `docker login ghcr.io` with a token that can read packages; docs/content/docs/self-hosting/docker.mdx
@@ -47,22 +66,58 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/modbot
 
 jobs:
-  image:
+  # Read and check the tag once, before anything is built, and hand the answer to the two jobs
+  # below. Both of them need it -- the build stamps the version into the image, the join puts it in
+  # a tag -- and a copy of this in each would be a second place for the rules to drift.
+  version:
+    name: Read the version
     runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.read.outputs.release }}
+      preview: ${{ steps.read.outputs.preview }}
     steps:
-      - uses: actions/checkout@v4
-
       - name: Read the version from the tag
+        id: read
         if: github.ref_type == 'tag'
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#host-v}"
-          if ! [[ "$version" =~ ^[0-9]{4}\.(1[0-2]|[1-9])\.[0-9]+$ ]]; then
-            echo "::error::The tag must look like host-v2026.9.1 (year.month.patch, no leading zeros); got '$GITHUB_REF_NAME'."
+          if ! [[ "$version" =~ ^[0-9]{4}\.(1[0-2]|[1-9])\.[0-9]+(-preview\.[0-9]+)?$ ]]; then
+            echo "::error::The tag must look like host-v2026.9.1 (year.month.patch, no leading zeros), or host-v2026.9.1-preview.1 for a preview; got '$GITHUB_REF_NAME'."
             exit 1
           fi
-          echo "VERSION=$version" >> "$GITHUB_ENV"
-          echo "Releasing server $version"
+
+          if [[ "$version" == *-preview.* ]]; then preview=true; else preview=false; fi
+
+          {
+            echo "release=$version"
+            echo "preview=$preview"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$preview" = true ]; then
+            echo "Releasing server $version as a preview"
+          else
+            echo "Releasing server $version"
+          fi
+
+  # One runner per architecture, each building only its own. Nothing here is tagged: each copy
+  # pushes its image by digest alone, and the join below collects the two digests under the tags.
+  build:
+    name: Build ${{ matrix.arch }}
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          # GitHub's own arm64 runner. There is no `ubuntu-latest-arm`, so the version is named.
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: docker/setup-buildx-action@v3
 
@@ -72,7 +127,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The tags above, and the OCI labels every registry shows: source, revision, created.
+      # Only the labels are wanted here -- the OCI ones every registry shows: source, revision,
+      # created, version. The tags are worked out again in the join job, which is where they are
+      # actually applied.
       - id: meta
         uses: docker/metadata-action@v5
         with:
@@ -80,21 +137,93 @@ jobs:
           tags: |
             type=raw,value=edge,enable=${{ github.ref_type == 'branch' }}
             type=sha,prefix=sha-,enable=${{ github.ref_type == 'branch' }}
-            type=raw,value=v${{ env.VERSION }},enable=${{ github.ref_type == 'tag' }}
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=v${{ needs.version.outputs.release }},enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && needs.version.outputs.preview != 'true' }}
+            type=raw,value=latest-preview,enable=${{ github.ref_type == 'tag' && needs.version.outputs.preview == 'true' }}
 
       # The commit and branch go in under the names the Dockerfile already declares for Railway;
       # they work the same here. MODBOT_RELEASE is only set on a tag, so an edge build carries the
       # development version and says so on the Deployment card.
-      - uses: docker/build-push-action@v6
+      #
+      # The layer cache is kept apart by architecture. One shared cache would have each build throw
+      # away the other's layers on every run, which is slower than no cache at all.
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           build-args: |
             RAILWAY_GIT_COMMIT_SHA=${{ github.sha }}
             RAILWAY_GIT_BRANCH=${{ github.ref_type == 'branch' && github.ref_name || 'master' }}
-            MODBOT_RELEASE=${{ env.VERSION }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            MODBOT_RELEASE=${{ needs.version.outputs.release }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+      # The digest is all the join job needs, and an empty file named after it carries it across.
+      - name: Keep the digest
+        shell: bash
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # Point every tag at a manifest that lists both digests. This is the step that makes one tag
+  # serve two architectures instead of one overwriting the other.
+  join:
+    name: Join both architectures under one tag
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The same tags as the build job works out, and the only place they are applied.
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=edge,enable=${{ github.ref_type == 'branch' }}
+            type=sha,prefix=sha-,enable=${{ github.ref_type == 'branch' }}
+            type=raw,value=v${{ needs.version.outputs.release }},enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && needs.version.outputs.preview != 'true' }}
+            type=raw,value=latest-preview,enable=${{ github.ref_type == 'tag' && needs.version.outputs.preview == 'true' }}
+
+      # One file per digest came out of the builds, named after the digest; every tag is pointed at
+      # a manifest listing all of them.
+      - name: Create the tags
+        working-directory: /tmp/digests
+        shell: bash
+        run: |
+          named=()
+          while IFS= read -r tag; do named+=(--tag "$tag"); done \
+            < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+
+          built=()
+          for digest in *; do built+=("${IMAGE}@sha256:${digest}"); done
+
+          docker buildx imagetools create "${named[@]}" "${built[@]}"
+
+      - name: Check the tag serves both
+        shell: bash
+        run: docker buildx imagetools inspect "${IMAGE}:${{ steps.meta.outputs.version }}"
