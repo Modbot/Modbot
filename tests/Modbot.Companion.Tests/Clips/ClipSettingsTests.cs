@@ -110,6 +110,51 @@ public class ClipSettingsTests
     }
 
     [Fact]
+    public void DiscordsSoundIsOffUntilSomebodyTurnsItOn()
+    {
+        // VRChat's sound is what Clips means and has no field. Discord's is a second program and a
+        // second set of people, so it is its own switch — and a client updated into a version that
+        // can record Discord must not start recording Discord.
+        Assert.False(ClipSettings.Default.DiscordSound);
+        Assert.False(new ClipSettings().DiscordSound);
+        Assert.False(new ClipSettings(On: true).DiscordSound);
+    }
+
+    [Fact]
+    public void AFileWithNoDiscordSoundFieldLeavesItOff()
+    {
+        var path = TempFile("""{ "clips": { "on": true, "minutes": 4 } }""");
+
+        var clips = CompanionSettings.Load(path, _ => null).Clips;
+
+        Assert.True(clips.On);
+        Assert.False(clips.DiscordSound);
+    }
+
+    [Fact]
+    public void DiscordsSoundSurvivesARoundTripThroughTheFile()
+    {
+        var path = TempFile("{}");
+
+        Assert.True(CompanionSettings.SaveClips(path, new ClipSettings(true, 3, null, 5, DiscordSound: true)));
+
+        Assert.True(CompanionSettings.Load(path, _ => null).Clips.DiscordSound);
+    }
+
+    [Fact]
+    public void ADiscordSoundThatIsOffIsStillWrittenIntoTheFile()
+    {
+        // Unlike the folder, which says "the usual place" by saying nothing. Somebody who opens
+        // this file to find out whether Modbot is recording Discord should read the answer rather
+        // than have to know what a missing field means.
+        var path = TempFile("{}");
+
+        Assert.True(CompanionSettings.SaveClips(path, new ClipSettings(true, 3)));
+
+        Assert.Contains("\"discordSound\": false", File.ReadAllText(path), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ClampingBringsEveryNumberInside()
     {
         var clamped = new ClipSettings(true, 99, "   ", 9999).Clamped();

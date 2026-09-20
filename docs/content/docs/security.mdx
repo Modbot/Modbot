@@ -209,11 +209,13 @@ The companion pairs with your server through the pairing page. See
   any other part of Modbot.
 - A pairing code can only be made by a signed-in person, never by a device, so one compromised client
   cannot create more.
-- The companion can record VRChat's window on that person's PC if they switch
+- The companion can record VRChat's window **and VRChat's sound** on that person's PC if they switch
   [Clips](/companion/clips) on, and **a device token reaches none of it**. Nothing recorded is ever
   uploaded — the client has no upload path, and the evidence endpoints need a signed-in person
   holding the **Upload evidence** permission, which no device token has. A stolen device token
-  cannot start a recording, cannot read one, and cannot attach one to a case.
+  cannot start a recording, cannot read one, cannot hear anything, and cannot attach one to a case.
+  The sound in a clip is VRChat's own, with Discord's on a switch of its own that is off; nothing
+  else the PC plays can be recorded by anybody, including whoever holds the token.
 - The companion can open that person's microphone if they switch
   [Listening](/companion/listening) on, and **a device token reaches none of that either**. Nothing
   the microphone hears is recorded, kept or sent anywhere by anybody: the sound is checked against

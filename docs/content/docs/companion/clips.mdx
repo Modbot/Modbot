@@ -1,30 +1,38 @@
 ---
 title: Clips
-description: Keep the last few minutes of VRChat while it is running, and save them as a video file — from the settings page or from inside your headset. Off unless you switch it on.
+description: Keep the last few minutes of VRChat and its sound while it is running, and save them as a video file — from the settings page or from inside your headset. Off unless you switch it on.
 ---
 
 Something happens in an instance and it is over before you could have started recording. **Clips**
-is the answer to that: while it is on, the companion keeps the last few minutes of VRChat, and
-**Save a clip** writes those minutes out as a video file on your PC.
+is the answer to that: while it is on, the companion keeps the last few minutes of VRChat, picture
+and sound, and **Save a clip** writes those minutes out as a video file on your PC.
 
 <Callout type="warn" title="This reverses something the companion used to promise">
 Until 19 September 2026 the companion said, in its own source and on this site, that it **never**
-captured the screen, by any route, for any reason. That is no longer true, and this page is the
-honest replacement rather than a patch over it. What has **not** changed is the other half of that
-promise: nothing the companion records ever leaves your PC. There is no upload path in the client
-and it did not gain one.
+captured the screen, by any route, for any reason — and then, for part of that day, that a clip had
+**no sound in it at all**. Neither is true now, and this page is the honest replacement rather than
+a patch over it.
 
-It records **VRChat's window**, not your screen. The section below says exactly what that does and
-does not keep out.
+**A clip carries VRChat's sound, which in an instance is what the people around you said.** That is
+the point of it — a silent picture of somebody being abusive shows nothing — and it means a clip is
+a recording of a conversation sitting on your disk until you delete it. Worth knowing before you
+turn it on rather than after.
+
+What has **not** changed is the other half of that promise: nothing the companion records ever
+leaves your PC. There is no upload path in the client and it did not gain one.
+
+It records **VRChat's window** and **VRChat's sound**, not your screen and not your speakers. The
+sections below say exactly what that does and does not keep out.
 </Callout>
 
 ## It is off until you switch it on
 
 A fresh install has it off. An existing companion updated into a version that can record has it off.
-While it is off there is no recorder at all — no recording, no video encoder, no extra thread, and
-nothing written anywhere.
+While it is off there is no recorder at all — no recording, no sound, no video encoder, no extra
+thread, and nothing written anywhere.
 
-**Settings** → **Clips** → **Keep the last few minutes** is the whole of the consent.
+**Settings** → **Clips** → **Keep the last few minutes, with VRChat's sound** is the whole of the
+consent. **Discord's sound too** is a second box beside it, and it is off as well.
 
 ## What is recorded
 
@@ -56,18 +64,51 @@ screen, so without this rule a clip would be your whole monitor every time you t
 is exactly when your private messages are on it.
 
 The cost of that rule is worth knowing too: if you spend the whole recording in another program,
-the clip is a still picture. A dull clip, not somebody else's messages.
+the clip is a still picture with the sound still running. A dull clip, not somebody else's messages.
+
+## The sound
+
+**A clip carries VRChat's own sound.** In an instance, that is the voices of the people around you.
+It keeps running while you are alt-tabbed, so a clip of a frozen picture can still be a usable
+recording of what was said.
+
+**Discord's sound can go in as well, and that is a separate box, off until you tick it.** Settings →
+Clips → **Discord's sound too**.
+
+**Nothing else this PC is playing is ever in a clip.** Not music, not a video in a browser, not
+another chat program, not Windows' own notification sounds — and there is no setting that would turn
+any of that on.
+
+That is not a filter and not a promise about behaviour. Windows can hand a program the sound *one
+named program* is playing, separately from everything else, and that is what the companion asks for:
+VRChat, and Discord if you ticked it. The call that hands over everything coming out of your
+speakers — the one every ordinary recording program uses — is banned everywhere in the client,
+including inside the file that records sound, and the build fails if it appears. Once sounds are
+mixed together they cannot be taken apart again, so "everything except your music" is not a thing
+anybody can honestly offer; asking for one program at a time is.
+
+**No microphone is opened for a clip.** The companion can open your microphone for exactly one other
+thing — [listening for a phrase](/companion/listening) — and that is a separate switch, off until you
+turn it on, that records nothing.
+
+<Callout title="Think about the people in the instance">
+The point of the sound is that a clip shows what happened rather than what it looked like. The same
+sound is other people's voices, kept on your PC. Your group's rules about evidence apply to a clip
+exactly as they apply to a screenshot or a log, and this page is not advice about them — it is so
+that you know what is in the file.
+</Callout>
 
 ## What is not recorded
 
 - **Nothing outside VRChat's window.** Not a second monitor, not a window beside the game, not the
   taskbar, and not whatever you have alt-tabbed to.
-- **No sound, at all.** Not your microphone, not your speakers, not VRChat's voice chat. The
-  companion has no ability to record sound and the build fails if any code that could appears in it.
-  That has not changed and is not going to.
+- **No sound but VRChat's, and Discord's if you ticked it.** Not your microphone, not your speakers,
+  not your music, not your browser. See [the sound](#the-sound).
 - **Not the keyboard, not the clipboard, not a list of the programs you are running or of their
   windows.** It asks Windows for one named window — VRChat's — and never for a list of what else is
-  open.
+  open. To record Discord's sound it has to know which program Discord is, and it asks that of the
+  connection point Discord itself publishes for games to find it by, rather than by reading a list
+  of what you have running. Nothing is sent to Discord and nothing is read from it.
 - **Nothing read out of a folder.** Not your Pictures, not your Documents, not your Desktop, not
   VRChat's own screenshot folder. The companion still never opens an image it did not make.
 - **Nothing at all while VRChat is not running.** See below.
@@ -115,6 +156,12 @@ recording, where VRChat's window is, how many pictures it has copied. It is at
 A save that fails for any other reason — a folder that cannot be written to, a recording that
 stopped — says so too, on the card and on the overlay, rather than leaving you with a file you
 find out about later.
+
+**Sound is the one thing that can be missing without stopping anything.** If VRChat is not playing
+anything, if Discord is not running, if your Windows is older than version 2004, or if Windows
+refuses to hand a program's sound over at all, the clip is recorded exactly as it would have been
+and that part of it is silent. Nothing fails, nothing is said on the card, and the companion's own
+log file at `%APPDATA%\Modbot\logs` says which programs' sound went in.
 
 ## Saving a clip from inside VR
 
@@ -205,7 +252,8 @@ matches when you remember it happening. Underscores between them, and `.mp4` at 
 Video is large, so three things bound it:
 
 1. **The rolling recordings are not clips.** There are only ever two, each replaced as it fills, and
-   all of them deleted when recording stops. At five minutes they come to about 110 MB together.
+   all of them deleted when recording stops. At five minutes they come to about 120 MB together,
+   sound included.
 2. **The clips folder has a limit** — **5 GB** by default. Before a clip is saved, the oldest clips
    are deleted until the folder plus the new one fits. Set it with `keepGigabytes` in
    [`settings.json`](/companion/settings); there is no control for it on the screen.
@@ -217,8 +265,8 @@ same folder are not Modbot's to touch.
 
 ## What leaves your PC: nothing
 
-**No clip, no frame of one, and not even the fact that a clip exists is sent anywhere.** Not to the
-Modbot server you paired with. Not to Modbot Cloud. Not to us.
+**No clip, no frame of one, no second of its sound, and not even the fact that a clip exists is sent
+anywhere.** Not to the Modbot server you paired with. Not to Modbot Cloud. Not to us.
 
 The companion has no way to upload a file and did not gain one for this. The token it holds after
 pairing can submit what it observes and read what the overlay needs, and nothing else — it cannot
@@ -249,7 +297,8 @@ deliberate act, and choosing the file in a browser is the other one.
 The companion records at a low frame rate and a small size, uses your graphics card's own video
 encoder when it has one, and does the work on a thread below everything else. On a machine that can
 run VRChat this should be a percent or two of your graphics card's encoder and about as much of one
-processor core.
+processor core. The sound adds about a megabyte a minute to the file and very little else; asking
+Windows for one program's sound costs that program nothing and does not change how it sounds to you.
 
 That is an estimate, not a measurement. If it costs you frames, switch it off; the switch takes
 effect immediately and nothing else about the companion changes.
