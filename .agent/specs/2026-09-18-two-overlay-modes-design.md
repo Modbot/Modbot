@@ -214,16 +214,20 @@ no tab leads to: the panel is on it exactly while it is worn on a hand, and on o
 three the rest of the time. The host sets it from the placement as it draws, which is also what
 makes moving on or off a wrist redraw — the screen itself has not changed, only where it is worn.
 
-**Pointing at it still works.** The other hand's ray is tested against where the panel actually
-hangs, and that is off the controller's own pose rather than off where it points (*overlay OpenXR
-and interaction design* §6.2). The flagged arrival is tappable and clears, and a tap anywhere on
-the card does it, because a wrist is a poor place to land on a small target.
+**The other hand points at it; the hand wearing it does not.** The other hand's ray is tested
+against where the panel actually hangs, and that is off the controller's own pose rather than off
+where it points (*overlay OpenXR and interaction design* §6.2). The hand the panel is strapped to
+is left out of pointing, tapping, scrolling and grabbing it entirely — it sits where the panel is,
+so its own ray would never leave it and its every squeeze was tearing the panel off its own wrist
+(§6.3 there). The flagged arrival is tappable and clears, and a tap anywhere on the card does it,
+because a wrist is a poor place to land on a small target.
 
 **Letting go at the wrist puts it there properly.** Carrying the panel to a hand and releasing
 within `WristReach` used to leave it wherever the hand happened to stop. It now snaps to the watch
 position and the watch size — the same thing choosing it from the settings page does. Two grips on
-it bring it back in front of the head at a readable width, which is still how a panel that has
-ended up somewhere unhelpful is recovered.
+it **from the other hand** bring it back in front of the head at a readable width, which is still
+how a panel that has ended up somewhere unhelpful is recovered; the hand wearing it cannot, for the
+reason above.
 
 ## 4. The runtime restructuring
 

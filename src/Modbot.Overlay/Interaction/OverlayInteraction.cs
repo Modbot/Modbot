@@ -44,6 +44,8 @@ public sealed record InteractionResult(
 /// <item><strong>Head lock.</strong> Two grips on the panel within <see cref="DoubleTap"/> put it
 /// back in front of the head at the default offset, so a lost panel can always be found.</item>
 /// <item><strong>Click.</strong> The trigger while pointing is a click at that spot.</item>
+/// <item><strong>The hand wearing the panel is left out of all of it.</strong> See
+/// <see cref="Ignoring"/>.</item>
 /// </list>
 /// </remarks>
 public sealed class OverlayInteraction
@@ -73,6 +75,39 @@ public sealed class OverlayInteraction
     }
 
     public OverlayPlacement Placement => _placement;
+
+    /// <summary>
+    /// The hand the panel is worn on, which is left out of pointing, tapping, scrolling and
+    /// grabbing. Null unless the panel is sitting on a wrist.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Why a hand is ignored at all.</strong> A panel worn on a wrist sits where that
+    /// hand is, so that hand's ray lands on it constantly — the cursor parks itself on the panel
+    /// and will not leave, and any squeeze of that hand takes hold of a panel that is already
+    /// travelling with it. Both are useless, and the second is worse than useless: a moderator
+    /// squeezes their grip all day for reasons that have nothing to do with an overlay, and every
+    /// one of those was tearing the panel off its own wrist.</para>
+    /// <para><strong>It follows the anchor, not a gesture.</strong> <c>LeftHand</c> ignores the
+    /// left, <c>RightHand</c> ignores the right, and the head and the room ignore neither. The
+    /// anchor is a setting, so the rule is steady rather than something that comes and goes with
+    /// how the hands happen to be held.</para>
+    /// <para><strong>Never the hand carrying it.</strong> While the panel is being carried it is
+    /// anchored to the hand doing the carrying, and that hand must go on being read or the carry
+    /// could not be ended. Carrying is the one thing the anchored hand is allowed to do, so this
+    /// is null for as long as it lasts.</para>
+    /// <para><strong>How a panel leaves a wrist.</strong> The other hand points at it and grips,
+    /// exactly as it would anywhere else; two quick grips from that other hand send it back in
+    /// front of the head. Failing either, the settings page moves it with no controller at all.
+    /// The worn hand is never the way off, which is the point.</para>
+    /// </remarks>
+    public Hand? Ignoring => _holding is not null
+        ? null
+        : _placement.Anchor switch
+        {
+            OverlayAnchor.LeftHand => Hand.Left,
+            OverlayAnchor.RightHand => Hand.Right,
+            _ => null,
+        };
 
     /// <summary>Replaces the placement from outside, as the settings page does.</summary>
     public void Place(OverlayPlacement placement)
@@ -145,22 +180,36 @@ public sealed class OverlayInteraction
             }
         }
 
+        // Every hand, including one being ignored. A grab is the moment a grip closes, not the
+        // fact that it is closed, and a hand wearing the panel is usually mid-squeeze when the
+        // panel moves off it — remembering that squeeze is what stops the panel leaping straight
+        // back into a hand that never asked for it. That hand takes the panel on its next fresh
+        // squeeze, like any other.
         _last = tracking;
         _placement = _placement.Clamped();
 
         return new InteractionResult(pointer, _placement, _placement != before, clicks, scroll, _holding);
     }
 
+    /// <remarks>
+    /// Everything a hand can do to the panel — point, tap, scroll, grab, the double grip that
+    /// sends it home — is reached through being the pointer, so leaving the worn hand out here
+    /// leaves it out of all of them, and there is no second place for the rule to be got wrong.
+    /// </remarks>
     private Pointer? Point(OverlayTracking tracking)
     {
         if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel)
             return null;
 
+        var ignoring = Ignoring;
         Pointer? best = null;
         var nearest = float.MaxValue;
 
         foreach (var side in new[] { Hand.Left, Hand.Right })
         {
+            if (side == ignoring)
+                continue;
+
             var hand = tracking[side];
             if (!hand.Tracked)
                 continue;

@@ -8,6 +8,10 @@ was not true: the OpenVR path reported the raw device pose under that name and t
 grip as a button. Both were wrong in a headset. §6 says what the two faults were, what replaced
 them and how sure the numbers are.
 
+**Narrowed 2026-09-19.** §4.3's "the nearer hand whose ray lands on the panel is the pointer" is no
+longer both hands: the hand a panel is worn on is left out of pointing, tapping, scrolling and
+grabbing it. §6.3 says why and how a panel still leaves a wrist.
+
 ## 1. Why
 
 The overlay was written against OpenVR, which on Windows means SteamVR. On Linux a growing share
@@ -291,3 +295,61 @@ the grip space rather than the aim space. The ray comes out of `Aim`. Holding th
 against `Device` too, so a panel carried to a hand ends up where it was carried rather than a
 tilt away from it. Before there was one pose these were the same object and the question could not
 be got wrong; now it can, so it is written down.
+
+### 6.3 The hand wearing the panel does not touch it
+
+A third report from the same headset, once §6.1 and §6.2 had made the panel movable and the cursor
+land where it was aimed:
+
+> *"if overlay is docked to left/right hand, that hand's hitbox gets in the way of moving it around
+> and etc and if you grip while it's on that hand it registers you as grabbing the overlay. It
+> kinda needs to ignore the left hand if it's on the left hand and vice versa."*
+
+**What was wrong.** §4.3 said "the nearer hand whose ray lands on the panel is the pointer", and
+meant it: both hands were always candidates. That is right for a panel in front of the head or left
+in the room, and wrong for one worn on a wrist, because a worn panel sits *where that hand is*. Its
+own ray lands on it more or less permanently, so the cursor parks itself there and will not leave,
+and the hand is in the way of the other hand trying to reach past it. Worse, every squeeze of that
+grip took hold of the panel — a panel already travelling with that hand, so the grab achieved
+nothing except to tear it off its own wrist and leave it floating. A moderator squeezes their grip
+all day for reasons that have nothing to do with an overlay.
+
+**The rule.** The hand a panel is worn on is left out of pointing, tapping, scrolling and grabbing.
+`LeftHand` ignores the left, `RightHand` ignores the right, `Head` and `World` ignore neither.
+
+It is read off the **anchor**, which is a setting, and not off any live gesture, so it is steady:
+the same hand is ignored for as long as the panel is on it, rather than coming and going with how
+the hands happen to be held.
+
+**One place, not five.** Pointing, tapping, scrolling, grabbing and the double grip that sends the
+panel home are all reached through *being the pointer* — none of them is read from a hand that is
+not pointing at the panel. So the rule lives in `Point`, which is the single gate, and there is no
+second copy to get wrong later. `OverlayInteraction.Ignoring` says which hand, and is the whole of
+it.
+
+**Except while it is being carried.** Taking hold of the panel anchors it to the hand carrying it,
+so for the length of a carry the anchor names the very hand that would otherwise be ignored. That
+hand has to go on being read or the carry could never be ended and the panel would be stuck to it
+for ever. Carrying is the one thing the anchored hand is allowed to do, so `Ignoring` is null while
+anything is held, and comes back the moment the panel is let go.
+
+**How a panel leaves a wrist.** The other hand points at it and grips, exactly as it would at a
+panel anywhere else; two quick grips from that other hand send it back in front of the head. Off
+the controllers entirely, the Placement card moves it with no headset gesture at all. What is
+deliberately *not* a way off is the worn hand itself — that is the whole point — and the one case
+with no way off through a controller is a panel worn on a hand whose controller is switched off,
+because then there is nothing tracked for the panel to hang from and nothing to point at. The
+settings page is the answer there, and is why the placement settings stay reachable with the
+overlay switched off (two overlay modes design §6.1).
+
+**Nothing is left stuck.** Two pieces of memory could have gone stale and neither does:
+
+- The **squeeze** itself is worked out below all of this, one `GripHold` per hand in the OpenVR
+  reader, from that hand's reading on that poll. An ignored hand is still read and still tracked
+  truthfully; it is only the decision above that skips it. So a hand cannot come out of being
+  ignored believing it is mid-grab.
+- The **previous poll's buttons** are remembered for every hand, ignored or not, and that is
+  deliberate. A grab is the moment a grip closes, not the fact that it is closed. A hand wearing
+  the panel is very often mid-squeeze at the moment the panel moves off it, and remembering that
+  squeeze is what stops the panel leaping straight back into a hand that never asked for it. That
+  hand takes the panel on its next fresh squeeze, like any other.
