@@ -29,13 +29,25 @@ internal static class Brand
     public static WindowIcon Icon()
         => new(AssetLoader.Open(new Uri($"{Assets}/Modbot.ico", UriKind.Absolute)));
 
+    /// <summary>
+    /// The mark, read and decoded once.
+    /// </summary>
+    /// <remarks>
+    /// The window redraws whenever anything it shows changes, which in a busy instance is most
+    /// seconds, and it used to decode this picture afresh every time — a quarter of a megabyte
+    /// left behind on each redraw, freed only whenever the finaliser got to it. One picture, handed
+    /// to as many places as ask for it, and it lives as long as the window does either way.
+    /// </remarks>
+    private static readonly Lazy<Bitmap> MarkPicture = new(
+        () => new Bitmap(AssetLoader.Open(new Uri($"{Assets}/icon-256.png", UriKind.Absolute))));
+
     /// <summary>The mark at a given size, for the sidebar's brand row.</summary>
     public static Image Mark(double size)
         => new()
         {
             Width = size,
             Height = size,
-            Source = new Bitmap(AssetLoader.Open(new Uri($"{Assets}/icon-256.png", UriKind.Absolute))),
+            Source = MarkPicture.Value,
         };
 
     /// <summary>Sets the word "Modbot" in the display face.</summary>
