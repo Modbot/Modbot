@@ -49,21 +49,59 @@ public class ControllerPointingTests
     }
 
     /// <summary>
-    /// The tilt is about the controller's own axis, not the room's: a controller turned on its
-    /// side has its ray tilted sideways in the room, which is what "tilted in the hand" means.
+    /// Turning the controller on the spot does not change how far the ray drops: whichever way
+    /// the hand faces, the tilt is the same tilt off the controller's body.
     /// </summary>
-    [Fact]
-    public void TheTiltIsAboutTheControllersOwnAxis()
+    /// <remarks>
+    /// This is the test that tells a tilt about the controller's own axis from a tilt about the
+    /// room's. A tilt about the room's X axis would have the drop shrink as the controller yaws,
+    /// and vanish entirely at a quarter turn; the drop here is the same at every yaw.
+    /// </remarks>
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(45f)]
+    [InlineData(90f)]
+    [InlineData(180f)]
+    [InlineData(-120f)]
+    public void TurningOnTheSpotDoesNotChangeHowFarTheRayDrops(float yawDegrees)
     {
-        // Rolled 90° about its own forward axis, so its X now points down in the room.
+        var yaw = Flat with
+        {
+            Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yawDegrees * MathF.PI / 180f),
+        };
+
+        var radians = ControllerPointing.TiltDegrees * MathF.PI / 180f;
+
+        Assert.Equal(-MathF.Sin(radians), ControllerPointing.Aim(yaw).Forward.Y, 4);
+    }
+
+    /// <summary>
+    /// The tilt is about the controller's own axis, not the room's: roll the controller onto its
+    /// side and the drop rolls with it, coming out sideways in the room.
+    /// </summary>
+    /// <remarks>
+    /// <para>Rolled a quarter turn about +Z, which is the controller's own backwards axis, so the
+    /// direction it points is unmoved. Under that roll the controller's own +Y — the way "up" is
+    /// for the hand — maps to the room's -X, so the controller's own "down", which is where the
+    /// tilt takes the ray, maps to the room's +X.</para>
+    /// <para>So the ray comes out at (+sin, 0, -cos): the whole of the drop has become sideways
+    /// and none of it is left in Y. A tilt about the room's X axis would instead leave the ray at
+    /// (0, -sin, -cos), untouched by the roll, which is what this rules out.</para>
+    /// </remarks>
+    [Fact]
+    public void RollingTheControllerRollsTheDropWithIt()
+    {
         var rolled = Flat with { Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2) };
 
         var aim = ControllerPointing.Aim(rolled);
 
         var radians = ControllerPointing.TiltDegrees * MathF.PI / 180f;
-        var expected = new Vector3(-MathF.Sin(radians), 0f, -MathF.Cos(radians));
+        var expected = new Vector3(MathF.Sin(radians), 0f, -MathF.Cos(radians));
 
         Assert.True(Vector3.Distance(expected, aim.Forward) < Tolerance, $"the ray points {aim.Forward}");
+
+        // The controller still points where it did; only the ray off it has moved.
+        Assert.True(Vector3.Distance(-Vector3.UnitZ, rolled.Forward) < Tolerance);
     }
 
     /// <summary>Where the ray starts is left where the controller is; only the direction is corrected.</summary>
