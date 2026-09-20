@@ -64,9 +64,6 @@ permissions:
   contents: read
   packages: write
 
-env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/modbot
-
 jobs:
   # Read and check the tag once, before anything is built, and hand the answer to the two jobs
   # below. Both of them need it -- the build stamps the version into the image, the join puts it in
@@ -75,9 +72,19 @@ jobs:
     name: Read the version
     runs-on: ubuntu-latest
     outputs:
+      image: ${{ steps.name.outputs.image }}
       release: ${{ steps.read.outputs.release }}
       preview: ${{ steps.read.outputs.preview }}
     steps:
+      # An account's name keeps whatever capitals it was registered with, and a registry refuses
+      # anything but lowercase, so the owner is folded to lowercase once and every job below is
+      # handed the finished name. Doing it here rather than in each job means a fork under any
+      # spelling of its owner's name works, and no step has to remember the rule.
+      - name: Work out the image name
+        id: name
+        shell: bash
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/modbot" >> "$GITHUB_OUTPUT"
+
       - name: Read the version from the tag
         id: read
         if: github.ref_type == 'tag'
@@ -108,6 +115,8 @@ jobs:
     name: Build ${{ matrix.arch }}
     needs: version
     runs-on: ${{ matrix.runner }}
+    env:
+      IMAGE: ${{ needs.version.outputs.image }}
     strategy:
       matrix:
         include:
@@ -184,6 +193,8 @@ jobs:
     name: Join both architectures under one tag
     needs: [version, build]
     runs-on: ubuntu-latest
+    env:
+      IMAGE: ${{ needs.version.outputs.image }}
     steps:
       - uses: actions/download-artifact@v4
         with:
