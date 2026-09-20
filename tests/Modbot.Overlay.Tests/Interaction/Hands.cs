@@ -24,8 +24,9 @@ internal static class Hands
 
     public static Pose AimingAt(Vector3 from, Vector3 target) => new(from, Facing(target - from));
 
-    public static HandState Hand(Pose aim, bool grab = false, bool click = false, Vector2 scroll = default)
-        => new(true, aim, grab, click, scroll);
+    /// <param name="device">Where the controller itself is; the same as where it points unless a test says otherwise.</param>
+    public static HandState Hand(Pose aim, bool grab = false, bool click = false, Vector2 scroll = default, Pose? device = null)
+        => new(true, aim, device ?? aim, grab, click, scroll);
 
     public static OverlayTracking RightOnly(HandState right) => new(Pose.Identity, HandState.Missing, right);
 

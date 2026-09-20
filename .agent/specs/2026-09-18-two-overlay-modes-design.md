@@ -10,6 +10,10 @@ told — turned out to be the right split on a monitor as well as in a headset, 
 had the reading half. There are now two notification surfaces, and §2.5 says what that changes
 here. The desktop half itself lives in *desktop overlay design* §7.
 
+**Widened again 2026-09-19.** The main overlay has a third way of being worn: on a wrist. §3.2 says
+what it is, what it shows and why that is not the roster. The two faults that made the main panel
+hard to move and hard to point at are in *overlay OpenXR and interaction design* §6.
+
 ---
 
 ## 1. What a moderator gets
@@ -31,9 +35,9 @@ So there are two now:
 
 | | Notification overlay | Main overlay |
 |---|---|---|
-| Fixed to | the head, always | head, left hand, right hand, or the room |
+| Fixed to | the head, always | head, left wrist, right wrist, or the room |
 | Where | one of six screen positions, plus a fine offset | wherever it was left |
-| Shows | short-lived pop-ups | Instance, Events, Person screens |
+| Shows | short-lived pop-ups | Instance, Events, Person screens; the wrist screen on a wrist |
 | Pointed at | never | yes — cursor, taps, grab |
 | On by default | yes | yes |
 | Settings | `notifyOverlay` | `overlay` and `overlayOn` |
@@ -159,6 +163,67 @@ pairing model is built to withhold. `CompanionSourceGuardTests` is the fence aro
 So the actions on the Person screen are the ones the client honestly has: **Back**, and
 **Refresh**, which re-reads that one person's summary through `IOverlayReadClient.GetUserAsync`.
 A moderator acting on what they have seen does it in the web UI, signed in as themselves.
+
+### 3.2 On a wrist
+
+The main panel has always been able to be fixed to a hand. What it did there was hang the whole
+1024-pixel roster twelve centimetres off the controller, facing along it, at the full 0.45 m width
+— a workspace bolted to somebody's arm, edge-on to them, which is why nobody used it. A wrist is a
+different thing from a hand, and now the panel knows it.
+
+**Choosing it.** The Placement card's row reads **Head · Left wrist · Right wrist · Room**. It is
+the same `OverlayAnchor.LeftHand` and `RightHand` the setting has always held, so a file written
+before today still means what it meant; what changed is where the panel goes when it gets there.
+Either hand, because a moderator who wears a watch has a wrist they wear it on.
+
+**Where it sits.** `OverlayPlacement.WristOffset`: ten centimetres out of the back of the hand, two
+centimetres back towards the elbow, turned 70° about the controller's own side-to-side axis. The
+turn is the part that matters. The offset is read in the controller's axes, where +Y comes out of
+the face a wand's touchpad is on — the back of the hand holding it — and +Z runs back towards the
+elbow. 70° swings the panel's face from *along the controller*, where it used to be and where it
+was edge-on to the moderator, round to *out of the back of the hand*, leaning the last 20° towards
+the elbow so a raised forearm points it at the eyes. That is where a watch face is.
+
+**How big.** 0.16 m across, against 0.45 m in front of the head. A raised wrist sits about 40 cm
+from the eyes, where 0.16 m is roughly 22° — as much as a glance takes in without moving the head,
+and small enough that the arm it is on is not a wall across the instance. `MinWidth` drops from
+0.2 m to 0.12 m to let it be narrower still; 0.2 m was wider than anything worn on an arm has any
+business being.
+
+Choosing a wrist sets that width, and leaving a wrist gives back the ordinary 0.45 m — unless the
+moderator had chosen a width of their own, which is theirs and is kept.
+
+**What it shows: the pop-up's shape, not the roster's.** Everything on the wrist panel is a third
+the size it is in front of the head, because it is the same texture a third the width. A list of
+twenty names at that size is a grey smear, and nobody reads a roster off their arm anyway. What a
+watch is for is the glance: *is anything wrong, and how busy is it.* So the wrist screen is four
+lines, drawn large:
+
+- the group's icon and name,
+- how many are here, in the warning colour when the roster is stale,
+- the fault, if there is one; else the flagged arrival, name first and reason under it; else the
+  newest thing the live link heard,
+- and nothing else.
+
+That is deliberately the notification overlay's content on the main overlay's surface. The two are
+not merged — the notification overlay is still head-locked, still uninteractable, still its own
+host — but they agree about what is worth saying in one glance, and the wrist is a glance.
+
+**It is a page, not a tab.** `OverlayPage.Wrist` is the fourth value of the enum and the only one
+no tab leads to: the panel is on it exactly while it is worn on a hand, and on one of the other
+three the rest of the time. The host sets it from the placement as it draws, which is also what
+makes moving on or off a wrist redraw — the screen itself has not changed, only where it is worn.
+
+**Pointing at it still works.** The other hand's ray is tested against where the panel actually
+hangs, and that is off the controller's own pose rather than off where it points (*overlay OpenXR
+and interaction design* §6.2). The flagged arrival is tappable and clears, and a tap anywhere on
+the card does it, because a wrist is a poor place to land on a small target.
+
+**Letting go at the wrist puts it there properly.** Carrying the panel to a hand and releasing
+within `WristReach` used to leave it wherever the hand happened to stop. It now snaps to the watch
+position and the watch size — the same thing choosing it from the settings page does. Two grips on
+it bring it back in front of the head at a readable width, which is still how a panel that has
+ended up somewhere unhelpful is recovered.
 
 ## 4. The runtime restructuring
 

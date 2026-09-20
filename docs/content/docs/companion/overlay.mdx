@@ -135,15 +135,35 @@ The panel can be moved with a controller:
 | Do this | And |
 |---|---|
 | Point at the panel | A ring shows where you are pointing. |
-| Hold the grip while pointing | The panel comes with your hand. Let go and it stays where you left it in the room, or on your hand if you let go with your hand at the panel. |
+| Squeeze the grip while pointing | The panel comes with your hand. An ordinary hold is enough; you do not have to squeeze hard. Let go and it stays where you left it in the room, or on your wrist if you brought it to your hand. |
 | Thumbstick up or down while holding | Pushes the panel away or pulls it closer. |
 | Thumbstick left or right while holding | Makes it narrower or wider. |
-| Grip twice quickly on the panel | Puts it back in front of your head. |
+| Grip twice quickly on the panel | Puts it back in front of your head, at a readable size. |
 | Pull the trigger on the panel | Taps what you are pointing at: the alert card to dismiss it, a person's row to open their card, the card to close it, **Save a clip** to keep the last few minutes. |
 | Thumbstick up or down over the list | Scrolls the roster. |
 
 Where you leave the panel, its size, opacity and curve are saved and used next time. The
 **SteamVR** page has the same settings, and **Put it back in front of me**.
+
+## On your wrist
+
+The **Placement** card's **Fixed to** row offers **Head**, **Left wrist**, **Right wrist** and
+**Room**. Choosing a wrist puts the panel on that arm, facing out of the back of your hand, at
+0.16 metres across — something to glance at like a watch rather than a window to work in. You can
+also get there with a controller: carry the panel to your hand and let go of the grip, and it
+settles onto that wrist.
+
+On a wrist the panel shows four lines instead of the roster, because at that size a list of names
+is unreadable:
+
+- your group's icon and name,
+- how many people are here, in yellow when the list is no longer fresh,
+- a Modbot fault if there is one; otherwise a flagged arrival, name first with the reason under
+  it; otherwise the newest join or leave,
+- nothing else.
+
+Point at it with your other hand as you would at any panel. A tap anywhere on a flagged arrival
+clears it. To get the roster back, choose **Head** or **Room**, or grip the panel twice quickly.
 
 On WiVRn and Monado the same works through OpenXR. The Valve Index, Oculus and Meta Touch, and
 HTC Vive controllers are bound: grip holds, trigger taps, and the thumbstick or trackpad scrolls
@@ -189,7 +209,8 @@ server or quit the client.
   it again, and — if you have [Clips](/companion/clips) switched on — saves a clip to your own PC.
   That is all: there are no ban, kick or warn buttons, and the client's token could not do those
   things anyway. To act on something, use the web app.
-- **The panel starts 0.45 metres wide** in the headset and is drawn at 1024 by 1024 pixels.
+- **The panel starts 0.45 metres wide** in the headset, 0.16 metres on a wrist, and is drawn at
+  1024 by 1024 pixels either way.
 - **Long names are cut to one line**, so a display name full of line breaks cannot push the rest of
   the panel out of view.
 - **SteamVR, WiVRn or Monado, on Windows or Linux.** The panel is an OpenVR overlay for SteamVR
@@ -198,7 +219,7 @@ server or quit the client.
   the companion has nothing to hand them.
 - **It starts below and to the right of your view**, about an arm's length away, following your
   head. Move it with a controller or from the **SteamVR** page; see
-  [Holding it](#holding-it).
+  [Holding it](#holding-it) and [On your wrist](#on-your-wrist).
 
 ## What it sends
 

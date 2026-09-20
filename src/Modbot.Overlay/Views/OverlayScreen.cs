@@ -8,9 +8,10 @@ public readonly record struct PanelCursor(float Across, float Down);
 
 /// <summary>Which screen of the main panel is showing.</summary>
 /// <remarks>
-/// Three, moved between by the tabs across the top and by tapping a roster row. Reading is fine in
-/// VR; scrolling and typing are hostile, so each screen is one short list or one short card rather
-/// than a page that has to be worked through (two overlay modes design §3).
+/// Three to move between by the tabs across the top and by tapping a roster row, and a fourth the
+/// panel picks for itself. Reading is fine in VR; scrolling and typing are hostile, so each screen
+/// is one short list or one short card rather than a page that has to be worked through (two
+/// overlay modes design §3).
 /// </remarks>
 public enum OverlayPage
 {
@@ -22,6 +23,12 @@ public enum OverlayPage
 
     /// <summary>One person, opened by tapping their row.</summary>
     Person,
+
+    /// <summary>
+    /// Four big lines for a panel worn on a wrist. Not a tab: the panel is on this screen exactly
+    /// while it is worn on a hand, and on one of the other three the rest of the time.
+    /// </summary>
+    Wrist,
 }
 
 /// <summary>

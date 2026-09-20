@@ -54,8 +54,12 @@ public class HmdPosesTests
         Assert.True(Vector3.Distance(new Vector3(-1, 0, 0), pose.Forward) < 1e-5f);
     }
 
+    /// <summary>
+    /// The buttons, the thumbstick and how hard the grip is squeezed, each at the offset its
+    /// platform packs it to: axis 0 is the thumbstick, axis 2 is the grip.
+    /// </summary>
     [Fact]
-    public void ControllerButtonsAreReadAtEachPlatformsOffset()
+    public void ControllerButtonsAndTheGripSqueezeAreReadAtEachPlatformsOffset()
     {
         var pressed = (1UL << OpenVrLayouts.GripButton) | (1UL << OpenVrLayouts.TriggerButton);
 
@@ -63,15 +67,20 @@ public class HmdPosesTests
         BinaryPrimitives.WriteUInt64LittleEndian(windows.AsSpan(8), pressed);
         BinaryPrimitives.WriteSingleLittleEndian(windows.AsSpan(24), 0.5f);
         BinaryPrimitives.WriteSingleLittleEndian(windows.AsSpan(28), -0.25f);
+        BinaryPrimitives.WriteSingleLittleEndian(windows.AsSpan(24 + (OpenVrLayouts.GripAxis * 8)), 0.42f);
 
         var linux = new byte[60];
         BinaryPrimitives.WriteUInt64LittleEndian(linux.AsSpan(4), pressed);
         BinaryPrimitives.WriteSingleLittleEndian(linux.AsSpan(20), 0.5f);
         BinaryPrimitives.WriteSingleLittleEndian(linux.AsSpan(24), -0.25f);
+        BinaryPrimitives.WriteSingleLittleEndian(linux.AsSpan(20 + (OpenVrLayouts.GripAxis * 8)), 0.42f);
 
-        Assert.Equal((true, true, new Vector2(0.5f, -0.25f)), OpenVrLayouts.ReadButtons(windows, windowsLayout: true));
-        Assert.Equal((true, true, new Vector2(0.5f, -0.25f)), OpenVrLayouts.ReadButtons(linux, windowsLayout: false));
-        Assert.Equal((false, false, Vector2.Zero), OpenVrLayouts.ReadButtons(new byte[64], windowsLayout: true));
+        Assert.Equal((true, 0.42f, true, new Vector2(0.5f, -0.25f)), OpenVrLayouts.ReadButtons(windows, windowsLayout: true));
+        Assert.Equal((true, 0.42f, true, new Vector2(0.5f, -0.25f)), OpenVrLayouts.ReadButtons(linux, windowsLayout: false));
+        Assert.Equal((false, 0f, false, Vector2.Zero), OpenVrLayouts.ReadButtons(new byte[64], windowsLayout: true));
+
+        // A state shorter than the five axes is not read at all, rather than read off the end.
+        Assert.Equal((false, 0f, false, Vector2.Zero), OpenVrLayouts.ReadButtons(new byte[40], windowsLayout: true));
     }
 
     [Fact]
