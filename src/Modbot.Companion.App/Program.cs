@@ -819,12 +819,18 @@ internal sealed class CompanionHost : IOverlayListener
             ? ClipsFolder.Check(ClipsFolder.Resolve(settings.Folder, fallback: _directory))
             : new ClipsFolderCheck(ClipsFolder.Resolve(settings.Folder, fallback: _directory), null);
 
+        // A recording that was asked to stop and has not stopped still holds a graphics device, an
+        // encoder and its two rolling files. Building a second one beside it would be two
+        // recorders, two encoders and two sets of files at once, so this turn is not the turn —
+        // the card says so, and the next render tries again the moment the thread ends.
+        var stillStopping = _recorder is null && ScreenRecording.StillStopping;
+
         var wanted = ClipRecordingRule.Decide(
             settings,
             _state.LogHealth.Evaluate(_clock.UtcNow, CompanionAppState.LogSilenceThreshold),
             folder,
             ScreenRecording.Supported,
-            _clipsFailed,
+            _clipsFailed || stillStopping,
             _recorder?.WindowFound,
             _recorder?.AnyPictureTaken);
 
@@ -843,7 +849,15 @@ internal sealed class CompanionHost : IOverlayListener
                             Log.Warning(ex, "Clips: {Line}", line);
                     });
 
-                if (!_recorder.Start(settings.Length, settings.DiscordSound))
+                if (_recorder.Start(settings.Length, settings.DiscordSound))
+                {
+                    // Recording again, so whatever the last one had to say on its way out — that
+                    // VRChat had closed, or that it would not stop — is no longer the state of
+                    // things, and a card that goes on saying it would be a card telling a
+                    // moderator something untrue about a recording that is running.
+                    _clipsProblem = null;
+                }
+                else
                 {
                     _clipsFailed = true;
                     _clipsProblem = _recorder.LastProblem;
@@ -860,13 +874,26 @@ internal sealed class CompanionHost : IOverlayListener
 
             _recorder.Stop();
             _recorder.Dispose();
+
+            // A recorder that would not stop says so as it is let go of, and that is the reason
+            // now rather than whatever the reason was before: nothing will be recorded until its
+            // thread ends.
+            if (ScreenRecording.StillStopping)
+                _clipsProblem = _recorder.LastProblem;
+
             _recorder = null;
         }
 
-        var clips = _clipLibrary ??= new ClipLibrary(_clock);
-        var saved = folder.IsUsable ? clips.List(folder.Path) : [];
-
+        // Before the listing rather than after it, because a save that has just landed forgets the
+        // last listing and the card should show the new clip on this render rather than the next.
         AnswerTheSave();
+
+        // Listed again every few seconds rather than on every render. The card shows the count and
+        // the size whether or not anything is being recorded, so the listing cannot simply be
+        // skipped — but a folder full of clips listed once a second for an evening is a file asked
+        // about for every clip, every second, for a number that changes when a clip is saved.
+        var clips = _clipLibrary ??= new ClipLibrary(_clock);
+        var saved = folder.IsUsable ? clips.Saved(folder.Path) : [];
 
         _state.Clips = new ClipsStatus(
             settings,
@@ -903,6 +930,10 @@ internal sealed class CompanionHost : IOverlayListener
         {
             if (recorder.LastSaved is { } now && now != _clipSavedBefore)
             {
+                // A clip has just been written into the folder the card counts, so the listing the
+                // card was drawn from is a clip out of date.
+                _clipLibrary?.Forget();
+
                 _clipSave = new ClipSave(_clock.UtcNow, true);
                 _clipAskedAt = null;
                 AnswerOutLoud(true);
@@ -1018,7 +1049,8 @@ internal sealed class CompanionHost : IOverlayListener
 
         // Room is made before the clip is written rather than after, so the disk never has to hold
         // the folder's limit plus one more clip at the same moment.
-        _clipLibrary.MakeRoom(folder.Path, settings.KeepBytes, aboutToAdd: 0);
+        if (_clipLibrary.MakeRoom(folder.Path, settings.KeepBytes, aboutToAdd: 0) > 0)
+            _clipLibrary.Forget();
 
         // The world and the instance go into the file name so a moderator can find the right clip
         // afterwards — "The Black Cat_98874_2026-09-19 18-02-29.mp4". The world's readable name
@@ -2137,6 +2169,13 @@ internal sealed class CompanionHost : IOverlayListener
             _desktopNotify.Close();
             _desktopNotify = null;
         }
+
+        // The same rule as the headset's notification overlay, which is the twin of this one: the
+        // cards go only when nothing is left to show them. Turning both off in one order used to
+        // leave the stack full with no surface drawing it, because only one of the two ever
+        // emptied it.
+        if (_notifyHost is null)
+            _popUps?.ClearAll();
 
         StopDriverIfNobodyWantsIt();
     }

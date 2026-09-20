@@ -127,7 +127,28 @@ internal sealed class ScreenRecording : IDisposable
     /// <summary>How often the log is told how the recording is actually going.</summary>
     private static readonly TimeSpan SayHowItIsGoingEvery = TimeSpan.FromMinutes(1);
 
-    private static bool _mediaFoundationStarted;
+    /// <summary>How long the recording thread is given to stop before waiting on it is given up.</summary>
+    private static readonly TimeSpan HowLongToWaitForTheThread = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// A recording thread that was asked to stop and had not stopped in
+    /// <see cref="HowLongToWaitForTheThread"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>It is kept because a thread that will not stop is still holding a graphics device, a
+    /// duplication, an encoder and the two rolling files — and letting go of the only handle to it
+    /// while pretending it had stopped is how the client would end up with a second recorder
+    /// running beside it and with the files it is still writing deleted underneath it.</para>
+    /// <para>Written and read on the UI thread only: <see cref="Stop"/> is called from there, and
+    /// so is the one place that builds a recorder.</para>
+    /// </remarks>
+    private static Thread? _wouldNotStop;
+
+    /// <summary>
+    /// Whether a recording that was asked to stop is still running. No second recorder is built
+    /// while this is true.
+    /// </summary>
+    public static bool StillStopping => _wouldNotStop is { IsAlive: true };
 
     /// <summary>
     /// The earliest frame at which the recorder may follow VRChat onto another monitor. Touched
@@ -186,6 +207,9 @@ internal sealed class ScreenRecording : IDisposable
 
     private Thread? _thread;
     private volatile bool _stopping;
+
+    /// <summary>Whether this recorder has already waited its five seconds for its thread.</summary>
+    private bool _waitedForTheThread;
 
     /// <summary>Where the next saved clip should be written. Set by the UI thread, taken by ours.</summary>
     private string? _saveTo;
@@ -258,6 +282,11 @@ internal sealed class ScreenRecording : IDisposable
         _stopping = false;
         LastProblem = null;
 
+        // An earlier thread that would not stop has ended by now, or the one place that builds a
+        // recorder would not have built this one. Its handle is let go of with it.
+        if (_wouldNotStop is { IsAlive: false })
+            _wouldNotStop = null;
+
         _thread = new Thread(() => Run(length, discordSound))
         {
             IsBackground = true,
@@ -272,15 +301,49 @@ internal sealed class ScreenRecording : IDisposable
         return true;
     }
 
-    /// <summary>Stops recording and deletes the two rolling files. Safe when nothing is running.</summary>
+    /// <summary>
+    /// Stops recording and deletes the two rolling files. Safe when nothing is running.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>A thread that will not stop is said out loud rather than forgotten.</strong>
+    /// The recording thread is asked to stop and given <see cref="HowLongToWaitForTheThread"/>. It
+    /// almost always goes in a fraction of that. When it does not — stuck in a graphics driver
+    /// call, or in Windows' own encoder — this used to drop the only handle to it, say the
+    /// recording had stopped and empty the folder it was still writing into, which left a thread
+    /// holding a graphics device, a duplication, a staging texture and a frame buffer with nothing
+    /// able to reach it, and let a second recorder be built beside it.</para>
+    /// <para>So a thread that did not stop keeps its handle, this recorder goes on saying it is
+    /// recording because it is, the two rolling files are left where they are, and
+    /// <see cref="StillStopping"/> stays true until the thread really ends — which is what stops a
+    /// second recorder being built. The thread lets go of everything it holds itself, on its way
+    /// out, whenever that comes.</para>
+    /// </remarks>
     public void Stop()
     {
         if (_thread is not { } thread)
             return;
 
         _stopping = true;
-        thread.Join(TimeSpan.FromSeconds(5));
+
+        // Zero the second time: Dispose follows Stop, and a second five seconds would be the
+        // window frozen twice over for a thread already known not to be stopping.
+        if (!thread.Join(_waitedForTheThread ? TimeSpan.Zero : HowLongToWaitForTheThread))
+        {
+            _waitedForTheThread = true;
+            _wouldNotStop = thread;
+
+            LastProblem = "The last recording has not stopped yet.";
+            _log(
+                "The recording thread did not stop when it was asked to. It still holds the "
+                + "graphics device and the two rolling files, so those are left alone and no "
+                + "second recording is started until it ends.",
+                null);
+
+            return;
+        }
+
         _thread = null;
+        _waitedForTheThread = false;
         IsRecording = false;
         WindowFound = false;
         AnyPictureTaken = false;
@@ -355,6 +418,8 @@ internal sealed class ScreenRecording : IDisposable
         if (!OperatingSystem.IsWindows())
             return;
 
+        var mediaFoundationStarted = false;
+
         ClipSound? sound = null;
         ID3D11Device? device = null;
         ID3D11DeviceContext? context = null;
@@ -369,7 +434,9 @@ internal sealed class ScreenRecording : IDisposable
 
         try
         {
-            StartMediaFoundationOnce();
+            StartMediaFoundation();
+            mediaFoundationStarted = true;
+
             Directory.CreateDirectory(_temporaryFolder);
 
             // Nothing is recorded until Windows has handed over VRChat's window, because a clip is
@@ -603,6 +670,11 @@ internal sealed class ScreenRecording : IDisposable
             duplication?.Dispose();
             context?.Dispose();
             device?.Dispose();
+
+            // Last, because everything above that Media Foundation made — the encoders, the
+            // samples, the buffers — has to be let go of before the platform it made them with.
+            if (mediaFoundationStarted)
+                StopMediaFoundation();
         }
     }
 
@@ -630,17 +702,25 @@ internal sealed class ScreenRecording : IDisposable
     }
 
     /// <summary>
-    /// Media Foundation's encoders, started once for the life of the process. The light version,
-    /// which is the one that does not bring up Media Foundation's networking.
+    /// Media Foundation's encoders, brought up for as long as this recording runs. The light
+    /// version, which is the one that does not bring up Media Foundation's networking.
     /// </summary>
-    private static void StartMediaFoundationOnce()
-    {
-        if (_mediaFoundationStarted)
-            return;
+    /// <remarks>
+    /// <para>Started and shut down on the recording thread, at the two ends of the one method that
+    /// runs on it, so the pair can neither be split across threads nor be left half done: the
+    /// shutdown is in that method's <c>finally</c> and runs whether the recording ended because it
+    /// was switched off, because VRChat closed, or because something failed.</para>
+    /// <para>It used to be started once and never shut down, so turning Clips off gave back the
+    /// graphics device, the duplication, the encoder and the sound buffers and left Media
+    /// Foundation up for the rest of the session. Windows counts the starts, so a second recording
+    /// after a first one has ended brings it up again — and two recordings that overlapped would
+    /// each hold their own count, which is why pairing them per recording is safe rather than
+    /// clever.</para>
+    /// </remarks>
+    private static void StartMediaFoundation() => MediaFactory.MFStartup(true).CheckError();
 
-        MediaFactory.MFStartup(true).CheckError();
-        _mediaFoundationStarted = true;
-    }
+    /// <summary>Gives Media Foundation back. One of these for every <see cref="StartMediaFoundation"/>.</summary>
+    private static void StopMediaFoundation() => MediaFactory.MFShutdown();
 
     /// <summary>Which graphics card and which screen VRChat's window is on, and where it sits.</summary>
     /// <param name="AdapterName">The graphics card's own name, for the log file.</param>

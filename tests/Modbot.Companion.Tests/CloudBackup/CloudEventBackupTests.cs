@@ -149,6 +149,51 @@ public sealed class CloudEventBackupTests : IDisposable
     }
 
     [Fact]
+    public void ABackupThatIsOffWritesNothingAndMakesNoFolder()
+    {
+        // Off means off, including on disk. Making the outbox used to be starting it: the folder
+        // was created before anybody asked whether the feature was even on, so a client with the
+        // backup switched off made a folder on every launch for something that never ran.
+        var backup = Backup(enabled: false);
+
+        Assert.False(backup.Enabled);
+        Assert.False(Directory.Exists(Outbox));
+    }
+
+    [Fact]
+    public void ABackupThatIsOnClosesABatchTheLastRunLeftOpen()
+    {
+        // The other side of the same change: a client that was closed mid-batch still has those
+        // events closed and counted the moment it starts again, because they are already late.
+        Directory.CreateDirectory(Outbox);
+        File.WriteAllText(
+            Path.Combine(Outbox, "open.jsonl"),
+            "{\"subjectId\":\"usr_1\"}\n{\"subjectId\":\"usr_2\"}\n");
+
+        var backup = Backup();
+
+        Assert.Equal(1, BatchFiles());
+        Assert.Equal(2, backup.Status.Queued);
+        Assert.False(File.Exists(Path.Combine(Outbox, "open.jsonl")));
+    }
+
+    [Fact]
+    public void ABackupThatIsOffStillSweepsAwayWhatAnEarlierRunLeft()
+    {
+        // The other half of the same rule: tidying away what is left over is not starting work.
+        // A client that had the backup on and then turned it off leaves events on disk, and those
+        // go — without being gzipped into a batch first only to be deleted a moment later.
+        Directory.CreateDirectory(Outbox);
+        File.WriteAllText(Path.Combine(Outbox, "open.jsonl"), "{\"subjectId\":\"usr_1\"}\n");
+        File.WriteAllBytes(Path.Combine(Outbox, "batch-0000000001-1.json.gz"), [1, 2, 3]);
+
+        var backup = Backup(enabled: false);
+
+        Assert.Equal(0, backup.Status.Queued);
+        Assert.Empty(Directory.GetFiles(Outbox));
+    }
+
+    [Fact]
     public async Task StartingAgainWithTheBackupOnSendsOnlyFromThatMoment()
     {
         var off = Backup(enabled: false);

@@ -733,6 +733,55 @@ public sealed partial class MainWindow : Window
         _drawnFrom = _snapshot;
         _drawnPictures = PicturesArrived;
         RefreshPage();
+        LetGoOfPicturesNothingShows();
+    }
+
+    /// <summary>
+    /// Tells the picture store which addresses the window can still ask for, so the rest are let
+    /// go of.
+    /// </summary>
+    /// <remarks>
+    /// <para>The paired servers' icons are always among them: the sidebar keeps one across page
+    /// changes, the Servers page draws one each, and both overlay panels ask for them by the same
+    /// address. The Credits page's pictures — a banner and a picture per sponsor, early adopter
+    /// and contributor — are among them only while that is the page being shown, which is the
+    /// whole of what this saves: looking at the Credits page once used to cost their memory for
+    /// the rest of the session.</para>
+    /// <para>Run after the page is built rather than before, so what it is asked to keep is what
+    /// the page it has just drawn actually asked for.</para>
+    /// </remarks>
+    private void LetGoOfPicturesNothingShows()
+    {
+        if (Pictures is null)
+            return;
+
+        var wanted = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var server in _snapshot.Servers)
+            Want(server.GroupIconUrl);
+
+        if (_page == Page.Credits)
+        {
+            var credits = _snapshot.CreditsOrNone;
+
+            foreach (var person in credits.Sponsors.Concat(credits.EarlyAdopters))
+            {
+                Want(person.GroupBannerUrl);
+                Want(person.GroupIconUrl);
+                Want(person.PictureUrl);
+            }
+
+            foreach (var person in credits.Contributors)
+                Want(person.PictureUrl);
+        }
+
+        Pictures.KeepOnly(wanted);
+
+        void Want(string? address)
+        {
+            if (!string.IsNullOrWhiteSpace(address))
+                wanted.Add(address);
+        }
     }
 
     private static Color Severity(WarningSeverity severity) => severity switch

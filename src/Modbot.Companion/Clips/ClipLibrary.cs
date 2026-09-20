@@ -28,9 +28,67 @@ public sealed class ClipLibrary
     /// <summary>The only kind of file Modbot writes here, and the only kind it counts or deletes.</summary>
     public const string ClipExtension = ".mp4";
 
+    /// <summary>
+    /// How long a listing of the clips folder stands before <see cref="Saved"/> reads it again.
+    /// </summary>
+    /// <remarks>
+    /// The Clips card is drawn once a second, and it shows how many clips there are and how much
+    /// room they take whether or not anything is being recorded — so the folder cannot simply go
+    /// unread. Five seconds makes that one listing per five drawings instead of one per drawing,
+    /// and five seconds is the most out of date a count can be after somebody moves a clip out of
+    /// the folder behind Modbot's back. The two things Modbot itself does to that folder — saving
+    /// a clip and deleting the oldest to make room — call <see cref="Forget"/>, so those show on
+    /// the card at once rather than after a wait.
+    /// </remarks>
+    public static readonly TimeSpan ListedAgainEvery = TimeSpan.FromSeconds(5);
+
     private readonly IModbotClock _clock;
 
+    private string? _listedFolder;
+    private DateTimeOffset _listedAt;
+    private IReadOnlyList<SavedClip> _listed = [];
+
     public ClipLibrary(IModbotClock clock) => _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+
+    /// <summary>
+    /// The clips in the folder, listing it again only when the last listing is
+    /// <see cref="ListedAgainEvery"/> old, was of a different folder, or was forgotten.
+    /// </summary>
+    /// <remarks>
+    /// For whatever asks over and over — the Clips card, drawn once a second, for as long as the
+    /// window is open. Anything that has to see the folder as it is this instant asks
+    /// <see cref="List"/> instead, which always reads it.
+    /// </remarks>
+    public IReadOnlyList<SavedClip> Saved(string folder)
+    {
+        var now = _clock.UtcNow;
+
+        if (_listedFolder is { } last
+            && string.Equals(last, folder, StringComparison.Ordinal)
+            && now - _listedAt < ListedAgainEvery)
+        {
+            return _listed;
+        }
+
+        _listed = List(folder);
+        _listedFolder = folder;
+        _listedAt = now;
+
+        return _listed;
+    }
+
+    /// <summary>
+    /// Throws away the last listing, so the next <see cref="Saved"/> reads the folder again.
+    /// </summary>
+    /// <remarks>
+    /// Called by whoever has just changed what is in the folder — saved a clip, or deleted the
+    /// oldest to make room — so the card never shows a count that Modbot's own act has made wrong.
+    /// </remarks>
+    public void Forget()
+    {
+        _listedFolder = null;
+        _listed = [];
+    }
 
     /// <summary>
     /// The clips in the folder, oldest first. An unreadable or missing folder is empty, not an

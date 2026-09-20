@@ -51,16 +51,38 @@ public sealed partial class CloudOutbox
     private long _openBytes;
     private DateTimeOffset? _openSince;
     private long _nextSequence;
+    private bool _started;
 
+    /// <summary>
+    /// Makes an outbox. Nothing is created and nothing is read until <see cref="Start"/>.
+    /// </summary>
+    /// <remarks>
+    /// Making one used to be starting one: the folder was created and a batch the last run left
+    /// open was gzipped into a numbered file. With the backup switched off that was a folder
+    /// created and a file written and then deleted again by <see cref="Clear"/>, on every launch,
+    /// for a feature nobody had turned on. Tidying away what an earlier run left behind and
+    /// starting work are two different things now, and a backup that is off does only the first.
+    /// </remarks>
     public CloudOutbox(string directory, long cap = DefaultCap)
     {
         _directory = directory;
         _cap = Math.Max(MaxBytesPerBatch, cap);
+    }
+
+    /// <summary>
+    /// Gets the folder ready and closes a batch the last run left open: its events are already
+    /// late. Called only when the backup is on.
+    /// </summary>
+    public void Start()
+    {
+        if (_started)
+            return;
+
+        _started = true;
 
         Directory.CreateDirectory(_directory);
         _nextSequence = Batches().Select(b => b.Sequence).DefaultIfEmpty(0).Max() + 1;
 
-        // A batch left open by the last run is closed now: its events are already late.
         if (File.Exists(OpenPath))
         {
             _openEvents = File.ReadLines(OpenPath).Count(l => l.Length > 0);
@@ -83,7 +105,9 @@ public sealed partial class CloudOutbox
         if (events.Count == 0)
             return;
 
-        Directory.CreateDirectory(_directory);
+        // Anything that writes here starts the outbox first, so the sequence a batch is numbered
+        // with is never worked out after a batch has already been written.
+        Start();
 
         var writer = OpenWriter();
         try

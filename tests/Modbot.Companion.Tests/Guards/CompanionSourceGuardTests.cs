@@ -431,6 +431,32 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
+    public void SwitchingRecordingOffGivesBackEverythingItTook()
+    {
+        // "Off means nothing is built" is only half a promise if off does not also mean nothing is
+        // still held. Two ways it was not: Media Foundation was started and never given back, so
+        // switching Clips off released the graphics device, the duplication and the encoder and
+        // left the platform up for the rest of the session; and a recording thread that did not
+        // stop when it was asked had its only handle dropped while it still held all of that, at
+        // which point a second recorder could be built beside it and the two files it was still
+        // writing were deleted underneath it.
+        //
+        // There is no screen in CI, so this checks what it can: that the pair exists in the one
+        // file allowed to record, and that the one place that builds a recorder asks first.
+        var source = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == RecordingFile));
+
+        Assert.Contains("MFStartup", source, StringComparison.Ordinal);
+        Assert.Contains("MFShutdown", source, StringComparison.Ordinal);
+        Assert.Contains("public static bool StillStopping", source, StringComparison.Ordinal);
+
+        var building = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == "Program.cs"));
+
+        Assert.Contains("ScreenRecording.StillStopping", building, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NothingTheClientShipsGoesLookingForScreenshotsOnDisk()
     {
         // Reading a folder full of screenshots is the same disclosure as taking one, reached by a
