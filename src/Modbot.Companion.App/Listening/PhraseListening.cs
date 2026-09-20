@@ -30,13 +30,25 @@ namespace Modbot.Companion.App.Listening;
 /// said" — and it has no ability to produce a transcript of anything else, because it is a 3.3
 /// megabyte model whose decoding is constrained to those phrases (listening design §2). That is
 /// most of why it was chosen over the general recogniser the same library also offers.</para>
-/// <para><strong>The microphone is shared, never taken.</strong> Windows is asked for the default
+/// <para><strong>The microphone is shared, never taken.</strong> Windows is asked for the
 /// microphone in <em>shared</em> mode, which is what VRChat, Discord and every voice chat program
 /// ask for: Windows mixes them and every program hears the same sound. Exclusive mode — the mode
 /// that would lock everybody else out — is never asked for, and the one call that could ask for it
 /// is not made. If some other program has already taken the device exclusively, opening it here
 /// fails, that failure becomes a sentence on the settings screen, and everything else in the client
 /// carries on.</para>
+/// <para><strong>Which microphone, and the one list this file may ask for.</strong> A moderator
+/// has a headset microphone and a desk microphone and uses whichever matches how they are playing,
+/// so this file asks Windows which microphones the PC has and opens the one they picked. That is a
+/// narrowing, made on 2026-09-19: until then the client asked Windows for no list of microphones
+/// at all, only to follow whichever was the default. The narrowing is held to the same shape as
+/// every other one — <em>this file and no other</em> may ask, and
+/// <c>CompanionSourceGuardTests</c> fails the build if a second one learns to. The list is asked
+/// for only while listening is switched on; with the switch off nothing at all is asked of
+/// Windows' audio system, which is the promise that did not move. Picking nothing means the
+/// Windows default, followed wherever Windows moves it, and a picked microphone that is not
+/// plugged in falls back to the default rather than to silence
+/// (<see cref="MicrophoneChoice"/>).</para>
 /// <para><strong>When it listens.</strong> Only while the switch is on — off unless a person turned
 /// it on — and only while VRChat is running, which the client knows because lines are arriving in
 /// VRChat's log (<see cref="ListeningRule"/>). VRChat closing closes the microphone. While it is
@@ -115,11 +127,76 @@ internal sealed class PhraseListening : IDisposable
     /// </summary>
     public static bool Supported => OperatingSystem.IsWindows();
 
+    /// <summary>The microphone this listener was started on, or null for the Windows default.</summary>
+    public Microphone? Using { get; private set; }
+
+    /// <summary>
+    /// The microphones this PC has right now, with the one Windows calls the default first.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>The one ask for a list of microphones in the whole client.</strong> It exists
+    /// so a moderator can pick between a headset microphone and a desk one, and it is held to this
+    /// file by <c>CompanionSourceGuardTests</c> the same way opening one is. Nothing is opened
+    /// here and nothing is listened to: what comes back is a name and an id for each device, which
+    /// is what the settings page's list is made of.</para>
+    /// <para>It is asked only while listening is switched on, so the promise that a switched-off
+    /// client asks Windows' audio system nothing at all still holds exactly as it did.</para>
+    /// <para>A machine that will not answer gives an empty list rather than a failure. The picker
+    /// then offers the Windows default and nothing else, which is what the client did before there
+    /// was a picker at all.</para>
+    /// </remarks>
+    public static IReadOnlyList<Microphone> Microphones()
+    {
+        if (!OperatingSystem.IsWindows())
+            return [];
+
+        try
+        {
+            using var windows = new MMDeviceEnumerator();
+
+            var defaultId = windows.HasDefaultAudioEndpoint(DataFlow.Capture, Role.Communications)
+                ? DefaultId(windows)
+                : null;
+
+            var found = new List<Microphone>();
+            foreach (var device in windows.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
+            {
+                using (device)
+                    found.Add(new Microphone(device.ID, device.FriendlyName));
+            }
+
+            // The one Windows would have picked anyway goes first, so the list reads in the order
+            // somebody would look for things in it.
+            return defaultId is null
+                ? found
+                : [.. found.OrderByDescending(m => string.Equals(m.Id, defaultId, StringComparison.Ordinal))];
+        }
+        catch (Exception)
+        {
+            // Asking for the list is not the listening. A machine that will not answer gets the
+            // Windows default, which is what every machine got before this existed.
+            return [];
+        }
+    }
+
+    private static string? DefaultId(MMDeviceEnumerator windows)
+    {
+        if (!OperatingSystem.IsWindows())
+            return null;
+
+        using var device = windows.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Communications);
+        return device.ID;
+    }
+
     /// <summary>
     /// Loads the phrase model and opens the microphone, on a thread of its own. Returns false, with
     /// <see cref="LastProblem"/> set, when this machine cannot do it at all.
     /// </summary>
-    public bool Start(PhraseModel model, string phrasesFolder)
+    /// <param name="microphone">
+    /// The microphone to open, or null for whichever Windows calls the default — which is then
+    /// followed wherever Windows moves it.
+    /// </param>
+    public bool Start(PhraseModel model, string phrasesFolder, Microphone? microphone = null)
     {
         ArgumentNullException.ThrowIfNull(model);
 
@@ -134,6 +211,7 @@ internal sealed class PhraseListening : IDisposable
 
         _stopping = false;
         LastProblem = null;
+        Using = microphone;
 
         _thread = new Thread(() => Run(model, phrasesFolder))
         {
@@ -189,7 +267,10 @@ internal sealed class PhraseListening : IDisposable
                 return;
 
             IsListening = true;
-            _log("The microphone is open, shared, and is being listened to for a phrase only.", null);
+            _log(
+                (Using is { } picked ? $"The microphone “{picked.Name}”" : "The default microphone")
+                + " is open, shared, and is being listened to for a phrase only.",
+                null);
 
             var taken = new List<float>();
 
@@ -287,17 +368,24 @@ internal sealed class PhraseListening : IDisposable
     }
 
     /// <summary>
-    /// Asks Windows for the default microphone, shared.
+    /// Asks Windows for the microphone, shared.
     /// </summary>
     /// <remarks>
-    /// <para><strong>Shared, and the default one.</strong> Shared mode is what every voice chat
+    /// <para><strong>Shared, whichever one it is.</strong> Shared mode is what every voice chat
     /// program asks for and is why VRChat keeps working while this is open: Windows mixes the
     /// programs that want the microphone and gives each of them the same sound. The exclusive mode
-    /// that would lock VRChat out is never asked for.</para>
-    /// <para><strong>No list is asked for.</strong> Windows is asked to route whichever device is
-    /// the default microphone, rather than for the microphones this PC has, so the client still
-    /// never enumerates capture devices — the same shape as never enumerating windows or
-    /// processes. A moderator who changes their microphone in Windows changes this with it.</para>
+    /// that would lock VRChat out is never asked for, on either path below.</para>
+    /// <para><strong>Two ways in, and both are shared.</strong> With no microphone picked, Windows
+    /// is asked to route whichever one is the default, so a default that moves — a headset
+    /// switched on — takes the listening with it. With one picked, that device is opened by its
+    /// id. Windows will not do both at once: routing is its own thing and naming a device turns it
+    /// off, which is why these are two branches rather than one.</para>
+    /// <para><strong>Built the slow way on purpose.</strong> Routing is set up asynchronously, so
+    /// the recorder has to be built with <c>BuildAsync</c>. Calling <c>Build</c> instead is not a
+    /// silent difference: Windows refuses it outright, and until 2026-09-19 that refusal was every
+    /// moderator's whole experience of this feature — the microphone was never opened once, and
+    /// the settings card said so in the audio library's own words. The voice's Windows output has
+    /// built its player this way since it was written.</para>
     /// <para>Every way this can fail — no microphone at all, one another program has taken
     /// exclusively, one this account may not use — comes back as false with a sentence in
     /// <see cref="LastProblem"/>, and the client carries on doing everything else.</para>
@@ -314,7 +402,7 @@ internal sealed class PhraseListening : IDisposable
         {
             _resamplePosition = 0;
             _resamplePrevious = 0;
-            _microphone = new Microphone(Arrived, BufferMilliseconds);
+            _microphone = new SharedMicrophone(Arrived, BufferMilliseconds, Using?.Id);
             return true;
         }
         catch (Exception ex)
@@ -452,7 +540,7 @@ internal sealed class PhraseListening : IDisposable
     private delegate void SoundArrived(ReadOnlySpan<byte> bytes, int sampleRate, int channels, int bits, bool isFloat);
 
     /// <summary>
-    /// The default microphone, opened shared.
+    /// One microphone, opened shared.
     /// </summary>
     /// <remarks>
     /// Its own small class for the same reason the voice's Windows output is one: it is the only
@@ -461,24 +549,40 @@ internal sealed class PhraseListening : IDisposable
     /// out of the callback and is gone.
     /// </remarks>
     [SupportedOSPlatform("windows")]
-    private sealed class Microphone : IDisposable
+    private sealed class SharedMicrophone : IDisposable
     {
         private readonly WasapiRecorder _recorder;
+        private readonly MMDevice? _picked;
 
-        public Microphone(SoundArrived arrived, int bufferMilliseconds)
+        public SharedMicrophone(SoundArrived arrived, int bufferMilliseconds, string? microphoneId)
         {
-            _recorder = new WasapiRecorderBuilder()
-                // Whichever microphone Windows calls the default, followed when Windows moves it.
-                // Never a list of this PC's microphones.
-                .WithDefaultDeviceStreamRouting()
+            var builder = new WasapiRecorderBuilder()
 
                 // The one line that matters most in this file. Shared is what voice chat asks for;
                 // the exclusive mode beside it would lock VRChat out of the microphone, and that
                 // call is one this client does not make anywhere — the source guard checks.
                 .WithSharedMode()
                 .WithEventSync()
-                .WithBufferLength(bufferMilliseconds)
-                .Build();
+                .WithBufferLength(bufferMilliseconds);
+
+            if (string.IsNullOrWhiteSpace(microphoneId))
+            {
+                // Whichever microphone Windows calls the default, followed when Windows moves it.
+                builder = builder.WithDefaultDeviceStreamRouting();
+            }
+            else
+            {
+                // The one somebody picked. Windows will not follow the default and be told a
+                // device at the same time, so these are two branches rather than one.
+                using var windows = new MMDeviceEnumerator();
+                builder = builder.WithDevice(_picked = windows.GetDevice(microphoneId));
+            }
+
+            // Not Build(). Windows sets routing up asynchronously and refuses the plain build
+            // outright, which is how this file spent its first evening never opening a microphone
+            // at all. The voice's Windows output has built its player this way since it was
+            // written.
+            _recorder = builder.BuildAsync().ConfigureAwait(false).GetAwaiter().GetResult();
 
             var format = _recorder.WaveFormat;
             var isFloat = format.Encoding is WaveFormatEncoding.IeeeFloat;
@@ -511,6 +615,7 @@ internal sealed class PhraseListening : IDisposable
             }
 
             _recorder.Dispose();
+            _picked?.Dispose();
         }
     }
 }

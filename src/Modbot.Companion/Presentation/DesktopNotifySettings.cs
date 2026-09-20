@@ -30,7 +30,7 @@ namespace Modbot.Companion.Presentation;
 /// <param name="Spot">Which corner of the screen it sits in.</param>
 /// <param name="Seconds">How long one notification stays before it clears itself.</param>
 public sealed record DesktopNotifySettings(
-    bool On = false,
+    bool On = true,
     ScreenSpot Spot = ScreenSpot.BottomRight,
     float Seconds = DesktopNotifySettings.DefaultSeconds)
 {
@@ -44,14 +44,38 @@ public sealed record DesktopNotifySettings(
     public const int EdgeMargin = 24;
 
     /// <summary>
-    /// Off until somebody turns it on, in the bottom right.
+    /// On, in the bottom right: what a machine with no settings file yet gets.
     /// </summary>
     /// <remarks>
-    /// Off for the same reason the window over VRChat is off: this one puts a window over
-    /// everything else on the machine, including whatever the moderator is doing when VRChat is
-    /// not running, and that is a thing to be asked for rather than assumed.
+    /// <para>This was off until 2026-09-19, on the reasoning that a window over everything else on
+    /// the machine is a thing to be asked for. What that missed is that being told is the whole
+    /// reason somebody installs this: a moderator who has not found the Notifications card gets no
+    /// pop-up at all and has no way of knowing there was one to switch on. The headset's
+    /// notification panel has been on by default since it was built, for the same reason, and
+    /// having the two disagree was an accident rather than a decision.</para>
+    /// <para>Which kinds of event actually raise one is still the Notifications card's Pop-up
+    /// column, so "on" here is a window that exists, not a window that is constantly in the way.
+    /// </para>
     /// </remarks>
     public static DesktopNotifySettings Default { get; } = new();
+
+    /// <summary>
+    /// Off, in the bottom right: what a settings file written before this switch existed gets.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>A default is a default on a first run, and a change on every other one.</strong>
+    /// Somebody who already has a <c>settings.json</c> has set this machine up, and a window
+    /// appearing over whatever is on their monitor the next time they update is not a default —
+    /// it is the client changing something while their back was turned. So a file that exists and
+    /// says nothing about this window means off, and only a machine with no file at all takes the
+    /// new default.</para>
+    /// <para>The headset's notification panel is not treated the same way, and the asymmetry is
+    /// the point: a panel a moderator can only see while they are wearing a headset interrupts
+    /// nothing, and it has been on by default since it was built, so nothing about it moves.</para>
+    /// <para>Switching it on or off writes the whole object, so after that this never applies
+    /// again — the file says plainly which it is.</para>
+    /// </remarks>
+    public static DesktopNotifySettings NotAskedFor { get; } = Default with { On = false };
 
     /// <summary>The same settings with every number inside its bounds.</summary>
     public DesktopNotifySettings Clamped() => this with
@@ -126,23 +150,31 @@ public sealed record DesktopNotifySettings(
     }
 
     /// <summary>
-    /// Reads the <c>desktopNotifyOverlay</c> object. Anything missing or unreadable takes the
-    /// default for that field, and a number outside its bounds is brought inside them, so a
-    /// hand-edited file cannot put the window somewhere it cannot be found.
+    /// Reads the <c>desktopNotifyOverlay</c> object. Anything missing or unreadable takes
+    /// <paramref name="whenAbsent"/> for that field, and a number outside its bounds is brought
+    /// inside them, so a hand-edited file cannot put the window somewhere it cannot be found.
     /// </summary>
-    public static DesktopNotifySettings FromJson(JsonNode? node)
+    /// <param name="node">The object out of the settings file, or null when there is none.</param>
+    /// <param name="whenAbsent">
+    /// What a missing object means. <see cref="Default"/> on a machine with no settings file at
+    /// all, and <see cref="NotAskedFor"/> on one that has a file written before this window
+    /// existed — see the remarks on <see cref="NotAskedFor"/> for why those differ.
+    /// </param>
+    public static DesktopNotifySettings FromJson(JsonNode? node, DesktopNotifySettings? whenAbsent = null)
     {
+        var absent = whenAbsent ?? Default;
+
         if (node is not JsonObject json)
-            return Default;
+            return absent;
 
         var spot = Enum.TryParse<ScreenSpot>(Text(json, "spot"), ignoreCase: true, out var parsed)
             ? parsed
-            : Default.Spot;
+            : absent.Spot;
 
         return new DesktopNotifySettings(
-            Flag(json, "on", Default.On),
+            Flag(json, "on", absent.On),
             spot,
-            Number(json, "seconds", Default.Seconds)).Clamped();
+            Number(json, "seconds", absent.Seconds)).Clamped();
     }
 
     private static string? Text(JsonObject json, string field)

@@ -35,6 +35,29 @@ rectangle — shrunk to at most 1280 pixels wide, at **15 frames a second**. A 2
 records at 1280×720; a 1920×1080 one at 960×540. It is deliberately modest: your frame rate in
 VRChat matters more than how sharp the clip is.
 
+### What a clip looks like
+
+**VRChat's picture, filling the frame.** What you saw in VRChat is what you get, at a smaller size.
+
+The frame's size is decided once, when recording starts, from VRChat's window as it was then. It
+cannot change after that — a video file cannot change size part way through, and starting a new one
+every time you resized a window would throw away the minutes you are about to want. So if the
+window changes size while Modbot is recording, **the picture is scaled to keep filling the same
+frame** rather than shrinking inside it.
+
+The one thing that cannot be scaled away is a change of *shape*. If you go from a wide window to a
+tall one mid-recording, the picture keeps its proportions — nobody in a clip is ever stretched — so
+a strip is left over. It is as small as it can be and it is **centred**, not pushed into a corner.
+Go back to the shape you started at and it is gone.
+
+<Callout type="warn" title="If you have a clip that is a small picture in the corner of a black frame">
+That was a bug, fixed on 19 September 2026. Before the fix, Modbot drew the picture at whichever
+size its graphics card could halve it to and painted the rest of the frame black — and for a lot of
+window sizes that landed one halving too far, putting the picture in the top-left quarter of an
+otherwise black clip. Clips recorded after the fix fill the frame. Clips you already saved cannot
+be repaired; record a new one.
+</Callout>
+
 ### What can still end up in a clip
 
 Being straight about this, because it is the one thing on this page where "records VRChat's

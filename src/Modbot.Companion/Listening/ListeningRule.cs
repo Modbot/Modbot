@@ -114,6 +114,14 @@ public static class ListeningRule
 /// answers Off before it looks at anything else: a moderator who turned it off chose that, and a
 /// machine that cannot listen did not, so the card has to tell them apart.
 /// </param>
+/// <param name="Microphones">
+/// The microphones this PC has, for the card's list. Empty while listening is switched off,
+/// because a switched-off client asks Windows' audio system nothing at all.
+/// </param>
+/// <param name="MicrophoneMissing">
+/// True when the moderator picked a microphone that is not plugged in, and the Windows default is
+/// standing in for it.
+/// </param>
 public sealed record ListeningStatus(
     ListeningSettings Settings,
     ListeningState State,
@@ -122,8 +130,13 @@ public sealed record ListeningStatus(
     long ModelBytes = 0,
     string? LastHeard = null,
     string? LastProblem = null,
-    bool Supported = true)
+    bool Supported = true,
+    IReadOnlyList<Microphone>? Microphones = null,
+    bool MicrophoneMissing = false)
 {
+    /// <summary>The microphones this PC has, never null.</summary>
+    public IReadOnlyList<Microphone> MicrophonesOrNone => Microphones ?? [];
+
     /// <summary>Before the host has said anything: off, with the default settings.</summary>
     public static ListeningStatus None { get; } = new(
         ListeningSettings.Default,

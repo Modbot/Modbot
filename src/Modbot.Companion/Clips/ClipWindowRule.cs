@@ -26,8 +26,42 @@ public enum ClipFrame
 }
 
 /// <summary>
-/// The rules that keep a clip to VRChat's window: which part of the screen is copied, how much it
-/// is shrunk, and what happens when the window is somewhere else, minimised, resized or gone.
+/// Where VRChat's picture goes inside one frame of a clip: how much of it the graphics card can
+/// halve for free, how big it is drawn, and where in the frame it starts.
+/// </summary>
+/// <param name="Level">
+/// Which of the graphics card's ready-made smaller copies to read. Level 0 is the picture at full
+/// size, level 1 is half as wide and half as tall, and so on. The one chosen is the smallest that
+/// is still at least as big as the picture is drawn, so the card does as much of the shrinking as
+/// it can and the processor is left with a step of less than half.
+/// </param>
+/// <param name="SourceWidth">How wide that copy is.</param>
+/// <param name="SourceHeight">How tall that copy is.</param>
+/// <param name="Width">How wide VRChat's picture is drawn in the frame.</param>
+/// <param name="Height">How tall it is drawn.</param>
+/// <param name="Left">How far in from the frame's left edge it starts.</param>
+/// <param name="Top">How far down from the frame's top edge it starts.</param>
+public readonly record struct ClipFit(
+    int Level,
+    int SourceWidth,
+    int SourceHeight,
+    int Width,
+    int Height,
+    int Left,
+    int Top)
+{
+    /// <summary>Whether the copy is already exactly the size it is drawn, so nothing has to be scaled.</summary>
+    public bool Exact => SourceWidth == Width && SourceHeight == Height;
+
+    /// <summary>How much of the frame is left over, in pixels. Zero when the shapes match.</summary>
+    public int LeftOver(int frameWidth, int frameHeight)
+        => Math.Max(0, (frameWidth * frameHeight) - (Width * Height));
+}
+
+/// <summary>
+/// The rules that keep a clip to VRChat's window: which part of the screen is copied, how it is
+/// scaled to fill the frame, and what happens when the window is somewhere else, minimised,
+/// resized or gone.
 /// </summary>
 /// <remarks>
 /// <para><strong>It reads nothing and writes nothing.</strong> It is arithmetic over numbers the
@@ -39,12 +73,24 @@ public enum ClipFrame
 /// the clip. A recorder that stopped instead would end the file at the first alt-tab and lose the
 /// minutes that follow. So the last picture of VRChat is written again until VRChat is back: the
 /// clip runs at a steady rate, holds only VRChat, and is never half a file.</para>
-/// <para><strong>Why the recorded size never changes.</strong> The encoder is told a frame size
-/// once, when the clip's first file is opened, and a video file cannot change size part way
-/// through. VRChat's window can — alt-tab, a resolution change, a window dragged bigger. So the
-/// size is fixed from the window as it was when recording started, and a window that later differs
-/// is shrunk until it fits inside that, with anything left over black. A resize costs a smaller
-/// picture in the same frame; it never costs the file.</para>
+/// <para><strong>Why the frame's size never changes, and why the picture is scaled into it.</strong>
+/// The encoder is told a frame size once, when the clip's first file is opened, and a video file
+/// cannot change size part way through. VRChat's window can — alt-tab, a resolution change, a
+/// window dragged bigger. So the frame is fixed from the window as it was when recording started,
+/// and the window as it is now is <em>scaled</em> to fill that frame rather than drawn at whatever
+/// size it happens to come out at. A window that changes size changes the scale; it does not
+/// change how much of the frame is black.</para>
+/// <para><strong>What used to happen, and why it was wrong.</strong> The picture used to be drawn
+/// at whichever of the graphics card's ready-made smaller copies fitted inside the frame, and the
+/// rest of the frame painted black. Halving is all those copies can do, so the picture only ever
+/// filled the frame when the window happened to be an exact number of halvings bigger than it —
+/// and one odd pixel was enough to force a halving too many and drop the picture to a quarter of
+/// the frame in the top-left corner. That is what a moderator reported on 2026-09-19 and it is
+/// what <see cref="Fit"/> replaces.</para>
+/// <para><strong>Shape is kept.</strong> Scaling is by the same amount across and down, so nobody
+/// in a clip is stretched. When the window's shape stops matching the frame's — a window dragged
+/// from wide to tall — what is left over is the smallest it can be and is split evenly on both
+/// sides, so the picture stays in the middle instead of sliding into a corner.</para>
 /// </remarks>
 public static class ClipWindowRule
 {
@@ -72,36 +118,73 @@ public static class ClipWindowRule
     }
 
     /// <summary>
-    /// How many times to halve VRChat's window as it is now so it fits inside the size the clip is
-    /// being recorded at. A window that has not changed gives the level it started at.
+    /// Where VRChat's window goes inside one frame: scaled to fill as much of it as its shape
+    /// allows, centred, and read from the ready-made smaller copy closest above the size it is
+    /// drawn at.
     /// </summary>
-    public static int FitLevel(int windowWidth, int windowHeight, int recordedWidth, int recordedHeight)
+    /// <remarks>
+    /// <para>The scale is the same across and down — whichever of the two is the tighter fit — so
+    /// the picture is never stretched. One of the two dimensions therefore lands exactly on the
+    /// frame's, and the other lands on it too whenever the shapes match, which is every frame of
+    /// an ordinary clip.</para>
+    /// <para>The level is the last one that is still no smaller than the size being drawn, so the
+    /// graphics card does every halving it can and the processor is left with a step of less than
+    /// half — and with no step at all when the scale happens to be an exact halving, which is the
+    /// ordinary case of a window that has not changed.</para>
+    /// </remarks>
+    public static ClipFit Fit(int windowWidth, int windowHeight, int frameWidth, int frameHeight)
     {
+        var width = Math.Max(2, windowWidth);
+        var height = Math.Max(2, windowHeight);
+        var frameAcross = Even(frameWidth);
+        var frameDown = Even(frameHeight);
+
+        // Whichever edge runs out first decides the scale, and the other is worked out from it so
+        // the shape is kept. Multiplied out rather than divided, so the comparison is exact.
+        int drawWidth;
+        int drawHeight;
+
+        if ((long)width * frameDown >= (long)height * frameAcross)
+        {
+            drawWidth = frameAcross;
+            drawHeight = Even(Share(height, frameAcross, width));
+        }
+        else
+        {
+            drawHeight = frameDown;
+            drawWidth = Even(Share(width, frameDown, height));
+        }
+
+        drawWidth = Math.Min(frameAcross, drawWidth);
+        drawHeight = Math.Min(frameDown, drawHeight);
+
         var level = 0;
         while (level < MostHalvings
-            && ((windowWidth >> level) > recordedWidth || (windowHeight >> level) > recordedHeight))
+            && (width >> (level + 1)) >= drawWidth
+            && (height >> (level + 1)) >= drawHeight)
         {
             level++;
         }
 
-        return level;
+        return new ClipFit(
+            level,
+            Math.Max(1, width >> level),
+            Math.Max(1, height >> level),
+            drawWidth,
+            drawHeight,
+
+            // Split evenly, then taken down to an even number so a left-over strip never lands
+            // half way through a pair of pixels the encoder treats as one.
+            Middle(frameAcross - drawWidth),
+            Middle(frameDown - drawHeight));
     }
 
-    /// <summary>
-    /// How much of the recorded frame VRChat's window fills at that level. Never larger than the
-    /// frame; a window smaller than the frame leaves the rest black rather than stretching.
-    /// </summary>
-    public static (int Width, int Height) FittedSize(
-        int windowWidth,
-        int windowHeight,
-        int recordedWidth,
-        int recordedHeight,
-        int level)
-    {
-        return (
-            Math.Min(recordedWidth, Even(windowWidth >> level)),
-            Math.Min(recordedHeight, Even(windowHeight >> level)));
-    }
+    /// <summary>What <paramref name="value"/> becomes when <paramref name="of"/> becomes <paramref name="into"/>.</summary>
+    private static int Share(int value, int into, int of)
+        => (int)(((((long)value * into) * 2) + of) / (of * 2L));
+
+    /// <summary>Half of what is left over, on an even pixel.</summary>
+    private static int Middle(int over) => Math.Max(0, over / 2) & ~1;
 
     /// <summary>
     /// VRChat's window as a box inside one monitor, kept inside that monitor however far off the

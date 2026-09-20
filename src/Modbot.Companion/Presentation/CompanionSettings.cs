@@ -44,10 +44,11 @@ namespace Modbot.Companion.Presentation;
 /// (<c>{ "on": false, "minutes": 3, "folder": "…", "keepGigabytes": 5 }</c>), keeping the last few
 /// minutes of the screen while VRChat runs — off unless somebody turns it on. Both are written
 /// whole the same way too. There is also <c>desktopNotifyOverlay</c>
-/// (<c>{ "on": false, "spot": "bottomright", "seconds": 6 }</c>), the notification overlay on a
-/// monitor; and <c>listenForPhrase</c> (<c>{ "on": false }</c>), whether the client listens for a
-/// spoken phrase while VRChat runs — off unless somebody turns it on. Both are written whole the
-/// same way.</para>
+/// (<c>{ "on": true, "spot": "bottomright", "seconds": 6 }</c>), the notification overlay on a
+/// monitor — on for a machine with no settings file yet, and off for one whose file was written
+/// before this window existed; and <c>listenForPhrase</c> (<c>{ "on": false }</c>), whether the client listens for a
+/// spoken phrase while VRChat runs — off unless somebody turns it on, with an optional
+/// <c>"microphone"</c> naming which one to open. Both are written whole the same way.</para>
 /// <para><strong>Nothing here leaves the machine.</strong> The pairing page address is what the client
 /// opens in your browser when you press the button; no server is told what it is. The switches decide
 /// what the client does; they are not reported anywhere.</para>
@@ -147,9 +148,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public ClipSettings Clips { get; init; } = ClipSettings.Default;
 
     /// <summary>
-    /// The notification overlay on a monitor: off until turned on, then which corner of the screen
-    /// it sits in and how long one notification stays. Saved as the <c>desktopNotifyOverlay</c>
-    /// object.
+    /// The notification overlay on a monitor: whether it is drawn, which corner of the screen it
+    /// sits in and how long one notification stays. Saved as the <c>desktopNotifyOverlay</c>
+    /// object, and on unless the file says otherwise or predates it
+    /// (<see cref="DesktopNotifySettings.NotAskedFor"/>).
     /// </summary>
     public DesktopNotifySettings DesktopNotifyOverlay { get; init; } = DesktopNotifySettings.Default;
 
@@ -242,14 +244,23 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             EventsFilters = EventFilterSet.FromJson(shape?.EventsFilters),
             Notifications = FromShape(shape?.Notifications),
             Clips = FromShape(shape?.Clips),
-            DesktopNotifyOverlay = DesktopNotifySettings.FromJson(shape?.DesktopNotifyOverlay),
+            // The notification overlay on a monitor is on by default, and a default is only a
+            // default on a first run. A machine that already has a settings file has been set up
+            // by somebody, and a window appearing over whatever is on their screen at the next
+            // update would be a change rather than a default, so a file that exists and says
+            // nothing about this window means off.
+            DesktopNotifyOverlay = DesktopNotifySettings.FromJson(
+                shape?.DesktopNotifyOverlay,
+                shape is null ? DesktopNotifySettings.Default : DesktopNotifySettings.NotAskedFor),
             Listening = FromShape(shape?.Listening),
         };
     }
 
     private static ListeningSettings FromShape(ListeningShape? listening) => listening is null
         ? ListeningSettings.Default
-        : new ListeningSettings(listening.On ?? false);
+        : new ListeningSettings(
+            listening.On ?? false,
+            string.IsNullOrWhiteSpace(listening.Microphone) ? null : listening.Microphone.Trim());
 
     /// <summary>
     /// Writes the whole <c>listenForPhrase</c> object, keeping every other field in the file. The
@@ -259,7 +270,15 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     {
         ArgumentNullException.ThrowIfNull(listening);
 
-        return SaveField(path, ListeningField, new JsonObject { ["on"] = listening.On });
+        var shape = new JsonObject { ["on"] = listening.On };
+
+        // Left out when it is the Windows default, the same rule the clips folder follows: the
+        // file says nothing rather than pinning a device id that would then stop following the
+        // machine.
+        if (!string.IsNullOrWhiteSpace(listening.MicrophoneId))
+            shape["microphone"] = listening.MicrophoneId;
+
+        return SaveField(path, ListeningField, shape);
     }
 
     /// <summary>
@@ -563,5 +582,6 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("keepGigabytes")] int? KeepGigabytes);
 
     private sealed record ListeningShape(
-        [property: JsonPropertyName("on")] bool? On);
+        [property: JsonPropertyName("on")] bool? On,
+        [property: JsonPropertyName("microphone")] string? Microphone);
 }

@@ -32,6 +32,15 @@ came out was **black**. A moderator also asked for the name to be something they
 | **The recorder says what it is doing, in the log file.** | §12.3 | A black clip looks exactly like a good one until somebody opens it, and the file says nothing about why. |
 | **A clip is named after the world.** | new §13 | `The Black Cat_98874_2026-09-19 18-02-29.mp4`. The old name was the moment with the instance id stuck on the end, and the world name was being read out of VRChat's log and thrown away. |
 
+## What changed after the second real build, later the same evening
+
+The black clip was fixed and a real clip came out. **VRChat's picture filled a quarter of it**, in
+the top-left corner, with the rest black. That is §14, and it moved one more decision.
+
+| What changed | Where | Why |
+|---|---|---|
+| **The picture is scaled into the frame, rather than drawn at whatever size it comes out at with the rest painted black.** | §3.1, §5.1, new §14 | The arithmetic that picked a size could only halve, so the picture only ever filled the frame when the window happened to be an exact number of halvings bigger than it. One odd pixel was enough to force a halving too many and drop the picture to a quarter of the frame. Padding was also the wrong answer on its own terms: a window that changes size should change the scale, not the amount of black. |
+
 ---
 
 ## 1. What was asked for, and what this is
@@ -101,10 +110,18 @@ the client ships learns to. That is the same shape as the existing carve-outs fo
   desktop is that box and nothing else. The box is clamped to the monitor's own picture before it
   is used, because the numbers come from Windows about another program's window and a box running
   past the end of a texture is a crash on somebody's PC rather than a wrong pixel.
-- **Shrinking.** The window's box is copied into a texture with a mip chain, the graphics card
-  generates the chain itself (`GenerateMips`), and the first level no wider than 1280 pixels is the
-  one used. A 2560×1440 window records at 1280×720; a 1920×1080 one at 960×540. Odd sizes are
-  trimmed to even because H.264 will not take odd ones.
+- **Shrinking, and filling the frame.** The window's box is copied into a texture with a mip chain
+  and the graphics card generates the chain itself (`GenerateMips`). The **frame's** size is fixed
+  once, from the window as it was when recording started, halved until it is no wider than 1280 and
+  trimmed to even because H.264 will not take odd sizes: a 2560×1440 window records at 1280×720, a
+  1920×1080 one at 960×540. Every frame after that, `ClipWindowRule.Fit` scales the window as it is
+  **now** to fill that frame — by the same amount across and down, so nobody is stretched — reading
+  the last mip level that is still no smaller than the size being drawn, so the card does every
+  halving it can for free and the processor is left with a step of less than half. When the window
+  has not changed size that step is nothing at all and the pixels are copied straight across.
+  `ClipPicture` is the step when there is one: four pixels blended into each one it writes, which
+  is the only part of a frame the processor touches beyond the copy it was already making. §14 is
+  what this replaced and why.
 - **Encoding and writing.** Media Foundation's sink writer, with
   `MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS` set, so the graphics card's own encoder (Quick Sync,
   NVENC, AMF) is used when the machine has one and Microsoft's software encoder when it does not.
@@ -363,7 +380,8 @@ end as a corrupt file, because a clip nobody can open is worse than no clip.
 | **VRChat is not running yet.** The log has started moving but no window exists. | Nothing is recorded and no encoder is opened. The settings screen and the overlay both say *Waiting for VRChat's window*, and **Save a clip** cannot be pressed. It is its own state rather than a failure, because the recorder is the thing that asks Windows for the window, and taking it down for not having found one would rebuild it once a second for as long as VRChat took to draw. |
 | **The window closes part way through.** | The last picture is written again. The recorder is not stopped by this; VRChat's log going quiet is what stops it, which then deletes the two rolling files. One rule about the recorder's life, in the place that already had it. |
 | **It is minimised, or dragged onto another screen.** | The last picture again. A minimised window has no picture, and a window on another monitor is not in the duplication being read. |
-| **Its size changes** — alt-tab, a resolution change, a window dragged bigger. | The clip keeps its size and the picture is shrunk to fit inside it, with whatever is left over black. The encoder is told a frame size once and a video file cannot change size part way through, so the alternative was closing both files and opening two new ones, which throws away the minutes a moderator is about to want. A resize costs a smaller picture; it never costs the file. |
+| **Its size changes** — alt-tab, a resolution change, a window dragged bigger. | The frame keeps its size and the picture is **scaled** to keep filling it. The encoder is told a frame size once and a video file cannot change size part way through, so the alternative was closing both files and opening two new ones, which throws away the minutes a moderator is about to want. A resize costs a scale; it never costs the file, and it does not cost a black border either (§14). |
+| **Its shape changes** — a wide window dragged tall. | Scaling is by the same amount across and down, because stretching somebody in a clip is worse than a strip of black. So something is left over, and it is the smallest it can be and is split evenly on both sides. Going back to the shape the clip started at removes it entirely. |
 
 `ClipWindowRuleTests` checks all of this without a screen, which is the reason the decisions live in
 `ClipWindowRule` rather than inside the capture loop.
@@ -512,6 +530,17 @@ somebody checking can see it was looked at rather than missed.
 | `docs/content/docs/companion/clips.mdx` | *What a clip is called* and *When a clip cannot be made*, and the new row in the overlay table |
 | `docs/content/docs/companion/install.mdx` | The world's readable name added to the list of log lines the client recognises |
 
+### 9.3 And what the second real build moved
+
+| Where | What it says now |
+|---|---|
+| `src/Modbot.Companion/Clips/ClipWindowRule.cs` | `FitLevel` and `FittedSize` gone; `Fit` and the `ClipFit` record in their place, and a paragraph on why padding was the wrong answer as well as the wrong arithmetic |
+| `src/Modbot.Companion/Clips/ClipPicture.cs` | New: the last step down to the frame, four pixels blended into one, with no screen anywhere in it |
+| `src/Modbot.Companion.App/ScreenRecording.cs` | Class doc gains *The picture fills the frame*; the staging texture is the size the card hands over rather than the size of the frame; the fit goes into the log the first time it changes |
+| `tests/…/Clips/ClipWindowRuleTests.cs` | The 1366×768 case by name, the family it belongs to, and that nothing is ever stretched or runs past the frame |
+| `tests/…/Clips/ClipPictureTests.cs` | New: corners stay in corners, nothing outside the rectangle is touched, and the screenshot's window fills its frame |
+| `docs/content/docs/companion/clips.mdx` | *What a clip looks like*, including what to do with a clip already saved from the broken build |
+
 ---
 
 ## 10. What is not built
@@ -529,8 +558,11 @@ somebody checking can see it was looked at rather than missed.
 - **Any measurement at all.** §4 is estimates, still. The feature has now been run once, which
   produced §12 and nothing else: no frame rate, no encoder load, no disk figure has been measured.
 - **Any certainty about what a clip looks like on a second machine.** §12 names one cause of a
-  black picture, fixes it, and adds the logging that would name the others. Whether the next black
-  clip has the same cause is not knowable from here.
+  black picture, §14 names the cause of a quarter-filled one, and both add the logging that would
+  name the others. Whether the next clip that comes out wrong has either cause is not knowable from
+  here.
+- **Repairing clips already saved** (§14.6). The picture that went into the file is the picture in
+  the file.
 
 ---
 
@@ -786,3 +818,123 @@ brackets and tildes, and sanitising halves separately leaves the joins to chance
   pressed for.
 
 `ClipLibrary` still owns making room in the folder, and still deletes only `.mp4` files it wrote.
+
+---
+
+## 14. The quarter-filled frame, and why padding was the wrong answer anyway
+
+The black clip was fixed (§12) and the next one had a picture in it. The picture filled **the
+top-left quarter of the frame** and the rest was black. This section is the arithmetic that caused
+it, the arithmetic that replaced it, and why the replacement is a different approach rather than a
+corrected version of the same one.
+
+### 14.1 The cause: one odd pixel, and two rules that did not agree
+
+Two pieces of arithmetic decided the picture's size, and they rounded differently.
+
+- `RecordedSize(w, h)` picked the **frame**: halve until no wider than 1280, then **round down to
+  even**, because H.264 will not take odd sizes.
+- `FitLevel(w, h, frameW, frameH)` picked how many times to halve the window **now**: the first
+  level at which the halved window is no bigger than the frame — comparing the **un-rounded**
+  halved window against the **rounded-down** frame.
+
+So whenever halving the window gave an odd number, `RecordedSize` shaved one pixel off the frame
+and `FitLevel` then found that the un-shaved window did not fit, and halved once more. One extra
+halving is half the width and half the height: **a quarter of the frame, in the corner, with the
+rest painted black**.
+
+The numbers, for a 1366×768 window — an ordinary laptop screen:
+
+| | |
+|---|---|
+| Window | 1366 × 768 |
+| Frame (`RecordedSize`) | 1366 ≫ 1 = **683**, rounded down to even → **682**; 768 ≫ 1 = **384** |
+| `FitLevel` at level 1 | 683 > 682, so it does not fit → **level 2** |
+| Picture drawn (`FittedSize`) | 1366 ≫ 2 = 341 → even **340**; 768 ≫ 2 = **192** |
+| Filled | 340 of 682 across and 192 of 384 down — **a quarter of the frame** |
+
+**How common is it.** The trigger is "either dimension is odd after halving", and the window's
+picture is whatever size a moderator's window happens to be. For a window between 1280 and 2560
+wide the halved width is odd for half of all widths, and the same again for the height, so **about
+three windows in four** hit it. Exactly the sizes that did not are the ones anybody would try
+first: 1920×1080 and 2560×1440 are both clean, which is why the arithmetic looked right in the
+tests and in every check made by hand.
+
+| Window | Frame | Old picture | Filled |
+|---|---|---|---|
+| 1920 × 1080 | 960 × 540 | 960 × 540 | all of it |
+| 2560 × 1440 | 1280 × 720 | 1280 × 720 | all of it |
+| **1366 × 768** | 682 × 384 | 340 × 192 | **a quarter** |
+| **1680 × 1050** | 840 × 524 | 420 × 262 | **a quarter** |
+| **2880 × 1620** | 720 × 404 | 360 × 202 | **a quarter** |
+
+**Confidence: high.** It is a straight reading of two functions, it reproduces without a screen,
+and it matches the report exactly — right length, right name, right picture, wrong size, top-left,
+black elsewhere. The four things §12.4 looked at and left alone are all still fine, and were
+checked again: the crop's coordinate space, the stride's sign, the formats, and the box handed to
+`CopySubresourceRegion` (which is in the mip level's own coordinates, and was correct).
+
+### 14.2 Why the fix is not "make the two rules agree"
+
+Making `FitLevel` compare like with like would have fixed the reported clip. It would not have
+fixed the design, because **halving is all a mip chain can do**. A window that is 1.4 times the
+frame is too big for one halving and too small for two, so any rule built only out of mip levels
+draws that window at 0.7 of the frame and paints the remaining half of the area black. §5.1 said as
+much and called it the price of keeping one file open across a resize.
+
+It is not a price worth paying, and it was never the only way to pay it. A clip is supposed to be
+VRChat's window; a frame that is mostly black is not that.
+
+**So: the frame stays fixed and the picture is scaled into it.** That keeps the part of §5.1 that
+was right — the encoder is told a size once and a video file cannot change size part way through,
+so a resize must not close the file — and drops the part that was not.
+
+### 14.3 What it does now
+
+`ClipWindowRule.Fit(windowWidth, windowHeight, frameWidth, frameHeight)` answers, as plain
+arithmetic with no screen in it:
+
+1. **How big to draw.** Scale to fit, by the tighter of the two edges, so the shape is kept. One
+   dimension lands exactly on the frame's; the other lands on it too whenever the shapes match,
+   which is every frame of an ordinary clip.
+2. **Where.** Whatever is left over is split evenly and taken to an even pixel, so the picture is
+   centred rather than in a corner. With matching shapes there is nothing left over at all.
+3. **Which of the card's smaller copies to read.** The **last** level that is still no smaller than
+   the size being drawn. The graphics card does every halving it can for free, and the processor is
+   handed a picture less than twice the size it writes.
+
+`ClipPicture.DrawInto` is the last step, and only when there is one: each pixel written is the
+blend of the four around where it came from, measured from pixel middles so a scaled picture does
+not creep half a pixel towards an edge.
+
+**In the ordinary case none of that costs anything.** A window that has not changed size gives a
+scale that is an exact halving, the level lands exactly on the frame, and the rows are copied
+straight across — the same work the recorder did before. §4's estimates are unchanged for it.
+
+**When a window has been resized**, the readback is up to four times the frame's pixels rather than
+exactly the frame's, and the blend runs over the frame. That is real and it is written down here
+rather than hidden: at 960×540 it is a few percent of one core, it lasts only as long as the window
+is an awkward size, and the alternative was a clip that is three-quarters black. The staging
+texture is remade when the size the card hands over changes, which is the same shape as the window
+copy being remade, and is rare for the same reason.
+
+### 14.4 What is still left over, and when
+
+Only a shape change. A window dragged from wide to tall cannot fill a wide frame without stretching
+somebody, and stretching somebody in a clip that might end up on a moderation case is worse than a
+strip of black. So the strip stays, it is as small as the shapes allow, and it is **centred**. Going
+back to the shape the clip started at removes it. The documentation page says this in a moderator's
+words rather than leaving them to notice.
+
+### 14.5 What this does not tell us
+
+Whether any *other* machine's clip comes out wrong for a different reason. §12.3's log lines are
+still what would say, and one was added to them: the first time the fit changes, the recorder
+writes the window's size, the size it is being drawn at, where in the frame, and which copy it was
+read from. A clip that is still not right can be read about rather than guessed at.
+
+### 14.6 Clips already saved
+
+Not repairable. The picture that went into the file is the picture in the file, and nothing about
+it says what it should have been. The documentation page says so plainly rather than leaving
+somebody to try.

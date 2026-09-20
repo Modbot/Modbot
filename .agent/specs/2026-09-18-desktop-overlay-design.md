@@ -477,7 +477,7 @@ other field exactly as it found it — the same rule as `SaveNotifyOverlay` and 
 
 ```json
 "desktopNotifyOverlay": {
-  "on": false,
+  "on": true,
   "spot": "bottomright",
   "seconds": 6
 }
@@ -485,14 +485,49 @@ other field exactly as it found it — the same rule as `SaveNotifyOverlay` and 
 
 | Field | Meaning | Default |
 |---|---|---|
-| `on` | Whether the window exists at all | `false` |
+| `on` | Whether the window exists at all | `true` on a machine with no settings file, `false` on one that has one |
 | `spot` | One of the six `ScreenSpot` names | `bottomright` |
 | `seconds` | How long one notification stays, 2 to 30 | `6` |
 
-**Off by default**, unlike the headset's notification overlay, and for the same reason the window
-over VRChat is off by default: this one puts a window over everything else on the machine, VRChat
-not running included. That is asked for rather than assumed. It is one switch on the Settings page,
-beside the window's own.
+#### 7.5.1 On by default, since 2026-09-19
+
+This was off by default, on the reasoning that a window over everything else on the machine is
+asked for rather than assumed — the same reasoning as the window over VRChat. A moderator asked for
+both notification overlays to be on:
+
+> *"SteamVR notification and desktop notification overlay on by default"*
+
+They are right, and the old reasoning was reading the switch as a capability when it is a way of
+being told something. **Being told is the reason somebody installs this client.** A moderator who
+never finds the Notifications card gets no pop-up on their monitor at all and has no way of knowing
+there was one to switch on. And "on" here is a window that *exists*; which kinds of event actually
+raise one is still the Pop-up column (§7.3), which is two kinds by default.
+
+**The headset's notification overlay does not move**, because it has been on by default since it
+was built. Having the two disagree was an accident rather than a decision, and this ends it.
+
+#### 7.5.2 A default is a default on a first run, and a change on every other one
+
+The two overlays are **not** symmetrical on an upgrade, and this is the half that needed deciding.
+
+A panel a moderator can only see while they are wearing a headset interrupts nothing they are
+doing. A window that appears in the corner of their monitor, over whatever is on it, does. So:
+
+- **A machine with no `settings.json` at all** — a fresh install, or somebody who has never changed
+  a setting — takes the new default and gets the window.
+- **A machine that already has a `settings.json` with no `desktopNotifyOverlay` object in it** gets
+  it **off**. They have set this machine up; a window appearing after an update would be the client
+  changing something while their back was turned, which is precisely what "off by default" existed
+  to prevent, and none of that reasoning was wrong — it was only ever wrong about a *first run*.
+- **A file that says `"on": false` or `"on": true`** is what it says, as before. Touching the
+  switch writes the whole object, so this rule never applies to that machine again.
+
+`DesktopNotifySettings.Default` is the first case and `DesktopNotifySettings.NotAskedFor` is the
+second; `CompanionSettings.Load` picks between them on whether the file was there at all, which is
+the only honest signal available — a client that has never written a settings file has never been
+told anything about what its user wants.
+
+It is one switch on the Settings page, beside the window's own.
 
 ### 7.6 What was decided against
 
@@ -526,6 +561,8 @@ Everything that does not need a window, in `tests/Modbot.Companion.Tests/`:
 - `desktopNotifyOverlay` round-tripping through the file, including that writing it leaves
   `voice`, `overlay`, `notifyOverlay` and `desktopOverlay` alone, and that a file that is not JSON
   is not overwritten
+- the two halves of §7.5.2: a machine with no settings file gets the window, a machine whose
+  settings file predates it does not, and the headset's notification overlay is on in both
 - the show-and-let-go rule with two surfaces: each sees a card for its own number of seconds, and
   the shorter one asking does not take the card off the longer one
 - the filter rule: a kind the moderator did not tick never goes up, on either surface

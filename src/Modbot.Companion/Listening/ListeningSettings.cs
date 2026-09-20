@@ -22,7 +22,14 @@ namespace Modbot.Companion.Listening;
 /// Whether the microphone is opened at all while VRChat is running. False unless a person turned
 /// it on.
 /// </param>
-public sealed record ListeningSettings(bool On = false)
+/// <param name="MicrophoneId">
+/// Which microphone is opened, by the id the operating system gives it, or null for whichever
+/// Windows calls the default — which is then followed wherever Windows moves it. A moderator with
+/// a headset microphone and a desk microphone picks whichever matches how they are playing; one
+/// that is not plugged in falls back to the default rather than to silence
+/// (<see cref="MicrophoneChoice"/>).
+/// </param>
+public sealed record ListeningSettings(bool On = false, string? MicrophoneId = null)
 {
     /// <summary>Off.</summary>
     public static ListeningSettings Default { get; } = new();

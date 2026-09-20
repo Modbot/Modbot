@@ -64,17 +64,38 @@ as it is open.
 
 ## It does not take your microphone away from VRChat
 
-Windows is asked for the default microphone in **shared** mode — the same way VRChat, Discord and
-every other voice chat program ask for it. Windows mixes them and hands each program the same sound.
+Windows is asked for the microphone in **shared** mode — the same way VRChat, Discord and every
+other voice chat program ask for it. Windows mixes them and hands each program the same sound.
 Modbot never asks for the exclusive mode that would lock other programs out, and the build fails if
 that call appears.
 
 If some other program has already taken your microphone exclusively, Modbot cannot open it, the
 **Listening** card says so, and everything else in the companion carries on exactly as before.
 
-Modbot follows **whichever microphone Windows calls the default**. It never asks Windows for a list
-of your microphones — the same as never asking for a list of your windows or your programs. Change
-your microphone in Windows and Modbot changes with it.
+## Choosing which microphone
+
+**Settings** → **Listening** → **Microphone** lists the microphones your PC has. Pick your headset
+microphone when you are in VR and your desk microphone when you are not; change it whenever you
+like and the open one closes and the new one opens straight away.
+
+**Windows default** is the first entry and is what you get until you pick something else. It follows
+Windows: switch a headset on and Modbot moves with it.
+
+A microphone you picked that is not plugged in **falls back to the Windows default** rather than
+going quiet, and the card says so. Your choice is kept, so the moment it is back it is used again.
+
+<Callout type="warn" title="This narrows something else the companion used to promise">
+Until this list existed, Modbot asked Windows to follow the default microphone and **never** asked
+which microphones your PC had — the same as never asking for a list of your windows or your
+programs. Choosing one means asking for that list, so the promise is narrowed rather than left
+standing next to code that contradicts it.
+
+It is narrowed in the same shape as everything else here. **One file** in the companion may ask,
+and it is the same file that is allowed to open a microphone; the build fails if a second one
+learns to. The list is only asked for **while Listening is switched on** — with the switch off,
+nothing at all is asked of Windows' audio system, exactly as before. And what comes back is a name
+and an id for each device. Nothing is opened and nothing is heard by asking.
+</Callout>
 
 ## What you can say
 
@@ -165,6 +186,13 @@ Untick it. The microphone closes at once rather than at the next restart. Or set
 
 ```json
 "listenForPhrase": { "on": false }
+```
+
+The microphone you picked is kept in the same object, as Windows' own id for it. Leave it out for
+the Windows default:
+
+```json
+"listenForPhrase": { "on": true, "microphone": "{0.0.1.00000000}.{…}" }
 ```
 
 Deleting the `phrases` folder under `%APPDATA%\Modbot` removes the downloaded matcher as well; it
