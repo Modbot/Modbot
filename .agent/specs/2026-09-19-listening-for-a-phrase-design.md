@@ -448,6 +448,12 @@ zero, the first two milliseconds are under a fifth of full height, each half cro
 twice the pitch it was asked for, and there is still audible level four fifths of the way through.
 `BleepTests` checks every one of those. Somebody with speakers still has to listen to it.
 
+**Later the same day this pair became a family of five**, and the pair itself was not touched: a
+flagged arrival still makes exactly the sound described above. What was added around it is a softer
+single note for ordinary arrivals, the pair played twice for more than one flagged arrival, a
+sharper three-note climb for a fault, and a quiet falling pair for an ending. The notification sound
+design (2026-09-18) §2.6 is the whole of it.
+
 ### 8.3 Still generated, and now escapable
 
 The 2026-09-18 decision to generate rather than ship a file stands, and the reasoning holds: nothing

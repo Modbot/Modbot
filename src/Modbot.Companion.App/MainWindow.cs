@@ -1675,8 +1675,8 @@ public sealed record MainWindowActions(
     /// <summary>The Notifications card changed: the sound's own switch and its own volume.</summary>
     public Action<NotificationSettings> SetNotifications { get; init; } = _ => { };
 
-    /// <summary>Plays one bleep, whether or not the sound is switched on.</summary>
-    public Action TestBleep { get; init; } = () => { };
+    /// <summary>Plays one of the five sounds, whether or not the sound is switched on.</summary>
+    public Action<Tune> TestBleep { get; init; } = _ => { };
 
     /// <summary>
     /// The Notifications card's filter list changed: which kinds of event raise a notification, by

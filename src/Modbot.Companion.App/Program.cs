@@ -709,8 +709,11 @@ internal sealed class CompanionHost : IOverlayListener
         Render();
     }
 
-    /// <summary>The Notifications card's Test button: one bleep, whether or not the sound is on.</summary>
-    private void TestBleep() => _bleep?.Ask(NotificationKind.Test);
+    /// <summary>
+    /// The Notifications card's Test buttons: the one sound that was pressed, whether or not the
+    /// sound is switched on.
+    /// </summary>
+    private void TestBleep(Tune tune) => _bleep?.Play(tune);
 
     /// <summary>
     /// The Notifications card's filter list changed: which kinds of event raise a notification, by
@@ -1217,8 +1220,10 @@ internal sealed class CompanionHost : IOverlayListener
         if (_voice?.Announcer.Answer(sentence) is true)
             return;
 
+        // The soft single chime rather than the alert: a clip that saved is news about something
+        // the moderator themselves asked for, not a reason to look up.
         if (saved && _state?.Settings.Notifications.Bleep is true)
-            _bleep?.Ask(NotificationKind.Test);
+            _bleep?.Play(Tune.Chime);
     }
 
     /// <summary>

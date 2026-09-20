@@ -2,8 +2,13 @@ using Modbot.Companion.Voice;
 
 namespace Modbot.Companion.Sounds;
 
+/// <summary>One note of a sound: how high it is, and how far into the sound it is struck.</summary>
+/// <param name="Hertz">How high the note is.</param>
+/// <param name="At">How far into the sound it is struck, from the beginning.</param>
+public readonly record struct Note(double Hertz, TimeSpan At);
+
 /// <summary>
-/// The short sound the client makes when it has something to tell the moderator: two struck notes,
+/// The short sounds the client makes when it has something to tell the moderator: struck notes,
 /// made from a formula rather than read from a file.
 /// </summary>
 /// <remarks>
@@ -18,7 +23,7 @@ namespace Modbot.Companion.Sounds;
 /// musical relation to each other. A moderator hears this forty times in an evening and said so.
 /// Four things are different now, and each is doing a job:</para>
 /// <list type="bullet">
-/// <item><description><strong>Lower.</strong> 440 hertz and 659, where it was 880 and 1245. The
+/// <item><description><strong>Lower.</strong> 440 hertz and 660, where it was 880 and 1245. The
 /// old pair sat in the band the ear is most sensitive to and most quickly annoyed by.</description></item>
 /// <item><description><strong>A musical interval.</strong> The second note is a perfect fifth above
 /// the first — exactly three halves of its pitch — so the pair reads as two notes of one sound
@@ -31,31 +36,60 @@ namespace Modbot.Companion.Sounds;
 /// dying faster than the one below it, which is what separates the sound of something being hit
 /// from the sound of a test tone.</description></item>
 /// </list>
-/// <para>It is still short — under half a second — and still made of arithmetic that anybody can
-/// read.</para>
+/// <para><strong>And what changed later the same day: there are five of them.</strong> A moderator
+/// asked to be able to tell "somebody arrived" from "somebody flagged arrived" from "this needs you
+/// now" without looking at the screen. The five are one family and not five noises: the same
+/// instrument, the same curve up and the same decay, differing in how many notes there are, how
+/// high they are, which way they go, and how loud the whole thing is made. See <see cref="Tune"/>.
+/// The two-note alert is unchanged, so the sound a moderator already knows is still the sound a
+/// flagged arrival makes.</para>
+/// <para>They are still short — the longest is a little over a second, and only because it is the
+/// two-note alert played twice — and still made of arithmetic that anybody can read.</para>
 /// </remarks>
 public static class Bleep
 {
     /// <summary>The rate the samples are made at. The players resample if the device wants another.</summary>
     public const int SampleRate = 48_000;
 
-    /// <summary>The first note: A above middle C.</summary>
+    /// <summary>The two-note alert's first note: A above middle C.</summary>
     public const double FirstTone = 440;
 
     /// <summary>
-    /// The second note: a perfect fifth above the first, which is three halves of its pitch. The
-    /// simplest interval there is after the octave, and the reason the pair sounds like one thing.
+    /// The two-note alert's second note: a perfect fifth above the first, which is three halves of
+    /// its pitch. The simplest interval there is after the octave, and the reason the pair sounds
+    /// like one thing.
     /// </summary>
     public const double SecondTone = FirstTone * 3 / 2;
+
+    /// <summary>The octave above the alert's first note, and the middle note of the urgent one.</summary>
+    public const double OctaveTone = FirstTone * 2;
+
+    /// <summary>
+    /// The top of the urgent one: a major third above the octave, so the three notes are a chord
+    /// climbing rather than three unrelated pitches.
+    /// </summary>
+    public const double TopTone = FirstTone * 5 / 2;
 
     /// <summary>How long one note takes to fade to nothing.</summary>
     public static readonly TimeSpan NoteLength = TimeSpan.FromMilliseconds(340);
 
     /// <summary>
-    /// When the second note is struck, measured from the first. Short enough that the first is
-    /// still ringing under it, which is what makes them one sound rather than two.
+    /// When the two-note alert's second note is struck, measured from the first. Short enough that
+    /// the first is still ringing under it, which is what makes them one sound rather than two.
     /// </summary>
     public static readonly TimeSpan SecondStartsAt = TimeSpan.FromMilliseconds(140);
+
+    /// <summary>
+    /// When the two-note alert starts again in <see cref="Tune.AlertTwice"/>, measured from the
+    /// beginning.
+    /// </summary>
+    /// <remarks>
+    /// The first pair is finished at 480 milliseconds, so this leaves 220 milliseconds of exact
+    /// silence in the middle. That gap is deliberately longer than the 140 milliseconds between the
+    /// two notes of a pair: what a moderator must hear is the same sound twice, not four notes run
+    /// together, and the ear tells those apart by which gap is the big one.
+    /// </remarks>
+    public static readonly TimeSpan RepeatStartsAt = TimeSpan.FromMilliseconds(700);
 
     /// <summary>
     /// How long a note takes to reach its full height. Long enough that nothing starts with a
@@ -76,10 +110,22 @@ public static class Bleep
     public static readonly TimeSpan Release = TimeSpan.FromMilliseconds(45);
 
     /// <summary>
-    /// How loud the sound is made, before the moderator's own volume is applied. Short of the top
+    /// How loud the alerts are made, before the moderator's own volume is applied. Short of the top
     /// so that a volume of 100 is still a clean sound rather than a clipped one.
     /// </summary>
     public const float Height = 0.7f;
+
+    /// <summary>
+    /// How loud the soft single chime is made: half the alerts, because it is the one a moderator
+    /// hears most and the one that must never be the reason they switch the sound off.
+    /// </summary>
+    public const float QuietHeight = 0.35f;
+
+    /// <summary>
+    /// How loud the falling all-clear is made. Quiet, because news that something has stopped
+    /// needing attention is not a demand for any.
+    /// </summary>
+    public const float FallingHeight = 0.40f;
 
     /// <summary>
     /// The overtones above each note, as a fraction of the note's own height, starting with the
@@ -94,26 +140,112 @@ public static class Bleep
     private static readonly float[] Overtones = [0.30f, 0.13f, 0.06f];
 
     /// <summary>
+    /// The overtones the urgent sound gets instead: the same three, louder.
+    /// </summary>
+    /// <remarks>
+    /// This is what "sharper" is made of, together with <see cref="SharpAttack"/>. Not a louder
+    /// sound — the urgent one is made to exactly the same height as the ordinary alert — but a
+    /// brighter and harder-struck one, which is what the ear reads as urgency. The first of them
+    /// is still under half the height of the note below it, so the pitch of each note can still be
+    /// counted off the zero crossings.
+    /// </remarks>
+    private static readonly float[] SharpOvertones = [0.42f, 0.22f, 0.12f];
+
+    /// <summary>How fast the urgent sound's notes reach full height: struck hard rather than rung.</summary>
+    public static readonly TimeSpan SharpAttack = TimeSpan.FromMilliseconds(8);
+
+    /// <summary>
+    /// How fast the quiet sounds reach full height: slower than the alert's, which is what makes
+    /// them read as gentle rather than merely quiet.
+    /// </summary>
+    public static readonly TimeSpan SoftAttack = TimeSpan.FromMilliseconds(26);
+
+    /// <summary>
     /// How much faster each partial above the first dies away. A struck thing loses its high
     /// overtones first, and a note whose partials all decayed together would sound like an organ.
     /// </summary>
     private const double OvertonesDieFaster = 0.55;
 
-    /// <summary>How long the whole sound lasts.</summary>
-    public static TimeSpan Length => SecondStartsAt + NoteLength;
+    /// <summary>How long the two-note alert lasts.</summary>
+    public static TimeSpan Length => LengthOf(Tune.Alert);
+
+    /// <summary>One sound, written out: what it is made of, and how loud and how hard it is struck.</summary>
+    private sealed record Recipe(float Height, TimeSpan Attack, float[] Overtones, Note[] Notes);
+
+    private static readonly Dictionary<Tune, Recipe> Recipes = new()
+    {
+        // One note, and the alert's upper note rather than its lower one: a single low note at a
+        // low height turns to mush on the small speakers a lot of people have.
+        [Tune.Chime] = new(QuietHeight, SoftAttack, Overtones, [new Note(SecondTone, TimeSpan.Zero)]),
+
+        // Unchanged from the sound a moderator already knows.
+        [Tune.Alert] = new(Height, Attack, Overtones,
+        [
+            new Note(FirstTone, TimeSpan.Zero),
+            new Note(SecondTone, SecondStartsAt),
+        ]),
+
+        // The same pair, twice, with real silence in between.
+        [Tune.AlertTwice] = new(Height, Attack, Overtones,
+        [
+            new Note(FirstTone, TimeSpan.Zero),
+            new Note(SecondTone, SecondStartsAt),
+            new Note(FirstTone, RepeatStartsAt),
+            new Note(SecondTone, RepeatStartsAt + SecondStartsAt),
+        ]),
+
+        // Three notes climbing — the alert's upper note, the octave above its lower one, and a
+        // major third above that — struck harder, closer together and brighter, but to exactly the
+        // same height as the alert. Louder is not what makes something urgent; higher, faster and
+        // more of it is.
+        [Tune.Urgent] = new(Height, SharpAttack, SharpOvertones,
+        [
+            new Note(SecondTone, TimeSpan.Zero),
+            new Note(OctaveTone, TimeSpan.FromMilliseconds(100)),
+            new Note(TopTone, TimeSpan.FromMilliseconds(200)),
+        ]),
+
+        // The alert's two notes the other way up, quieter and softer struck. Falling is what makes
+        // a sound read as an ending rather than as a question.
+        [Tune.AllClear] = new(FallingHeight, SoftAttack, Overtones,
+        [
+            new Note(SecondTone, TimeSpan.Zero),
+            new Note(FirstTone, TimeSpan.FromMilliseconds(160)),
+        ]),
+    };
+
+    /// <summary>The notes one sound is made of, in the order they are struck.</summary>
+    public static IReadOnlyList<Note> NotesOf(Tune tune) => Of(tune).Notes;
+
+    /// <summary>How long one sound lasts, from the first note to the end of the last.</summary>
+    public static TimeSpan LengthOf(Tune tune)
+    {
+        var last = TimeSpan.Zero;
+        foreach (var note in Of(tune).Notes)
+            last = note.At > last ? note.At : last;
+
+        return last + NoteLength;
+    }
+
+    /// <summary>How loud one sound is made, before the moderator's own volume is applied.</summary>
+    public static float HeightOf(Tune tune) => Of(tune).Height;
+
+    /// <summary>How long one sound's notes take to reach full height.</summary>
+    public static TimeSpan AttackOf(Tune tune) => Of(tune).Attack;
 
     /// <summary>
-    /// The sound, ready to play. Cheap enough to call whenever, and held by the one object that
+    /// One sound, ready to play. Cheap enough to call whenever, and held by the one object that
     /// plays it rather than remade per sound.
     /// </summary>
-    public static VoiceClip Make(int sampleRate = SampleRate)
+    public static VoiceClip Make(Tune tune = Tune.Alert, int sampleRate = SampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(sampleRate, 8_000);
 
-        var samples = new float[Samples(Length, sampleRate)];
+        var recipe = Of(tune);
+        var samples = new float[Samples(LengthOf(tune), sampleRate)];
 
-        Strike(samples, at: 0, FirstTone, sampleRate);
-        Strike(samples, at: Samples(SecondStartsAt, sampleRate), SecondTone, sampleRate);
+        foreach (var note in recipe.Notes)
+            Strike(samples, Samples(note.At, sampleRate), note.Hertz, sampleRate, recipe);
 
         // Made at whatever height the notes happened to add up to, then brought to the one height
         // the volume is applied to, so overlapping notes can never clip and the sound's loudness
@@ -124,13 +256,20 @@ public static class Bleep
 
         if (loudest > 0)
         {
-            var scale = Height / loudest;
+            var scale = recipe.Height / loudest;
             for (var i = 0; i < samples.Length; i++)
                 samples[i] *= scale;
         }
 
         return new VoiceClip(samples, sampleRate);
     }
+
+    /// <summary>The two-note alert at a rate of its own. Here so that <c>Make()</c> still means the alert.</summary>
+    public static VoiceClip Make(int sampleRate) => Make(Tune.Alert, sampleRate);
+
+    private static Recipe Of(Tune tune) => Recipes.TryGetValue(tune, out var recipe)
+        ? recipe
+        : Recipes[Tune.Alert];
 
     private static int Samples(TimeSpan length, int sampleRate)
         => (int)Math.Round(length.TotalSeconds * sampleRate);
@@ -139,13 +278,13 @@ public static class Bleep
     /// One note struck into the buffer, added to whatever is already there so a note that is still
     /// ringing is not cut off by the next one.
     /// </summary>
-    private static void Strike(Span<float> into, int at, double hertz, int sampleRate)
+    private static void Strike(Span<float> into, int at, double hertz, int sampleRate, Recipe recipe)
     {
         var length = Math.Min(Samples(NoteLength, sampleRate), into.Length - at);
         if (length <= 0)
             return;
 
-        var attack = Math.Max(1, Math.Min(Samples(Attack, sampleRate), length));
+        var attack = Math.Max(1, Math.Min(Samples(recipe.Attack, sampleRate), length));
         var release = Math.Max(1, Math.Min(Samples(Release, sampleRate), length));
         var decay = Math.Max(1.0, Decay.TotalSeconds * sampleRate);
 
@@ -168,11 +307,11 @@ public static class Bleep
 
             var value = (float)Math.Sin(2 * Math.PI * hertz * i / sampleRate);
 
-            for (var overtone = 0; overtone < Overtones.Length; overtone++)
+            for (var overtone = 0; overtone < recipe.Overtones.Length; overtone++)
             {
                 var partial = overtone + 2;
                 var fades = Math.Exp(-i * OvertonesDieFaster * (partial - 1) / decay);
-                value += (float)(Overtones[overtone] * fades * Math.Sin(2 * Math.PI * hertz * partial * i / sampleRate));
+                value += (float)(recipe.Overtones[overtone] * fades * Math.Sin(2 * Math.PI * hertz * partial * i / sampleRate));
             }
 
             into[at + i] += level * value;

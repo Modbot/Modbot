@@ -1,15 +1,23 @@
+using System.Collections.Concurrent;
 using Modbot.Companion.Presentation;
 using Modbot.Companion.Voice;
 
 namespace Modbot.Companion.Sounds;
 
 /// <summary>
-/// Plays the bleep when the client has something to tell the moderator.
+/// Plays the sound when the client has something to tell the moderator.
 /// </summary>
 /// <remarks>
 /// <para><strong>Nothing leaves the machine and nothing is read.</strong> The sound is made from
 /// the formula in <see cref="Bleep"/> and played on this PC. No server is told that it happened,
 /// and the client learns nothing from playing it.</para>
+/// <para><strong>Which of the five it is is not decided here.</strong> <see cref="BleepRule"/>
+/// answers with the sound as well as with the yes, because the two questions share an answer: more
+/// than one flagged arrival at once is both "sound again" and "sound the doubled alert", and
+/// splitting that across two objects would have meant keeping the same count twice.</para>
+/// <para><strong>Nothing interrupts a sound that is playing.</strong> The claim is taken before the
+/// rule is asked rather than after, so a rule that says yes is never thrown away by a sound already
+/// going — and so the rule's memory never records something the moderator did not hear.</para>
 /// <para><strong>The voice's device, the bleep's own switch.</strong> It plays through the output
 /// the moderator chose for the voice — the same fallback rule, so a headset that is not plugged in
 /// right now means the system default rather than silence — while whether it plays at all, and how
@@ -20,11 +28,17 @@ namespace Modbot.Companion.Sounds;
 /// sounding twice, and a quiet gap between sounds -- and not about whether a kind is wanted at all
 /// (notification filters design 2026-09-19 §5).</para>
 /// <para><strong>The moderator's own file, when they chose one.</strong> The client still ships no
-/// audio file; it makes one, and plays a <c>.wav</c> of the moderator's instead when the
+/// audio file; it makes them, and plays a <c>.wav</c> of the moderator's instead when the
 /// Notifications card names one (<see cref="SoundFile"/>). One file is read, by the exact path they
 /// typed, and only the first time it is needed — after that the samples are held. A file that has
 /// gone missing, or that this account may not read, plays the built-in sound and leaves one
 /// sentence in <see cref="LastProblem"/> for the settings screen.</para>
+/// <para><strong>Their file replaces all five, not one of them.</strong> There is one path in
+/// settings because five paths would be five boxes and five Save buttons on a card that has to
+/// stay readable, and because somebody who brings their own sound has said they do not want
+/// Modbot's — not that they want four of Modbot's and one of theirs. The cost is real and is worth
+/// saying out loud: a moderator who names a file hears one sound for everything and loses the
+/// difference between the five, which is exactly what the client did before there were five.</para>
 /// <para><strong>A failure is not a fault.</strong> No output device, a device that went away
 /// mid-sound, an audio library that will not load: it is written down and everything else carries
 /// on. This is the least important thing the client does.</para>
@@ -39,8 +53,12 @@ public sealed class NotificationSound
     private readonly Action<string>? _log;
     private readonly Func<NotificationFilters>? _filters;
 
-    /// <summary>Made once. The samples are the same every time, and there are only a few thousand.</summary>
-    private readonly Lazy<VoiceClip> _clip = new(() => Bleep.Make());
+    /// <summary>
+    /// Each sound made once, the first time it is wanted. The samples are the same every time, and
+    /// there are only a few thousand of them; a moderator who never hears the urgent one never pays
+    /// for it.
+    /// </summary>
+    private readonly ConcurrentDictionary<Tune, VoiceClip> _made = new();
 
     /// <summary>The moderator's own file as samples, and the path it was read from.</summary>
     private readonly Lock _ownSound = new();
@@ -92,14 +110,22 @@ public sealed class NotificationSound
         => _ = PlayAsync(kind, about);
 
     /// <summary>
+    /// Plays one named sound, whatever the rule would have said about it: a person pressed
+    /// something, or the client is answering somebody who spoke to it. It still sets the quiet gap
+    /// for whatever comes after it, and it still obeys the volume.
+    /// </summary>
+    public void Play(Tune tune)
+        => _ = PlayAsync(tune);
+
+    /// <summary>
     /// The same thing, awaited: false when the moderator does not want this kind, the rule refused
-    /// it, the bleep is off, the volume is nothing, or a sound is already playing.
+    /// it, the sound is off, the volume is nothing, or a sound is already playing.
     /// </summary>
     public async Task<bool> PlayAsync(NotificationKind kind, string? about = null, CancellationToken cancellationToken = default)
     {
         var settings = _settings();
 
-        // The Test button sounds whether or not the bleep is switched on, the way the voice's Test
+        // The Test button sounds whether or not the sound is switched on, the way the voice's Test
         // speaks whether or not the voice is on: a person pressed it.
         if (!settings.Bleep && kind is not NotificationKind.Test)
             return false;
@@ -110,7 +136,33 @@ public sealed class NotificationSound
         if (_filters?.Invoke() is { } filters && !filters.SoundPlays(kind))
             return false;
 
-        if (!_rule.Ask(kind, about))
+        // Claimed before the rule is asked, not after: a sound never interrupts one that is
+        // playing, and the rule must not remember having sounded something nobody heard.
+        if (Interlocked.CompareExchange(ref _playing, 1, 0) != 0)
+            return false;
+
+        try
+        {
+            if (_rule.Ask(kind, about) is not { } tune)
+                return false;
+
+            return await PlayAsync(settings, tune, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Volatile.Write(ref _playing, 0);
+        }
+    }
+
+    /// <summary>
+    /// One named sound, awaited: false when the volume is nothing, a sound is already playing, or
+    /// it could not be played at all.
+    /// </summary>
+    public async Task<bool> PlayAsync(Tune tune, CancellationToken cancellationToken = default)
+    {
+        var settings = _settings();
+
+        if (settings.Volume <= 0)
             return false;
 
         if (Interlocked.CompareExchange(ref _playing, 1, 0) != 0)
@@ -118,8 +170,21 @@ public sealed class NotificationSound
 
         try
         {
+            _rule.AlwaysSounds(tune);
+            return await PlayAsync(settings, tune, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            Volatile.Write(ref _playing, 0);
+        }
+    }
+
+    private async Task<bool> PlayAsync(NotificationSettings settings, Tune tune, CancellationToken cancellationToken)
+    {
+        try
+        {
             var device = OutputDeviceChoice.Resolve(_outputDeviceId(), _devices).Device;
-            await _player.PlayAsync(Clip(settings).WithGain(settings.Gain), device, cancellationToken).ConfigureAwait(false);
+            await _player.PlayAsync(Clip(settings, tune).WithGain(settings.Gain), device, cancellationToken).ConfigureAwait(false);
             return true;
         }
         catch (OperationCanceledException)
@@ -131,22 +196,20 @@ public sealed class NotificationSound
             _log?.Invoke($"The notification sound could not be played: {ex.GetType().Name}: {ex.Message}");
             return false;
         }
-        finally
-        {
-            Volatile.Write(ref _playing, 0);
-        }
     }
 
     /// <summary>
     /// Which samples are played: the moderator's own file when they named one and it can be read,
-    /// and the one the client makes otherwise.
+    /// and the one the client makes for this sound otherwise.
     /// </summary>
     /// <remarks>
     /// The file is read the first time it is wanted and then held, so forty sounds in an evening is
     /// one read. A path that changes is read again; a path that could not be read is not tried
     /// again until it changes, because a sound is not worth hitting a missing disk for every time.
+    /// A file that can be read is played for every one of the five — see the class note on why
+    /// there is one path and not five.
     /// </remarks>
-    private VoiceClip Clip(NotificationSettings settings)
+    private VoiceClip Clip(NotificationSettings settings, Tune tune)
     {
         var wanted = settings.SoundOrNone;
 
@@ -163,7 +226,7 @@ public sealed class NotificationSound
                     _log?.Invoke($"{problem} Modbot's own sound is being played instead.");
             }
 
-            return _ownSoundClip ?? _clip.Value;
+            return _ownSoundClip ?? _made.GetOrAdd(tune, static t => Bleep.Make(t));
         }
     }
 }

@@ -181,6 +181,215 @@ public class BleepTests
         Assert.Equal(0f, Loudest(full.WithGain(0f).Samples));
     }
 
+    [Theory]
+    [MemberData(nameof(EveryTune))]
+    public void EverySoundIsMadeToItsOwnHeightAndNeverPastIt(Tune tune)
+    {
+        var clip = Bleep.Make(tune);
+        var height = Bleep.HeightOf(tune);
+
+        Assert.Equal(height, Loudest(clip.Samples), 3);
+        Assert.All(clip.Samples, s => Assert.InRange(s, -height - 0.0001f, height + 0.0001f));
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryTune))]
+    public void NeitherEndOfAnySoundIsAClick(Tune tune)
+    {
+        var clip = Bleep.Make(tune);
+
+        Assert.Equal(0f, clip.Samples[0]);
+        Assert.Equal(0f, clip.Samples[^1]);
+
+        var twoMilliseconds = Samples(TimeSpan.FromMilliseconds(2), Bleep.SampleRate);
+        Assert.True(
+            Loudest(clip.Samples.AsSpan(0, twoMilliseconds)) < 0.4f * Bleep.HeightOf(tune),
+            $"{tune} reaches most of its height within two milliseconds, which is a click.");
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryTune))]
+    public void EverySoundIsActuallyASoundAndNotSilence(Tune tune)
+    {
+        var clip = Bleep.Make(tune);
+        var rms = Math.Sqrt(clip.Samples.Sum(s => (double)s * s) / clip.Samples.Length);
+
+        Assert.True(rms > 0.02, $"{tune} is nearly silent: its average height is {rms:F4}.");
+        Assert.Equal(Bleep.LengthOf(tune).TotalMilliseconds, clip.Duration.TotalMilliseconds, 1);
+    }
+
+    [Fact]
+    public void EverySoundIsShortAndTheDoubledOneIsTwiceTheAlert()
+    {
+        foreach (var tune in Tunes.All.Where(t => t is not Tune.AlertTwice))
+            Assert.True(Bleep.LengthOf(tune) < TimeSpan.FromMilliseconds(600), $"{tune} is too long.");
+
+        // The only long one, and long for the one reason a moderator would forgive: it is the
+        // alert played twice with a gap in it.
+        Assert.True(Bleep.LengthOf(Tune.AlertTwice) < TimeSpan.FromMilliseconds(1300));
+        Assert.True(Bleep.LengthOf(Tune.AlertTwice) > 2 * Bleep.LengthOf(Tune.Alert));
+    }
+
+    [Fact]
+    public void TheChimeIsTheQuietestAndTheAlertsAreTheLoudest()
+    {
+        // The chime is the one a moderator hears most, so it is the one that must never be the
+        // reason they switch the sound off: half the height of the alerts, exactly.
+        Assert.Equal(Bleep.HeightOf(Tune.Alert) / 2, Bleep.HeightOf(Tune.Chime), 3);
+
+        Assert.True(Bleep.HeightOf(Tune.Chime) < Bleep.HeightOf(Tune.AllClear));
+        Assert.True(Bleep.HeightOf(Tune.AllClear) < Bleep.HeightOf(Tune.Alert));
+
+        // And the urgent one is not louder than the ordinary alert. Whatever makes it urgent, it
+        // is not volume.
+        Assert.Equal(Bleep.HeightOf(Tune.Alert), Bleep.HeightOf(Tune.Urgent), 3);
+        Assert.Equal(Bleep.HeightOf(Tune.Alert), Bleep.HeightOf(Tune.AlertTwice), 3);
+    }
+
+    [Fact]
+    public void TheSoundsAreOneNoteThenTwoThenFourThenThree()
+    {
+        Assert.Single(Bleep.NotesOf(Tune.Chime));
+        Assert.Equal(2, Bleep.NotesOf(Tune.Alert).Count);
+        Assert.Equal(4, Bleep.NotesOf(Tune.AlertTwice).Count);
+        Assert.Equal(3, Bleep.NotesOf(Tune.Urgent).Count);
+        Assert.Equal(2, Bleep.NotesOf(Tune.AllClear).Count);
+    }
+
+    [Fact]
+    public void TheChimeIsOneNoteOfTheAlertOnItsOwn()
+    {
+        var clip = Bleep.Make(Tune.Chime);
+        var rate = Bleep.SampleRate;
+
+        // Counted off the zero crossings, the same way the alert's notes are.
+        var from = Samples(Bleep.AttackOf(Tune.Chime), rate);
+        var to = Samples(TimeSpan.FromMilliseconds(200), rate);
+        var crossings = Crossings(clip.Samples.AsSpan(from, to - from));
+        var seconds = (200 - Bleep.AttackOf(Tune.Chime).TotalMilliseconds) / 1000;
+
+        Assert.Equal(2 * Bleep.SecondTone * seconds, crossings, 2.0);
+    }
+
+    [Fact]
+    public void TheDoubledAlertIsTheAlertTwiceWithRealSilenceInTheMiddle()
+    {
+        var clip = Bleep.Make(Tune.AlertTwice);
+        var rate = Bleep.SampleRate;
+        var repeat = Samples(Bleep.RepeatStartsAt, rate);
+
+        // Sample for sample the same sound, played again: not four notes run together.
+        for (var i = 0; i < repeat && i + repeat < clip.Samples.Length; i++)
+            Assert.Equal(clip.Samples[i], clip.Samples[i + repeat]);
+
+        // With a real silence in between, longer than the gap between the two notes of one pair,
+        // which is what the ear uses to tell "the same thing twice" from "four notes".
+        var quietFrom = Samples(Bleep.SecondStartsAt + Bleep.NoteLength, rate);
+        var quiet = clip.Samples.AsSpan(quietFrom, repeat - quietFrom);
+
+        Assert.True(quiet.Length > 0);
+        Assert.Equal(0f, Loudest(quiet));
+        Assert.True(Bleep.RepeatStartsAt - (Bleep.SecondStartsAt + Bleep.NoteLength) > Bleep.SecondStartsAt);
+    }
+
+    [Fact]
+    public void TheUrgentSoundClimbsAndIsStruckHarderRatherThanLouder()
+    {
+        var notes = Bleep.NotesOf(Tune.Urgent);
+
+        // Three notes, each higher than the last, and all of them above the alert's lower note.
+        Assert.Equal(3, notes.Count);
+        Assert.True(notes[0].Hertz < notes[1].Hertz);
+        Assert.True(notes[1].Hertz < notes[2].Hertz);
+        Assert.True(notes[0].Hertz > Bleep.FirstTone);
+
+        // Struck harder: it reaches half its height sooner than the alert does, and the alert
+        // sooner than the two soft ones.
+        var urgent = HalfWayUp(Tune.Urgent);
+        var alert = HalfWayUp(Tune.Alert);
+
+        Assert.True(urgent < alert, $"The urgent sound takes {urgent} samples to the alert's {alert}.");
+        Assert.True(alert < HalfWayUp(Tune.Chime));
+        Assert.True(alert < HalfWayUp(Tune.AllClear));
+
+        // And brighter: more of the sound is up where the higher partials are, which is what
+        // crossing zero more often per second means.
+        Assert.True(CrossingsPerSecond(Tune.Urgent) > CrossingsPerSecond(Tune.Alert));
+        Assert.True(CrossingsPerSecond(Tune.Urgent) > CrossingsPerSecond(Tune.Chime));
+    }
+
+    [Fact]
+    public void TheAllClearFallsWhereTheAlertRises()
+    {
+        Assert.True(Bleep.NotesOf(Tune.AllClear)[0].Hertz > Bleep.NotesOf(Tune.AllClear)[1].Hertz);
+        Assert.True(Bleep.NotesOf(Tune.Alert)[0].Hertz < Bleep.NotesOf(Tune.Alert)[1].Hertz);
+
+        // And the samples say the same thing: the second half of the all-clear crosses zero less
+        // often than its first half, and the alert's the other way round.
+        Assert.True(SecondHalfCrossings(Tune.AllClear) < FirstHalfCrossings(Tune.AllClear));
+        Assert.True(SecondHalfCrossings(Tune.Alert) > FirstHalfCrossings(Tune.Alert));
+    }
+
+    [Fact]
+    public void NoTwoOfTheFiveAreTheSameSound()
+    {
+        var made = Tunes.All.ToDictionary(tune => tune, tune => Bleep.Make(tune).Samples);
+
+        foreach (var one in Tunes.All)
+        {
+            foreach (var other in Tunes.All.Where(t => t != one))
+            {
+                var same = made[one].Length == made[other].Length
+                    && made[one].SequenceEqual(made[other]);
+
+                Assert.False(same, $"{one} and {other} are the same sound.");
+            }
+        }
+    }
+
+    public static TheoryData<Tune> EveryTune()
+    {
+        var every = new TheoryData<Tune>();
+        foreach (var tune in Tunes.All)
+            every.Add(tune);
+
+        return every;
+    }
+
+    /// <summary>How many samples in a sound takes to reach half its height: how hard it is struck.</summary>
+    private static int HalfWayUp(Tune tune)
+    {
+        var clip = Bleep.Make(tune);
+        var half = Bleep.HeightOf(tune) / 2;
+
+        for (var i = 0; i < clip.Samples.Length; i++)
+        {
+            if (Math.Abs(clip.Samples[i]) >= half)
+                return i;
+        }
+
+        return clip.Samples.Length;
+    }
+
+    /// <summary>How often a whole sound crosses zero per second: how bright it is, roughly.</summary>
+    private static double CrossingsPerSecond(Tune tune)
+    {
+        var clip = Bleep.Make(tune);
+        return Crossings(clip.Samples) / Bleep.LengthOf(tune).TotalSeconds;
+    }
+
+    private static int FirstHalfCrossings(Tune tune)
+    {
+        var clip = Bleep.Make(tune);
+        return Crossings(clip.Samples.AsSpan(0, clip.Samples.Length / 2));
+    }
+
+    private static int SecondHalfCrossings(Tune tune)
+    {
+        var clip = Bleep.Make(tune);
+        return Crossings(clip.Samples.AsSpan(clip.Samples.Length / 2));
+    }
+
     private static int Crossings(ReadOnlySpan<float> samples)
     {
         var crossings = 0;
