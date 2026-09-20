@@ -1,4 +1,5 @@
 using Modbot.Landing.Features.Pages;
+using Modbot.Landing.Features.Setup;
 
 namespace Modbot.Landing.Features.StaticFiles;
 
@@ -10,7 +11,7 @@ public static class BuiltFiles
 
     public static IApplicationBuilder UseBuiltFiles(this IApplicationBuilder app) =>
         app.UseWhen(
-            context => !IsPage(context.Request.Path),
+            context => !IsServedByARoute(context.Request.Path),
             branch => branch.UseStaticFiles(new StaticFileOptions
             {
                 OnPrepareResponse = file =>
@@ -23,7 +24,12 @@ public static class BuiltFiles
                 },
             }));
 
-    /// <summary>The built pages are only ever served through their routes.</summary>
-    private static bool IsPage(PathString path) =>
-        BuiltPages.All.Any(page => path.Equals("/" + page, StringComparison.OrdinalIgnoreCase));
+    /// <summary>
+    /// The built pages and the two setup files are only ever served through their routes: the
+    /// pages so they carry their own content security policy, the setup files so they arrive as
+    /// plain text a browser shows rather than downloads.
+    /// </summary>
+    private static bool IsServedByARoute(PathString path) =>
+        BuiltPages.All.Concat(SetupFiles.All)
+            .Any(file => path.Equals("/" + file, StringComparison.OrdinalIgnoreCase));
 }

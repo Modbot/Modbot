@@ -1,0 +1,131 @@
+---
+title: Install script
+description: One command that installs Docker if it is missing, asks which build and which port you want, and starts Modbot and its database on your own machine.
+---
+
+If you have a machine with a shell — a VPS, a home server, a Linux desktop, a Mac — this is the
+shortest way to a running Modbot:
+
+```bash
+curl -fsSL https://modbot.co/get.sh | sh
+```
+
+It installs Docker if the machine does not have it, asks a few questions, writes a
+`docker-compose.yml` and a `.env` in the folder you pick, and starts Modbot and a PostgreSQL 16
+database in the background. Then you open the address it prints and the
+[setup wizard](/setup-wizard) takes over.
+
+Everything else — the VRChat account, Discord, email, AI — is set up in the browser afterwards, not
+in the shell.
+
+## Read it first
+
+`https://modbot.co/get.sh` is served as plain text, so opening it in a browser shows the script
+rather than downloading it. It is worth reading before you pipe anything to a shell, ours included.
+
+The Compose file it downloads is at
+[`https://modbot.co/docker-compose.yml`](https://modbot.co/docker-compose.yml), served the same
+way. The two are built and published together, so they always match.
+
+## What it asks
+
+| Question | Default |
+|---|---|
+| **Folder to set Modbot up in** | The folder you are in. |
+| **Which build — release or preview?** | `release`, which is `ghcr.io/modbot/modbot:latest`. `preview` is `latest-preview`: a build handed out for testing before it is released. See [the tags](/self-hosting/docker#pull-the-published-image). |
+| **Database password** | A long random one. Press Enter to take it. It is written to `.env`, which only you can read. |
+| **Port to open Modbot on** | `8080`. |
+
+It asks nothing else, because nothing else is needed to start. A password with `;`, `$`, `"`, `'`
+or `\` in it is refused, since those cannot be carried through the database address safely.
+
+## What it writes
+
+In the folder you picked:
+
+| | |
+|---|---|
+| `docker-compose.yml` | Modbot and PostgreSQL, downloaded from modbot.co. |
+| `.env` | The image tag, the port, and the database password. Readable only by you. |
+| `modbot-data/logs` | Log files. |
+| `modbot-data/evidence` | Evidence, when **Settings**, **Evidence** is set to a directory on disk. |
+| `modbot-data/dumps` | Crash dumps, when they are turned on. |
+
+The database itself is in a Docker volume named `modbot_postgres-data`, not in `modbot-data`, because
+PostgreSQL needs ownership of its own directory and a folder shared from macOS or Windows cannot
+give it that. Back it up the way [PostgreSQL](/self-hosting/postgres#backups) describes.
+
+## Running it without a terminal
+
+A script piped to `sh` gets the script itself on standard input, so the questions are read from the
+terminal directly. Where there is no terminal — a CI job, a cron line, a provisioning script —
+nothing is asked and these are used instead:
+
+| Variable | Default |
+|---|---|
+| `MODBOT_DIR` | The folder you are in. |
+| `MODBOT_BUILD` | `release`. The other value is `preview`. |
+| `MODBOT_PORT` | `8080`. |
+| `POSTGRES_PASSWORD` | A long random one. |
+| `MODBOT_INSTALL_DOCKER` | `yes`. `no` stops the script rather than installing Docker. |
+
+```bash
+curl -fsSL https://modbot.co/get.sh -o get.sh
+MODBOT_DIR=/srv/modbot MODBOT_PORT=8080 sh get.sh
+```
+
+## Installing Docker
+
+If `docker` is not on the machine, the script says so, says that installing it needs root, and asks
+before running [Docker's own install script](https://get.docker.com) through `sudo`. Answer no and
+nothing is installed. Run the whole thing as root and `sudo` is not used at all.
+
+It also checks for the Compose plugin, which is what `docker compose` is. The old `docker-compose`
+command is not enough; if that is all the machine has, the script says which plugin to install.
+
+## Running it again
+
+Running it a second time in the same folder is safe and is how you update:
+
+- `.env` is kept. It holds the password your database was made with, so replacing it would leave
+  Modbot unable to sign in to its own database. The script asks before touching it and keeps the
+  old one as `.env.old` if you say to replace it.
+- `docker-compose.yml` is replaced if modbot.co is serving a different one, and the old one is kept
+  as `docker-compose.yml.old`.
+- The image is pulled again and the containers are recreated if it changed.
+
+To move between the release and the preview build later, change `MODBOT_IMAGE` in `.env` yourself
+and run `docker compose pull && docker compose up -d`. See [Updating](/self-hosting/updating).
+
+<Callout type="warn" title="While the image is private">
+  `ghcr.io/modbot/modbot` is not open to everyone yet. Until it is, the pull fails and the script
+  stops and says so. Sign in first with a GitHub token that has the `read:packages` scope, then run
+  the script again:
+
+  ```bash
+  echo "$GITHUB_TOKEN" | docker login ghcr.io -u your-github-username --password-stdin
+  ```
+</Callout>
+
+## Afterwards
+
+```bash
+cd /the/folder/you/picked
+
+docker compose ps                        # what is running
+docker compose logs -f modbot            # follow the log
+docker compose pull && docker compose up -d   # update
+docker compose down                      # stop
+```
+
+<Callout type="warn" title="Use HTTPS from anywhere but localhost">
+  Modbot's sign-in cookie is marked secure, so browsers only keep it over HTTPS. Browsers make an
+  exception for `localhost`. To reach Modbot from any other address, put a reverse proxy that
+  provides HTTPS in front of it. The proxy must also pass WebSocket connections through if you use
+  [live events over WebSocket](/api/events-websocket).
+</Callout>
+
+## If you would rather do it yourself
+
+Everything above is a shortcut for the steps on [Docker](/self-hosting/docker), which builds or
+pulls the image and runs it by hand. Nothing the script does is hidden there.

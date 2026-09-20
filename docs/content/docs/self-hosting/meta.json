@@ -2,6 +2,7 @@
   "title": "Self-hosting",
   "pages": [
     "index",
+    "install-script",
     "railway",
     "docker",
     "demo-mode",
