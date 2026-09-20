@@ -3,6 +3,11 @@
 Date: 2026-09-16. Extends the M3 companion and overlay design (2026-09-10, §6) and its
 OpenVR runtime. Read that first.
 
+**Corrected 2026-09-19.** §4.1 said both runtimes report a hand's "aim pose", and on OpenVR that
+was not true: the OpenVR path reported the raw device pose under that name and thresholded the
+grip as a button. Both were wrong in a headset. §6 says what the two faults were, what replaced
+them and how sure the numbers are.
+
 ## 1. Why
 
 The overlay was written against OpenVR, which on Windows means SteamVR. On Linux a growing share
@@ -202,3 +207,87 @@ driver plus a simulated controller where possible, and on WiVRn.
    without it nothing at all shows on WiVRn.
 2. §4.1–4.3 for both runtimes, with settings and the window.
 3. §4.4.
+
+## 6. Two faults a headset found (2026-09-19)
+
+§4.1 promised that both runtimes report the same three things per hand — tracked, an **aim pose**,
+and buttons. OpenXR kept that promise. OpenVR never did, in two separate ways, and a moderator
+wearing the headset reported both: *"the SteamVR overlay requires a lot of grip force to grab and
+move around, and the cursor points really weirdly towards the overlay rather than just me pointing
+straight at it."*
+
+Both faults are on the OpenVR path only. The OpenXR path asks for `/input/aim/pose` by name, and
+its grab is a boolean the runtime thresholds itself.
+
+### 6.1 The grab: a button where a number was wanted
+
+**What was wrong.** OpenVR read grab as `k_EButton_Grip` out of `ulButtonPressed`. That bit is not
+a switch on the controller; it is SteamVR's own decision, and on a Valve Index it is made from the
+grip *force* sensor at a threshold set for picking up a heavy thing in a game. Taking hold of a
+panel is not picking up a rock. The panel needed a squeeze nobody wants to make to move a window.
+
+**What it is now.** The squeeze is read as a number — axis 2 of `VRControllerState_t`, which is
+where SteamVR's own legacy bindings put an analogue grip — and `GripHold` decides:
+
+- **0.25** of full travel takes the panel,
+- it is let go below **0.15**,
+- and the grip button still counts on its own, whatever the number says.
+
+**Why those two.** A quarter of travel is a deliberate hold and is clear of what a controller reads
+while it is merely sitting in a hand, which is near zero; it is also well under any threshold
+SteamVR would have used for the button, so nothing that used to grab has stopped grabbing. The gap
+below it — a tenth of full travel — is what stops a hand resting on the line taking and dropping
+the panel thirty times a second. Without the gap a single threshold flickers, and a flickering
+panel is worse than a stiff one.
+
+The button still counting is not a fallback for tidiness. A Vive wand's grip is a switch with
+nothing analogue behind it and reads zero however hard it is held; on those controllers the button
+is the only answer there is. On the controllers that do have a number, the button only ever turns
+on above this threshold anyway, so keeping it costs nothing.
+
+**It is not a setting.** A number between nought and one for how hard to squeeze is not something a
+moderator can judge from a settings page, and putting it there would mean explaining the grip force
+sensor on a screen. The fallback to the button covers the controllers with nothing to read, and the
+gap covers a wavering hand; what is left is one constant, in one place, that a later report can
+move.
+
+**OpenXR's Index binding was the same mistake, and has moved.** §4.1's bindings put the Index's
+grab on `/input/squeeze/force`, reasoning that `/input/squeeze/value` reads as held whenever the
+controller is simply in the hand. That was the wrong worry — the resting reading is near zero — and
+the cost was real: thresholding the force sensor is exactly what makes SteamVR's grip button need a
+hard squeeze. The Index now takes `/input/squeeze/value` like every other controller.
+
+### 6.2 The pointing: a ray fired down the controller's body
+
+**What was wrong.** `GetDeviceToAbsoluteTrackingPose` gives one pose per device, and it runs along
+the controller's own body — the line the handle makes through the fist. The overlay fired the
+cursor's ray straight down it. Nobody points along that line: a controller is held raked back, so a
+ray along the handle leaves the hand climbing and the cursor lands above whatever is being aimed
+at. The further the panel, the wider the miss. That is the skew in the report.
+
+This is what OpenXR has two poses for. `grip` runs along the controller; `aim` is tilted off it so
+that pointing works, and every runtime supplies both. OpenVR has no equivalent to ask for — its one
+nod to the problem is a "tip" part inside each controller's render model, reached through an
+interface Modbot does not open and whose function table would have to be indexed by position with
+nothing at run time to catch a wrong guess. Modbot does not open it.
+
+**What it is now.** `HandState` carries two poses instead of one: `Device`, where the controller is,
+and `Aim`, where it points. The OpenVR path fills `Device` from the tracked pose and works `Aim` out
+of it by tilting **35° downwards about the controller's own side-to-side axis**. Nothing else
+moves; the ray still starts where the controller is.
+
+**How sure that number is: not very.** 35° is the middle of the range runtimes use between the two
+poses for the controllers a moderator is likely to be wearing — a Valve Index or an Oculus Touch,
+whose handles are well raked. A Vive wand is a straight rod and wants far less, perhaps 5°, so a
+wand now reads about 30° low; wands are the rarer controller and the complaint came from an Index.
+**Nobody has checked this against a headset.** It is one named constant, `ControllerPointing.
+TiltDegrees`, in one file, for exactly that reason: if it is wrong it is wrong by a number, not by
+a design, and the sign is pinned by a test so a correction can only ever be a magnitude.
+
+**The two poses are not interchangeable, and which is used where matters.** A panel worn on a hand
+hangs off `Device`, because `Device` is what both runtimes attach it to: OpenVR's
+`SetOverlayTransformTrackedDeviceRelative` takes the tracked device, and OpenXR's hand space is now
+the grip space rather than the aim space. The ray comes out of `Aim`. Holding the panel measures
+against `Device` too, so a panel carried to a hand ends up where it was carried rather than a
+tilt away from it. Before there was one pose these were the same object and the question could not
+be got wrong; now it can, so it is written down.

@@ -34,8 +34,10 @@ public sealed record InteractionResult(
 /// <list type="bullet">
 /// <item><strong>Pointing.</strong> The nearer hand whose ray lands on the panel is the pointer.</item>
 /// <item><strong>Grab.</strong> Grip pressed while pointing takes the panel; it follows that hand,
-/// keeping the offset it was taken at. Letting go leaves it anchored to the world, or to the hand
-/// if it was let go within <see cref="WristReach"/> of it.</item>
+/// keeping the offset it was taken at. Letting go leaves it anchored to the world, or, if it was
+/// let go within <see cref="WristReach"/> of the hand, puts it on that wrist — at the wrist
+/// position and the wrist size, because a panel on a wrist is a thing you glance at and not a
+/// workspace parked on your arm.</item>
 /// <item><strong>Resize and distance.</strong> While held, scrolling up and down pushes and pulls the
 /// panel along the hand's ray; left and right changes its width. Both stay inside the placement's
 /// bounds.</item>
@@ -115,7 +117,14 @@ public sealed class OverlayInteraction
                 {
                     if (_lastGrip.TryGetValue(pointing.Hand, out var previous) && now - previous <= DoubleTap)
                     {
-                        _placement = OverlayPlacement.Default with { Width = _placement.Width, Opacity = _placement.Opacity, Curve = _placement.Curve };
+                        // Off the wrist and back in front of the head, at a width somebody can
+                        // read a roster on again rather than the wrist size it was wearing.
+                        _placement = OverlayPlacement.Default with
+                        {
+                            Width = OverlayPlacement.WidthFor(OverlayAnchor.Head, _placement.Width),
+                            Opacity = _placement.Opacity,
+                            Curve = _placement.Curve,
+                        };
                         _lastGrip.Remove(pointing.Hand);
                         pointer = null;
                     }
@@ -171,8 +180,10 @@ public sealed class OverlayInteraction
         if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel)
             return;
 
+        // Held against the controller itself rather than against where it points, because that is
+        // what a hand anchor means to both runtimes: the panel has to end up where it was carried.
         _holding = side;
-        _heldOffset = panel.RelativeTo(hand.Aim);
+        _heldOffset = panel.RelativeTo(hand.Device);
         _placement = _placement with
         {
             Anchor = side == Hand.Left ? OverlayAnchor.LeftHand : OverlayAnchor.RightHand,
@@ -211,14 +222,17 @@ public sealed class OverlayInteraction
             return;
         }
 
-        var panel = hand.Aim.Then(_heldOffset);
+        var panel = hand.Device.Then(_heldOffset);
 
-        if (Vector3.Distance(panel.Position, hand.Aim.Position) <= WristReach)
+        if (Vector3.Distance(panel.Position, hand.Device.Position) <= WristReach)
         {
+            // Brought to the wrist, so it becomes the wrist panel: the watch position and the
+            // watch size, not wherever the hand happened to stop.
             _placement = _placement with
             {
                 Anchor = side == Hand.Left ? OverlayAnchor.LeftHand : OverlayAnchor.RightHand,
-                Offset = _heldOffset.ToOverlayPose(),
+                Offset = OverlayPlacement.WristOffset,
+                Width = OverlayPlacement.WristWidth,
             };
             return;
         }

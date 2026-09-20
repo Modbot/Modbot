@@ -31,6 +31,17 @@ public static class OpenVrLayouts
     /// <summary><c>k_EButton_SteamVR_Trigger</c>, also <c>k_EButton_Axis1</c>.</summary>
     public const int TriggerButton = 33;
 
+    /// <summary>
+    /// Which of the five axes SteamVR's own legacy bindings put the grip on.
+    /// </summary>
+    /// <remarks>
+    /// Axis 0 is the thumbstick or touchpad and axis 1 is the trigger on every controller; the
+    /// grip, where the controller has an analogue one, is axis 2. A controller whose grip is a
+    /// plain switch — a Vive wand — leaves this at zero, which is why nothing is decided on the
+    /// number alone (see <see cref="GripHold"/>).
+    /// </remarks>
+    public const int GripAxis = 2;
+
     /// <summary>The device's pose in the room, or null when SteamVR says it is not valid.</summary>
     public static Pose? ReadPose(ReadOnlySpan<byte> bytes)
     {
@@ -52,23 +63,32 @@ public static class OpenVrLayouts
         return HmdPoses.ToPose(m);
     }
 
-    /// <summary>Grip, trigger and the first axis (thumbstick or touchpad) out of a controller state.</summary>
-    public static (bool Grab, bool Click, Vector2 Scroll) ReadButtons(ReadOnlySpan<byte> bytes, bool windowsLayout)
+    /// <summary>
+    /// The grip button, how hard the grip is squeezed, the trigger, and the first axis (thumbstick
+    /// or touchpad) out of a controller state.
+    /// </summary>
+    /// <remarks>
+    /// The five axes follow the two button words, eight bytes each: axis 0 the thumbstick or
+    /// touchpad, axis 1 the trigger, axis 2 the grip. The whole state is read, so the length check
+    /// covers all five rather than only the first.
+    /// </remarks>
+    public static (bool Grip, float Squeeze, bool Click, Vector2 Scroll) ReadButtons(ReadOnlySpan<byte> bytes, bool windowsLayout)
     {
         var buttons = windowsLayout ? 8 : 4;
-        if (bytes.Length < buttons + 16 + 8)
-            return (false, false, Vector2.Zero);
+        var axes = buttons + 16;
+        if (bytes.Length < axes + (5 * 8))
+            return (false, 0f, false, Vector2.Zero);
 
         var pressed = BinaryPrimitives.ReadUInt64LittleEndian(bytes[buttons..]);
-        var axis0 = buttons + 16;
 
         return (
             (pressed & (1UL << GripButton)) != 0,
+            F(bytes, axes + (GripAxis * 8)),
             (pressed & (1UL << TriggerButton)) != 0,
-            new Vector2(F(bytes, axis0), F(bytes, axis0 + 4)));
+            new Vector2(F(bytes, axes), F(bytes, axes + 4)));
     }
 
-    internal static (bool Grab, bool Click, Vector2 Scroll) ReadButtons(ReadOnlySpan<byte> bytes)
+    internal static (bool Grip, float Squeeze, bool Click, Vector2 Scroll) ReadButtons(ReadOnlySpan<byte> bytes)
         => ReadButtons(bytes, OperatingSystem.IsWindows());
 
     private static float F(ReadOnlySpan<byte> bytes, int offset)
@@ -87,6 +107,12 @@ public static class OpenVrLayouts
 /// cursor is and whether it is being held, and are dropped.</para>
 /// <para>Legacy controller state rather than SteamVR Input actions: an overlay with no action
 /// manifest is given the legacy bindings, which is one call per hand and no manifest to ship.</para>
+/// <para><strong>What it does to what it reads.</strong> Two corrections, both because OpenVR
+/// answers a narrower question than the panel asks. The grip is decided from how hard it is
+/// squeezed rather than from SteamVR's own grip button, which on an Index only turns on under a
+/// hard squeeze (<see cref="GripHold"/>); and the pointing direction is tilted off the
+/// controller's body, because the pose OpenVR gives runs along the controller and nobody points
+/// along that line (<see cref="ControllerPointing"/>).</para>
 /// </remarks>
 internal sealed unsafe class OpenVrSystem
 {
@@ -107,6 +133,11 @@ internal sealed unsafe class OpenVrSystem
     private readonly nint _table;
     private readonly byte[] _poses = new byte[MaxDevices * OpenVrLayouts.PoseSize];
     private readonly byte[] _state = new byte[OpenVrLayouts.ControllerStateSize];
+
+    // One per hand, because whether a light squeeze counts as a hold depends on whether that hand
+    // was already holding.
+    private readonly GripHold _leftGrip = new();
+    private readonly GripHold _rightGrip = new();
 
     private OpenVrSystem(nint table)
     {
@@ -143,12 +174,24 @@ internal sealed unsafe class OpenVrSystem
 
     private HandState Hand(int role)
     {
+        var grip = role == RoleLeftHand ? _leftGrip : _rightGrip;
+
         var index = ((delegate* unmanaged[Stdcall]<int, uint>)Slot(GetTrackedDeviceIndexForControllerRole))(role);
         if (index == InvalidDevice || index >= MaxDevices)
+        {
+            grip.Forget();
             return HandState.Missing;
+        }
 
-        if (OpenVrLayouts.ReadPose(PoseBytes((int)index)) is not { } aim)
+        // The pose SteamVR gives runs along the controller's body; the ray has to come off it at
+        // an angle or the cursor sits above what the moderator is aiming at.
+        if (OpenVrLayouts.ReadPose(PoseBytes((int)index)) is not { } device)
+        {
+            grip.Forget();
             return HandState.Missing;
+        }
+
+        var aim = ControllerPointing.Aim(device);
 
         bool read;
         fixed (byte* state = _state)
@@ -158,10 +201,13 @@ internal sealed unsafe class OpenVrSystem
         }
 
         if (!read)
-            return new HandState(true, aim, false, false, Vector2.Zero);
+        {
+            grip.Forget();
+            return new HandState(true, aim, device, false, false, Vector2.Zero);
+        }
 
-        var (grab, click, scroll) = OpenVrLayouts.ReadButtons(_state);
-        return new HandState(true, aim, grab, click, scroll);
+        var (button, squeeze, click, scroll) = OpenVrLayouts.ReadButtons(_state);
+        return new HandState(true, aim, device, grip.Squeeze(button, squeeze), click, scroll);
     }
 
     private ReadOnlySpan<byte> PoseBytes(int device)

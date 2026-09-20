@@ -38,8 +38,11 @@ public static class PanelGeometry
         return placement.Anchor switch
         {
             OverlayAnchor.Head => tracking.Head.Then(offset),
-            OverlayAnchor.LeftHand => tracking.Left.Tracked ? tracking.Left.Aim.Then(offset) : null,
-            OverlayAnchor.RightHand => tracking.Right.Tracked ? tracking.Right.Aim.Then(offset) : null,
+
+            // The controller's own pose, not where it points: it is what both runtimes hang a
+            // hand-anchored panel off, so it has to be what the hit testing measures from too.
+            OverlayAnchor.LeftHand => tracking.Left.Tracked ? tracking.Left.Device.Then(offset) : null,
+            OverlayAnchor.RightHand => tracking.Right.Tracked ? tracking.Right.Device.Then(offset) : null,
             _ => offset,
         };
     }

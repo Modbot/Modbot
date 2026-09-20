@@ -1441,8 +1441,8 @@ public sealed partial class MainWindow : Window
         foreach (var (anchor, caption) in new[]
         {
             (OverlayAnchor.Head, "Head"),
-            (OverlayAnchor.LeftHand, "Left hand"),
-            (OverlayAnchor.RightHand, "Right hand"),
+            (OverlayAnchor.LeftHand, "Left wrist"),
+            (OverlayAnchor.RightHand, "Right wrist"),
             (OverlayAnchor.World, "Room"),
         })
         {

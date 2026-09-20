@@ -57,8 +57,10 @@ public class OverlayPageTests
     public void EveryScreenCarriesTheTabsThatLeaveIt()
     {
         // A panel a moderator can get into and not out of with a controller is worse than no
-        // panel, so the tabs are on every screen.
-        foreach (var page in Enum.GetValues<OverlayPage>())
+        // panel, so the tabs are on every screen. The wrist is not one of the three: it is not a
+        // tab and cannot be reached from one, and the way off it is to take the panel off the
+        // wrist.
+        foreach (var page in Enum.GetValues<OverlayPage>().Where(p => p is not OverlayPage.Wrist))
         {
             var person = new UserSummary("usr_rin", "Rin", RosterStanding.Flagged, 2, null, [], []);
             var pages = Targets(Screen(page, person))
@@ -179,5 +181,39 @@ public class OverlayPageTests
         var two = Screen(OverlayPage.Events, null, Event("e2", LiveEventKinds.PersonJoined), Event("e1", LiveEventKinds.PersonJoined));
 
         Assert.False(one.LooksTheSameAs(two));
+    }
+
+    /// <summary>
+    /// The wrist screen is not the roster with smaller type: no tabs, no rows, nothing to scroll.
+    /// A panel a sixth the width has room for a glance and nothing else.
+    /// </summary>
+    [Fact]
+    public void TheWristScreenCarriesNoTabsAndNoRosterRows()
+    {
+        var targets = Targets(Screen(OverlayPage.Wrist)).Select(t => t.Target).ToList();
+
+        Assert.DoesNotContain(targets, t => t is OverlayTarget.GoTo);
+        Assert.DoesNotContain(targets, t => t is OverlayTarget.Person);
+        Assert.DoesNotContain(targets, t => t is OverlayTarget.Roster);
+    }
+
+    /// <summary>A flagged arrival is the one thing on the wrist worth pressing, and it clears.</summary>
+    [Fact]
+    public void AFlaggedArrivalOnTheWristCanBeCleared()
+    {
+        var alert = new FlaggedJoinAlert("a1", "usr_rin", "Rin", "39911", "kicked before", 2, DateTimeOffset.UnixEpoch);
+        var screen = Screen(OverlayPage.Wrist) with { Alert = alert };
+
+        var targets = Targets(screen).Select(t => t.Target).ToList();
+
+        Assert.Contains(targets, t => t is OverlayTarget.DismissAlert);
+    }
+
+    /// <summary>Moving on or off the wrist redraws, because the panel shows something else there.</summary>
+    [Fact]
+    public void GoingToTheWristIsAChangeWorthRedrawing()
+    {
+        Assert.False(Screen(OverlayPage.Instance).LooksTheSameAs(Screen(OverlayPage.Wrist)));
+        Assert.True(Screen(OverlayPage.Wrist).LooksTheSameAs(Screen(OverlayPage.Wrist)));
     }
 }

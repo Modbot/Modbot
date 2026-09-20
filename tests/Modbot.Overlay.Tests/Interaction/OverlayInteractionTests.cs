@@ -67,19 +67,59 @@ public class OverlayInteractionTests
         Assert.True(Vector3.Distance(Centre + new Vector3(0.5f, 0, 0), where) < 1e-3f, $"panel ended at {where}");
     }
 
-    [Fact]
-    public void LettingGoWithThePanelAtTheHandKeepsItOnTheHand()
+    /// <summary>
+    /// Bringing the panel to the hand and letting go there makes it the wrist panel: the watch
+    /// position and the watch size, not wherever the hand happened to stop.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LettingGoWithThePanelAtTheHandPutsItOnThatWrist(bool left)
     {
         var interaction = new OverlayInteraction(OverlayPlacement.Default);
 
         // Reaching out: the hand is five centimetres in front of the panel, gripping it.
-        var close = Hands.AimingAt(Centre + new Vector3(0, 0, 0.05f), Centre);
-        interaction.Update(Hands.RightOnly(Hands.Hand(close, grab: true)), At(0));
+        var close = Hands.Hand(Hands.AimingAt(Centre + new Vector3(0, 0, 0.05f), Centre), grab: true);
+        var letGo = close with { Grab = false };
 
-        var released = interaction.Update(Hands.RightOnly(Hands.Hand(close)), At(100));
+        interaction.Update(left ? Hands.Both(close, HandState.Missing) : Hands.RightOnly(close), At(0));
+        var released = interaction.Update(left ? Hands.Both(letGo, HandState.Missing) : Hands.RightOnly(letGo), At(100));
 
-        Assert.Equal(OverlayAnchor.RightHand, released.Placement.Anchor);
-        Assert.True(Pose.From(released.Placement.Offset).Position.Length() < OverlayInteraction.WristReach);
+        Assert.Equal(left ? OverlayAnchor.LeftHand : OverlayAnchor.RightHand, released.Placement.Anchor);
+        Assert.Equal(OverlayPlacement.WristOffset, released.Placement.Offset);
+        Assert.Equal(OverlayPlacement.WristWidth, released.Placement.Width);
+    }
+
+    /// <summary>
+    /// A panel worn on one wrist is still pointed at with the other hand: the ray is tested
+    /// against where the panel actually hangs, which is off the controller's own pose.
+    /// </summary>
+    [Fact]
+    public void TheOtherHandCanStillPointAtAPanelWornOnAWrist()
+    {
+        var interaction = new OverlayInteraction(OverlayPlacement.Default with
+        {
+            Anchor = OverlayAnchor.LeftHand,
+            Offset = OverlayPlacement.WristOffset,
+            Width = OverlayPlacement.WristWidth,
+        });
+
+        // The left controller is held out in front, lying flat and pointing away.
+        var wrist = new Pose(new Vector3(-0.2f, 1.1f, -0.4f), Quaternion.Identity);
+        var leftHand = Hands.Hand(wrist, device: wrist);
+
+        // Where the panel hangs off it, and where its face looks.
+        var panel = PanelGeometry.PanelPose(interaction.Placement, Hands.Both(leftHand, HandState.Missing))!.Value;
+        var eye = panel.Position + (Vector3.Transform(Vector3.UnitZ, panel.Rotation) * 0.4f);
+
+        var rightHand = Hands.Hand(Hands.AimingAt(eye, panel.Position));
+
+        var result = interaction.Update(Hands.Both(leftHand, rightHand), At(0));
+
+        Assert.NotNull(result.Pointer);
+        Assert.Equal(Hand.Right, result.Pointer.Value.Hand);
+        Assert.Equal(0.5f, result.Pointer.Value.Across, 2);
+        Assert.Equal(0.5f, result.Pointer.Value.Down, 2);
     }
 
     [Fact]

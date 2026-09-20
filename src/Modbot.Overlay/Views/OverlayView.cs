@@ -96,6 +96,11 @@ public static class OverlayView
                 : new Border { Background = Brushes.Transparent };
         }
 
+        // Worn on a wrist the panel is a sixth of the width it is in front of the head, so it gets
+        // its own screen rather than a shrunken copy of the roster: four lines, drawn large.
+        if (screen.Page is OverlayPage.Wrist)
+            return Framed(WristCard(screen, icon), screen.Cursor);
+
         var stack = new StackPanel { Spacing = 12 };
 
         // Whose community this is, said once at the top rather than repeated on every card below.
@@ -125,22 +130,91 @@ public static class OverlayView
             _ => RosterPanel(screen),
         });
 
-        // Nothing behind the cards. The texture is square and the cards fill its top, so an
-        // opaque ground would hang a dark slab over half the moderator's view; each card paints
-        // its own surface, and the rest of the panel lets the world through.
+        return Framed(stack, screen.Cursor);
+    }
+
+    /// <summary>
+    /// The panel's own frame: the cards on nothing, with the cursor over them.
+    /// </summary>
+    /// <remarks>
+    /// Nothing behind the cards. The texture is square and the cards fill its top, so an opaque
+    /// ground would hang a dark slab over half the moderator's view; each card paints its own
+    /// surface, and the rest of the panel lets the world through. The cursor sits over everything,
+    /// drawn into the same frame: SteamVR draws lasers only for dashboard overlays and OpenXR
+    /// draws none, so the panel shows its own.
+    /// </remarks>
+    private static Control Framed(Control content, PanelCursor? cursor)
+    {
         var panel = new Border
         {
             Background = Brushes.Transparent,
             Padding = new Thickness(20),
-            Child = stack,
+            Child = content,
         };
 
-        if (screen.Cursor is not { } cursor)
-            return panel;
+        return cursor is { } where
+            ? new Panel { Children = { panel, new CursorLayer(where) } }
+            : panel;
+    }
 
-        // The cursor sits over everything, drawn into the same frame: SteamVR draws lasers only
-        // for dashboard overlays and OpenXR draws none, so the panel shows its own.
-        return new Panel { Children = { panel, new CursorLayer(cursor) } };
+    /// <summary>
+    /// What a panel worn on the wrist says: whose community, how many are here, and the one thing
+    /// worth looking down for.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Why not the roster.</strong> The wrist panel is 0.16 m across where the head
+    /// panel is 0.45 m, on the same texture — everything on it is a third the size it was. A list
+    /// of twenty names at that size is a grey smear, and a moderator is not going to read a list
+    /// off their arm anyway. What a watch is for is the glance: is anything wrong, and how busy is
+    /// it. So this is the pop-up's shape rather than the roster's — one thing said large — with
+    /// the group and the head count above it so the glance answers both questions at once.</para>
+    /// <para>The alert is tappable and clears, exactly as it does on the big panel; there is
+    /// nothing else to press, because there is nothing else a wrist is the right place to do.
+    /// Pointing at it with the other hand works like pointing at any other placement.</para>
+    /// </remarks>
+    private static Control WristCard(OverlayScreen screen, Func<string?, IImage?>? icon)
+    {
+        var lines = new StackPanel { Spacing = 10 };
+        lines.Children.Add(GroupLine(screen, icon, T.Density.TextBase * 1.6, IconSize * 1.6));
+
+        var here = screen.Roster.Value?.Members.Count ?? 0;
+        lines.Children.Add(Text(
+            here == 1 ? "1 here" : here + " here",
+            T.Density.TextBase * 1.4,
+            screen.Freshness == Freshness.Fresh ? T.TextDimBrush : T.WarnBrush,
+            FontWeight.SemiBold));
+
+        if (screen.Health is { Length: > 0 } health)
+        {
+            lines.Children.Add(Text(health, T.Density.TextBase * 1.3, T.WarnBrush, FontWeight.SemiBold));
+        }
+        else if (screen.Alert is { } alert)
+        {
+            lines.Children.Add(Text(alert.DisplayName ?? alert.SubjectId, T.Density.TextBase * 1.7, T.TextBrush, FontWeight.SemiBold));
+            lines.Children.Add(Text(alert.Reason, T.Density.TextBase * 1.3, T.DangerBrush));
+        }
+        else if (screen.EventsOrNone.Count > 0)
+        {
+            var newest = screen.EventsOrNone[0];
+            lines.Children.Add(Text(
+                newest.Person?.DisplayName ?? newest.Person?.SubjectId ?? Words(newest.Kind),
+                T.Density.TextBase * 1.5,
+                T.TextDimBrush));
+            lines.Children.Add(Text(Words(newest.Kind), T.Density.TextBase * 1.3, T.TextDimBrush));
+        }
+
+        return new Border
+        {
+            // The alert is the one thing on here worth being able to clear, and a tap anywhere on
+            // the card clears it, because a wrist is a poor place to land on a small target.
+            Tag = screen.Alert is null ? null : new OverlayTarget.DismissAlert(),
+            Background = T.SurfaceBrush,
+            BorderBrush = screen.Alert is null ? T.BorderBrush : T.DangerBrush,
+            BorderThickness = new Thickness(screen.Alert is null ? T.Density.Hairline : 10, T.Density.Hairline, T.Density.Hairline, T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(24, 20),
+            Child = lines,
+        };
     }
 
     /// <summary>A ring where a controller points, placed by fractions of the panel.</summary>
@@ -182,31 +256,35 @@ public static class OverlayView
     /// machine their server happens to run on. The address is what this falls back to when a
     /// pairing was made before servers gave their group's name, and it is never the first choice.
     /// </remarks>
-    private static Control GroupLine(OverlayScreen screen, Func<string?, IImage?>? icon)
+    /// <param name="size">How big the name is drawn; the wrist panel asks for more.</param>
+    /// <param name="iconSize">How big the picture is drawn, in panel pixels.</param>
+    private static Control GroupLine(OverlayScreen screen, Func<string?, IImage?>? icon, double? size = null, double? iconSize = null)
     {
+        var picture = iconSize ?? IconSize;
+
         var row = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Spacing = 10,
-            Height = IconSize,
+            Height = picture,
         };
 
-        if (icon?.Invoke(screen.GroupIconUrl) is { } picture)
+        if (icon?.Invoke(screen.GroupIconUrl) is { } image)
         {
             row.Children.Add(new Border
             {
-                Width = IconSize,
-                Height = IconSize,
-                CornerRadius = new CornerRadius(IconSize / 2),
+                Width = picture,
+                Height = picture,
+                CornerRadius = new CornerRadius(picture / 2),
                 ClipToBounds = true,
                 VerticalAlignment = VerticalAlignment.Center,
-                Child = new Image { Source = picture, Stretch = Stretch.UniformToFill },
+                Child = new Image { Source = image, Stretch = Stretch.UniformToFill },
             });
         }
 
         var name = Text(
             screen.GroupLabel ?? "Not in a group instance",
-            T.Density.TextBase,
+            size ?? T.Density.TextBase,
             screen.GroupLabel is null ? T.TextDimBrush : T.TextBrush,
             FontWeight.SemiBold);
         name.VerticalAlignment = VerticalAlignment.Center;

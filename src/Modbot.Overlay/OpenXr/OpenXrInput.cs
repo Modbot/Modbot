@@ -36,11 +36,13 @@ internal sealed unsafe class OpenXrInput : IDisposable
 
     private ActionSet _set;
     private XrAction _aim;
+    private XrAction _device;
     private XrAction _grab;
     private XrAction _click;
     private XrAction _scroll;
     private readonly ulong[] _hands = new ulong[2];
     private readonly Space[] _aimSpaces = new Space[2];
+    private readonly Space[] _deviceSpaces = new Space[2];
     private bool _unfocusedLogged;
 
     private OpenXrInput(XR xr, Instance instance, Session session, string runtimeName, ILogger log)
@@ -68,8 +70,14 @@ internal sealed unsafe class OpenXrInput : IDisposable
         }
     }
 
-    /// <summary>The hand's aim action space, for a panel anchored to that hand.</summary>
+    /// <summary>The hand's aim action space: where it points.</summary>
     public Space AimSpace(Hand hand) => _aimSpaces[hand == Hand.Left ? 0 : 1];
+
+    /// <summary>
+    /// The hand's own action space, for a panel worn on that hand. Not the aim space: a panel hung
+    /// off where the controller points would swing with the ray rather than sit on the wrist.
+    /// </summary>
+    public Space DeviceSpace(Hand hand) => _deviceSpaces[hand == Hand.Left ? 0 : 1];
 
     private void Build()
     {
@@ -86,6 +94,7 @@ internal sealed unsafe class OpenXrInput : IDisposable
         _hands[1] = PathOf(ControllerBindings.RightHand);
 
         _aim = CreateAction(ControllerBindings.Aim, "Aim", ActionType.PoseInput);
+        _device = CreateAction(ControllerBindings.Device, "Controller", ActionType.PoseInput);
         _grab = CreateAction(ControllerBindings.Grab, "Grab", ActionType.BooleanInput);
         _click = CreateAction(ControllerBindings.Click, "Click", ActionType.BooleanInput);
         _scroll = CreateAction(ControllerBindings.Scroll, "Scroll", ActionType.Vector2fInput);
@@ -96,20 +105,11 @@ internal sealed unsafe class OpenXrInput : IDisposable
 
         for (var i = 0; i < 2; i++)
         {
-            var spaceInfo = new ActionSpaceCreateInfo
-            {
-                Type = StructureType.ActionSpaceCreateInfo,
-                Action = _aim,
-                SubactionPath = _hands[i],
-                PoseInActionSpace = OpenXrCalls.IdentityPose,
-            };
-
-            Space space;
-            Check(_xr.CreateActionSpace(_session, &spaceInfo, &space), "xrCreateActionSpace");
-            _aimSpaces[i] = space;
+            _aimSpaces[i] = MakeSpace(_aim, _hands[i]);
+            _deviceSpaces[i] = MakeSpace(_device, _hands[i]);
         }
 
-        _log.Debug("Aim spaces created for the left and right hands");
+        _log.Debug("Aim and controller spaces created for the left and right hands");
 
         fixed (ActionSet* sets = &_set)
         {
@@ -123,6 +123,21 @@ internal sealed unsafe class OpenXrInput : IDisposable
         }
 
         _log.Debug("Action set {ActionSet} attached to the overlay session", ControllerBindings.ActionSet);
+    }
+
+    private Space MakeSpace(XrAction action, ulong hand)
+    {
+        var info = new ActionSpaceCreateInfo
+        {
+            Type = StructureType.ActionSpaceCreateInfo,
+            Action = action,
+            SubactionPath = hand,
+            PoseInActionSpace = OpenXrCalls.IdentityPose,
+        };
+
+        Space space;
+        Check(_xr.CreateActionSpace(_session, &info, &space), "xrCreateActionSpace");
+        return space;
     }
 
     private XrAction CreateAction(string name, string localizedName, ActionType type)
@@ -205,6 +220,7 @@ internal sealed unsafe class OpenXrInput : IDisposable
     private XrAction ActionNamed(string name) => name switch
     {
         ControllerBindings.Aim => _aim,
+        ControllerBindings.Device => _device,
         ControllerBindings.Grab => _grab,
         ControllerBindings.Click => _click,
         ControllerBindings.Scroll => _scroll,
@@ -251,9 +267,15 @@ internal sealed unsafe class OpenXrInput : IDisposable
         if (Locate(_aimSpaces[hand], localSpace, time) is not { } aim)
             return HandState.Missing;
 
+        // A runtime that gives an aim pose but no controller pose is not one anybody has seen, but
+        // the aim pose is a better answer than nothing: the panel sits a little forward of the
+        // wrist rather than vanishing.
+        var device = Locate(_deviceSpaces[hand], localSpace, time) ?? aim;
+
         return new HandState(
             true,
             aim,
+            device,
             ReadBoolean(_grab, _hands[hand]),
             ReadBoolean(_click, _hands[hand]),
             ReadVector2(_scroll, _hands[hand]));
@@ -332,12 +354,16 @@ internal sealed unsafe class OpenXrInput : IDisposable
             if (_aimSpaces[i].Handle != 0)
                 _xr.DestroySpace(_aimSpaces[i]);
             _aimSpaces[i] = default;
+
+            if (_deviceSpaces[i].Handle != 0)
+                _xr.DestroySpace(_deviceSpaces[i]);
+            _deviceSpaces[i] = default;
         }
 
         // Destroying the set destroys its actions with it.
         if (_set.Handle != 0)
             _xr.DestroyActionSet(_set);
         _set = default;
-        _aim = _grab = _click = _scroll = default;
+        _aim = _device = _grab = _click = _scroll = default;
     }
 }

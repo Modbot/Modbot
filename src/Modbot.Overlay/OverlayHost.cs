@@ -125,13 +125,17 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Holding = null;
         _runtime.Place(_interaction.Placement);
         PlacementChanged?.Invoke(_interaction.Placement);
+
+        // A panel that has just moved on or off a wrist shows a different screen, and the screen
+        // itself has not changed, so nothing else would redraw it.
+        Draw();
     }
 
     /// <summary>
     /// Fixes the panel to something else, from the settings page, and puts it where that
-    /// anchor makes sense: in front of the head; just above a hand; or, for the room, exactly
-    /// where the panel is right now, so choosing Room pins it rather than sending it to the
-    /// room's origin. Size, opacity and curve stay.
+    /// anchor makes sense: in front of the head; on the wrist, at the wrist size; or, for the
+    /// room, exactly where the panel is right now, so choosing Room pins it rather than sending
+    /// it to the room's origin. Opacity and curve stay.
     /// </summary>
     public void Anchor(OverlayAnchor anchor)
     {
@@ -139,12 +143,29 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         var offset = anchor switch
         {
             OverlayAnchor.Head => OverlayPlacement.Default.Offset,
-            OverlayAnchor.LeftHand or OverlayAnchor.RightHand => OverlayPlacement.HandOffset,
+            OverlayAnchor.LeftHand or OverlayAnchor.RightHand => OverlayPlacement.WristOffset,
             _ => (PanelGeometry.PanelPose(current, _lastTracking) ?? _lastTracking.Head.Then(Pose.From(OverlayPlacement.Default.Offset))).ToOverlayPose(),
         };
 
-        Place(current with { Anchor = anchor, Offset = offset });
+        Place(current with
+        {
+            Anchor = anchor,
+            Offset = offset,
+            Width = OverlayPlacement.WidthFor(anchor, current.Width),
+        });
     }
+
+    /// <summary>
+    /// Whether the panel is worn on a hand. A wrist is read at a glance, so the panel shows the
+    /// wrist screen there instead of the roster (two overlay modes design §3.2).
+    /// </summary>
+    /// <remarks>
+    /// Not while it is being carried. A panel in mid-air on its way to somewhere is anchored to
+    /// the hand that is carrying it, and swapping its screen for the wrist one halfway would make
+    /// picking the panel up look like breaking it.
+    /// </remarks>
+    public bool OnWrist =>
+        Holding is null && _interaction.Placement.Anchor is OverlayAnchor.LeftHand or OverlayAnchor.RightHand;
 
     /// <summary>
     /// One look at the controllers: moves the cursor, holds or lets go of the panel, and raises
@@ -161,6 +182,8 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
         _lastTracking = _runtime.ReadTracking();
         var result = _interaction.Update(_lastTracking, now);
+
+        var wasHolding = Holding;
         Holding = result.Holding;
 
         if (result.PlacementChanged)
@@ -168,6 +191,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             _runtime.Place(result.Placement);
             PlacementChanged?.Invoke(result.Placement);
         }
+
+        // Picking the panel up and putting it down change which screen is drawn without changing
+        // the screen itself, so nothing else would redraw it.
+        if (result.PlacementChanged || wasHolding != Holding)
+            Draw();
 
         foreach (var click in result.Clicks)
             Tapped?.Invoke(TargetAt(click.Across, click.Down));
@@ -300,6 +328,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private bool Draw()
     {
         var next = (_pinned ?? _live)?.WithCursor(_cursor);
+
+        // Worn on a wrist, the panel is a sixth of the width it is in front of the head, and the
+        // roster at that size is a grey smear. The wrist screen is what it shows there instead.
+        if (next is not null && OnWrist)
+            next = next with { Page = OverlayPage.Wrist };
+
         if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next)))
             return false;
 

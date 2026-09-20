@@ -2590,10 +2590,11 @@ internal sealed class CompanionHost : IOverlayListener
                 Anchor = anchor,
                 Offset = anchor switch
                 {
-                    OverlayAnchor.LeftHand or OverlayAnchor.RightHand => OverlayPlacement.HandOffset,
+                    OverlayAnchor.LeftHand or OverlayAnchor.RightHand => OverlayPlacement.WristOffset,
                     OverlayAnchor.World => current.Offset,
                     _ => OverlayPlacement.Default.Offset,
                 },
+                Width = OverlayPlacement.WidthFor(anchor, current.Width),
             });
         }
 

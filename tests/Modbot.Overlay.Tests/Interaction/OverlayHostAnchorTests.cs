@@ -78,19 +78,67 @@ public class OverlayHostAnchorTests
         return (host, runtime);
     }
 
-    [Fact]
-    public void AHandAnchorPutsThePanelJustAboveTheHand()
+    /// <summary>
+    /// Choosing a wrist puts the panel in the watch position at the watch size, on either hand,
+    /// and tells the runtime about it.
+    /// </summary>
+    [Theory]
+    [InlineData(OverlayAnchor.LeftHand)]
+    [InlineData(OverlayAnchor.RightHand)]
+    public void AWristAnchorPutsThePanelOnTheWristAtTheWristSize(OverlayAnchor wrist)
     {
         AvaloniaTestHost.Run(() =>
         {
             var (host, runtime) = Build();
 
-            host.Anchor(OverlayAnchor.LeftHand);
+            host.Anchor(wrist);
 
-            Assert.Equal(OverlayAnchor.LeftHand, host.Placement.Anchor);
-            Assert.Equal(OverlayPlacement.HandOffset, host.Placement.Offset);
+            Assert.Equal(wrist, host.Placement.Anchor);
+            Assert.Equal(OverlayPlacement.WristOffset, host.Placement.Offset);
+            Assert.Equal(OverlayPlacement.WristWidth, host.Placement.Width);
+            Assert.True(host.OnWrist);
             Assert.Equal(host.Placement, runtime.Placed);
         });
+    }
+
+    /// <summary>
+    /// The wrist panel faces out of the back of the hand, not along the controller: that is the
+    /// difference between a watch and a card floating past somebody's knuckles.
+    /// </summary>
+    [Fact]
+    public void TheWristPanelFacesOutOfTheBackOfTheHand()
+    {
+        var face = Vector3.Transform(Vector3.UnitZ, Pose.From(OverlayPlacement.WristOffset).Rotation);
+
+        // Mostly the controller's +Y, which is the face a wand's touchpad is on: the back of the
+        // hand. The rest leans back towards the elbow (+Z), so a raised forearm points it at the eyes.
+        Assert.True(face.Y > 0.9f, $"the wrist panel faces {face}");
+        Assert.True(face.Z is > 0.2f and < 0.5f, $"the wrist panel faces {face}");
+        Assert.True(MathF.Abs(face.X) < 1e-5f, $"the wrist panel faces {face}");
+    }
+
+    /// <summary>Leaving a wrist gives the panel a readable width back rather than keeping the watch size.</summary>
+    [Fact]
+    public void ComingOffTheWristGivesThePanelItsWidthBack()
+    {
+        AvaloniaTestHost.Run(() =>
+        {
+            var (host, _) = Build();
+            host.Anchor(OverlayAnchor.RightHand);
+
+            host.Anchor(OverlayAnchor.Head);
+
+            Assert.Equal(OverlayPlacement.Default.Width, host.Placement.Width);
+            Assert.False(host.OnWrist);
+        });
+    }
+
+    /// <summary>A width the moderator chose themselves is theirs, and coming off a wrist keeps it.</summary>
+    [Fact]
+    public void AChosenWidthSurvivesTheWrist()
+    {
+        Assert.Equal(0.9f, OverlayPlacement.WidthFor(OverlayAnchor.Head, 0.9f));
+        Assert.Equal(OverlayPlacement.WristWidth, OverlayPlacement.WidthFor(OverlayAnchor.LeftHand, 0.9f));
     }
 
     [Fact]

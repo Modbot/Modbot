@@ -14,7 +14,7 @@ public class LatestTrackingTests
     private static OverlayTracking Frame(float value)
     {
         var pose = new Pose(new Vector3(value, value, value), Quaternion.Identity);
-        var hand = new HandState(true, pose, value > 0f, value > 0f, new Vector2(value, value));
+        var hand = new HandState(true, pose, pose, value > 0f, value > 0f, new Vector2(value, value));
         return new OverlayTracking(pose, hand, hand);
     }
 

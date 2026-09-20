@@ -1049,15 +1049,17 @@ public sealed class OpenXrOverlayRuntime : IOverlayRuntime
 
     /// <summary>
     /// The space the placement's anchor names: the head is VIEW, the world is LOCAL, a hand is
-    /// that hand's aim space. A hand with no action set behind it is shown on the head instead.
+    /// that hand's own space — where the controller is, not where it points, so a panel worn on
+    /// the wrist sits on the wrist. A hand with no action set behind it is shown on the head
+    /// instead.
     /// </summary>
     private static Space SpaceFor(Attachment a, OverlayAnchor anchor)
     {
         var space = anchor switch
         {
             OverlayAnchor.World => a.LocalSpace,
-            OverlayAnchor.LeftHand => a.Input?.AimSpace(Hand.Left) ?? default,
-            OverlayAnchor.RightHand => a.Input?.AimSpace(Hand.Right) ?? default,
+            OverlayAnchor.LeftHand => a.Input?.DeviceSpace(Hand.Left) ?? default,
+            OverlayAnchor.RightHand => a.Input?.DeviceSpace(Hand.Right) ?? default,
             _ => a.ViewSpace,
         };
 

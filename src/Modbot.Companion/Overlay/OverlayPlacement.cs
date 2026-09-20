@@ -47,7 +47,12 @@ public sealed record OverlayPlacement(
     float Opacity = 1f,
     float Curve = 0f)
 {
-    public const float MinWidth = 0.2f;
+    /// <summary>
+    /// Narrow enough for the wrist. It used to be 0.2 m, which is wider than a panel worn on the
+    /// arm has any business being.
+    /// </summary>
+    public const float MinWidth = 0.12f;
+
     public const float MaxWidth = 1.5f;
     public const float MinOpacity = 0.1f;
     public const float MinDistance = 0.3f;
@@ -56,10 +61,37 @@ public sealed record OverlayPlacement(
     public static OverlayPlacement Default { get; } = new(OverlayAnchor.Head, new OverlayPose(0.35f, -0.28f, -1.0f), 0.45f);
 
     /// <summary>
-    /// Where a panel put on a hand from the settings page goes: twelve centimetres above where
-    /// the controller points from, facing back along it, like a watch held up.
+    /// How wide the panel is on a wrist: 0.16 m, about 22° across at the 40 cm a raised wrist sits
+    /// from the eyes. Wide enough for four lines of readable text, narrow enough that the arm it
+    /// is on does not become a wall in front of the instance.
     /// </summary>
-    public static OverlayPose HandOffset { get; } = new(0f, 0.12f, 0f);
+    public const float WristWidth = 0.16f;
+
+    /// <summary>
+    /// Where a panel worn on a wrist sits: ten centimetres out of the back of the hand, two
+    /// centimetres back towards the elbow, and turned so its face looks out of the back of the
+    /// hand rather than along the controller.
+    /// </summary>
+    /// <remarks>
+    /// <para>The offset is read in the controller's own axes, where +Y comes out of the face a
+    /// wand's touchpad is on — the back of the hand holding it — and +Z runs back towards the
+    /// elbow. The turn is 70° about X, which swings the panel's face from "along the controller"
+    /// (where it used to be, and where it was edge-on to the moderator) round to "out of the back
+    /// of the hand", leaning the last 20° towards the elbow so that a raised forearm points it at
+    /// the eyes. That is where a watch face is.</para>
+    /// <para>The quaternion is the half-angle pair for −70° about X: sin(−35°) and cos(−35°).</para>
+    /// </remarks>
+    public static OverlayPose WristOffset { get; } = new(0f, 0.10f, 0.02f, -0.573576f, 0f, 0f, 0.819152f);
+
+    /// <summary>
+    /// How wide the panel is once it is fixed to <paramref name="anchor"/>: the wrist size on a
+    /// hand, and off the wrist the width it had, or the ordinary one if it was still wrist-sized.
+    /// </summary>
+    public static float WidthFor(OverlayAnchor anchor, float current) => anchor switch
+    {
+        OverlayAnchor.LeftHand or OverlayAnchor.RightHand => WristWidth,
+        _ => current <= WristWidth + 0.001f ? Default.Width : current,
+    };
 
     /// <summary>The same placement with every number inside its bounds.</summary>
     public OverlayPlacement Clamped() => this with

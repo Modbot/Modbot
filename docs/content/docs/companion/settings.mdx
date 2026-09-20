@@ -334,9 +334,19 @@ with a controller, and saved as the `overlay` object in `settings.json`:
 }
 ```
 
-`anchor` is `head`, `lefthand`, `righthand` or `world`; `offset` is metres from the anchor and a
-turn as a quaternion; `width` is 0.2 to 1.5 m, `opacity` 0.1 to 1, `curve` 0 to 1. A value outside
-its range is brought inside it when the file is read.
+| Field | Means | Range |
+|---|---|---|
+| `anchor` | What the panel is fixed to: `head`, `lefthand` (your left wrist), `righthand` (your right wrist) or `world` (left in the room) | one of those four |
+| `offset` | Where it sits from that anchor: metres as `x`, `y`, `z`, and a turn as `qx`, `qy`, `qz`, `qw` | any |
+| `width` | How wide it is in the headset | 0.12 to 1.5 m |
+| `opacity` | How solid it is | 0.1 to 1 |
+| `curve` | How far it wraps around you | 0 to 1 |
+
+A value outside its range is brought inside it when the file is read.
+
+Choosing a wrist moves the panel to the [wrist position](/companion/overlay#on-your-wrist) and sets
+`width` to 0.16, and leaving a wrist gives back 0.45 — unless you had chosen a width of your own,
+which is kept.
 
 ## Notification overlay
 

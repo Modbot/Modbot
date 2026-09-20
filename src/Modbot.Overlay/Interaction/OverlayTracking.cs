@@ -54,12 +54,25 @@ public enum Hand
 /// </summary>
 /// <param name="Tracked">False when the controller is off, out of view or not there; the rest is then meaningless.</param>
 /// <param name="Aim">The pointing pose: the ray leaves <c>Aim.Position</c> along <c>Aim.Forward</c>.</param>
+/// <param name="Device">
+/// Where the controller itself is, along its own body. A panel worn on a hand hangs off this,
+/// because this is what both runtimes attach it to; the ray comes out of <paramref name="Aim"/>,
+/// which is tilted away from it.
+/// </param>
 /// <param name="Grab">The grip.</param>
 /// <param name="Click">The trigger.</param>
 /// <param name="Scroll">Thumbstick or touchpad, -1..1 on each axis, zero at rest.</param>
-public readonly record struct HandState(bool Tracked, Pose Aim, bool Grab, bool Click, Vector2 Scroll)
+/// <remarks>
+/// <para><strong>Why there are two poses and not one.</strong> Where a controller is and where a
+/// person feels they are pointing are not the same direction — a controller's body sits at an
+/// angle in the fist, so a ray fired straight along it lands above what the moderator is aiming
+/// at. Runtimes answer this with two poses, and so does this: <paramref name="Device"/> for
+/// hanging things off the controller, <paramref name="Aim"/> for the ray. OpenXR asks for both by
+/// name; OpenVR hands out only the device pose and the tilt is worked out from it.</para>
+/// </remarks>
+public readonly record struct HandState(bool Tracked, Pose Aim, Pose Device, bool Grab, bool Click, Vector2 Scroll)
 {
-    public static HandState Missing { get; } = new(false, Pose.Identity, false, false, Vector2.Zero);
+    public static HandState Missing { get; } = new(false, Pose.Identity, Pose.Identity, false, false, Vector2.Zero);
 }
 
 /// <summary>What both runtimes report each poll, all in the room.</summary>
