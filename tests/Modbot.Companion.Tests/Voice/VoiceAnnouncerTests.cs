@@ -79,12 +79,22 @@ public class VoiceAnnouncerTests
     private VoiceSettings _settings = new(On: true);
     private bool _engineReady = true;
 
+    /// <summary>
+    /// How many times the engine was asked for. Asking is what loads it, so a switched-off voice
+    /// asking even once would be 400 MB nobody wanted.
+    /// </summary>
+    private int _engineAsked;
+
     private VoiceAnnouncer Announcer(params OutputDevice[] devices) => new(
         new AnnouncementQueue(_clock),
         new PlainSpokenName(),
         () => _settings,
         () => Moderator,
-        () => _engineReady ? _synthesizer : null,
+        () =>
+        {
+            _engineAsked++;
+            return _engineReady ? _synthesizer : null;
+        },
         _player,
         new FakeDevices(devices.Length == 0 ? [Speakers] : devices),
         _log.Add);
@@ -136,6 +146,24 @@ public class VoiceAnnouncerTests
 
         Assert.False(await voice.SpeakNextAsync(Ct));
         Assert.Equal(0, voice.Waiting);
+    }
+
+    [Fact]
+    public async Task AVoiceThatIsOffNeverEvenAsksForTheEngine()
+    {
+        // Asking is what loads it, and it is 400 MB. Nothing a switched-off voice is told may
+        // reach that ask -- an arrival, a flagged join, a problem, or an answer somebody asked for
+        // out loud.
+        _settings = VoiceSettings.Default;
+        var voice = Announcer();
+
+        voice.Offer([Joined("usr_rin", "Rin"), Left("usr_kai", "Kai")]);
+        voice.FlaggedJoin("Ash");
+        voice.Problem("cats rejected this device.");
+        Assert.False(voice.Answer("Saved a clip of the last few minutes."));
+
+        Assert.False(await voice.SpeakNextAsync(Ct));
+        Assert.Equal(0, _engineAsked);
     }
 
     [Fact]

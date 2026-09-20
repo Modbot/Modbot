@@ -21,6 +21,12 @@ namespace Modbot.Companion.App.Voice;
 /// <para><strong>No output is not a fault.</strong> A PC with no sound device, or a Linux box
 /// without OpenAL's library, keeps every other part of the companion running; the settings page
 /// says the voice has nothing to play through, and that is all.</para>
+/// <para><strong>The engine is loaded only to say something, and let go of afterwards.</strong>
+/// It costs about 400 MB while it is held, which is most of what the whole client uses, so it is
+/// loaded when there is a line waiting and let go of once the voice has been quiet for a while
+/// (<see cref="VoiceUnloadRule"/>). With the voice switched off nothing queues a line, so nothing
+/// loads at all, and switching it off lets go of an engine that was already loaded. Both the
+/// loading and the letting go happen on a worker thread: neither may hold up the window.</para>
 /// </remarks>
 internal sealed class VoiceHost : IDisposable
 {
@@ -35,6 +41,7 @@ internal sealed class VoiceHost : IDisposable
     private readonly IOutputDevices _devices;
     private readonly IDisposable? _output;
     private readonly Lock _gate = new();
+    private readonly VoiceUnloadRule _unload;
 
     private IVoiceSynthesizer? _synthesizer;
     private Task<IVoiceSynthesizer>? _loading;
@@ -74,6 +81,7 @@ internal sealed class VoiceHost : IDisposable
         _http = http;
         _clock = clock;
         _settings = settings;
+        _unload = new VoiceUnloadRule(clock);
         _present = _model.IsPresent(_voicesFolder);
         _older = !_present && _model.AnotherIsPresent(_voicesFolder);
 
@@ -117,8 +125,13 @@ internal sealed class VoiceHost : IDisposable
 
     /// <summary>
     /// The settings changed. Turning the voice on fetches it if it is not here; turning it off
-    /// drops whatever was waiting to be said.
+    /// drops whatever was waiting to be said and lets go of the engine.
     /// </summary>
+    /// <remarks>
+    /// A switched-off feature holds nothing, so the 400 MB goes back at the next turn rather than
+    /// at the end of the window — but not in the middle of a line, which is why it is the next
+    /// turn and not this line of code.
+    /// </remarks>
     public void Apply(VoiceSettings before, VoiceSettings after)
     {
         ArgumentNullException.ThrowIfNull(before);
@@ -128,7 +141,10 @@ internal sealed class VoiceHost : IDisposable
             Retry();
 
         if (!after.On)
+        {
             Announcer.Clear();
+            _unload.DropWhenQuiet();
+        }
     }
 
     /// <summary>The Test button: one line, fetching the voice first if it is not here.</summary>
@@ -139,8 +155,8 @@ internal sealed class VoiceHost : IDisposable
     }
 
     /// <summary>
-    /// One turn: finish a download that completed, start one that is due, and say the next line.
-    /// Safe on a timer.
+    /// One turn: finish a download that completed, start one that is due, say the next line, and
+    /// let go of the engine once it has been quiet long enough. Safe on a timer.
     /// </summary>
     public async Task TickAsync(bool paused, CancellationToken cancellationToken = default)
     {
@@ -168,7 +184,10 @@ internal sealed class VoiceHost : IDisposable
             return;
         }
 
-        await Announcer.SpeakNextAsync(cancellationToken).ConfigureAwait(false);
+        if (await Announcer.SpeakNextAsync(cancellationToken).ConfigureAwait(false))
+            _unload.Used();
+
+        UnloadIfDue();
     }
 
     /// <summary>The voice as the settings page shows it.</summary>
@@ -187,7 +206,16 @@ internal sealed class VoiceHost : IDisposable
 
     public void Dispose()
     {
-        _synthesizer?.Dispose();
+        // Taken under the lock and cleared, so the worker thread letting go of an engine and this
+        // cannot both be holding the same one.
+        IVoiceSynthesizer? going;
+        lock (_gate)
+        {
+            going = _synthesizer;
+            _synthesizer = null;
+        }
+
+        going?.Dispose();
         _output?.Dispose();
     }
 
@@ -269,8 +297,16 @@ internal sealed class VoiceHost : IDisposable
 
     /// <summary>
     /// The engine, once loaded; null while it is loading, not downloaded, or broken. Loading
-    /// starts here, on a worker thread, the first time a line is waiting for it.
+    /// starts here, on a worker thread, whenever a line is waiting and there is no engine — the
+    /// first time, and again after the engine has been let go of.
     /// </summary>
+    /// <remarks>
+    /// The line that asked for it waits in the queue while the load runs, and the queue drops a
+    /// join or a leave that has waited more than a few seconds. A reload takes about two thirds of
+    /// a second, so the line is normally still there; on a machine slow enough that it is not, the
+    /// name is dropped rather than said about the wrong moment, which is the queue's own rule and
+    /// was already what the very first load did.
+    /// </remarks>
     private IVoiceSynthesizer? Synthesizer()
     {
         lock (_gate)
@@ -293,6 +329,9 @@ internal sealed class VoiceHost : IDisposable
             lock (_gate)
                 _synthesizer = loaded.GetAwaiter().GetResult();
 
+            // The window starts here as well as at the end of a line, so an engine that loaded for
+            // a line the queue had already dropped does not sit there until something else arrives.
+            _unload.Used();
             Log.Information("The voice engine is loaded");
         }
         catch (Exception ex)
@@ -301,6 +340,46 @@ internal sealed class VoiceHost : IDisposable
             _problem = $"The voice engine could not start: {ex.Message}";
             Log.Warning(ex, "The voice engine could not start");
         }
+    }
+
+    /// <summary>
+    /// Lets go of the engine once the voice has been quiet long enough, giving its memory back.
+    /// </summary>
+    /// <remarks>
+    /// <para>Never while a line is waiting or being said, and never while a load is in flight: the
+    /// first would lose the line and the second would throw away the load. The queue and the
+    /// "speaking" flag are both asked, because a line taken from the queue is no longer in it.</para>
+    /// <para>Disposing is the engine handing a few hundred megabytes back to the operating system.
+    /// It is quick — measured at about 20 milliseconds — but it is the audio library's work, not
+    /// the window's, so it happens on a worker thread like the loading does.</para>
+    /// </remarks>
+    private void UnloadIfDue()
+    {
+        IVoiceSynthesizer going;
+
+        lock (_gate)
+        {
+            var busy = Announcer.IsSpeaking || Announcer.Waiting > 0 || _loading is not null;
+            if (!_unload.ShouldUnload(_synthesizer is not null, busy))
+                return;
+
+            going = _synthesizer!;
+            _synthesizer = null;
+        }
+
+        Log.Information("The voice engine is let go of until the next line");
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                going.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "The voice engine could not be let go of cleanly");
+            }
+        });
     }
 
     private void RefreshDevices()

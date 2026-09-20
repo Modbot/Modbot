@@ -581,15 +581,23 @@ internal sealed class CompanionHost : IOverlayListener
             Enabled: !cloud.Disabled,
             Journal: _journal));
 
+        if (cloud.Disabled)
+        {
+            // The object is still built, because building it is what sweeps away anything left on
+            // the disk from before it was turned off. What is not built is the loop: it woke every
+            // second for the life of the process to find a backup that was never going to send
+            // anything, and a switched-off feature should be doing nothing at all. Nothing can turn
+            // it back on while the client runs — the address and the switch are read once, here.
+            Log.Information("Event backup to Modbot Cloud is off");
+            return;
+        }
+
         var backup = _cloudBackup;
         _ = Task.Run(() => backup.RunAsync(
             _backupStop.Token,
             ex => Log.Warning(ex, "The event backup to Modbot Cloud hit a problem; it carries on")));
 
-        if (cloud.Disabled)
-            Log.Information("Event backup to Modbot Cloud is off");
-        else
-            Log.Information("Event backup to Modbot Cloud is on, to {Endpoint}", cloud.Endpoint);
+        Log.Information("Event backup to Modbot Cloud is on, to {Endpoint}", cloud.Endpoint);
     }
 
     /// <summary>

@@ -13,9 +13,12 @@ namespace Modbot.Companion.App.Voice;
 /// <para><strong>Nothing leaves the machine.</strong> A sentence goes in as text and comes out as
 /// samples, here, with no network involved; the engine is a library inside this process, not a
 /// program it starts and not a service it calls.</para>
-/// <para>Loading costs about a second and a few hundred megabytes, so it happens once and the
-/// engine is kept. Making one sentence takes under a second of two cores on an ordinary desktop,
-/// which is why it is asked for on a worker thread and never on the window's.</para>
+/// <para>Loading costs about a second the first time and two thirds of a second afterwards, and
+/// about 400 MB for as long as the engine is held — which is why it is not held for longer than it
+/// is wanted: <see cref="VoiceHost"/> lets go of it once the voice has been quiet for a while, and
+/// disposing gives that memory back to the machine within a few milliseconds. Making one sentence
+/// takes under a second of two cores on an ordinary desktop, which is why both the loading and the
+/// making are asked for on a worker thread and never on the window's.</para>
 /// </remarks>
 internal sealed class SherpaVoice : IVoiceSynthesizer
 {

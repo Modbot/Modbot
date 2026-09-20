@@ -217,3 +217,54 @@ resamples to whatever the device runs at, and OpenAL is handed the rate directly
 
 The engine package is unchanged at `org.k2fsa.sherpa.onnx` 1.13.8, which has supported Kokoro since
 well before it. Nothing was upgraded to make this work.
+
+---
+
+## 8. The engine is let go of between lines (2026-09-19)
+
+The client sat at about 760 MB of memory with the voice on. Most of that is this model, and it was
+being held from the first line spoken until the client was closed.
+
+It measured like this, on the pinned voice, over three load-speak-let-go rounds in one process:
+
+| | Memory held | Time |
+|---|---|---|
+| Before loading | 7.7 MB | |
+| After the engine is loaded | **400 MB** | 1019 ms the first time, **~650 ms** after |
+| While one line is being made | peaks at **~505 MB** | 665–735 ms a line |
+| After letting go of it | **~29 MB** | **20 ms** |
+
+Two things follow. Letting go really does give the memory back — 400 MB down to 29, repeatably, in
+a fiftieth of a second — so it is worth doing. And loading it again is not free: an announcement
+after a let-go takes about 1.3 seconds instead of 0.7, and longer on a machine short of memory,
+because the 330 MB model file may have fallen out of the machine's own file cache and have to be
+read from the disk again.
+
+So the engine is now loaded when there is a line waiting for it and let go of once the voice has
+been quiet for **ninety seconds** (`VoiceUnloadRule`). Ninety because announcements come in bursts —
+several people walk into an instance at once and more follow over the next minute — and a window
+that covered only one sentence would trade 400 MB for a reload every time somebody arrived. It is
+well past the twenty seconds the queue itself will hold an alert for, so a line the queue is still
+holding is never waiting on an engine that has already gone; and it is short enough that an evening
+in an empty instance costs 29 MB rather than 400. Getting the number wrong costs one extra two
+thirds of a second, once.
+
+Two rules sit around it. The engine is never let go of while a line is waiting or being said, or
+while a load is still running. And turning the voice **off** lets go of it as soon as nothing is
+being said, rather than waiting out the window: a switched-off feature holds nothing. A voice that
+was off to begin with has always loaded nothing at all, because every way into the announcer —
+an arrival, a flagged join, a problem, an answer to something said out loud — is already behind
+`VoiceSettings.On`, and the engine is only ever asked for when a line is waiting.
+
+The Settings card is unchanged, and deliberately: **Voice ready** has always meant "the voice is on
+this PC", which is still true of an engine that is not loaded this second. Unloaded is a resting
+state, not a fault, and the card must not start reading like one.
+
+Both the loading and the letting go happen on a worker thread. Neither may hold up the window, and
+letting go is the audio library handing a few hundred megabytes back to the operating system.
+
+| File | Change |
+|---|---|
+| `src/Modbot.Companion/Voice/VoiceUnloadRule.cs` | New: when the engine should be let go of, and the ninety seconds |
+| `src/Modbot.Companion.App/Voice/VoiceHost.cs` | Lets go of the engine on a worker thread when the rule says so; turning the voice off drops it at the next turn |
+| `src/Modbot.Companion.App/Voice/SherpaVoice.cs` | Says what loading costs and that the engine is no longer kept for the life of the process |
