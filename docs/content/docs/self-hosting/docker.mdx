@@ -31,14 +31,18 @@ Every named release is published to GitHub's container registry as
 
 | Tag | What it is |
 |---|---|
-| `latest` | The newest release. |
-| `2026.9.1` | One release, by its [version](/self-hosting/updating#version-numbers). |
+| `latest` | The newest release. This is the one to run a group on. |
+| `latest-preview` | The newest preview: a build handed out for testing before it is released. Try it on a spare Modbot, not on the one your group depends on. `latest` never points at a preview. |
+| `v2026.9.1` | One release, by its [version](/self-hosting/updating#version-numbers). A preview version has `-preview.1` on the end, as in `v2026.9.3-preview.1`. |
 | `edge` | The newest commit on `master`, ahead of any release. |
 | `sha-1af5e1a` | One commit. |
 
 ```bash
 docker pull ghcr.io/binn/modbot:latest
 ```
+
+Every tag serves both `linux/amd64` and `linux/arm64`, so `docker pull` gets a working image on an
+Intel or AMD machine, on an Apple Silicon Mac and on an arm64 server alike.
 
 While the repository is private, so is the image. Sign in first with a GitHub token that has the
 `read:packages` scope:
