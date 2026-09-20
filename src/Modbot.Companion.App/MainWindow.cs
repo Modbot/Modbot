@@ -97,6 +97,11 @@ public sealed partial class MainWindow : Window
 
     // Built once for the same reason: a switch rebuilt every second can lose the click on it.
     private readonly CheckBox _startupBox;
+
+    // The card that switch sits in, kept so the refresh can hide the whole card rather than leave
+    // a heading over an empty box in a copy that does not show the switch.
+    private Border? _startupCard;
+
     private readonly CheckBox _overlayOnBox;
     private readonly TextBox _logFolderBox;
     private readonly TextBlock _logFolderWatching = Ui.Faint("");
@@ -429,7 +434,9 @@ public sealed partial class MainWindow : Window
     {
         var (colour, line) = _snapshot.LogStatus switch
         {
-            LogHealthStatus.Healthy => (Ui.T.Palette.Ok, "reading VRChat's log"),
+            // Quiet reads the same as healthy on purpose: VRChat is running, the log is being read,
+            // and nobody has joined or left. That is most evenings, and it is not a state to report.
+            LogHealthStatus.Healthy or LogHealthStatus.Quiet => (Ui.T.Palette.Ok, "reading VRChat's log"),
             LogHealthStatus.NotUnderstood => (Ui.T.Palette.Danger, "log not recognised"),
             _ => (Ui.T.Palette.TextFaint, "VRChat not running"),
         };
@@ -1106,9 +1113,11 @@ public sealed partial class MainWindow : Window
         DetachFromParent(_startupBox);
         DetachFromParent(_logFolderBox);
 
-        _body.Children.Add(Ui.Card(
+        _startupCard = Ui.Card(
             new StackPanel { Spacing = 6, Children = { _startupBox } },
-            "Settings"));
+            "Settings");
+
+        _body.Children.Add(_startupCard);
 
         _body.Children.Add(Ui.Card(DesktopOverlayCard(), "Desktop overlay"));
         _body.Children.Add(Ui.Card(DesktopNotifyCard(), "Notification overlay"));
@@ -1136,9 +1145,16 @@ public sealed partial class MainWindow : Window
         try
         {
             // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
-            // and cannot be turned back on from here.
+            // and cannot be turned back on from here. The card goes with it: the switch is all it
+            // holds, and a heading over nothing reads as a screen that failed to draw. Decided here
+            // rather than where the card is built, because the page is built once and refreshed
+            // after that, and the first build can happen before the host has said.
             var startup = _snapshot.Startup;
-            _startupBox.IsVisible = startup is { Visible: true };
+            _startupBox.IsVisible = _snapshot.ShowStartupCard;
+
+            if (_startupCard is not null)
+                _startupCard.IsVisible = _snapshot.ShowStartupCard;
+
             _startupBox.IsChecked = startup is { On: true };
             _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
 

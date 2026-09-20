@@ -72,6 +72,82 @@ when VRChat is demonstrably running and producing log output but Modbot has reco
 a threshold period. "I can see the log growing and I no longer understand it" is a fault worth
 waking someone for.
 
+#### 2.2.1 A quiet world is not a broken parser — revised 2026-09-19
+
+The rule above was read off the wrong clock, and a moderator reported the result: *"the warning for
+VRChat logs haven't sent anything in a while might also be because they're in an empty world"*.
+
+They were right. "VRChat is producing log output" was measured from **any** line, and VRChat writes
+an `[IK Debug Log]` frame-rate line every ten seconds for as long as it runs. Somebody alone in a
+world produces no joins, no leaves and no avatar changes for as long as they are alone, so the file
+grows all evening while nothing is recognised — and the client told them, in red, that nothing was
+being recorded and the format had probably changed. Measured against the 2026-09-03 sample log, the
+old rule spent **2,089 seconds of a 3,822-second session** — 55% of it — claiming to be broken while
+it was working perfectly.
+
+That is not a small false alarm. It is the alarm firing for most of a normal evening, which is how
+an alarm stops being read at all, and the thing it is guarding is the one thing in Modbot that
+cannot be filled in later.
+
+**The distinction.** Not "are lines arriving" but "are the lines Modbot reads arriving". Those are
+different questions and the log answers them differently: research doc `vrchat-log-events.md` §1.0
+measured the largest gap between lines of *any* tag at **eleven seconds**, and the largest gap
+between `[Behaviour]` lines — the 4% Modbot reads — at **forty-five minutes**, with the moderator
+demonstrably still sitting in the instance throughout. No threshold length can separate those two;
+only a different clock can.
+
+So the client keeps four clocks rather than two, and `LogHealth.Evaluate` reads them in order:
+
+| Last… | Then | Meaning |
+|---|---|---|
+| no line of any tag recently | **idle** | VRChat is not running. Nothing is wrong. |
+| something recognised recently | **healthy** | Working. |
+| a `[Behaviour]` line recently | **not understood** | The lines Modbot reads are arriving and **not one of them matched**. This is the alarm. |
+| no line in VRChat's own shape recently | **not understood** | Something is being written and none of it parses as a VRChat log line at all. |
+| otherwise | **quiet** | VRChat is running, Modbot can read the file, and nothing has happened in it. Not a fault, not a warning, and the sidebar still says "reading VRChat's log". |
+
+**"Quiet" is a plain word on purpose.** A moderator alone in a world is not in a fault state and is
+not told they are one. The Log page says *"Reading VRChat's log. Nothing has happened in a while"*
+and the counts under it are unchanged.
+
+**It stays sharp.** Only about 12% of `[Behaviour]` lines are shapes Modbot acts on — the other 88%
+are scene loading, avatar readiness, player teardown and the rest — so "a `[Behaviour]` line arrived
+and nothing matched" could have been noisy in its own right. Replayed against the same sample it is
+not: the new rule spends **seven seconds** in the alarm state across that session, in three stretches
+of five seconds, one second and one second, against 2,089 seconds for the old one.
+
+#### 2.2.2 What this rule cannot catch
+
+Stated plainly, because a signal whose blind spots are not written down is a signal that will be
+trusted where it should not be.
+
+- **A renamed or removed tag.** If VRChat kept its line shape but stopped writing `[Behaviour]` —
+  renamed it, or split it — there would be no behaviour lines to count and the break would read as
+  **quiet** rather than broken. Presence would stop accruing silently, which is exactly the outcome
+  §2.2 exists to prevent. The line-shape clock does not help: those lines still parse.
+  **This is accepted, with one mitigation and one reason.** The mitigation is §2.3.1's store marker —
+  a line shape that appears if and only if verbose logging is on — which is not built yet and whose
+  absence is the same signal from the other end. The reason is that every alternative costs more
+  than it buys: a list of tags that must keep appearing is a second parser to break, and a time
+  bound on quiet is the false alarm this section just removed, since forty-five minutes of quiet is
+  a measured fact about a real session and a moderator can idle in a world all night.
+- **Missing verbose logging flags, if they take `[Behaviour]` with them.** If a VRChat started
+  without §2.3.0's flags still writes `[Behaviour]` lines, the alarm fires as intended — they arrive
+  and nothing matches. If it writes none at all, the client reads it as quiet and says nothing.
+  **Which of the two it is has not been measured**, and measuring it is one capture of a log from a
+  VRChat started without the flags. Until then §2.3.1's check is what that case leans on.
+- **A total format change is caught; a partial one is caught only where it bites.** The line-shape
+  clock catches a rewrite of the whole file. A change to one line shape Modbot reads — `OnPlayerJoined`
+  gaining a field, say — is caught only once every recognised shape has stopped matching. A change to
+  one of several is invisible until presence is already partly wrong, and nothing here changes that.
+- **The first seconds of a session, and an unclean exit.** VRChat writes behaviour lines for about
+  five seconds before anything recognisable appears, and its last two lines at an unclean exit are
+  `Destroying <name>` pairs that Modbot does not act on. Both leave a short window in which the
+  alarm is technically true and practically useless. Both existed under the old rule too; the exit
+  one closes by itself when the file stops growing and the client settles to idle.
+- **Nothing here detects a server that stopped accepting what the client sends.** That is the
+  connection state, not the log, and it has its own warnings.
+
 ### 2.3 Verbose logging is a prerequisite, and it needs a launch flag
 
 The log detail Modbot depends on is only produced when VRChat is started with a **command-line

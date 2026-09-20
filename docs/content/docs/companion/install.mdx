@@ -128,7 +128,9 @@ The window has six pages:
 | **Credits** | Sponsors, early adopters and contributors, read from Modbot Cloud. See [Credits in the client](/companion/credits). |
 
 The line at the bottom of the sidebar says **reading VRChat's log**, **VRChat not running**, or
-**log not recognised**.
+**log not recognised**. It says **reading VRChat's log** while you are alone in a world too: the
+**Log** page adds "Nothing has happened in a while", and that is not a problem. Nobody joining or
+leaving is nothing to report, not a fault.
 
 ### Keyboard shortcuts
 
@@ -158,7 +160,7 @@ Warnings show at the top of every page.
 
 | Warning starts with | What it means | What to do |
 |---|---|---|
-| *VRChat is running and writing to its log, but Modbot has not recognised anything in it recently.* | VRChat's log has had new lines for 10 minutes and none of them matched anything the client understands. The client names two causes: VRChat was started without its verbose logging options, or VRChat changed its log format. | Check how VRChat is started. If that is not it, update the client. Nothing is recorded until this is fixed. |
+| *VRChat is writing the lines Modbot reads and it has recognised none of them recently.* | For 10 minutes VRChat has been writing the kind of line the client reads — joins, leaves, world changes — and none of them matched anything it understands. The client names two causes: VRChat was started without its verbose logging options, or VRChat changed its log format. **Being alone in a world does not cause this**; no joins or leaves at all is counted as nothing happening, not as a fault. | Check how VRChat is started. If that is not it, update the client. Nothing is recorded until this is fixed. |
 | *Reading VRChat's log failed: …* | The client hit an error while reading. After five failures in a row the reader stops until you restart the client. | Send the client's log file (see [where things are](#where-the-client-keeps-its-files)) to whoever looks after your Modbot. |
 | *The saved credential for "…" cannot be decrypted on this Windows account.* | The pairings file was copied from another Windows account or PC. Saved tokens only work for the account that saved them. | Pair that server again. |
 | *"…" rejected this device.* | That server refused the client's token, usually because an operator revoked it. | See [When a token is revoked](/companion/pairing#when-a-token-is-revoked). |
