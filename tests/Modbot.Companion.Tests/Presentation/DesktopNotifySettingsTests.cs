@@ -18,13 +18,31 @@ public class DesktopNotifySettingsTests
         => DesktopNotifySettings.Corner(spot, 0, 0, 1920, 1080, 340, 200, margin);
 
     [Fact]
-    public void ItIsOffUntilSomebodyTurnsItOn()
+    public void AFreshInstallGetsItOnInTheBottomRight()
     {
-        // A window that appears over everything else on the machine is asked for rather than
-        // assumed, the same rule the window over VRChat follows.
-        Assert.False(DesktopNotifySettings.Default.On);
+        // On since 2026-09-19. Being told is the reason somebody installs this, and a moderator
+        // who never finds the Notifications card would otherwise never see a pop-up and never know
+        // there was one to switch on.
+        Assert.True(DesktopNotifySettings.Default.On);
         Assert.Equal(ScreenSpot.BottomRight, DesktopNotifySettings.Default.Spot);
         Assert.Equal(6f, DesktopNotifySettings.Default.Seconds);
+    }
+
+    [Fact]
+    public void AMachineAlreadySetUpDoesNotGetAWindowItDidNotAskFor()
+    {
+        // A default is a default on a first run and a change on every other one. Everything else
+        // about it is the same, so only the switch differs.
+        Assert.False(DesktopNotifySettings.NotAskedFor.On);
+        Assert.Equal(DesktopNotifySettings.Default with { On = false }, DesktopNotifySettings.NotAskedFor);
+    }
+
+    [Fact]
+    public void AMissingObjectMeansWhicheverOfTheTwoTheCallerAsksFor()
+    {
+        Assert.True(DesktopNotifySettings.FromJson(null).On);
+        Assert.True(DesktopNotifySettings.FromJson(null, DesktopNotifySettings.Default).On);
+        Assert.False(DesktopNotifySettings.FromJson(null, DesktopNotifySettings.NotAskedFor).On);
     }
 
     [Fact]

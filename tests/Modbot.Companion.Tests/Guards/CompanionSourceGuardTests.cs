@@ -594,6 +594,15 @@ public class CompanionSourceGuardTests
 
         // And it listens to a microphone, never to what the PC is playing.
         Assert.DoesNotContain("Loopback", source, StringComparison.Ordinal);
+
+        // Built the slow way, and never the quick one. Windows sets the routing that follows the
+        // default microphone up asynchronously and refuses the plain build outright, which is how
+        // this file spent its first evening never opening a microphone once -- every moderator who
+        // switched listening on got the audio library's own complaint in red on the settings card
+        // and nothing else. Naming it here means the next person to touch this file finds out at
+        // build time rather than on somebody's PC.
+        Assert.Contains("BuildAsync()", source, StringComparison.Ordinal);
+        Assert.DoesNotMatch(new Regex(@"\.Build\s*\("), source);
     }
 
     [Fact]
@@ -618,28 +627,55 @@ public class CompanionSourceGuardTests
     }
 
     [Fact]
-    public void TheOnlyEndpointsAskedForAreOutputs()
+    public void TheOnlyEndpointsAskedForOutsideTheListenerAreOutputs()
     {
         // Belt and braces for the ban above: every place the Windows audio system is asked for
-        // devices names the render direction explicitly, so nothing enumerates "all" and picks.
+        // devices names a direction explicitly, so nothing enumerates "all" and picks.
         //
-        // This one did not have to move when the microphone ban was narrowed, and that is worth
-        // saying out loud: the listener asks Windows to route whichever device is the default
-        // microphone rather than asking which microphones this PC has, so the client still never
-        // enumerates capture endpoints at all -- the same shape as never enumerating windows and
-        // never enumerating processes.
+        // This test did not have to move when the microphone ban was first narrowed on
+        // 2026-09-19, because the listener asked Windows to route whichever device was the default
+        // microphone rather than asking which microphones this PC had. Later the same day a
+        // moderator asked to be able to pick between a headset microphone and a desk one, and
+        // asking for that list is asking for capture endpoints. So this is narrowed the same way
+        // everything else about listening is narrowed: ONE named file may ask, the file is the one
+        // that was already allowed to open a microphone, and every other file the client ships
+        // still asks only for outputs.
+        //
+        // The exception cannot be reused. "DataFlow.Capture" is in the SoundCapture ban above, so
+        // a second file naming it fails TheOnlyFileThatCanListenIsPhraseListeningCs before it gets
+        // here, and "DataFlow.All" -- ask for everything and pick -- stays banned everywhere
+        // including inside the listener.
         var audio = EverythingTheClientShips()
-            .Select(File.ReadAllText)
-            .Where(source => source.Contains("MMDeviceEnumerator", StringComparison.Ordinal))
+            .Where(f => File.ReadAllText(f).Contains("MMDeviceEnumerator", StringComparison.Ordinal))
             .ToList();
 
         Assert.NotEmpty(audio);
 
-        foreach (var source in audio)
+        foreach (var file in audio)
         {
+            var source = File.ReadAllText(file);
+            var listener = Path.GetFileName(file) == ListeningFile;
+
+            // Nothing anywhere asks for every direction at once, the listener included.
+            Assert.DoesNotContain("DataFlow.All", source, StringComparison.Ordinal);
+
             foreach (Match ask in Regex.Matches(source, @"(EnumerateAudioEndPoints|GetDefaultAudioEndpoint|HasDefaultAudioEndpoint)\s*\(\s*DataFlow\s*\.\s*(\w+)"))
-                Assert.Equal("Render", ask.Groups[2].Value);
+            {
+                var direction = ask.Groups[2].Value;
+
+                if (listener)
+                    Assert.Equal("Capture", direction);
+                else
+                    Assert.Equal("Render", direction);
+            }
         }
+
+        // And the one file that may ask says, in its own words, that this is the only place it
+        // happens and that the switch being off means nothing is asked at all.
+        var listening = File.ReadAllText(
+            EverythingTheClientShips().Single(f => Path.GetFileName(f) == ListeningFile));
+
+        Assert.Contains("only while listening is switched on", listening, StringComparison.Ordinal);
     }
 
     [Fact]

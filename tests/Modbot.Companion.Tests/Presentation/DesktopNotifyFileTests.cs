@@ -38,11 +38,44 @@ public class DesktopNotifyFileTests : IDisposable
     private string Read() => File.ReadAllText(Path_);
 
     [Fact]
-    public void AFileThatSaysNothingLeavesItOff()
+    public void AMachineWithNoSettingsFileGetsTheNotificationOverlayOn()
     {
-        Assert.Equal(
-            DesktopNotifySettings.Default,
-            CompanionSettings.Load(Path_, NoEnvironment).DesktopNotifyOverlay);
+        // A first run takes the default, and the default became on on 2026-09-19: being told is
+        // the reason somebody installs this, and the headset's notification panel has been on by
+        // default since it was built.
+        var settings = CompanionSettings.Load(Path_, NoEnvironment);
+
+        Assert.True(settings.DesktopNotifyOverlay.On);
+        Assert.Equal(DesktopNotifySettings.Default, settings.DesktopNotifyOverlay);
+
+        // And the headset's, which did not move.
+        Assert.True(settings.NotifyOverlay.On);
+    }
+
+    [Fact]
+    public void AFileWrittenBeforeThisWindowExistedLeavesItOff()
+    {
+        // The other half of the same decision. Somebody who already has a settings file has set
+        // this machine up; a window appearing over whatever is on their monitor at the next update
+        // would be the client changing something while their back was turned, not a default.
+        Write("""{ "voice": { "on": true } }""");
+
+        var settings = CompanionSettings.Load(Path_, NoEnvironment);
+
+        Assert.False(settings.DesktopNotifyOverlay.On);
+        Assert.Equal(DesktopNotifySettings.NotAskedFor, settings.DesktopNotifyOverlay);
+
+        // The headset's panel is not treated the same way, and that asymmetry is the point: a
+        // panel somebody has to be wearing a headset to see interrupts nothing.
+        Assert.True(settings.NotifyOverlay.On);
+    }
+
+    [Fact]
+    public void AFileThatSaysItIsOffKeepsItOff()
+    {
+        Write("""{ "desktopNotifyOverlay": { "on": false } }""");
+
+        Assert.False(CompanionSettings.Load(Path_, NoEnvironment).DesktopNotifyOverlay.On);
     }
 
     [Fact]

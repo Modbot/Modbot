@@ -25,6 +25,14 @@ namespace Modbot.Companion.App;
 /// for VRChat's own window by name, takes the part of the screen that window is drawn in, and
 /// records that, shrunk to at most 1280 pixels wide, at 15 frames a second. It does not ask Windows
 /// for a list of the programs that are running or a list of their windows, and it never has.</para>
+/// <para><strong>The picture fills the frame.</strong> The frame's size is fixed when recording
+/// starts, because a video file cannot change size part way through and closing both rolling files
+/// on every resize would throw away the minutes a moderator is about to want. So VRChat's window as
+/// it is now is scaled into that frame — by the same amount across and down, so nobody is
+/// stretched — rather than drawn at whatever size it happens to come out at with the rest painted
+/// black. A window that changes size changes the scale. <see cref="ClipWindowRule.Fit"/> decides
+/// where it goes and <see cref="ClipPicture"/> draws it, and both are arithmetic that can be
+/// checked without a screen.</para>
 /// <para><strong>What can still end up in a clip.</strong> Windows hands this file a copy of what
 /// the desktop already drew, and what the desktop drew inside VRChat's rectangle is whatever is on
 /// top of it — a chat program's in-game overlay, a notification, Modbot's own panel over the game.
@@ -130,6 +138,17 @@ internal sealed class ScreenRecording : IDisposable
     /// window on a screen that is not being read — is invisible in the file itself. These are what
     /// tells them apart afterwards.
     /// </remarks>
+    /// <summary>
+    /// The earliest frame at which a change in how VRChat's picture sits in the frame may be
+    /// written to the log. Touched only by the recording thread.
+    /// </summary>
+    /// <remarks>
+    /// Somebody dragging a window by its corner changes it fifteen times a second for as long as
+    /// they hold the mouse down, and a log line each would bury everything else. Once a second is
+    /// enough to read what happened afterwards.
+    /// </remarks>
+    private long _sayTheFitAtFrame;
+
     private long _picturesCopied;
     private long _framesHeld;
     private long _framesWritten;
@@ -345,15 +364,16 @@ internal sealed class ScreenRecording : IDisposable
             var monitor = screen.Area;
             duplication = Duplicate(device!, ref monitor, start.CentreX, start.CentreY);
 
-            staging = MakeStaging(device!, width, height);
-
             var framesPerLeg = Math.Max(2, (long)(length.TotalSeconds * FramesPerSecond));
 
             IsRecording = true;
             _log($"Keeping the last {length.TotalMinutes:0} minutes of VRChat's window at {width}×{height}, {FramesPerSecond} frames a second", null);
 
             var pixels = new byte[width * height * 4];
-            var filled = (Width: 0, Height: 0);
+
+            // Where VRChat's picture last landed in the frame. When it moves, the frame is painted
+            // black once rather than on every turn.
+            var drawnAt = default(ClipFit?);
             var clock = Stopwatch.StartNew();
             long frame = 0;
             var lookAgainAt = TimeSpan.Zero;
@@ -393,8 +413,8 @@ internal sealed class ScreenRecording : IDisposable
                     pixels,
                     ref windowCopy,
                     ref windowView,
-                    staging!,
-                    ref filled,
+                    ref staging,
+                    ref drawnAt,
                     ref duplication);
 
                 if (grabbed is Grabbed.Picture && !AnyPictureTaken)
@@ -721,9 +741,24 @@ internal sealed class ScreenRecording : IDisposable
         return leg;
     }
 
-    /// <summary>The texture the processor reads the finished frame out of.</summary>
-    private static ID3D11Texture2D MakeStaging(ID3D11Device device, int width, int height)
-        => device.CreateTexture2D(new Texture2DDescription
+    /// <summary>
+    /// The texture the processor reads the shrunk picture out of, remade when the size the
+    /// graphics card hands over changes.
+    /// </summary>
+    /// <remarks>
+    /// It is the size of the card's own smaller copy rather than the size of the frame, because
+    /// the card can only halve and the last step down to the frame is the processor's. In the
+    /// ordinary case — a window that has not changed size — those are the same number and nothing
+    /// extra is read back at all.
+    /// </remarks>
+    private static void MakeStaging(ID3D11Device device, int width, int height, ref ID3D11Texture2D? texture)
+    {
+        if (texture is not null && texture.Description.Width == (uint)width && texture.Description.Height == (uint)height)
+            return;
+
+        texture?.Dispose();
+
+        texture = device.CreateTexture2D(new Texture2DDescription
         {
             Width = (uint)width,
             Height = (uint)height,
@@ -736,6 +771,7 @@ internal sealed class ScreenRecording : IDisposable
             CPUAccessFlags = CpuAccessFlags.Read,
             MiscFlags = ResourceOptionFlags.None,
         });
+    }
 
     /// <summary>
     /// A texture the size of VRChat's window, with a chain of smaller copies the graphics card
@@ -796,8 +832,8 @@ internal sealed class ScreenRecording : IDisposable
         byte[] pixels,
         ref ID3D11Texture2D? windowCopy,
         ref ID3D11ShaderResourceView? windowView,
-        ID3D11Texture2D staging,
-        ref (int Width, int Height) filled,
+        ref ID3D11Texture2D? staging,
+        ref ClipFit? drawnAt,
         ref IDXGIOutputDuplication? live)
     {
         // VRChat minimised, closed, or behind whatever the moderator has alt-tabbed to. The last
@@ -886,37 +922,63 @@ internal sealed class ScreenRecording : IDisposable
 
             context.GenerateMips(windowView!);
 
-            var level = ClipWindowRule.FitLevel(box.Width, box.Height, width, height);
-            var (fitWidth, fitHeight) = ClipWindowRule.FittedSize(box.Width, box.Height, width, height, level);
+            // Where VRChat's picture goes in the frame, and which of the card's ready-made smaller
+            // copies to read it from. The card halves as far as it can for free; the last step —
+            // less than a halving, and none at all when the window has not changed size — is the
+            // processor's, in ClipPicture.
+            var fit = ClipWindowRule.Fit(box.Width, box.Height, width, height);
+
+            MakeStaging(device, fit.SourceWidth, fit.SourceHeight, ref staging);
 
             context.CopySubresourceRegion(
-                staging, 0, 0, 0, 0, windowCopy!, (uint)level,
-                new Vortice.Mathematics.Box(0, 0, 0, fitWidth, fitHeight, 1));
+                staging!, 0, 0, 0, 0, windowCopy!, (uint)fit.Level,
+                new Vortice.Mathematics.Box(0, 0, 0, fit.SourceWidth, fit.SourceHeight, 1));
 
-            // A window that is now smaller fills less of the frame. What is left is painted black
-            // rather than left holding the edges of the picture that was there before.
-            if (filled.Width != fitWidth || filled.Height != fitHeight)
+            // A window whose shape no longer matches the frame's leaves a strip over. It is
+            // painted black once, when it moves, rather than on every turn.
+            if (drawnAt != fit)
             {
                 Array.Clear(pixels);
-                filled = (fitWidth, fitHeight);
+                drawnAt = fit;
+
+                // Once a second at most: a window being dragged by its corner changes this fifteen
+                // times a second and a line each would bury everything else in the file.
+                if (frame >= _sayTheFitAtFrame)
+                {
+                    _sayTheFitAtFrame = frame + FramesPerSecond;
+
+                    _log(
+                        $"VRChat's window is {box.Width}×{box.Height}; drawing it {fit.Width}×{fit.Height} "
+                        + $"at ({fit.Left}, {fit.Top}) in a {width}×{height} frame, "
+                        + $"from a {fit.SourceWidth}×{fit.SourceHeight} copy",
+                        null);
+                }
             }
 
-            var mapped = context.Map(staging, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
+            var mapped = context.Map(staging!, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
             try
             {
-                var row = fitWidth * 4;
-                for (var y = 0; y < fitHeight; y++)
+                unsafe
                 {
-                    Marshal.Copy(
-                        mapped.DataPointer + (y * (int)mapped.RowPitch),
+                    var copy = new ReadOnlySpan<byte>(
+                        (void*)mapped.DataPointer, (int)mapped.RowPitch * fit.SourceHeight);
+
+                    ClipPicture.DrawInto(
+                        copy,
+                        (int)mapped.RowPitch,
+                        fit.SourceWidth,
+                        fit.SourceHeight,
                         pixels,
-                        y * width * 4,
-                        row);
+                        width * 4,
+                        fit.Left,
+                        fit.Top,
+                        fit.Width,
+                        fit.Height);
                 }
             }
             finally
             {
-                context.Unmap(staging, 0);
+                context.Unmap(staging!, 0);
             }
         }
         finally

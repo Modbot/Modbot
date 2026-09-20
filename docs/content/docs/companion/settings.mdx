@@ -221,7 +221,7 @@ the file:
 | `desktopOverlay.on` | `false` | Whether the window over VRChat is available. See [Desktop overlay](#desktop-overlay). |
 | `desktopOverlay.shortcut` | `mod+alt+m` | The keys that bring it up, `mod` meaning Ctrl. A combination the client cannot ask Windows for falls back to the default. |
 | `desktopOverlay.opacity` | `90` | 20 to 100. |
-| `desktopNotifyOverlay.on` | `false` | Whether notifications appear in a corner of your screen. See [Notification overlay on a monitor](#notification-overlay-on-a-monitor). |
+| `desktopNotifyOverlay.on` | `true` on a new install, `false` if you already had a settings file | Whether notifications appear in a corner of your screen. See [Notification overlay on a monitor](#notification-overlay-on-a-monitor). |
 | `desktopNotifyOverlay.spot` | `bottomright` | Which corner: `topleft`, `topmiddle`, `topright`, `bottomleft`, `bottommiddle` or `bottomright`. |
 | `desktopNotifyOverlay.seconds` | `6` | How long one notification stays, 2 to 30. |
 | `notifications.bleep` | `true` | Whether a short sound plays when you are told something. See [Notification sound](#notification-sound). |
@@ -245,6 +245,7 @@ the file:
 | `clips.folder` | absent | Where saved clips are written. Absent means your Videos folder plus `Modbot Clips`. |
 | `clips.keepGigabytes` | `5` | How much room saved clips may take before the oldest are deleted, 1 to 200. There is no control for this on the screen. |
 | `listenForPhrase.on` | `false` | The **Listen for "Modbot, clip that"** switch. Off until you turn it on; no microphone is opened while it is off. See [Listening](/companion/listening). |
+| `listenForPhrase.microphone` | absent | Which microphone to listen on, by Windows' own id for it. Absent means the Windows default, followed wherever Windows moves it. Pick it on the **Listening** card rather than typing it here. |
 
 For example:
 
@@ -397,9 +398,13 @@ closing that window does not take it away.
 notification stays. Nothing is drawn while there is nothing to say, and it never takes the keyboard
 or the mouse from VRChat: a click where it is goes through to the game.
 
+**It is on when you install Modbot.** If you were already running Modbot before 2026-09-19 it stays
+off until you turn it on, because a window appearing over your screen after an update is not
+something you asked for. The notification panel in the headset has been on from the start.
+
 ```json
 "desktopNotifyOverlay": {
-  "on": false,
+  "on": true,
   "spot": "bottomright",
   "seconds": 6
 }

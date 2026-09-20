@@ -38,7 +38,15 @@ public enum ScreenSpot
 /// <see cref="ToPlacement"/>, so the runtime draws this panel with exactly the same machinery as
 /// the main one. There is no second placement system to keep in step.</para>
 /// </remarks>
-/// <param name="On">Whether the notification overlay is drawn at all. Off means none of it is built.</param>
+/// <param name="On">
+/// Whether the notification overlay is drawn at all. Off means none of it is built. <strong>On by
+/// default</strong>, and it has been since this was built: being told is the reason somebody
+/// installs this, and a panel a moderator can only see while they are wearing a headset interrupts
+/// nothing they are doing. The notification overlay on a monitor is on by default too, since
+/// 2026-09-19, but it reaches an updated install differently — see
+/// <see cref="Presentation.DesktopNotifySettings.NotAskedFor"/>, and the asymmetry is deliberate:
+/// a window over somebody's monitor is not the same kind of interruption as a panel in a headset.
+/// </param>
 /// <param name="Spot">Which of the six screen positions.</param>
 /// <param name="Across">Fine offset in metres on top of the spot; positive is right.</param>
 /// <param name="Down">Fine offset in metres on top of the spot; positive is down.</param>

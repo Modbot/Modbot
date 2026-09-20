@@ -115,9 +115,15 @@ namespace Modbot.Companion.App;
 /// the checking is a three-megabyte phrase matcher that can only answer "was one of those four
 /// things just said".</description></item>
 /// <item><description><strong>The microphone is shared, never taken.</strong> Windows is asked for
-/// the default microphone in shared mode — the same way VRChat and Discord ask for it — so VRChat
-/// keeps working exactly as it did. Exclusive mode, the mode that would lock other programs out, is
+/// the microphone in shared mode — the same way VRChat and Discord ask for it — so VRChat keeps
+/// working exactly as it did. Exclusive mode, the mode that would lock other programs out, is
 /// never asked for.</description></item>
+/// <item><description><strong>Which microphone is yours to pick.</strong> While the switch is on,
+/// this program asks Windows which microphones your PC has so the Settings page can list them, and
+/// opens the one you picked. Picking nothing means whichever Windows calls the default, followed
+/// wherever Windows moves it, and one you picked that is not plugged in falls back to the default
+/// rather than going quiet. The one file allowed to open a microphone is the only file allowed to
+/// ask for that list, and the build fails if a second one learns to.</description></item>
 /// <item><description><strong>When.</strong> Only while VRChat is running, the same rule the
 /// recorder uses, so the microphone is not open whenever this program is. VRChat closing closes it.
 /// While it is open this program says so at the top of every page of its own window.</description></item>
@@ -380,6 +386,21 @@ internal sealed class CompanionHost : IOverlayListener
     private double _phraseProgress;
     private string? _listeningProblem;
     private string? _listeningLastHeard;
+
+    /// <summary>
+    /// The microphones this PC has, as the Listening card's list shows them, and when they were
+    /// last asked for.
+    /// </summary>
+    /// <remarks>
+    /// Asked only while listening is switched on, so a switched-off client still asks Windows'
+    /// audio system nothing at all, and asked every few seconds rather than on every render,
+    /// because the answer only changes when somebody plugs something in.
+    /// </remarks>
+    private IReadOnlyList<Microphone> _microphones = [];
+    private DateTimeOffset _microphonesAskedAt = DateTimeOffset.MinValue;
+
+    /// <summary>How often the list of microphones is asked for again while listening is on.</summary>
+    private static readonly TimeSpan AskAboutMicrophonesEvery = TimeSpan.FromSeconds(5);
 
     /// <summary>
     /// True when the Save a clip that is waiting for an answer was asked for out loud. A moderator
@@ -1001,6 +1022,11 @@ internal sealed class CompanionHost : IOverlayListener
     /// asked of Windows' audio system at all. The same shape as the recorder and the overlay
     /// switches, and here it is the whole of the promise: a microphone that is not open cannot hear
     /// anything.</para>
+    /// <para><strong>Which microphone, and when the list is asked for.</strong> Only while the
+    /// switch is on, and then every few seconds rather than on every render, because the answer
+    /// only changes when somebody plugs something in. A microphone picked while it was already
+    /// listening closes the open one and opens the picked one, so a moderator who swaps from their
+    /// desk microphone to their headset does not have to switch listening off and on again.</para>
     /// <para><strong>"While VRChat is running" is the log, not the process list.</strong> The
     /// reading half already knows (<see cref="ListeningRule"/>). Run on every render, so VRChat
     /// closing closes the microphone within a second.</para>
@@ -1031,6 +1057,22 @@ internal sealed class CompanionHost : IOverlayListener
             FinishPhraseDownload(finished);
         }
 
+        // Which microphones this PC has, and therefore which one the moderator's choice lands on.
+        // Asked only while the switch is on: off means nothing at all is asked of Windows' audio
+        // system, and that is the promise the picker was not allowed to cost.
+        if (!settings.On)
+        {
+            _microphones = [];
+            _microphonesAskedAt = DateTimeOffset.MinValue;
+        }
+        else if (_clock.UtcNow - _microphonesAskedAt >= AskAboutMicrophonesEvery)
+        {
+            _microphonesAskedAt = _clock.UtcNow;
+            _microphones = PhraseListening.Microphones();
+        }
+
+        var choice = MicrophoneChoice.Resolve(settings.MicrophoneId, _microphones);
+
         var wanted = ListeningRule.Decide(
             settings,
             _state.LogHealth.Evaluate(_clock.UtcNow, CompanionAppState.LogSilenceThreshold),
@@ -1039,6 +1081,16 @@ internal sealed class CompanionHost : IOverlayListener
             _phraseDownload is not null,
             _listener?.IsListening);
 
+        // A microphone picked while it was already listening, or one that came back after being
+        // unplugged, means the open one is the wrong one. Closed here; opened again below.
+        if (_listener is not null && !string.Equals(_listener.Using?.Id, choice.Microphone?.Id, StringComparison.Ordinal))
+        {
+            Log.Information("The microphone to listen on changed; opening the new one");
+            _listener.Stop();
+            _listener.Dispose();
+            _listener = null;
+        }
+
         if (ListeningRule.ShouldListen(wanted))
         {
             if (_listener is null)
@@ -1046,7 +1098,7 @@ internal sealed class CompanionHost : IOverlayListener
                 _phraseRule ??= new PhraseHeard(_clock);
                 _listener = new PhraseListening(HeardFromAnotherThread, LogListening);
 
-                if (!_listener.Start(PhraseModel.Default, folder))
+                if (!_listener.Start(PhraseModel.Default, folder, choice.Microphone))
                 {
                     _listeningProblem = _listener.LastProblem;
                     wanted = ListeningState.NotOnThisMachine;
@@ -1074,7 +1126,9 @@ internal sealed class CompanionHost : IOverlayListener
             PhraseModel.Default.Size,
             _listener?.LastHeard ?? _listeningLastHeard,
             _listener?.LastProblem ?? _listeningProblem,
-            PhraseListening.Supported);
+            PhraseListening.Supported,
+            _microphones,
+            choice.FellBack);
     }
 
     /// <summary>

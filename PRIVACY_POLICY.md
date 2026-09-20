@@ -281,6 +281,11 @@ Cloud or the Modbot server they paired with, and the thing doing the checking is
 matcher that has no ability to produce a transcript of anything. The client shows on screen that
 the microphone is open for as long as it is open.
 
+While **Listening** is on, the client also asks Windows which microphones that PC has, so the
+person using it can pick between a headset microphone and a desk one. That list is a name and an id
+for each device, it is used to fill a list on that PC's own settings screen, and it is never sent
+anywhere. With **Listening** off, nothing at all is asked of Windows' audio system.
+
 **How to turn it off — on that PC, by the person using it.** Your server cannot do it for them.
 Either:
 

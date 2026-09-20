@@ -1,6 +1,7 @@
 # Listening for a phrase, and a notification sound somebody can live with
 
-**Status:** built, 2026-09-19.
+**Status:** built, 2026-09-19. Changed the same evening, after it was run for the first time; see
+§11 and §3.3.
 **Narrows:** M3 client and overlay design §10 ("sound — never recorded") and the clips design
 (2026-09-19) §5, which said the ban on every microphone, line-in and loopback API was "untouched
 and still total".
@@ -142,9 +143,13 @@ passed. The one line that decides it is `.WithSharedMode()` in `PhraseListening.
 The client's other use of WASAPI, `WindowsVoiceOutput`, has used `.WithSharedMode()` for playback
 since the voice was built, for the same reason.
 
+**None of this had ever been tried**, which §11 is about: the microphone was never opened once,
+because the recorder was built the wrong way and Windows refused it before shared mode was ever
+reached. The line that decides shared mode was right the whole time; nothing got as far as it.
+
 ### 3.2 What happens when somebody else took it exclusively first
 
-`Build()` fails — WASAPI returns `AUDCLNT_E_DEVICE_IN_USE` — and the listener catches it, writes one
+The build fails — WASAPI returns `AUDCLNT_E_DEVICE_IN_USE` — and the listener catches it, writes one
 sentence into `LastProblem`, logs it, and returns false. The Listening card says the microphone could
 not be opened and that another program may have taken it. The recorder, the log reader and the
 reporting loop are all untouched.
@@ -153,16 +158,81 @@ Because `ListeningRule.ShouldListen` is true for `NoMicrophone` as well as `List
 stays up and is not rebuilt once a second while that lasts; when the other program lets go, the next
 start succeeds.
 
-### 3.3 The default device, and no list
+### 3.3 Which microphone, and the promise that narrowed to allow a picker
 
-`.WithDefaultDeviceStreamRouting()` asks Windows to route whichever device is the default
-microphone, rather than asking Windows which microphones exist. That keeps a property worth keeping:
-**the client still never enumerates capture endpoints**, the same way it never enumerates windows or
-processes. `TheOnlyEndpointsAskedForAreOutputs` did not have to move, and says so in its own
-comment.
+This section used to say there was no picker: `.WithDefaultDeviceStreamRouting()` asked Windows to
+route whichever device was the default microphone rather than asking which microphones existed,
+which kept a property worth keeping — **the client never enumerated capture endpoints**, the same
+way it never enumerates windows or processes — and §10 listed the picker as not built.
 
-The cost is that there is no microphone picker. A moderator changes their microphone in Windows and
-this follows it. Listed in §10 as not built.
+A moderator asked for it the same evening, and their reason is the right one:
+
+> *"select which microphones to use 'Select Mic: VR' and 'Select Mic: Desktop'"*
+
+They have a headset microphone and a desk microphone and use whichever matches how they are
+playing. Windows' own default follows only one of those, and a moderator whose default is their
+desk microphone gets a phrase that is never heard while they are in VR — which is exactly when they
+need it. So the promise is narrowed rather than left standing over a feature that only half works.
+
+#### 3.3.1 One list, not two saved slots
+
+The ask names two cases, and the shape that first suggests itself is two saved choices with a
+switch between them. It is the wrong shape:
+
+- **It is a second control doing the first one's job.** Picking "the VR one" and then picking "VR"
+  is two decisions where one would do.
+- **It has to be kept in step with a list that moves.** A headset that is switched off is not in
+  the list; a slot pointing at it has to fall back to something anyway, so the fallback rule is
+  needed either way and the slots add nothing to it.
+- **Two is not a number to build a system for.** A moderator with three microphones would be back
+  where they started, and the only honest answer to "how many slots" is "as many as you have
+  devices" — which is a list.
+
+So: **one list of the microphones this PC has, the Windows default first and selected until
+somebody picks something else.** `listenForPhrase.microphone` holds Windows' own id for the picked
+one, and is left out of the file entirely when it is the default (§9), the same rule the clips
+folder follows.
+
+#### 3.3.2 A picked microphone that is not plugged in
+
+Falls back to the Windows default, never to silence, and says so on the card. A headset left
+switched off would otherwise mean the phrase was never heard again with nothing anywhere explaining
+why — and that is the exact failure the whole of §6.1 exists to prevent, arriving a different way.
+
+The choice is **kept**, so the moment the headset is back it is used again.
+`MicrophoneChoice.Resolve` is `OutputDeviceChoice.Resolve` (voice engine design) with the same
+shape and the same two answers, deliberately: a moderator should not have to learn two rules for
+two lists that look identical.
+
+The listener notices the change on its next turn and closes the open microphone and opens the right
+one, so swapping from the desk microphone to the headset does not mean switching listening off and
+on again.
+
+#### 3.3.3 How the promise is narrowed, and what did not move
+
+The narrowing is the same shape as every other one in this client:
+
+- **One file may ask.** `PhraseListening.cs` — the file that was already the only one allowed to
+  open a microphone. Nothing else in the client may name a capture endpoint, and
+  `TheOnlyFileThatCanListenIsPhraseListeningCs` already fails the build for
+  `DataFlow.Capture` anywhere else, so the exception cannot be reused by a second file.
+- **`DataFlow.All` stays banned everywhere, the listener included.** "Ask for everything and pick"
+  is a different and larger capability from "ask which microphones there are", and it is not
+  wanted.
+- **Only while the switch is on.** §4.1's promise — with listening off, *nothing at all is asked of
+  Windows' audio system* — is untouched, and that is the one that matters. The list is asked for on
+  the render loop while the switch is on, every five seconds rather than every second, because it
+  only changes when somebody plugs something in.
+- **Nothing is opened by asking.** What comes back is a name and an id for each device. It fills a
+  list on that machine's own settings screen and is never sent anywhere.
+
+`TheOnlyEndpointsAskedForAreOutputs` becomes
+`TheOnlyEndpointsAskedForOutsideTheListenerAreOutputs`: every other file still asks only for render
+endpoints, the listener asks only for capture ones, and nothing anywhere asks for both.
+
+The cost of the picker, stated rather than hidden: **it is empty until listening is switched on.**
+Keeping §4.1 intact was worth more than being able to pick a microphone before deciding to use one,
+and the order — switch on, then pick — is one step either way.
 
 ### 3.4 Linux
 
@@ -241,7 +311,8 @@ moderator is right to be afraid of, so it is never quiet about it.
 |---|---|---|---|
 | `tests/…/Guards/CompanionSourceGuardTests.cs` `NothingTheClientShipsCanRecordSound` | test | total ban on every recording API | Replaced by `TheOnlyFileThatCanListenIsPhraseListeningCs`: exactly one file, and the ban list grew to cover the routes that file uses (`WasapiRecorder`, `WasapiRecorderBuilder`, `CaptureDataAvailableHandler`, `CaptureBufferLease`, `StartRecording`, `KeywordSpotter`, `OnlineRecognizer`, `VoiceActivityDetector`, `AcceptWaveform`, …) |
 | the same file | test | — | New: `NothingTheClientShipsCanKeepOrSendWhatAMicrophoneHeard` (§4.2) and `ListeningIsOnlyEverBuiltInOnePlaceAndIsOffUntilItIsSwitchedOn` (§4.1) |
-| the same file, `TheOnlyEndpointsAskedForAreOutputs` | test | every audio endpoint ask names Render | **unchanged**, with a comment saying why it did not have to move (§3.3) |
+| the same file, `TheOnlyEndpointsAskedForAreOutputs` | test | every audio endpoint ask names Render | Narrowed later the same evening, when a microphone picker was asked for (§3.3.3), and renamed `TheOnlyEndpointsAskedForOutsideTheListenerAreOutputs`: one named file may ask for capture endpoints, every other file still asks only for render ones, and `DataFlow.All` stays banned everywhere including inside the listener |
+| the same file, `TheOnlyFileThatCanListenIsPhraseListeningCs` | test | shared mode, no exclusive, no loopback | Also asserts `BuildAsync()` and that `.Build(` appears nowhere in it (§11) |
 | the same file, `OnlyTheEightDeclaredPlacesMakeOutboundRequests` | test | eight senders | Nine: `PhraseDownload.cs` added, renamed `OnlyTheNineDeclaredPlacesMakeOutboundRequests` |
 | `src/Modbot.Companion.App/Program.cs` §"What it writes to your disk" | class doc | voices and clips | also names the phrase model under `phrases`, and that no sound from a microphone is written anywhere |
 | `src/Modbot.Companion.App/Program.cs` §"What leaves the machine" | class doc | "never a recorded clip…" | also "never a recording of anything your microphone heard", and the one phrase-model download |
@@ -250,10 +321,12 @@ moderator is right to be afraid of, so it is never quiet about it.
 | `docs/content/docs/companion/listening.mdx` | docs | — | New page: the whole of it, for a suspicious reader |
 | `docs/content/docs/companion/install.mdx` | docs | listed Clips as the one thing it can do | names Listening as the other, off by default, nothing kept or sent |
 | `docs/content/docs/companion/clips.mdx` | docs | Save a clip from inside VR | gains "Or say it", pointing at the new page |
-| `docs/content/docs/companion/settings.mdx` | docs | — | `listenForPhrase.on` and `notifications.sound` rows; the sound's own section rewritten (§8) |
+| `docs/content/docs/companion/settings.mdx` | docs | — | `listenForPhrase.on` and `notifications.sound` rows; the sound's own section rewritten (§8). Later the same evening: a `listenForPhrase.microphone` row |
+| `docs/content/docs/companion/listening.mdx` | docs | said Modbot never asks Windows for a list of microphones | *Choosing which microphone*, and a second warning callout for the promise that narrowed to allow it (§3.3.3) |
+| `docs/content/docs/privacy.mdx`, `security.mdx`, `PRIVACY_POLICY.md`, `THIRD-PARTY-NOTICES.md` | docs, policy, notices | said nothing about a list | Each gains one sentence: while listening is on, the client asks which microphones that PC has; it is a name and an id, it fills a list on that PC's own screen, it is never sent anywhere, and with listening off nothing at all is asked |
 | `docs/content/docs/privacy.mdx` | docs | "What stays on a moderator's own PC" listed Clips | gains Listening, in the same shape |
 | `docs/content/docs/security.mdx` | docs | what a stolen device token cannot reach | gains listening: cannot switch it on, cannot hear anything, cannot learn it is on |
-| `docs/content/docs/not-built-yet.mdx` | docs | — | Five rows: the phrase cannot be changed, no microphone picker, no Linux, no spoken reason without the voice |
+| `docs/content/docs/not-built-yet.mdx` | docs | — | Five rows: the phrase cannot be changed, no microphone picker, no Linux, no spoken reason without the voice. The picker row is replaced the same evening by one saying there is one list rather than two saved slots (§3.3.1) |
 | `PRIVACY_POLICY.md` "Voice presence, not voice" | policy | **"There is no code in it that touches a microphone"** | Narrowed: nothing records or transcribes audio, nothing keeps or sends a recording, and the one microphone Modbot can open is described under the companion's section |
 | `PRIVACY_POLICY.md` "What does the companion send?" | policy | screen recording paragraph | gains a microphone paragraph in the same shape |
 | `THIRD-PARTY-NOTICES.md` | notices | "Playback only; the client references nothing that records" | Narrowed to one file and one shared-mode microphone; the phrase model's address, size and hash added beside the voice's |
@@ -397,6 +470,7 @@ has an answer on the Events page, which is the shape every other capability in t
 | `src/Modbot.Companion/Listening/PhraseDownload.cs` | Fetch, check, unpack five files, write the phrase list |
 | `src/Modbot.Companion/Listening/ListeningRule.cs` | When it listens, and what the card shows |
 | `src/Modbot.Companion/Listening/PhraseHeard.cs` | One sentence, one clip |
+| `src/Modbot.Companion/Listening/MicrophoneChoice.cs` | Which microphone, and what a missing one falls back to (§3.3) |
 | `src/Modbot.Companion.App/Listening/PhraseListening.cs` | **The one file that can open a microphone** |
 | `src/Modbot.Companion.App/MainWindow.Listening.cs` | The Listening card |
 | `src/Modbot.Companion.App/Program.cs` | `ApplyListening`, `HeardAPhrase`, `AnswerOutLoud`, `SetListening` |
@@ -486,17 +560,20 @@ Two changes, both written whole by their own writer, both leaving every other fi
   "trayNoticesShown": 0,
   "sound": "C:\\Sounds\\ping.wav"
 },
-"listenForPhrase": { "on": false }
+"listenForPhrase": { "on": false, "microphone": "{0.0.1.00000000}.{…}" }
 ```
 
 | Field | Means | Default |
 |---|---|---|
 | `notifications.sound` | A `.wav` of the moderator's own, or absent for Modbot's | absent |
 | `listenForPhrase.on` | Open the microphone while VRChat runs | `false` |
+| `listenForPhrase.microphone` | Which microphone, by Windows' own id, or absent for the default | absent |
 
 `sound` is left out of the file when it is blank, the same rule the clips folder follows: the file
-says nothing rather than saying `""`. `listenForPhrase.on` is always written, including `false`, so
-a file somebody opens says plainly that it is off.
+says nothing rather than saying `""`. **`microphone` follows that rule too** — going back to the
+Windows default removes the field rather than writing an empty string, so a device id is never
+pinned into a file where it would stop following the machine. `listenForPhrase.on` is always
+written, including `false`, so a file somebody opens says plainly that it is off.
 
 A missing object, a missing field or a field of the wrong shape takes the default — which for both
 of these means off.
@@ -506,8 +583,11 @@ of these means off.
 ## 10. What is not built
 
 - **Choosing the phrase** (§5.2). Decided rather than pending.
-- **Choosing the microphone** (§3.3). It follows Windows' default, which is also what keeps the
-  client from ever asking for a list of microphones.
+- **A second saved microphone to switch between** (§3.3.1). There is one list and one choice,
+  which is the answer to the two cases that were asked for; two slots would be a second control
+  doing the first one's job.
+- **Picking a microphone before switching listening on** (§3.3.3). The list is empty until the
+  switch is on, because §4.1 is worth more than the step it saves.
 - **Listening on Linux** (§3.4). Follows recording, which is Windows only.
 - **A spoken reason with the voice off** (§6.1). A saved clip makes a sound; one that was not saved
   makes none.
@@ -518,4 +598,59 @@ of these means off.
 - **Any measurement at all.** §3.5 is estimates. Nothing in this feature has been run against a real
   microphone, and the false-accept and false-reject rates for a made-up word like "Modbot" are
   unknown. The first thing to do with a headset and a build is to find out whether it hears you, and
-  whether it hears you when nobody said it.
+  whether it hears you when nobody said it. That has not moved at all: §11 means the microphone has
+  still never been open, so **everything below §3.1 is still untried**, including shared mode
+  itself.
+
+---
+
+## 11. The microphone that was never opened
+
+The feature was written, compile-checked and never run. The first time somebody switched
+**Listening** on, the card said, in red:
+
+> The microphone could not be opened. Another program may have taken it for itself, or this PC may
+> have none: **Automatic stream routing is activated asynchronously — call BuildAsync() instead of
+> Build().**
+
+That is the whole of it, and the sentence is the audio library's own.
+
+### 11.1 The cause
+
+`PhraseListening` asked for `.WithDefaultDeviceStreamRouting()` — follow whichever microphone
+Windows calls the default (§3.3) — and then called `.Build()`. NAudio sets that routing up
+asynchronously and refuses the synchronous build outright rather than quietly doing something else.
+So the microphone was **never opened, on any machine, once**, and the listener's own error path
+turned the refusal into the sentence above and put it where a moderator would read it as "another
+program has my microphone".
+
+**The correct pattern was already in the client, two files away.** `WindowsVoiceOutput.PlayAsync`
+has used the same routing and `BuildAsync()` since the voice was built, for the same reason and
+with a comment saying so. This file was written from the recorder's shape rather than from the
+voice's, and the one line that differed is the one that mattered.
+
+### 11.2 What was changed
+
+- `BuildAsync()`, awaited on the listener's own thread, which is a thread that does nothing else.
+- A named branch for each way in: routing with no device named, or one named device, because
+  Windows will not do both at once and naming a device turns routing off (§3.3.1).
+- `TheOnlyFileThatCanListenIsPhraseListeningCs` asserts `BuildAsync()` is there and that `.Build(`
+  is not, so the next person to touch this file finds out at build time rather than on somebody's
+  PC.
+
+### 11.3 What this means for everything else in this spec
+
+**Nothing below §3.1 has ever run.** Shared mode was written down as "which of two constants is
+passed" and that claim is still exactly as good as it was — but it had never been exercised,
+because nothing reached it. The same goes for the resampler, the matcher, the fire-once rule and
+every sentence in §6.1. The first real use of this feature is still ahead of it, and §10's last
+bullet says so.
+
+### 11.4 Why it was not caught
+
+There is no microphone in CI and there is no screen either, which is the same reason the recorder
+shipped a black clip (clips §12) and then a quarter-filled one (clips §14). Three faults, one
+cause: the parts of this client that touch hardware are checked by reading them. What the guard
+test above adds is the one kind of check that does work without hardware — the shape of the call,
+named in a test, because the mistake was not subtle and would have been caught by anybody who had
+read the two files side by side.

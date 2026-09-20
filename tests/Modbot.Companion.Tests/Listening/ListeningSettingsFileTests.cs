@@ -79,6 +79,47 @@ public class ListeningSettingsFileTests : IDisposable
     }
 
     [Fact]
+    public void NoMicrophoneIsPickedUntilSomebodyPicksOne()
+    {
+        Write("""{ "listenForPhrase": { "on": true } }""");
+
+        Assert.Null(Load().MicrophoneId);
+    }
+
+    [Fact]
+    public void ReadsTheMicrophoneSomebodyPicked()
+    {
+        Write("""{ "listenForPhrase": { "on": true, "microphone": "{0.0.1.00000000}.{abc}" } }""");
+
+        Assert.Equal("{0.0.1.00000000}.{abc}", Load().MicrophoneId);
+    }
+
+    [Fact]
+    public void ABlankMicrophoneMeansTheWindowsDefault()
+    {
+        Write("""{ "listenForPhrase": { "on": true, "microphone": "   " } }""");
+
+        Assert.Null(Load().MicrophoneId);
+    }
+
+    [Fact]
+    public void ThePickedMicrophoneSurvivesASaveAndTheDefaultIsNotWrittenDown()
+    {
+        Assert.True(CompanionSettings.SaveListening(
+            Path_, new ListeningSettings(On: true, MicrophoneId: "{headset}")));
+
+        Assert.Equal("{headset}", Load().MicrophoneId);
+        Assert.Contains("\"microphone\": \"{headset}\"", File.ReadAllText(Path_), StringComparison.Ordinal);
+
+        // Back to the Windows default: the file says nothing rather than pinning a device id that
+        // would then stop following the machine, the same rule the clips folder follows.
+        Assert.True(CompanionSettings.SaveListening(Path_, new ListeningSettings(On: true)));
+
+        Assert.Null(Load().MicrophoneId);
+        Assert.DoesNotContain("microphone", File.ReadAllText(Path_), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SavingKeepsTheRestOfTheFile()
     {
         Write("""{ "pairingPage": "https://cats.example/pair", "checkForUpdates": false, "clips": { "on": true } }""");
