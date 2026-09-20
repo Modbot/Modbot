@@ -115,12 +115,15 @@ jobs:
             exit 1
           fi
 
+          # The name is the same either way: the version already says -preview.1 when it is one,
+          # and GitHub marks the release as a pre-release besides, so saying it a third time in the
+          # title only made the title longer.
+          name="Modbot $version"
+
           if [ "$preview" = true ]; then
             channel="$CHANNEL_BASE-preview"
-            name="Modbot Companion $version (preview)"
           else
             channel="$CHANNEL_BASE"
-            name="Modbot Companion $version"
           fi
 
           {
@@ -277,12 +280,15 @@ jobs:
 
           if [[ "$version" == *-preview.* ]]; then preview=true; else preview=false; fi
 
+          # The name is the same either way: the version already says -preview.1 when it is one,
+          # and GitHub marks the release as a pre-release besides, so saying it a third time in the
+          # title only made the title longer.
+          name="Modbot $version"
+
           if [ "$preview" = true ]; then
             channel="$CHANNEL_BASE-preview"
-            name="Modbot Companion $version (preview)"
           else
             channel="$CHANNEL_BASE"
-            name="Modbot Companion $version"
           fi
 
           {
