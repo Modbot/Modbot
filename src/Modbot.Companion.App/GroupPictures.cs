@@ -18,6 +18,14 @@ namespace Modbot.Companion.App;
 /// <para>Fetched on the UI thread's behalf and handed back to it, because the window redraws on a
 /// timer and asks for the same icon many times a minute; a miss starts one fetch, and every ask
 /// until it lands gets nothing.</para>
+/// <para><strong>It only keeps what something is showing.</strong> A decoded picture costs as much
+/// memory as its size in pixels however long ago it was drawn, and the Credits page alone asks for
+/// a banner and a picture per person. Keeping every picture the client had ever drawn for the rest
+/// of the session was the client quietly growing as somebody looked around it. So the window says
+/// which addresses anything it is showing can still ask for
+/// (<see cref="KeepOnly(IReadOnlySet{string})"/>) and the rest are let go of. A picture that is
+/// asked for again is fetched again, which is the price, and it is only ever paid by a page
+/// somebody has come back to.</para>
 /// </remarks>
 internal sealed class GroupPictures
 {
@@ -27,6 +35,13 @@ internal sealed class GroupPictures
     private readonly Action _changed;
     private readonly ConcurrentDictionary<string, Bitmap?> _pictures = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, bool> _inFlight = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Pictures let go of at the last <see cref="KeepOnly(IReadOnlySet{string})"/> and not yet
+    /// disposed. Touched on the UI thread only, which is the one thread that lets go of them.
+    /// </summary>
+    private readonly List<Bitmap> _lettingGo = [];
+
     private int _arrived;
 
     /// <summary>
@@ -60,6 +75,39 @@ internal sealed class GroupPictures
             _ = FetchAsync(url, address);
 
         return null;
+    }
+
+    /// <summary>
+    /// Lets go of every picture whose address <paramref name="wanted"/> does not name.
+    /// </summary>
+    /// <remarks>
+    /// <para>Called from the window, on the UI thread, with every address anything on the screen
+    /// can still ask for — the paired servers' icons, always, and the pictures of whichever page
+    /// has just been drawn. A picture that is on the screen is therefore never one of the ones let
+    /// go of, which is what keeps the screen right: nothing blinks out and nothing is fetched
+    /// again while it is being shown.</para>
+    /// <para>A picture is disposed one call later than it is let go of, not at once. Avalonia
+    /// hands the last frame it drew to its own renderer, and a picture the screen has only just
+    /// stopped showing may still be in that frame; by the next page there is no frame left that
+    /// could hold it.</para>
+    /// </remarks>
+    public void KeepOnly(IReadOnlySet<string> wanted)
+    {
+        ArgumentNullException.ThrowIfNull(wanted);
+
+        foreach (var gone in _lettingGo)
+            gone.Dispose();
+
+        _lettingGo.Clear();
+
+        foreach (var address in _pictures.Keys)
+        {
+            if (wanted.Contains(address))
+                continue;
+
+            if (_pictures.TryRemove(address, out var picture) && picture is not null)
+                _lettingGo.Add(picture);
+        }
     }
 
     private async Task FetchAsync(string key, Uri address)

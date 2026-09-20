@@ -37,6 +37,79 @@ public class ClipLibraryTests
     }
 
     [Fact]
+    public void TheFolderIsNotListedAgainForEveryAsk()
+    {
+        // The Clips card is drawn once a second and shows the count and the size whether or not
+        // anything is being recorded. Reading the folder for every drawing is a file asked about
+        // for every clip, every second, for a number that hardly ever changes.
+        var folder = Scratch();
+        Write(folder, "a" + ClipLibrary.ClipExtension, 100);
+
+        var clock = new FakeClock();
+        var library = new ClipLibrary(clock);
+
+        Assert.Single(library.Saved(folder));
+
+        Write(folder, "b" + ClipLibrary.ClipExtension, 100);
+        Assert.Single(library.Saved(folder));
+
+        clock.Advance(ClipLibrary.ListedAgainEvery);
+        Assert.Equal(2, library.Saved(folder).Count);
+    }
+
+    [Fact]
+    public void AClipSavedOrDeletedByModbotShowsAtOnce()
+    {
+        // Five seconds is the most a moderator's own moving of files can be out of date by. What
+        // Modbot itself does to the folder is not allowed to be out of date at all: they pressed
+        // Save, and the card has to show the clip.
+        var folder = Scratch();
+        Write(folder, "a" + ClipLibrary.ClipExtension, 100);
+
+        var library = new ClipLibrary(new FakeClock());
+        Assert.Single(library.Saved(folder));
+
+        Write(folder, "b" + ClipLibrary.ClipExtension, 100);
+        library.Forget();
+
+        Assert.Equal(2, library.Saved(folder).Count);
+    }
+
+    [Fact]
+    public void AnotherFolderIsListedStraightAway()
+    {
+        // The moderator changed where clips go. The old folder's count is not the new one's.
+        var first = Scratch();
+        var second = Scratch();
+        Write(first, "a" + ClipLibrary.ClipExtension, 100);
+        Write(second, "b" + ClipLibrary.ClipExtension, 100);
+        Write(second, "c" + ClipLibrary.ClipExtension, 100);
+
+        var library = new ClipLibrary(new FakeClock());
+
+        Assert.Single(library.Saved(first));
+        Assert.Equal(2, library.Saved(second).Count);
+        Assert.Single(library.Saved(first));
+    }
+
+    [Fact]
+    public void ListingItOutrightAlwaysReadsTheFolder()
+    {
+        // Making room deletes what is actually there, so it cannot be working from a listing taken
+        // a few seconds ago.
+        var folder = Scratch();
+        Write(folder, "a" + ClipLibrary.ClipExtension, 100);
+
+        var library = new ClipLibrary(new FakeClock());
+        Assert.Single(library.Saved(folder));
+
+        Write(folder, "b" + ClipLibrary.ClipExtension, 100);
+
+        Assert.Equal(2, library.List(folder).Count);
+        Assert.Equal(200, library.Bytes(folder));
+    }
+
+    [Fact]
     public void ClipsComeBackOldestFirst()
     {
         var folder = Scratch();

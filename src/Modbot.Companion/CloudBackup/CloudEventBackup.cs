@@ -149,13 +149,21 @@ public sealed class CloudEventBackup : IObservationSink
         _clientVersion = options.CompanionVersion;
         _endpoint = options.Endpoint ?? CloudSettings.DefaultEndpoint;
         _enabled = options.Enabled;
-        _queuedOnDisk = _outbox.QueuedEvents;
         _cloudClock = new ServerClock(_clock);
         _mapper = new PresenceEventMapper(_timestamps, _cloudClock, _ids);
 
-        // Turned off while the client was closed leaves nothing behind.
-        if (!_enabled)
+        // On: the folder is made ready and a batch the last run left open is closed. Off: nothing
+        // is made ready and nothing is written — only what an earlier run left behind is swept
+        // away, and a machine with nothing there is left without so much as a folder.
+        //
+        // Before the count below, because closing a batch the last run left open is what puts its
+        // events into the number the screen shows.
+        if (_enabled)
+            _outbox.Start();
+        else
             Clear();
+
+        _queuedOnDisk = _outbox.QueuedEvents;
     }
 
     /// <summary>False when <c>settings.json</c> or <c>MODBOT_CLOUD_DISABLED</c> turned the backup off.</summary>
