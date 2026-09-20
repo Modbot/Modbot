@@ -55,6 +55,9 @@ every page that does not depend on one of them.
 </a>
 
 <Cards>
+  <Card title="Install script" href="/self-hosting/install-script">
+    One command on a machine with a shell. Installs Docker if it is missing and starts Modbot and its database.
+  </Card>
   <Card title="Railway" href="/self-hosting/railway">
     The service and a Postgres database, with the health check and variables already wired.
   </Card>
@@ -62,6 +65,10 @@ every page that does not depend on one of them.
     Build the image and run it next to PostgreSQL on your own machine or server.
   </Card>
 </Cards>
+
+```bash
+curl -fsSL https://modbot.co/get.sh | sh
+```
 
 After it is running, open its address in a browser. A new Modbot sends every visitor to the
 [setup wizard](/setup-wizard).

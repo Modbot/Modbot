@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Landing.Configuration;
 using Modbot.Landing.Features.Instances;
 using Modbot.Landing.Features.Pages;
+using Modbot.Landing.Features.Setup;
 
 namespace Modbot.Landing.Tests;
 
@@ -35,6 +36,12 @@ public sealed class LandingTestHost : IAsyncDisposable
         + "<body><div id=\"root\"><main>Open instances</main></div></body></html>";
 
     public const string AssetPath = "/assets/app-test.js";
+
+    /// <summary>Stands in for Web/public/get.sh, which Vite copies into the web root.</summary>
+    public const string InstallScript = "#!/bin/sh\nset -eu\necho 'Modbot'\n";
+
+    /// <summary>Stands in for Web/public/docker-compose.yml.</summary>
+    public const string ComposeFileText = "name: modbot\nservices:\n  modbot:\n    image: ${MODBOT_IMAGE}\n";
 
     public const string CloudUrl = "https://cloud.test.invalid";
 
@@ -110,6 +117,11 @@ public sealed class LandingTestHost : IAsyncDisposable
                 await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, file), html, Ct);
 
             await File.WriteAllTextAsync(Path.Combine(webRoot.FullName, BuiltPages.NoDiscordFile), NoDiscordHtml, Ct);
+
+            await File.WriteAllTextAsync(
+                Path.Combine(webRoot.FullName, SetupFiles.ScriptFile), InstallScript, Ct);
+            await File.WriteAllTextAsync(
+                Path.Combine(webRoot.FullName, SetupFiles.ComposeFile), ComposeFileText, Ct);
 
             await File.WriteAllTextAsync(
                 Path.Combine(webRoot.FullName, "favicon.svg"),

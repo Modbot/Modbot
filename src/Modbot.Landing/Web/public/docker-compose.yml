@@ -1,0 +1,70 @@
+# Modbot and its database, from the published image.
+#
+# https://modbot.co/get.sh writes this file and the .env beside it, but it works on its own:
+#
+#   curl -fsSL https://modbot.co/docker-compose.yml -o docker-compose.yml
+#   printf 'MODBOT_IMAGE=ghcr.io/modbot/modbot:latest\nPOSTGRES_PASSWORD=a-long-password\n' > .env
+#   docker compose up -d
+#
+# Modbot is then at http://localhost:8080 and opens the setup wizard on the first visit. Everything
+# else — the VRChat account, Discord, email, AI — is set up there, not here.
+#
+# Run one Modbot per database. A second copy would send twice as many requests against VRChat's
+# rate limits, and neither copy could see what the other was doing.
+#
+# https://docs.modbot.co/self-hosting
+
+name: modbot
+
+services:
+  modbot:
+    image: ${MODBOT_IMAGE:?Set MODBOT_IMAGE in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # The keyword form, so a password with @, : or / needs no escaping. It must not contain ;
+      DATABASE_URL: Host=postgres;Port=5432;Database=${POSTGRES_DB:-modbot};Username=${POSTGRES_USER:-modbot};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      PORT: "8080"
+      # A Seq server to send logs to, if you run one. https://docs.modbot.co/self-hosting/logs
+      SEQ_URL: ${SEQ_URL:-}
+      MODBOT_DEBUG_LOGGING: ${MODBOT_DEBUG_LOGGING:-}
+      # serilog (readable lines, the default), json or railway_json. Console only.
+      CONSOLE_LOG_MODE: ${CONSOLE_LOG_MODE:-}
+      LOG_LEVEL: ${LOG_LEVEL:-}
+      # Which Modbot Cloud this server talks to, and whether it does at all. Set
+      # MODBOT_CLOUD_DISABLED=1 for no report every six hours, no term list downloads and no
+      # instances listed on modbot.co. Companions keep their own Cloud settings either way.
+      MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}
+      MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
+      # Where the instance selector is, for the "Add to my.modbot.co" links. Only ever a link.
+      MODBOT_MY_URL: ${MODBOT_MY_URL:-}
+    ports:
+      - "${MODBOT_PORT:-8080}:8080"
+    volumes:
+      # Three folders rather than one on /app/data, so that opening modbot-data says what is in
+      # it. Evidence is only written here when Settings -> Evidence is set to a directory on disk.
+      - ./modbot-data/logs:/app/logs
+      - ./modbot-data/evidence:/app/data/evidence
+      - ./modbot-data/dumps:/app/data/dumps
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-modbot}
+      POSTGRES_USER: ${POSTGRES_USER:-modbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      # A named volume rather than a folder beside this file: PostgreSQL needs ownership of its
+      # own directory, which a folder shared from macOS or Windows cannot give it.
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

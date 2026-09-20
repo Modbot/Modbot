@@ -6,6 +6,7 @@ using Modbot.Landing.Features.Health;
 using Modbot.Landing.Features.Pages;
 using Modbot.Landing.Features.Instances;
 using Modbot.Landing.Features.Security;
+using Modbot.Landing.Features.Setup;
 using Modbot.Landing.Features.StaticFiles;
 
 namespace Modbot.Landing;
@@ -23,6 +24,7 @@ public static class LandingApp
 
         services.AddSingleton(new MyModbotAddress(environment.MyUrl));
         services.AddSingleton<BuiltPages>();
+        services.AddSingleton<SetupFiles>();
 
         services.AddSingleton(environment);
         services.TryAddSingleton(TimeProvider.System);
@@ -59,14 +61,15 @@ public static class LandingApp
         app.UseSecurityHeaders();
         app.UseResponseCompression();
 
-        // Static files run before routing, and stand aside for the two built pages, which are only
-        // served through their routes so they carry the page headers.
+        // Static files run before routing, and stand aside for the built pages and the two setup
+        // files, which are only served through their routes so they carry the right headers.
         app.UseBuiltFiles();
 
         app.UseRouting();
 
         app.MapHealth();
         app.MapInstances();
+        app.MapSetup();
         app.MapPages();
     }
 }
