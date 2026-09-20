@@ -54,7 +54,7 @@ public sealed class GitHubReleases(HttpClient client, string? token, string repo
     public const string HttpClientName = "github-releases";
 
     /// <summary>The repository read when <c>GITHUB_RELEASES_REPOSITORY</c> is not set.</summary>
-    public const string DefaultRepository = "binn/Modbot";
+    public const string DefaultRepository = "Modbot/Modbot";
 
     /// <summary>GitHub refuses a request with no user agent.</summary>
     private const string UserAgent = "Modbot-Cloud";

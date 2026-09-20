@@ -81,7 +81,7 @@ GET /api/v1/updates/companion/releases.{channel}.json
       "name": "companion",
       "version": "2026.9.4",
       "publishedAt": "2026-09-17T10:00:00+00:00",
-      "notesUrl": "https://github.com/binn/Modbot/releases/tag/companion-v2026.9.4",
+      "notesUrl": "https://github.com/Modbot/Modbot/releases/tag/companion-v2026.9.4",
       "image": null,
       "tag": null,
       "imagePushedAt": null
@@ -90,7 +90,7 @@ GET /api/v1/updates/companion/releases.{channel}.json
       "name": "server",
       "version": "2026.9.3",
       "publishedAt": "2026-09-16T10:00:00+00:00",
-      "notesUrl": "https://github.com/binn/Modbot/releases/tag/host-v2026.9.3",
+      "notesUrl": "https://github.com/Modbot/Modbot/releases/tag/host-v2026.9.3",
       "image": "modbot/modbot",
       "tag": "2026.9.3",
       "imagePushedAt": "2026-09-16T10:30:00+00:00"
@@ -114,9 +114,9 @@ deployment in the world to move to one is not what publishing it meant.
 **GitHub**, `GET /repos/{owner}/{name}/releases?per_page=100`, with a token from
 `GITHUB_TOKEN` — the same variable and the same shape of call the Credits page's contributor list
 already uses. The repository is `GITHUB_RELEASES_REPOSITORY`, falling back to `GITHUB_REPOSITORY`
-and then to `binn/Modbot`. It is separate from the contributors' repository because the client's
-releases may be published somewhere the public can download them from while the source repository
-is private, which is what `CLIENT_RELEASES_REPO` in the release workflow is for.
+and then to `Modbot/Modbot`. It is separate from the contributors' repository because the client's
+releases may be published somewhere the public can download them from, which need not be where the
+source is, and that is what `CLIENT_RELEASES_REPO` in the release workflow is for.
 
 **Docker Hub**, `GET /v2/repositories/{owner}/{name}/tags`, unauthenticated, for the server image
 named by `DOCKER_IMAGE`. GitHub says which version was released; Docker Hub says whether an image

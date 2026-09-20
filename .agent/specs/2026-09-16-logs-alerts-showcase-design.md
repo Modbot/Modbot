@@ -452,7 +452,7 @@ All optional; all on Modbot Cloud, none on a self-hosted Modbot.
 | `RESEND_API_KEY` | none | Sends Cloud's alert email. Unset means the checks run and nothing is sent. |
 | `ALERT_FROM_EMAIL` | none | The address that email comes from. Unset means none goes. |
 | `GITHUB_TOKEN` | none | Reads the repository's contributors. Unset means an empty list. |
-| `GITHUB_REPOSITORY` | `binn/Modbot` | Which repository, as `owner/name`. |
+| `GITHUB_REPOSITORY` | `Modbot/Modbot` | Which repository, as `owner/name`. |
 
 A self-hosted Modbot gains no variable. `MODBOT_CLOUD_DISABLED` gains a second meaning: it stops the
 log going to Cloud, and stops the Credits page asking for the showcase.

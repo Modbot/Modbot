@@ -43,8 +43,8 @@ built by `src/Modbot.Cloud/Dockerfile` from the repository root.
 | `MAIL_FROM` | With `RESEND_API_KEY` | — | The From address, such as `Modbot <noreply@modbot.co>`. Cloud refuses to start with a Resend key and no From address. |
 | `CLOUD_PUBLIC_URL` | No | `https://cloud.modbot.co` | Where Cloud is reachable: the links in its mail, and the addresses it gives readers for the showcase pictures it serves. |
 | `GITHUB_TOKEN` | No | none | Reads the repository's contributors for the showcase. Not needed for a public repository; without it while it is private, the contributor list is empty. |
-| `GITHUB_REPOSITORY` | No | `binn/Modbot` | The repository those contributors come from, as `owner/name`. |
-| `GITHUB_RELEASES_REPOSITORY` | No | `GITHUB_REPOSITORY`, then `binn/Modbot` | The repository the releases at `/api/v1/updates` come from, as `owner/name`. Separate because the client's releases may be published where the public can download them while the source repository is private. |
+| `GITHUB_REPOSITORY` | No | `Modbot/Modbot` | The repository those contributors come from, as `owner/name`. |
+| `GITHUB_RELEASES_REPOSITORY` | No | `GITHUB_REPOSITORY`, then `Modbot/Modbot` | The repository the releases at `/api/v1/updates` come from, as `owner/name`. Separate because the client's releases may be published where the public can download them from, which need not be where the source is. |
 | `DOCKER_IMAGE` | No | `modbot/modbot` | The server's image on Docker Hub, as `owner/name`. Its tags are read so `/api/v1/updates/server` can say what to pull. Read unauthenticated; when Docker Hub cannot be read, the answer still names the image and the release version as its tag. |
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value falls back to 8080. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. Unset means no Seq. |

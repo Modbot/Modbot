@@ -42,7 +42,7 @@ public sealed class GitHubContributors(HttpClient client, string? token, string 
     public const string HttpClientName = "github";
 
     /// <summary>The repository read when <c>GITHUB_REPOSITORY</c> is not set.</summary>
-    public const string DefaultRepository = "binn/Modbot";
+    public const string DefaultRepository = "Modbot/Modbot";
 
     public static readonly TimeSpan CacheFor = TimeSpan.FromHours(6);
 

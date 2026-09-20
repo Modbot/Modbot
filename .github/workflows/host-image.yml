@@ -33,9 +33,11 @@
 # other architecture would be gone. `join` then points every tag at a manifest that lists both
 # digests, which is what makes one tag serve two architectures.
 #
-# The package takes the repository's visibility. While the repository is private, pulling needs
-# `docker login ghcr.io` with a token that can read packages; docs/content/docs/self-hosting/docker.mdx
-# says how.
+# A package on GitHub's registry does not inherit the repository's visibility: it is created private
+# and is made public once, by hand, on the package's own settings page. Until somebody does that, a
+# pull needs `docker login ghcr.io` with a token that can read packages, which
+# docs/content/docs/self-hosting/docker.mdx says how to do. The repository itself is public, which is
+# what makes the arm64 runners above free; that is a separate fact from the package's visibility.
 
 name: Host image
 

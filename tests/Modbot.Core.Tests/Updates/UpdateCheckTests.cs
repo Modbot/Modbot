@@ -29,7 +29,7 @@ public class UpdateCheckTests(PostgresFixture db)
     private static string Answer(string version, string image = "modbot/modbot") =>
         $$"""
         {"name":"server","version":"{{version}}","publishedAt":"2026-09-18T08:00:00+00:00",
-         "notesUrl":"https://github.com/binn/Modbot/releases/tag/host-v{{version}}",
+         "notesUrl":"https://github.com/Modbot/Modbot/releases/tag/host-v{{version}}",
          "image":"{{image}}","tag":"{{version}}"}
         """;
 
