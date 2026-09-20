@@ -58,12 +58,36 @@ public class CompanionSettingsTests : IDisposable
     [InlineData("""{ "pairingPage": "not an address" }""")]
     [InlineData("""{ "pairingPage": "" }""")]
     [InlineData("""{ "somethingElse": 1 }""")]
-    [InlineData("""{ this is not json""")]
-    [InlineData("")]
     public void AnythingElseFallsBackToTheDefaultRatherThanFailing(string json)
     {
         // An insecure page would hand the moderator's sign-in to whoever is on the network, so it
         // is treated the same as a typo: ignored, and the default used.
+        Write(json);
+
+        // Every field takes its default except the notification overlay on a monitor: a file that
+        // exists and does not mention it belongs to somebody who was running Modbot before it
+        // existed, and a window over their screen is not something to switch on for them.
+        var expected = CompanionSettings.Default with
+        {
+            DesktopNotifyOverlay = DesktopNotifySettings.NotAskedFor,
+        };
+
+        Assert.Equal(expected, CompanionSettings.Load(Path_, NoEnvironment));
+    }
+
+    /// <summary>
+    /// A file nothing can be read out of is the same as no file: every default, this one included.
+    /// </summary>
+    /// <remarks>
+    /// The rule above asks whether somebody has settings already, and a file that will not parse
+    /// cannot answer that. It is also not a lasting state -- the client refuses to overwrite a
+    /// file it could not read, so a person fixes it or deletes it.
+    /// </remarks>
+    [Theory]
+    [InlineData("""{ this is not json""")]
+    [InlineData("")]
+    public void AFileThatCannotBeReadIsTheSameAsNoFile(string json)
+    {
         Write(json);
 
         Assert.Equal(CompanionSettings.Default, CompanionSettings.Load(Path_, NoEnvironment));
