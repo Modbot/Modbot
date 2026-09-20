@@ -52,10 +52,15 @@ public sealed class PresenceObserverTests : IDisposable
             "2026.09.03 21:00:01 Debug      -  [Behaviour] OnPlayerJoined newcomer (usr_new)",
         ]);
 
-        var observed = Assert.Single(observer.Poll());
-        Assert.Equal(PresenceKind.Joined, observed.Kind);
-        Assert.Equal("usr_new", observed.SubjectId);
-        Assert.Equal("39047", observed.Instance.InstanceId);
+        var observed = observer.Poll();
+
+        // The two the history left standing in the instance, restated once as "already here" on
+        // the first live line, and then the one person who genuinely walked in.
+        Assert.Equal(2, observed.Count(o => o.Kind is PresenceKind.PresenceObserved));
+
+        var arrival = Assert.Single(observed, o => o.Kind is PresenceKind.Joined);
+        Assert.Equal("usr_new", arrival.SubjectId);
+        Assert.Equal("39047", arrival.Instance.InstanceId);
     }
 
     [Fact]

@@ -194,7 +194,11 @@ those it recognises a handful of shapes:
 - someone switching avatar (VRChat logs the avatar's name, never its id).
 
 Everything else is skipped. Lines that were already in the file when the client started are read
-only to work out which instance you are in. They are never reported.
+only to work out which instance you are in and who is in it with you. None of those comings and
+goings is reported — an evening of them is over. The people they leave standing in the instance
+with you are sent once, as **already there**, as soon as VRChat writes its next line, because
+those people are still in there and nothing later in the log would ever name them. If VRChat is
+not running, nothing is sent at all.
 
 It does not read chat, your friends list, your screenshots folder, the clipboard, the keyboard or
 which other programs are running. It does not read Steam's settings. It has no way to attach files

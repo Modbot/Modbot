@@ -310,6 +310,86 @@ public class InstanceWatchingTests
     }
 
     /// <summary>
+    /// A client that started while VRChat was already in the instance. Everything it knows about
+    /// the people around it came out of replayed history, so it restates them once as "already
+    /// here" -- and that restatement is the whole of what the server ever hears about them.
+    /// </summary>
+    [Fact]
+    public void AClientCatchingUpMidSession_PutsEverybodyItFoundInTheInstance()
+    {
+        var people = Work(null,
+            M(Here, "usr_cid", 0, AdaDevice, name: "Cid"),
+            M(Here, "usr_dee", 0, AdaDevice, name: "Dee"),
+            M(Here, "usr_ada", 0, AdaDevice, name: "Ada"));
+
+        Assert.Equal("usr_ada", Assert.Single(people.Watching).UserId);
+        Assert.Equal(["usr_ada", "usr_cid", "usr_dee"], people.Here.Select(p => p.UserId).Order());
+
+        // Nobody saw any of them arrive, the moderator included. Their time in the instance stays
+        // unknown rather than being dated at the moment the client woke up to them.
+        Assert.All(people.Here, p => Assert.False(p.SeenArriving));
+    }
+
+    /// <summary>
+    /// Two moderators in one instance both restate the same roster. It is one list of people, not
+    /// two -- whoever reported somebody, they are in the instance once.
+    /// </summary>
+    [Fact]
+    public void TwoClientsRestatingTheSamePeople_DoNotDoubleTheList()
+    {
+        var people = Work(null,
+            M(Here, "usr_cid", 0, AdaDevice, name: "Cid"),
+            M(Here, "usr_dee", 0, AdaDevice, name: "Dee"),
+            M(Here, "usr_ada", 0, AdaDevice, name: "Ada"),
+            M(Here, "usr_cid", 3, BenDevice, name: "Cid"),
+            M(Here, "usr_dee", 3, BenDevice, name: "Dee"),
+            M(Here, "usr_ada", 3, BenDevice, name: "Ada"),
+            M(Here, "usr_ben", 3, BenDevice, name: "Ben"));
+
+        Assert.Equal(["usr_ada", "usr_ben"], people.Watching.Select(w => w.UserId).Order());
+        Assert.Equal(["usr_ada", "usr_ben", "usr_cid", "usr_dee"], people.Here.Select(p => p.UserId).Order());
+
+        // The earlier report of a person is the one that stands, so the second moderator arriving
+        // does not push everybody's time forward.
+        Assert.Equal(T0, people.Here.Single(p => p.UserId == "usr_cid").Since);
+    }
+
+    /// <summary>
+    /// A client seeing somebody walk in afterwards still reports an arrival, and it still counts
+    /// as one. Catching up must not flatten the two kinds into one.
+    /// </summary>
+    [Fact]
+    public void AnArrivalAfterACatchUp_IsStillAnArrival()
+    {
+        var people = Work(null,
+            M(Here, "usr_ada", 0, AdaDevice, name: "Ada"),
+            M(Here, "usr_cid", 0, AdaDevice, name: "Cid"),
+            M(Joined, "usr_dee", 9, AdaDevice, name: "Dee"));
+
+        var dee = people.Here.Single(p => p.UserId == "usr_dee");
+        Assert.True(dee.SeenArriving);
+        Assert.Equal(T0.AddMinutes(9), dee.Since);
+
+        Assert.False(people.Here.Single(p => p.UserId == "usr_cid").SeenArriving);
+    }
+
+    /// <summary>
+    /// An instance no companion is in. Modbot does not know who is inside one, and catching up
+    /// where a companion was does not change that.
+    /// </summary>
+    [Fact]
+    public void AnInstanceNoCompanionIsIn_ReportsNobody()
+    {
+        var people = Work(null);
+
+        Assert.False(people.IsWatched);
+        Assert.Empty(people.Watching);
+        Assert.Empty(people.Here);
+        Assert.Null(people.LastWatchedAt);
+        Assert.Empty(people.LastSeen);
+    }
+
+    /// <summary>
     /// Ada was here earlier and left. What her client saw on that visit belongs to that watch, and
     /// the walk back in starts a fresh one that counts only what it saw.
     /// </summary>

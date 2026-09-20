@@ -140,10 +140,17 @@ public sealed class InstanceSessionTracker
     /// <paramref name="at"/> -- the moderator included.
     /// </summary>
     /// <remarks>
-    /// <para>Used once, when VRChat's log starts growing again after this client reported that it
-    /// had stopped. The server ended the moderator's watch at that report, so it has to be told
-    /// the watch has started again, and "already here" is exactly what is known: these people are
-    /// in the log's roster now, and nothing is known about when they got there.</para>
+    /// <para>Used at the two moments a client finds itself holding a roster the far end has never
+    /// been told about, and "already here" is exactly what is known about it: these people are in
+    /// the log's roster now, and nothing is known about when they got there.</para>
+    /// <list type="bullet">
+    /// <item><description>VRChat's log starts growing again after this client reported that it had
+    /// stopped. The server ended the moderator's watch at that report, so it has to be told the
+    /// watch has started again.</description></item>
+    /// <item><description>The client caught up with a log that was already being written when it
+    /// started. The arrival burst that filled this roster was replayed rather than reported, so
+    /// the server has never heard of any of these people.</description></item>
+    /// </list>
     /// <para>Empty unless the moderator is settled in an instance. During an arrival burst the
     /// burst itself will report everybody, and outside an instance there is nobody to report.</para>
     /// </remarks>
