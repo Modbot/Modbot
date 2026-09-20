@@ -154,6 +154,28 @@ Credits tiles, the event rows.
 drawn, and they change what the page would draw without changing the snapshot. `GroupPictures`
 therefore counts what has landed, and the window treats a new count as a reason to draw again.
 
+### 4.1 A card that can end up with nothing in it — added 2026-09-19
+
+A moderator reported the Settings page with a card headed **Settings** and nothing under it: a
+heading, the line beneath it, and empty space. It reads as a screen that failed to draw.
+
+The card holds one control, the start-with-Windows switch, and only an installed copy shows that
+switch (M3 §9; the portable zip never touches Windows' startup list). Hiding the switch left the
+card around it.
+
+**The rule: a card whose contents can all be hidden is hidden with them, and that decision is made
+in the refresh.** Deciding it where the card is built looks simpler and is wrong here — the page is
+built once and refreshed after that, and the first build can happen before the host has said whether
+this copy is installed, so a card built from an empty snapshot would be hidden for the rest of the
+session. The card is kept in a field like every other control on this page, and `RefreshSettings`
+sets its `IsVisible` from `CompanionAppSnapshot.ShowStartupCard` on every tick, beside the switch's
+own.
+
+Every other card on the page was checked. The Clips, Listening and Notifications cards each hide a
+problem line when there is no problem, and the desktop overlay card hides its own, but all four
+still hold a switch, so none of them can empty out. The SteamVR page's "Showing" card is built only
+when the overlay is on, which is the same answer reached a different way.
+
 ## 5. The custom select
 
 There is not one yet. The Settings page's two lists are Avalonia's own `ComboBox`, styled to the

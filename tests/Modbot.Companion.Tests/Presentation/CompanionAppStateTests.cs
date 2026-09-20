@@ -4,6 +4,7 @@ using Modbot.Companion.Journal;
 using Modbot.Companion.Pairing;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
+using Modbot.Companion.Startup;
 using Modbot.Companion.Time;
 using Modbot.TestSupport;
 
@@ -133,7 +134,14 @@ public class CompanionAppStateTests : IDisposable
         // is reported -- and only one is Modbot's fault. Guessing between them sends the moderator
         // to the wrong fix.
         var state = State();
-        state.LogHealth = new LogHealth(9000, 400, 0, _clock.UtcNow, null);
+        state.LogHealth = new LogHealth(
+            9000,
+            400,
+            0,
+            _clock.UtcNow,
+            null,
+            LastTimestampedLineAt: _clock.UtcNow,
+            LastBehaviourLineAt: _clock.UtcNow);
 
         var snapshot = state.Snapshot();
 
@@ -141,6 +149,43 @@ public class CompanionAppStateTests : IDisposable
         var warning = Assert.Single(snapshot.Warnings).Message;
         Assert.Contains("verbose logging flags", warning);
         Assert.Contains("log format has changed", warning);
+    }
+
+    [Fact]
+    public void AnInstanceWhereNothingIsHappeningIsNotWarnedAbout()
+    {
+        // A moderator sitting alone in a world is not a fault and must not be told it is one. The
+        // lines Modbot reads simply are not being written, while VRChat's own frame-rate lines keep
+        // the file growing all evening.
+        var state = State();
+        state.LogHealth = new LogHealth(
+            9000,
+            400,
+            120,
+            _clock.UtcNow,
+            _clock.UtcNow - TimeSpan.FromHours(1),
+            LastTimestampedLineAt: _clock.UtcNow,
+            LastBehaviourLineAt: _clock.UtcNow - TimeSpan.FromHours(1));
+
+        var snapshot = state.Snapshot();
+
+        Assert.Equal(LogHealthStatus.Quiet, snapshot.LogStatus);
+        Assert.Empty(snapshot.Warnings);
+        Assert.Contains("Nothing has happened", snapshot.LogDetail);
+    }
+
+    [Fact]
+    public void TheSettingsCardIsNotDrawnWhenTheSwitchInItIsNot()
+    {
+        // The card holds one switch, and only an installed copy shows it. A copy run from a folder
+        // was left with a heading and nothing under it, which reads as a screen that failed to draw.
+        var state = State();
+
+        Assert.False(state.Snapshot().ShowStartupCard);
+
+        state.Startup = new StartupState(Visible: true, On: true, TurnedOffInWindows: false);
+
+        Assert.True(state.Snapshot().ShowStartupCard);
     }
 
     [Fact]

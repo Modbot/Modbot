@@ -96,6 +96,59 @@ public sealed class PresenceObserverTests : IDisposable
     }
 
     [Fact]
+    public void AnInstanceWhereNothingHappensIsNotAFault()
+    {
+        // The false alarm this rule exists to stop. Somebody alone in a world produces no joins,
+        // no leaves and no avatar changes for as long as they are alone, while VRChat carries on
+        // writing frame-rate lines several times a minute. Read off the file's own growth that is
+        // indistinguishable from a parser that has stopped matching, and the client would spend the
+        // evening accusing itself of being broken.
+        File.WriteAllLines(LogPath, ["2026.09.03 20:27:14 Debug      -  [Behaviour] OnPlayerJoined a (usr_a)"]);
+        var observer = Observer();
+        observer.Poll();
+
+        for (var minute = 1; minute <= 30; minute++)
+        {
+            _clock.Advance(TimeSpan.FromMinutes(1));
+            File.AppendAllLines(LogPath,
+            [
+                $"2026.09.03 20:{27 + minute:00}:14 Debug      -  [IK Debug Log] something about elbows",
+            ]);
+
+            observer.Poll();
+        }
+
+        Assert.Equal(
+            LogHealthStatus.Quiet,
+            observer.Health.Evaluate(_clock.UtcNow, TimeSpan.FromMinutes(5)));
+    }
+
+    [Fact]
+    public void ALogThatIsNoLongerInVRChatsFormatAtAllIsAFault()
+    {
+        // The hole a behaviour-line rule would otherwise leave. If VRChat rewrote its lines so
+        // completely that the timestamp and tag no longer parse, there would be no [Behaviour]
+        // lines left to count and the break would read as a quiet instance -- which is the silent
+        // failure this whole signal exists to prevent.
+        File.WriteAllLines(LogPath, ["2026.09.03 20:27:14 Debug      -  [Behaviour] OnPlayerJoined a (usr_a)"]);
+        var observer = Observer();
+        observer.Poll();
+
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        File.AppendAllLines(LogPath,
+        [
+            "{\"t\":\"2026-09-03T20:37:14Z\",\"ev\":\"player.joined\",\"id\":\"usr_a\"}",
+            "{\"t\":\"2026-09-03T20:37:15Z\",\"ev\":\"fps\",\"v\":89}",
+        ]);
+
+        observer.Poll();
+
+        Assert.Equal(
+            LogHealthStatus.NotUnderstood,
+            observer.Health.Evaluate(_clock.UtcNow, TimeSpan.FromMinutes(5)));
+    }
+
+    [Fact]
     public void AQuietInstanceIsNotAFault()
     {
         File.WriteAllLines(LogPath, ["2026.09.03 20:27:14 Debug      -  [Behaviour] OnPlayerJoined a (usr_a)"]);

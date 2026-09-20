@@ -242,6 +242,17 @@ public sealed record CompanionAppSnapshot(
     public NotificationFilters NotificationFiltersOrDefault => NotificationFilters ?? NotificationFilters.Default;
 
     /// <summary>
+    /// Whether the Settings page's own "Settings" card has anything to put in it.
+    /// </summary>
+    /// <remarks>
+    /// Its one control is the start-with-Windows switch, which only an installed copy shows. A copy
+    /// run from a folder was left with a heading, a line under it and nothing else, which reads as a
+    /// screen that failed to draw rather than as a switch that does not apply here. The card
+    /// follows the switch.
+    /// </remarks>
+    public bool ShowStartupCard => Startup is { Visible: true };
+
+    /// <summary>
     /// Whether this snapshot says exactly what another one says, so the window would draw what it
     /// is already showing.
     /// </summary>
@@ -335,10 +346,13 @@ public sealed class CompanionAppState
     /// How long without a recognised line before the log reader is called unhealthy.
     /// </summary>
     /// <remarks>
-    /// A log parser that silently stops matching is the worst outcome available: presence history
-    /// stops accruing, nobody notices for weeks, and the gap cannot be filled in later. Long enough not
-    /// to fire while somebody sits alone in a quiet instance; short enough to catch a format
-    /// change within one session.
+    /// <para>A log parser that silently stops matching is the worst outcome available: presence
+    /// history stops accruing, nobody notices for weeks, and the gap cannot be filled in later. Short
+    /// enough to catch a format change within one session.</para>
+    /// <para>It is not what keeps a quiet instance from raising the alarm, and no length would be:
+    /// the measured gap between <c>[Behaviour]</c> lines with the moderator still sitting there
+    /// reached forty-five minutes. That is <see cref="LogHealth.Evaluate"/>'s job, and it does it by
+    /// watching the lines Modbot reads rather than the clock.</para>
     /// </remarks>
     public static readonly TimeSpan LogSilenceThreshold = TimeSpan.FromMinutes(10);
 
@@ -492,8 +506,8 @@ public sealed class CompanionAppState
             // stops accruing, and the history lost while nobody noticed cannot be recovered.
             yield return new CompanionWarning(
                 WarningSeverity.Critical,
-                "VRChat is running and writing to its log, but Modbot has not recognised anything "
-                + "in it recently. Either VRChat was started without its verbose logging flags, or "
+                "VRChat is writing the lines Modbot reads and it has recognised none of them "
+                + "recently. Either VRChat was started without its verbose logging flags, or "
                 + "its log format has changed and this client needs updating. Nothing is being "
                 + "recorded until this is fixed.");
         }
@@ -559,7 +573,11 @@ public sealed class CompanionAppState
             $"Reading VRChat's log: {LogHealth.LinesRead:N0} lines seen, "
             + $"{LogHealth.BehaviourLines:N0} of them the kind Modbot looks at, "
             + $"{LogHealth.RecognisedEvents:N0} recognised.",
-        _ => "VRChat is writing to its log and Modbot no longer recognises any of it.",
+        LogHealthStatus.Quiet =>
+            $"Reading VRChat's log. Nothing has happened in a while: {LogHealth.LinesRead:N0} lines seen, "
+            + $"{LogHealth.BehaviourLines:N0} of them the kind Modbot looks at, "
+            + $"{LogHealth.RecognisedEvents:N0} recognised.",
+        _ => "VRChat is writing the lines Modbot reads and it no longer recognises any of them.",
     };
 
     private ServerRow Describe(ServerConnection connection) => new(

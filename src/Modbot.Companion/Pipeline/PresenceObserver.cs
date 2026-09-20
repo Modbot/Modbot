@@ -57,6 +57,15 @@ public sealed class PresenceObserver
     private DateTimeOffset? _lastLineAt;
     private DateTimeOffset? _lastRecognisedAt;
 
+    /// <summary>
+    /// When a line last arrived in VRChat's own shape, and when a <c>[Behaviour]</c> line last did.
+    /// Between them they are how <see cref="LogHealth.Evaluate"/> tells a quiet instance from a
+    /// parser that has stopped matching; the counters beside them cannot, because they say how many
+    /// and not when.
+    /// </summary>
+    private DateTimeOffset? _lastTimestampedLineAt;
+    private DateTimeOffset? _lastBehaviourLineAt;
+
     /// <summary>VRChat's own timestamp on the last line read, of any tag. What a stop is dated at.</summary>
     private DateTime? _lastLineWritten;
 
@@ -123,7 +132,9 @@ public sealed class PresenceObserver
         _behaviourLines,
         _recognisedEvents,
         _lastLineAt,
-        _lastRecognisedAt);
+        _lastRecognisedAt,
+        _lastTimestampedLineAt,
+        _lastBehaviourLineAt);
 
     /// <summary>
     /// Reads whatever VRChat has written since the last call and returns the facts it completes.
@@ -161,6 +172,7 @@ public sealed class PresenceObserver
                 continue;
 
             _lastLineWritten = parsed.Timestamp;
+            _lastTimestampedLineAt = _clock.UtcNow;
 
             if (!line.IsReplay)
             {
@@ -183,6 +195,7 @@ public sealed class PresenceObserver
                 continue;
 
             _behaviourLines++;
+            _lastBehaviourLineAt = _clock.UtcNow;
 
             if (BehaviourEventParser.Parse(parsed) is not { } logEvent)
                 continue;
