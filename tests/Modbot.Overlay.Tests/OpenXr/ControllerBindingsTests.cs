@@ -5,8 +5,8 @@ namespace Modbot.Overlay.Tests.OpenXr;
 
 /// <summary>
 /// The binding tables (overlay OpenXR and interaction design, 4.1): every controller offers aim,
-/// grab and click for both hands, every controller with a thumbstick or trackpad offers scroll,
-/// and the simple controller does not.
+/// the controller's own pose, grab and click for both hands, every controller with a thumbstick or
+/// trackpad offers scroll, and the simple controller does not.
 /// </summary>
 public class ControllerBindingsTests
 {
@@ -32,7 +32,26 @@ public class ControllerBindingsTests
     public void TheActionSetAndItsActionsHaveTheNamesTheSpecGives()
     {
         Assert.Equal("modbot", ControllerBindings.ActionSet);
-        Assert.Equal(["aim", "grab", "click", "scroll"], ControllerBindings.Actions);
+        Assert.Equal(["aim", "device", "grab", "click", "scroll"], ControllerBindings.Actions);
+    }
+
+    /// <summary>
+    /// Where a controller points and where it is are two different poses, and the panel needs
+    /// both: the cursor's ray comes out of <c>aim</c>, and a panel worn on the wrist hangs off
+    /// <c>device</c>. OpenXR's name for the second is the grip pose, on every controller.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ProfileNames))]
+    public void EveryControllerOffersItsOwnPoseAsWellAsWhereItPoints(string name)
+    {
+        foreach (var hand in new[] { Hand.Left, Hand.Right })
+        {
+            var bindings = Profile(name).BindingsFor(hand).ToDictionary(b => b.Action, b => b.Path);
+            var user = hand == Hand.Left ? "/user/hand/left/input/" : "/user/hand/right/input/";
+
+            Assert.Equal(user + "aim/pose", bindings["aim"]);
+            Assert.Equal(user + "grip/pose", bindings["device"]);
+        }
     }
 
     [Theory]
@@ -76,7 +95,9 @@ public class ControllerBindingsTests
         Assert.Null(simple.Scroll);
         Assert.DoesNotContain("scroll", simple.BindingsFor(Hand.Left).Select(b => b.Action));
         Assert.DoesNotContain("scroll", simple.BindingsFor(Hand.Right).Select(b => b.Action));
-        Assert.Equal(3, simple.BindingsFor(Hand.Right).Count());
+
+        // Aim, the controller's own pose, grab and click, and nothing else.
+        Assert.Equal(4, simple.BindingsFor(Hand.Right).Count());
     }
 
     [Fact]
@@ -88,10 +109,27 @@ public class ControllerBindingsTests
         Assert.Equal("/user/hand/right/input/menu/click", bindings["grab"]);
     }
 
+    /// <summary>
+    /// The Index grabs on how far its grip is squeezed, not on its force sensor.
+    /// </summary>
+    /// <remarks>
+    /// This used to be the other way round, guarding the opposite decision: the force sensor was
+    /// chosen because the squeeze value was thought to read as held whenever the controller is
+    /// merely in the hand. That was the wrong worry — the resting reading is near zero — and the
+    /// force sensor cost what a moderator wearing the headset then reported, because a runtime
+    /// thresholds force for picking a heavy thing up and the panel needed a hard squeeze before it
+    /// would move (overlay OpenXR and interaction design §6.1).
+    /// </remarks>
     [Fact]
-    public void TheIndexGripIsItsForceSensorNotItsCapacitiveValue()
+    public void TheIndexGripIsHowFarItIsSqueezedAndNotItsForceSensor()
     {
-        // The capacitive value reads as held whenever the controller is simply in the hand.
-        Assert.Equal("/user/hand/left/input/squeeze/force", Profile("Valve Index").BindingsFor(Hand.Left).Single(b => b.Action == "grab").Path);
+        var grab = Profile("Valve Index").BindingsFor(Hand.Left).Single(b => b.Action == "grab").Path;
+
+        Assert.Equal("/user/hand/left/input/squeeze/value", grab);
+
+        // Every controller now grabs on an ordinary squeeze; none is singled out for force.
+        Assert.DoesNotContain(
+            ControllerBindings.Profiles,
+            p => p.BindingsFor(Hand.Left).Any(b => b.Action == "grab" && b.Path.EndsWith("/squeeze/force", StringComparison.Ordinal)));
     }
 }
