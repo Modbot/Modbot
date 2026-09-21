@@ -100,18 +100,16 @@ public sealed class MemoryOverlaySurface : IOverlaySurface
 /// </remarks>
 public sealed class D3D11OverlaySurface : IOverlaySurface
 {
-    private readonly ID3D11Device _device;
     private readonly ID3D11DeviceContext _context;
     private readonly ID3D11Texture2D _texture;
+    private bool _letGo;
 
     private D3D11OverlaySurface(
-        ID3D11Device device,
         ID3D11DeviceContext context,
         ID3D11Texture2D texture,
         int width,
         int height)
     {
-        _device = device;
         _context = context;
         _texture = texture;
         Width = width;
@@ -146,32 +144,33 @@ public sealed class D3D11OverlaySurface : IOverlaySurface
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
 
-        // BgraSupport is required for the BGRA format Avalonia hands over; feature level 11_0 is
-        // the floor SteamVR itself requires, so anything that can run VRChat can run this.
-        D3D11.D3D11CreateDevice(
-            adapter: null,
-            DriverType.Hardware,
-            DeviceCreationFlags.BgraSupport,
-            [FeatureLevel.Level_11_1, FeatureLevel.Level_11_0],
-            out var device,
-            out _,
-            out var context).CheckError();
+        // One device for every overlay texture in the process: see SharedD3D11Device for why the
+        // two panels stopped making one each.
+        var (device, context) = SharedD3D11Device.Open();
 
-        var texture = device!.CreateTexture2D(new Texture2DDescription
+        try
         {
-            Width = (uint)width,
-            Height = (uint)height,
-            MipLevels = 1,
-            ArraySize = 1,
-            Format = Format.B8G8R8A8_UNorm,
-            SampleDescription = new SampleDescription(1, 0),
-            Usage = ResourceUsage.Default,
-            BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget,
-            CPUAccessFlags = CpuAccessFlags.None,
-            MiscFlags = ResourceOptionFlags.Shared,
-        });
+            var texture = device.CreateTexture2D(new Texture2DDescription
+            {
+                Width = (uint)width,
+                Height = (uint)height,
+                MipLevels = 1,
+                ArraySize = 1,
+                Format = Format.B8G8R8A8_UNorm,
+                SampleDescription = new SampleDescription(1, 0),
+                Usage = ResourceUsage.Default,
+                BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget,
+                CPUAccessFlags = CpuAccessFlags.None,
+                MiscFlags = ResourceOptionFlags.Shared,
+            });
 
-        return new D3D11OverlaySurface(device, context!, texture, width, height);
+            return new D3D11OverlaySurface(context, texture, width, height);
+        }
+        catch
+        {
+            SharedD3D11Device.Release();
+            throw;
+        }
     }
 
     public void Upload(ReadOnlySpan<byte> bgra)
@@ -195,10 +194,17 @@ public sealed class D3D11OverlaySurface : IOverlaySurface
         _context.Flush();
     }
 
+    /// <summary>
+    /// Lets the texture go, and the shared device with it if this was the last texture using it.
+    /// Calling it twice must not count the device down twice, so the second call does nothing.
+    /// </summary>
     public void Dispose()
     {
+        if (_letGo)
+            return;
+
+        _letGo = true;
         _texture.Dispose();
-        _context.Dispose();
-        _device.Dispose();
+        SharedD3D11Device.Release();
     }
 }

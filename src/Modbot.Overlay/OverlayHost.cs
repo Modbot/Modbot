@@ -21,9 +21,14 @@ namespace Modbot.Overlay;
 /// the runtime as a picture. Nothing here makes a network request, and nothing here can be told
 /// what to do by a server.</para>
 /// <para><strong>It works without a headset.</strong> With no SteamVR, and no WiVRn or Monado
-/// either, the runtime reports a state, the compositor still draws into the surface, and nothing
-/// fails — which matters because most machines running the Modbot Companion are reporting
-/// presence from the desktop.</para>
+/// either, the runtime reports a state and nothing fails — which matters because most machines
+/// running the Modbot Companion are reporting presence from the desktop.</para>
+/// <para><strong>And on those machines it costs nothing.</strong> The renderer and the Direct3D
+/// texture are made when a runtime actually attaches, not when the panel is switched on, because
+/// a graphics device and a four-megabyte texture on a PC with no headset plugged in are about
+/// forty megabytes and forty threads spent on a picture nobody can see. A headset started in the
+/// middle of a session is picked up by the same ten-second look that has always attached the
+/// panel, and one that goes away hands the texture and the device straight back.</para>
 /// </remarks>
 public sealed class OverlayHost : IOverlayPresenter, IDisposable
 {
@@ -40,9 +45,14 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// </summary>
     public const int DefaultNotificationResolution = 256;
 
-    private readonly OverlayCompositor _compositor;
     private readonly IOverlayRuntime _runtime;
-    private readonly IOverlaySurface _surface;
+
+    // The renderer and the texture. Null on a machine with no headset attached, and made by
+    // Open() the moment one is — which is the whole of the saving described above. Null also
+    // means Draw does nothing, so the drive loop can go on pushing screens at a panel that has
+    // nowhere to put them.
+    private readonly Func<OverlayCompositor>? _makeCompositor;
+    private OverlayCompositor? _compositor;
 
     // What the drive loop last asked for, what the debug page has pinned over it, and what was
     // actually drawn. Nothing counts as drawn until the first Update: an attached overlay that
@@ -67,14 +77,61 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>The cursor is placed to this fraction, so a trembling hand does not redraw every poll.</summary>
     private const float CursorStep = 1f / 256f;
 
+    /// <summary>A panel drawing into a surface that already exists, and starts drawing at once.</summary>
     public OverlayHost(IOverlayRuntime runtime, IOverlaySurface surface, IFrameRenderer renderer, OverlayPlacement? placement = null)
     {
         ArgumentNullException.ThrowIfNull(runtime);
+        ArgumentNullException.ThrowIfNull(surface);
         ArgumentNullException.ThrowIfNull(renderer);
 
         _runtime = runtime;
-        _surface = surface;
+        Width = surface.Width;
+        Height = surface.Height;
         _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default);
+        _runtime.Place(_interaction.Placement);
+    }
+
+    /// <summary>
+    /// A panel whose renderer and texture wait for a headset: neither is made until a runtime has
+    /// attached, and both are let go when it goes away.
+    /// </summary>
+    /// <param name="runtime">The headset side.</param>
+    /// <param name="resolution">The texture's size, square, known before there is a texture.</param>
+    /// <param name="renderer">Makes the renderer, on the UI thread, when a runtime attaches.</param>
+    /// <param name="surface">Makes the texture, at the same moment and on the same thread.</param>
+    /// <param name="placement">Where the panel was left, from settings.</param>
+    public OverlayHost(
+        IOverlayRuntime runtime,
+        int resolution,
+        Func<IFrameRenderer> renderer,
+        Func<IOverlaySurface> surface,
+        OverlayPlacement? placement = null)
+    {
+        ArgumentNullException.ThrowIfNull(runtime);
+        ArgumentNullException.ThrowIfNull(renderer);
+        ArgumentNullException.ThrowIfNull(surface);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(resolution);
+
+        _runtime = runtime;
+        Width = resolution;
+        Height = resolution;
+        _makeCompositor = () =>
+        {
+            var made = renderer();
+            try
+            {
+                return new OverlayCompositor(new FrameKeeper(made, this), surface());
+            }
+            catch
+            {
+                // The texture is the half that can fail on a machine with no Direct3D. Letting the
+                // renderer go here keeps a failed attach from leaking one every ten seconds.
+                made.Dispose();
+                throw;
+            }
+        };
+
         _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default);
         _runtime.Place(_interaction.Placement);
     }
@@ -85,13 +142,19 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// when there is one, and otherwise through WiVRn or Monado (<see cref="FallbackOverlayRuntime"/>).
     /// The placement is where the panel was left, from settings.
     /// </summary>
+    /// <remarks>
+    /// Nothing here touches a graphics card. What is built is the runtime, which answers "is a
+    /// headset running" without a texture; the texture and the renderer follow the first answer
+    /// that is yes.
+    /// </remarks>
     public static OverlayHost Create(int resolution = DefaultResolution, IOverlayRuntime? runtime = null, OverlayPlacement? placement = null)
         => new(
             runtime ?? FallbackOverlayRuntime.CreateFor(OverlayKind.Main, resolution),
-            OperatingSystem.IsWindows()
+            resolution,
+            () => new AvaloniaFrameRenderer(resolution, resolution),
+            () => OperatingSystem.IsWindows()
                 ? D3D11OverlaySurface.Create(resolution, resolution)
                 : new MemoryOverlaySurface(resolution, resolution),
-            new AvaloniaFrameRenderer(resolution, resolution),
             placement);
 
     /// <summary>Where the panel is, as last decided by a controller or the settings page.</summary>
@@ -258,7 +321,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     public OverlayRuntimeStatus Status => _runtime.Status;
 
-    public int FramesDrawn => _compositor.FramesDrawn;
+    public int FramesDrawn => _compositor?.FramesDrawn ?? 0;
+
+    /// <summary>Whether the renderer and the texture exist right now.</summary>
+    public bool IsDrawing => _compositor is not null;
 
     public OverlayRuntimeStatus Start()
     {
@@ -266,18 +332,65 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
         // Freshly attached: the panel goes where it was left, and whatever was drawn last is
         // handed over again, so it comes back as it was rather than blank until something changes.
+        // A texture that was only just made holds nothing, so there the screen is drawn again
+        // instead, which is what Open arranges by forgetting what was drawn.
         if (status.State is OverlayRuntimeState.Running)
         {
             _runtime.Place(_interaction.Placement);
-            if (_compositor.FramesDrawn > 0)
-                _runtime.Submit(_surface);
+            Open();
+
+            if (!Draw() && _compositor is { FramesDrawn: > 0 } compositor)
+                _runtime.Submit(compositor.Surface);
         }
 
         return status;
     }
 
-    /// <summary>Lets the runtime be heard: a closing SteamVR or WiVRn detaches the overlay.</summary>
-    public void Poll() => _runtime.Poll();
+    /// <summary>
+    /// Makes the renderer and the texture, if this panel owns their making and they are not made
+    /// yet. Throws what the graphics card throws; the caller decides what that means.
+    /// </summary>
+    private void Open()
+    {
+        if (_compositor is not null || _makeCompositor is null)
+            return;
+
+        _compositor = _makeCompositor();
+
+        // A texture just made is empty, so nothing that was on the panel before is still there.
+        _drawn = null;
+    }
+
+    /// <summary>
+    /// Gives the renderer and the texture back, with the graphics device behind them. Only for a
+    /// panel that can make them again: one handed a surface keeps the surface it was handed.
+    /// </summary>
+    private void LetGo()
+    {
+        if (_makeCompositor is null || _compositor is null)
+            return;
+
+        _compositor.Dispose();
+        _compositor = null;
+
+        // Nothing is drawn any more, so nothing is laid out to match a tap against, and the frame
+        // the debug window was shown is gone with the texture it came from.
+        _drawn = null;
+        _root = null;
+        _lastFrame = null;
+    }
+
+    /// <summary>
+    /// Lets the runtime be heard: a closing SteamVR or WiVRn detaches the overlay, and the texture
+    /// and the graphics device go back with it rather than being held until the moderator quits.
+    /// </summary>
+    public void Poll()
+    {
+        _runtime.Poll();
+
+        if (_runtime.Status.State is not OverlayRuntimeState.Running && !KeepLastFrame)
+            LetGo();
+    }
 
     /// <summary>
     /// Replaces what the overlay shows. Redraws only if the new state would look different, so a
@@ -313,7 +426,28 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// Whether a copy of each drawn frame is kept for <see cref="LastFrame"/>. Off unless a
     /// window is showing the frame, because the copy is four megabytes a draw.
     /// </summary>
-    public bool KeepLastFrame { get; set; }
+    /// <remarks>
+    /// Switching it on also starts the drawing, headset or no headset: the Debug page's overlay
+    /// window shows the very bytes the panel would hand a compositor, and there are no such bytes
+    /// while there is no renderer. That is the one thing that draws without a runtime attached,
+    /// and it is only ever on in debug mode.
+    /// </remarks>
+    public bool KeepLastFrame
+    {
+        get => _keepLastFrame;
+        set
+        {
+            _keepLastFrame = value;
+
+            if (!value)
+                return;
+
+            Open();
+            Draw();
+        }
+    }
+
+    private bool _keepLastFrame;
 
     /// <summary>
     /// The last frame drawn, premultiplied BGRA and tightly packed, while
@@ -321,12 +455,17 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// </summary>
     public ReadOnlyMemory<byte> LastFrame => _lastFrame ?? ReadOnlyMemory<byte>.Empty;
 
-    public int Width => _surface.Width;
+    public int Width { get; }
 
-    public int Height => _surface.Height;
+    public int Height { get; }
 
     private bool Draw()
     {
+        // No renderer and no texture: no headset has attached yet, so there is nowhere to put a
+        // frame. The screen is kept, and drawn the moment one does.
+        if (_compositor is null)
+            return false;
+
         var next = (_pinned ?? _live)?.WithCursor(_cursor);
 
         // Worn on a wrist, the panel is a sixth of the width it is in front of the head, and the
@@ -346,7 +485,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
         // Kept laid out, so a tap can be matched against what is actually on the panel.
         _root = root;
-        _runtime.Submit(_surface);
+        _runtime.Submit(_compositor.Surface);
         return true;
     }
 
@@ -382,6 +521,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     public void Dispose()
     {
         _runtime.Dispose();
-        _compositor.Dispose();
+        _compositor?.Dispose();
+        _compositor = null;
     }
 }

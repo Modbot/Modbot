@@ -207,4 +207,61 @@ public class AvaloniaToSharedTextureTests
 
         Assert.Throws<ArgumentException>(() => surface.Upload(new byte[16]));
     }
+
+    [Fact]
+    public void BothPanelsTexturesRideOneGraphicsDevice()
+    {
+        // Modbot draws two panels in the headset and used to make a graphics device for each. A
+        // device is not free -- the driver keeps its own state, allocations and threads behind
+        // each one -- and both panels only copy a frame in and flush, on the same thread, a few
+        // times a minute. So they share one, counted in and out.
+        //
+        // This test class is the only one that makes real textures, and its own tests run one
+        // after another, so the count is this test's alone.
+        Assert.SkipUnless(HasHardware(), "No Direct3D 11 hardware on this machine.");
+
+        Assert.Equal(0, SharedD3D11Device.Users);
+
+        var panel = D3D11OverlaySurface.Create(Size, Size);
+        Assert.Equal(1, SharedD3D11Device.Users);
+
+        var popUps = D3D11OverlaySurface.Create(Size / 4, Size / 4);
+        Assert.Equal(2, SharedD3D11Device.Users);
+
+        // One panel switched off leaves the other drawing, so the device stays.
+        panel.Dispose();
+        Assert.Equal(1, SharedD3D11Device.Users);
+
+        // Disposing twice must not count the device down twice, or the panel still drawing would
+        // lose the device out from under it.
+        panel.Dispose();
+        Assert.Equal(1, SharedD3D11Device.Users);
+
+        // The last one out lets it go, which is what gives the memory back when a moderator takes
+        // the headset off rather than at the end of the session.
+        popUps.Dispose();
+        Assert.Equal(0, SharedD3D11Device.Users);
+    }
+
+    [Fact]
+    public void ATextureStillWorksAfterAnotherPanelLetGoOfTheSharedDevice()
+    {
+        // The counting rule that matters in the headset: the notification panel going away must
+        // not take the main panel's texture with it.
+        Assert.SkipUnless(HasHardware(), "No Direct3D 11 hardware on this machine.");
+
+        var rendered = AvaloniaTestHost.Run(() =>
+        {
+            using var renderer = new AvaloniaFrameRenderer(Size, Size);
+            return renderer.Render(Sample()).ToArray();
+        });
+
+        using var panel = D3D11OverlaySurface.Create(Size, Size);
+
+        using (var popUps = D3D11OverlaySurface.Create(Size / 4, Size / 4))
+            popUps.Upload(new byte[(Size / 4) * (Size / 4) * 4]);
+
+        panel.Upload(rendered);
+        Assert.NotEqual(0, panel.SharedHandle);
+    }
 }
