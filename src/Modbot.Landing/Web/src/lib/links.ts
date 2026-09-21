@@ -22,6 +22,14 @@ export const FOUNDER = 'https://bin.moe'
 export const DOCS = 'https://docs.modbot.co'
 export const SELF_HOSTING_GUIDE = `${DOCS}/self-hosting/`
 
+/**
+ * The install script this site serves, and the page about it. The address in the command on the
+ * self-hosting page is the link, so reading it before running it is one click and needs no
+ * sentence telling people they can.
+ */
+export const INSTALL_SCRIPT = `${SITE}/get.sh`
+export const INSTALL_GUIDE = `${DOCS}/self-hosting/install-script`
+
 /** Railway's one-click deploy for Modbot, behind their own button. */
 export const DEPLOY_ON_RAILWAY = 'https://railway.com/deploy/modbot'
 

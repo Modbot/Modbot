@@ -1,5 +1,5 @@
 import { Page } from '@/components/Site'
-import { DEPLOY_ON_RAILWAY, SELF_HOSTING_GUIDE } from '@/lib/links'
+import { DEPLOY_ON_RAILWAY, INSTALL_SCRIPT, SELF_HOSTING_GUIDE } from '@/lib/links'
 
 /**
  * The page a head moderator reads before deciding to run Modbot: where the records live, what the
@@ -56,9 +56,29 @@ function Server() {
 
         <div className="flex min-w-0 flex-col gap-4 lg:col-span-6">
           {/*
-           * This block is a picture of a terminal, so it keeps its own dark colours in both themes
-           * and does not use the site's tokens.
+           * These blocks are pictures of a terminal, so they keep their own dark colours in both
+           * themes and do not use the site's tokens.
+           *
+           * The address in the command is the link to the script itself. Somebody piping a script
+           * to a shell should be able to read it first, and making the address they are about to
+           * run the thing they click says so without a sentence saying so.
            */}
+          <div className="window-shadow overflow-hidden rounded-xl border border-[#2a2738] bg-[#0f0e15] text-[#e6e6eb]">
+            <div className="border-b border-[#2a2738] px-4 py-2.5 text-sm text-[#a5a3b8]">One command</div>
+            <pre className="overflow-x-auto px-3 py-4 font-mono text-[0.625rem] leading-7 sm:px-4 sm:text-[0.875rem]">
+              <code>
+                <span className="text-[#a5a3b8]">$</span> curl -fsSL{' '}
+                <a
+                  href={INSTALL_SCRIPT}
+                  className="text-[#b6acff] underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  https://modbot.co/get.sh
+                </a>{' '}
+                | sh
+              </code>
+            </pre>
+          </div>
+
           <div className="window-shadow overflow-hidden rounded-xl border border-[#2a2738] bg-[#0f0e15] text-[#e6e6eb]">
             <div className="border-b border-[#2a2738] px-4 py-2.5 text-sm text-[#a5a3b8]">The one setting</div>
             <pre className="overflow-x-auto px-3 py-4 font-mono text-[0.625rem] leading-7 sm:px-4 sm:text-[0.875rem]">
