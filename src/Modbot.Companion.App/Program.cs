@@ -1788,6 +1788,12 @@ internal sealed class CompanionHost : IOverlayListener
     /// built: no texture, no controllers, no SteamVR. That is the moderator asking for the window
     /// and nothing else, which is a thing a great many of them will want, because most of them
     /// play on a monitor.</para>
+    /// <para>And with the headset panel on but no headset running -- which is most of the time on
+    /// most of these machines -- the panel is built and its texture is not. That waits for
+    /// <see cref="AttachOverlay"/> to find a runtime, because a graphics device and a
+    /// four-megabyte texture for a picture nobody can see measured about forty megabytes and forty
+    /// threads. The switch still means what it says: the moment a moderator starts SteamVR the
+    /// ten-second look picks it up and the panel appears.</para>
     /// </remarks>
     private void StartOverlay()
     {
@@ -1801,6 +1807,7 @@ internal sealed class CompanionHost : IOverlayListener
             catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
             {
                 Log.Information(ex, "The headset panel could not be set up on this machine; presence reporting is unaffected");
+                _overlayHost?.Dispose();
                 _overlayHost = null;
             }
         }
@@ -2276,6 +2283,10 @@ internal sealed class CompanionHost : IOverlayListener
     /// Attaches to SteamVR if it is running, and says so once. Never launches it: a program that
     /// starts with the computer must not start SteamVR too.
     /// </summary>
+    /// <remarks>
+    /// This is also where the panel's texture is made, because this is where it is first known
+    /// that a headset is running to show it. A machine that never starts one never makes it.
+    /// </remarks>
     private void AttachOverlay()
     {
         if (_overlayHost is null)
@@ -2283,7 +2294,24 @@ internal sealed class CompanionHost : IOverlayListener
 
         _overlayAttachTriedAt = _clock.UtcNow;
         var before = _overlayHost.Status;
-        var status = _overlayHost.Start();
+
+        OverlayRuntimeStatus status;
+        try
+        {
+            status = _overlayHost.Start();
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        {
+            // A headset is running but its texture could not be made. Reporting presence is the
+            // job that cannot be filled in later; the panel is the one that can wait for a
+            // restart, so it is put away rather than retried every ten seconds for the session.
+            Log.Information(ex, "The headset panel could not be set up on this machine; presence reporting is unaffected");
+            _preview?.Close();
+            _overlayHost.Dispose();
+            _overlayHost = null;
+            _overlayAttachedAt = null;
+            return;
+        }
 
         if (status.State == before.State && status.Detail == before.Detail)
             return;
@@ -2317,7 +2345,22 @@ internal sealed class CompanionHost : IOverlayListener
 
         _notifyAttachTriedAt = _clock.UtcNow;
         var before = _notifyHost.Status;
-        var status = _notifyHost.Start();
+
+        OverlayRuntimeStatus status;
+        try
+        {
+            status = _notifyHost.Start();
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
+        {
+            // Same rule as the main panel: a texture that cannot be made puts the pop-up panel
+            // away rather than being tried again every ten seconds for the rest of the session.
+            Log.Information(ex, "The notification overlay could not be set up on this machine; presence reporting is unaffected");
+            _notifyHost.Dispose();
+            _notifyHost = null;
+            _notifyAttachedAt = null;
+            return;
+        }
 
         if (status.State == before.State && status.Detail == before.Detail)
             return;

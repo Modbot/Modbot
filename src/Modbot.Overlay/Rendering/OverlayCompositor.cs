@@ -47,6 +47,9 @@ public sealed class OverlayCompositor : IDisposable
         _surface = surface;
     }
 
+    /// <summary>The texture the frames land in, for the runtime to be handed.</summary>
+    public IOverlaySurface Surface => _surface;
+
     /// <summary>How many frames have actually been drawn. Zero is the healthy idle case.</summary>
     public int FramesDrawn { get; private set; }
 
