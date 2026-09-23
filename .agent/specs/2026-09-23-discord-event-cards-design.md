@@ -75,7 +75,6 @@ fields carry what a moderator would otherwise open Modbot to find.**
 | Group post | The post's own title | The text as the description, and who may see it |
 | Instance opened, closed | Instance opened | Who it was open to |
 | Calendar event | The event's own title | What kind, and who may come |
-| Join request rejected, blocked | Join request turned away | — |
 | Profile changed | Name changed | Before → after, from `changed` |
 | Avatar changed | Changed avatar | The avatar, as a picture |
 | Anything else | Today's shape, unchanged | — |
@@ -131,6 +130,11 @@ The safety rules are the ones that were already right, and none of them relax:
 
 Three rows of §4 assumed something the recorded facts do not carry. Built as the data allows, not as
 the table promised:
+
+**A rejected join request and a blocked one keep their own words.** §4 gave both the one title
+"Join request turned away". That was wrong twice over: Modbot keeps the two apart everywhere else,
+and being blocked is not being turned down — somebody blocked cannot ask again. Their existing
+labels are already plain words, so both fall through to the ordinary card and keep them.
 
 **There is no reason to show, and no field for one.** VRChat's ban, unban, group kick, instance kick
 and instance warn entries carry an empty `auditData` or nothing but `location` (audit-log research

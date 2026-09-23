@@ -410,14 +410,18 @@ public class EventCardTests
 
     // ── Join requests ────────────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Being blocked is not being turned down: somebody blocked cannot ask again. The two keep
+    /// their own words here because Modbot keeps them apart everywhere else.
+    /// </summary>
     [Theory]
-    [InlineData(FactType.JoinRequestRejected)]
-    [InlineData(FactType.JoinRequestBlocked)]
-    public void AJoinRequestTurnedDown_SaysSoAndAddsNothing(string type)
+    [InlineData(FactType.JoinRequestRejected, "Join request rejected")]
+    [InlineData(FactType.JoinRequestBlocked, "Join request blocked")]
+    public void AJoinRequestTurnedDown_KeepsItsOwnWordsAndAddsNothing(string type, string title)
     {
         var card = EventCard.For(Event(type), Style, CardPicture.None);
 
-        Assert.Equal("Join request turned away", card.Title);
+        Assert.Equal(title, card.Title);
         Assert.Equal(["By", "When"], card.Fields.Select(f => f.Name));
         Assert.Equal(CardColour.Grey, card.Color);
     }

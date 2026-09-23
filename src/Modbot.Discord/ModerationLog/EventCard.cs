@@ -85,9 +85,6 @@ public static class EventCard
 
             FactType.CalendarEventCreated => CalendarEntry(e, style),
 
-            FactType.JoinRequestRejected or FactType.JoinRequestBlocked
-                => Titled(e, style, picture, "Join request turned away"),
-
             FactType.UserProfileChanged => ProfileChanged(e, style, picture),
 
             _ => Plain(e, style, picture),

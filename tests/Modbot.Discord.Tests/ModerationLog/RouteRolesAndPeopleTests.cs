@@ -70,7 +70,7 @@ public class RouteRolesAndPeopleTests
         var pass = await RunAsync(services, gateway, ct);
 
         Assert.Equal(1, pass.Posted);
-        Assert.Equal("Banned", Assert.Single(Assert.Single(gateway.Posts).Embeds).Title);
+        Assert.Equal("Banned from the group", Assert.Single(Assert.Single(gateway.Posts).Embeds).Title);
         Assert.True((await services.ChannelPlaceAsync(Channel, ct))!.PostedThrough >= ban);
     }
 

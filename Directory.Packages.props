@@ -108,8 +108,15 @@
          avatar pictures on UserResponse, for one), so the compiler no longer holds the line that
          the 2.21.0 models held. Modbot reads from each call only the fields that call is
          known to carry (research: vrchat-public-profile-findings.md §3), and that list, not the
-         model, is what keeps a stale property from wiping a stored column. -->
-    <PackageVersion Include="VRChat.API" Version="2.21.1-nightly.39" />
+         model, is what keeps a stale property from wiping a stored column.
+
+         Moved from nightly.39 to nightly.41 on 2026-09-23. The two builds are the same code:
+         their public members are identical, and the whole difference upstream is the version
+         string the SDK reports about itself. It is here to keep the pin on the newest build
+         rather than because anything was fixed. In particular requiresTwoFactorAuth is still a
+         closed three-value enum, so a fourth two-factor method from VRChat would fail to
+         deserialise the whole sign-in response; that one wants fixing upstream. -->
+    <PackageVersion Include="VRChat.API" Version="2.21.1-nightly.41" />
     <!-- The official MCP SDK (MCP server design, 2026-09-17): the Streamable HTTP host for
          Modbot.Api, and the client half for the tests that talk to it. Stable since 2.0.0. -->
     <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />

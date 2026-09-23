@@ -99,7 +99,7 @@ public class ModerationLogPosterTests
 
         var (channel, embeds) = Assert.Single(gateway.Posts);
         Assert.Equal(Channel, channel);
-        Assert.Equal(["Banned", "Warned in an instance"], embeds.Select(e => e.Title));
+        Assert.Equal(["Banned from the group", "Warned in an instance"], embeds.Select(e => e.Title));
         // The subject heads the card as the author line now, not a "Who" field.
         Assert.Equal("jessie", embeds[0].AuthorName);
         Assert.Contains(
@@ -147,7 +147,7 @@ public class ModerationLogPosterTests
 
         Assert.Equal(ModerationLogPassOutcome.Posted, pass.Outcome);
         var (_, embeds) = Assert.Single(gateway.Posts);
-        Assert.Equal("Banned", Assert.Single(embeds).Title);
+        Assert.Equal("Banned from the group", Assert.Single(embeds).Title);
         Assert.Equal(join, (await services.ChannelPlaceAsync(Channel, ct))!.PostedThrough);
     }
 
@@ -222,7 +222,7 @@ public class ModerationLogPosterTests
         Assert.Equal(ModerationLogPassOutcome.Posted, pass.Outcome);
         var (_, embeds) = Assert.Single(gateway.Posts);
         var embed = Assert.Single(embeds);
-        Assert.Equal("Banned", embed.Title);
+        Assert.Equal("Banned from the group", embed.Title);
         Assert.DoesNotContain(gateway.Posts.SelectMany(p => p.Embeds), e =>
             (e.Description ?? string.Empty).Contains("must-never-be-posted", StringComparison.Ordinal)
             || e.Fields.Any(f => f.Value.Contains(accountId, StringComparison.Ordinal)));
@@ -381,7 +381,7 @@ public class ModerationLogPosterTests
         Assert.Equal(2, pass.Posted);
         var (channel, embeds) = Assert.Single(gateway.Posts);
         Assert.Equal(Channel, channel);
-        Assert.Equal(["Banned", "Unbanned"], embeds.Select(e => e.Title));
+        Assert.Equal(["Banned from the group", "Unbanned from the group"], embeds.Select(e => e.Title));
     }
 
     [Fact]
@@ -401,9 +401,9 @@ public class ModerationLogPosterTests
         await RunAsync(services, gateway, ct);
 
         Assert.Equal(2, gateway.Posts.Count);
-        Assert.Equal(["Banned"], gateway.Posts.Single(p => p.ChannelId == Channel).Embeds.Select(e => e.Title));
+        Assert.Equal(["Banned from the group"], gateway.Posts.Single(p => p.ChannelId == Channel).Embeds.Select(e => e.Title));
         Assert.Equal(
-            ["Banned", "Joined the group"],
+            ["Banned from the group", "Joined the group"],
             gateway.Posts.Single(p => p.ChannelId == OtherChannel).Embeds.Select(e => e.Title));
     }
 
@@ -497,7 +497,7 @@ public class ModerationLogPosterTests
 
         Assert.Equal(2, pass.Posted);
         var (_, embeds) = Assert.Single(gateway.Posts);
-        Assert.Equal(["Banned", "Case file written"], embeds.Select(e => e.Title));
+        Assert.Equal(["Banned from the group", "Case file written"], embeds.Select(e => e.Title));
         // No public address configured, so the actor's name shows with no link.
         Assert.Equal("sam", embeds[1].Fields.Single(f => f.Name == "By").Value);
     }
