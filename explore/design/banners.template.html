@@ -138,18 +138,27 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
    at 960 x 540 and shot at 2x, which is 1920 x 1080. Use this one if the
    uploader still cuts the 2048 x 472; use that one if VRChat wants the
    banner's own shape. */
-.wide{width:960px;height:540px;flex-direction:column;justify-content:center;align-items:center;gap:26px;padding:0 80px}
+/* Beside, not above. VRChat shows a band across this rather than the whole of
+   it, and a head stacked over the words cannot survive that: the band caught
+   the head halfway down and the words were below the cut. Side by side, the
+   lockup is short enough that a band through it catches all of it at once.
+
+   It sits a little above the middle, because the nameplate is along the
+   bottom, and everything outside it is plain ground for that nameplate to
+   cover. One line, never two -- a line that wraps is a line that is about to
+   be cut in half. */
+.wide{width:960px;height:540px;flex-direction:row;justify-content:center;align-items:center;gap:30px;padding:0 60px 76px}
 .wide::after{content:none}
-.wide .icon{width:210px;height:210px;margin:0;filter:none}
-.wide .words{display:flex;flex-direction:column;align-items:center;gap:18px;min-width:0}
+.wide .icon{width:142px;height:142px;margin:0;filter:none}
+.wide .words{display:flex;flex-direction:column;align-items:flex-start;gap:14px;min-width:0}
 .wide .says{
   font-family:"Bricolage Grotesque";font-weight:700;
-  font-size:38px;line-height:1.15;letter-spacing:-0.02em;color:#5b4bd6;text-align:center;
+  font-size:28px;line-height:1.1;letter-spacing:-0.02em;color:#5b4bd6;white-space:nowrap;
 }
-.wide .chips{display:flex;gap:12px}
+.wide .chips{display:flex;gap:11px}
 .wide .chip{
-  font-size:19px;font-weight:500;line-height:1;letter-spacing:0.01em;
-  padding:11px 19px;border-radius:999px;white-space:nowrap;
+  font-size:15px;font-weight:500;line-height:1;letter-spacing:0.01em;
+  padding:9px 15px;border-radius:999px;white-space:nowrap;
   background:rgb(91 75 214 / 0.10);color:#4c3fb8;
 }
 .banner.wide.dark .says{color:#a78bfa}

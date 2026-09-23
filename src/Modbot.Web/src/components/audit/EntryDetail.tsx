@@ -127,9 +127,15 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
         <SameDecision entry={entry} />
       </div>
 
+      {/*
+        One record, not two. The payload is a field of the entry, so showing both printed the
+        payload twice and left a moderator comparing them to find out whether they differed.
+
+        Shut to begin with: everything above this is the same record said in words, and that is
+        what the page is for. The JSON is here to be checked when the words are not enough.
+      */}
       <div className="flex flex-col gap-3">
-        <JsonView title="Payload" value={entry.data} />
-        <JsonView title="Entry" value={entry} />
+        <JsonView title="The whole record" value={entry} closed />
       </div>
     </div>
   )

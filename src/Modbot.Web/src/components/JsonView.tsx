@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Check, ChevronRight, Copy } from 'lucide-react'
 import { jsonPieces, type JsonPieceKind } from '@/lib/jsonPieces'
 import { cn } from '@/lib/utils'
 
@@ -37,19 +37,27 @@ const COLOUR: Record<JsonPieceKind, string> = {
  *
  * Pass `value` for a record, or `text` for a body that arrived as JSON already written out — a
  * body that will not parse is shown as it came, uncoloured, rather than guessed at.
+ *
+ * `closed` starts it shut behind its own title, for a page where the record is there to be checked
+ * rather than read: hundreds of lines of JSON under a sentence a moderator can already understand
+ * pushes everything else off the screen. Without it the record is simply open, which is right
+ * where the record is the answer.
  */
 export function JsonView({
   value,
   text,
   title,
   className,
+  closed = false,
 }: {
   value?: unknown
   text?: string
   title?: string
   className?: string
+  closed?: boolean
 }) {
   const [copied, setCopied] = useState(false)
+  const [open, setOpen] = useState(!closed)
 
   const { body, isJson } = useMemo(() => read(value, text), [value, text])
   const pieces = useMemo(
@@ -63,7 +71,19 @@ export function JsonView({
         className="flex items-center justify-between gap-2 border-b px-3 py-1 text-muted-foreground"
         style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
       >
-        <span className="truncate font-medium">{title ?? 'JSON'}</span>
+        {closed ? (
+          <button
+            type="button"
+            onClick={() => setOpen((shown) => !shown)}
+            aria-expanded={open}
+            className="flex min-w-0 items-center gap-1 rounded-md text-left hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
+            <span className="truncate font-medium">{title ?? 'JSON'}</span>
+          </button>
+        ) : (
+          <span className="truncate font-medium">{title ?? 'JSON'}</span>
+        )}
         <button
           type="button"
           aria-label={copied ? 'Copied' : 'Copy JSON'}
@@ -78,7 +98,11 @@ export function JsonView({
           {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
         </button>
       </div>
-      <pre className="max-h-[32rem] overflow-auto px-3 py-2 font-mono whitespace-pre-wrap break-all" style={{ fontSize: 'var(--text-small)' }}>
+      <pre
+        hidden={!open}
+        className="max-h-[32rem] overflow-auto px-3 py-2 font-mono whitespace-pre-wrap break-all"
+        style={{ fontSize: 'var(--text-small)' }}
+      >
         {pieces
           ? pieces.map((piece, index) => (
               <span key={index} className={COLOUR[piece.kind]}>
