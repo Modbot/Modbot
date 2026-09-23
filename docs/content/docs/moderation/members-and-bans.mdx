@@ -121,10 +121,7 @@ In a big group, some rows show only an id for a while after Modbot is first set 
 
 The **Bans** page needs **See the audit log**.
 
-At the top, anybody with **See profiles** sees a card counting the bans in the last 30 days that
-have no case file. See [Bans and case files](/moderation/case-files#bans-with-no-case-file).
-
-Below it are three tabs, because they answer three different questions.
+There are two tabs, because they answer two different questions.
 
 ### Ban list
 
@@ -144,28 +141,6 @@ The columns are **Person**, **Banned on**, **Modbot first saw it**, **Lifted** (
 looking at lifted bans), and **Case file** (with **See profiles**). 50 bans a page, with the page
 numbers at the bottom and the page you are on in the address. With **Unban**, each standing ban also
 has an **Unban** button.
-
-### What the audit log recorded
-
-The bans Modbot saw happen in VRChat's group audit log, with **who** issued each one. This is the
-only list that knows who did the banning.
-
-It only reaches back as far as VRChat's audit log still went when Modbot first synced, so the top
-of the tab always says what it covers:
-
-| Field | Meaning |
-|---|---|
-| **Records cover** | The dates of the oldest and newest ban or unban Modbot recorded. |
-| **First synced** | When Modbot first read the audit log. |
-| **Ban events recorded** and **Unban events recorded** | How many of each. |
-| **Catch-up** | **finished**, or **still running** while Modbot is still reading older audit log entries. |
-
-**Show people who were later unbanned** is ticked by default. The columns are **Person**,
-**Status** (**Banned** or **Unbanned**), **When**, **By**, **Recorded from** and **Case file**. Up
-to 200 people are listed.
-
-"ban itself not recorded" under a date means the person was banned before Modbot's records start
-and unbanned after. It is proof of a ban this tab cannot show.
 
 ### People acted on more than once
 
@@ -222,8 +197,9 @@ Modbot will not act on the VRChat account it signs in as.
 - The **Ban list** knows who is banned, but not who banned them.
 - A ban **made from Modbot** knows who decided it: VRChat records every action Modbot takes as
   Modbot's own account, so the moderator's name lives in Modbot's audit log and nowhere else.
-- **What the audit log recorded** knows who banned them, but only inside its window.
-- Neither knows **why**. VRChat's audit log has nowhere to put a reason, so your group writes one
+- The [audit log](/moderation/audit-log) knows who banned them, for every ban Modbot saw happen.
+  It reaches back only as far as VRChat's own audit log went when Modbot first synced.
+- None of them knows **why**. VRChat's audit log has nowhere to put a reason, so your group writes one
   itself in a [case file](/moderation/case-files).
 
 ## How joins, leaves and bans are recorded

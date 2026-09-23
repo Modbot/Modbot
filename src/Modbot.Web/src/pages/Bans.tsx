@@ -8,8 +8,7 @@ import { CaseFileCell } from '@/components/CaseFileCell'
 import { Pager } from '@/components/Pager'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
-import { UnwrittenCaseFiles } from '@/components/UnwrittenCaseFiles'
-import { FactTime, SourceBadge, SubjectLink } from '@/components/facts'
+import { SubjectLink } from '@/components/facts'
 import { RepeatOffendersTab } from '@/pages/RepeatOffenders'
 import { useCaseFiles } from '@/lib/caseFiles'
 import { useDemo } from '@/lib/demo'
@@ -19,8 +18,6 @@ import { can, canAny } from '@/lib/permissions'
 import {
   api,
   ApiError,
-  type BanCoverage,
-  type BanList,
   type CurrentUser,
   type GroupBanList,
   type GroupBanQuery,
@@ -29,14 +26,10 @@ import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
- * Two lists, side by side, because they answer different questions.
+ * The group's ban list: everyone VRChat says is banned right now, whenever the ban was issued,
+ * read by the ban sweep. It is the one to check before concluding somebody is not banned.
  *
- * The **ban list** is the group's: everyone VRChat says is banned right now, whenever the ban was
- * issued, read by the ban sweep. It is the one to check before concluding somebody is not banned.
- *
- * **What the audit log recorded** is Modbot's memory of the bans it watched happen: who issued
- * them and when. It reaches back only as far as the audit log did when Modbot first synced, and
- * it says so permanently -- but it is the only one of the two that knows who did the banning.
+ * Beside it, the people the group has acted on more than once.
  */
 export function Bans({
   me,
@@ -47,27 +40,12 @@ export function Bans({
   onOpenSubject: (id: string) => void
   onOpenCase: (caseId: string) => void
 }) {
-  // Three tabs, one question: who has the group had trouble with. The ban list as VRChat holds
-  // it, what the audit log recorded about bans (with who and when), and the people acted on
-  // more than once (spec 5.8.4).
-  const [tab, setTab] = useState<'list' | 'recorded' | 'repeat'>('list')
-
-  // Bumped whenever a case file is written, so both lists redraw their badges without a reload.
-  const [written, setWritten] = useState(0)
+  // Two tabs, one question: who has the group had trouble with. The ban list as VRChat holds it,
+  // and the people acted on more than once (spec 5.8.4).
+  const [tab, setTab] = useState<'list' | 'repeat'>('list')
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Above the tabs, because it is the one thing on this page that is about what is missing
-          rather than about what happened. Only shown to people who may read case files. */}
-      {can(me, 'ViewProfile') && (
-        <UnwrittenCaseFiles
-          key={written}
-          me={me}
-          onOpenSubject={onOpenSubject}
-          onOpenCase={onOpenCase}
-        />
-      )}
-
       <div
         role="tablist"
         className="flex w-fit gap-1 rounded-md border bg-secondary p-0.5"
@@ -76,7 +54,6 @@ export function Bans({
         {(
           [
             ['list', 'Ban list'],
-            ['recorded', 'What the audit log recorded'],
             ['repeat', 'People acted on more than once'],
           ] as const
         ).map(([id, label]) => (
@@ -96,32 +73,16 @@ export function Bans({
         ))}
       </div>
 
-      {tab === 'list' && (
-        <GroupBans
-          me={me}
-          onOpenSubject={onOpenSubject}
-          onOpenCase={onOpenCase}
-          onWritten={() => setWritten((n) => n + 1)}
-        />
-      )}
-      {tab === 'recorded' && (
-        <RecordedBans
-          me={me}
-          onOpenSubject={onOpenSubject}
-          onOpenCase={onOpenCase}
-          onWritten={() => setWritten((n) => n + 1)}
-        />
-      )}
+      {tab === 'list' && <GroupBans me={me} onOpenSubject={onOpenSubject} onOpenCase={onOpenCase} />}
       {tab === 'repeat' && <RepeatOffendersTab onOpenSubject={onOpenSubject} />}
     </div>
   )
 }
 
-/** What both ban tables need to draw their case file column. */
+/** What the ban table needs to draw its case file column. */
 type CaseColumn = {
   me: CurrentUser
   onOpenCase: (caseId: string) => void
-  onWritten: () => void
 }
 
 const PAGE_SIZE = 50
@@ -131,7 +92,6 @@ function GroupBans({
   me,
   onOpenSubject,
   onOpenCase,
-  onWritten,
 }: CaseColumn & { onOpenSubject: (id: string) => void }) {
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
@@ -330,7 +290,6 @@ function GroupBans({
                             lookup={cases.get(ban.userId)}
                             canWrite={can(me, 'Ban')}
                             onOpenCase={onOpenCase}
-                            onWritten={onWritten}
                           />
                         </td>
                       )}
@@ -356,216 +315,6 @@ function GroupBans({
         </CardContent>
       </Card>
     </>
-  )
-}
-
-/**
- * Bans Modbot recorded from the audit log -- who banned and when Modbot saw it.
- *
- * This list is derived from VRChat's group audit log, so it contains the bans Modbot watched
- * happen and no others. A group with three years of bans and a week-old deployment sees a week.
- * Nothing in a table of real rows signals that, so the window is stated permanently, at the top,
- * before the data.
- */
-function RecordedBans({
-  me,
-  onOpenSubject,
-  onOpenCase,
-  onWritten,
-}: CaseColumn & { onOpenSubject: (id: string) => void }) {
-  const [list, setList] = useState<BanList | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [includeUnbanned, setIncludeUnbanned] = useState(true)
-  const live = useLiveVersion(changesBans)
-
-  useEffect(() => {
-    let cancelled = false
-
-    api
-      .bans({ includeUnbanned, limit: 200 })
-      .then((next) => {
-        if (!cancelled) {
-          setList(next)
-          setError(null)
-        }
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return
-        setError(
-          e instanceof ApiError && e.status === 403
-            ? 'You do not have permission to read moderation history.'
-            : 'Could not load the recorded bans.',
-        )
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [includeUnbanned, live])
-
-  const cases = useCaseFiles(list?.bans.map((b) => b.subjectId) ?? [], can(me, 'ViewProfile'))
-
-  if (error) return <Empty>{error}</Empty>
-  if (!list) return <Empty>Loading…</Empty>
-
-  const showCases = can(me, 'ViewProfile')
-
-  return (
-    <>
-      <CoverageNotice coverage={list.coverage} />
-
-      <Card>
-        <CardContent className="p-0">
-          <div
-            className="flex flex-wrap items-center gap-3 border-b px-3 py-2"
-            style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-          >
-            <span className="font-medium">
-              {list.total} {list.total === 1 ? 'person' : 'people'} in the recorded window
-            </span>
-            <span className="flex-1" />
-            <label className="flex items-center gap-2 text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={includeUnbanned}
-                onChange={(e) => setIncludeUnbanned(e.target.checked)}
-              />
-              Show people who were later unbanned
-            </label>
-          </div>
-
-          {list.bans.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">
-              <div className="font-medium text-foreground">No bans recorded</div>
-            </div>
-          ) : (
-            <div data-pin-first className="relative overflow-x-auto">
-              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="text-muted-foreground">
-                  <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                    <th className="px-3 py-2 text-left font-normal">Person</th>
-                    <th className="px-3 py-2 text-left font-normal">Status</th>
-                    <th className="px-3 py-2 text-left font-normal">When</th>
-                    <th className="px-3 py-2 text-left font-normal">By</th>
-                    <th className="px-3 py-2 text-left font-normal">Recorded from</th>
-                    {showCases && <th className="px-3 py-2 text-left font-normal">Case file</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.bans.map((ban) => (
-                    <tr
-                      key={`${ban.subjectPlatform}:${ban.subjectId}`}
-                      className="border-b last:border-0 hover:bg-muted/40"
-                      style={{ borderBottomWidth: 'var(--hairline)' }}
-                    >
-                      <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                        <SubjectLink id={ban.subjectId} onOpen={onOpenSubject} />
-                      </td>
-                      <td className="px-3">
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded-full border px-2 py-0.5',
-                            ban.status === 'Banned'
-                              ? 'border-transparent bg-destructive/15 text-destructive'
-                              : 'text-muted-foreground',
-                          )}
-                          style={{ borderWidth: 'var(--hairline)' }}
-                        >
-                          {ban.status}
-                        </span>
-                      </td>
-                      <td className="px-3">
-                        {ban.status === 'Banned' && ban.bannedAt ? (
-                          <FactTime
-                            entry={{ occurredAt: ban.bannedAt, occurredBefore: ban.bannedBefore }}
-                          />
-                        ) : ban.unbannedAt ? (
-                          <span className="text-muted-foreground">
-                            unbanned {formatDay(ban.unbannedAt)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                        {ban.bannedAt && (
-                          <div className="text-muted-foreground/70">{formatDay(ban.bannedAt)}</div>
-                        )}
-                        {/* Banned before Modbot's window, unbanned inside it. Worth saying
-                            outright: it is direct evidence of bans this list cannot show. */}
-                        {!ban.bannedAt && (
-                          <div className="text-muted-foreground/70">ban itself not recorded</div>
-                        )}
-                      </td>
-                      <td className="px-3 text-muted-foreground">
-                        {ban.actorId ? (
-                          <SubjectLink id={ban.actorId} name={ban.actorName} onOpen={onOpenSubject} />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="px-3">
-                        {ban.source ? <SourceBadge source={ban.source} /> : '—'}
-                      </td>
-                      {showCases && (
-                        <td className="px-3">
-                          <CaseFileCell
-                            userId={ban.subjectId}
-                            displayName={null}
-                            bannedAt={ban.bannedAt}
-                            lookup={cases.get(ban.subjectId)}
-                            canWrite={can(me, 'Ban')}
-                            onOpenCase={onOpenCase}
-                            onWritten={onWritten}
-                          />
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </>
-  )
-}
-
-/**
- * The window, stated permanently. Not a dismissible banner: the claim it makes -- that an
- * absence from this list is not evidence of anything -- has to be in front of whoever is
- * reading it, every time.
- */
-function CoverageNotice({ coverage }: { coverage: BanCoverage }) {
-  const window =
-    coverage.earliestRecord && coverage.latestRecord
-      ? `${formatDay(coverage.earliestRecord)} to ${formatDay(coverage.latestRecord)}`
-      : null
-
-  return (
-    <div
-      className="rounded-xl border bg-muted/40 px-4 py-3"
-      style={{ borderWidth: 'var(--hairline)' }}
-    >
-      <dl
-        className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground"
-        style={{ fontSize: 'var(--text-small)' }}
-      >
-        <Pair label="Records cover" value={window ?? 'nothing recorded yet'} />
-        {coverage.firstSyncedAt && <Pair label="First synced" value={formatDay(coverage.firstSyncedAt)} />}
-        <Pair label="Ban events recorded" value={coverage.bannedCount.toLocaleString()} />
-        <Pair label="Unban events recorded" value={coverage.unbannedCount.toLocaleString()} />
-        <Pair label="Catch-up" value={coverage.catchUpComplete ? 'finished' : 'still running'} />
-      </dl>
-    </div>
-  )
-}
-
-function Pair({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-1.5">
-      <dt>{label}:</dt>
-      <dd className="font-medium text-foreground">{value}</dd>
-    </div>
   )
 }
 

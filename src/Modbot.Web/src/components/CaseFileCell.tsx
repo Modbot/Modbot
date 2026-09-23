@@ -19,7 +19,6 @@ export function CaseFileCell({
   lookup,
   canWrite,
   onOpenCase,
-  onWritten,
 }: {
   userId: string
   displayName: string | null
@@ -29,7 +28,6 @@ export function CaseFileCell({
   lookup: CaseFileLookup | undefined
   canWrite: boolean
   onOpenCase: (caseId: string) => void
-  onWritten: () => void
 }) {
   const [writing, setWriting] = useState(false)
 
@@ -63,7 +61,6 @@ export function CaseFileCell({
             onCancel={() => setWriting(false)}
             onWritten={(caseId) => {
               setWriting(false)
-              onWritten()
               onOpenCase(caseId)
             }}
           />

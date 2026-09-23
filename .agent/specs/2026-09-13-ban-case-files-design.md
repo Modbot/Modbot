@@ -155,12 +155,19 @@ isolated because nothing has measured it.
 
 ## 5. Where it appears
 
-- **The Bans page.** Both lists — the group's ban list and what the audit log recorded — grow a
-  case file column: *Open the case file*, or *Write the case file* for whoever may ban. One lookup
-  answers a whole page of rows rather than one request per name.
-- **"Bans with no case file"**, a card above the tabs and `GET /api/cases/missing`. Bans in the
-  last 30 days, newest first, with the reason a ban counts as covered stated in §6. This is the
-  pipe the accountability signal reads.
+- **The Bans page.** The group's ban list grows a case file column: *Open the case file*, or
+  *Write the case file* for whoever may ban. One lookup answers a whole page of rows rather than
+  one request per name.
+- **"Bans with no case file"**, `GET /api/cases/missing`. Bans in the last 30 days, newest first,
+  with the reason a ban counts as covered stated in §6. This is the pipe the accountability signal
+  reads.
+
+> **Narrowed 2026-09-23.** Two things here were taken off the Bans page: the *What the audit log
+> recorded* tab, and the card above the tabs that listed bans with no case file. Both were asked
+> for and both were built; the page they were on turned out to open on a nag about work outstanding
+> rather than on the list somebody came to read. The endpoint stays, because it is the pipe an
+> accountability signal reads and nothing about it depended on the card. Who issued a ban is still
+> recorded and still readable on the audit log page — that was never only in the tab.
 - **The subject pane.** A person's case files beside their history, withdrawn ones labelled — a
   case file that was written and then withdrawn is a different thing from one nobody ever wrote.
 - **`/cases/:id`**, deep-linkable for the reason §10.2 gives for the pane: one that cannot be
