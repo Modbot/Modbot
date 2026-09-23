@@ -27,13 +27,14 @@ public enum VRChatReadKind
 /// </summary>
 /// <remarks>
 /// <para>
-/// Its own type rather than the SDK's <c>User</c>, for three reasons. The SDK has several user
-/// shapes -- <c>User</c>, <c>PublicProfile</c>, <c>LimitedUser</c>, <c>LimitedUserInstance</c>,
-/// <c>CurrentUser</c> -- and whoever records a sighting of one should be able to map whichever
-/// they have into one shape. The diff has to be over a chosen set of fields: <c>User</c> carries
-/// the person's current instance, their last login and their online state, all of which change
-/// constantly and none of which is a profile change. And the two reads carry different fields,
-/// so a snapshot has to be able to say <em>nothing</em> about a field rather than say null.
+/// Its own type rather than the SDK's, for three reasons. The SDK has several user shapes --
+/// <c>UserResponse</c>, <c>PublicProfile</c>, <c>LimitedUser</c>, <c>LimitedUserInstance</c>,
+/// <c>CurrentUser</c>, <c>CurrentUserLoginResponse</c> -- and whoever records a sighting of one
+/// should be able to map whichever they have into one shape. The diff has to be over a chosen set
+/// of fields: <c>UserResponse</c> carries the person's current instance, their last login and
+/// their online state, all of which change constantly and none of which is a profile change. And
+/// the two reads carry different fields, so a snapshot has to be able to say <em>nothing</em>
+/// about a field rather than say null.
 /// </para>
 /// <para>
 /// <strong>A snapshot only speaks for the fields its response carried</strong>
@@ -208,7 +209,7 @@ public sealed record VRChatUserSnapshot
     /// The response body verbatim. Preferred over the typed object for the age verification
     /// status, and what decides which fields this response speaks for.
     /// </param>
-    public static VRChatUserSnapshot From(User user, JsonObject? raw = null)
+    public static VRChatUserSnapshot From(UserResponse user, JsonObject? raw = null)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -219,17 +220,20 @@ public sealed record VRChatUserSnapshot
             Carried = CarriedBy(Fields.OnUser, raw),
             DisplayName = Blank(user.DisplayName),
             // The bio, the avatar pictures and the profile picture are not read from this object:
-            // they left it in API specification v1.21.0, and SDK 2.21.0 no longer has properties
-            // for them -- see Fields.OnUser.
+            // they left the user object in API specification v1.21.0 -- see Fields.OnUser. The
+            // SDK's UserResponse is a wide union that still has CurrentAvatarImageUrl,
+            // CurrentAvatarThumbnailImageUrl and CurrentAvatarTags on it, so the compiler no
+            // longer stops anyone reading them the way SDK 2.21.0's narrower User did. Reading
+            // them here would wipe, once a week, whatever picture the row still holds.
             StatusDescription = Blank(user.StatusDescription),
             Pronouns = Blank(user.Pronouns),
             IconUrl = Blank(user.IconUrl),
             BannerUrl = Blank(user.BannerUrl),
             DateJoined = user.DateJoined == default ? null : user.DateJoined,
             Tags = Sorted(user.Tags),
-            AgeVerificationStatus = ReadText(raw, Fields.AgeVerificationStatus) ?? StatusWord(user.AgeVerificationStatus),
+            AgeVerificationStatus = ReadText(raw, Fields.AgeVerificationStatus) ?? VRChatWords.Of(user.AgeVerificationStatus),
             AgeVerified = ReadBool(raw, Fields.AgeVerified) ?? user.AgeVerified,
-            Status = StatusWord(user.Status),
+            Status = VRChatWords.Of(user.Status),
             LastPlatform = Blank(user.LastPlatform),
         };
     }
@@ -261,7 +265,7 @@ public sealed record VRChatUserSnapshot
             RepresentedGroup = VRChatRepresentedGroup.From(profile.RepresentedGroup),
             AgeVerificationStatus =
                 ReadText(raw, Fields.AgeVerificationStatus)
-                ?? (profile.AgeVerificationStatus is { } status ? StatusWord(status) : null),
+                ?? (profile.AgeVerificationStatus is { } status ? VRChatWords.Of(status) : null),
             AgeVerified = ReadBool(raw, Fields.AgeVerified) ?? profile.AgeVerified,
         };
     }
@@ -522,21 +526,6 @@ public sealed record VRChatUserSnapshot
 
     private static bool? ReadBool(JsonObject? raw, string field) =>
         raw?[field] is JsonValue value && value.TryGetValue<bool>(out var flag) ? flag : null;
-
-    /// <summary>
-    /// The wire word for an SDK enum member. The SDK names <c>18+</c> <c>plus18</c>, so the
-    /// enum name is not the answer; the <c>EnumMember</c> value is.
-    /// </summary>
-    private static string? StatusWord<T>(T value) where T : struct, Enum
-    {
-        var member = typeof(T).GetField(value.ToString());
-        var wire = member?
-            .GetCustomAttributes(typeof(System.Runtime.Serialization.EnumMemberAttribute), false)
-            .OfType<System.Runtime.Serialization.EnumMemberAttribute>()
-            .FirstOrDefault()?.Value;
-
-        return wire ?? value.ToString();
-    }
 }
 
 /// <summary>

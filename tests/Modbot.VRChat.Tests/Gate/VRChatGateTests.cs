@@ -117,7 +117,7 @@ public class VRChatGateTests
     public async Task ATwoFactorChallengeWithNoStoredSecretIsExplained()
     {
         var vrchat = new FakeVRChat()
-            .RespondsWith(FakeVRChat.Ok(new CurrentUser { RequiresTwoFactorAuth = ["emailOtp"] }));
+            .RespondsWith(FakeVRChat.Ok(new CurrentUserLoginResponse { RequiresTwoFactorAuth = [TwoFactorAuthType.EmailOtp] }));
 
         var store = new FakeConnectionStore(new VRChatConnection("modbot@example.com", "hunter2"));
         var gate = NewGate(vrchat, out _, store);
@@ -153,7 +153,7 @@ public class VRChatGateTests
     {
         var vrchat = new FakeVRChat { AuthToken = (HttpStatusCode.Unauthorized, "{}") }
             .SignedInAs()
-            .RespondsWith(FakeVRChat.Ok(new CurrentUser { DisplayName = "Modbot", Id = "usr_1" }));
+            .RespondsWith(FakeVRChat.Ok(new CurrentUserLoginResponse { DisplayName = "Modbot", Id = "usr_1" }));
 
         var store = new FakeConnectionStore();
         var gate = NewGate(vrchat, out var factory, store);
@@ -185,7 +185,7 @@ public class VRChatGateTests
     {
         var vrchat = new FakeVRChat { AuthToken = (HttpStatusCode.Unauthorized, "{}") }
             .SignedInAs()
-            .RespondsWith(FakeVRChat.Ok(new CurrentUser { DisplayName = "Modbot", Id = "usr_1" }));
+            .RespondsWith(FakeVRChat.Ok(new CurrentUserLoginResponse { DisplayName = "Modbot", Id = "usr_1" }));
 
         var gate = NewGate(vrchat, out _, new FakeConnectionStore());
 

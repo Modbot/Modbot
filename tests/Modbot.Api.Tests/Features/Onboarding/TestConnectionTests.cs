@@ -29,7 +29,7 @@ public class TestConnectionTests
     private static FakeVRChatGate Failing(VRChatFailureKind kind, int status = 0, int? wafCode = null) =>
         new()
         {
-            SignIn = VRChatResult<CurrentUser>.Failure(status, "failed", wafCode, kind: kind),
+            SignIn = VRChatResult<CurrentUserLoginResponse>.Failure(status, "failed", wafCode, kind: kind),
         };
 
     [Theory]

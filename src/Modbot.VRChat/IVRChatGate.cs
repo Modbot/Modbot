@@ -56,7 +56,7 @@ public interface IVRChatGate
     /// VRChat has really rejected it -- within the sign-in limit and never during a wait
     /// (spec 4.1.2). An operator's deliberate change does not skip either.
     /// </remarks>
-    Task<VRChatResult<CurrentUser>> SignInAsync(CancellationToken ct = default);
+    Task<VRChatResult<CurrentUserLoginResponse>> SignInAsync(CancellationToken ct = default);
 
     /// <summary>
     /// Whether Modbot is waiting to sign in, when it last signed in, and how much of the hour's

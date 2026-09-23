@@ -101,13 +101,15 @@
     <PackageVersion Include="SharpZipLib" Version="1.4.2" />
     <PackageVersion Include="Serilog.Sinks.Seq" Version="9.1.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
-    <!-- The newest release there is: 2.20.9, from API specification v1.20.9. Specification v1.21.0
-         (2026-09-16) moved a person's profile behind Get Public Profile and took the bio, the
-         badges and the pictures off the user object, but the .NET SDK has not been regenerated for
-         it, so its models still have properties for fields VRChat no longer sends. Modbot reads
-         from each call only what that call carries (research:
-         vrchat-public-profile-findings.md §3), which is what makes the stale models harmless. -->
-    <PackageVersion Include="VRChat.API" Version="2.21.0" />
+    <!-- A nightly, and the only prerelease pinned here. It is the regeneration against API
+         specification v1.21.0's response shapes: Get User now answers with UserResponse and Get
+         Current User with CurrentUserLoginResponse, neither of which 2.21.0 had. Both are wide
+         union models that carry properties for fields the call they belong to does not send (the
+         avatar pictures on UserResponse, for one), so the compiler no longer holds the line that
+         the 2.21.0 models held. Modbot reads from each call only the fields that call is
+         known to carry (research: vrchat-public-profile-findings.md §3), and that list, not the
+         model, is what keeps a stale property from wiping a stored column. -->
+    <PackageVersion Include="VRChat.API" Version="2.21.1-nightly.39" />
     <!-- The official MCP SDK (MCP server design, 2026-09-17): the Streamable HTTP host for
          Modbot.Api, and the client half for the tests that talk to it. Stable since 2.0.0. -->
     <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />

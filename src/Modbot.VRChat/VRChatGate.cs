@@ -258,21 +258,21 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         return await IssueAsync(renewed.Client!, endpoint, call, priority, ct).ConfigureAwait(false);
     }
 
-    public async Task<VRChatResult<CurrentUser>> SignInAsync(CancellationToken ct = default)
+    public async Task<VRChatResult<CurrentUserLoginResponse>> SignInAsync(CancellationToken ct = default)
     {
         var session = await EnsureSessionAsync(Need.Check, 0, 0, VRChatCallPriority.Interactive, ct)
             .ConfigureAwait(false);
 
         if (!session.Success)
-            return session.ToFailure<CurrentUser>();
+            return session.ToFailure<CurrentUserLoginResponse>();
 
-        var user = session.User ?? new CurrentUser
+        var user = session.User ?? new CurrentUserLoginResponse
         {
             Id = _account?.UserId!,
             DisplayName = _account?.DisplayName!,
         };
 
-        return VRChatResult<CurrentUser>.Ok(user, 200);
+        return VRChatResult<CurrentUserLoginResponse>.Ok(user, 200);
     }
 
     public Task<VRChatResult<VRChatProxyResponse>> ForwardAsync(
@@ -995,7 +995,7 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
 
         var checkUserId = connection.CheckUserId;
 
-        var user = await IssueAsync<User>(
+        var user = await IssueAsync<UserResponse>(
                 client,
                 new VRChatEndpoint(VRChatEndpointClass.UsersRead, null, "GetUser (session check)"),
                 (vrchat, t) => vrchat.Users.GetUserWithHttpInfoAsync(checkUserId, t),
@@ -1142,7 +1142,7 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
 
         var client = _clients.Create(connection);
 
-        var current = await CountedAsync<CurrentUser>(
+        var current = await CountedAsync<CurrentUserLoginResponse>(
                 client, "GetCurrentUser",
                 (vrchat, token) => vrchat.Authentication.GetCurrentUserWithHttpInfoAsync(token),
                 priority, ct)
@@ -1174,7 +1174,12 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
 
                 return SessionResult.Fail(
                     0,
-                    "VRChat is asking for a two-factor code (" + string.Join(", ", methods) + ") and no TOTP "
+                    // VRChat's own spelling for each method, not the SDK's: specification v1.21.0
+                    // turned requiresTwoFactorAuth from a list of strings into an enum, and an
+                    // operator matching this message against VRChat's documentation is looking
+                    // for "emailOtp", not "EmailOtp".
+                    "VRChat is asking for a two-factor code ("
+                    + string.Join(", ", methods.Select(VRChatWords.Of)) + ") and no TOTP "
                     + "secret is configured. Modbot is a daemon: it cannot ask anyone for a code.",
                     kind: VRChatFailureKind.TwoFactorMissing);
             }
@@ -1214,7 +1219,7 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
                     kind: VRChatFailureKind.CredentialsRejected);
             }
 
-            current = await CountedAsync<CurrentUser>(
+            current = await CountedAsync<CurrentUserLoginResponse>(
                     client, "GetCurrentUser (after two-factor)",
                     (vrchat, token) => vrchat.Authentication.GetCurrentUserWithHttpInfoAsync(token),
                     priority, ct)
@@ -1497,14 +1502,14 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     private readonly record struct SessionResult(
         bool Success,
         IVRChat? Client,
-        CurrentUser? User,
+        CurrentUserLoginResponse? User,
         int Number,
         int StatusCode,
         string? ErrorMessage,
         int? WafCode,
         VRChatFailureKind Kind = VRChatFailureKind.None)
     {
-        public static SessionResult Ok(IVRChat client, int number, CurrentUser? user = null) =>
+        public static SessionResult Ok(IVRChat client, int number, CurrentUserLoginResponse? user = null) =>
             new(true, client, user, number, 200, null, null);
 
         public static SessionResult Fail(

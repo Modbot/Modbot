@@ -53,8 +53,8 @@ public sealed class DemoVRChatGate : IVRChatGate
         CancellationToken ct = default)
         => Task.FromResult(VRChatResult<T>.Failure(0, Message, kind: VRChatFailureKind.NotConfigured));
 
-    public Task<VRChatResult<CurrentUser>> SignInAsync(CancellationToken ct = default)
-        => Task.FromResult(VRChatResult<CurrentUser>.Failure(0, Message, kind: VRChatFailureKind.NotConfigured));
+    public Task<VRChatResult<CurrentUserLoginResponse>> SignInAsync(CancellationToken ct = default)
+        => Task.FromResult(VRChatResult<CurrentUserLoginResponse>.Failure(0, Message, kind: VRChatFailureKind.NotConfigured));
 
     public Task<SignInStatus> DescribeSignInAsync(CancellationToken ct = default)
         => Task.FromResult(new SignInStatus(
