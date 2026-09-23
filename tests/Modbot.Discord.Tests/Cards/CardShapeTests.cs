@@ -90,13 +90,13 @@ public class CardShapeTests
     [Fact]
     public void AModerationCard_IsHeadedByThePersonAndTitledByWhatHappened()
     {
-        var card = ModerationEventEmbed.For(Ban(), Style, new CardPicture(AuthorIcon: "attachment://pa.png"));
+        var card = EventCard.For(Ban(), Style, new CardPicture(AuthorIcon: "attachment://pa.png"));
 
         Assert.Equal("jessie", card.AuthorName);
         Assert.Equal($"{Address}/audit?subject={Person}", card.AuthorUrl);
         Assert.Equal("attachment://pa.png", card.AuthorIconUrl);
 
-        Assert.Equal("Banned", card.Title);
+        Assert.Equal("Banned from the group", card.Title);
         Assert.Equal($"{Address}/audit?subject={Person}", card.Url);
         Assert.Equal(CardColour.Red, card.Color);
         Assert.Equal(At, card.Timestamp);
@@ -106,7 +106,7 @@ public class CardShapeTests
     [Fact]
     public void AModerationCard_HasOnlyByAndWhen()
     {
-        var card = ModerationEventEmbed.For(Ban(), Style, CardPicture.None);
+        var card = EventCard.For(Ban(), Style, CardPicture.None);
 
         Assert.Equal(["By", "When"], card.Fields.Select(f => f.Name));
         Assert.Equal($"[E-Ray]({Address}/audit?subject={Actor})", card.Fields[0].Value);
@@ -115,7 +115,7 @@ public class CardShapeTests
 
     [Fact]
     public void AModerationCard_PrintsNoIds()
-        => AssertNoIdsInTheBody(ModerationEventEmbed.For(Ban(), Style, CardPicture.None));
+        => AssertNoIdsInTheBody(EventCard.For(Ban(), Style, CardPicture.None));
 
     /// <summary>
     /// Ten banners in one message is a wall rather than a record, so the banner is left to the one
@@ -123,14 +123,14 @@ public class CardShapeTests
     /// </summary>
     [Fact]
     public void AModerationCard_HasNoBanner()
-        => Assert.Null(ModerationEventEmbed.For(Ban(), Style, new CardPicture(AuthorIcon: "attachment://pa.png")).ImageUrl);
+        => Assert.Null(EventCard.For(Ban(), Style, new CardPicture(AuthorIcon: "attachment://pa.png")).ImageUrl);
 
     [Fact]
     public void AModerationCard_FootersTheGroupWithModbotsMark()
     {
-        Assert.Equal("The Kingdom", ModerationEventEmbed.For(Ban(), Style, CardPicture.None).Footer);
-        Assert.Equal(Address + "/icon-192.png", ModerationEventEmbed.For(Ban(), Style, CardPicture.None).FooterIconUrl);
-        Assert.Equal("Modbot", ModerationEventEmbed.For(Ban(), CardStyle.None, CardPicture.None).Footer);
+        Assert.Equal("The Kingdom", EventCard.For(Ban(), Style, CardPicture.None).Footer);
+        Assert.Equal(Address + "/icon-192.png", EventCard.For(Ban(), Style, CardPicture.None).FooterIconUrl);
+        Assert.Equal("Modbot", EventCard.For(Ban(), CardStyle.None, CardPicture.None).Footer);
     }
 
     /// <summary>
@@ -139,12 +139,12 @@ public class CardShapeTests
     /// </summary>
     [Fact]
     public void AModerationCardForSomebodyWithNoName_IsHeadedByTheirId()
-        => Assert.Equal(Person, ModerationEventEmbed.For(Ban(subjectName: null), Style, CardPicture.None).AuthorName);
+        => Assert.Equal(Person, EventCard.For(Ban(subjectName: null), Style, CardPicture.None).AuthorName);
 
     [Fact]
     public void WithNoPublicAddress_AModerationCardLinksNowhere()
     {
-        var card = ModerationEventEmbed.For(Ban(), CardStyle.None, CardPicture.None);
+        var card = EventCard.For(Ban(), CardStyle.None, CardPicture.None);
 
         Assert.Null(card.Url);
         Assert.Null(card.AuthorUrl);

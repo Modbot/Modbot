@@ -263,6 +263,11 @@ public sealed class ModerationLogPoster
                 _db, matching.Select(m => m.SubjectId).Concat(matching.Select(m => m.ActorId)), ct)
             .ConfigureAwait(false);
 
+        // The worlds the instance events happened in, so a warn or an instance kick can say where
+        // by name. Only the events that carry a world are asked for, and a world Modbot has never
+        // read simply has no name, which leaves that card without the field.
+        var worlds = await WorldNames.LoadAsync(_db, matching.Select(m => m.WorldId), ct).ConfigureAwait(false);
+
         // Only the people a card is headed by, so a pass does not read pictures for the actors,
         // whose names sit in a field and carry no picture.
         var faces = showPictures
@@ -289,10 +294,10 @@ public sealed class ModerationLogPoster
 
             foreach (var fact in chunk)
             {
-                var view = ModerationEventView.From(fact, names);
+                var view = ModerationEventView.From(fact, names, worlds);
                 var face = faces.GetValueOrDefault(view.SubjectId);
 
-                cards.Add(ModerationEventEmbed.For(
+                cards.Add(EventCard.For(
                     view,
                     style,
                     new CardPicture(AuthorIcon: await pictures.AddAsync(face, ct).ConfigureAwait(false))));
