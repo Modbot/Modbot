@@ -105,27 +105,55 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
 .vrchat{width:1024px;height:236px;padding:0;display:block}
 .vrchat::after{content:none}
 
+/* Narrower than the template's own safe box, because VRChat's uploader crops
+   before the template ever applies: it keeps a 16:9 box at full height, which
+   on a 2048 x 472 file is the middle 838 pixels and throws the rest away. The
+   box below is that crop and the template's always-visible band at once, which
+   is the only part that survives both. */
 .vrchat .safe{
-  position:absolute;left:244px;top:42px;width:536px;height:73px;
-  display:flex;align-items:center;justify-content:center;gap:16px;
+  position:absolute;left:302px;top:42px;width:420px;height:73px;
+  display:flex;align-items:center;justify-content:center;gap:13px;
 }
 
 /* No shadow. It fell past the always-visible box on the light ground, and the
    nameplate cutting a soft shadow in half looks worse than no shadow. */
-.vrchat .icon{width:70px;height:70px;margin:0;filter:none}
+.vrchat .icon{width:58px;height:58px;margin:0;filter:none}
 .vrchat .words{display:flex;flex-direction:column;gap:7px;min-width:0}
 .vrchat .says{
   font-family:"Bricolage Grotesque";font-weight:700;
-  font-size:19px;line-height:1.1;letter-spacing:-0.02em;color:#5b4bd6;
+  font-size:16px;line-height:1.1;letter-spacing:-0.02em;color:#5b4bd6;
 }
 .vrchat .chips{display:flex;gap:5px}
 .vrchat .chip{
-  font-size:9px;font-weight:500;line-height:1;letter-spacing:0.01em;
-  padding:4px 9px;border-radius:999px;white-space:nowrap;
+  font-size:8px;font-weight:500;line-height:1;letter-spacing:0.01em;
+  padding:4px 8px;border-radius:999px;white-space:nowrap;
   background:rgb(91 75 214 / 0.10);color:#4c3fb8;
 }
 .banner.vrchat.dark .says{color:#a78bfa}
 .banner.vrchat.dark .chip{background:rgb(167 139 250 / 0.14);color:#c4b5fd}
+
+/* ── The same thing at 16:9 ────────────────────────────────────────────────
+   VRChat's uploader crops to 16:9 at full height whatever it is given, so a
+   file that is already 16:9 is cropped to itself and loses nothing. Laid out
+   at 960 x 540 and shot at 2x, which is 1920 x 1080. Use this one if the
+   uploader still cuts the 2048 x 472; use that one if VRChat wants the
+   banner's own shape. */
+.wide{width:960px;height:540px;flex-direction:column;justify-content:center;align-items:center;gap:26px;padding:0 80px}
+.wide::after{content:none}
+.wide .icon{width:210px;height:210px;margin:0;filter:none}
+.wide .words{display:flex;flex-direction:column;align-items:center;gap:18px;min-width:0}
+.wide .says{
+  font-family:"Bricolage Grotesque";font-weight:700;
+  font-size:38px;line-height:1.15;letter-spacing:-0.02em;color:#5b4bd6;text-align:center;
+}
+.wide .chips{display:flex;gap:12px}
+.wide .chip{
+  font-size:19px;font-weight:500;line-height:1;letter-spacing:0.01em;
+  padding:11px 19px;border-radius:999px;white-space:nowrap;
+  background:rgb(91 75 214 / 0.10);color:#4c3fb8;
+}
+.banner.wide.dark .says{color:#a78bfa}
+.banner.wide.dark .chip{background:rgb(167 139 250 / 0.14);color:#c4b5fd}
 
 .sheet{display:flex;flex-direction:column;align-items:center;gap:28px;padding:28px}
 .caption{color:#a5a3b8;font-size:13px;letter-spacing:0.02em;align-self:flex-start;margin-left:28px}
@@ -328,6 +356,32 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
           <span class="chip">Open-Source</span>
           <span class="chip">Self-hosted</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">vrchat-wide — 16:9, shot at 2x to 1920 x 1080</div>
+  <div class="banner wide" id="vrchat-wide">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words">
+      <div class="says">The VRChat community operations platform</div>
+      <div class="chips">
+        <span class="chip">Free</span>
+        <span class="chip">Open-Source</span>
+        <span class="chip">Self-hosted</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">vrchat-wide-dark — 16:9, shot at 2x to 1920 x 1080</div>
+  <div class="banner wide dark" id="vrchat-wide-dark">
+    <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+    <div class="words">
+      <div class="says">The VRChat community operations platform</div>
+      <div class="chips">
+        <span class="chip">Free</span>
+        <span class="chip">Open-Source</span>
+        <span class="chip">Self-hosted</span>
       </div>
     </div>
   </div>
