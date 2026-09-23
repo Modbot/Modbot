@@ -6,10 +6,17 @@ using Modbot.Discord.Gateway;
 namespace Modbot.Discord.ModerationLog;
 
 /// <summary>
-/// One moderation event as a Discord card: who it happened to, what happened, by whom, when, and
-/// a link to the person in Modbot.
+/// The card a kind of event without a card of its own still gets: who it happened to, what
+/// happened, by whom, when, and a link to the person in Modbot.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <strong>This was the only shape there was.</strong> Every kind of event was given it, which is
+/// why a role change and a ban differed by hue and neither said which role or why (Discord event
+/// cards design §1). <see cref="EventCard"/> is the converter now: it picks a card per kind of
+/// event and falls back to this one for every kind without a builder. That fallback is the whole
+/// safety of the change, so this stays exactly the shape it was.
+/// </para>
 /// <para>
 /// Pure: a fact in, an embed out, no I/O. That is what makes it testable without a gateway and
 /// what keeps the poster's loop small. The person's picture arrives already fetched, as an
@@ -45,48 +52,8 @@ public static class ModerationEventEmbed
         ArgumentNullException.ThrowIfNull(e);
         ArgumentNullException.ThrowIfNull(style);
 
-        var fields = new List<DiscordEmbedField>();
-
-        if (e.ActorId is not null)
-        {
-            fields.Add(new DiscordEmbedField(
-                "By", CardLink.Person(e.ActorName, e.ActorId, style.PublicAddress), Inline: true));
-        }
-
-        fields.Add(new DiscordEmbedField(
-            "When",
-            $"{DiscordTime.Absolute(e.OccurredAt)} ({DiscordTime.Relative(e.OccurredAt)})",
-            Inline: true));
-
-        var description = string.IsNullOrWhiteSpace(e.Description)
-            ? null
-            : "> " + CardText.Fit(CardText.EscapeText(e.Description.Trim()), 300);
-
-        var link = CardLink.UrlFor(CardSubject.Person, e.SubjectId, style.PublicAddress);
-
-        return new DiscordEmbedContent(
-            CardText.Plain(LabelFor(e.Type), 256),
-            description,
-            ColorFor(e.Type),
-            fields,
-            e.OccurredAt,
-            link,
-            style.GroupFooter,
-            FooterIconUrl: style.FooterIconUrl,
-            AuthorName: AuthorName(e),
-            AuthorUrl: link,
-            AuthorIconUrl: picture.AuthorIcon);
+        return EventCard.Plain(e, style, picture);
     }
-
-    /// <summary>
-    /// The name on the author line: the person's own, or their id when Modbot has never read a
-    /// profile for them. An author line cannot be left out and still leave the card about
-    /// somebody, so this is the one place an id is still printed.
-    /// </summary>
-    private static string AuthorName(ModerationEventView e)
-        => string.IsNullOrWhiteSpace(e.SubjectName)
-            ? CardText.Plain(e.SubjectId, 256)
-            : CardText.Plain(e.SubjectName, 256);
 
     /// <summary>
     /// Plain words for each event type: the audit log's own labels, except where a card read on its
