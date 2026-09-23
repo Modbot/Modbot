@@ -92,6 +92,41 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
 .banner.hero.dark .says{color:#a78bfa}
 .banner.hero.dark .chip{background:rgb(167 139 250 / 0.14);color:#c4b5fd}
 
+/* ── The VRChat group banner ───────────────────────────────────────────────
+   VRChat wants 2048 x 472 and covers most of it. Its own template marks the
+   only part that always shows: x 488..1560, y 84..230 of that file, which is a
+   1072 x 146 box in the upper middle. Everything below it is bleed, where the
+   nameplate sits, and the strip above it goes under a long group name.
+
+   So this is laid out at half of VRChat's size and shot at the 2x every banner
+   here is shot at, which lands on 2048 x 472 exactly. The safe box halves with
+   it: 244..780 across, 42..115 down. Nothing that has to be read goes outside
+   that, and the rest of the canvas is ground for VRChat to cover. */
+.vrchat{width:1024px;height:236px;padding:0;display:block}
+.vrchat::after{content:none}
+
+.vrchat .safe{
+  position:absolute;left:244px;top:42px;width:536px;height:73px;
+  display:flex;align-items:center;justify-content:center;gap:16px;
+}
+
+/* No shadow. It fell past the always-visible box on the light ground, and the
+   nameplate cutting a soft shadow in half looks worse than no shadow. */
+.vrchat .icon{width:70px;height:70px;margin:0;filter:none}
+.vrchat .words{display:flex;flex-direction:column;gap:7px;min-width:0}
+.vrchat .says{
+  font-family:"Bricolage Grotesque";font-weight:700;
+  font-size:19px;line-height:1.1;letter-spacing:-0.02em;color:#5b4bd6;
+}
+.vrchat .chips{display:flex;gap:5px}
+.vrchat .chip{
+  font-size:9px;font-weight:500;line-height:1;letter-spacing:0.01em;
+  padding:4px 9px;border-radius:999px;white-space:nowrap;
+  background:rgb(91 75 214 / 0.10);color:#4c3fb8;
+}
+.banner.vrchat.dark .says{color:#a78bfa}
+.banner.vrchat.dark .chip{background:rgb(167 139 250 / 0.14);color:#c4b5fd}
+
 .sheet{display:flex;flex-direction:column;align-items:center;gap:28px;padding:28px}
 .caption{color:#a5a3b8;font-size:13px;letter-spacing:0.02em;align-self:flex-start;margin-left:28px}
 </style></head><body>
@@ -263,6 +298,36 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
         <span class="chip">Free</span>
         <span class="chip">Open-Source</span>
         <span class="chip">Self-hosted</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">vrchat-group — VRChat group banner, shot at 2x to 2048 x 472</div>
+  <div class="banner vrchat" id="vrchat-group">
+    <div class="safe">
+      <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+      <div class="words">
+        <div class="says">The VRChat community operations platform</div>
+        <div class="chips">
+          <span class="chip">Free</span>
+          <span class="chip">Open-Source</span>
+          <span class="chip">Self-hosted</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">vrchat-group-dark — VRChat group banner, shot at 2x to 2048 x 472</div>
+  <div class="banner vrchat dark" id="vrchat-group-dark">
+    <div class="safe">
+      <img class="icon" src="{{asset:mascot-refined-icon-512.png}}" alt="">
+      <div class="words">
+        <div class="says">The VRChat community operations platform</div>
+        <div class="chips">
+          <span class="chip">Free</span>
+          <span class="chip">Open-Source</span>
+          <span class="chip">Self-hosted</span>
+        </div>
       </div>
     </div>
   </div>
