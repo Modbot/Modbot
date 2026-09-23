@@ -75,7 +75,7 @@ public class VerifyVRChatTests
     {
         var gate = new FakeVRChatGate
         {
-            SignIn = VRChatResult<CurrentUser>.Failure(
+            SignIn = VRChatResult<CurrentUserLoginResponse>.Failure(
                 401, "VRChat rejected the credentials.", kind: VRChatFailureKind.CredentialsRejected),
         };
 
@@ -101,7 +101,7 @@ public class VerifyVRChatTests
     {
         var gate = new FakeVRChatGate
         {
-            SignIn = VRChatResult<CurrentUser>.Failure(
+            SignIn = VRChatResult<CurrentUserLoginResponse>.Failure(
                 403, "Cloudflare blocked this request.", wafCode: 1020,
                 kind: VRChatFailureKind.WafBlocked),
         };
@@ -125,7 +125,7 @@ public class VerifyVRChatTests
     {
         var gate = new FakeVRChatGate
         {
-            SignIn = VRChatResult<CurrentUser>.Failure(
+            SignIn = VRChatResult<CurrentUserLoginResponse>.Failure(
                 403, "Cloudflare blocked this request.", wafCode: 1020,
                 kind: VRChatFailureKind.WafBlocked),
         };
@@ -187,7 +187,7 @@ public class VerifyVRChatTests
     {
         var gate = new FakeVRChatGate
         {
-            SignIn = VRChatResult<CurrentUser>.Failure(
+            SignIn = VRChatResult<CurrentUserLoginResponse>.Failure(
                 401, "VRChat rejected the credentials.", kind: VRChatFailureKind.CredentialsRejected),
         };
 

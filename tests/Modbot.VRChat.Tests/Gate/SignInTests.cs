@@ -454,7 +454,7 @@ public class SignInTests
     public async Task ARateLimitDuringTwoFactorAlsoStartsTheWait()
     {
         var vrchat = new FakeVRChat()
-            .RespondsWith(FakeVRChat.Ok(new CurrentUser { RequiresTwoFactorAuth = ["totp"] }))
+            .RespondsWith(FakeVRChat.Ok(new CurrentUserLoginResponse { RequiresTwoFactorAuth = [TwoFactorAuthType.Totp] }))
             .VerifiesWith(new ApiResponse<Verify2FAResult>(HttpStatusCode.TooManyRequests, new Multimap<string, string>(), null!, "{}"));
 
         var harness = new Harness(vrchat, Account() with { TotpSecret = "JBSWY3DPEHPK3PXP" });

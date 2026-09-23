@@ -17,11 +17,11 @@ namespace Modbot.VRChat.Tests.Fakes;
 /// </remarks>
 public sealed class FakeVRChat
 {
-    private readonly Queue<ApiResponse<CurrentUser>> _currentUser = new();
+    private readonly Queue<ApiResponse<CurrentUserLoginResponse>> _currentUser = new();
     private readonly Queue<ApiResponse<Verify2FAResult>> _verify = new();
 
     /// <summary>Answered whenever the queue runs dry. See <see cref="AlwaysSignedInAs"/>.</summary>
-    private ApiResponse<CurrentUser>? _standingCurrentUser;
+    private ApiResponse<CurrentUserLoginResponse>? _standingCurrentUser;
 
     public FakeVRChat()
     {
@@ -37,7 +37,7 @@ public sealed class FakeVRChat
                 // ApiException, so a DNS failure, a refused connection and its own HTTP timeout
                 // all propagate as live exceptions and the gate has to deal with them.
                 if (ThrowOnGetCurrentUser is { } failure)
-                    return Task.FromException<ApiResponse<CurrentUser>>(failure);
+                    return Task.FromException<ApiResponse<CurrentUserLoginResponse>>(failure);
 
                 if (_currentUser.Count == 0 && _standingCurrentUser is { } standing)
                     return Task.FromResult(standing);
@@ -132,7 +132,7 @@ public sealed class FakeVRChat
             body);
     }
 
-    public FakeVRChat RespondsWith(params ApiResponse<CurrentUser>[] responses)
+    public FakeVRChat RespondsWith(params ApiResponse<CurrentUserLoginResponse>[] responses)
     {
         foreach (var response in responses)
             _currentUser.Enqueue(response);
@@ -153,7 +153,7 @@ public sealed class FakeVRChat
     {
         Cookies.Add(new Cookie("auth", "authCookieValue", "/", "api.vrchat.cloud"));
 
-        return RespondsWith(Ok(new CurrentUser { DisplayName = displayName, Id = id }));
+        return RespondsWith(Ok(new CurrentUserLoginResponse { DisplayName = displayName, Id = id }));
     }
 
     /// <summary>
@@ -167,7 +167,7 @@ public sealed class FakeVRChat
     /// </remarks>
     public FakeVRChat AlwaysSignedInAs(string displayName = "Modbot", string id = "usr_fake")
     {
-        _standingCurrentUser = Ok(new CurrentUser { DisplayName = displayName, Id = id });
+        _standingCurrentUser = Ok(new CurrentUserLoginResponse { DisplayName = displayName, Id = id });
         return SignedInAs(displayName, id);
     }
 
@@ -178,16 +178,16 @@ public sealed class FakeVRChat
         Cookies.Add(new Cookie("twoFactorAuth", "twoFactorCookieValue", "/", "api.vrchat.cloud"));
 
         return RespondsWith(
-                Ok(new CurrentUser { RequiresTwoFactorAuth = ["totp"] }),
-                Ok(new CurrentUser { DisplayName = "Modbot", Id = "usr_fake" }))
+                Ok(new CurrentUserLoginResponse { RequiresTwoFactorAuth = [TwoFactorAuthType.Totp] }),
+                Ok(new CurrentUserLoginResponse { DisplayName = "Modbot", Id = "usr_fake" }))
             .VerifiesWith(new ApiResponse<Verify2FAResult>(
                 HttpStatusCode.OK, new Multimap<string, string>(), new Verify2FAResult(verified: true)));
     }
 
-    public static ApiResponse<CurrentUser> Ok(CurrentUser user) =>
+    public static ApiResponse<CurrentUserLoginResponse> Ok(CurrentUserLoginResponse user) =>
         new(HttpStatusCode.OK, new Multimap<string, string>(), user, "{}");
 
-    public static ApiResponse<CurrentUser> Status(HttpStatusCode status, string body = "") =>
+    public static ApiResponse<CurrentUserLoginResponse> Status(HttpStatusCode status, string body = "") =>
         new(status, new Multimap<string, string>(), null!, body);
 
     private static ApiResponse<T> Next<T>(Queue<ApiResponse<T>> responses, string operation) =>

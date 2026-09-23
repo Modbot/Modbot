@@ -36,7 +36,7 @@ public class VRChatUserSnapshotTests
     [Fact]
     public void TheAgeStatusIsReadFromTheBodyFirst()
     {
-        var user = new User { Id = "usr_a", DisplayName = "A", AgeVerificationStatus = AgeVerificationStatus.hidden };
+        var user = new UserResponse { Id = "usr_a", DisplayName = "A", AgeVerificationStatus = AgeVerificationStatus.hidden };
         var raw = new JsonObject { ["ageVerificationStatus"] = "18+", ["ageVerified"] = true };
 
         var snapshot = VRChatUserSnapshot.From(user, raw);
@@ -49,7 +49,7 @@ public class VRChatUserSnapshotTests
     [Fact]
     public void WithoutABody_TheEnumIsSpelledTheWayVRChatSpellsIt()
     {
-        var user = new User { Id = "usr_a", AgeVerificationStatus = AgeVerificationStatus.plus18, Status = UserStatus.JoinMe };
+        var user = new UserResponse { Id = "usr_a", AgeVerificationStatus = AgeVerificationStatus.plus18, Status = UserStatus.JoinMe };
 
         var snapshot = VRChatUserSnapshot.From(user);
 
@@ -74,7 +74,7 @@ public class VRChatUserSnapshotTests
     [Fact]
     public void TagOrderIsNotAChange()
     {
-        var user = new User { Id = "usr_a", Tags = ["z", "a"] };
+        var user = new UserResponse { Id = "usr_a", Tags = ["z", "a"] };
 
         Assert.Equal(["a", "z"], VRChatUserSnapshot.From(user).Tags);
     }
@@ -190,7 +190,7 @@ public class VRChatUserSnapshotTests
         };
 
         // A user object with no bio in the body at all.
-        var user = new User { Id = "usr_a", DisplayName = "A", StatusDescription = "away" };
+        var user = new UserResponse { Id = "usr_a", DisplayName = "A", StatusDescription = "away" };
         var raw = new JsonObject { ["id"] = "usr_a", ["displayName"] = "A", ["statusDescription"] = "away" };
 
         VRChatUserSnapshot.From(user, raw).ApplyTo(row);
@@ -217,7 +217,7 @@ public class VRChatUserSnapshotTests
             LastUserReadAt = DateTimeOffset.UnixEpoch,
         };
 
-        var user = new User { Id = "usr_a", DisplayName = "A" };
+        var user = new UserResponse { Id = "usr_a", DisplayName = "A" };
         var raw = new JsonObject
         {
             ["id"] = "usr_a",
@@ -232,6 +232,77 @@ public class VRChatUserSnapshotTests
         Assert.Equal("written by the public profile", row.Bio);
         Assert.Equal("https://example.invalid/a.png", row.ProfilePictureUrl);
         Assert.Equal("https://example.invalid/avatar.png", row.CurrentAvatarImageUrl);
+    }
+
+    /// <summary>
+    /// The same rule, held against the typed object rather than the body.
+    /// </summary>
+    /// <remarks>
+    /// SDK 2.21.0's <c>User</c> had no picture properties at all, so reading one was a compile
+    /// error. The regeneration against specification v1.21.0 answers Get User with
+    /// <c>UserResponse</c>, a wide union that carries the avatar pictures again even though the
+    /// call does not send them for another person. Nothing may reach them through it.
+    /// </remarks>
+    [Fact]
+    public void TheUserObjectsPicturesAreNotReadOffTheTypedObjectEither()
+    {
+        var row = new VRChatUser
+        {
+            UserId = "usr_a",
+            ProfilePictureUrl = "https://example.invalid/a.png",
+            CurrentAvatarImageUrl = "https://example.invalid/avatar.png",
+            CurrentAvatarThumbnailImageUrl = "https://example.invalid/thumb.png",
+            LastUserReadAt = DateTimeOffset.UnixEpoch,
+        };
+
+        var user = new UserResponse
+        {
+            Id = "usr_a",
+            DisplayName = "A",
+            CurrentAvatarImageUrl = "https://example.invalid/from-the-model.png",
+            CurrentAvatarThumbnailImageUrl = "https://example.invalid/from-the-model-thumb.png",
+        };
+
+        var snapshot = VRChatUserSnapshot.From(user);
+
+        Assert.Null(snapshot.CurrentAvatarImageUrl);
+        Assert.Null(snapshot.CurrentAvatarThumbnailImageUrl);
+        Assert.Null(snapshot.ProfilePictureUrl);
+
+        snapshot.ApplyTo(row);
+
+        Assert.Equal("https://example.invalid/a.png", row.ProfilePictureUrl);
+        Assert.Equal("https://example.invalid/avatar.png", row.CurrentAvatarImageUrl);
+        Assert.Equal("https://example.invalid/thumb.png", row.CurrentAvatarThumbnailImageUrl);
+    }
+
+    /// <summary>
+    /// The no-body fallback is bounded by what the call carries, not by what the model has.
+    /// </summary>
+    /// <remarks>
+    /// When a response body is missing, the user read falls back to serialising the typed object
+    /// (<c>UserProfileSync</c>). <c>UserResponse</c> serialises around a hundred properties, the
+    /// pictures and a pile of the signed-in account's own fields among them, so the fallback body
+    /// is much wider than the old <c>User</c>'s. The set of fields a user read speaks for must
+    /// still be the shorter list.
+    /// </remarks>
+    [Fact]
+    public void AFallbackBodyBuiltFromTheModelStillSpeaksOnlyForWhatGetUserCarries()
+    {
+        var user = new UserResponse
+        {
+            Id = "usr_a",
+            DisplayName = "A",
+            CurrentAvatarImageUrl = "https://example.invalid/from-the-model.png",
+        };
+
+        var snapshot = VRChatUserSnapshot.From(user, VRChatUserSnapshot.ParseRaw(user.ToJson()));
+
+        Assert.DoesNotContain(VRChatUserSnapshot.Fields.CurrentAvatarImageUrl, snapshot.Carried);
+        Assert.DoesNotContain(VRChatUserSnapshot.Fields.CurrentAvatarThumbnailImageUrl, snapshot.Carried);
+        Assert.DoesNotContain(VRChatUserSnapshot.Fields.ProfilePicOverride, snapshot.Carried);
+        Assert.DoesNotContain(VRChatUserSnapshot.Fields.Bio, snapshot.Carried);
+        Assert.Contains(VRChatUserSnapshot.Fields.DisplayName, snapshot.Carried);
     }
 
     /// <summary>Present and empty is a real edit, and is written.</summary>
@@ -455,7 +526,7 @@ public class VRChatUserSnapshotTests
     {
         var row = new VRChatUser { UserId = "usr_a", IconUrl = "https://example.invalid/old.png", LastUserReadAt = DateTimeOffset.UnixEpoch };
 
-        var user = new User { Id = "usr_a", IconUrl = "https://example.invalid/new.png", BannerUrl = "https://example.invalid/banner.png" };
+        var user = new UserResponse { Id = "usr_a", IconUrl = "https://example.invalid/new.png", BannerUrl = "https://example.invalid/banner.png" };
         var raw = new JsonObject
         {
             ["id"] = "usr_a",

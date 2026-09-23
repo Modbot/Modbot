@@ -30,8 +30,8 @@ public sealed class FakeVRChatGate : IVRChatGate
     public VRChatSessionState State { get; set; } = VRChatSessionState.Unconfigured;
 
     /// <summary>What <see cref="SignInAsync"/> returns. Defaults to "nothing configured".</summary>
-    public VRChatResult<CurrentUser> SignIn { get; set; } =
-        VRChatResult<CurrentUser>.Failure(
+    public VRChatResult<CurrentUserLoginResponse> SignIn { get; set; } =
+        VRChatResult<CurrentUserLoginResponse>.Failure(
             0, "No VRChat account is configured.", kind: VRChatFailureKind.NotConfigured);
 
     /// <summary>
@@ -45,7 +45,7 @@ public sealed class FakeVRChatGate : IVRChatGate
 
     public FakeVRChatGate SignedInAs(string displayName = "Modbot", string userId = "usr_modbot")
     {
-        SignIn = VRChatResult<CurrentUser>.Ok(CurrentUserNamed(displayName, userId), 200);
+        SignIn = VRChatResult<CurrentUserLoginResponse>.Ok(CurrentUserNamed(displayName, userId), 200);
         State = VRChatSessionState.Healthy;
         return this;
     }
@@ -77,7 +77,7 @@ public sealed class FakeVRChatGate : IVRChatGate
             0, $"Nothing scripted for {key}.", kind: VRChatFailureKind.Other));
     }
 
-    public Task<VRChatResult<CurrentUser>> SignInAsync(CancellationToken ct = default)
+    public Task<VRChatResult<CurrentUserLoginResponse>> SignInAsync(CancellationToken ct = default)
     {
         SignInCalls++;
         return Task.FromResult(SignIn);
@@ -98,7 +98,7 @@ public sealed class FakeVRChatGate : IVRChatGate
     {
         State = VRChatSessionState.SignInWaiting;
         SignInStatus = new SignInStatus(State, new SignInWait(reason, retryAt), null, 4, 4, now);
-        SignIn = VRChatResult<CurrentUser>.Failure(
+        SignIn = VRChatResult<CurrentUserLoginResponse>.Failure(
             0, "Waiting to sign in to VRChat.", kind: VRChatFailureKind.SignInWaiting);
         return this;
     }
@@ -160,9 +160,9 @@ public sealed class FakeVRChatGate : IVRChatGate
     }
 
     /// <summary>
-    /// <c>CurrentUser</c> has around sixty required constructor arguments, so it is built by
-    /// setting the two properties anything here reads.
+    /// <c>CurrentUserLoginResponse</c> has around a hundred properties, so it is built by setting
+    /// the two anything here reads.
     /// </summary>
-    private static CurrentUser CurrentUserNamed(string displayName, string userId) =>
+    private static CurrentUserLoginResponse CurrentUserNamed(string displayName, string userId) =>
         new() { DisplayName = displayName, Id = userId };
 }

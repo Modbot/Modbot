@@ -2,6 +2,8 @@
 
 - **Version:** 2.20.9 (latest stable; the `2.20.9-nightly.*` builds predate it, so there is no newer preview)
 - **Found while:** building `explore/` (2026-09-12)
+- **Version pinned now:** `2.21.1-nightly.39`, since 2026-09-23. Everything below still holds; §5's
+  model names have moved on, and that row says how.
 
 Upstream-fixable notes for `vrchatapi/vrchatapi-csharp`, which this project's maintainer also maintains.
 
@@ -93,7 +95,9 @@ hint of the restriction.
 |---|---|
 | `Instance` | `Name`, `DisplayName` (the mid-2026 instance-naming feature), `Capacity`, `RecommendedCapacity`, `UserCount`, `Nonce`, `SecureName`, `ShortName` |
 | `LimitedUserInstance` | `Id`, `DisplayName`, `Platform`, `Bio`, `StatusDescription`, `UserIcon`, `CurrentAvatarThumbnailImageUrl` |
-| `User` | `CurrentAvatarImageUrl`, `CurrentAvatarThumbnailImageUrl`, `ProfilePicOverride`, `ProfileEffect` |
+| `User` | as read in 2026-09-12: `CurrentAvatarImageUrl`, `CurrentAvatarThumbnailImageUrl`, `ProfilePicOverride`, `ProfileEffect`. **Get User has not returned this model since `2.21.1-nightly.39`** — it answers with `UserResponse`, and `ProfilePicOverride` is on neither. |
+| `UserResponse` | what Get User returns now: `User`'s fields plus the whole signed-in account's — `AuthToken`, `ObfuscatedEmail`, `SteamId`, `DiscordId`, `Friends`, and the `CurrentAvatar*` pictures VRChat stopped sending for other people. A union of shapes, not a description of one response. |
+| `CurrentUserLoginResponse` | what Get Current User returns now: `CurrentUser` field for field, with `AgeVerificationStatus`, `DeveloperType`, `State` and `Status` made nullable and `RequiresTwoFactorAuth` turned from `List<string>` into `List<TwoFactorAuthType>` (`EmailOtp`, `Otp`, `Totp` — and nothing else, so a fourth method would fail to deserialise). |
 | `GroupInstance` | `InstanceId`, `Location`, `MemberCount`, `World` — **no occupant list** |
 
 Avatar thumbnail URLs embed the file id:

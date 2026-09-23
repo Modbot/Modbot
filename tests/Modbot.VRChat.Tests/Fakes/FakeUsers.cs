@@ -29,7 +29,7 @@ namespace Modbot.VRChat.Tests.Fakes;
 /// </remarks>
 public sealed class FakeUsers
 {
-    private readonly Dictionary<string, (User User, string Raw, PublicProfile Profile, string ProfileRaw)> _profiles =
+    private readonly Dictionary<string, (UserResponse User, string Raw, PublicProfile Profile, string ProfileRaw)> _profiles =
         new(StringComparer.Ordinal);
 
     /// <summary>Force a status other than 200 on every request -- 429 for a limit, 500 for a fault.</summary>
@@ -73,7 +73,7 @@ public sealed class FakeUsers
         IReadOnlyList<string>? tags = null,
         string? dateJoined = "2020-01-15")
     {
-        var user = new User
+        var user = new UserResponse
         {
             Id = id,
             DisplayName = displayName,
@@ -183,7 +183,7 @@ public sealed class FakeUsers
         return users;
     }
 
-    private ApiResponse<User> Answer(string id)
+    private ApiResponse<UserResponse> Answer(string id)
     {
         Requests.Add(id);
         UserRequests.Add(id);
@@ -191,12 +191,12 @@ public sealed class FakeUsers
         var status = UserObjectStatus ?? Status;
 
         if (status != HttpStatusCode.OK)
-            return new ApiResponse<User>(status, new Multimap<string, string>(), null!, "{}");
+            return new ApiResponse<UserResponse>(status, new Multimap<string, string>(), null!, "{}");
 
         if (UserMissing.Contains(id) || !_profiles.TryGetValue(id, out var profile))
-            return new ApiResponse<User>(HttpStatusCode.NotFound, new Multimap<string, string>(), null!, Gone);
+            return new ApiResponse<UserResponse>(HttpStatusCode.NotFound, new Multimap<string, string>(), null!, Gone);
 
-        return new ApiResponse<User>(HttpStatusCode.OK, new Multimap<string, string>(), profile.User, profile.Raw);
+        return new ApiResponse<UserResponse>(HttpStatusCode.OK, new Multimap<string, string>(), profile.User, profile.Raw);
     }
 
     private ApiResponse<PublicProfile> AnswerProfile(string id)

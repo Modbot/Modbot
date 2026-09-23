@@ -4,6 +4,11 @@
   was generated with, read on 2026-09-13 while building the profile sync; Modbot moved to 2.21.0
   on 2026-09-16, which drops the properties marked "gone" below. **Not yet checked against a
   live response** — see §5 for what a live run should confirm.
+- **Revised 2026-09-23.** The pin is now `2.21.1-nightly.39`, and this call's model is
+  `VRChat.API.Model.UserResponse`, not `User`. It carries the `currentAvatar*` properties again —
+  the rows below marked "gone" are still gone from the *wire*, and Modbot still reads none of
+  them. `bio` and `profilePicOverride` are on neither model. See
+  `vrchat-public-profile-findings.md` §3.
 - **Endpoint:** `GET /users/{userId}` → `IUsersApi.GetUserWithHttpInfoAsync(userId)`. Class
   `users.read`, its own lane, 3.5 req/s (user profile sync design §5). "Get public user information
   about a specific user using their ID."

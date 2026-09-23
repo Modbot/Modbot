@@ -5,11 +5,19 @@
   notes and the published pages on <https://vrchat.community>. Read on 2026-09-16. The earlier
   version of this note was written on 2026-09-15 against the SDK's 2.20.9 models and is superseded:
   the line between the two calls moved.
-- **The SDK caught up on 2026-09-16.** `VRChat.API` **2.21.0** is generated from specification
-  v1.21.0 and Modbot pins it. The `User` model has lost the C# properties for the fields VRChat
-  no longer sends, so reading them is now a compile error rather than a rule to remember (§3).
+- **The SDK caught up on 2026-09-16, and then walked part of it back.** `VRChat.API` **2.21.0**
+  is generated from specification v1.21.0: its `User` model lost the C# properties for the fields
+  VRChat no longer sends, so reading them was a compile error rather than a rule to remember.
   `GroupMember.MembershipStatus` became optional in the same release; the member sync stores
   nothing when it is absent.
+- **The pin moved to `2.21.1-nightly.39` on 2026-09-23, and that guarantee is gone** (§3). The
+  nightly regenerates the *response* shapes: Get User now answers with `UserResponse` and Get
+  Current User with `CurrentUserLoginResponse`, and `UserResponse` is a wide union — around a
+  hundred properties, the whole signed-in account's fields among them — that carries
+  `currentAvatarImageUrl`, `currentAvatarThumbnailImageUrl` and `currentAvatarTags` again even
+  though Get User does not send them for another person. `bio` and `profilePicOverride` are on
+  neither model, so those two stay compile errors. The old `User` model still exists in the
+  package, unchanged and no longer returned by anything.
 - **Endpoints:**
   - `GET /users/{userId}` → `IUsersApi.GetUserWithHttpInfoAsync(userId)`. Class `users.read`.
   - `GET /profile/{userId}` → `IUsersApi.GetPublicProfileWithHttpInfoAsync(userId)`. Class
@@ -131,12 +139,19 @@ files have a face again, was a design question for the maintainer; **decided 202
 watched for change under those names, and the picture shown anywhere is the override if set,
 else the icon, else the avatar thumbnail (user profile sync design §6).
 
-**Modbot must not read the lost fields off the SDK's `User`.** Under 2.20.9 the model still had
-`Bio`, `ProfilePicOverride` and `CurrentAvatar*` properties, and a body that still sent
+**Modbot must not read the lost fields off the SDK's user model.** Under 2.20.9 the model still
+had `Bio`, `ProfilePicOverride` and `CurrentAvatar*` properties, and a body that still sent
 `"bio": ""` out of habit would wipe the bio the public profile had just filled in, once a week,
 for everybody. `VRChatUserSnapshot.Fields.OnUser` therefore lists only what the user object
-carries, and `From(User)` reads nothing else; 2.21.0 removed the properties, so the compiler
-now holds that line too.
+carries, and `From` reads nothing else.
+
+2.21.0 removed the properties, and for a week the compiler held that line as well. It does not
+any more: `UserResponse`, what the nightly's Get User returns, has `CurrentAvatarImageUrl`,
+`CurrentAvatarThumbnailImageUrl` and `CurrentAvatarTags` on it. **`Fields.OnUser` is the line
+again, and it is the only one.** Two tests in `VRChatUserSnapshotTests` hold it: one sets the
+pictures on the typed object and proves the snapshot ignores them, the other proves the
+fallback body built from `UserResponse.ToJson()` — around a hundred keys now, where the old
+`User`'s was thirty-nine — still speaks only for what Get User carries.
 
 ## 4. Absent is not empty
 
