@@ -1,3 +1,4 @@
+using Modbot.Core.Logging.Store;
 using Modbot.Core.Time;
 using Serilog;
 using Serilog.Core;
@@ -151,8 +152,19 @@ public static class ModbotLogging
         // ── Seq: absent config means an absent sink, never a broken logger or a stream of
         //    connection errors. It is also the only durable destination left when the files are
         //    off, which is why it survives that switch untouched.
+        //
+        //    The queue is held to the same ten thousand lines as the database sink. The sink's own
+        //    default is a hundred thousand, and a held line measures 696 bytes, so a Seq that goes
+        //    away takes 66 MB of memory with it until it comes back -- on a machine with two
+        //    gigabytes and a database beside it, that is the Seq outage becoming an outage. Ten
+        //    thousand is about seven megabytes, and it costs nothing that is not written down
+        //    elsewhere: the same lines are already going to the files, to the console and to the
+        //    database, so a line dropped here is a line that is still in three other places.
         if (!string.IsNullOrWhiteSpace(options.SeqUrl))
-            config.WriteTo.Seq(options.SeqUrl, restrictedToMinimumLevel: LogEventLevel.Debug);
+            config.WriteTo.Seq(
+                options.SeqUrl,
+                restrictedToMinimumLevel: LogEventLevel.Debug,
+                queueSizeLimit: DatabaseLogSink.QueueCapacity);
 
         // ── The database: the same events as the main stream, for the operator who has no Seq and
         //    no disk that survives a redeploy. The floor follows the level that was asked for,
