@@ -30,6 +30,24 @@
     <OpenApiGenerateDocuments Condition="'$(ModbotOpenApiDocument)' == 'false' or '$(DOTNET_RUNNING_IN_CONTAINER)' == 'true'">false</OpenApiGenerateDocuments>
     <OpenApiDocumentsDirectory>$(MSBuildThisFileDirectory)..\..\docs\openapi</OpenApiDocumentsDirectory>
     <OpenApiGenerateDocumentsOptions>--file-name modbot</OpenApiGenerateDocumentsOptions>
+  
+    <!-- The web SDK turns Server GC on by default, which keeps a heap per core and lets each one
+         grow before collecting. That is the right trade for a machine whose job is throughput, and
+         the wrong one here: this is the server people run on their own hardware, sometimes a
+         Raspberry Pi, and it spends its life waiting. On timers, on Discord's socket, and on
+         VRChat at 1.45 requests a second. Measured at idle against a real database, same binary,
+         only this flag differing: 215 MB private and 62 threads with it on, 70 MB and 27 threads
+         with it off.
+
+         Background GC stays on. Turning that off as well was measured too, and cost 37 MB rather
+         than saving any, because gen2 collections become blocking and the heap is allowed to grow
+         further between them. GCConserveMemory came out inside the noise.
+
+         Only this project. Cloud, My and Landing are served from machines we run ourselves, where
+         answering many callers at once is worth more than the megabytes. An operator running this
+         one on a large machine can put Server GC back with the DOTNET_gcServer variable.
+    -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <PropertyGroup>
