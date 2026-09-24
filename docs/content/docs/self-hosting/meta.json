@@ -5,6 +5,7 @@
     "install-script",
     "railway",
     "docker",
+    "small-machines",
     "demo-mode",
     "environment-variables",
     "postgres",
