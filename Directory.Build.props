@@ -14,6 +14,21 @@
          data, and nothing needs ICU. -->
     <PredefinedCulturesOnly>false</PredefinedCulturesOnly>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!-- The web SDK turns Server GC on by default, and every server here inherited it without
+         anybody choosing it. Server GC keeps a heap per core and lets each one grow before
+         collecting, which is the right trade for a machine whose job is throughput. Modbot's
+         servers spend their lives waiting: on timers, on Discord's socket, and on VRChat at 1.45
+         requests a second. Measured on Modbot.Server, idle, same binary, only this flag differing:
+         215 MB private and 62 threads with it on, 70 MB and 27 threads with it off.
+
+         Background GC stays on. Turning it off as well was measured too and cost 37 MB rather than
+         saving any, because gen2 collections become blocking and the heap grows further between
+         them. GCConserveMemory made no difference worth the CPU.
+
+         An operator running one Modbot on a large machine can still put it back with the
+         DOTNET_gcServer environment variable; this is the default, not a ceiling. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <!-- A release build names its version once, as ModbotRelease (YYYY.M.PATCH), and every
