@@ -153,7 +153,10 @@ try
     string connectionString;
     try
     {
-        connectionString = DatabaseUrl.ToConnectionString(env.DatabaseUrl!);
+        // WithConnectionLimit stops Modbot promising a hundred database connections on a machine
+        // that cannot serve them, and leaves an operator's own number alone. See DatabaseUrl.
+        connectionString = DatabaseUrl.WithConnectionLimit(
+            DatabaseUrl.ToConnectionString(env.DatabaseUrl!));
     }
     catch (FormatException e)
     {
