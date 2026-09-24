@@ -1,0 +1,123 @@
+---
+title: Small machines
+description: Running Modbot on a Raspberry Pi or a small VPS — what the machine needs, what to change on the database, and the memory and startup times measured on four cores.
+---
+
+Modbot is one service and one PostgreSQL database, and both are small enough for a Raspberry Pi 4.
+The published image serves arm64 as well as amd64, so `docker pull` on a Pi gets a working image
+from the same tag as anywhere else. See [Docker](/self-hosting/docker#pull-the-published-image).
+
+Every figure on this page was measured: one container with four cores, against a real PostgreSQL
+16, read from `docker stats` and from the containers' own memory accounting. The memory carries
+across to a Pi. The times do not — a Pi's cores are slower than the ones this was measured on, so
+expect it to take several times as long.
+
+## What the machine needs
+
+| | |
+|---|---|
+| Memory | 2 GB runs Modbot and its database with room to spare. 4 GB leaves room for whatever else the machine does. |
+| Cores | Two is enough. Four is a Raspberry Pi 4 and is comfortable. |
+| Architecture | The published image is amd64 and arm64, so use a 64-bit operating system. On 32-bit Raspberry Pi OS you would have to [build the image](/self-hosting/docker#build-the-image) yourself. |
+| Disk | About 500 MB for the image, and then whatever the database grows to. Modbot keeps everything until you set a retention period; see [Data and retention](/self-hosting/data-retention). |
+| Where the database lives | A USB SSD rather than the SD card. PostgreSQL writes constantly, and an SD card is the part of a Pi that wears out. |
+
+Building the image **on** a Pi is a different question from running it there. The build is a whole
+Node build of the web app and a whole .NET build of the server, and it compiles every assembly to
+machine code on the way; it asks far more of the machine than running the result does. Pull the
+published image instead.
+
+## What it uses
+
+| | |
+|---|---|
+| Modbot, settled | 144 MiB after an ordinary restart. About 170 MiB for a while after the very first start, which creates every table. |
+| Modbot, the highest it went | 180 MiB, during that first start |
+| PostgreSQL, with Modbot connected and its tables in place | 58 MiB |
+
+So Modbot and its database together are **around 200 MiB once settled, and never went past 240 MiB**,
+before the operating system.
+
+The high point is the **first start**, not the steady state. A brand-new Modbot creates every table
+in an empty database; that run took 3 seconds and 180 MiB. Later starts take a second and a half and
+never go near it.
+
+Modbot's idle memory is deliberately small: it uses the garbage collector meant for a machine that
+spends its life waiting rather than the one meant for throughput, and its own code is compiled to
+machine code when the image is built rather than while it runs.
+
+## Give each container a memory limit
+
+A container with no limit believes it has the whole machine. Modbot does not take the whole machine
+either way — with a 512 MB limit and with none at all it settled at 144 MiB against 146 MiB, and its
+first start reached the same height either way — so a limit is not what makes it small. It is what
+stops one service taking the Pi down with it if something ever goes wrong.
+
+In `docker-compose.yml`:
+
+```yaml
+services:
+  modbot:
+    mem_limit: 512m
+  postgres:
+    mem_limit: 512m
+```
+
+With `docker run`, the same thing is `--memory=512m`.
+
+Do not set it lower than 512 MB for Modbot. The first start needs 180 MiB and a busy moment needs
+more than an idle one, and a container that runs out of memory is killed rather than slowed down.
+
+## PostgreSQL on the same machine
+
+PostgreSQL 16's own defaults are already modest — 128 MB of shared buffers, 4 MB of working memory
+per sort — and they are the right ones here. Two of them are not.
+
+<Callout type="warn" title="Ignore the usual advice about shared buffers">
+  Every PostgreSQL tuning guide says to set `shared_buffers` to a quarter of the machine's memory.
+  That advice is for a machine whose only job is the database. On a Pi that Modbot shares, leave it
+  at 128 MB.
+</Callout>
+
+| Setting | Default | On a small machine | Why |
+|---|---|---|---|
+| `max_connections` | 100 | 30 | Every connection is a separate process, and an idle one measured about 1.7 MiB. A hundred of them is 170 MiB the Pi does not have. |
+| `effective_cache_size` | 4 GB | 768 MB | PostgreSQL does not reserve this; it is what it believes the machine can keep in memory, and it picks its plans from that belief. A Pi cannot keep 4 GB. |
+| `shared_buffers` | 128 MB | 128 MB | Leave it. |
+| `work_mem` | 4 MB | 4 MB | Leave it. |
+| `maintenance_work_mem` | 64 MB | 64 MB | Leave it. |
+
+Pass them to the database container as a `command`:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    command:
+      - -c
+      - max_connections=30
+      - -c
+      - effective_cache_size=768MB
+```
+
+Then tell Modbot not to open more connections than the database will accept, by adding
+`Maximum Pool Size` to `DATABASE_URL`:
+
+```text
+Host=postgres;Port=5432;Database=modbot;Username=modbot;Password=your-password;Maximum Pool Size=20
+```
+
+Modbot settled at seven connections at rest and opens more only when several people are using it at
+once. Left alone it would open up to a hundred, which is what `max_connections` above would then
+refuse. See [PostgreSQL](/self-hosting/postgres#writing-database_url) for the rest of what that
+setting can carry.
+
+## What to expect
+
+- The **first visit after a restart** is slower than the ones after it, on any machine. On a Pi it
+  is slower again.
+- **Syncing your group** is paced by VRChat's rate limits, not by the Pi. A slow machine does not
+  make the sync slower; VRChat decides that.
+- **The setup wizard's connection check** is the first thing to try, because a Pi at home reaches
+  VRChat from a residential address, which is the kind VRChat's protection is least likely to
+  block. See [What you run](/self-hosting#what-is-optional).

@@ -17,6 +17,10 @@ advisory locks, so a database that only imitates PostgreSQL's connection protoco
 
 A managed PostgreSQL from your hosting platform (such as Railway's) is fine.
 
+Its own defaults suit a machine with memory to spare. On a Raspberry Pi or anything else where the
+database shares the machine with Modbot, two of them are worth changing; see
+[Small machines](/self-hosting/small-machines#postgresql-on-the-same-machine).
+
 ## Writing DATABASE_URL
 
 Modbot accepts two forms.
