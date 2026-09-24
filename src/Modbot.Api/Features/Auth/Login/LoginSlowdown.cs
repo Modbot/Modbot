@@ -19,20 +19,40 @@ namespace Modbot.Api.Features.Auth.Login;
 /// In memory, per process. Modbot is a single-instance appliance (foundation §2.4) and the count
 /// is a nuisance to an attacker rather than a record; the record is the <c>LoginFailed</c> fact.
 /// </para>
+/// <para>
+/// <strong>Old counts are swept out.</strong> An entry is made per username tried and per address
+/// it was tried from, and until 2026-09-24 nothing ever removed one that was not tried again: a
+/// spread-out guessing run left a row per address for as long as the process ran, which on a
+/// small machine is the sort of slow fill that shows up a fortnight later as an out-of-memory
+/// kill. Everything past <see cref="Window"/> is now swept out, but only once there have been
+/// at least as many attempts since the last sweep as there are counts to walk. That keeps the
+/// work per attempt flat however the attempts are shaped — a flood of genuinely recent keys
+/// cannot make every attempt walk the whole store — and it bounds the store at roughly twice
+/// what was seen inside the window, rather than at everything ever seen.
+/// </para>
 /// </remarks>
 public abstract class AttemptSlowdown
 {
     public static readonly TimeSpan Window = TimeSpan.FromMinutes(15);
     public static readonly TimeSpan MaxWait = TimeSpan.FromSeconds(20);
 
+    /// <summary>The fewest attempts between sweeps. A quiet Modbot never sweeps at all.</summary>
+    private const int SweepAfter = 1024;
+
     private readonly ConcurrentDictionary<string, (int Failures, DateTimeOffset Last)> _entries = new();
     private readonly IModbotClock _clock;
+
+    /// <summary>Attempts recorded since the last sweep.</summary>
+    private int _sinceSweep;
 
     protected AttemptSlowdown(IModbotClock clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
         _clock = clock;
     }
+
+    /// <summary>How many counts are being held. For the tests.</summary>
+    public int Held => _entries.Count;
 
     /// <summary>How long this attempt should wait before it is acted on.</summary>
     public TimeSpan WaitFor(string? username, string? address)
@@ -61,6 +81,34 @@ public abstract class AttemptSlowdown
                 key,
                 _ => (1, now),
                 (_, existing) => now - existing.Last > Window ? (1, now) : (existing.Failures + 1, now));
+        }
+
+        SweepIfDue(now);
+    }
+
+    /// <summary>
+    /// Removes every count older than <see cref="Window"/>, once enough attempts have gone by to
+    /// pay for the walk.
+    /// </summary>
+    /// <remarks>
+    /// Waiting for the attempts rather than for the size is what keeps this honest. Sweeping
+    /// whenever the store is big would walk the whole store on every attempt as soon as a flood
+    /// of genuinely recent keys sat above the line — the sweep would become the attack. Waiting
+    /// until there have been as many attempts as there are counts spreads one walk over that many
+    /// attempts, so the work each attempt does is flat whatever an attacker tries.
+    /// </remarks>
+    private void SweepIfDue(DateTimeOffset now)
+    {
+        var due = Math.Max(SweepAfter, _entries.Count);
+        if (Interlocked.Increment(ref _sinceSweep) < due)
+            return;
+
+        Interlocked.Exchange(ref _sinceSweep, 0);
+
+        foreach (var (key, entry) in _entries)
+        {
+            if (now - entry.Last > Window)
+                _entries.TryRemove(key, out _);
         }
     }
 

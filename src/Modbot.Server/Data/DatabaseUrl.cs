@@ -25,6 +25,18 @@ public static class DatabaseUrl
 {
     private const int DefaultPostgresPort = 5432;
 
+    /// <summary>Npgsql's own name for the ceiling, which is what its builder reports a set one under.</summary>
+    private const string MaxPoolSizeKeyword = "Maximum Pool Size";
+
+    /// <summary>Connections per processor, when nobody has said otherwise.</summary>
+    private const int ConnectionsPerProcessor = 4;
+
+    /// <summary>The fewest connections the ceiling is ever set to, however small the machine.</summary>
+    public const int FewestConnections = 20;
+
+    /// <summary>The most, which is also the number Npgsql would have used by itself.</summary>
+    public const int MostConnections = 100;
+
     public static string ToConnectionString(string databaseUrl)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databaseUrl);
@@ -70,6 +82,62 @@ public static class DatabaseUrl
 
         return builder.ConnectionString;
     }
+
+    /// <summary>
+    /// Adds a ceiling on how many database connections Modbot will hold open at once, unless the
+    /// operator already named one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Npgsql's own default is a hundred, which is also PostgreSQL's whole default allowance for
+    /// every client on the server. On a machine where Modbot and its database share four slow
+    /// cores — a Raspberry Pi, which is a deployment Modbot is meant to fit — Modbot alone could
+    /// take the lot, leaving nothing for the log sink, for a psql session, or for the operator
+    /// trying to find out what went wrong. Each connection is also a buffer on both sides and a
+    /// backend process on the database's, so the ceiling is a memory figure twice over.
+    /// </para>
+    /// <para>
+    /// Four per core, never fewer than twenty and never more than the hundred Npgsql would have
+    /// used anyway: a big machine is left exactly as it was, and a small one stops promising more
+    /// than it can serve. Nothing waits longer as a result — the work Modbot does at once is
+    /// bounded by what the database can answer at once, which on four cores is a handful.
+    /// </para>
+    /// <para>
+    /// An operator who wants a different number says so, and is believed: as
+    /// <c>?Maximum Pool Size=200</c> on the URL, or as a keyword in the connection string. This
+    /// only fills in an answer where there was none.
+    /// </para>
+    /// </remarks>
+    public static string WithConnectionLimit(string connectionString)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
+
+        NpgsqlConnectionStringBuilder builder;
+        try
+        {
+            builder = new NpgsqlConnectionStringBuilder(connectionString);
+        }
+        catch (ArgumentException)
+        {
+            // Not something Npgsql can read. Leave it exactly as it is and let the connection
+            // attempt report the problem in Npgsql's own words.
+            return connectionString;
+        }
+
+        // ShouldSerialize, not ContainsKey: Npgsql's builder answers ContainsKey for every keyword
+        // it knows about, whether or not this string supplied one, so it can never tell us what
+        // the operator actually wrote. ShouldSerialize is true only for keywords that were set,
+        // under any of the spellings Npgsql accepts for them.
+        if (builder.ShouldSerialize(MaxPoolSizeKeyword))
+            return connectionString;
+
+        builder.MaxPoolSize = ConnectionsFor(Environment.ProcessorCount);
+        return builder.ConnectionString;
+    }
+
+    /// <summary>The ceiling for a machine with this many processors.</summary>
+    public static int ConnectionsFor(int processors)
+        => Math.Clamp(processors * ConnectionsPerProcessor, FewestConnections, MostConnections);
 
     private static bool IsPostgresUrl(string value) =>
         value.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)

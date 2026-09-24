@@ -19,10 +19,21 @@ namespace Modbot.Moderation;
 /// <see cref="ShortestText"/> characters is left unknown rather than guessed at.
 /// </para>
 /// <para>
-/// Singleton: the profiles are built once, and detecting is thread-safe once they are.
+/// Singleton: the profiles are built on the first question and detecting is thread-safe once they
+/// are. They are also put down again when nobody has asked for a while, because the fifty-one
+/// profiles are 36 MB of the heap — measured, and more than everything else Modbot holds at rest
+/// put together. A Modbot on a small machine that moderates in bursts should not pay for them
+/// through the hours between. Building them back costs about a tenth of a second, once, and the
+/// answers are identical either way: nothing about what Modbot can detect changes here, only how
+/// long the profiles stay in memory after the last question.
+/// </para>
+/// <para>
+/// The quiet is counted in ticks of a timer rather than in clock time, which is why there is no
+/// <c>IModbotClock</c> here: two ticks with no question between them is quiet, so the profiles go
+/// somewhere between one and two <see cref="QuietPeriod"/>s after the last one.
 /// </para>
 /// </remarks>
-public sealed class TextLanguage
+public sealed class TextLanguage : IDisposable
 {
     /// <summary>Text shorter than this is left unknown: the detector guesses at it.</summary>
     public const int ShortestText = 12;
@@ -30,12 +41,24 @@ public sealed class TextLanguage
     /// <summary>The most characters one detection reads. Past this the answer stops changing.</summary>
     public const int MostText = 2000;
 
-    private readonly Lazy<LanguageDetector> _detector = new(() =>
+    /// <summary>How long a stretch of nobody asking counts as quiet.</summary>
+    public static readonly TimeSpan QuietPeriod = TimeSpan.FromMinutes(15);
+
+    private readonly Lock _gate = new();
+
+    private LanguageDetector? _detector;
+
+    /// <summary>Watches for the quiet. Only exists while the profiles do.</summary>
+    private Timer? _quietCheck;
+
+    /// <summary>Whether anything has asked since the last tick.</summary>
+    private bool _asked;
+
+    /// <summary>Whether the profiles are in memory right now. For the tests.</summary>
+    public bool Loaded
     {
-        var detector = new LanguageDetector();
-        detector.AddAllLanguages();
-        return detector;
-    });
+        get { lock (_gate) return _detector is not null; }
+    }
 
     /// <summary>
     /// The text's language as an ISO 639-3 code, e.g. <c>eng</c> or <c>rus</c>, or null when the
@@ -55,13 +78,66 @@ public sealed class TextLanguage
 
         try
         {
-            var code = _detector.Value.Detect(trimmed);
+            // Held as a local, so a detector put down while this call is running stays alive
+            // until the call that is using it finishes with it.
+            var code = Detector().Detect(trimmed);
             return string.IsNullOrWhiteSpace(code) ? null : code.Trim().ToLowerInvariant();
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
             // A detector that cannot read a string must not stop a message being checked.
             return null;
+        }
+    }
+
+    /// <summary>Puts the profiles down now, whether or not it has been quiet. For the tests.</summary>
+    public void PutDown()
+    {
+        lock (_gate)
+        {
+            _detector = null;
+            _asked = false;
+            _quietCheck?.Dispose();
+            _quietCheck = null;
+        }
+    }
+
+    public void Dispose() => PutDown();
+
+    /// <summary>
+    /// The profiles, built if they are not in memory. Building inside the lock is deliberate: two
+    /// threads arriving together would otherwise build two sets and hold 72 MB between them.
+    /// </summary>
+    private LanguageDetector Detector()
+    {
+        lock (_gate)
+        {
+            _asked = true;
+
+            if (_detector is { } ready)
+                return ready;
+
+            var built = new LanguageDetector();
+            built.AddAllLanguages();
+            _detector = built;
+            _quietCheck ??= new Timer(DropIfQuiet, null, QuietPeriod, QuietPeriod);
+            return built;
+        }
+    }
+
+    private void DropIfQuiet(object? _)
+    {
+        lock (_gate)
+        {
+            if (_asked)
+            {
+                _asked = false;
+                return;
+            }
+
+            _detector = null;
+            _quietCheck?.Dispose();
+            _quietCheck = null;
         }
     }
 }
