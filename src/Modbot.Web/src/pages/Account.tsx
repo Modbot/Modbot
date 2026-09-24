@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { NotificationChoicesCard } from '@/components/account/NotificationChoicesCard'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
@@ -16,10 +17,12 @@ import { ErrorText, Field, Note } from '@/pages/setup/WizardChrome'
  */
 export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <PanelGrid className="lg:grid-cols-2">
       <Card>
-        <CardContent className="space-y-3">
-          <div className="font-semibold">You</div>
+        <CardHeader>
+          <CardTitle>You</CardTitle>
+        </CardHeader>
+        <CardContent>
           <div style={{ fontSize: 'var(--text-small)' }}>
             <div>
               Signed in as <span className="font-medium">{me.username}</span>
@@ -42,8 +45,10 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
       <NotificationChoicesCard />
 
       <Card>
-        <CardContent className="space-y-3">
-          <div className="font-semibold">Your VRChat account</div>
+        <CardHeader>
+          <CardTitle>Your VRChat account</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
           <div style={{ fontSize: 'var(--text-small)' }}>
             {me.vrChatLinked ? (
               <>
@@ -66,8 +71,10 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
       </Card>
 
       <Card>
-        <CardContent className="space-y-3">
-          <div className="font-semibold">my.modbot.co</div>
+        <CardHeader>
+          <CardTitle>my.modbot.co</CardTitle>
+        </CardHeader>
+        <CardContent>
           <a
             href={registerLink()}
             target="_blank"
@@ -80,7 +87,7 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
       </Card>
 
       <SignOutEverywhere />
-    </div>
+    </PanelGrid>
   )
 }
 
@@ -114,9 +121,11 @@ function ChangeUsername({ me, onChanged }: { me: CurrentUser; onChanged: () => v
 
   return (
     <Card>
-      <CardContent>
-        <form onSubmit={submit} className="space-y-3">
-          <div className="font-semibold">Change your username</div>
+      <CardHeader>
+        <CardTitle>Change your username</CardTitle>
+      </CardHeader>
+      <form onSubmit={submit} className="flex flex-1 flex-col">
+        <CardContent className="flex flex-1 flex-col gap-3">
           <Field label="New username" htmlFor="acct-username">
             <Input id="acct-username" required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
           </Field>
@@ -124,14 +133,14 @@ function ChangeUsername({ me, onChanged }: { me: CurrentUser; onChanged: () => v
             <Input id="acct-username-pw" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           <ErrorText>{error}</ErrorText>
-          <div className="flex items-center gap-3">
-            <Button type="submit" size="sm" disabled={busy || username.trim() === me.username || !password}>
-              {busy ? 'Saving…' : 'Change username'}
-            </Button>
-            {done && <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>Changed.</span>}
-          </div>
-        </form>
-      </CardContent>
+        </CardContent>
+        <CardFooter className="flex-wrap gap-3">
+          <Button type="submit" size="sm" disabled={busy || username.trim() === me.username || !password}>
+            {busy ? 'Saving…' : 'Change username'}
+          </Button>
+          {done && <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>Changed.</span>}
+        </CardFooter>
+      </form>
     </Card>
   )
 }
@@ -167,9 +176,11 @@ function ChangePassword() {
 
   return (
     <Card>
-      <CardContent>
-        <form onSubmit={submit} className="space-y-3">
-          <div className="font-semibold">Change your password</div>
+      <CardHeader>
+        <CardTitle>Change your password</CardTitle>
+      </CardHeader>
+      <form onSubmit={submit} className="flex flex-1 flex-col">
+        <CardContent className="flex flex-1 flex-col gap-3">
           <Field label="Current password" htmlFor="acct-pw-current">
             <Input id="acct-pw-current" type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
           </Field>
@@ -182,18 +193,18 @@ function ChangePassword() {
             </Field>
           </div>
           <ErrorText>{error}</ErrorText>
-          <div className="flex items-center gap-3">
-            <Button type="submit" size="sm" disabled={busy}>
-              {busy ? 'Saving…' : 'Change password'}
-            </Button>
-            {done && (
-              <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>
-                Changed. Other sessions signed out.
-              </span>
-            )}
-          </div>
-        </form>
-      </CardContent>
+        </CardContent>
+        <CardFooter className="flex-wrap gap-3">
+          <Button type="submit" size="sm" disabled={busy}>
+            {busy ? 'Saving…' : 'Change password'}
+          </Button>
+          {done && (
+            <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>
+              Changed. Other sessions signed out.
+            </span>
+          )}
+        </CardFooter>
+      </form>
     </Card>
   )
 }
@@ -227,9 +238,11 @@ function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) 
 
   return (
     <Card>
-      <CardContent>
-        <form onSubmit={submit} className="space-y-3">
-          <div className="font-semibold">How you can be reached</div>
+      <CardHeader>
+        <CardTitle>How you can be reached</CardTitle>
+      </CardHeader>
+      <form onSubmit={submit} className="flex flex-1 flex-col">
+        <CardContent className="flex flex-1 flex-col gap-3">
           <Field label="Email" htmlFor="acct-email">
             <Input id="acct-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
@@ -237,14 +250,14 @@ function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) 
             <Input id="acct-discord" className="font-mono" autoComplete="off" value={discord} onChange={(e) => setDiscord(e.target.value)} />
           </Field>
           <ErrorText>{error}</ErrorText>
-          <div className="flex items-center gap-3">
-            <Button type="submit" size="sm" variant="outline" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
-            </Button>
-            {done && <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>Saved.</span>}
-          </div>
-        </form>
-      </CardContent>
+        </CardContent>
+        <CardFooter className="flex-wrap gap-3">
+          <Button type="submit" size="sm" variant="outline" disabled={busy}>
+            {busy ? 'Saving…' : 'Save'}
+          </Button>
+          {done && <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>Saved.</span>}
+        </CardFooter>
+      </form>
     </Card>
   )
 }
@@ -254,9 +267,13 @@ function SignOutEverywhere() {
 
   return (
     <Card>
-      <CardContent className="space-y-3">
-        <div className="font-semibold">Sign out everywhere</div>
+      <CardHeader>
+        <CardTitle>Sign out everywhere</CardTitle>
+      </CardHeader>
+      <CardContent>
         <Note>Includes this browser.</Note>
+      </CardContent>
+      <CardFooter>
         <Button
           size="sm"
           variant="destructive"
@@ -268,7 +285,7 @@ function SignOutEverywhere() {
         >
           {busy ? 'Signing out…' : 'Sign out everywhere'}
         </Button>
-      </CardContent>
+      </CardFooter>
     </Card>
   )
 }

@@ -45,7 +45,7 @@ export function ProfileHeader({
 
   return (
     <div className={cn('flex flex-col', className)}>
-      <div className="aspect-[3/1] max-h-48 w-full overflow-hidden rounded-xl bg-muted">
+      <div className="aspect-[3/1] max-h-48 w-full overflow-hidden bg-muted">
         {banner && <img src={banner} alt="" className="size-full object-cover" referrerPolicy="no-referrer" />}
       </div>
 

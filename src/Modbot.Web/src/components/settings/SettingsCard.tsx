@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { PanelGrid } from '@/components/PanelGrid'
 import { cn } from '@/lib/utils'
 
 // One settings section is a titled group of cards on a 12-column grid, and one card is one
@@ -31,7 +32,7 @@ export function SettingsSection({
       <h2 id={`${id}-title`} className="sr-only">
         {title}
       </h2>
-      <div className="grid grid-cols-12 gap-4">{children}</div>
+      <PanelGrid className="grid-cols-12">{children}</PanelGrid>
     </section>
   )
 }
@@ -63,17 +64,17 @@ export function SettingsCard({
   return (
     <Card
       className={cn(
-        'col-span-12 gap-3 py-5',
+        'col-span-12',
         span === 12 ? 'lg:col-span-12' : 'lg:col-span-6',
         className,
       )}
     >
-      <CardHeader className="gap-1 px-5">
-        <CardTitle className="font-medium">{title}</CardTitle>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
         {action && <CardAction>{action}</CardAction>}
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3 px-5">{children}</CardContent>
-      {footer && <CardFooter className="flex-wrap gap-3 px-5">{footer}</CardFooter>}
+      <CardContent className="flex flex-1 flex-col gap-3">{children}</CardContent>
+      {footer && <CardFooter className="flex-wrap gap-3">{footer}</CardFooter>}
     </Card>
   )
 }

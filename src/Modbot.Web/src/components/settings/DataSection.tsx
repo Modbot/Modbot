@@ -13,11 +13,10 @@ import {
 } from '@/lib/api'
 import { CREDITS_PATH } from '@/lib/nav'
 import { followLink } from '@/lib/router'
-import { Checkbox, Fact, Field, Hint, Outcome, Placeholder, Row, Switch } from './fields'
+import { Checkbox, Fact, Field, Hint, Notice, Outcome, Placeholder, Row, Switch } from './fields'
 import { MachineUsageCard } from './MachineUsageCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
-import { CheckCircle2 } from 'lucide-react'
 import { GB, bytes, hasPlentyOfStorage, remember, remembered } from './units'
 
 /**
@@ -128,13 +127,7 @@ function StorageCard({
           </div>
 
           {hasPlentyOfStorage(storage, capacityBytes) && (
-            <div
-              className="flex items-center gap-2 rounded-xl border border-ok/40 bg-ok/10 px-4 py-3"
-              style={{ borderWidth: 'var(--hairline)' }}
-            >
-              <CheckCircle2 className="size-4 shrink-0 text-ok" aria-hidden />
-              <span className="font-medium">You have plenty of storage for the foreseeable future</span>
-            </div>
+            <Notice tone="ok" title="You have plenty of storage for the foreseeable future" />
           )}
         </div>
 
@@ -224,7 +217,7 @@ function UpdatesCard() {
         ) : undefined
       }
     >
-      <div className="flex flex-col gap-3">
+      <div>
         <Row label="Running" value={view?.running ?? '…'} />
         <Row label="Newest" value={newest} />
         {view?.newerAvailable && view.image && (
@@ -234,11 +227,11 @@ function UpdatesCard() {
           label="Last checked"
           value={view?.checkedAt ? new Date(view.checkedAt).toLocaleString() : '—'}
         />
-        <Switch checked={view?.on ?? false} disabled={saving || !view} onChange={choose}>
-          Check for updates
-        </Switch>
-        <Outcome tone="problem">{error ?? (view?.on ? view.problem : null)}</Outcome>
       </div>
+      <Switch checked={view?.on ?? false} disabled={saving || !view} onChange={choose}>
+        Check for updates
+      </Switch>
+      <Outcome tone="problem">{error ?? (view?.on ? view.problem : null)}</Outcome>
     </SettingsCard>
   )
 }

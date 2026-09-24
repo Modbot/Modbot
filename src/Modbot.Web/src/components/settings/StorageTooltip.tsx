@@ -15,8 +15,8 @@ export function ChartTooltipFrame({
 }) {
   return (
     <div
-      className="rounded-md border bg-popover px-2 py-1 text-popover-foreground shadow-md"
-      style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)' }}
+      className="rounded-sm border border-(length:--hairline) bg-popover px-2 py-1 text-popover-foreground shadow-sm"
+      style={{ fontSize: 'var(--text-small)' }}
     >
       <div className="text-muted-foreground">{title}</div>
       {children}
@@ -38,7 +38,7 @@ export function ChartTooltipRow({
   return (
     <div className="flex items-baseline gap-1.5 tabular-nums">
       {series && <span className="size-2 shrink-0 rounded-full" style={{ background: series }} />}
-      <span className="font-medium">{value}</span>
+      <span className="font-mono font-medium">{value}</span>
       {label && <span className="text-muted-foreground">{label}</span>}
     </div>
   )

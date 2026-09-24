@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { JsonView } from '@/components/JsonView'
 import { api } from '@/lib/api'
@@ -6,6 +7,9 @@ import { CopyBox } from '@/pages/Users'
 import { Field, Outcome, PasswordField } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { failure, when } from './shared'
+
+/** Runs the card's content to its edges, so a list meets the card's sides. */
+const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 
 type Received = { at: number; kind: string; text: string; type?: string; occurredAt?: string }
 
@@ -134,17 +138,17 @@ export function EventsPanel() {
         </div>
       </SettingsCard>
 
-      <SettingsCard title="Received" span={12}>
+      <SettingsCard title="Received" span={12} className={FLUSH}>
         {received.length === 0 ? (
-          <p className="text-muted-foreground">Nothing yet.</p>
+          <EmptyRow>Nothing yet.</EmptyRow>
         ) : (
-          <div className="flex max-h-[32rem] flex-col divide-y overflow-auto" style={{ fontSize: 'var(--text-small)' }}>
+          <div className="flex max-h-[32rem] flex-col overflow-auto" style={{ fontSize: 'var(--text-small)' }}>
             {received.map((r) => (
-              <details key={r.at} className="py-1.5">
+              <details key={r.at} className="border-b border-b-(length:--hairline) last:border-0 px-(--panel-pad) py-1.5">
                 <summary className="cursor-pointer">
                   <span className="font-medium">{r.kind}</span>
                   {r.type && <span className="ml-2 font-mono">{r.type}</span>}
-                  {r.occurredAt && <span className="ml-2 text-muted-foreground">{when(r.occurredAt)}</span>}
+                  {r.occurredAt && <span className="ml-2 font-mono text-muted-foreground">{when(r.occurredAt)}</span>}
                 </summary>
                 <JsonView className="mt-1" title="Message" text={r.text} />
               </details>

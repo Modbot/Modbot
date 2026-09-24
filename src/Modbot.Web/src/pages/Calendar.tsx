@@ -6,9 +6,10 @@ import { CalendarEventForm } from '@/components/calendar/CalendarEventForm'
 import { WorldLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { SwitchBank } from '@/components/ui/switch-bank'
 import { ApiError } from '@/lib/api'
 import {
   calendarApi,
@@ -22,7 +23,7 @@ import {
 import { useLocation } from '@/lib/router'
 import { openInstance } from '@/lib/subject'
 import { cn } from '@/lib/utils'
-import { PageMessage, Toggle } from '@/pages/analytics/shared'
+import { PageMessage } from '@/pages/analytics/shared'
 
 type Mode = 'month' | 'agenda'
 
@@ -126,9 +127,9 @@ export function Calendar() {
   if (!data) return <PageMessage>{error ?? 'Loading…'}</PageMessage>
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Toggle
+        <SwitchBank
           value={mode}
           onChange={setMode}
           options={[
@@ -175,20 +176,22 @@ export function Calendar() {
 
       {drafts.length > 0 && (
         <Card>
-          <CardContent className="flex flex-col gap-1 py-3">
-            <span className="font-medium">Drafts</span>
+          <CardHeader>
+            <CardTitle>Drafts</CardTitle>
+          </CardHeader>
+          <div className="flex flex-col divide-y divide-(length:--hairline) divide-border">
             {drafts.map((d) => (
               <button
                 key={d.id}
                 type="button"
-                className="text-left hover:underline"
+                className="flex min-h-(--row-h) items-center px-(--panel-pad) text-left hover:underline"
                 style={{ fontSize: 'var(--text-small)' }}
                 onClick={() => setOpenId(d.id)}
               >
                 {d.title}
               </button>
             ))}
-          </CardContent>
+          </div>
         </Card>
       )}
 
@@ -236,15 +239,12 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
         title clips to a word or two, which is what tapping the day is for — and the Agenda beside
         this reads the same events out in full.
       */}
-      <div
-        className="grid grid-cols-7 overflow-hidden rounded-xl border sm:min-w-[720px]"
-        style={{ borderWidth: 'var(--hairline)' }}
-      >
+      <Card className="grid grid-cols-7 sm:min-w-[720px]">
         {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className="border-b bg-secondary px-2 py-1 text-muted-foreground"
-            style={{ fontSize: 'var(--text-small)', borderBottomWidth: 'var(--hairline)' }}
+            className="flex min-h-(--strip-h) items-center border-b border-b-(length:--hairline) bg-strip px-2 text-muted-foreground"
+            style={{ fontSize: 'var(--text-small)' }}
           >
             {d}
           </div>
@@ -256,12 +256,14 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
           return (
             <div
               key={day.toISOString()}
-              className={cn('min-h-16 border-r border-b p-1 sm:min-h-24', !inMonth && 'bg-secondary/40')}
-              style={{ borderWidth: 'var(--hairline)' }}
+              className={cn(
+                'min-h-16 border-r border-b border-(length:--hairline) p-1 sm:min-h-24 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0',
+                !inMonth && 'bg-strip/50',
+              )}
             >
               <div
                 className={cn(
-                  'mb-1 px-1 tabular-nums',
+                  'mb-1 px-1 font-mono',
                   inMonth ? 'text-foreground' : 'text-muted-foreground',
                   sameDay(day, today) && 'font-semibold',
                 )}
@@ -276,7 +278,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
                     type="button"
                     onClick={() => onOpen(entry.event.id)}
                     className={cn(
-                      'truncate rounded-md px-1 text-left hover:bg-secondary',
+                      'truncate rounded-sm px-1 text-left hover:bg-muted',
                       entry.event.state === 'cancelled' && 'line-through text-muted-foreground',
                       entry.event.state === 'open' && 'text-ok',
                     )}
@@ -286,7 +288,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
                     {/* The title, not the clock, in a cell a seventh of a phone wide: "3:0…" says
                         nothing about the event and "Qu…" at least says which one. The time is
                         back from `sm` up, and the Agenda states both at any width. */}
-                    <span className="hidden tabular-nums text-muted-foreground sm:inline">{time(entry.startsAt)} </span>
+                    <span className="hidden font-mono text-muted-foreground sm:inline">{time(entry.startsAt)} </span>
                     {entry.event.title}
                   </button>
                 ))}
@@ -294,7 +296,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
             </div>
           )
         })}
-      </div>
+      </Card>
     </div>
   )
 }
@@ -305,15 +307,13 @@ function Agenda({ entries, now, onOpen }: { entries: Entry[]; now: string; onOpe
   if (upcoming.length === 0) return <PageMessage>No events.</PageMessage>
 
   return (
-    <Card>
-      <CardContent className="flex flex-col py-2">
+    <Card className="divide-y divide-(length:--hairline) divide-border">
         {upcoming.map((entry) => (
           <div
             key={`${entry.event.id}-${entry.startsAt.toISOString()}`}
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-2 last:border-b-0"
-            style={{ borderBottomWidth: 'var(--hairline)' }}
+            className="flex min-h-(--row-h) flex-wrap items-center gap-x-3 gap-y-1 px-(--panel-pad) py-1.5"
           >
-            <span className="w-44 shrink-0 tabular-nums text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="w-52 shrink-0 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {entry.startsAt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
               {time(entry.startsAt)}–{time(entry.endsAt)}
             </span>
@@ -335,7 +335,6 @@ function Agenda({ entries, now, onOpen }: { entries: Entry[]; now: string; onOpe
             </div>
           </div>
         ))}
-      </CardContent>
     </Card>
   )
 }
@@ -376,7 +375,7 @@ function EventDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent title={event.title} subtitle={<StateBadge event={event} />} className="max-w-[560px]">
         <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
-          <div className="tabular-nums">
+          <div className="font-mono">
             {start.toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })}
             {' – '}
             {time(end)}
@@ -485,7 +484,7 @@ function FeedRow() {
       <span className="text-muted-foreground">Calendar feed</span>
       {link ? (
         <>
-          <Input readOnly value={link} className="h-8 max-w-xl flex-1 font-mono" onFocus={(e) => e.target.select()} />
+          <Input readOnly value={link} className="max-w-xl flex-1 font-mono" onFocus={(e) => e.target.select()} />
           <Button size="sm" variant="outline" onClick={copy}>
             {copied ? 'Copied' : 'Copy'}
           </Button>

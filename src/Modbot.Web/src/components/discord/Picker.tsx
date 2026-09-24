@@ -13,7 +13,7 @@ export type PickerOption = {
   /** Searched as well as the label, so an id pasted into the box finds its channel. */
   keywords?: string
   marks: PickerMark[]
-  /** A colour dot before the label, as `#rrggbb`. */
+  /** A colour square before the label, as `#rrggbb`. */
   dot?: string | null
 }
 
@@ -97,8 +97,8 @@ export function Picker({
             aria-labelledby={labelId}
             disabled={disabled}
             className={cn(
-              'flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 text-left text-base shadow-xs outline-none md:text-sm dark:bg-input/30',
-              'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+              'flex h-(--control-h) w-full min-w-0 items-center justify-between gap-2 rounded-sm border border-(length:--hairline) border-input bg-card px-2 text-left text-(length:--text-small) text-foreground outline-none',
+              'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
               'disabled:cursor-not-allowed disabled:opacity-50',
             )}
           >
@@ -113,27 +113,29 @@ export function Picker({
                 <span className="text-muted-foreground">None</span>
               )}
             </span>
-            <ChevronsUpDown className="size-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="size-3.5 shrink-0 opacity-60" />
           </button>
         </Popover.Trigger>
         <Popover.Portal>
           <Popover.Content
             align="start"
             sideOffset={4}
-            className="z-50 w-(--radix-popover-trigger-width) min-w-[18rem] rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
+            className="z-50 w-(--radix-popover-trigger-width) min-w-[18rem] rounded-sm border border-(length:--hairline) bg-popover py-1 text-(length:--text-small) text-popover-foreground shadow-sm"
           >
-            <Input
-              autoFocus
-              value={query}
-              placeholder="Search"
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  if (first) choose(first)
-                }
-              }}
-            />
+            <div className="px-1">
+              <Input
+                autoFocus
+                value={query}
+                placeholder="Search"
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (first) choose(first)
+                  }
+                }}
+              />
+            </div>
             <div role="listbox" aria-labelledby={labelId} className="mt-1 max-h-72 overflow-y-auto">
               {error && <div className="px-2 py-1.5 text-destructive">{error}</div>}
               {allowNone && !needle && (
@@ -144,7 +146,7 @@ export function Picker({
               {visible.map((group, index) => (
                 <div key={group.heading ?? `group-${index}`}>
                   {group.heading && (
-                    <div className="truncate px-2 pt-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    <div className="truncate px-2 pt-2 pb-1 font-label text-muted-foreground">
                       {group.heading}
                     </div>
                   )}
@@ -189,9 +191,9 @@ function Option({
       aria-selected={selected}
       onClick={onSelect}
       className={cn(
-        'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none',
+        'flex w-full min-w-0 items-center gap-2 px-2 py-1.5 text-left outline-none',
         'hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground',
-        selected && 'bg-secondary font-medium',
+        selected && 'bg-muted font-medium',
       )}
     >
       {children}
@@ -220,7 +222,7 @@ function Dot({ color }: { color?: string | null }) {
   return (
     <span
       aria-hidden
-      className="inline-block size-2.5 shrink-0 rounded-full border border-border"
+      className="inline-block size-2 shrink-0 border border-border"
       style={color ? { backgroundColor: color, borderColor: color } : undefined}
     />
   )

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type InviteView } from '@/lib/api'
 import { openRegisterOnce } from '@/lib/myModbot'
@@ -66,53 +67,55 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-6">
-      <div className="w-full max-w-[460px]">
+      <div className="w-full min-w-0 max-w-[460px]">
         <Brand />
-        <form onSubmit={submit} className="overflow-hidden rounded-xl border bg-card shadow-lg">
-          <WizardHeader eyebrow="You're invited" title="Create your Modbot account">
-            {invite?.usable
-              ? `${invite.invitedBy ?? 'Somebody'} invited you${invite.roles.length ? ` as ${invite.roles.join(', ')}` : ''}.`
-              : 'Checking the invite…'}
-          </WizardHeader>
-          <WizardBody>
-            {invite && !invite.usable ? (
-              <Note tone="warn">{invite.reason}</Note>
-            ) : (
-              <>
-                <Field label="Username" htmlFor="join-username">
-                  <Input id="join-username" autoComplete="username" autoFocus required value={username} onChange={(e) => setUsername(e.target.value)} />
-                </Field>
-                <Field label="Email" htmlFor="join-email">
-                  <Input id="join-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                </Field>
-                <Field label="Password" hint="at least 12 characters" htmlFor="join-password">
-                  <Input id="join-password" type="password" autoComplete="new-password" required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} />
-                </Field>
-                <Field label="Confirm password" htmlFor="join-confirm">
-                  <Input id="join-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-                </Field>
-                {invite?.canSubscribeToUpdates && (
-                  <Tickbox id="join-updates" checked={updates} onChange={setUpdates}>
-                    Receive emails from Modbot about new features and updates
-                  </Tickbox>
-                )}
-                <ErrorText>{error}</ErrorText>
-              </>
-            )}
-          </WizardBody>
-          <WizardFooter>
-            <div className="flex-1" />
-            {invite?.usable && (
-              <Button type="submit" disabled={busy} style={{ height: 'var(--control-h)' }}>
-                {busy ? 'Creating…' : 'Create account'}
-              </Button>
-            )}
-            {invite && !invite.usable && (
-              <Button type="button" variant="outline" onClick={() => window.location.assign('/')} style={{ height: 'var(--control-h)' }}>
-                Go to sign in
-              </Button>
-            )}
-          </WizardFooter>
+        <form onSubmit={submit}>
+          <Card>
+            <WizardHeader eyebrow="You're invited" title="Create your Modbot account">
+              {invite?.usable
+                ? `${invite.invitedBy ?? 'Somebody'} invited you${invite.roles.length ? ` as ${invite.roles.join(', ')}` : ''}.`
+                : 'Checking the invite…'}
+            </WizardHeader>
+            <WizardBody>
+              {invite && !invite.usable ? (
+                <Note tone="warn">{invite.reason}</Note>
+              ) : (
+                <>
+                  <Field label="Username" htmlFor="join-username">
+                    <Input id="join-username" autoComplete="username" autoFocus required value={username} onChange={(e) => setUsername(e.target.value)} />
+                  </Field>
+                  <Field label="Email" htmlFor="join-email">
+                    <Input id="join-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                  </Field>
+                  <Field label="Password" hint="at least 12 characters" htmlFor="join-password">
+                    <Input id="join-password" type="password" autoComplete="new-password" required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} />
+                  </Field>
+                  <Field label="Confirm password" htmlFor="join-confirm">
+                    <Input id="join-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+                  </Field>
+                  {invite?.canSubscribeToUpdates && (
+                    <Tickbox id="join-updates" checked={updates} onChange={setUpdates}>
+                      Receive emails from Modbot about new features and updates
+                    </Tickbox>
+                  )}
+                  <ErrorText>{error}</ErrorText>
+                </>
+              )}
+            </WizardBody>
+            <WizardFooter>
+              <div className="flex-1" />
+              {invite?.usable && (
+                <Button type="submit" disabled={busy}>
+                  {busy ? 'Creating…' : 'Create account'}
+                </Button>
+              )}
+              {invite && !invite.usable && (
+                <Button type="button" variant="outline" onClick={() => window.location.assign('/')}>
+                  Go to sign in
+                </Button>
+              )}
+            </WizardFooter>
+          </Card>
         </form>
       </div>
     </div>

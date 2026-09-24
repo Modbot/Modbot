@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -236,7 +237,7 @@ function ModelPicker({
     <DialogContent
       title="Model"
       className="max-w-[980px]"
-      bodyClassName="flex max-h-[76vh] flex-col gap-3 overflow-hidden px-5 py-4"
+      bodyClassName="flex max-h-[76vh] flex-col overflow-hidden p-0"
       actions={
         openRouter && (
           <div className="flex shrink-0 items-center gap-2">
@@ -250,13 +251,19 @@ function ModelPicker({
         )
       }
     >
-      <Outcome tone="problem">{problem}</Outcome>
+      {problem && (
+        <div className="px-4 pt-3">
+          <Outcome tone="problem">{problem}</Outcome>
+        </div>
+      )}
 
       {chosen === null || (openRouter ? catalog === null : listed === null) ? (
-        <span className="text-muted-foreground">Loading…</span>
+        <EmptyRow className="px-4">Loading…</EmptyRow>
       ) : openRouter ? (
         <>
-          <div className="flex flex-wrap items-center gap-2">
+          <div
+            className="flex shrink-0 flex-wrap items-center gap-2 border-b border-b-(length:--hairline) px-4 py-3"
+          >
             <Input
               aria-label="Search"
               className="w-full sm:max-w-xs"
@@ -266,7 +273,6 @@ function ModelPicker({
             />
             <Select
               aria-label="Maker"
-              className="h-9 px-3"
               value={filters.maker}
               onChange={(maker) => set({ maker })}
             >
@@ -359,11 +365,11 @@ function ModelPicker({
                         {id}
                       </button>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums" colSpan={price ? 1 : 2}>
+                    <TableCell className="text-right font-mono" colSpan={price ? 1 : 2}>
                       {price ? priceText(price.inputPerMillion) : 'No price'}
                     </TableCell>
                     {price && (
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="text-right font-mono">
                         {priceText(price.outputPerMillion)}
                       </TableCell>
                     )}
@@ -415,22 +421,23 @@ function Row({
         </div>
       </TableCell>
       <TableCell className="hidden text-muted-foreground md:table-cell">{model.maker}</TableCell>
-      <TableCell className="text-right tabular-nums">{priceText(model.inputPerMillion)}</TableCell>
-      <TableCell className="text-right tabular-nums">{priceText(model.outputPerMillion)}</TableCell>
-      <TableCell className="hidden text-right tabular-nums lg:table-cell">
+      <TableCell className="text-right font-mono">{priceText(model.inputPerMillion)}</TableCell>
+      <TableCell className="text-right font-mono">{priceText(model.outputPerMillion)}</TableCell>
+      <TableCell className="hidden text-right font-mono lg:table-cell">
         {priceText(model.cachedInputPerMillion)}
       </TableCell>
-      <TableCell className="hidden text-right tabular-nums sm:table-cell">
+      <TableCell className="hidden text-right font-mono sm:table-cell">
         {contextText(model.contextLength)}
       </TableCell>
       {costs && (
-        <TableCell className="text-right tabular-nums">{priceText(model.costPerThousandCalls)}</TableCell>
+        <TableCell className="text-right font-mono">{priceText(model.costPerThousandCalls)}</TableCell>
       )}
     </TableRow>
   )
 }
 
-function Toggle({
+/** A button that stays pressed while its choice is on: a filter here, a provider on Base. */
+export function Toggle({
   on,
   onClick,
   children,
@@ -445,16 +452,10 @@ function Toggle({
       aria-pressed={on}
       onClick={onClick}
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 font-medium transition-colors',
-        on
-          ? 'border-transparent bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:text-foreground',
+        'inline-flex items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input px-2.5 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+        on ? 'bg-accent text-accent-foreground' : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
       )}
-      style={{
-        fontSize: 'var(--text-small)',
-        borderWidth: 'var(--hairline)',
-        height: 'calc(var(--control-h) - 6px)',
-      }}
+      style={{ fontSize: 'var(--text-small)', height: 'var(--control-h)' }}
     >
       {children}
     </button>

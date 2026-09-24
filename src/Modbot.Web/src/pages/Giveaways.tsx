@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GiveawayForm } from '@/components/giveaways/GiveawayForm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { SwitchBank } from '@/components/ui/switch-bank'
 import { ApiError } from '@/lib/api'
 import {
   ENTRY_WAY_LABEL,
@@ -21,7 +22,7 @@ import {
 import { useLocation } from '@/lib/router'
 import { openPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
-import { PageMessage, Toggle } from '@/pages/analytics/shared'
+import { PageMessage } from '@/pages/analytics/shared'
 
 type Filter = 'all' | GiveawayState
 
@@ -82,9 +83,9 @@ export function Giveaways() {
   if (!data) return <PageMessage>{error ?? 'Loading…'}</PageMessage>
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Toggle value={filter} onChange={setFilter} options={FILTERS} />
+        <SwitchBank value={filter} onChange={setFilter} options={FILTERS} />
         <div className="flex-1" />
         {data.canRun && <Button onClick={() => setEditing('new')}>New giveaway</Button>}
       </div>
@@ -98,12 +99,10 @@ export function Giveaways() {
       {shown.length === 0 ? (
         <PageMessage>No giveaways.</PageMessage>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col py-2">
-            {shown.map((giveaway) => (
-              <Row key={giveaway.id} giveaway={giveaway} onOpen={() => setOpenId(giveaway.id)} />
-            ))}
-          </CardContent>
+        <Card className="divide-y divide-(length:--hairline) divide-border">
+          {shown.map((giveaway) => (
+            <Row key={giveaway.id} giveaway={giveaway} onOpen={() => setOpenId(giveaway.id)} />
+          ))}
         </Card>
       )}
 
@@ -139,12 +138,9 @@ function Row({ giveaway, onOpen }: { giveaway: Giveaway; onOpen: () => void }) {
   const winners = giveaway.draws[0]?.winners ?? []
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b py-2 last:border-b-0"
-      style={{ borderBottomWidth: 'var(--hairline)' }}
-    >
+    <div className="flex min-h-(--row-h) flex-wrap items-center gap-x-3 gap-y-1 px-(--panel-pad) py-1.5">
       <span
-        className="w-40 shrink-0 tabular-nums text-muted-foreground"
+        className="w-40 shrink-0 font-mono text-muted-foreground"
         style={{ fontSize: 'var(--text-small)' }}
       >
         {new Date(giveaway.closesAt).toLocaleDateString(undefined, {
@@ -162,7 +158,7 @@ function Row({ giveaway, onOpen }: { giveaway: Giveaway; onOpen: () => void }) {
 
       {giveaway.entryWay === 'react' && (
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {giveaway.entryCount} entered
+          <span className="font-mono">{giveaway.entryCount}</span> entered
         </span>
       )}
 
@@ -232,12 +228,20 @@ function GiveawayDialog({
           {giveaway.prize && <p className="whitespace-pre-wrap">{giveaway.prize}</p>}
 
           <Rows>
-            <Row2 label="Opens">{new Date(giveaway.opensAt).toLocaleString()}</Row2>
-            <Row2 label="Closes">{new Date(giveaway.closesAt).toLocaleString()}</Row2>
-            <Row2 label="Draw">
-              {giveaway.drawAt ? new Date(giveaway.drawAt).toLocaleString() : 'By hand'}
+            <Row2 label="Opens">
+              <span className="font-mono">{new Date(giveaway.opensAt).toLocaleString()}</span>
             </Row2>
-            {giveaway.entryWay === 'react' && <Row2 label="Entries">{giveaway.entryCount}</Row2>}
+            <Row2 label="Closes">
+              <span className="font-mono">{new Date(giveaway.closesAt).toLocaleString()}</span>
+            </Row2>
+            <Row2 label="Draw">
+              {giveaway.drawAt ? <span className="font-mono">{new Date(giveaway.drawAt).toLocaleString()}</span> : 'By hand'}
+            </Row2>
+            {giveaway.entryWay === 'react' && (
+              <Row2 label="Entries">
+                <span className="font-mono">{giveaway.entryCount}</span>
+              </Row2>
+            )}
           </Rows>
 
           <Section title="Rules">
@@ -253,7 +257,7 @@ function GiveawayDialog({
           )}
 
           <Section title="Seed">
-            <code className="break-all text-muted-foreground">{giveaway.seedPromise}</code>
+            <code className="font-mono break-all text-muted-foreground">{giveaway.seedPromise}</code>
           </Section>
 
           {giveaway.post?.error && (
@@ -345,19 +349,26 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
     <Section title={`Draw ${draw.number}`}>
       <Rows>
         <Row2 label="Drawn">
-          {new Date(draw.drawnAt).toLocaleString()}
+          <span className="font-mono">{new Date(draw.drawnAt).toLocaleString()}</span>
           {draw.drawnBy && ` by ${draw.drawnBy}`}
         </Row2>
         <Row2 label="Entrants">
-          {draw.inDrawCount} of {draw.entrantCount}
-          {draw.closeCalls > 0 && ` · ${draw.closeCalls} near the line`}
+          <span className="font-mono">{draw.inDrawCount}</span> of <span className="font-mono">{draw.entrantCount}</span>
+          {draw.closeCalls > 0 && (
+            <>
+              {' · '}
+              <span className="font-mono">{draw.closeCalls}</span> near the line
+            </>
+          )}
         </Row2>
-        <Row2 label="Total weight">{draw.totalWeight}</Row2>
+        <Row2 label="Total weight">
+          <span className="font-mono">{draw.totalWeight}</span>
+        </Row2>
         <Row2 label="Promise">
-          <code className="break-all">{draw.seedPromise}</code>
+          <code className="font-mono break-all">{draw.seedPromise}</code>
         </Row2>
         <Row2 label="Seed">
-          <code className="break-all">{draw.seed}</code>
+          <code className="font-mono break-all">{draw.seed}</code>
           {!draw.seedKept && <span className="ml-2 text-destructive">Does not match the promise</span>}
         </Row2>
       </Rows>
@@ -385,7 +396,7 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
             >
               Back
             </Button>
-            <span className="tabular-nums text-muted-foreground">
+            <span className="font-mono text-muted-foreground">
               {page} of {Math.max(1, Math.ceil(total / 50))}
             </span>
             <Button
@@ -402,32 +413,32 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
       </div>
 
       {open && entrants && (
-        <div className="relative overflow-x-auto">
+        <div className="relative overflow-x-auto border border-(length:--hairline)">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead>
-              <tr className="text-muted-foreground">
-                <th className="px-2 py-1 text-left">#</th>
-                <th className="px-2 py-1 text-left">Name</th>
-                <th className="px-2 py-1 text-right">Weight</th>
-                <th className="px-2 py-1 text-right">{WEIGHTING_LABEL[draw.weighting] ?? draw.weighting}</th>
-                <th className="px-2 py-1 text-left">In the draw</th>
+            <thead className="bg-strip text-muted-foreground">
+              <tr className="h-(--strip-h)">
+                <th className="px-2 text-left font-normal">#</th>
+                <th className="px-2 text-left font-normal">Name</th>
+                <th className="px-2 text-right font-normal">Weight</th>
+                <th className="px-2 text-right font-normal">{WEIGHTING_LABEL[draw.weighting] ?? draw.weighting}</th>
+                <th className="px-2 text-left font-normal">In the draw</th>
               </tr>
             </thead>
             <tbody>
               {entrants.map((e) => (
-                <tr key={e.position} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-                  <td className="px-2 py-1 tabular-nums text-muted-foreground">{e.position + 1}</td>
-                  <td className="px-2 py-1">
+                <tr key={e.position} className="h-(--row-h) border-t border-t-(length:--hairline)">
+                  <td className="px-2 font-mono text-muted-foreground">{e.position + 1}</td>
+                  <td className="px-2">
                     <EntrantName entrant={e} />
                   </td>
-                  <td className="px-2 py-1 text-right tabular-nums">{e.weight}</td>
+                  <td className="px-2 text-right font-mono">{e.weight}</td>
                   <td
-                    className={cn('px-2 py-1 text-right tabular-nums', e.closeCall && 'text-warn')}
+                    className={cn('px-2 text-right font-mono', e.closeCall && 'text-warn')}
                     title={e.closeCall ? 'Near the line' : undefined}
                   >
                     {draw.weighting === 'uniform' ? '—' : measured(e.measured, e.fromPolledData)}
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="px-2">
                     {e.winnerRank !== null ? (
                       <span className="text-ok">Won ({e.winnerRank})</span>
                     ) : e.keptOut === '' ? (
@@ -482,8 +493,8 @@ function StateBadge({ state }: { state: GiveawayState }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2 border-t pt-3" style={{ borderTopWidth: 'var(--hairline)' }}>
-      <span className="font-medium">{title}</span>
+    <div className="flex flex-col gap-2 border-t border-t-(length:--hairline) pt-3">
+      <span className="font-label">{title}</span>
       {children}
     </div>
   )

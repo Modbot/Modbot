@@ -103,7 +103,25 @@ function CredentialsCard({
   }
 
   return (
-    <SettingsCard title="Update Service Account">
+    <SettingsCard
+      title="Update Service Account"
+      footer={
+        <>
+          <Button
+            type="submit"
+            form="vrchat-credentials"
+            size="sm"
+            disabled={verifying || !username || !password}
+          >
+            {verifying ? 'Checking with VRChat…' : 'Verify and store'}
+          </Button>
+          <Outcome tone="problem">{error}</Outcome>
+          <Outcome tone="ok">
+            {verified && `VRChat accepted these credentials as ${verified}.`}
+          </Outcome>
+        </>
+      }
+    >
       <form id="vrchat-credentials" onSubmit={reverify} className="flex flex-col gap-3">
         <div className="flex max-w-lg flex-col gap-3">
           <Field label="Email or username" value={username} onChange={setUsername} placeholder="" />
@@ -112,16 +130,6 @@ function CredentialsCard({
         </div>
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" size="sm" disabled={verifying || !username || !password}>
-            {verifying ? 'Checking with VRChat…' : 'Verify and store'}
-          </Button>
-          <Outcome tone="problem">{error}</Outcome>
-          <Outcome tone="ok">
-            {verified && `VRChat accepted these credentials as ${verified}.`}
-          </Outcome>
-        </div>
       </form>
     </SettingsCard>
   )

@@ -178,8 +178,8 @@ export function Select({
           // height, and 32px is under what a fingertip hits (see index.css).
           data-slot="select-trigger"
           className={cn(
-            'flex h-8 min-w-0 items-center justify-between gap-1.5 rounded-md border border-input bg-transparent px-2 text-left text-foreground outline-none',
-            'text-(length:--text-small) focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+            'flex h-(--control-h) min-w-0 items-center justify-between gap-1.5 rounded-sm border border-(length:--hairline) border-input bg-card px-2 text-left text-foreground outline-none',
+            'text-(length:--text-small) focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-50',
             className,
           )}
@@ -201,7 +201,7 @@ export function Select({
           collisionPadding={8}
           onKeyDown={onListKeyDown}
           className={cn(
-            'z-50 overflow-y-auto rounded-xl border bg-popover p-1 text-(length:--text-small) text-popover-foreground shadow-md outline-none',
+            'z-50 overflow-y-auto rounded-sm border border-(length:--hairline) bg-popover py-1 text-(length:--text-small) text-popover-foreground shadow-sm outline-none',
             // Never taller than the room the popover has, and never taller than a screenful of
             // rows either: a list of time zones has to scroll, not become the page.
             'max-h-[min(20rem,var(--radix-popover-content-available-height))]',
@@ -253,7 +253,7 @@ function Row({
         // already carry their own text, and a listbox may only hold options.
         <div
           role="presentation"
-          className="truncate px-2 pt-2 pb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase"
+          className="truncate px-2 pt-2 pb-1 font-label text-muted-foreground"
         >
           {heading}
         </div>
@@ -269,7 +269,7 @@ function Row({
         onClick={choice.disabled ? undefined : onPick}
         onMouseEnter={choice.disabled ? undefined : onOver}
         className={cn(
-          'flex min-w-0 cursor-default items-center gap-2 rounded-md px-2 py-1.5',
+          'flex min-w-0 cursor-default items-center gap-2 px-2 py-1.5',
           under && 'bg-accent text-accent-foreground',
           choice.disabled && 'opacity-50',
         )}

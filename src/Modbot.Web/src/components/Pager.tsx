@@ -29,8 +29,8 @@ export function Pager({ at, pages }: { at: ListPage; pages: number }) {
   return (
     <nav
       aria-label="Pages"
-      className="flex flex-wrap items-center gap-1 border-t px-3 py-2"
-      style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+      className="flex min-h-(--strip-h) flex-wrap items-center gap-1 border-t border-t-(length:--hairline) bg-strip px-(--panel-pad) py-1"
+      style={{ fontSize: 'var(--text-small)' }}
     >
       <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => goTo(page - 1)}>
         Previous
@@ -44,7 +44,8 @@ export function Pager({ at, pages }: { at: ListPage; pages: number }) {
         ) : (
           <Button
             key={slot}
-            variant={slot === page ? 'secondary' : 'ghost'}
+            variant="ghost"
+            className={slot === page ? 'bg-accent font-mono text-accent-foreground hover:bg-accent hover:text-accent-foreground' : 'font-mono'}
             size="xs"
             aria-label={`Page ${slot}`}
             aria-current={slot === page ? 'page' : undefined}

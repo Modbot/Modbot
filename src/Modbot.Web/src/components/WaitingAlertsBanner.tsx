@@ -38,9 +38,13 @@ export function WaitingAlertsBanner() {
   }
 
   return (
-    <div role="alert" className="w-full bg-destructive px-5 py-2 text-destructive-foreground">
+    <div
+      role="alert"
+      className="w-full border-b border-b-(length:--hairline) border-destructive/40 bg-destructive/10 px-4 py-1 text-destructive lg:px-5"
+    >
       {waiting.map((n) => (
-        <div key={n.id} className="flex flex-wrap items-center justify-center gap-3" style={{ fontSize: 'var(--text-small)' }}>
+        <div key={n.id} className="flex min-h-(--strip-h) flex-wrap items-center gap-x-2 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
+          <span aria-hidden className="size-2 shrink-0 bg-destructive" />
           <span className="font-medium">{n.title}</span>
           <span>{n.body}</span>
           <button type="button" className="underline" onClick={() => seen(n.id)}>

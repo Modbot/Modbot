@@ -183,7 +183,6 @@ function TermListForm({
           <Input
             placeholder="Filter"
             aria-label="Filter terms"
-            className="h-8"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -192,10 +191,9 @@ function TermListForm({
               <li
                 key={t.id}
                 className={cn(
-                  'flex items-start gap-2 border-b py-1 last:border-0',
+                  'flex items-start gap-2 border-b border-b-(length:--hairline) py-1 last:border-0',
                   excluded.has(t.id) && 'text-muted-foreground',
                 )}
-                style={{ borderBottomWidth: 'var(--hairline)' }}
                 title={t.note ?? undefined}
               >
                 <Checkbox
@@ -232,7 +230,7 @@ function TermListForm({
                 ))}
               </Select>
               <Input
-                className={cn('h-8 flex-1', term.kind === 'regex' && 'font-mono')}
+                className={cn('flex-1', term.kind === 'regex' && 'font-mono')}
                 value={term.text}
                 maxLength={200}
                 aria-label="Term"

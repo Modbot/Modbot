@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Check, ChevronRight, Copy } from 'lucide-react'
 import { jsonPieces, type JsonPieceKind } from '@/lib/jsonPieces'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 /**
@@ -66,17 +67,20 @@ export function JsonView({
   )
 
   return (
-    <div className={cn('group/json overflow-hidden rounded-md border bg-muted/40', className)} style={{ borderWidth: 'var(--hairline)' }}>
+    <div className={cn('group/json overflow-hidden border border-(length:--hairline) bg-card', className)}>
       <div
-        className="flex items-center justify-between gap-2 border-b px-3 py-1 text-muted-foreground"
-        style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+        className={cn(
+          'flex min-h-(--strip-h) items-center justify-between gap-2 bg-strip pr-1 pl-3 text-muted-foreground',
+          open && 'border-b border-b-(length:--hairline)',
+        )}
+        style={{ fontSize: 'var(--text-small)' }}
       >
         {closed ? (
           <button
             type="button"
             onClick={() => setOpen((shown) => !shown)}
             aria-expanded={open}
-            className="flex min-w-0 items-center gap-1 rounded-md text-left hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="flex min-w-0 items-center gap-1 rounded-sm text-left hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           >
             <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
             <span className="truncate font-medium">{title ?? 'JSON'}</span>
@@ -84,8 +88,9 @@ export function JsonView({
         ) : (
           <span className="truncate font-medium">{title ?? 'JSON'}</span>
         )}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-xs"
           aria-label={copied ? 'Copied' : 'Copy JSON'}
           onClick={() => {
             void navigator.clipboard?.writeText(body).then(() => {
@@ -93,10 +98,9 @@ export function JsonView({
               window.setTimeout(() => setCopied(false), 1500)
             })
           }}
-          className="shrink-0 rounded-md p-1 hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-        </button>
+        </Button>
       </div>
       <pre
         hidden={!open}

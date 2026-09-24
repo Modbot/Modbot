@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type PublicInstancesView } from '@/lib/api'
-import { Fact, Outcome, Placeholder, Switch } from './fields'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Fact, Outcome, Switch } from './fields'
 import { SettingsCard } from './SettingsCard'
 
 /**
@@ -46,7 +47,7 @@ export function PublicInstancesCard() {
   return (
     <SettingsCard title="Modbot Cloud">
       {!view ? (
-        <Placeholder>{error ?? 'Loading…'}</Placeholder>
+        <EmptyRow className="px-0">{error ?? 'Loading…'}</EmptyRow>
       ) : (
         <>
           <Switch checked={view.shared} disabled={saving || view.cloudDisabled} onChange={choose}>

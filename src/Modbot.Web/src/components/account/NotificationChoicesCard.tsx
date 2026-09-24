@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { ApiError, api, type NotificationChoice, type NotificationLevel } from '@/lib/api'
 
@@ -59,9 +59,10 @@ export function NotificationChoicesCard() {
 
   return (
     <Card>
-      <CardContent className="space-y-3">
-        <div className="font-semibold">Notifications</div>
-
+      <CardHeader>
+        <CardTitle>Notifications</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-3">
         {error && (
           <div className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
             {error}
@@ -99,11 +100,12 @@ export function NotificationChoicesCard() {
             </label>
           </div>
         ))}
-
-        <Button onClick={save} disabled={saving || !channels}>
+      </CardContent>
+      <CardFooter>
+        <Button size="sm" onClick={save} disabled={saving || !channels}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
-      </CardContent>
+      </CardFooter>
     </Card>
   )
 }

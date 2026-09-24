@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -6,22 +7,19 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
  * role drawn in the colour the server gave it.
  */
 
-/** A Discord role as a chip, with a dot in the role's colour. A role with no colour gets no dot. */
+/** A Discord role as a badge, with a square in the role's colour. A role with no colour gets no square. */
 export function RoleChip({ name, id, color }: { name: string | null; id: string; color: number }) {
   return (
-    <span
-      className="inline-flex max-w-[12rem] items-center gap-1 rounded-full border px-2 py-0.5"
-      style={{ borderWidth: 'var(--hairline)', fontSize: '0.6875rem' }}
-      title={id}
-    >
+    <Badge variant="secondary" className="max-w-[12rem]" title={id}>
       {color !== 0 && (
         <span
-          className="size-2 shrink-0 rounded-full"
+          aria-hidden
+          className="size-2 shrink-0"
           style={{ background: `#${color.toString(16).padStart(6, '0')}` }}
         />
       )}
       <span className="truncate">{name ?? id}</span>
-    </span>
+    </Badge>
   )
 }
 

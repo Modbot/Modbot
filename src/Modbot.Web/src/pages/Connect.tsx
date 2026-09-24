@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { ApiError, api, type McpSignInView } from '@/lib/api'
 import { Brand, ErrorText, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 
@@ -61,9 +63,9 @@ export function Connect() {
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-6">
-      <div className="w-full max-w-[460px]">
+      <div className="w-full min-w-0 max-w-[460px]">
         <Brand subtitle="connect" />
-        <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
+        <Card>
           <WizardHeader eyebrow="Connect" title={view?.clientName ?? 'AI app'}>
             {view && `Sends you back to ${view.redirectHost}`}
           </WizardHeader>
@@ -73,13 +75,9 @@ export function Connect() {
 
             {view && (
               <div className="space-y-2">
-                <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
-                  Tools
-                </div>
+                <div className="font-label">Tools</div>
                 {view.tools.length === 0 ? (
-                  <p className="m-0 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                    None
-                  </p>
+                  <EmptyRow className="px-0">None</EmptyRow>
                 ) : (
                   <ul className="m-0 grid list-none gap-x-4 gap-y-1 p-0 sm:grid-cols-2" style={{ fontSize: 'var(--text-small)' }}>
                     {view.tools.map((t) => (
@@ -105,7 +103,7 @@ export function Connect() {
               {busy ? 'Connecting…' : 'Allow'}
             </Button>
           </WizardFooter>
-        </div>
+        </Card>
       </div>
     </div>
   )

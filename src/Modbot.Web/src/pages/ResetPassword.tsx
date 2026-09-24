@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ResetView } from '@/lib/api'
 import { Brand, ErrorText, Field, Note, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
@@ -37,43 +38,45 @@ export function ResetPassword({ token }: { token: string }) {
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-6">
-      <div className="w-full max-w-[440px]">
+      <div className="w-full min-w-0 max-w-[440px]">
         <Brand />
-        <form onSubmit={submit} className="overflow-hidden rounded-xl border bg-card shadow-lg">
-          <WizardHeader eyebrow="Reset link" title={done ? 'Password changed' : 'Choose a new password'}>
-            {view?.usable && !done ? `For the account ${view.username}.` : undefined}
-          </WizardHeader>
-          <WizardBody>
-            {done ? (
-              <Note tone="ok">Every session was signed out.</Note>
-            ) : view && !view.usable ? (
-              <Note tone="warn">{view.reason}</Note>
-            ) : view ? (
-              <>
-                <Field label="New password" hint="at least 12 characters" htmlFor="reset-password">
-                  <Input id="reset-password" type="password" autoComplete="new-password" autoFocus required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} />
-                </Field>
-                <Field label="Confirm password" htmlFor="reset-confirm">
-                  <Input id="reset-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-                </Field>
-                <ErrorText>{error}</ErrorText>
-              </>
-            ) : (
-              <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Checking the link…</div>
-            )}
-          </WizardBody>
-          <WizardFooter>
-            <div className="flex-1" />
-            {view?.usable && !done ? (
-              <Button type="submit" disabled={busy} style={{ height: 'var(--control-h)' }}>
-                {busy ? 'Saving…' : 'Set password'}
-              </Button>
-            ) : (
-              <Button type="button" onClick={() => window.location.assign('/')} style={{ height: 'var(--control-h)' }}>
-                Go to sign in
-              </Button>
-            )}
-          </WizardFooter>
+        <form onSubmit={submit}>
+          <Card>
+            <WizardHeader eyebrow="Reset link" title={done ? 'Password changed' : 'Choose a new password'}>
+              {view?.usable && !done ? `For the account ${view.username}.` : undefined}
+            </WizardHeader>
+            <WizardBody>
+              {done ? (
+                <Note tone="ok">Every session was signed out.</Note>
+              ) : view && !view.usable ? (
+                <Note tone="warn">{view.reason}</Note>
+              ) : view ? (
+                <>
+                  <Field label="New password" hint="at least 12 characters" htmlFor="reset-password">
+                    <Input id="reset-password" type="password" autoComplete="new-password" autoFocus required minLength={12} value={password} onChange={(e) => setPassword(e.target.value)} />
+                  </Field>
+                  <Field label="Confirm password" htmlFor="reset-confirm">
+                    <Input id="reset-confirm" type="password" autoComplete="new-password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+                  </Field>
+                  <ErrorText>{error}</ErrorText>
+                </>
+              ) : (
+                <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Checking the link…</div>
+              )}
+            </WizardBody>
+            <WizardFooter>
+              <div className="flex-1" />
+              {view?.usable && !done ? (
+                <Button type="submit" disabled={busy}>
+                  {busy ? 'Saving…' : 'Set password'}
+                </Button>
+              ) : (
+                <Button type="button" onClick={() => window.location.assign('/')}>
+                  Go to sign in
+                </Button>
+              )}
+            </WizardFooter>
+          </Card>
         </form>
       </div>
     </div>

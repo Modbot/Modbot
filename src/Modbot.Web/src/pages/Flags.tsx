@@ -4,7 +4,8 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Tabs } from '@/components/ui/tabs'
 import {
   moderationApi,
@@ -18,6 +19,9 @@ import { ApiError, type CurrentUser } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { can } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
+
+/** The chosen language, marked the way the pager marks the page being read. */
+const CURRENT = 'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
 
 /**
  * What AutoMod rules flagged (AI moderation design §5). Seeing needs ViewProfile; the Dismiss,
@@ -75,7 +79,7 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
   if (error) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">{error}</CardContent>
+        <EmptyRow>{error}</EmptyRow>
       </Card>
     )
   }
@@ -91,53 +95,50 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
         { value: 'dismissed', label: 'Dismissed' },
         { value: 'confirmed', label: 'Confirmed' },
       ]}
-      className="gap-4"
+      className="gap-3"
     >
-      {languages.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-          <Button
-            size="xs"
-            variant={language === null ? 'default' : 'outline'}
-            onClick={() => setLanguage(null)}
-          >
-            All languages
-          </Button>
-          {languages.map((l) => {
-            const value = l.language ?? UNKNOWN_LANGUAGE
-            return (
-              <Button
-                key={value}
-                size="xs"
-                variant={language === value ? 'default' : 'outline'}
-                onClick={() => setLanguage(value)}
-              >
-                {l.label} {l.flags}
-              </Button>
-            )
-          })}
-        </div>
-      )}
-      {problem && <div className="text-destructive">{problem}</div>}
-      <Card>
-        <CardContent className="p-0">
+      <div className="flex flex-col gap-3">
+        {languages.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
+            <Button
+              size="xs"
+              variant="outline"
+              className={cn(language === null && CURRENT)}
+              onClick={() => setLanguage(null)}
+            >
+              All languages
+            </Button>
+            {languages.map((l) => {
+              const value = l.language ?? UNKNOWN_LANGUAGE
+              return (
+                <Button
+                  key={value}
+                  size="xs"
+                  variant="outline"
+                  className={cn(language === value && CURRENT)}
+                  onClick={() => setLanguage(value)}
+                >
+                  {l.label} <span className="font-mono">{l.flags}</span>
+                </Button>
+              )
+            })}
+          </div>
+        )}
+        {problem && <div className="text-destructive">{problem}</div>}
+        <Card>
           {!flags ? (
-            <div className="py-10 text-center text-muted-foreground">Loading…</div>
+            <EmptyRow>Loading…</EmptyRow>
           ) : flags.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">No flags</div>
+            <EmptyRow>No flags</EmptyRow>
           ) : (
             <ul className="flex flex-col">
               {flags.map((flag) => (
                 <li
                   key={flag.id}
-                  className={cn(
-                    'flex flex-wrap items-start gap-x-4 gap-y-1 border-b px-4 py-3 last:border-0',
-                  )}
-                  style={{
-                    borderBottomWidth: 'var(--hairline)',
-                    fontSize: 'var(--text-small)',
-                  }}
+                  className="flex flex-wrap items-start gap-x-4 gap-y-1 border-b border-b-(length:--hairline) px-(--panel-pad) py-2 last:border-0"
+                  style={{ fontSize: 'var(--text-small)' }}
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-64 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {flag.subjectPlatform === 'vrchat' ? (
                         <SubjectLink id={flag.subjectId} name={flag.subjectName} onOpen={onOpenSubject} />
@@ -279,8 +280,8 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </Card>
+      </div>
     </Tabs>
   )
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Panel } from '@/components/subject/shared'
 import { api, ApiError, type CaseFileList } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { go } from '@/lib/router'
@@ -42,22 +44,20 @@ export function SubjectCaseFiles({ subjectId }: { subjectId: string }) {
   if (!list) return null
 
   return (
-    <div
-      className="rounded-xl border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      <div className="font-medium">Case files</div>
-
+    <Panel title="Case files" flush>
       {list.cases.length === 0 ? (
-        <p className="mt-1 text-muted-foreground">No case files.</p>
+        <EmptyRow>No case files.</EmptyRow>
       ) : (
-        <ul className="mt-1 flex flex-col gap-1">
+        <ul className="flex flex-col" style={{ fontSize: 'var(--text-small)' }}>
           {list.cases.map((file) => (
-            <li key={file.id} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <li
+              key={file.id}
+              className="flex min-h-(--row-h) flex-wrap items-center gap-x-2 gap-y-1 border-t border-t-(length:--hairline) px-(--panel-pad) py-1 first:border-t-0"
+            >
               <button
                 type="button"
                 onClick={() => go(`/cases/${file.id}`)}
-                className="rounded-md text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                className="rounded-sm text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {file.reasons.map((r) => r.label).join(', ') || 'No reason recorded'}
               </button>
@@ -69,12 +69,13 @@ export function SubjectCaseFiles({ subjectId }: { subjectId: string }) {
               )}
               <span className="flex-1" />
               <span className="text-muted-foreground">
-                {file.bannedAt ? formatDay(file.bannedAt) : formatDay(file.createdAt)} · {file.authorUsername}
+                <span className="font-mono">{file.bannedAt ? formatDay(file.bannedAt) : formatDay(file.createdAt)}</span> ·{' '}
+                {file.authorUsername}
               </span>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </Panel>
   )
 }

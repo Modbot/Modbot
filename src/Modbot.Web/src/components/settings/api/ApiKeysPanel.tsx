@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { api, type ApiKeysResponse, type ApiKeyView, type PermissionInfo } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { CopyBox } from '@/pages/Users'
 import { Checkbox, Field, Outcome, Placeholder } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { failure, when } from './shared'
+
+/** Runs the card's content to its edges, so a list meets the card's sides. */
+const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 
 /**
  * Settings → API → Keys. The key is shown once, in the dialog that made it; the server keeps only
@@ -45,8 +50,9 @@ export function ApiKeysPanel() {
         <SettingsCard
           title="Keys"
           span={12}
+          className={FLUSH}
           action={
-            <Button size="sm" onClick={() => setCreating(true)}>
+            <Button size="xs" onClick={() => setCreating(true)}>
               Create key
             </Button>
           }
@@ -67,7 +73,7 @@ export function ApiKeysPanel() {
 function KeyList({ keys, onChanged }: { keys: ApiKeyView[]; onChanged: () => void }) {
   const [problem, setProblem] = useState<string | null>(null)
 
-  if (keys.length === 0) return <p className="text-muted-foreground">No keys.</p>
+  if (keys.length === 0) return <EmptyRow>No keys.</EmptyRow>
 
   const revoke = (id: string) => {
     setProblem(null)
@@ -80,35 +86,35 @@ function KeyList({ keys, onChanged }: { keys: ApiKeyView[]; onChanged: () => voi
   return (
     <div className="relative overflow-x-auto">
       <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-        <thead className="text-left text-muted-foreground">
-          <tr>
-            <th className="py-1 pr-3 font-normal">Name</th>
-            <th className="py-1 pr-3 font-normal">Key</th>
-            <th className="py-1 pr-3 font-normal">Owner</th>
-            <th className="py-1 pr-3 font-normal">Permissions</th>
-            <th className="py-1 pr-3 font-normal">Created</th>
-            <th className="py-1 pr-3 font-normal">Last used</th>
-            <th className="py-1 pr-3 font-normal">Expires</th>
-            <th className="py-1 pr-3 font-normal">State</th>
-            <th />
+        <thead className="bg-strip text-left text-muted-foreground">
+          <tr className="border-b border-b-(length:--hairline)">
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Name</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Key</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Owner</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Permissions</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Created</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Last used</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Expires</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">State</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap" />
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {keys.map((k) => (
-            <tr key={k.id} className={k.state === 'active' ? '' : 'text-muted-foreground'}>
-              <td className="py-2 pr-3 font-medium">{k.name}</td>
-              <td className="py-2 pr-3 font-mono">{k.start}…</td>
-              <td className="py-2 pr-3">{k.ownerName ?? '—'}</td>
-              <td className="py-2 pr-3">{k.permissionNames.join(', ')}</td>
-              <td className="py-2 pr-3">{when(k.createdAt)}</td>
-              <td className="py-2 pr-3">{k.lastUsedAt ? when(k.lastUsedAt) : 'Never'}</td>
-              <td className="py-2 pr-3">{k.expiresAt ? when(k.expiresAt) : 'Never'}</td>
-              <td className="py-2 pr-3">
+            <tr key={k.id} className={cn('border-b border-b-(length:--hairline) last:border-0', k.state !== 'active' && 'text-muted-foreground')}>
+              <td className="px-(--panel-pad) py-1.5 font-medium">{k.name}</td>
+              <td className="px-(--panel-pad) py-1.5 font-mono">{k.start}…</td>
+              <td className="px-(--panel-pad) py-1.5">{k.ownerName ?? '—'}</td>
+              <td className="px-(--panel-pad) py-1.5">{k.permissionNames.join(', ')}</td>
+              <td className="px-(--panel-pad) py-1.5 font-mono whitespace-nowrap">{when(k.createdAt)}</td>
+              <td className={cn('px-(--panel-pad) py-1.5 whitespace-nowrap', k.lastUsedAt && 'font-mono')}>{k.lastUsedAt ? when(k.lastUsedAt) : 'Never'}</td>
+              <td className={cn('px-(--panel-pad) py-1.5 whitespace-nowrap', k.expiresAt && 'font-mono')}>{k.expiresAt ? when(k.expiresAt) : 'Never'}</td>
+              <td className="px-(--panel-pad) py-1.5">
                 <Badge variant={k.state === 'active' ? 'secondary' : 'outline'}>
                   {k.state === 'active' ? 'Active' : k.state === 'expired' ? 'Expired' : 'Revoked'}
                 </Badge>
               </td>
-              <td className="py-2 text-right">
+              <td className="px-(--panel-pad) py-1.5 text-right">
                 {k.state !== 'revoked' && (
                   <Button size="xs" variant="ghost" onClick={() => revoke(k.id)}>
                     Revoke
@@ -119,7 +125,11 @@ function KeyList({ keys, onChanged }: { keys: ApiKeyView[]; onChanged: () => voi
           ))}
         </tbody>
       </table>
-      <Outcome tone="problem">{problem}</Outcome>
+      {problem && (
+        <div className="border-t border-t-(length:--hairline) p-(--panel-pad)">
+          <Outcome tone="problem">{problem}</Outcome>
+        </div>
+      )}
     </div>
   )
 }
@@ -140,7 +150,7 @@ function CreateKey({ grantable, onDone }: { grantable: PermissionInfo[]; onDone:
 
   if (made) {
     return (
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <p className="font-medium">Key</p>
         <CopyBox text={made} />
       </div>
@@ -170,7 +180,7 @@ function CreateKey({ grantable, onDone }: { grantable: PermissionInfo[]; onDone:
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="flex flex-col gap-4">
       <Field label="Name" value={name} placeholder="Discord bot" onChange={setName} />
 
       <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
@@ -178,9 +188,9 @@ function CreateKey({ grantable, onDone }: { grantable: PermissionInfo[]; onDone:
         <Input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
       </label>
 
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         {groups.map(([group, permissions]) => (
-          <fieldset key={group} className="space-y-1">
+          <fieldset key={group} className="flex flex-col gap-1">
             <legend className="mb-1 font-medium" style={{ fontSize: 'var(--text-small)' }}>
               {group}
             </legend>

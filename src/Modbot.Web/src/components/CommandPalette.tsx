@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import { Search, X } from 'lucide-react'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Kbd } from '@/components/ui/kbd'
 import { api, type CurrentUser, type SearchResults } from '@/lib/api'
 import { NAV, mayOpen, type PageId } from '@/lib/nav'
@@ -180,14 +181,14 @@ function Palette({
 
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-[2px]" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 dark:bg-background/70" />
       <DialogPrimitive.Content
         aria-describedby={undefined}
-        className="fixed top-[12vh] left-1/2 z-50 flex max-h-[70vh] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-lg outline-none"
+        className="fixed top-[12vh] left-1/2 z-50 flex max-h-[70vh] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 flex-col overflow-hidden rounded-sm border border-(length:--hairline) bg-card text-card-foreground shadow-sm outline-none"
       >
         <DialogPrimitive.Title className="sr-only">Search and commands</DialogPrimitive.Title>
 
-        <div className="flex items-center gap-2 border-b px-3" style={{ borderBottomWidth: 'var(--hairline)' }}>
+        <div className="flex items-center gap-2 border-b border-b-(length:--hairline) px-3">
           <Search className="size-4 shrink-0 text-muted-foreground" />
           <input
             autoFocus
@@ -212,7 +213,7 @@ function Palette({
             aria-expanded
             aria-controls="palette-list"
             aria-activedescendant={items[cursor] ? `palette-${items[cursor].id}` : undefined}
-            className="h-11 w-full bg-transparent outline-none placeholder:text-muted-foreground"
+            className="h-[calc(var(--control-h)+var(--panel-pad))] w-full bg-transparent outline-none placeholder:text-muted-foreground"
           />
           <Kbd keys="escape" className="hidden lg:inline-flex" />
           {/* Escape is the way out on a keyboard; this is the way out without one. */}
@@ -220,7 +221,7 @@ function Palette({
             type="button"
             onClick={close}
             aria-label="Close"
-            className="grid shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground lg:hidden"
+            className="grid shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
             style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
           >
             <X className="size-4" />
@@ -228,18 +229,16 @@ function Palette({
         </div>
 
         <div ref={listRef} id="palette-list" role="listbox" className="min-h-0 flex-1 overflow-auto py-1">
-          {items.length === 0 && (
-            <div className="px-3 py-6 text-center text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              Nothing matches
-            </div>
-          )}
+          {items.length === 0 && <EmptyRow className="px-3">Nothing matches</EmptyRow>}
 
           {groups.map(({ group, items: rows }) => (
             <div key={group}>
               <div
-                className="px-3 pt-2 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/70"
+                className="flex items-center gap-2 px-3 pt-2 pb-1 font-label text-muted-foreground"
+                style={{ fontSize: 'var(--text-small)' }}
               >
                 {group}
+                <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
               </div>
               {rows.map(({ item, index }) => (
                 <button
@@ -253,7 +252,7 @@ function Palette({
                   onClick={() => run(item)}
                   className={cn(
                     'flex w-full items-center gap-2 px-3 text-left',
-                    index === cursor ? 'bg-accent text-accent-foreground' : 'hover:bg-secondary',
+                    index === cursor ? 'bg-accent text-accent-foreground' : 'hover:bg-muted',
                   )}
                   style={{ height: 'var(--row-h)' }}
                 >

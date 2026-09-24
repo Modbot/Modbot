@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Panel } from '@/components/subject/shared'
 import { api, ApiError, type CurrentUser, type DiscordLinkView, type PersonSide } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { can } from '@/lib/permissions'
@@ -60,15 +61,10 @@ export function DiscordLinkCard({
   }
 
   return (
-    <div
-      className="rounded-md border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      <div className="font-medium">Discord</div>
+    <Panel title="Discord">
+      <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
+        {error && <p className="text-destructive">{error}</p>}
 
-      {error && <p className="mt-1 text-destructive">{error}</p>}
-
-      <div className="mt-1 flex flex-col gap-1.5">
         <p>
           {side.name ?? link?.discordUsername ?? (
             <span className="font-mono" title={side.id}>
@@ -110,6 +106,6 @@ export function DiscordLinkCard({
           </>
         )}
       </div>
-    </div>
+    </Panel>
   )
 }

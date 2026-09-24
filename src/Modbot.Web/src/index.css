@@ -84,6 +84,15 @@
   --text-base: 0.8125rem;
   --text-small: 0.75rem;
   --hairline: 1px;
+
+  /* Console surfaces. Not new colours: each is a mix of two tokens above, so it follows the
+     theme and the VR panel values without a second definition. The strip is the thin band a
+     panel's label, a table's column names and a list's footer sit on. */
+  --strip: color-mix(in oklab, var(--muted) 65%, var(--card));
+
+  /* Console spacing: the inset inside a panel and the height of its header strip. */
+  --panel-pad: 0.75rem;
+  --strip-h: calc(var(--control-h) + 0.125rem);
 }
 
 .dark {
@@ -259,6 +268,11 @@
   [data-pin-first] tr[data-selected] > :first-child {
     background: color-mix(in oklab, var(--accent) 60%, var(--card));
   }
+
+  /* The column names sit on the strip, and so does the pinned one. */
+  [data-pin-first] thead tr > :first-child {
+    background: var(--strip);
+  }
 }
 
 @theme inline {
@@ -286,6 +300,7 @@
   --color-info: var(--info);
   --color-gold: var(--gold);
   --color-link: var(--link);
+  --color-strip: var(--strip);
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
@@ -298,6 +313,55 @@
   font-variation-settings: "wdth" 96;
   font-optical-sizing: auto;
   letter-spacing: -0.01em;
+}
+
+/* A panel's label, and the other small headings of the console: the display face, at body size
+   and a lighter weight than the page title, so Bricolage names every panel without shouting. */
+@utility font-label {
+  font-family: var(--font-display);
+  font-weight: 580;
+  font-variation-settings: "wdth" 92;
+  font-optical-sizing: auto;
+  letter-spacing: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   The panel grid.
+
+   Panels that sit together share one hairline instead of each drawing its own box with a gap
+   and a shadow between them. Every cell draws an outline, the grid's gap is exactly one hairline,
+   and the two outlines on either side of a gap land on the same pixels, so a row of four panels
+   reads as one instrument with three dividers. An empty cell at the end of a short row draws
+   nothing, where a border-coloured background would have drawn a grey block.
+
+   Unlayered on purpose: it has to win over the border, radius and shadow a Card sets in the
+   utilities layer, whatever order the classes were generated in.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  /* Layered, unlike the rules below, so a caller can still set the margin with a utility: a
+     strip run flush into a panel takes none, so its outer lines land on the panel's own edge. */
+  [data-slot="panel-grid"] {
+    display: grid;
+    gap: var(--hairline);
+    /* Room for the outer outline, which is drawn outside the cells. */
+    margin: var(--hairline);
+  }
+}
+
+[data-slot="panel-grid"] > * {
+  border-width: 0;
+  border-radius: 0;
+  box-shadow: none;
+  outline: var(--hairline) solid var(--border);
+  background-color: var(--card);
+  min-width: 0;
+}
+
+/* A grid inside a grid is a row of the sheet, not a panel of its own: its cells draw the lines. */
+[data-slot="panel-grid"] > [data-slot="panel-grid"] {
+  margin: 0;
+  outline: none;
+  background-color: transparent;
 }
 
 /* Code highlighting in an AI answer. Modbot's own hues rather than a

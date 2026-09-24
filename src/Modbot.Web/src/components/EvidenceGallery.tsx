@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { api, ApiError, type EvidenceDelivery, type EvidenceItem } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { bytes } from '@/components/settings/units'
+import { EmptyRow } from '@/components/PanelGrid'
 
 /**
  * The evidence attached to a case file, and the control that attaches more.
@@ -38,13 +39,11 @@ export function EvidenceGallery({
   return (
     <div className="flex flex-col gap-3">
       {items.length === 0 ? (
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Nothing attached.
-        </p>
+        <EmptyRow className="px-0">Nothing attached.</EmptyRow>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul data-slot="panel-grid" className="sm:grid-cols-2">
           {items.map((item) => (
-            <li key={item.hash} className="rounded-xl border p-2" style={{ borderWidth: 'var(--hairline)' }}>
+            <li key={item.hash} className="p-2">
               <Item item={item} onImageReady={onImageReady} />
             </li>
           ))}
@@ -62,12 +61,12 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
   return (
     <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
       {item.destroyed ? (
-        <div className="rounded-xl bg-muted/60 px-3 py-6 text-center text-muted-foreground">
+        <EmptyRow className="bg-strip">
           The file was destroyed{item.destroyedAt ? ` on ${formatDay(item.destroyedAt)}` : ''}
           {item.destroyedBy ? ` by ${item.destroyedBy}` : ''}.{item.destroyedReason ? ` ${item.destroyedReason}` : ''}
-        </div>
+        </EmptyRow>
       ) : item.contentType.startsWith('video/') ? (
-        <video controls preload="metadata" src={api.evidenceUrl(item.hash)} className="max-h-80 w-full rounded-xl bg-black" />
+        <video controls preload="metadata" src={api.evidenceUrl(item.hash)} className="max-h-80 w-full bg-black" />
       ) : (
         <Picture item={item} onImageReady={onImageReady} />
       )}
@@ -137,20 +136,20 @@ function Picture({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (h
 
   if (problem) {
     return (
-      <div className="rounded-xl bg-muted/60 px-3 py-6 text-center text-muted-foreground">
+      <EmptyRow className="bg-strip">
         Could not show this image: {problem}{' '}
         <a href={api.evidenceUrl(item.hash)} className="underline underline-offset-2">
           Download
         </a>
-      </div>
+      </EmptyRow>
     )
   }
 
-  if (!url) return <div className="h-40 animate-pulse rounded-xl bg-muted" aria-label="Loading image" />
+  if (!url) return <div className="h-40 animate-pulse bg-muted" aria-label="Loading image" />
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" title="Open full size in a new tab">
-      <img src={url} alt={item.fileName ?? ''} className="max-h-80 w-full rounded-xl object-contain" />
+      <img src={url} alt={item.fileName ?? ''} className="max-h-80 w-full object-contain" />
     </a>
   )
 }
@@ -218,7 +217,10 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-dashed p-3" style={{ borderWidth: 'var(--hairline)' }}>
+    <div
+      className="-mx-(--panel-pad) -mb-(--panel-pad) flex flex-col gap-2 border-t bg-strip px-(--panel-pad) py-2"
+      style={{ borderTopWidth: 'var(--hairline)' }}
+    >
       <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
         <input
           ref={input}
@@ -269,10 +271,10 @@ function ProgressLine({ progress }: { progress: Progress }) {
       const rate = progress.bytesPerSecond
       return (
         <div className="flex flex-col gap-1" style={small} aria-live="polite">
-          <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
+          <div className="h-1.5 w-full overflow-hidden bg-muted">
             <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round(fraction * 100)}%` }} />
           </div>
-          <span className="text-muted-foreground tabular-nums">
+          <span className="font-mono text-muted-foreground">
             {bytes(progress.sent)} of {bytes(progress.total)}
             {rate > 0 ? ` · ${bytes(rate)}/s` : ''}
           </span>

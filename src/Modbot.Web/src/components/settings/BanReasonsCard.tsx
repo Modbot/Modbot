@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { api, ApiError, type BanReasonView } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Checkbox, Hint, Outcome, Placeholder } from './fields'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Checkbox, Outcome } from './fields'
 import { SettingsCard } from './SettingsCard'
 
 /**
@@ -84,20 +85,22 @@ export function BanReasonsCard() {
       }
     >
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <EmptyRow className="px-0">{error}</EmptyRow>
       ) : !reasons ? (
-        <Hint>Loading…</Hint>
+        <EmptyRow className="px-0">Loading…</EmptyRow>
       ) : (
         <>
-          <ul className="flex flex-col">
+          {/* Run to the panel's edges like any list; down to the footer too while nothing is being added. */}
+          <ul className={cn('-mx-(--panel-pad) -mt-(--panel-pad) flex flex-col', !(adding && canEdit) && '-mb-(--panel-pad)')}>
             {reasons.map((reason, index) => (
               <li
                 key={reason.id}
                 className={cn(
-                  'flex flex-wrap items-center gap-x-2 gap-y-1 border-b py-1.5 last:border-0',
+                  'flex min-h-(--row-h) flex-wrap items-center gap-x-2 gap-y-1 border-b border-b-(length:--hairline) px-(--panel-pad) py-1',
+                  !(adding && canEdit) && 'last:border-b-0',
                   !reason.isActive && 'text-muted-foreground',
                 )}
-                style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+                style={{ fontSize: 'var(--text-small)' }}
               >
                 <span className="font-medium">{reason.label}</span>
                 {reason.needsWrittenReason && (
@@ -154,7 +157,7 @@ export function BanReasonsCard() {
           </ul>
 
           {adding && canEdit && (
-            <div className="flex flex-col gap-2 rounded-md border p-3" style={{ borderWidth: 'var(--hairline)' }}>
+            <div className="flex flex-col gap-2">
               <div className="grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)]">
                 <Input value={label} placeholder="Doxxing" onChange={(e) => setLabel(e.target.value)} maxLength={64} />
                 <Input

@@ -1,6 +1,6 @@
 import { Code2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardAction, CardHeader, CardTitle } from '@/components/ui/card'
 
 export type Credit = {
   name: string
@@ -19,8 +19,8 @@ export type Credit = {
 export function CreditRow({ item }: { item: Credit }) {
   return (
     <li
-      className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b py-1.5 last:border-0 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_auto]"
-      style={{ borderBottomWidth: 'var(--hairline)' }}
+      className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-b-(length:--hairline) px-(--panel-pad) py-1.5 last:border-b-0 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_auto]"
+      style={{ minHeight: 'var(--row-h)' }}
     >
       <div className="flex min-w-0 flex-[1_1_100%] flex-wrap items-center gap-x-2 gap-y-1 sm:flex-auto">
         {item.url ? (
@@ -83,32 +83,35 @@ export function CreditCard({
   groups: { label?: string; items: Credit[] }[]
 }) {
   return (
-    <Card className="gap-3 py-4">
-      <CardContent className="flex flex-col gap-3 px-4 sm:px-5">
-        {title && (
-          <h2 className="flex items-baseline gap-2 font-medium">
-            {title}
-            <span className="font-normal text-muted-foreground tabular-nums" style={{ fontSize: 'var(--text-small)' }}>
-              {groups.reduce((n, g) => n + g.items.length, 0)}
-            </span>
-          </h2>
-        )}
+    <Card>
+      {title && (
+        <CardHeader>
+          <CardTitle>
+            <h2>{title}</h2>
+          </CardTitle>
+          <CardAction className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {groups.reduce((n, g) => n + g.items.length, 0)}
+          </CardAction>
+        </CardHeader>
+      )}
 
-        {groups.map((g, i) => (
-          <div key={g.label ?? i}>
-            {g.label && (
-              <h3 className="pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                {g.label}
-              </h3>
-            )}
-            <ul>
-              {g.items.map((item) => (
-                <CreditRow key={`${item.name} ${item.version ?? ''}`} item={item} />
-              ))}
-            </ul>
-          </div>
-        ))}
-      </CardContent>
+      {groups.map((g, i) => (
+        <div key={g.label ?? i} className={i > 0 ? 'border-t' : undefined} style={{ borderTopWidth: 'var(--hairline)' }}>
+          {g.label && (
+            <h3
+              className="flex items-center border-b bg-strip px-(--panel-pad) text-muted-foreground"
+              style={{ borderBottomWidth: 'var(--hairline)', minHeight: 'var(--strip-h)', fontSize: 'var(--text-small)' }}
+            >
+              {g.label}
+            </h3>
+          )}
+          <ul>
+            {g.items.map((item) => (
+              <CreditRow key={`${item.name} ${item.version ?? ''}`} item={item} />
+            ))}
+          </ul>
+        </div>
+      ))}
     </Card>
   )
 }

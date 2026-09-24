@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { sourceLabel } from '@/lib/format'
 import { instanceName, instanceNumber } from '@/lib/instanceName'
@@ -29,13 +30,10 @@ export function SourceBadge({ source, className }: { source: string; className?:
   const series = SOURCE_SERIES[source] ?? 1
 
   return (
-    <span
-      className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5', className)}
-      style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)' }}
-    >
-      <span className="size-1.5 shrink-0 rounded-full" style={{ background: `var(--series-${series})` }} />
+    <Badge variant="outline" className={cn('gap-1.5', className)}>
+      <span aria-hidden className="size-1.5 shrink-0" style={{ background: `var(--series-${series})` }} />
       {sourceLabel(source)}
-    </span>
+    </Badge>
   )
 }
 
@@ -84,7 +82,7 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString()
 export function FactTime({ entry }: { entry: Pick<AuditEntry, 'occurredAt' | 'occurredBefore'> }) {
   if (!entry.occurredBefore) {
     return (
-      <span className="tabular-nums text-muted-foreground" title={dateTime(entry.occurredAt)}>
+      <span className="font-mono text-muted-foreground" title={dateTime(entry.occurredAt)}>
         {time(entry.occurredAt)}
       </span>
     )
@@ -92,7 +90,7 @@ export function FactTime({ entry }: { entry: Pick<AuditEntry, 'occurredAt' | 'oc
 
   return (
     <span
-      className="tabular-nums text-muted-foreground"
+      className="font-mono text-muted-foreground"
       title={`Between ${dateTime(entry.occurredAt)} and ${dateTime(entry.occurredBefore)}`}
     >
       ~{time(entry.occurredAt)}–{time(entry.occurredBefore)}
@@ -124,7 +122,7 @@ export function SubjectLink({
       onClick={() => (onOpen ?? openPerson)(id)}
       title={id}
       className={cn(
-        'max-w-[18rem] truncate rounded-md text-left hover:underline focus-visible:outline-2 focus-visible:outline-ring',
+        'max-w-[18rem] truncate rounded-sm text-left hover:underline focus-visible:outline-2 focus-visible:outline-ring',
         name ? 'font-medium' : 'font-mono',
         className,
       )}
@@ -190,7 +188,7 @@ export function PersonLink({
 
 /** Shared look for every id that opens something. Inline, so it sits inside a sentence. */
 const linkClass =
-  'rounded-md text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring'
+  'rounded-sm text-left font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring'
 
 /**
  * A world, as a launcher for its popup.

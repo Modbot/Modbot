@@ -139,8 +139,8 @@ export function VRChatLinkPanel({
 
       <div className="flex items-center gap-2">
         <code
-          className="rounded-xl border bg-secondary px-3 py-2 font-mono text-[15px] font-semibold tracking-wide select-all"
-          style={{ borderWidth: 'var(--hairline)' }}
+          className="rounded-sm border bg-strip px-3 py-1.5 font-mono font-semibold select-all"
+          style={{ borderWidth: 'var(--hairline)', fontSize: 'calc(var(--text-base) + 2px)' }}
         >
           {pending.code}
         </code>

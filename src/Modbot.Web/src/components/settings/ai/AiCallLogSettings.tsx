@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -22,7 +23,7 @@ import {
 } from '@/lib/api'
 import { count, money } from '@/lib/aiSpend'
 import { cn } from '@/lib/utils'
-import { Outcome, Placeholder } from '../fields'
+import { Outcome } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
 /** `#ai/calls/<id>` opens that call, which is where a flag's "AI call" link goes. */
@@ -30,6 +31,9 @@ function callFromHash(): string | null {
   const parts = window.location.hash.slice(1).split('/')
   return parts[0] === 'ai' && parts[1] === 'calls' && parts[2] ? parts[2] : null
 }
+
+/** Runs the card's content to its edges, so the table meets the panel's sides. */
+const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 
 const noFilters: AiCallFilters = { feature: '', outcome: '', model: '', from: '', to: '', flagged: false }
 
@@ -95,21 +99,23 @@ export function AiCallLogSettings() {
       <SettingsCard
         title="Call log"
         span={12}
+        className={FLUSH}
         footer={
-          <>
-            {page?.next != null && (
-              <Button size="sm" variant="outline" disabled={busy} onClick={next}>
-                {busy ? 'Loading…' : 'Show more'}
-              </Button>
-            )}
-            <Outcome tone="problem">{error}</Outcome>
-          </>
+          (page?.next != null || error) && (
+            <>
+              {page?.next != null && (
+                <Button size="sm" variant="outline" disabled={busy} onClick={next}>
+                  {busy ? 'Loading…' : 'Show more'}
+                </Button>
+              )}
+              <Outcome tone="problem">{error}</Outcome>
+            </>
+          )
         }
       >
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-b-(length:--hairline) p-(--panel-pad)">
           <Select
             aria-label="Feature"
-            className="h-9 px-3"
             value={filters.feature}
             onChange={(feature) => set({ feature })}
           >
@@ -122,7 +128,6 @@ export function AiCallLogSettings() {
           </Select>
           <Select
             aria-label="Outcome"
-            className="h-9 px-3"
             value={filters.outcome}
             onChange={(outcome) => set({ outcome })}
           >
@@ -135,7 +140,6 @@ export function AiCallLogSettings() {
           </Select>
           <Select
             aria-label="Model"
-            className="h-9 px-3"
             value={filters.model}
             onChange={(model) => set({ model })}
           >
@@ -163,6 +167,7 @@ export function AiCallLogSettings() {
           <Button
             size="sm"
             variant="outline"
+            className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
             aria-pressed={filters.flagged}
             onClick={() => set({ flagged: !filters.flagged })}
           >
@@ -174,9 +179,9 @@ export function AiCallLogSettings() {
         </div>
 
         {!page && !error ? (
-          <Placeholder>Loading…</Placeholder>
+          <EmptyRow>Loading…</EmptyRow>
         ) : rows.length === 0 ? (
-          <Placeholder>No calls.</Placeholder>
+          <EmptyRow>No calls.</EmptyRow>
         ) : (
           <div className="relative overflow-x-auto">
             <Table style={{ fontSize: 'var(--text-small)' }}>
@@ -198,7 +203,7 @@ export function AiCallLogSettings() {
               <TableBody>
                 {rows.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="whitespace-nowrap">{new Date(c.at).toLocaleString()}</TableCell>
+                    <TableCell className="font-mono whitespace-nowrap">{new Date(c.at).toLocaleString()}</TableCell>
                     <TableCell>{c.featureLabel}</TableCell>
                     <TableCell className="max-w-[18rem] whitespace-normal font-mono">
                       {c.modelAnswered ?? c.modelAsked}
@@ -214,15 +219,15 @@ export function AiCallLogSettings() {
                         <div className="max-w-[22rem] whitespace-normal text-muted-foreground">{c.error}</div>
                       )}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{count(c.inputTokens)}</TableCell>
-                    <TableCell className="hidden text-right tabular-nums lg:table-cell">
+                    <TableCell className="text-right font-mono">{count(c.inputTokens)}</TableCell>
+                    <TableCell className="hidden text-right font-mono lg:table-cell">
                       {count(c.cachedInputTokens)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{count(c.outputTokens)}</TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="text-right font-mono">{count(c.outputTokens)}</TableCell>
+                    <TableCell className="text-right font-mono">
                       {c.cost === null ? '—' : money(c.cost)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{took(c.durationMs)}</TableCell>
+                    <TableCell className="text-right font-mono">{took(c.durationMs)}</TableCell>
                     <TableCell className="hidden md:table-cell">{c.username ?? '—'}</TableCell>
                     <TableCell className="text-right">
                       {c.flagged && <Badge variant="secondary">Flagged</Badge>}
@@ -278,19 +283,19 @@ function CallDialog({ id }: { id: string }) {
     <DialogContent
       title="Call"
       className="max-w-[900px]"
-      bodyClassName="flex max-h-[76vh] flex-col gap-3 overflow-y-auto px-5 py-4"
+      bodyClassName="flex max-h-[76vh] flex-col gap-3 overflow-y-auto"
     >
       <Outcome tone="problem">{error}</Outcome>
 
       {!detail && !error ? (
-        <span className="text-muted-foreground">Loading…</span>
+        <EmptyRow className="px-0">Loading…</EmptyRow>
       ) : detail ? (
         <>
           <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
             <span>{detail.call.featureLabel}</span>
             <span className="font-mono">{detail.call.modelAnswered ?? detail.call.modelAsked}</span>
             <span className={tone(detail.call.outcome)}>{detail.call.outcomeLabel}</span>
-            <span className="text-muted-foreground">{new Date(detail.call.at).toLocaleString()}</span>
+            <span className="font-mono text-muted-foreground">{new Date(detail.call.at).toLocaleString()}</span>
           </div>
 
           <Block title="Sent" text={detail.prompt} />
@@ -310,8 +315,8 @@ function Block({ title, text }: { title: string; text: string | null }) {
         {title}
       </span>
       <pre
-        className="overflow-x-auto rounded-md border p-3 whitespace-pre-wrap"
-        style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+        className="overflow-x-auto border border-(length:--hairline) bg-card px-3 py-2 whitespace-pre-wrap"
+        style={{ fontSize: 'var(--text-small)' }}
       >
         {text}
       </pre>

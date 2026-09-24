@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
 import { api, type CurrentUser } from '@/lib/api'
 import { Brand, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
@@ -10,9 +11,9 @@ import { Brand, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChr
 export function LinkVRChat({ me, onLinked }: { me: CurrentUser; onLinked: () => void }) {
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-6">
-      <div className="w-full max-w-[520px]">
+      <div className="w-full min-w-0 max-w-[520px]">
         <Brand />
-        <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
+        <Card>
           <WizardHeader eyebrow={`Signed in as ${me.username}`} title="Link your VRChat account" />
           <WizardBody>
             <VRChatLinkPanel compact onLinked={onLinked} />
@@ -22,12 +23,11 @@ export function LinkVRChat({ me, onLinked }: { me: CurrentUser; onLinked: () => 
               type="button"
               variant="ghost"
               onClick={() => void api.logout().finally(() => window.location.assign('/'))}
-              style={{ height: 'var(--control-h)' }}
             >
               Sign out
             </Button>
           </WizardFooter>
-        </div>
+        </Card>
       </div>
     </div>
   )

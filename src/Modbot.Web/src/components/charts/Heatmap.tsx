@@ -41,7 +41,7 @@ export function Heatmap({
       >
         <div />
         {cols.map((c, i) => (
-          <div key={c} className="truncate text-center text-muted-foreground" style={{ minHeight: '1.25rem' }}>
+          <div key={c} className="whitespace-nowrap text-muted-foreground" style={{ minHeight: '1.25rem' }}>
             {i % colLabelEvery === 0 ? c : ''}
           </div>
         ))}
@@ -62,7 +62,7 @@ export function Heatmap({
 
       {hover && (
         <div className="mt-2 text-muted-foreground">
-          <span className="font-medium text-foreground tabular-nums">
+          <span className="font-mono font-medium text-foreground">
             {compactNumber(values[hover.r]?.[hover.c] ?? 0)}
           </span>{' '}
           {valueLabel} · {rows[hover.r]} {cols[hover.c]}
@@ -107,10 +107,10 @@ function RowCells({
             aria-label={`${label} ${ci}: ${v}`}
             title={`${v}`}
             onMouseEnter={() => onHover({ r: ri, c: ci })}
-            className="rounded-[2px] bg-secondary"
+            className="bg-secondary"
             style={{ height: '1.25rem', outline: active ? `2px solid ${color}` : undefined, outlineOffset: -1 }}
           >
-            <div className="h-full w-full rounded-[2px]" style={{ background: color, opacity }} />
+            <div className="h-full w-full" style={{ background: color, opacity }} />
           </div>
         )
       })}

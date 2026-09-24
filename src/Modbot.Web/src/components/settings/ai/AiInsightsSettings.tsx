@@ -256,7 +256,7 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
             </div>
 
             {attempt && (
-              <div className="flex flex-col gap-2 border-t pt-3" style={{ borderTopWidth: 'var(--hairline)' }}>
+              <div className="flex flex-col gap-2 border-t border-t-(length:--hairline) pt-3">
                 <span className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
                   {insightDays(attempt)}
                 </span>

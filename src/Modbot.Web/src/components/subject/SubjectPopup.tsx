@@ -1,4 +1,5 @@
 import { ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { InstancePopup } from '@/components/subject/InstancePopup'
 import { PersonPopup } from '@/components/subject/PersonPopup'
@@ -80,15 +81,17 @@ const KIND_WORD: Record<Subject['kind'], string> = {
 
 function Back({ below, depth }: { below: Subject; depth: number }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={() => closeSubject()}
       title={depth > 2 ? `${depth - 1} more open underneath` : undefined}
-      className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+      className="shrink-0 gap-1"
       style={{ fontSize: 'var(--text-small)' }}
     >
       <ArrowLeft className="size-4" />
       Back to the {KIND_WORD[below.kind]}
-    </button>
+    </Button>
   )
 }

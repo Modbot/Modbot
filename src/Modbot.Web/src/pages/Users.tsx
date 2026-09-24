@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs } from '@/components/ui/tabs'
 import {
   ApiError,
   api,
@@ -17,6 +18,7 @@ import {
 import { formatDay } from '@/lib/format'
 import { usernameProblem } from '@/lib/username'
 import { cn } from '@/lib/utils'
+import { Empty } from '@/pages/Members'
 import { ErrorText, Field, Note } from '@/pages/setup/WizardChrome'
 
 /**
@@ -57,14 +59,14 @@ export function Users({ me }: { me: CurrentUser }) {
   if (!users) return <Empty>Loading…</Empty>
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setAdding(true)}>
           Add someone
         </Button>
       </div>
 
-      <Card className="py-0">
+      <Card>
         <Table>
           <TableHeader>
             <TableRow>
@@ -107,7 +109,7 @@ export function Users({ me }: { me: CurrentUser }) {
                     {u.roles.length === 0 && <span className="text-muted-foreground">No roles</span>}
                   </div>
                 </TableCell>
-                <TableCell>{u.lastLoginAt ? formatDay(u.lastLoginAt) : 'Never'}</TableCell>
+                <TableCell className={cn(u.lastLoginAt && 'font-mono')}>{u.lastLoginAt ? formatDay(u.lastLoginAt) : 'Never'}</TableCell>
                 <TableCell className="text-right">
                   {u.isDeleted ? (
                     <Badge variant="destructive">Deleted</Badge>
@@ -123,28 +125,34 @@ export function Users({ me }: { me: CurrentUser }) {
 
       {invites.length > 0 && (
         <Card>
-          <CardContent>
-            <div className="mb-2 font-semibold">Invite links not used yet</div>
-            <div className="divide-y" style={{ fontSize: 'var(--text-small)' }}>
-              {invites.map((i) => (
-                <div key={i.id} className="flex items-center gap-3 py-2">
-                  <span>
-                    Made by <span className="font-medium">{i.createdBy}</span> for{' '}
-                    {i.roles.length ? i.roles.join(', ') : 'no roles'}
-                  </span>
-                  <span className="text-muted-foreground">expires {formatDay(i.expiresAt)}</span>
-                  <div className="flex-1" />
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => void api.revokeInvite(i.id).then(refresh)}
-                  >
-                    Take back
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
+          <CardHeader>
+            <CardTitle>Invite links not used yet</CardTitle>
+          </CardHeader>
+          <div className="divide-y divide-(length:--hairline)" style={{ fontSize: 'var(--text-small)' }}>
+            {invites.map((i) => (
+              <div
+                key={i.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 px-(--panel-pad) py-1"
+                style={{ minHeight: 'var(--row-h)' }}
+              >
+                <span>
+                  Made by <span className="font-medium">{i.createdBy}</span> for{' '}
+                  {i.roles.length ? i.roles.join(', ') : 'no roles'}
+                </span>
+                <span className="text-muted-foreground">
+                  expires <span className="font-mono">{formatDay(i.expiresAt)}</span>
+                </span>
+                <div className="flex-1" />
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => void api.revokeInvite(i.id).then(refresh)}
+                >
+                  Take back
+                </Button>
+              </div>
+            ))}
+          </div>
         </Card>
       )}
 
@@ -242,47 +250,33 @@ function AddSomeone({
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div role="tablist" className="flex gap-1 rounded-md border bg-secondary p-0.5" style={{ fontSize: 'var(--text-small)' }}>
-        {(
-          [
-            ['link', 'Send them a link'],
-            ['password', 'Set a temporary password'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={way === id}
-            onClick={() => setWay(id)}
-            className={cn(
-              'flex-1 rounded-md px-2 py-1 font-medium transition-colors',
-              way === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {way === 'password' && (
-        <div className="space-y-3">
-          <Field label="Username" htmlFor="new-username">
-            <Input id="new-username" required autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
-          </Field>
-          <Field label="Email" htmlFor="new-email">
-            <Input id="new-email" type="email" required autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Temporary password" hint="at least 12 characters" htmlFor="new-password">
-              <Input id="new-password" type="password" required minLength={12} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <Tabs
+        value={way}
+        onChange={setWay}
+        tabs={[
+          { value: 'link', label: 'Send them a link' },
+          { value: 'password', label: 'Set a temporary password' },
+        ]}
+      >
+        {way === 'password' && (
+          <div className="space-y-3 pt-4">
+            <Field label="Username" htmlFor="new-username">
+              <Input id="new-username" required autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
             </Field>
-            <Field label="Confirm" htmlFor="new-confirm">
-              <Input id="new-confirm" type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            <Field label="Email" htmlFor="new-email">
+              <Input id="new-email" type="email" required autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Temporary password" hint="at least 12 characters" htmlFor="new-password">
+                <Input id="new-password" type="password" required minLength={12} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </Field>
+              <Field label="Confirm" htmlFor="new-confirm">
+                <Input id="new-confirm" type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+              </Field>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </Tabs>
 
       <RolePicker roles={roles} me={me} value={roleIds} onChange={setRoleIds} />
 
@@ -326,7 +320,7 @@ function RolePicker({
           return (
             <label
               key={r.id}
-              className={cn('flex items-start gap-2 rounded-md px-2 py-1', !allowed && 'opacity-60')}
+              className={cn('flex items-start gap-2 px-2 py-1', !allowed && 'opacity-60')}
               style={{ fontSize: 'var(--text-small)' }}
               title={allowed ? undefined : 'You can only give people permissions you have yourself.'}
             >
@@ -386,13 +380,16 @@ function UserDrawer({
 
   return (
     <aside
-      className="fixed inset-y-0 right-0 z-30 flex w-[26rem] max-w-full flex-col overflow-auto border-l bg-card shadow-xl"
+      className="fixed inset-y-0 right-0 z-30 flex w-[26rem] max-w-full flex-col overflow-auto border-l bg-card shadow-sm"
       style={{ borderLeftWidth: 'var(--hairline)' }}
       aria-label={`Account: ${user.username}`}
     >
-      <div className="flex items-center gap-2 border-b px-5 py-3" style={{ borderBottomWidth: 'var(--hairline)' }}>
-        <div>
-          <div className="font-semibold">{user.username}</div>
+      <div
+        className="flex items-center gap-2 border-b bg-strip px-(--panel-pad) py-1.5"
+        style={{ borderBottomWidth: 'var(--hairline)', minHeight: 'var(--strip-h)' }}
+      >
+        <div className="min-w-0">
+          <div className="font-label">{user.username}</div>
           <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {user.vrChatLinked
               ? `VRChat: ${user.vrChatDisplayName ?? ''} ${user.vrChatUserId ?? ''}`.trim()
@@ -406,7 +403,7 @@ function UserDrawer({
         </Button>
       </div>
 
-      <div className="flex flex-col gap-5 p-5" style={{ fontSize: 'var(--text-small)' }}>
+      <div className="flex flex-col gap-5 p-(--panel-pad)" style={{ fontSize: 'var(--text-small)' }}>
         <section className="space-y-2">
           <RolePicker roles={roles} me={me} value={roleIds} onChange={setRoleIds} />
           <Button
@@ -419,7 +416,7 @@ function UserDrawer({
         </section>
 
         <section className="space-y-2">
-          <div className="font-semibold">Contact details</div>
+          <div className="font-label">Contact details</div>
           <Field label="Email" htmlFor={`email-${user.id}`}>
             <Input id={`email-${user.id}`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
@@ -437,7 +434,7 @@ function UserDrawer({
         </section>
 
         <section className="space-y-2">
-          <div className="font-semibold">Password</div>
+          <div className="font-label">Password</div>
           {resetLink ? (
             <>
               <Note tone="ok" title="Reset link made." />
@@ -458,7 +455,7 @@ function UserDrawer({
         </section>
 
         <section className="space-y-2">
-          <div className="font-semibold">Access</div>
+          <div className="font-label">Access</div>
           {user.isDisabled ? (
             <Button size="sm" disabled={busy !== null} onClick={() => run('enable', () => api.enableUser(user.id))}>
               {busy === 'enable' ? 'Working…' : 'Enable this account'}
@@ -572,13 +569,5 @@ export function CopyBox({ text }: { text: string }) {
         {copied ? 'Copied' : 'Copy'}
       </Button>
     </div>
-  )
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardContent className="py-10 text-center text-muted-foreground">{children}</CardContent>
-    </Card>
   )
 }

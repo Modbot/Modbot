@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { FactList, Field, Note } from '@/components/subject/shared'
+import { EmptyRow } from '@/components/PanelGrid'
+import { FactList, Field, Panel } from '@/components/subject/shared'
 import { api, type PersonAccount } from '@/lib/api'
 import { dateTime } from '@/components/charts'
 import { formatDay } from '@/lib/format'
@@ -18,13 +19,8 @@ import { useLoad } from '@/lib/useLoad'
 /** The account, on the left of the popup. */
 export function AccountCard({ account }: { account: PersonAccount }) {
   return (
-    <div
-      className="rounded-md border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      <div className="font-medium">Modbot account</div>
-
-      <div className="mt-1 flex flex-col gap-1.5">
+    <Panel title="Modbot account">
+      <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
         <div className="flex flex-wrap items-center gap-1">
           <span className="font-medium">{account.username}</span>
           {account.isDisabled && <Badge variant="outline">Disabled</Badge>}
@@ -42,13 +38,15 @@ export function AccountCard({ account }: { account: PersonAccount }) {
         )}
 
         <div className="flex flex-wrap gap-x-6 gap-y-1">
-          <Field label="Made">{formatDay(account.createdAt)}</Field>
+          <Field label="Made">
+            <span className="font-mono">{formatDay(account.createdAt)}</span>
+          </Field>
           <Field label="Last signed in">
-            {account.lastLoginAt ? dateTime(account.lastLoginAt) : '—'}
+            <span className="font-mono">{account.lastLoginAt ? dateTime(account.lastLoginAt) : '—'}</span>
           </Field>
         </div>
       </div>
-    </div>
+    </Panel>
   )
 }
 
@@ -65,13 +63,11 @@ export function AccountHistory({ accountId }: { accountId: string }) {
   const { data, error } = useLoad(load)
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
-      <div className="font-medium">Signed in, changed and did</div>
-
-      {error && <Note className="text-destructive">{error}</Note>}
-      {!error && !data && <Note>Loading…</Note>}
+    <Panel title="Signed in, changed and did" flush>
+      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
       {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
-    </div>
+    </Panel>
   )
 }
 

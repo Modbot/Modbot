@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type HealthAlertView } from '@/lib/api'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Checkbox, Field, Outcome } from './fields'
 import { SettingsCard } from './SettingsCard'
 
@@ -82,9 +83,7 @@ export function HealthAlertsCard() {
       }
     >
       {!view ? (
-        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Loading…
-        </span>
+        <EmptyRow className="px-0">Loading…</EmptyRow>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="flex flex-col gap-2">
@@ -114,9 +113,7 @@ export function HealthAlertsCard() {
                 Who is emailed
               </div>
               {view.recipients.length === 0 ? (
-                <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                  No staff accounts.
-                </span>
+                <EmptyRow className="px-0">No staff accounts.</EmptyRow>
               ) : (
                 view.recipients.map((person) => (
                   <Checkbox
@@ -131,7 +128,7 @@ export function HealthAlertsCard() {
               )}
             </div>
 
-            <div className="grid max-w-sm grid-cols-2 gap-3">
+            <div className="grid max-w-sm grid-cols-2 items-end gap-3">
               <Field label="Quiet time (hours)" placeholder="6" value={quietHours} onChange={setQuietHours} />
               <Field
                 label="Database bigger than (GB)"

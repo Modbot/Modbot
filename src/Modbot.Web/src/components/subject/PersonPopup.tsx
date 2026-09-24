@@ -18,7 +18,9 @@ import {
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
-import { FactList, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import { Block, Empty, FactList, More, Panel, PopupFrame } from '@/components/subject/shared'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useDiscordRecords } from '@/lib/useDiscordRecords'
 import { useLoad } from '@/lib/useLoad'
 import { api, type AuditEntry, type CurrentUser, type PersonMetrics, type PersonView } from '@/lib/api'
@@ -60,14 +62,14 @@ export function PersonPopup({ subject, me, lead }: { subject: Subject; me: Curre
 
   if (error)
     return (
-      <PopupFrame title="Person" lead={lead} left={<Note className="text-destructive">{error}</Note>}>
+      <PopupFrame title="Person" lead={lead} left={<Empty className="text-destructive">{error}</Empty>}>
         <div />
       </PopupFrame>
     )
 
   if (!person)
     return (
-      <PopupFrame title="Person" lead={lead} left={<Note>Loading…</Note>}>
+      <PopupFrame title="Person" lead={lead} left={<Empty>Loading…</Empty>}>
         <div />
       </PopupFrame>
     )
@@ -161,20 +163,24 @@ function Resolved({
       left={
         <>
           {vrchatId ? (
-            <ProfileIdentity stored={stored} me={me} />
+            <Block>
+              <ProfileIdentity stored={stored} me={me} />
+            </Block>
           ) : discordId && seesMembers ? (
-            <DiscordIdentity read={member} />
+            <Block>
+              <DiscordIdentity read={member} />
+            </Block>
           ) : null}
 
-          {vrchatId === null && <Note>No VRChat account.</Note>}
+          {vrchatId === null && <Empty>No VRChat account.</Empty>}
 
           {person.discord && seesProfile && (
             <DiscordLinkCard key={live} side={person.discord} vrchatUserId={vrchatId} me={me} />
           )}
-          {person.discord === null && seesProfile && <Note>No Discord account.</Note>}
+          {person.discord === null && seesProfile && <Empty>No Discord account.</Empty>}
 
           {account && <AccountCard account={account} />}
-          {account === null && person.canSeeAccount && <Note>No Modbot account.</Note>}
+          {account === null && person.canSeeAccount && <Empty>No Modbot account.</Empty>}
 
           {vrchatId && seesMembers && (
             <MembershipCard key={fresh} subjectId={vrchatId} me={me} onActed={() => setActed((n) => n + 1)} />
@@ -182,7 +188,7 @@ function Resolved({
         </>
       }
     >
-      <Tabs value={tab} onChange={setTab} tabs={tabs}>
+      <Tabs value={tab} onChange={setTab} tabs={tabs} className="flex-1">
         {tab === 'overview' && (
           <Overview key={fresh} person={person} me={me} stored={stored} onMore={setTab} />
         )}
@@ -191,11 +197,7 @@ function Resolved({
           <PersonNotes key={`${notesId}-${live}`} subjectId={notesId} platform={notesPlatform} />
         )}
         {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
-        {tab === 'cases' && vrchatId && (
-          <div className="p-4">
-            <SubjectCaseFiles key={live} subjectId={vrchatId} />
-          </div>
-        )}
+        {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
         {tab === 'discord' && discordId && <DiscordHistory key={live} id={discordId} read={member} />}
         {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
         {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
@@ -286,46 +288,39 @@ function Overview({
   const metrics = useLoad(seesProfile && vrchatId ? loadMetrics : null)
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col">
       {seesProfile && stored.profile?.known && stored.profile.lastRefreshedAt && (
-        <>
-          <div className="font-medium">Profile</div>
+        <Panel title="Profile">
           <ProfileDetails stored={stored} />
-        </>
+        </Panel>
       )}
 
       {seesProfile && vrchatId && <SubjectHistory subjectId={vrchatId} />}
 
       {metrics.data?.known && (
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <Figure label="Time seen" value={minutes(metrics.data.counts.minutesSeen)} />
-          <Figure label="Instances visited" value={compactNumber(metrics.data.counts.instances)} />
-          <Figure label="Worlds visited" value={compactNumber(metrics.data.counts.worlds)} />
-          <Figure
+        <StatStrip className="m-0 shrink-0">
+          <Stat label="Time seen" value={minutes(metrics.data.counts.minutesSeen)} />
+          <Stat label="Instances visited" value={compactNumber(metrics.data.counts.instances)} />
+          <Stat label="Worlds visited" value={compactNumber(metrics.data.counts.worlds)} />
+          <Stat
             label="Last seen"
             value={metrics.data.counts.lastSeenAt ? ago(metrics.data.counts.lastSeenAt, metrics.data.now) : '—'}
             note={metrics.data.counts.lastSeenAt ? dateTime(metrics.data.counts.lastSeenAt) : undefined}
           />
-        </div>
+        </StatStrip>
       )}
 
-      <div className="flex items-center gap-2">
-        <span className="font-medium">Latest</span>
-        <span className="flex-1" />
-        <button type="button" onClick={() => onMore('logs')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
-          All logs
-        </button>
-      </div>
-
-      {facts.error && <Note className="text-destructive">{facts.error}</Note>}
-      {!facts.error && !facts.data && <Note>Loading…</Note>}
-      {facts.data && (
-        <FactList
-          entries={facts.data.entries}
-          empty="Nothing recorded yet."
-          from={(entry) => facts.data!.from.get(entry.id)}
-        />
-      )}
+      <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All logs</More>} flush>
+        {facts.error && <EmptyRow className="text-destructive">{facts.error}</EmptyRow>}
+        {!facts.error && !facts.data && <EmptyRow>Loading…</EmptyRow>}
+        {facts.data && (
+          <FactList
+            entries={facts.data.entries}
+            empty="Nothing recorded yet."
+            from={(entry) => facts.data!.from.get(entry.id)}
+          />
+        )}
+      </Panel>
     </div>
   )
 }
@@ -334,15 +329,13 @@ function Logs({ person }: { person: PersonView }) {
   const { data, error } = usePersonFacts(person, 50)
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
-      <div className="font-medium">Everything recorded about this person</div>
-
-      {error && <Note className="text-destructive">{error}</Note>}
-      {!error && !data && <Note>Loading…</Note>}
+    <Panel title="Everything recorded about this person" flush>
+      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
       {data && (
         <FactList entries={data.entries} empty="Nothing recorded yet." from={(entry) => data.from.get(entry.id)} />
       )}
-    </div>
+    </Panel>
   )
 }
 
@@ -387,11 +380,11 @@ function Records({ person, me }: { person: PersonView; me: CurrentUser }) {
   if (person.account) records.modbotAccount = person.account
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
+    <div className="flex min-h-0 flex-col">
       {Object.keys(records).length > 0 ? (
-        <JsonView title="Records" value={records} />
+        <JsonView title="Records" value={records} className="border-0" />
       ) : (
-        <Note>You do not have permission to see this.</Note>
+        <Empty>You do not have permission to see this.</Empty>
       )}
     </div>
   )
@@ -412,13 +405,23 @@ function Metrics({ person }: { person: PersonView }) {
   const { data, error } = useLoad(vrchatId ? load : null)
 
   return (
-    <div className="flex min-h-0 flex-col overflow-auto">
+    <div className="flex min-h-0 flex-col">
       {vrchatId && (
-        <Panel title="Time in world">
-          {error && <Note className="text-destructive">{error}</Note>}
-          {!error && !data && <Note>Loading…</Note>}
-          {data && !data.known && <Note>Not seen in an instance yet.</Note>}
+        <Panel title="Time in world" flush>
+          {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+          {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+          {data && !data.known && <EmptyRow>Not seen in an instance yet.</EmptyRow>}
           {data?.known && <TimeInWorld data={data} />}
+        </Panel>
+      )}
+
+      {data?.known && (
+        <Panel title="Instances they were seen in" flush>
+          {data.recentInstances.length === 0 ? (
+            <EmptyRow>No instances yet.</EmptyRow>
+          ) : (
+            <InstanceTable instances={data.recentInstances} />
+          )}
         </Panel>
       )}
 
@@ -431,27 +434,18 @@ function TimeInWorld({ data }: { data: PersonMetrics }) {
   const c = data.counts
 
   return (
-    <>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        <Figure label="Time seen" value={minutes(c.minutesSeen)} />
-        <Figure label="Instances visited" value={compactNumber(c.instances)} />
-        <Figure label="Worlds visited" value={compactNumber(c.worlds)} />
-        <Figure label="Arrivals" value={compactNumber(c.arrivals)} />
-        <Figure
-          label="Last seen"
-          value={c.lastSeenAt ? ago(c.lastSeenAt, data.now) : '—'}
-          note={c.lastSeenAt ? dateTime(c.lastSeenAt) : undefined}
-        />
-        <Figure label="First seen" value={c.firstSeenAt ? formatDay(c.firstSeenAt) : '—'} />
-      </div>
-
-      <div className="mt-2 font-medium">Instances they were seen in</div>
-      {data.recentInstances.length === 0 ? (
-        <Note>No instances yet.</Note>
-      ) : (
-        <InstanceTable instances={data.recentInstances} />
-      )}
-    </>
+    <StatStrip className="m-0 md:grid-cols-3 xl:grid-cols-3">
+      <Stat label="Time seen" value={minutes(c.minutesSeen)} />
+      <Stat label="Instances visited" value={compactNumber(c.instances)} />
+      <Stat label="Worlds visited" value={compactNumber(c.worlds)} />
+      <Stat label="Arrivals" value={compactNumber(c.arrivals)} />
+      <Stat
+        label="Last seen"
+        value={c.lastSeenAt ? ago(c.lastSeenAt, data.now) : '—'}
+        note={c.lastSeenAt ? dateTime(c.lastSeenAt) : undefined}
+      />
+      <Stat label="First seen" value={c.firstSeenAt ? formatDay(c.firstSeenAt) : '—'} />
+    </StatStrip>
   )
 }
 
@@ -481,17 +475,12 @@ function MembershipCard({
   const { data: profile } = useLoad(loadProfile)
 
   return (
-    <div
-      className="rounded-md border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      <div className="font-medium">Membership</div>
-
-      {error && <p className="mt-1 text-destructive">{error}</p>}
-      {!error && !view && <p className="mt-1 text-muted-foreground">Loading…</p>}
+    <Panel title="Membership" flush={!view}>
+      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {!error && !view && <EmptyRow>Loading…</EmptyRow>}
 
       {view && (
-        <div className="mt-1 flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
           {!view.members.firstSweepComplete ? (
             <p className="text-warn">Member list not read yet.</p>
           ) : view.isMember ? (
@@ -559,6 +548,6 @@ function MembershipCard({
           />
         </div>
       )}
-    </div>
+    </Panel>
   )
 }

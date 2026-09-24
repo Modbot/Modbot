@@ -2,7 +2,8 @@ import { useCallback, useState } from 'react'
 import { DailyLine, Legend, compactNumber, dateTime, minutes, nextSlot } from '@/components/charts'
 import { WorldLink } from '@/components/facts'
 import { api } from '@/lib/api'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat } from './shared'
+import { PanelGrid } from '@/components/PanelGrid'
+import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Tr } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -31,89 +32,85 @@ export function Worlds() {
   const totalVisitors = data ? data.worlds.reduce((s, w) => s + w.visitors, 0) : 0
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />
 
       {!data && <PageMessage>Loading…</PageMessage>}
 
       {data && (
-        <>
+        <PanelGrid className="grid-cols-1">
           {data.presenceReports === 0 ? (
             <PageMessage>No presence reports in this range.</PageMessage>
           ) : data.presenceReports < THIN ? (
             <PageMessage>Only {compactNumber(data.presenceReports)} presence reports in this range.</PageMessage>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <StatStrip>
             <Stat label="Worlds" value={compactNumber(data.worlds.length)} />
             <Stat label="Time seen" value={minutes(totalMinutes)} />
             <Stat label="Visitors" value={compactNumber(totalVisitors)} />
             <Stat label="Presence reports" value={compactNumber(data.presenceReports)} />
-          </div>
+          </StatStrip>
 
-          <Panel title="Worlds, by time people were seen in them">
+          <Panel title="Worlds, by time people were seen in them" flush={data.worlds.length > 0}>
             {data.worlds.length === 0 ? (
               <Nothing>No worlds in this range.</Nothing>
             ) : (
-              <div data-pin-first className="relative overflow-x-auto">
-                <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                  <thead className="text-left text-muted-foreground">
-                    <tr>
-                      <th className="py-1 pr-3 font-medium">World</th>
-                      <th className="py-1 pr-3 text-right font-medium">Holds</th>
-                      <th className="py-1 pr-3 text-right font-medium">Time seen</th>
-                      <th className="py-1 pr-3 text-right font-medium">Visitors</th>
-                      <th className="py-1 pr-3 text-right font-medium">Arrivals seen</th>
-                      <th className="py-1 pr-3 text-right font-medium">Instances opened</th>
-                      <th className="py-1 font-medium">Last seen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.worlds.map((w) => (
-                      <tr key={w.worldId} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-                        {/*
-                          The name where there is one, with the id underneath rather than instead:
-                          a moderator matching this against what they see in game needs the id, and
-                          a world Modbot has not read yet has nothing else to show.
-                        */}
-                        <td className="py-1 pr-3" title={w.worldId}>
-                          <div className="flex items-center gap-2">
-                            {w.thumbnailImageUrl && (
-                              <img
-                                src={vrchatMedia(w.thumbnailImageUrl)}
-                                alt=""
-                                loading="lazy"
-                                className="size-8 shrink-0 rounded-md object-cover"
-                              />
-                            )}
-                            <div className="min-w-0">
-                              <div className="truncate">
-                                {/* Opens the world, so the table is not a dead end showing ids. */}
-                                <WorldLink id={w.worldId} name={w.name} />
-                              </div>
-                              <div
-                                className="truncate font-mono text-muted-foreground"
-                                style={{ fontSize: 'var(--text-tiny, 11px)' }}
-                              >
-                                {w.authorName ? `by ${w.authorName} · ` : ''}
-                                {w.worldId}
-                              </div>
-                            </div>
+              <Table
+                pinFirst
+                head={
+                  <>
+                    <Th>World</Th>
+                    <Th className="text-right">Holds</Th>
+                    <Th className="text-right">Time seen</Th>
+                    <Th className="text-right">Visitors</Th>
+                    <Th className="text-right">Arrivals seen</Th>
+                    <Th className="text-right">Instances opened</Th>
+                    <Th>Last seen</Th>
+                  </>
+                }
+              >
+                {data.worlds.map((w) => (
+                  <Tr key={w.worldId}>
+                    {/*
+                      The name where there is one, with the id underneath rather than instead:
+                      a moderator matching this against what they see in game needs the id, and
+                      a world Modbot has not read yet has nothing else to show.
+                    */}
+                    <Td title={w.worldId}>
+                      <div className="flex items-center gap-2">
+                        {w.thumbnailImageUrl && (
+                          <img
+                            src={vrchatMedia(w.thumbnailImageUrl)}
+                            alt=""
+                            loading="lazy"
+                            className="size-8 shrink-0 rounded-sm object-cover"
+                          />
+                        )}
+                        <div className="min-w-0">
+                          <div className="truncate">
+                            {/* Opens the world, so the table is not a dead end showing ids. */}
+                            <WorldLink id={w.worldId} name={w.name} />
                           </div>
-                        </td>
-                        <td className="py-1 pr-3 text-right tabular-nums text-muted-foreground">
-                          {w.capacity ?? '—'}
-                        </td>
-                        <td className="py-1 pr-3 text-right tabular-nums">{w.minutesSeen > 0 ? minutes(w.minutesSeen) : '—'}</td>
-                        <td className="py-1 pr-3 text-right tabular-nums">{compactNumber(w.visitors)}</td>
-                        <td className="py-1 pr-3 text-right tabular-nums">{compactNumber(w.visits)}</td>
-                        <td className="py-1 pr-3 text-right tabular-nums">{compactNumber(w.instancesOpened)}</td>
-                        <td className="py-1 text-muted-foreground">{w.lastSeenAt ? dateTime(w.lastSeenAt) : '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          <div
+                            className="truncate font-mono text-muted-foreground"
+                            style={{ fontSize: 'var(--text-tiny, 11px)' }}
+                          >
+                            {w.authorName ? `by ${w.authorName} · ` : ''}
+                            {w.worldId}
+                          </div>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td className="text-right font-mono text-muted-foreground">{w.capacity ?? '—'}</Td>
+                    <Td className="text-right font-mono">{w.minutesSeen > 0 ? minutes(w.minutesSeen) : '—'}</Td>
+                    <Td className="text-right font-mono">{compactNumber(w.visitors)}</Td>
+                    <Td className="text-right font-mono">{compactNumber(w.visits)}</Td>
+                    <Td className="text-right font-mono">{compactNumber(w.instancesOpened)}</Td>
+                    <Td className="font-mono text-muted-foreground">{w.lastSeenAt ? dateTime(w.lastSeenAt) : '—'}</Td>
+                  </Tr>
+                ))}
+              </Table>
             )}
           </Panel>
 
@@ -136,7 +133,7 @@ export function Worlds() {
           </Panel>
 
           <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
-        </>
+        </PanelGrid>
       )}
     </div>
   )

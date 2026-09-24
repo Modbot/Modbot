@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { OtherTags } from '@/components/ProfileBadges'
 import { ProfileHeader } from '@/components/ProfileHeader'
 import { Field } from '@/components/subject/shared'
@@ -117,9 +118,9 @@ export function ProfileDetails({ stored }: { stored: StoredProfile }) {
       )}
 
       <div className="flex flex-wrap gap-x-6 gap-y-2">
-        {profile.dateJoined && <Field label="Joined VRChat">{formatDay(profile.dateJoined)}</Field>}
+        {profile.dateJoined && <Field label="Joined VRChat"><span className="font-mono">{formatDay(profile.dateJoined)}</span></Field>}
         {profile.lastSeenAt && (
-          <Field label="Last seen by Modbot">{ago(profile.lastSeenAt, profile.now)}</Field>
+          <Field label="Last seen by Modbot"><span className="font-mono">{ago(profile.lastSeenAt, profile.now)}</span></Field>
         )}
       </div>
 
@@ -142,14 +143,9 @@ function Freshness({
   note: string | null
 }) {
   return (
-    <div
-      className={cn(
-        'rounded-xl border px-3 py-2',
-        profile.stale ? 'border-warn/40 bg-warn/10' : 'bg-muted/40',
-      )}
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
+    <div style={{ fontSize: 'var(--text-small)' }}>
       <div className="flex flex-wrap items-center gap-x-2">
+        {profile.stale && <span aria-hidden className="size-2 shrink-0 bg-warn" />}
         <span className="font-medium">
           {profile.lastRefreshedAt
             ? `Last refreshed ${ago(profile.lastRefreshedAt, profile.now)}`
@@ -299,9 +295,9 @@ function AgeMark({
             openedBy.current = 'press'
           }}
           className={cn(
-            'inline-flex shrink-0 items-center rounded-full border px-1.5 py-0 font-medium whitespace-nowrap outline-none',
-            'focus-visible:ring-[3px] focus-visible:ring-ring/50',
-            flag.verified ? 'border-transparent bg-ok/15 text-ok' : 'text-muted-foreground',
+            'inline-flex shrink-0 items-center rounded-sm border px-1 py-0 font-medium whitespace-nowrap outline-none',
+            'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+            flag.verified ? 'border-ok/30 bg-ok/10 text-ok' : 'border-border text-muted-foreground',
           )}
           style={{ fontSize: '0.6875rem', borderWidth: 'var(--hairline)' }}
         >
@@ -325,16 +321,16 @@ function AgeMark({
           onCloseAutoFocus={(event) => {
             if (openedBy.current === 'hover') event.preventDefault()
           }}
-          className="z-50 flex w-64 max-w-[min(20rem,var(--radix-popover-content-available-width))] flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-md outline-none"
+          className="z-50 flex w-64 max-w-[min(20rem,var(--radix-popover-content-available-width))] flex-col gap-2 rounded-sm border bg-popover p-(--panel-pad) text-popover-foreground shadow-sm outline-none"
           style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
         >
           {flag.verified && flag.source === 'vrchat' && flag.since && (
-            <div className="text-muted-foreground">First seen on VRChat {formatDay(flag.since)}.</div>
+            <div className="text-muted-foreground">First seen on VRChat <span className="font-mono">{formatDay(flag.since)}</span>.</div>
           )}
           {flag.source === 'manual' && flag.since && (
             <div className="text-muted-foreground">
               {flag.verified ? 'Set' : 'Cleared'} by {flag.setByUsername ?? 'a moderator'} on{' '}
-              {formatDay(flag.since)}.
+              <span className="font-mono">{formatDay(flag.since)}</span>.
             </div>
           )}
 
@@ -359,9 +355,7 @@ function AgeMark({
             <div className="flex flex-col gap-2">
               <label className="flex flex-col gap-1">
                 <span className="text-muted-foreground">Reason</span>
-                <input
-                  className="rounded-md border bg-background px-2 py-1"
-                  style={{ borderWidth: 'var(--hairline)' }}
+                <Input
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   maxLength={500}

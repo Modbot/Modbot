@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
+import { EmptyRow } from '@/components/PanelGrid'
 import { EntryDetail } from '@/components/audit/EntryDetail'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
@@ -285,7 +286,7 @@ export function AuditLog() {
   if (error) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">{error}</CardContent>
+        <EmptyRow>{error}</EmptyRow>
       </Card>
     )
   }
@@ -302,13 +303,12 @@ export function AuditLog() {
       </FilterBar>
 
       <Card>
-        <CardContent className="p-0">
           {entries.length === 0 && !loading ? (
-            <div className="py-10 text-center text-muted-foreground">No entries match these filters.</div>
+            <EmptyRow>No entries match these filters.</EmptyRow>
           ) : (
             <div className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="text-muted-foreground">
+                <thead className="bg-strip text-muted-foreground">
                   <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
                     <th className="w-6 px-2 py-2" />
                     <th className="px-3 py-2 text-left font-normal">When</th>
@@ -333,10 +333,10 @@ export function AuditLog() {
           )}
 
           <div
-            className="flex items-center gap-3 border-t px-3 py-2 text-muted-foreground"
-            style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+            className="flex items-center gap-3 border-t bg-strip px-3 py-1.5 text-muted-foreground"
+            style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)', minHeight: 'var(--strip-h)' }}
           >
-            <span>
+            <span className="font-mono">
               {entries.length} {entries.length === 1 ? 'entry' : 'entries'} shown
             </span>
             <span className="flex-1" />
@@ -346,7 +346,6 @@ export function AuditLog() {
               </Button>
             )}
           </div>
-        </CardContent>
       </Card>
     </div>
   )
@@ -397,11 +396,10 @@ function Row({
         }}
         aria-expanded={open}
         className={cn(
-          'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
+          'cursor-pointer border-b border-b-(length:--hairline) last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
           marked && 'bg-accent',
           open && 'border-b-0',
         )}
-        style={{ borderBottomWidth: 'var(--hairline)' }}
       >
         <td className="px-2 align-top" style={{ height: 'var(--row-h)' }}>
           <ChevronRight
@@ -410,7 +408,7 @@ function Row({
           />
         </td>
         <td className="whitespace-nowrap px-3 align-top">
-          <div className="flex flex-col py-1 leading-tight">
+          <div className="flex flex-col py-1 font-mono leading-tight">
             <FactTime entry={entry} />
             <span className="text-muted-foreground/70">{formatDay(entry.occurredAt)}</span>
           </div>
@@ -435,7 +433,7 @@ function Row({
         </td>
       </tr>
       {open && (
-        <tr className="border-b last:border-0" style={{ borderBottomWidth: 'var(--hairline)' }}>
+        <tr className="border-b border-b-(length:--hairline) last:border-0">
           <td colSpan={4} className="p-0">
             <EntryDetail entry={entry} />
           </td>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardHeader } from '@/components/ui/card'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
@@ -190,18 +191,13 @@ export function People() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        <span>{list.coverage.known.toLocaleString()} known.</span>
-        <span>{list.coverage.members.toLocaleString()} in the group.</span>
-      </div>
-
       <FilterBar properties={PROPERTIES} chips={chips} onChange={setChips}>
         <Input
           ref={searchBox}
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           placeholder="Search by name or id"
-          className="h-7 w-56"
+          className="w-56"
           aria-label="Search people"
         />
 
@@ -217,104 +213,105 @@ export function People() {
           <option value="name">By name</option>
           <option value="known">Known longest first</option>
         </Select>
-
-        <span className="text-muted-foreground">
-          {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
-        </span>
       </FilterBar>
 
       <Card>
-        <CardContent className="p-0">
-          {list.people.length === 0 ? (
-            <div className="py-10 text-center font-medium">
-              {search || chips.length > 0 ? 'Nobody matches' : 'Nobody seen yet'}
-            </div>
-          ) : (
-            <div data-pin-first className="relative overflow-x-auto">
-              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="text-muted-foreground">
-                  <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
-                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Standing</th>
-                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Last seen by Modbot</th>
-                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Known for</th>
-                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Profile</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.people.map((person, i) => (
-                    <tr
-                      key={person.userId}
-                      {...rowProps(i)}
-                      onClick={() => openPerson(person.userId)}
-                      className={cn(
-                        'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
-                        person.notFoundAt && 'text-muted-foreground',
-                      )}
-                      style={{ borderBottomWidth: 'var(--hairline)' }}
-                    >
-                      <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                        <div className="flex items-center gap-2">
-                          {person.avatarThumbnailUrl ? (
-                            <img
-                              src={vrchatMedia(person.avatarThumbnailUrl)}
-                              alt=""
-                              className="size-7 shrink-0 rounded-full bg-muted object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="size-7 shrink-0 rounded-full bg-muted" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <SubjectLink id={person.userId} name={person.displayName} onOpen={openPerson} />
-                              {person.eighteenPlus && (
-                                <span
-                                  className="inline-flex items-center rounded-full border border-transparent bg-ok/15 px-1.5 py-0 font-medium text-ok"
-                                  style={{ fontSize: '0.6875rem' }}
-                                  title="18+ verified"
-                                >
-                                  18+
-                                </span>
-                              )}
-                              <TrustRankBadge rank={person.trustRank} />
-                            </div>
-                            {person.plainName && (
-                              <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
-                                {person.plainName}
-                              </div>
+        <CardHeader>
+          <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span><span className="font-mono">{list.coverage.known.toLocaleString()}</span> known.</span>
+            <span><span className="font-mono">{list.coverage.members.toLocaleString()}</span> in the group.</span>
+          </div>
+          <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
+          </span>
+        </CardHeader>
+        {list.people.length === 0 ? (
+          <EmptyRow>{search || chips.length > 0 ? 'Nobody matches' : 'Nobody seen yet'}</EmptyRow>
+        ) : (
+          <div data-pin-first className="relative overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+              <thead className="bg-strip text-muted-foreground">
+                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Standing</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Last seen by Modbot</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Known for</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Profile</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.people.map((person, i) => (
+                  <tr
+                    key={person.userId}
+                    {...rowProps(i)}
+                    onClick={() => openPerson(person.userId)}
+                    className={cn(
+                      'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
+                      person.notFoundAt && 'text-muted-foreground',
+                    )}
+                    style={{ borderBottomWidth: 'var(--hairline)' }}
+                  >
+                    <td className="px-3" style={{ height: 'var(--row-h)' }}>
+                      <div className="flex items-center gap-2">
+                        {person.avatarThumbnailUrl ? (
+                          <img
+                            src={vrchatMedia(person.avatarThumbnailUrl)}
+                            alt=""
+                            className="size-7 shrink-0 rounded-full bg-muted object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="size-7 shrink-0 rounded-full bg-muted" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <SubjectLink id={person.userId} name={person.displayName} onOpen={openPerson} />
+                            {person.eighteenPlus && (
+                              <span
+                                className="inline-flex items-center rounded-sm border border-ok/30 bg-ok/10 px-1 py-0 font-mono font-medium text-ok"
+                                style={{ fontSize: '0.6875rem' }}
+                                title="18+ verified"
+                              >
+                                18+
+                              </span>
                             )}
-                            {person.displayName && (
-                              <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
-                                {person.userId}
-                              </div>
-                            )}
+                            <TrustRankBadge rank={person.trustRank} />
                           </div>
+                          {person.plainName && (
+                            <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                              {person.plainName}
+                            </div>
+                          )}
+                          {person.displayName && (
+                            <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
+                              {person.userId}
+                            </div>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-3">
-                        <Standing person={person} />
-                      </td>
-                      <td className="px-3 text-muted-foreground">{ago(person.lastSeenAt, now)}</td>
-                      <td className="px-3 tabular-nums text-muted-foreground">
-                        {howLong(person.firstSeenAt, now)}
-                      </td>
-                      <td className="px-3 text-muted-foreground">
-                        {person.notFoundAt
-                          ? 'No such account'
-                          : person.profileRefreshedAt
-                            ? ago(person.profileRefreshedAt, now)
-                            : 'Not fetched yet'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                      </div>
+                    </td>
+                    <td className="px-3">
+                      <Standing person={person} />
+                    </td>
+                    <td className="px-3 font-mono whitespace-nowrap text-muted-foreground">{ago(person.lastSeenAt, now)}</td>
+                    <td className="px-3 font-mono whitespace-nowrap text-muted-foreground">
+                      {howLong(person.firstSeenAt, now)}
+                    </td>
+                    <td className="px-3 text-muted-foreground">
+                      {person.notFoundAt
+                        ? 'No such account'
+                        : person.profileRefreshedAt
+                          ? <span className="font-mono">{ago(person.profileRefreshedAt, now)}</span>
+                          : 'Not fetched yet'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-          <Pager at={at} pages={pages} />
-        </CardContent>
+        <Pager at={at} pages={pages} />
       </Card>
     </div>
   )

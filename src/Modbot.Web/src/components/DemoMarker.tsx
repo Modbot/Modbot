@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { api, type DemoStatus } from '@/lib/api'
 
@@ -50,12 +51,10 @@ export function DemoMarker() {
 
   return (
     <>
-      <span
-        className="rounded-full border px-2 py-0.5 font-medium text-muted-foreground"
-        style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)' }}
-      >
+      <Badge variant="secondary" className="gap-1.5 font-mono text-muted-foreground">
+        <span aria-hidden className={status.busy ? 'size-1.5 shrink-0 bg-warn' : 'size-1.5 shrink-0 bg-muted-foreground/60'} />
         {label}
-      </span>
+      </Badge>
 
       <Button
         variant="ghost"

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { api, type Alert } from '@/lib/api'
 import { type LiveEvent } from '@/lib/liveStream'
 import { followLink } from '@/lib/router'
@@ -48,19 +48,17 @@ export function AlertsCard() {
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-3 py-3">
-        {alerts.map((alert) => (
-          <Row key={alert.id} alert={alert} onDismiss={() => dismiss(alert.id)} />
-        ))}
-      </CardContent>
+      {alerts.map((alert) => (
+        <Row key={alert.id} alert={alert} onDismiss={() => dismiss(alert.id)} />
+      ))}
     </Card>
   )
 }
 
 function Row({ alert, onDismiss }: { alert: Alert; onDismiss: () => void }) {
   return (
-    <div className="flex items-start gap-3">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
+    <div className="flex items-start gap-3 border-b border-b-(length:--hairline) px-(--panel-pad) py-2 last:border-0">
+      <span aria-hidden className="mt-1.5 size-2 shrink-0 bg-warn" />
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
@@ -70,7 +68,7 @@ function Row({ alert, onDismiss }: { alert: Alert; onDismiss: () => void }) {
               {alert.where}
             </span>
           )}
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {new Date(alert.at).toLocaleString()}
           </span>
         </div>
@@ -97,7 +95,7 @@ function Row({ alert, onDismiss }: { alert: Alert; onDismiss: () => void }) {
         </a>
       )}
 
-      <Button size="icon" variant="ghost" className="size-7 shrink-0" aria-label="Hide" onClick={onDismiss}>
+      <Button size="icon-sm" variant="ghost" className="shrink-0" aria-label="Hide" onClick={onDismiss}>
         <X className="size-4" />
       </Button>
     </div>

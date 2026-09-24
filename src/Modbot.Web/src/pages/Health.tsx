@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { Children, useEffect, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
-import { Card, CardContent } from '@/components/ui/card'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { statusOf } from '@/lib/gate'
-import { discordState, TONE } from '@/lib/status'
+import { discordState, DOT, TONE, type Tone } from '@/lib/status'
 import { ago, duration, formatDay } from '@/lib/format'
 import { amountText, share } from '@/lib/aiSpend'
 import {
@@ -21,6 +22,7 @@ import {
   type SyncHealth,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { Empty } from './Members'
 
 /**
  * What the gate and the producers would tell an operator about themselves (spec 4.2.3, 4.3.3).
@@ -96,82 +98,60 @@ export function Health() {
     }
   }, [loaded])
 
-  if (error) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">{error}</CardContent>
-      </Card>
-    )
-  }
-
-  if (!health) {
-    return (
-      <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent>
-      </Card>
-    )
-  }
+  if (error) return <Empty>{error}</Empty>
+  if (!health) return <Empty>Loading…</Empty>
 
   const status = statusOf(health.gate.status)
-  const Icon = status.icon
 
   return (
-    <div className="flex flex-col gap-4">
+    <PanelGrid className="grid-cols-1">
       <DemoProgress />
 
       <AlertsCard />
 
-      <Card id="vrchat" className="scroll-mt-20">
-        <CardContent className="py-4">
-          <div className="flex items-start gap-3">
-            <Icon className={cn('mt-0.5 size-5 shrink-0', TONE[status.tone])} />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-medium">VRChat · {status.label}</span>
-                <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                  gate state: {health.gate.state}
-                </span>
-              </div>
-              <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                {health.gate.headline}
-              </p>
-              {health.gate.coldStopEndsAt && (
-                <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                  Next probe no earlier than {new Date(health.gate.coldStopEndsAt).toLocaleTimeString()}
-                </p>
-              )}
-              <dl
-                className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground"
-                style={{ fontSize: 'var(--text-small)' }}
-              >
-                <dt>Last signed in</dt>
-                <dd className="text-foreground">
-                  {health.gate.lastSignedInAt ? new Date(health.gate.lastSignedInAt).toLocaleString() : 'Never'}
-                </dd>
-                <dt>Sign-ins this hour</dt>
-                <dd className="tabular-nums text-foreground">
-                  {health.gate.signInsInLastHour} of {health.gate.signInLimit}
-                </dd>
-                {health.gate.signInWait && (
-                  <>
-                    <dt>Next sign-in</dt>
-                    <dd className="text-destructive">
-                      {new Date(health.gate.signInWait.retryAt).toLocaleTimeString()}
-                    </dd>
-                  </>
-                )}
-              </dl>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Part
+        id="vrchat"
+        title="VRChat"
+        state={<State tone={status.tone}>{status.label}</State>}
+        aside={
+          <>
+            gate state: <span className="font-mono">{health.gate.state}</span>
+          </>
+        }
+      >
+        <p className="max-w-3xl">{health.gate.headline}</p>
+        {health.gate.coldStopEndsAt && (
+          <p>
+            Next probe no earlier than{' '}
+            <span className="font-mono">{new Date(health.gate.coldStopEndsAt).toLocaleTimeString()}</span>
+          </p>
+        )}
+        <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+          <dt>Last signed in</dt>
+          <dd className={cn('text-foreground', health.gate.lastSignedInAt && 'font-mono')}>
+            {health.gate.lastSignedInAt ? new Date(health.gate.lastSignedInAt).toLocaleString() : 'Never'}
+          </dd>
+          <dt>Sign-ins this hour</dt>
+          <dd className="font-mono text-foreground">
+            {health.gate.signInsInLastHour} of {health.gate.signInLimit}
+          </dd>
+          {health.gate.signInWait && (
+            <>
+              <dt>Next sign-in</dt>
+              <dd className="font-mono text-destructive">
+                {new Date(health.gate.signInWait.retryAt).toLocaleTimeString()}
+              </dd>
+            </>
+          )}
+        </dl>
+      </Part>
 
       <Database reachable={databaseReachable} />
 
-      {!health.syncRunningInThisProcess && <Note>Sync is not running in this process.</Note>}
-
-      {/* One anchor over both AI cards, because either can be the only one on the screen. */}
-      <div id="ai" className="flex scroll-mt-20 flex-col gap-4 empty:hidden">
+      {/* One anchor over both AI panels, because either can be the only one on the screen. It is a
+          row of the sheet rather than a panel, so the two draw the sheet's lines and no box of
+          their own. */}
+      <div id="ai" data-slot="panel-grid" className="scroll-mt-20 grid-cols-1 empty:hidden">
         {health.aiSpend && health.aiSpend.length > 0 && <AiSpend warnings={health.aiSpend} />}
 
         {health.aiCalls &&
@@ -202,9 +182,19 @@ export function Health() {
       )}
 
       <Card id="sync" className="scroll-mt-20">
-        <CardContent className="py-4">
-          <div className="mb-3 font-medium">Producers</div>
+        {/* The warning sits on the producers' own strip, since theirs are the passes not being
+            made here. */}
+        <CardHeader className={cn(!health.syncRunningInThisProcess && 'bg-warn/10')}>
+          <CardTitle>Producers</CardTitle>
+          {!health.syncRunningInThisProcess && (
+            <CardAction className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
+              <span aria-hidden className="size-2 shrink-0 bg-warn" />
+              Sync is not running in this process.
+            </CardAction>
+          )}
+        </CardHeader>
 
+        <div>
           <Producer
             name="Group audit log"
             polledAt={health.auditLogPolledAt}
@@ -255,8 +245,10 @@ export function Health() {
             detail={sweepDetail(health.banSweep, health.now, 'bans')}
             run={health.banSweep?.lastRun ?? null}
           />
+        </div>
 
-          <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <CardFooter className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <p>
             {health.auditLogCatchUpComplete
               ? health.auditLogHistoryHorizon
                 ? `Audit log catch-up finished · ${health.auditLogHistoryHorizon.entriesRead} entries read`
@@ -264,97 +256,142 @@ export function Health() {
               : 'Audit log catch-up running'}
             {health.auditLogSyncedThrough && ` · synced through ${formatDay(health.auditLogSyncedThrough)}`}
           </p>
-        </CardContent>
+        </CardFooter>
       </Card>
 
       {health.cloudReport && <CloudReport report={health.cloudReport} now={health.now} />}
 
       <Card>
-        <CardContent className="py-4">
-          <div className="mb-3 font-medium">Rate-limit budgets</div>
+        <CardHeader>
+          <CardTitle>Rate-limit budgets</CardTitle>
+        </CardHeader>
 
-          {health.buckets.length === 0 ? (
-            <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              None used yet.
-            </p>
-          ) : (
-            <div data-pin-first className="relative overflow-x-auto">
-              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="text-muted-foreground">
-                  <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                    <th className="py-1 text-left font-normal">Bucket</th>
-                    <th className="py-1 text-right font-normal">Rate (req/s)</th>
-                    <th className="py-1 text-right font-normal">Budget</th>
-                    <th className="py-1 text-right font-normal">429s</th>
-                    <th className="py-1 text-left font-normal">State</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {health.buckets.map((bucket) => (
-                    <tr key={bucket.name} className="border-b last:border-0" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                      <td className="py-1 font-mono">{bucket.name}</td>
-                      <td className="py-1 text-right tabular-nums">
-                        {bucket.effectiveRatePerSecond.toFixed(3)}
-                      </td>
-                      <td
-                        className={cn(
-                          'py-1 text-right tabular-nums',
-                          bucket.budgetMultiplier < 1 && 'text-warn',
-                        )}
-                      >
-                        {bucket.budgetMultiplier.toFixed(2)}×
-                      </td>
-                      <td className="py-1 text-right tabular-nums">{bucket.rateLimitHits}</td>
-                      <td className="py-1">
-                        {bucket.alerting ? (
-                          <span className="text-destructive">
-                            given up, needs you
-                          </span>
-                        ) : bucket.isColdStopped ? (
-                          <span className="text-warn">
-                            cold-stopped
-                            {bucket.stoppedUntil
-                              ? ` until ${new Date(bucket.stoppedUntil).toLocaleTimeString()}`
-                              : ''}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">running</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="py-4">
-          <div className="mb-1 font-medium">Audit-log event types Modbot does not understand</div>
-          {health.unmappedAuditEvents.length === 0 ? (
-            <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              None seen.
-            </p>
-          ) : (
-            <table className="mt-1 w-full" style={{ fontSize: 'var(--text-small)' }}>
+        {health.buckets.length === 0 ? (
+          <EmptyRow>None used yet.</EmptyRow>
+        ) : (
+          <div data-pin-first className="relative overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+              <thead className="bg-strip text-muted-foreground">
+                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Bucket</th>
+                  <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Rate (req/s)</th>
+                  <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Budget</th>
+                  <th className="px-3 py-2 text-right font-normal whitespace-nowrap">429s</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">State</th>
+                </tr>
+              </thead>
               <tbody>
-                {health.unmappedAuditEvents.map((e) => (
-                  <tr key={e.eventType}>
-                    <td className="py-1 pr-3 font-mono">{e.eventType}</td>
-                    <td className="py-1 pr-3 tabular-nums text-muted-foreground">{e.count}×</td>
-                    <td className="py-1 text-muted-foreground">
-                      {e.sampleDescription ?? e.sampleEntryId ?? ''}
+                {health.buckets.map((bucket) => (
+                  <tr key={bucket.name} className="border-b border-b-(length:--hairline) last:border-b-0">
+                    <td className="px-3 font-mono" style={{ height: 'var(--row-h)' }}>
+                      {bucket.name}
+                    </td>
+                    <td className="px-3 text-right font-mono">{bucket.effectiveRatePerSecond.toFixed(3)}</td>
+                    <td className={cn('px-3 text-right font-mono', bucket.budgetMultiplier < 1 && 'text-warn')}>
+                      {bucket.budgetMultiplier.toFixed(2)}×
+                    </td>
+                    <td className="px-3 text-right font-mono">{bucket.rateLimitHits}</td>
+                    <td className="px-3 whitespace-nowrap">
+                      {bucket.alerting ? (
+                        <State tone="bad">given up, needs you</State>
+                      ) : bucket.isColdStopped ? (
+                        <State tone="warn">
+                          cold-stopped
+                          {bucket.stoppedUntil && (
+                            <>
+                              {' until '}
+                              <span className="font-mono">{new Date(bucket.stoppedUntil).toLocaleTimeString()}</span>
+                            </>
+                          )}
+                        </State>
+                      ) : (
+                        <State tone="muted">running</State>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
-        </CardContent>
+          </div>
+        )}
       </Card>
-    </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Audit-log event types Modbot does not understand</CardTitle>
+        </CardHeader>
+
+        {health.unmappedAuditEvents.length === 0 ? (
+          <EmptyRow>None seen.</EmptyRow>
+        ) : (
+          <div className="relative overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+              <tbody>
+                {health.unmappedAuditEvents.map((e) => (
+                  <tr key={e.eventType} className="border-b border-b-(length:--hairline) last:border-b-0">
+                    <td className="px-3 font-mono whitespace-nowrap" style={{ height: 'var(--row-h)' }}>
+                      {e.eventType}
+                    </td>
+                    <td className="px-3 text-right font-mono text-muted-foreground">{e.count}×</td>
+                    <td className="w-full px-3 text-muted-foreground">{e.sampleDescription ?? e.sampleEntryId ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </PanelGrid>
+  )
+}
+
+/**
+ * One part of the sheet: its name on the strip with its state beside it and any aside on the
+ * right, and the lines about it below. A part with nothing more to say is the strip alone, and
+ * then the strip draws no line of its own under it, since the sheet already draws one there.
+ */
+function Part({
+  id,
+  title,
+  state,
+  aside,
+  children,
+}: {
+  id?: string
+  title: string
+  state?: React.ReactNode
+  aside?: React.ReactNode
+  children?: React.ReactNode
+}) {
+  const body = Children.toArray(children).length > 0
+
+  return (
+    <Card id={id} className={id ? 'scroll-mt-20' : undefined}>
+      <CardHeader className={body ? undefined : 'border-b-0'}>
+        <CardTitle>{title}</CardTitle>
+        {state}
+        {aside && (
+          <CardAction className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span>{aside}</span>
+          </CardAction>
+        )}
+      </CardHeader>
+      {body && (
+        <CardContent className="flex flex-col gap-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {children}
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
+/** A state in plain words, led by the square in its tone. The words carry it; the square is a glance. */
+function State({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1.5', TONE[tone])} style={{ fontSize: 'var(--text-small)' }}>
+      <span aria-hidden className={cn('size-2 shrink-0', DOT[tone])} />
+      {children}
+    </span>
   )
 }
 
@@ -455,26 +492,16 @@ function CloudReport({
   now: string
 }) {
   const state = report.sentAt === null ? 'Not sent yet' : report.ok ? 'Sent' : 'Failed'
+  const tone: Tone = report.sentAt === null ? 'muted' : report.ok ? 'ok' : 'bad'
 
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="mb-3 font-medium">Modbot Cloud</div>
-
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">{state}</span>
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {report.sentAt === null ? report.endpoint : `${ago(report.sentAt, now)} · ${report.endpoint}`}
-          </span>
-        </div>
-
-        {report.problem && (
-          <p className="mt-0.5 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {report.problem}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <Part
+      title="Modbot Cloud"
+      state={<State tone={tone}>{state}</State>}
+      aside={report.sentAt === null ? report.endpoint : `${ago(report.sentAt, now)} · ${report.endpoint}`}
+    >
+      {report.problem && <p className="max-w-3xl">{report.problem}</p>}
+    </Part>
   )
 }
 
@@ -492,11 +519,11 @@ function Producer({
   run: SyncHealth['lastAuditLogRun']
 }) {
   return (
-    <div className="border-b py-2 last:border-0" style={{ borderBottomWidth: 'var(--hairline)' }}>
+    <div className="border-b border-b-(length:--hairline) px-(--panel-pad) py-2 last:border-b-0">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-medium">{name}</span>
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          last completed a pass {ago(polledAt, now)}
+          last completed a pass <span className="font-mono">{ago(polledAt, now)}</span>
         </span>
       </div>
       {detail && (
@@ -525,18 +552,7 @@ function Database({ reachable }: { reachable: boolean | null }) {
         ? { label: 'online', tone: 'ok' as const }
         : { label: 'unreachable', tone: 'bad' as const }
 
-  return (
-    <Card id="database" className="scroll-mt-20">
-      <CardContent className="py-4">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">Database</span>
-          <span className={TONE[state.tone]} style={{ fontSize: 'var(--text-small)' }}>
-            {state.label}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
-  )
+  return <Part id="database" title="Database" state={<State tone={state.tone}>{state.label}</State>} />
 }
 
 const CALENDAR_PLACE: Record<string, string> = {
@@ -554,37 +570,27 @@ const CALENDAR_PLACE: Record<string, string> = {
  */
 function PausedRules({ rules, now }: { rules: PausedRule[]; now: string }) {
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="font-medium">Paused moderation rules</div>
-        {rules.map((r) => (
-          <p key={r.ruleId} className="mt-1 max-w-3xl text-warn" style={{ fontSize: 'var(--text-small)' }}>
-            {r.ruleName} · {r.reason ?? 'Paused'} ({ago(r.pausedAt, now)})
-          </p>
-        ))}
-      </CardContent>
-    </Card>
+    <Part title="Paused moderation rules">
+      {rules.map((r) => (
+        <p key={r.ruleId} className="max-w-3xl text-warn">
+          {r.ruleName} · {r.reason ?? 'Paused'} ({ago(r.pausedAt, now)})
+        </p>
+      ))}
+    </Part>
   )
 }
 
 /** Calendar events that did not publish or whose instance did not open (calendar design §3, §4). */
 function CalendarProblems({ calendar, now }: { calendar: CalendarHealth; now: string }) {
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="font-medium">Calendar</div>
-        {calendar.problems.map((p) => (
-          <p
-            key={`${p.eventId}-${p.place}`}
-            className="mt-1 max-w-3xl text-warn"
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            {p.title} · {CALENDAR_PLACE[p.place] ?? p.place} · {p.error}
-            {p.at ? ` (${ago(p.at, now)})` : ''}
-          </p>
-        ))}
-      </CardContent>
-    </Card>
+    <Part title="Calendar">
+      {calendar.problems.map((p) => (
+        <p key={`${p.eventId}-${p.place}`} className="max-w-3xl text-warn">
+          {p.title} · {CALENDAR_PLACE[p.place] ?? p.place} · {p.error}
+          {p.at ? ` (${ago(p.at, now)})` : ''}
+        </p>
+      ))}
+    </Part>
   )
 }
 
@@ -609,66 +615,54 @@ function DiscordBot({
   const state = discordState(bot.state)
 
   return (
-    <Card id="discord" className="scroll-mt-20">
-      <CardContent className="py-4">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">Discord bot</span>
-          <span className={TONE[state.tone]} style={{ fontSize: 'var(--text-small)' }}>
-            {state.label}
-          </span>
-          {bot.state === 'Connected' && bot.connectedSince && (
-            <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              since {ago(bot.connectedSince, now)} · {bot.commandsRegistered} slash commands registered
-            </span>
-          )}
-        </div>
-        {bot.state !== 'NotConfigured' && (
-          <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {`Posted to Discord: ${bot.postedInThisProcess}${bot.lastPostedAt ? `, last ${ago(bot.lastPostedAt, now)}` : ''}`}
-            {!bot.logChannelConfigured && ' · No channels set'}
-          </p>
-        )}
-        {channels.map((channel) => (
-          <p
-            key={channel.channelId}
-            className="mt-1 max-w-3xl text-warn"
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            {channel.name ? `#${channel.name}` : channel.channelId}
-            {channel.removed && ' · Removed'}
-            {channel.missing.length > 0 && ` · Missing ${channel.missing.join(', ')}`}
-            {channel.lastError &&
-              ` · ${channel.lastError}${channel.lastErrorAt ? ` (${ago(channel.lastErrorAt, now)})` : ''}`}
-          </p>
-        ))}
-        {missingManageEvents && (
-          <p className="mt-1 max-w-3xl text-warn" style={{ fontSize: 'var(--text-small)' }}>
-            Missing Manage Events
-          </p>
-        )}
-        {bot.missingIntents && bot.missingIntents.length > 0 && (
-          <p className="mt-1 max-w-3xl text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-            Intents off in the Developer Portal: {bot.missingIntents.join(', ')}
-          </p>
-        )}
-        {readBack && readBack.channels > 0 && (
-          <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {`Message history read back: ${readBack.finished.toLocaleString()} of ${readBack.channels.toLocaleString()} channels and threads · ${readBack.messagesStored.toLocaleString()} messages stored`}
-            {readBack.noAccess > 0 && ` · ${readBack.noAccess.toLocaleString()} without access`}
-          </p>
-        )}
-        {readBack?.lastError && (
-          <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Last reading problem{readBack.lastErrorAt ? ` (${ago(readBack.lastErrorAt, now)})` : ''}: {readBack.lastError}
-          </p>
-        )}
-        {bot.lastError && (
-          <p className="mt-1 max-w-3xl text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <Part
+      id="discord"
+      title="Discord bot"
+      state={<State tone={state.tone}>{state.label}</State>}
+      aside={
+        bot.state === 'Connected' &&
+        bot.connectedSince &&
+        `since ${ago(bot.connectedSince, now)} · ${bot.commandsRegistered} slash commands registered`
+      }
+    >
+      {bot.state !== 'NotConfigured' && (
+        <p className="max-w-3xl">
+          {`Posted to Discord: ${bot.postedInThisProcess}${bot.lastPostedAt ? `, last ${ago(bot.lastPostedAt, now)}` : ''}`}
+          {!bot.logChannelConfigured && ' · No channels set'}
+        </p>
+      )}
+      {channels.map((channel) => (
+        <p key={channel.channelId} className="max-w-3xl text-warn">
+          {channel.name ? `#${channel.name}` : channel.channelId}
+          {channel.removed && ' · Removed'}
+          {channel.missing.length > 0 && ` · Missing ${channel.missing.join(', ')}`}
+          {channel.lastError &&
+            ` · ${channel.lastError}${channel.lastErrorAt ? ` (${ago(channel.lastErrorAt, now)})` : ''}`}
+        </p>
+      ))}
+      {missingManageEvents && <p className="max-w-3xl text-warn">Missing Manage Events</p>}
+      {bot.missingIntents && bot.missingIntents.length > 0 && (
+        <p className="max-w-3xl text-destructive">
+          Intents off in the Developer Portal: {bot.missingIntents.join(', ')}
+        </p>
+      )}
+      {readBack && readBack.channels > 0 && (
+        <p className="max-w-3xl">
+          {`Message history read back: ${readBack.finished.toLocaleString()} of ${readBack.channels.toLocaleString()} channels and threads · ${readBack.messagesStored.toLocaleString()} messages stored`}
+          {readBack.noAccess > 0 && ` · ${readBack.noAccess.toLocaleString()} without access`}
+        </p>
+      )}
+      {readBack?.lastError && (
+        <p className="max-w-3xl">
+          Last reading problem{readBack.lastErrorAt ? ` (${ago(readBack.lastErrorAt, now)})` : ''}: {readBack.lastError}
+        </p>
+      )}
+      {bot.lastError && (
+        <p className="max-w-3xl">
+          Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}
+        </p>
+      )}
+    </Part>
   )
 }
 
@@ -703,17 +697,15 @@ function DemoProgress() {
   if (!demo?.on || !demo.busy) return null
 
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">Demo data</span>
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {demo.step}
-            {demo.total > 0 ? ` — ${demo.done.toLocaleString()} of ${demo.total.toLocaleString()}` : ''}
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+    <Part
+      title="Demo data"
+      state={
+        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {demo.step}
+          {demo.total > 0 ? ` — ${demo.done.toLocaleString()} of ${demo.total.toLocaleString()}` : ''}
+        </span>
+      }
+    />
   )
 }
 
@@ -726,29 +718,23 @@ function AiSpend({ warnings }: { warnings: AiSpendWarning[] }) {
   const reached = warnings.some((w) => w.reached)
 
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">AI spend</span>
-          <span className={reached ? 'text-destructive' : 'text-warn'} style={{ fontSize: 'var(--text-small)' }}>
-            {reached ? 'limit reached' : 'close to a limit'}
-          </span>
-        </div>
-        {warnings.map((w) => (
-          <p
-            key={`${w.appliesTo}:${w.feature ?? ''}:${w.period}`}
-            className={cn('mt-1 max-w-3xl tabular-nums', w.reached ? 'text-destructive' : 'text-warn')}
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            {w.appliesTo === 'everyone' ? 'Everyone' : (w.label ?? w.feature)}
-            {` · ${w.period === 'day' ? 'daily' : 'monthly'} ${w.unit === 'tokens' ? 'token ' : ''}limit`}
-            {` · ${amountText(w.spent, w.unit)} of ${amountText(w.limit, w.unit)} (${share(w.spent, w.limit)})`}
-            {w.partUnknown && ' + unknown'}
-            {w.estimate !== null && ` · estimate ${amountText(w.estimate, w.unit)} (${share(w.estimate, w.limit)})`}
-          </p>
-        ))}
-      </CardContent>
-    </Card>
+    <Part
+      title="AI spend"
+      state={<State tone={reached ? 'bad' : 'warn'}>{reached ? 'limit reached' : 'close to a limit'}</State>}
+    >
+      {warnings.map((w) => (
+        <p
+          key={`${w.appliesTo}:${w.feature ?? ''}:${w.period}`}
+          className={cn('max-w-3xl tabular-nums', w.reached ? 'text-destructive' : 'text-warn')}
+        >
+          {w.appliesTo === 'everyone' ? 'Everyone' : (w.label ?? w.feature)}
+          {` · ${w.period === 'day' ? 'daily' : 'monthly'} ${w.unit === 'tokens' ? 'token ' : ''}limit`}
+          {` · ${amountText(w.spent, w.unit)} of ${amountText(w.limit, w.unit)} (${share(w.spent, w.limit)})`}
+          {w.partUnknown && ' + unknown'}
+          {w.estimate !== null && ` · estimate ${amountText(w.estimate, w.unit)} (${share(w.estimate, w.limit)})`}
+        </p>
+      ))}
+    </Part>
   )
 }
 
@@ -760,46 +746,35 @@ function AiCalls({ calls }: { calls: AiCallsHealth }) {
   const failing = calls.errors + calls.timedOut > 0
 
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">AI</span>
-          <span className={failing ? 'text-destructive' : 'text-warn'} style={{ fontSize: 'var(--text-small)' }}>
-            {failing ? 'calls failing' : 'on the fallback model'}
-          </span>
-        </div>
-        <p
-          className={cn('mt-1 max-w-3xl tabular-nums', failing ? 'text-destructive' : 'text-warn')}
-          style={{ fontSize: 'var(--text-small)' }}
-        >
-          {`${calls.calls} calls in the last hour`}
-          {calls.errors > 0 && ` · ${calls.errors} failed`}
-          {calls.timedOut > 0 && ` · ${calls.timedOut} timed out`}
-          {calls.fallbacks > 0 && ` · ${calls.fallbacks} on the fallback`}
-          {calls.answeringModel && ` · answering: ${calls.answeringModel}`}
-        </p>
-      </CardContent>
-    </Card>
+    <Part
+      title="AI"
+      state={<State tone={failing ? 'bad' : 'warn'}>{failing ? 'calls failing' : 'on the fallback model'}</State>}
+    >
+      <p className={cn('max-w-3xl tabular-nums', failing ? 'text-destructive' : 'text-warn')}>
+        {`${calls.calls} calls in the last hour`}
+        {calls.errors > 0 && ` · ${calls.errors} failed`}
+        {calls.timedOut > 0 && ` · ${calls.timedOut} timed out`}
+        {calls.fallbacks > 0 && ` · ${calls.fallbacks} on the fallback`}
+        {calls.answeringModel && ` · answering: ${calls.answeringModel}`}
+      </p>
+    </Part>
   )
 }
 
 function EmailQueue({ email }: { email: EmailHealth }) {
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-medium">Email</span>
-          <span className={email.failed > 0 ? 'text-destructive' : 'text-warn'} style={{ fontSize: 'var(--text-small)' }}>
-            {email.failed > 0 ? 'emails failed' : 'emails queued'}
-          </span>
-        </div>
-        <p className="mt-1 max-w-3xl tabular-nums text-warn" style={{ fontSize: 'var(--text-small)' }}>
-          {`${email.queued} queued`}
-          {email.nextSendAt && ` · next at ${new Date(email.nextSendAt).toLocaleString()}`}
-          {email.failed > 0 && ` · ${email.failed} failed`}
-        </p>
-      </CardContent>
-    </Card>
+    <Part
+      title="Email"
+      state={
+        <State tone={email.failed > 0 ? 'bad' : 'warn'}>{email.failed > 0 ? 'emails failed' : 'emails queued'}</State>
+      }
+    >
+      <p className="max-w-3xl tabular-nums text-warn">
+        {`${email.queued} queued`}
+        {email.nextSendAt && ` · next at ${new Date(email.nextSendAt).toLocaleString()}`}
+        {email.failed > 0 && ` · ${email.failed} failed`}
+      </p>
+    </Part>
   )
 }
 
@@ -808,48 +783,31 @@ function Logs({ logs }: { logs: LogHealth }) {
   const cloudProblem = logs.sendingToCloud && (logs.cloudError !== null || logs.cloudDropped > 0)
 
   return (
-    <Card>
-      <CardContent className="py-4">
-        <div className="mb-3 font-medium">Logs</div>
-        <dl
-          className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-muted-foreground"
-          style={{ fontSize: 'var(--text-small)' }}
-        >
-          <dt>Stored</dt>
-          <dd className={cn('tabular-nums', storeProblem ? 'text-warn' : 'text-foreground')}>
-            {logs.storing ? `${logs.storedWritten.toLocaleString()} written` : 'Not writing'}
-            {logs.storedDropped > 0 && ` · ${logs.storedDropped.toLocaleString()} dropped`}
-            {logs.storeError && ` · ${logs.storeError}`}
-          </dd>
+    <Part title="Logs">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+        <dt>Stored</dt>
+        <dd className={cn('tabular-nums', storeProblem ? 'text-warn' : 'text-foreground')}>
+          {logs.storing ? `${logs.storedWritten.toLocaleString()} written` : 'Not writing'}
+          {logs.storedDropped > 0 && ` · ${logs.storedDropped.toLocaleString()} dropped`}
+          {logs.storeError && ` · ${logs.storeError}`}
+        </dd>
 
-          <dt>To Modbot Cloud</dt>
-          <dd className={cn('tabular-nums', cloudProblem ? 'text-warn' : 'text-foreground')}>
-            {!logs.cloudAllowed
+        <dt>To Modbot Cloud</dt>
+        <dd className={cn('tabular-nums', cloudProblem ? 'text-warn' : 'text-foreground')}>
+          {!logs.cloudAllowed
+            ? 'Off'
+            : !logs.sendingToCloud
               ? 'Off'
-              : !logs.sendingToCloud
-                ? 'Off'
-                : logs.cloudSentAt
-                  ? `Last sent ${new Date(logs.cloudSentAt).toLocaleString()}`
-                  : logs.cloudRegistered
-                    ? 'Nothing sent yet'
-                    : 'Not registered yet'}
-            {logs.sendingToCloud && logs.cloudWaiting > 0 && ` · ${logs.cloudWaiting.toLocaleString()} waiting`}
-            {logs.cloudDropped > 0 && ` · ${logs.cloudDropped.toLocaleString()} dropped`}
-            {logs.sendingToCloud && logs.cloudError && ` · ${logs.cloudError}`}
-          </dd>
-        </dl>
-      </CardContent>
-    </Card>
-  )
-}
-
-function Note({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-muted-foreground"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      {children}
-    </div>
+              : logs.cloudSentAt
+                ? `Last sent ${new Date(logs.cloudSentAt).toLocaleString()}`
+                : logs.cloudRegistered
+                  ? 'Nothing sent yet'
+                  : 'Not registered yet'}
+          {logs.sendingToCloud && logs.cloudWaiting > 0 && ` · ${logs.cloudWaiting.toLocaleString()} waiting`}
+          {logs.cloudDropped > 0 && ` · ${logs.cloudDropped.toLocaleString()} dropped`}
+          {logs.sendingToCloud && logs.cloudError && ` · ${logs.cloudError}`}
+        </dd>
+      </dl>
+    </Part>
   )
 }

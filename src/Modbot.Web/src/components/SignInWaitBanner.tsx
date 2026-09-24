@@ -32,9 +32,10 @@ export function SignInWaitBanner() {
   return (
     <div
       role="alert"
-      className="w-full bg-destructive px-5 py-2 text-center font-medium text-destructive-foreground"
+      className="flex min-h-(--strip-h) w-full items-center gap-2 border-b border-b-(length:--hairline) border-destructive/40 bg-destructive/10 px-4 py-1 font-medium text-destructive lg:px-5"
       style={{ fontSize: 'var(--text-small)' }}
     >
+      <span aria-hidden className="size-2 shrink-0 bg-destructive" />
       {signInWaitText(left)}
     </div>
   )

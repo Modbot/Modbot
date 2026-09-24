@@ -3,6 +3,7 @@ import { RuleBuilder } from '@/components/giveaways/RuleBuilder'
 import { Button } from '@/components/ui/button'
 import { api, type AutoInvites } from '@/lib/api'
 import type { GiveawayBuilder, GiveawayRule } from '@/lib/giveaways'
+import { EmptyRow } from '@/components/PanelGrid'
 import { NumberField, Outcome, Row, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 
@@ -87,16 +88,14 @@ export function AutoInvitesSection() {
         }
       >
         {!loaded && !error ? (
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Loading…
-          </span>
+          <EmptyRow className="px-0">Loading…</EmptyRow>
         ) : (
           <>
             <Switch checked={enabled} onChange={setEnabled}>
               Invite people automatically
             </Switch>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <NumberField
                 label="Minutes in the instance"
                 value={minutes}

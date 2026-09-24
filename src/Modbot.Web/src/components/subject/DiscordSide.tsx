@@ -3,7 +3,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
-import { FactList, Field, Figure, Note, Panel } from '@/components/subject/shared'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Empty, FactList, Field, Note, Panel } from '@/components/subject/shared'
+import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { api, type DiscordMember } from '@/lib/api'
 import type { DiscordMemberRead } from '@/lib/useDiscordMember'
 import { formatDay } from '@/lib/format'
@@ -81,14 +83,28 @@ export function DiscordIdentity({ read }: { read: DiscordMemberRead }) {
 /** The dates and roles, at the top of the Discord tab. */
 function DiscordDetails({ member, timedOut }: { member: DiscordMember; timedOut: boolean }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="font-medium">Details</div>
-
+    <Panel title="Details">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
-        {member.joinedAt && <Field label="Joined">{formatDay(member.joinedAt)}</Field>}
-        {member.leftAt && <Field label="Left">{formatDay(member.leftAt)}</Field>}
-        {timedOut && member.timedOutUntil && <Field label="Timed out until">{dateTime(member.timedOutUntil)}</Field>}
-        {member.boostingSince && <Field label="Boosting since">{formatDay(member.boostingSince)}</Field>}
+        {member.joinedAt && (
+          <Field label="Joined">
+            <span className="font-mono">{formatDay(member.joinedAt)}</span>
+          </Field>
+        )}
+        {member.leftAt && (
+          <Field label="Left">
+            <span className="font-mono">{formatDay(member.leftAt)}</span>
+          </Field>
+        )}
+        {timedOut && member.timedOutUntil && (
+          <Field label="Timed out until">
+            <span className="font-mono">{dateTime(member.timedOutUntil)}</span>
+          </Field>
+        )}
+        {member.boostingSince && (
+          <Field label="Boosting since">
+            <span className="font-mono">{formatDay(member.boostingSince)}</span>
+          </Field>
+        )}
       </div>
 
       {member.roles.length > 0 && (
@@ -100,7 +116,7 @@ function DiscordDetails({ member, timedOut }: { member: DiscordMember; timedOut:
           </span>
         </Field>
       )}
-    </div>
+    </Panel>
   )
 }
 
@@ -114,13 +130,14 @@ export function DiscordHistory({ id, read }: { id: string; read: DiscordMemberRe
   const { data, error } = useLoad(load, live)
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
+    <div className="flex min-h-0 flex-col">
       {read.data?.member && <DiscordDetails member={read.data.member} timedOut={read.data.timedOut} />}
 
-      <div className="font-medium">In the server</div>
-      {error && <Note className="text-destructive">{error}</Note>}
-      {!error && !data && <Note>Loading…</Note>}
-      {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+      <Panel title="In the server" flush>
+        {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+        {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+        {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+      </Panel>
     </div>
   )
 }
@@ -139,8 +156,8 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
   )
   const { data, error } = useLoad(load)
 
-  if (error) return <Panel title="Messages"><Note className="text-destructive">{error}</Note></Panel>
-  if (!data) return <Panel title="Messages"><Note>Loading…</Note></Panel>
+  if (error) return <Panel title="Messages" flush><EmptyRow className="text-destructive">{error}</EmptyRow></Panel>
+  if (!data) return <Panel title="Messages" flush><EmptyRow>Loading…</EmptyRow></Panel>
 
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize))
 
@@ -152,11 +169,11 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
+    <div className="flex min-h-0 flex-col">
       {data.messages.length === 0 ? (
-        <Note>No messages stored.</Note>
+        <Empty>No messages stored.</Empty>
       ) : (
-        <ol className="flex flex-col gap-2">
+        <ol className="flex shrink-0 flex-col border-b border-b-(length:--hairline)">
           {data.messages.map((m) => (
             <Message key={m.messageId} marked={anchored && m.messageId === at}>
               <div className="flex flex-wrap items-center gap-2">
@@ -179,7 +196,7 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
                   </Badge>
                 )}
                 <span className="flex-1" />
-                <span className="tabular-nums text-muted-foreground" title={new Date(m.sentAt).toLocaleString()}>
+                <span className="font-mono text-muted-foreground" title={new Date(m.sentAt).toLocaleString()}>
                   {dateTime(m.sentAt)}
                 </span>
               </div>
@@ -211,12 +228,15 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
       )}
 
       {pages > 1 && (
-        <div className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
+        <div
+          className="flex shrink-0 items-center gap-2 border-b border-b-(length:--hairline) bg-strip px-(--panel-pad) py-1.5"
+          style={{ fontSize: 'var(--text-small)' }}
+        >
           <Button variant="outline" size="xs" disabled={data.page <= 1} onClick={() => turn(data.page - 1)}>
             Previous
           </Button>
           <span className="text-muted-foreground">
-            Page {data.page} of {pages}
+            Page <span className="font-mono">{data.page}</span> of <span className="font-mono">{pages}</span>
           </span>
           <Button variant="outline" size="xs" disabled={data.page >= pages} onClick={() => turn(data.page + 1)}>
             Next
@@ -241,8 +261,8 @@ function Message({ marked, children }: { marked: boolean; children: React.ReactN
   return (
     <li
       ref={row}
-      className={cn('rounded-md border px-3 py-2', marked && 'border-ring bg-accent')}
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+      className={cn('border-t border-t-(length:--hairline) px-(--panel-pad) py-2 first:border-t-0', marked && 'bg-accent')}
+      style={{ fontSize: 'var(--text-small)' }}
     >
       {children}
     </li>
@@ -256,23 +276,23 @@ export function DiscordMetrics({ id }: { id: string }) {
   const load = useCallback(() => api.discordMemberMetrics(id), [id])
   const { data, error } = useLoad(load, live)
 
-  if (error) return <Panel title="Discord"><Note className="text-destructive">{error}</Note></Panel>
-  if (!data) return <Panel title="Discord"><Note>Loading…</Note></Panel>
+  if (error) return <Panel title="Discord" flush><EmptyRow className="text-destructive">{error}</EmptyRow></Panel>
+  if (!data) return <Panel title="Discord" flush><EmptyRow>Loading…</EmptyRow></Panel>
 
   const from = data.messagesPerDay[0]?.day ?? ''
   const to = data.messagesPerDay[data.messagesPerDay.length - 1]?.day ?? ''
 
   return (
     <>
-      <Panel title="Activity">
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          <Figure label="Messages, 30 days" value={compactNumber(sum(data.messagesPerDay))} />
-          <Figure label="Voice, 30 days" value={minutes(sum(data.voiceMinutesPerDay))} />
-          <Figure label="Messages, all time" value={compactNumber(data.messagesAllTime)} />
-          <Figure label="Voice, all time" value={minutes(data.voiceMinutesAllTime)} />
-          <Figure label="First seen" value={data.firstSeenAt ? formatDay(data.firstSeenAt) : '—'} />
-          <Figure label="Joined" value={data.joinedAt ? formatDay(data.joinedAt) : '—'} />
-        </div>
+      <Panel title="Activity" flush>
+        <StatStrip className="m-0 md:grid-cols-3 xl:grid-cols-3">
+          <Stat label="Messages, 30 days" value={compactNumber(sum(data.messagesPerDay))} />
+          <Stat label="Voice, 30 days" value={minutes(sum(data.voiceMinutesPerDay))} />
+          <Stat label="Messages, all time" value={compactNumber(data.messagesAllTime)} />
+          <Stat label="Voice, all time" value={minutes(data.voiceMinutesAllTime)} />
+          <Stat label="First seen" value={data.firstSeenAt ? formatDay(data.firstSeenAt) : '—'} />
+          <Stat label="Joined" value={data.joinedAt ? formatDay(data.joinedAt) : '—'} />
+        </StatStrip>
       </Panel>
 
       <Panel title="Messages per day">
@@ -291,15 +311,15 @@ export function DiscordMetrics({ id }: { id: string }) {
         />
       </Panel>
 
-      <Panel title="Joined and left">
+      <Panel title="Joined and left" flush={data.history.length === 0}>
         {data.history.length === 0 ? (
-          <Note>Nothing recorded.</Note>
+          <EmptyRow>Nothing recorded.</EmptyRow>
         ) : (
           <ol className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
             {data.history.map((h, i) => (
               <li key={`${h.at}:${i}`} className="flex gap-2">
                 <span className="w-14 font-medium">{h.change === 'joined' ? 'Joined' : 'Left'}</span>
-                <span className="tabular-nums text-muted-foreground">
+                <span className="font-mono text-muted-foreground">
                   {h.before ? `${dateTime(h.at)} – ${dateTime(h.before)}` : dateTime(h.at)}
                 </span>
               </li>

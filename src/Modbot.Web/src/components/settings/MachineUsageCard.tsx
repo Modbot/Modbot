@@ -212,7 +212,7 @@ function Usage({
                 {line.label}
               </span>
             )}
-            <span className="font-medium tabular-nums">{line.value}</span>
+            <span className="font-mono font-medium tabular-nums">{line.value}</span>
           </div>
         ))}
       </div>

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Picker } from '@/components/discord/Picker'
 import { RolePicker } from '@/components/discord/RolePicker'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type DiscordSyncSettings, type PlannedChange, type RolePair, type SyncPreview } from '@/lib/api'
-import { Fact, Outcome, Placeholder, Switch } from '../fields'
+import { Fact, Outcome, Switch } from '../fields'
 import { SettingsCard } from '../SettingsCard'
 
 const DECIDES = [
@@ -39,7 +40,7 @@ export function SyncCard() {
   if (error || !data) {
     return (
       <SettingsCard title="Role and ban sync">
-        <Placeholder>{error ?? 'Loading…'}</Placeholder>
+        <EmptyRow className="px-0">{error ?? 'Loading…'}</EmptyRow>
       </SettingsCard>
     )
   }
@@ -196,7 +197,7 @@ function Pairs({
       </h4>
 
       {settings.pairs.length > 0 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col border-y border-y-(length:--hairline)">
           {settings.pairs.map((pair) => (
             <PairRow
               key={pair.id}
@@ -272,10 +273,7 @@ function PairRow({
   })
 
   return (
-    <li
-      className="flex flex-wrap items-center gap-3 rounded-md border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)' }}
-    >
+    <li className="flex flex-wrap items-center gap-3 border-b border-b-(length:--hairline) py-2 last:border-0">
       <span className="min-w-0 flex-1 truncate" style={{ fontSize: 'var(--text-small)' }}>
         {pair.vrchatRoleName ?? pair.vrchatRoleId} → {pair.discordRoleName ?? pair.discordRoleId}
       </span>

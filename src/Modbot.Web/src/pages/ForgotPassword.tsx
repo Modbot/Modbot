@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ForgotPasswordWays } from '@/lib/api'
 import { Brand, ErrorText, Field, Note, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
@@ -32,39 +33,41 @@ export function ForgotPassword({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-6">
-      <div className="w-full max-w-[420px]">
+      <div className="w-full min-w-0 max-w-[420px]">
         <Brand />
-        <form onSubmit={submit} className="overflow-hidden rounded-xl border bg-card shadow-lg">
-          <WizardHeader eyebrow="Forgot password" title="Get a reset link" />
-          <WizardBody>
-            {!ways ? (
-              <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Checking…</div>
-            ) : !ways.available ? (
-              <Note tone="warn">
-                {ways.reason ?? 'This Modbot cannot send reset links. Ask an administrator.'}
-              </Note>
-            ) : message ? (
-              <Note tone="ok">{message}</Note>
-            ) : (
-              <>
-                <Field label="Username" htmlFor="forgot-username">
-                  <Input id="forgot-username" autoComplete="username" autoFocus required value={username} onChange={(e) => setUsername(e.target.value)} />
-                </Field>
-                <ErrorText>{error}</ErrorText>
-              </>
-            )}
-          </WizardBody>
-          <WizardFooter>
-            <Button type="button" variant="ghost" onClick={onBack} style={{ height: 'var(--control-h)' }}>
-              Back to sign in
-            </Button>
-            <div className="flex-1" />
-            {ways?.available && !message && (
-              <Button type="submit" disabled={busy} style={{ height: 'var(--control-h)' }}>
-                {busy ? 'Sending…' : 'Send me a link'}
+        <form onSubmit={submit}>
+          <Card>
+            <WizardHeader eyebrow="Forgot password" title="Get a reset link" />
+            <WizardBody>
+              {!ways ? (
+                <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Checking…</div>
+              ) : !ways.available ? (
+                <Note tone="warn">
+                  {ways.reason ?? 'This Modbot cannot send reset links. Ask an administrator.'}
+                </Note>
+              ) : message ? (
+                <Note tone="ok">{message}</Note>
+              ) : (
+                <>
+                  <Field label="Username" htmlFor="forgot-username">
+                    <Input id="forgot-username" autoComplete="username" autoFocus required value={username} onChange={(e) => setUsername(e.target.value)} />
+                  </Field>
+                  <ErrorText>{error}</ErrorText>
+                </>
+              )}
+            </WizardBody>
+            <WizardFooter>
+              <Button type="button" variant="ghost" onClick={onBack}>
+                Back to sign in
               </Button>
-            )}
-          </WizardFooter>
+              <div className="flex-1" />
+              {ways?.available && !message && (
+                <Button type="submit" disabled={busy}>
+                  {busy ? 'Sending…' : 'Send me a link'}
+                </Button>
+              )}
+            </WizardFooter>
+          </Card>
         </form>
       </div>
     </div>

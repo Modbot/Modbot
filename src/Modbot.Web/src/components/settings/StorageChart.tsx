@@ -491,7 +491,7 @@ export function StorageChart({
                   <ChartTooltipRow series={COST} value={`$${point.cost.toFixed(2)}/mo`} />
                 )}
                 {point.range && point.x > 0 && (
-                  <div className="text-muted-foreground tabular-nums">
+                  <div className="font-mono text-muted-foreground tabular-nums">
                     {bytes(point.range[0])} – {bytes(point.range[1])}
                   </div>
                 )}

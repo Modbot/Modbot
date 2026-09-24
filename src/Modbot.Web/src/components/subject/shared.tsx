@@ -1,11 +1,13 @@
+import { CardAction, CardHeader, CardTitle } from '@/components/ui/card'
 import { DialogContent } from '@/components/ui/dialog'
+import { EmptyRow } from '@/components/PanelGrid'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, ReportedBy, SourceBadge } from '@/components/facts'
 import type { AuditEntry } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /**
- * The pieces the three popups share: one loader, one way of stating a figure, one fact list.
+ * The pieces the three popups share: one loader, one section, one fact list.
  *
  * Kept as small parts rather than a popup template, because a person, a world and an instance are
  * genuinely different and a template would pull them towards being the same screen.
@@ -31,20 +33,6 @@ export function Field({
   )
 }
 
-/** A number worth reading at a glance, with the caveat that belongs to it underneath. */
-export function Figure({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div
-      className="rounded-md border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      <div className="text-muted-foreground">{label}</div>
-      <div className="mt-0.5 font-mono text-lg font-medium tracking-tight tabular-nums">{value}</div>
-      {note && <div className="text-muted-foreground">{note}</div>}
-    </div>
-  )
-}
-
 export function Note({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <p className={cn('text-muted-foreground', className)} style={{ fontSize: 'var(--text-small)' }}>
@@ -53,12 +41,69 @@ export function Note({ children, className }: { children: React.ReactNode; class
   )
 }
 
-export function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+/** One section of a popup: its name on a strip, what it holds below, one hairline under it. */
+export function Panel({
+  title,
+  right,
+  flush = false,
+  className,
+  children,
+}: {
+  title: string
+  right?: React.ReactNode
+  /** Runs the content to the section's edges, for a list or a table. */
+  flush?: boolean
+  className?: string
+  children: React.ReactNode
+}) {
   return (
-    <section className="flex flex-col gap-2 p-4">
-      <div className="font-medium">{title}</div>
-      {children}
+    <section className={cn('shrink-0 border-b border-b-(length:--hairline)', className)}>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {right && <CardAction>{right}</CardAction>}
+      </CardHeader>
+      <div className={flush ? undefined : 'flex flex-col gap-2 p-(--panel-pad)'}>{children}</div>
     </section>
+  )
+}
+
+/** A block of a popup with no name of its own, the identity at the top of the left column. */
+export function Block({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('flex shrink-0 flex-col gap-3 border-b border-b-(length:--hairline) p-(--panel-pad)', className)}>
+      {children}
+    </div>
+  )
+}
+
+/** A one-line state of a popup section (loading, empty, failed), ruled off like a section. */
+export function Empty({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <EmptyRow className={cn('shrink-0 border-b border-b-(length:--hairline)', className)}>{children}</EmptyRow>
+}
+
+/** The strip along the foot of a section's list: what the list shows, and how fresh it is. */
+export function Footer({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 border-t border-t-(length:--hairline) bg-strip px-(--panel-pad) py-1.5 text-muted-foreground"
+      style={{ fontSize: 'var(--text-small)' }}
+    >
+      {children}
+    </div>
+  )
+}
+
+/** The control on the right of a section's strip that opens the tab holding the rest. */
+export function More({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+      style={{ fontSize: 'var(--text-small)' }}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -82,15 +127,15 @@ export function FactList({
   empty: string
   from?: (entry: AuditEntry) => string | undefined
 }) {
-  if (entries.length === 0) return <Note>{empty}</Note>
+  if (entries.length === 0) return <EmptyRow>{empty}</EmptyRow>
 
   return (
-    <ol className="flex flex-col gap-2">
+    <ol className="flex flex-col">
       {entries.map((entry) => (
         <li
           key={entry.id}
-          className="rounded-md border px-3 py-2"
-          style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+          className="border-t border-t-(length:--hairline) px-(--panel-pad) py-2 first:border-t-0"
+          style={{ fontSize: 'var(--text-small)' }}
         >
           <div className="flex items-center gap-2">
             <SourceBadge source={entry.source} />
@@ -144,17 +189,16 @@ export function PopupFrame({
       className={cn(
         'top-0 left-0 h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0',
         'md:top-1/2 md:left-1/2 md:h-[calc(100dvh-2rem)] md:w-[calc(100vw-2rem)] md:max-w-[100rem]',
-        'md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:border',
+        'md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-sm md:border',
       )}
       // `minmax(0,1fr)` on the one-column case as well: a bare `grid` sizes its column to the
       // widest thing in it, so the stacked popup was as wide as its widest table and scrolled
       // sideways as a whole rather than letting the table scroll inside itself.
       bodyClassName="grid grid-cols-[minmax(0,1fr)] overflow-auto p-0 md:grid-cols-[22rem_minmax(0,1fr)] md:overflow-hidden"
     >
-      <aside
-        className="flex flex-col gap-3 border-b p-4 md:overflow-auto md:border-r md:border-b-0"
-        style={{ borderWidth: 0, borderRightWidth: 'var(--hairline)', borderBottomWidth: 'var(--hairline)' }}
-      >
+      {/* Every block in the column draws the hairline under itself, so the column draws only
+          the one beside it. */}
+      <aside className="flex flex-col md:overflow-auto md:border-r md:border-r-(length:--hairline)">
         {left}
       </aside>
       <div className="flex min-h-0 flex-col">{children}</div>

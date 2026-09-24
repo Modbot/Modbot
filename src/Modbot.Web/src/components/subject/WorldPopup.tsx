@@ -4,7 +4,9 @@ import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts
 import { SubjectLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { InstanceTable } from '@/components/InstanceTable'
-import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Block, Empty, FactList, Field, Footer, More, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type WorldView } from '@/lib/api'
 import { concernsWorld } from '@/lib/liveRules'
@@ -40,9 +42,18 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
 
   if (!allowed) {
     return (
-      <PopupFrame title="World" subtitle={<Id id={id} />} lead={lead} left={<Id id={id} />}>
-        <Panel title="World">
-          <Note>You do not have permission to see worlds.</Note>
+      <PopupFrame
+        title="World"
+        subtitle={<Id id={id} />}
+        lead={lead}
+        left={
+          <Block>
+            <Id id={id} />
+          </Block>
+        }
+      >
+        <Panel title="World" flush>
+          <EmptyRow>You do not have permission to see worlds.</EmptyRow>
         </Panel>
       </PopupFrame>
     )
@@ -53,7 +64,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
       title={title}
       subtitle={<Id id={id} />}
       lead={lead}
-      left={error ? <Note className="text-destructive">{error}</Note> : data ? <Identity world={data} /> : <Note>Loading…</Note>}
+      left={error ? <Empty className="text-destructive">{error}</Empty> : data ? <Identity world={data} /> : <Empty>Loading…</Empty>}
     >
       <Tabs
         value={tab}
@@ -68,16 +79,16 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
       >
         {data && tab === 'overview' && <Overview world={data} onMore={setTab} />}
         {data && tab === 'instances' && (
-          <Panel title="Instances in this world">
+          <Panel title="Instances in this world" flush>
             {data.instances.length === 0 ? (
-              <Note>No instances yet.</Note>
+              <EmptyRow>No instances yet.</EmptyRow>
             ) : (
               <>
                 <InstanceTable instances={data.instances} showWorld={false} />
                 {data.instancesTotal > data.instances.length && (
-                  <Note>
+                  <Footer>
                     Showing the newest {data.instances.length} of {compactNumber(data.instancesTotal)}.
-                  </Note>
+                  </Footer>
                 )}
               </>
             )}
@@ -85,11 +96,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
         )}
         {tab === 'history' && <History id={id} />}
         {data && tab === 'metrics' && <Metrics world={data} />}
-        {tab === 'json' && (
-          <div className="p-4">
-            <JsonView title="World" value={error ?? data} />
-          </div>
-        )}
+        {tab === 'json' && <JsonView title="World" value={error ?? data} className="border-0" />}
       </Tabs>
     </PopupFrame>
   )
@@ -109,28 +116,35 @@ function Identity({ world }: { world: WorldView }) {
   return (
     <>
       {picture && (
-        <img src={vrchatMedia(picture)} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />
+        <img
+          src={vrchatMedia(picture)}
+          alt=""
+          className="aspect-[4/3] w-full shrink-0 border-b border-b-(length:--hairline) object-cover"
+          loading="lazy"
+        />
       )}
 
-      <div>
-        <div className="font-display text-lg">
-          {world.name ?? <span className="text-muted-foreground">Name not read yet</span>}
+      <Block>
+        <div>
+          <div className="font-display text-lg">
+            {world.name ?? <span className="text-muted-foreground">Name not read yet</span>}
+          </div>
+          {/* A missing name is ordinary, not an error: the world sweep reads a page shortly after
+              the id is first seen, and a private or deleted world never gets a name at all. Only a
+              failed read has anything to say. */}
+          {!world.name && world.readError && (
+            <Note className="text-destructive">Couldn't read this world: {world.readError}</Note>
+          )}
         </div>
-        {/* A missing name is ordinary, not an error: the world sweep reads a page shortly after
-            the id is first seen, and a private or deleted world never gets a name at all. Only a
-            failed read has anything to say. */}
-        {!world.name && world.readError && (
-          <Note className="text-destructive">Couldn't read this world: {world.readError}</Note>
+
+        {world.authorName && (
+          <Field label="Made by">
+            {world.authorId ? <SubjectLink id={world.authorId} name={world.authorName} /> : world.authorName}
+          </Field>
         )}
-      </div>
 
-      {world.authorName && (
-        <Field label="Made by">
-          {world.authorId ? <SubjectLink id={world.authorId} name={world.authorName} /> : world.authorName}
-        </Field>
-      )}
-
-      {world.releaseStatus && <Field label="Who can find it">{releaseWords(world.releaseStatus)}</Field>}
+        {world.releaseStatus && <Field label="Who can find it">{releaseWords(world.releaseStatus)}</Field>}
+      </Block>
     </>
   )
 }
@@ -138,9 +152,7 @@ function Identity({ world }: { world: WorldView }) {
 /** The rest of the page as Modbot read it, at the top of the Overview. */
 function Details({ world }: { world: WorldView }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="font-medium">Details</div>
-
+    <Panel title="Details">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {/* What the page said. Never a limit Modbot enforces -- exemptions raise real capacity
             above it (spec 3.1). */}
@@ -153,8 +165,16 @@ function Details({ world }: { world: WorldView }) {
           </Field>
         )}
 
-        {world.firstSeenAt && <Field label="First seen by Modbot">{formatDay(world.firstSeenAt)}</Field>}
-        {world.publishedAt && <Field label="Published on VRChat">{formatDay(world.publishedAt)}</Field>}
+        {world.firstSeenAt && (
+          <Field label="First seen by Modbot">
+            <span className="font-mono">{formatDay(world.firstSeenAt)}</span>
+          </Field>
+        )}
+        {world.publishedAt && (
+          <Field label="Published on VRChat">
+            <span className="font-mono">{formatDay(world.publishedAt)}</span>
+          </Field>
+        )}
 
         <Field label="Page last read">
           {world.lastReadAt ? `${ago(world.lastReadAt, world.now)} (${dateTime(world.lastReadAt)})` : 'never'}
@@ -167,7 +187,7 @@ function Details({ world }: { world: WorldView }) {
           <span className="whitespace-pre-wrap">{world.description}</span>
         </Field>
       )}
-    </div>
+    </Panel>
   )
 }
 
@@ -181,25 +201,27 @@ function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => v
   const c = world.counts
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col">
       <Details world={world} />
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label="Time seen" value={minutes(c.minutesSeen)} />
-        <Figure label="Visitors" value={compactNumber(c.visitors)} />
-        <Figure label="Instances opened" value={compactNumber(world.instancesTotal)} note={`${world.instancesOpenNow} open now`} />
-        <Figure label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
-      </div>
+      <StatStrip className="m-0 shrink-0">
+        <Stat label="Time seen" value={minutes(c.minutesSeen)} />
+        <Stat label="Visitors" value={compactNumber(c.visitors)} />
+        <Stat label="Instances opened" value={compactNumber(world.instancesTotal)} note={`${world.instancesOpenNow} open now`} />
+        <Stat label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
+      </StatStrip>
 
-      <div className="flex items-center gap-2">
-        <span className="font-medium">Newest instances</span>
-        <span className="flex-1" />
-        <button type="button" onClick={() => onMore('instances')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
-          All instances
-        </button>
-      </div>
-
-      {world.instances.length === 0 ? <Note>No instances yet.</Note> : <InstanceTable instances={world.instances.slice(0, 5)} showWorld={false} />}
+      <Panel
+        title="Newest instances"
+        right={<More onClick={() => onMore('instances')}>All instances</More>}
+        flush
+      >
+        {world.instances.length === 0 ? (
+          <EmptyRow>No instances yet.</EmptyRow>
+        ) : (
+          <InstanceTable instances={world.instances.slice(0, 5)} showWorld={false} />
+        )}
+      </Panel>
     </div>
   )
 }
@@ -211,9 +233,9 @@ function History({ id }: { id: string }) {
   const { data, error } = useLoad(load, live)
 
   return (
-    <Panel title="What happened in this world">
-      {error && <Note className="text-destructive">{error}</Note>}
-      {!error && !data && <Note>Loading…</Note>}
+    <Panel title="What happened in this world" flush>
+      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
       {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
     </Panel>
   )
@@ -226,34 +248,37 @@ function Metrics({ world }: { world: WorldView }) {
   const to = series[series.length - 1]
 
   return (
-    <Panel title="How busy this world has been">
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label="Time seen" value={minutes(c.minutesSeen)} />
-        <Figure label="Visitors" value={compactNumber(c.visitors)} />
-        <Figure label="Instances opened" value={compactNumber(world.instancesTotal)} note={`${world.instancesOpenNow} open now`} />
-        <Figure label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
-      </div>
+    <div className="flex flex-col">
+      <Panel title="How busy this world has been" flush>
+        <StatStrip className="m-0">
+          <Stat label="Time seen" value={minutes(c.minutesSeen)} />
+          <Stat label="Visitors" value={compactNumber(c.visitors)} />
+          <Stat label="Instances opened" value={compactNumber(world.instancesTotal)} note={`${world.instancesOpenNow} open now`} />
+          <Stat label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
+        </StatStrip>
+        {!(from && to) && <EmptyRow className="border-t border-t-(length:--hairline)">Nothing recorded yet.</EmptyRow>}
+      </Panel>
 
-      {from && to ? (
+      {from && to && (
         <>
-          <div className="mt-2 font-medium">Visitors per day</div>
-          <DailyBars
-            from={from}
-            to={to}
-            series={[{ key: 'visitors', label: 'visitors', points: world.visitorsPerDay, slot: 1 }]}
-            emptyText="No visitors yet."
-          />
-          <div className="mt-2 font-medium">Instances opened per day</div>
-          <DailyBars
-            from={from}
-            to={to}
-            series={[{ key: 'instances', label: 'instances opened', points: world.instancesPerDay, slot: 4 }]}
-            emptyText="No instances yet."
-          />
+          <Panel title="Visitors per day">
+            <DailyBars
+              from={from}
+              to={to}
+              series={[{ key: 'visitors', label: 'visitors', points: world.visitorsPerDay, slot: 1 }]}
+              emptyText="No visitors yet."
+            />
+          </Panel>
+          <Panel title="Instances opened per day">
+            <DailyBars
+              from={from}
+              to={to}
+              series={[{ key: 'instances', label: 'instances opened', points: world.instancesPerDay, slot: 4 }]}
+              emptyText="No instances yet."
+            />
+          </Panel>
         </>
-      ) : (
-        <Note>Nothing recorded yet.</Note>
       )}
-    </Panel>
+    </div>
   )
 }

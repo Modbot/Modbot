@@ -74,7 +74,7 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
       <WizardHeader eyebrow={eyebrow} title="Public address, Discord and email" />
       <WizardBody>
         <div className="space-y-4">
-          <div className="text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
+          <div className="font-label">
             Public address
           </div>
           <Field label="Address" htmlFor="public-address">
@@ -91,7 +91,7 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
         </div>
 
         <div className="space-y-4 pt-2">
-          <div className="text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
+          <div className="font-label">
             Discord bot
           </div>
           <Field
@@ -120,7 +120,7 @@ export function OptionalStep({ eyebrow, status, run, refresh }: StepProps) {
         </div>
 
         <div className="space-y-4 pt-2">
-          <div className="text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
+          <div className="font-label">
             Email (SMTP)
           </div>
           <div className="grid grid-cols-[1fr_6rem] gap-3">

@@ -49,7 +49,7 @@ export function Credits() {
 
   return (
     <div className="w-full max-w-5xl">
-      <Tabs value={tab} onChange={choose} tabs={[...TABS]} className="gap-5">
+      <Tabs value={tab} onChange={choose} tabs={[...TABS]} className="gap-3">
         <Panel tab={tab} />
       </Tabs>
     </div>

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Footer, Panel } from '@/components/subject/shared'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type RepeatOffenderView, type SubjectHistory as History } from '@/lib/api'
-import { cn } from '@/lib/utils'
 
 /**
  * The "History" block on a person's pane: how many times they have been acted on, by how many
@@ -39,28 +41,21 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
   }, [subjectId])
 
   return (
-    <div
-      className="rounded-xl border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      <div className="font-medium">History</div>
+    <Panel title="History" flush>
+      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
 
-      {error && <p className="mt-1 text-destructive">{error}</p>}
-
-      {!error && !history && <p className="mt-1 text-muted-foreground">Loading…</p>}
+      {!error && !history && <EmptyRow>Loading…</EmptyRow>}
 
       {history && !history.known && (
-        <p className="mt-1 text-muted-foreground">
-          {history.lastRunAt === null ? 'Counts not built yet.' : 'No actions recorded.'}
-        </p>
+        <EmptyRow>{history.lastRunAt === null ? 'Counts not built yet.' : 'No actions recorded.'}</EmptyRow>
       )}
 
       {history?.counts && <Counts counts={history.counts} rule={history.rule} now={history.now} />}
 
       {history?.lastRunAt && (
-        <p className="mt-2 text-muted-foreground/70">Counts rebuilt {ago(history.lastRunAt, history.now)}.</p>
+        <Footer>Counts rebuilt {ago(history.lastRunAt, history.now)}.</Footer>
       )}
-    </div>
+    </Panel>
   )
 }
 
@@ -74,7 +69,7 @@ function Counts({ counts, rule, now }: { counts: RepeatOffenderView; rule: strin
         : `by ${counts.moderators} different moderators`
 
   return (
-    <div className="mt-1 flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5 p-(--panel-pad)" style={{ fontSize: 'var(--text-small)' }}>
       <p>
         Acted on <span className="font-medium">{times}</span> {by}
         {counts.actionsLast30Days > 0 && (
@@ -117,12 +112,9 @@ function Counts({ counts, rule, now }: { counts: RepeatOffenderView; rule: strin
 function Count({ n, label, plural, muted }: { n: number; label: string; plural: string; muted?: boolean }) {
   if (n === 0) return null
   return (
-    <span
-      className={cn('rounded-full border px-2 py-0.5 tabular-nums', muted && 'text-muted-foreground')}
-      style={{ borderWidth: 'var(--hairline)' }}
-    >
-      {n} {n === 1 ? label : plural}
-    </span>
+    <Badge variant={muted ? 'outline' : 'secondary'}>
+      <span className="font-mono">{n}</span> {n === 1 ? label : plural}
+    </Badge>
   )
 }
 
@@ -131,14 +123,6 @@ export function StatusPill({ status }: { status: RepeatOffenderView['status'] })
   const words = status === 'repeat' ? 'Repeat' : status === 'more-than-once' ? 'More than once' : 'Once'
 
   return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 font-medium',
-        status === 'repeat' ? 'border-transparent bg-destructive/15 text-destructive' : 'text-muted-foreground',
-      )}
-      style={{ borderWidth: 'var(--hairline)' }}
-    >
-      {words}
-    </span>
+    <Badge variant={status === 'repeat' ? 'destructive' : 'outline'}>{words}</Badge>
   )
 }

@@ -55,16 +55,16 @@ export function StatusRows({ onOpen }: { onOpen: (section: StatusRowId) => void 
   })
 
   return (
-    <div className="mt-auto flex flex-col gap-px pt-4">
+    <div className="mt-auto flex flex-col border-t border-t-(length:--hairline) pt-2">
       {rows.map((r) => (
         <button
           key={r.id}
           type="button"
           onClick={() => onOpen(r.id)}
-          className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-secondary"
+          className="flex w-full items-center gap-2 px-4 py-1 text-left hover:bg-card/60"
           style={{ fontSize: 'var(--text-small)' }}
         >
-          <span className={cn('size-1.5 shrink-0 rounded-full', DOT[r.tone])} />
+          <span aria-hidden className={cn('size-1.5 shrink-0', DOT[r.tone])} />
           <span className="truncate text-muted-foreground">{r.name}</span>
           <span className={cn('ml-auto truncate', r.tone === 'ok' ? 'text-muted-foreground' : TONE[r.tone])}>
             {r.state}

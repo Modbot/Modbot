@@ -1,5 +1,6 @@
 import { Children, isValidElement, useState, type ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 /**
@@ -15,14 +16,15 @@ export function CodeBlock({ children, className }: { children: ReactNode; classN
   const language = languageOf(children)
 
   return (
-    <div className={cn('group/code my-2 overflow-hidden rounded-xl bg-muted', className)}>
+    <div className={cn('group/code my-2 overflow-hidden border border-(length:--hairline) bg-card', className)}>
       <div
-        className="flex items-center justify-between gap-2 px-3 pt-1.5 text-muted-foreground"
+        className="flex min-h-(--strip-h) items-center justify-between gap-2 border-b border-b-(length:--hairline) bg-strip pr-1 pl-3 text-muted-foreground"
         style={{ fontSize: 'var(--text-small)' }}
       >
         <span className="truncate font-mono">{language ?? ''}</span>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-xs"
           aria-label={copied ? 'Copied' : 'Copy code'}
           onClick={() => {
             void navigator.clipboard?.writeText(code).then(() => {
@@ -30,16 +32,12 @@ export function CodeBlock({ children, className }: { children: ReactNode; classN
               window.setTimeout(() => setCopied(false), 1500)
             })
           }}
-          className={cn(
-            'shrink-0 rounded-md p-1 opacity-0 transition motion-reduce:transition-none',
-            'hover:bg-accent hover:text-accent-foreground focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50',
-            'group-hover/code:opacity-100 [@media(hover:none)]:opacity-100',
-          )}
+          className="opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
         >
           {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-        </button>
+        </Button>
       </div>
-      <pre className="overflow-x-auto px-3 pb-3">{children}</pre>
+      <pre className="overflow-x-auto px-3 py-2">{children}</pre>
     </div>
   )
 }

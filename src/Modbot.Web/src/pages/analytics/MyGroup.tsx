@@ -6,7 +6,8 @@ import { api, type MemberCountPeaks } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { InsightsPanel } from './InsightsPanel'
 import { MemberCountChart } from './MemberCountChart'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat } from './shared'
+import { PanelGrid } from '@/components/PanelGrid'
+import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Tr } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
 /**
@@ -36,7 +37,7 @@ export function MyGroup() {
   const left = data ? sum(data.left) : 0
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <AlertsCard />
 
       <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />
@@ -44,8 +45,10 @@ export function MyGroup() {
       {!data && <PageMessage>Loading…</PageMessage>}
 
       {data && (
-        <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        // One sheet: every panel on the page shares its edges with the next, rows of two sit in a
+        // nested grid, and the six readings run across the top like the gauges on a panel.
+        <PanelGrid className="grid-cols-1">
+          <StatStrip className="md:grid-cols-3 xl:grid-cols-6">
             <Stat
               label="Members"
               value={latestCount ? compactNumber(latestCount.value) : '—'}
@@ -54,15 +57,16 @@ export function MyGroup() {
             <Stat label="Joined" value={compactNumber(joined)} />
             <Stat label="Left" value={compactNumber(left)} />
             <Stat label="Net change" value={`${joined - left >= 0 ? '+' : ''}${compactNumber(joined - left)}`} />
-          </div>
+            <Peaks peaks={data.peaks} />
+          </StatStrip>
 
-          <Peaks peaks={data.peaks} />
+          <PeaksCoverage peaks={data.peaks} />
 
           <InsightsPanel />
 
           <MemberCountChart />
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel title="Joins and leaves per day">
               <Legend items={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]} />
               <div className="mt-2">
@@ -85,10 +89,10 @@ export function MyGroup() {
                 series={[{ key: 'net', label: 'net', points: data.netChange, slot: 4 }]}
               />
             </Panel>
-          </div>
+          </PanelGrid>
 
-          <Panel title="Invites and join requests">
-            <div className="mb-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <Panel title="Invites and join requests" flush>
+            <StatStrip className="m-0">
               <Stat label="Invites sent" value={compactNumber(data.invites.invitesSent)} />
               <Stat
                 label="Invites accepted"
@@ -101,22 +105,25 @@ export function MyGroup() {
                 value={`${compactNumber(data.invites.requestsApproved)} / ${compactNumber(data.invites.requestsRejected)}`}
                 note="approved / rejected"
               />
-            </div>
-            <Legend items={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]} />
-            <div className="mt-2">
-              <DailyBars
-                from={data.from}
-                to={data.to}
-                series={[
-                  { key: 'invites', label: 'invites sent', points: data.invitesSent, slot: 1 },
-                  { key: 'requests', label: 'join requests', points: data.requestsReceived, slot: 5 },
-                ]}
-              />
+            </StatStrip>
+            <div className="p-(--panel-pad)">
+              <Legend items={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]} />
+              <div className="mt-2">
+                <DailyBars
+                  from={data.from}
+                  to={data.to}
+                  series={[
+                    { key: 'invites', label: 'invites sent', points: data.invitesSent, slot: 1 },
+                    { key: 'requests', label: 'join requests', points: data.requestsReceived, slot: 5 },
+                  ]}
+                />
+              </div>
             </div>
           </Panel>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel
+              flush={data.roles.length > 0}
               title="Roles"
               right={
                 data.rolesKnownAt && (
@@ -129,29 +136,28 @@ export function MyGroup() {
               {data.roles.length === 0 ? (
                 <Nothing>No roles yet.</Nothing>
               ) : (
-                <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                  <thead className="text-left text-muted-foreground">
-                    <tr>
-                      <th className="py-1 font-medium">Role</th>
-                      <th className="py-1 text-right font-medium">Given</th>
-                      <th className="py-1 text-right font-medium">Taken away</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.roles.map((r) => (
-                      <tr key={r.id} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-                        <td className="py-1">
-                          <span className="font-medium">{r.name ?? r.id}</span>
-                          {r.isModerationRole && <Badge variant="secondary" className="ml-2">moderation</Badge>}
-                          {r.isAddedOnJoin && <Badge variant="outline" className="ml-2">given on join</Badge>}
-                          {r.isSelfAssignable && <Badge variant="outline" className="ml-2">self-service</Badge>}
-                        </td>
-                        <td className="py-1 text-right tabular-nums">{compactNumber(r.granted)}</td>
-                        <td className="py-1 text-right tabular-nums">{compactNumber(r.revoked)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <Table
+                  head={
+                    <>
+                      <Th>Role</Th>
+                      <Th className="text-right">Given</Th>
+                      <Th className="text-right">Taken away</Th>
+                    </>
+                  }
+                >
+                  {data.roles.map((r) => (
+                    <Tr key={r.id}>
+                      <Td>
+                        <span className="font-medium">{r.name ?? r.id}</span>
+                        {r.isModerationRole && <Badge variant="secondary" className="ml-2">moderation</Badge>}
+                        {r.isAddedOnJoin && <Badge variant="outline" className="ml-2">given on join</Badge>}
+                        {r.isSelfAssignable && <Badge variant="outline" className="ml-2">self-service</Badge>}
+                      </Td>
+                      <Td className="text-right font-mono">{compactNumber(r.granted)}</Td>
+                      <Td className="text-right font-mono">{compactNumber(r.revoked)}</Td>
+                    </Tr>
+                  ))}
+                </Table>
               )}
             </Panel>
 
@@ -174,10 +180,10 @@ export function MyGroup() {
                 />
               )}
             </Panel>
-          </div>
+          </PanelGrid>
 
           <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
-        </>
+        </PanelGrid>
       )}
     </div>
   )
@@ -192,30 +198,35 @@ export function MyGroup() {
  * across days nobody was reading is the highest Modbot saw and not the highest there was.
  */
 function Peaks({ peaks }: { peaks: MemberCountPeaks }) {
-  const { coverage } = peaks
-
   return (
     <>
-      {coverage.readings === 0 ? (
-        <PageMessage>No member count readings in this range.</PageMessage>
-      ) : coverage.thin ? (
-        <PageMessage>
-          Readings on {coverage.daysWithReadings} of {coverage.windowDays} days in this range.
-        </PageMessage>
-      ) : null}
-
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Stat
-          label="Most members"
-          value={peaks.members ? compactNumber(peaks.members.value) : '—'}
-          note={peaks.members ? dateTime(peaks.members.at) : undefined}
-        />
-        <Stat
-          label="Most online at once"
-          value={peaks.online ? compactNumber(peaks.online.value) : '—'}
-          note={peaks.online ? dateTime(peaks.online.at) : undefined}
-        />
-      </div>
+      <Stat
+        label="Most members"
+        value={peaks.members ? compactNumber(peaks.members.value) : '—'}
+        note={peaks.members ? dateTime(peaks.members.at) : undefined}
+      />
+      <Stat
+        label="Most online at once"
+        value={peaks.online ? compactNumber(peaks.online.value) : '—'}
+        note={peaks.online ? dateTime(peaks.online.at) : undefined}
+      />
     </>
   )
+}
+
+/** How many of the range's days the peaks above were read from, when that is not all of them. */
+function PeaksCoverage({ peaks }: { peaks: MemberCountPeaks }) {
+  const { coverage } = peaks
+
+  if (coverage.readings === 0) return <PageMessage>No member count readings in this range.</PageMessage>
+
+  if (coverage.thin) {
+    return (
+      <PageMessage>
+        Readings on {coverage.daysWithReadings} of {coverage.windowDays} days in this range.
+      </PageMessage>
+    )
+  }
+
+  return null
 }

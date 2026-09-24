@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CreditCard, type Credit } from '@/components/credits/CreditRow'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import credits from '@/lib/credits.json'
 
@@ -47,7 +48,7 @@ export function Libraries() {
   }, [query])
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <Input
         type="search"
         placeholder="Search"
@@ -57,15 +58,17 @@ export function Libraries() {
         className="sm:max-w-xs"
       />
 
-      {sections.length === 0 && (
+      {sections.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">No matches</CardContent>
+          <EmptyRow>No matches</EmptyRow>
         </Card>
+      ) : (
+        <PanelGrid className="grid-cols-1">
+          {sections.map((s) => (
+            <CreditCard key={s.title} title={s.title} groups={s.groups} />
+          ))}
+        </PanelGrid>
       )}
-
-      {sections.map((s) => (
-        <CreditCard key={s.title} title={s.title} groups={s.groups} />
-      ))}
     </div>
   )
 }

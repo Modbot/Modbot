@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -17,7 +18,7 @@ import {
   type TestSample,
 } from '@/lib/autoMod'
 import { cn } from '@/lib/utils'
-import { LongField, Outcome, Placeholder } from '../fields'
+import { LongField, Outcome } from '../fields'
 
 /** A rule's test set: the samples, adding one, and the last runs (AI moderation design §12). */
 export function TestSetDialog({
@@ -105,7 +106,7 @@ function TestSet({
       bodyClassName="flex max-h-[75vh] flex-col gap-4 overflow-y-auto"
     >
       {!data ? (
-        <Placeholder>{problem ?? 'Loading…'}</Placeholder>
+        <EmptyRow className="px-0">{problem ?? 'Loading…'}</EmptyRow>
       ) : (
         <>
           <Samples samples={data.samples} busy={busy} onDelete={(id) => run(() => moderationApi.deleteSample(rule.kind, rule.id, id))} />
@@ -133,14 +134,14 @@ function TestSet({
                 ))}
               </Select>
               <Input
-                className="h-8 max-w-56"
+                className="max-w-56"
                 placeholder="Note"
                 aria-label="Note"
                 maxLength={500}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
-              <Button size="xs" variant="outline" disabled={busy || !text.trim()} onClick={add}>
+              <Button size="sm" variant="outline" disabled={busy || !text.trim()} onClick={add}>
                 Add
               </Button>
             </div>
@@ -177,20 +178,14 @@ function Samples({
   busy: boolean
   onDelete: (id: string) => void
 }) {
-  if (samples.length === 0)
-    return (
-      <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        No samples
-      </span>
-    )
+  if (samples.length === 0) return <EmptyRow className="px-0">No samples</EmptyRow>
 
   return (
     <ul className="flex flex-col" style={{ fontSize: 'var(--text-small)' }}>
       {samples.map((s) => (
         <li
           key={s.id}
-          className="flex items-start gap-2 border-b py-1.5 last:border-0"
-          style={{ borderBottomWidth: 'var(--hairline)' }}
+          className="flex items-start gap-2 border-b border-b-(length:--hairline) py-1.5 last:border-0"
         >
           <Badge variant={s.shouldFlag ? 'default' : 'outline'}>{s.shouldFlag ? 'Should flag' : 'Should not'}</Badge>
           <div className="min-w-0 flex-1">
@@ -218,7 +213,11 @@ function Run({ run, version }: { run: TestRun; version: number }) {
           {run.caught} of {run.shouldFlagCount} caught · {run.wronglyFlagged} of {run.shouldNotFlagCount} wrongly
           flagged
         </span>
-        {run.model && <Badge variant="outline">{run.model}</Badge>}
+        {run.model && (
+          <Badge variant="outline" className="font-mono">
+            {run.model}
+          </Badge>
+        )}
         <span className="text-muted-foreground">
           {[ago(run.ranAt, now), run.ranBy, run.ruleVersion === version ? null : `Version ${run.ruleVersion}`]
             .filter(Boolean)
@@ -233,8 +232,7 @@ function Run({ run, version }: { run: TestRun; version: number }) {
           return (
             <li
               key={r.sampleId}
-              className="flex items-start gap-2 border-b py-1.5 last:border-0"
-              style={{ borderBottomWidth: 'var(--hairline)' }}
+              className="flex items-start gap-2 border-b border-b-(length:--hairline) py-1.5 last:border-0"
             >
               <Badge variant={right ? 'secondary' : 'destructive'}>
                 {right ? (r.flagged ? 'Caught' : 'Not flagged') : r.flagged ? 'Wrongly flagged' : 'Missed'}
@@ -264,14 +262,17 @@ function Earlier({ runs }: { runs: TestRun[] }) {
       {runs.map((r) => (
         <li
           key={r.id}
-          className="flex flex-wrap items-center gap-2 border-b py-1 text-muted-foreground last:border-0"
-          style={{ borderBottomWidth: 'var(--hairline)' }}
+          className="flex flex-wrap items-center gap-2 border-b border-b-(length:--hairline) py-1 text-muted-foreground last:border-0"
         >
           <span>{ago(r.ranAt, now)}</span>
           <span>
             {r.caught} of {r.shouldFlagCount} caught · {r.wronglyFlagged} wrongly flagged
           </span>
-          {r.model && <Badge variant="outline">{r.model}</Badge>}
+          {r.model && (
+            <Badge variant="outline" className="font-mono">
+              {r.model}
+            </Badge>
+          )}
           <span>Version {r.ruleVersion}</span>
         </li>
       ))}

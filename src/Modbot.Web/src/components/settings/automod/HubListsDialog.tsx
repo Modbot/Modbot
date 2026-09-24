@@ -62,11 +62,8 @@ function HubLists({ onAdded }: { onAdded: () => void }) {
         {lists?.map((list) => (
           <li
             key={list.id}
-            className="flex items-start gap-3 border-b py-2 last:border-0"
-            style={{
-              borderBottomWidth: 'var(--hairline)',
-              fontSize: 'var(--text-small)',
-            }}
+            className="flex items-start gap-3 border-b border-b-(length:--hairline) py-2 last:border-0"
+            style={{ fontSize: 'var(--text-small)' }}
           >
             <div className="min-w-0 flex-1">
               <div className="font-medium">{list.name}</div>

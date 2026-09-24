@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { RolePicker } from '@/components/discord/RolePicker'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type DiscordChannelPermission, type DiscordLinkingSettings } from '@/lib/api'
-import { Fact, Field, Outcome, PasswordField, Placeholder, Switch } from '../fields'
+import { Fact, Field, Outcome, PasswordField, Switch } from '../fields'
 import { SettingsCard } from '../SettingsCard'
 
 /** The backup channel gets one plain message with a button. */
@@ -39,7 +40,7 @@ export function LinkingCard() {
   if (error || !data) {
     return (
       <SettingsCard title="Account linking">
-        <Placeholder>{error ?? 'Loading…'}</Placeholder>
+        <EmptyRow className="px-0">{error ?? 'Loading…'}</EmptyRow>
       </SettingsCard>
     )
   }
@@ -149,8 +150,8 @@ function CopyValue({ label, value, open = false }: { label: string; value: strin
       <span className="text-muted-foreground">{label}</span>
       <div className="flex items-center gap-2">
         <code
-          className="min-w-0 flex-1 truncate rounded-md border bg-secondary px-2 py-1.5 font-mono select-all"
-          style={{ borderWidth: 'var(--hairline)' }}
+          className="min-w-0 flex-1 truncate rounded-sm border border-(length:--hairline) border-input bg-strip px-2.5 font-mono leading-(--control-h) select-all"
+          style={{ height: 'var(--control-h)' }}
           title={value}
         >
           {value}

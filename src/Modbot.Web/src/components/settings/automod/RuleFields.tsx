@@ -132,7 +132,7 @@ export function RuleActionFields({
             type="number"
             min={1}
             max={40320}
-            className="h-7 w-24"
+            className="w-24"
             aria-label="Timeout minutes"
             disabled={!chat || value.timeoutMinutes === null}
             value={value.timeoutMinutes ?? ''}
@@ -169,7 +169,7 @@ export function RuleActionFields({
               type="number"
               min={1}
               max={90}
-              className="h-7 w-24"
+              className="w-24"
               aria-label="Trial days"
               value={value.trialDays ?? 7}
               onChange={(e) => {

@@ -3,10 +3,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { api, ApiError, type AiSettings, type AiSettingsInput } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import { Field, NumberField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
-import { ModelField } from './ModelField'
+import { ModelField, Toggle } from './ModelField'
 
 /**
  * Settings → AI → Base: where AI requests go, with which key, to which model, and whether they go
@@ -234,30 +233,10 @@ function ConnectionCard({
 
       <div role="group" aria-label="Provider" className="flex flex-wrap gap-1.5">
         {settings.providers.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            aria-pressed={provider === p.id}
-            onClick={() => chooseProvider(p.id)}
-            className={cn(
-              'inline-flex items-center rounded-full border px-2.5 font-medium transition-colors',
-              provider === p.id
-                ? 'border-transparent bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            style={{
-              fontSize: 'var(--text-small)',
-              borderWidth: 'var(--hairline)',
-              height: 'calc(var(--control-h) - 6px)',
-            }}
-          >
+          <Toggle key={p.id} on={provider === p.id} onClick={() => chooseProvider(p.id)}>
             {p.label}
-            {p.recommended && (
-              <Badge variant="secondary" className="ml-1.5">
-                Recommended
-              </Badge>
-            )}
-          </button>
+            {p.recommended && <Badge variant="secondary">Recommended</Badge>}
+          </Toggle>
         ))}
       </div>
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -12,10 +13,14 @@ import {
   type WebhookState,
   type WebhookView,
 } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { CopyBox } from '@/pages/Users'
 import { Field, LongField, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { failure, when } from './shared'
+
+/** Runs the card's content to its edges, so a list meets the card's sides. */
+const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 
 const STATE_LABEL: Record<WebhookState, string> = {
   working: 'Working',
@@ -65,8 +70,9 @@ export function WebhooksPanel() {
           <SettingsCard
             title="Webhooks"
             span={12}
+            className={FLUSH}
             action={
-              <Button size="sm" onClick={() => setEditing('new')}>
+              <Button size="xs" onClick={() => setEditing('new')}>
                 Create webhook
               </Button>
             }
@@ -97,7 +103,9 @@ export function WebhooksPanel() {
       </Dialog>
 
       <Dialog open={logFor !== null} onOpenChange={(open) => !open && setLogFor(null)}>
-        <DialogContent title="Delivery log">{logFor && <DeliveryLog webhook={logFor} />}</DialogContent>
+        <DialogContent title="Delivery log" className="max-w-[820px]" bodyClassName="p-0">
+          {logFor && <DeliveryLog webhook={logFor} />}
+        </DialogContent>
       </Dialog>
 
       <Dialog open={secret !== null} onOpenChange={(open) => !open && setSecret(null)}>
@@ -123,7 +131,7 @@ function WebhookList({
   const [problem, setProblem] = useState<string | null>(null)
   const [tested, setTested] = useState<{ id: string; result: WebhookDeliveryView } | null>(null)
 
-  if (webhooks.length === 0) return <p className="text-muted-foreground">No webhooks.</p>
+  if (webhooks.length === 0) return <EmptyRow>No webhooks.</EmptyRow>
 
   const run = (action: Promise<unknown>, what: string) => {
     setProblem(null)
@@ -139,9 +147,9 @@ function WebhookList({
   })
 
   return (
-    <div className="flex flex-col divide-y" style={{ fontSize: 'var(--text-small)' }}>
+    <div className="flex flex-col" style={{ fontSize: 'var(--text-small)' }}>
       {webhooks.map((w) => (
-        <div key={w.id} className="flex flex-col gap-1 py-3">
+        <div key={w.id} className="flex flex-col gap-1 border-b border-b-(length:--hairline) last:border-0 px-(--panel-pad) py-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{w.name}</span>
             <Badge variant={w.state === 'working' ? 'secondary' : w.state === 'off' ? 'outline' : 'destructive'}>
@@ -201,11 +209,28 @@ function WebhookList({
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
             <span>Owner: {w.ownerName ?? '—'}</span>
-            <span>Events: {w.eventTypes.join(', ')}</span>
-            {w.subjectIds.length > 0 && <span>Subjects: {w.subjectIds.length}</span>}
-            <span>Last delivered: {w.lastSuccessAt ? when(w.lastSuccessAt) : 'Never'}</span>
-            {w.failingSince && <span>Failing since: {when(w.failingSince)}</span>}
-            {w.nextAttemptAt && <span>Next try: {when(w.nextAttemptAt)}</span>}
+            <span>
+              Events: <span className="font-mono">{w.eventTypes.join(', ')}</span>
+            </span>
+            {w.subjectIds.length > 0 && (
+              <span>
+                Subjects: <span className="font-mono">{w.subjectIds.length}</span>
+              </span>
+            )}
+            <span>
+              Last delivered:{' '}
+              {w.lastSuccessAt ? <span className="font-mono">{when(w.lastSuccessAt)}</span> : 'Never'}
+            </span>
+            {w.failingSince && (
+              <span>
+                Failing since: <span className="font-mono">{when(w.failingSince)}</span>
+              </span>
+            )}
+            {w.nextAttemptAt && (
+              <span>
+                Next try: <span className="font-mono">{when(w.nextAttemptAt)}</span>
+              </span>
+            )}
           </div>
           {w.disabledReason && <Outcome tone="problem">{w.disabledReason}</Outcome>}
           {!w.disabledReason && w.lastError && <Outcome tone="problem">{w.lastError}</Outcome>}
@@ -217,7 +242,11 @@ function WebhookList({
           )}
         </div>
       ))}
-      <Outcome tone="problem">{problem}</Outcome>
+      {problem && (
+        <div className="border-t border-t-(length:--hairline) p-(--panel-pad)">
+          <Outcome tone="problem">{problem}</Outcome>
+        </div>
+      )}
     </div>
   )
 }
@@ -243,7 +272,7 @@ function WebhookForm({
 
   if (secret) {
     return (
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3">
         <p className="font-medium">Signing secret</p>
         <CopyBox text={secret} />
       </div>
@@ -286,7 +315,7 @@ function WebhookForm({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} className="flex flex-col gap-4">
       <Field label="Name" value={name} placeholder="Our Discord bot" onChange={setName} />
       <Field label="Address" value={url} placeholder="https://example.com/modbot" onChange={setUrl} />
       <LongField label="Event types" value={eventTypes} placeholder="vrchat.group.member.*" rows={4} onChange={setEventTypes} />
@@ -331,34 +360,39 @@ function DeliveryLog({ webhook }: { webhook: WebhookView }) {
       .catch((e: unknown) => setProblem(failure(e, 'Could not load the delivery log.')))
   }, [webhook.id])
 
-  if (problem) return <Outcome tone="problem">{problem}</Outcome>
-  if (!rows) return <p className="text-muted-foreground">Loading…</p>
-  if (rows.length === 0) return <p className="text-muted-foreground">No deliveries.</p>
+  if (problem)
+    return (
+      <div className="p-(--panel-pad)">
+        <Outcome tone="problem">{problem}</Outcome>
+      </div>
+    )
+  if (!rows) return <EmptyRow>Loading…</EmptyRow>
+  if (rows.length === 0) return <EmptyRow>No deliveries.</EmptyRow>
 
   return (
     <div className="max-h-[60vh] overflow-auto">
       <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-        <thead className="text-left text-muted-foreground">
-          <tr>
-            <th className="py-1 pr-3 font-normal">When</th>
-            <th className="py-1 pr-3 font-normal">Event</th>
-            <th className="py-1 pr-3 font-normal">Try</th>
-            <th className="py-1 pr-3 font-normal">Status</th>
-            <th className="py-1 pr-3 font-normal">Time</th>
-            <th className="py-1 font-normal">Error</th>
+        <thead className="bg-strip text-left text-muted-foreground">
+          <tr className="border-b border-b-(length:--hairline)">
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">When</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Event</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap text-right">Try</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap text-right">Status</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap text-right">Time</th>
+            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Error</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody>
           {rows.map((d) => (
-            <tr key={d.id}>
-              <td className="py-1.5 pr-3 whitespace-nowrap">{when(d.attemptedAt)}</td>
-              <td className="py-1.5 pr-3 font-mono">{d.test ? 'Test' : `${d.eventType} #${d.eventId}`}</td>
-              <td className="py-1.5 pr-3 tabular-nums">{d.attempt}</td>
-              <td className={d.outcome === 'delivered' ? 'py-1.5 pr-3 text-ok' : 'py-1.5 pr-3 text-destructive'}>
+            <tr key={d.id} className="border-b border-b-(length:--hairline) last:border-0">
+              <td className="px-(--panel-pad) py-1.5 font-mono whitespace-nowrap">{when(d.attemptedAt)}</td>
+              <td className="px-(--panel-pad) py-1.5 font-mono">{d.test ? 'Test' : `${d.eventType} #${d.eventId}`}</td>
+              <td className="px-(--panel-pad) py-1.5 text-right font-mono">{d.attempt}</td>
+              <td className={cn('px-(--panel-pad) py-1.5 text-right font-mono', d.outcome === 'delivered' ? 'text-ok' : 'text-destructive')}>
                 {d.statusCode ?? '—'}
               </td>
-              <td className="py-1.5 pr-3 tabular-nums">{d.durationMs} ms</td>
-              <td className="py-1.5">{d.error}</td>
+              <td className="px-(--panel-pad) py-1.5 text-right font-mono whitespace-nowrap">{d.durationMs} ms</td>
+              <td className="px-(--panel-pad) py-1.5">{d.error}</td>
             </tr>
           ))}
         </tbody>

@@ -106,7 +106,7 @@ export function CalendarEventForm({
                 <Input type="datetime-local" value={input.endsAt} onChange={(e) => set('endsAt', e.target.value)} />
               </Labelled>
               <Labelled label="Time zone">
-                <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} className="h-9" aria-label="Time zone">
+                <Select value={input.timeZone} onChange={(v) => set('timeZone', v)} aria-label="Time zone">
                   {!zones.includes(input.timeZone) && <option value={input.timeZone}>{input.timeZone}</option>}
                   {zones.map((z) => (
                     <option key={z} value={z}>
@@ -116,7 +116,7 @@ export function CalendarEventForm({
                 </Select>
               </Labelled>
               <Labelled label="Repeat">
-                <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)} className="h-9" aria-label="Repeat">
+                <Select value={input.repeat} onChange={(v) => set('repeat', v as CalendarRepeat)} aria-label="Repeat">
                   <option value="none">Does not repeat</option>
                   <option value="daily">Daily</option>
                   <option value="weekly">Weekly</option>
@@ -151,7 +151,7 @@ export function CalendarEventForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <Labelled label="World">
                 <Select
-                  className="h-9"
+                 
                   aria-label="World"
                   value={worldChoice}
                   onChange={(v) => {
@@ -177,14 +177,14 @@ export function CalendarEventForm({
                 <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
               )}
               <Labelled label="Who can join">
-                <Select value={input.accessType} onChange={(v) => set('accessType', v)} className="h-9" aria-label="Who can join">
+                <Select value={input.accessType} onChange={(v) => set('accessType', v)} aria-label="Who can join">
                   <option value="members">Group members</option>
                   <option value="plus">Members and their friends</option>
                   <option value="public">Anyone</option>
                 </Select>
               </Labelled>
               <Labelled label="Region">
-                <Select value={input.region} onChange={(v) => set('region', v)} className="h-9" aria-label="Region">
+                <Select value={input.region} onChange={(v) => set('region', v)} aria-label="Region">
                   <option value="us">US West</option>
                   <option value="use">US East</option>
                   <option value="eu">Europe</option>
@@ -203,7 +203,7 @@ export function CalendarEventForm({
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Labelled label="Category">
-                    <Select value={input.category} onChange={(v) => set('category', v)} className="h-9" aria-label="Category">
+                    <Select value={input.category} onChange={(v) => set('category', v)} aria-label="Category">
                       {categories.map((c) => (
                         <option key={c} value={c}>
                           {CATEGORY_LABEL[c] ?? c}
@@ -212,7 +212,7 @@ export function CalendarEventForm({
                     </Select>
                   </Labelled>
                   <Labelled label="Visible to">
-                    <Select value={input.visibility} onChange={(v) => set('visibility', v)} className="h-9" aria-label="Visible to">
+                    <Select value={input.visibility} onChange={(v) => set('visibility', v)} aria-label="Visible to">
                       <option value="group">Group</option>
                       <option value="public">Everyone</option>
                     </Select>
@@ -303,8 +303,8 @@ export function CalendarEventForm({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="flex flex-col gap-3 border-t pt-3" style={{ borderTopWidth: 'var(--hairline)' }}>
-      <legend className="pr-2 font-medium">{title}</legend>
+    <fieldset className="flex flex-col gap-3 border-t border-t-(length:--hairline) pt-3">
+      <legend className="pr-2 font-label">{title}</legend>
       {children}
     </fieldset>
   )

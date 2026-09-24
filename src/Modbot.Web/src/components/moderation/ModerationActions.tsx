@@ -4,7 +4,7 @@ import { MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ReasonButtons } from '@/components/CaseFileForm'
-import { NotesBeforeActing } from '@/components/subject/PersonNotes'
+import { NotesBeforeActing, Textarea } from '@/components/subject/PersonNotes'
 import {
   api,
   ApiError,
@@ -92,7 +92,7 @@ export function ModerationActions({
             <Popover.Content
               align="end"
               sideOffset={4}
-              className="z-50 flex flex-col gap-1 rounded-md border bg-popover p-1 shadow-md"
+              className="z-50 flex flex-col gap-1 rounded-sm border bg-popover p-1 shadow-sm"
               style={{ borderWidth: 'var(--hairline)' }}
             >
               {buttons}
@@ -201,9 +201,7 @@ function ConfirmAction({
 
             <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
               <span className="text-muted-foreground">Note {needsNote ? '(required)' : '(optional)'}</span>
-              <textarea
-                className="w-full rounded-md border bg-background px-2 py-1"
-                style={{ borderWidth: 'var(--hairline)' }}
+              <Textarea
                 rows={3}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}

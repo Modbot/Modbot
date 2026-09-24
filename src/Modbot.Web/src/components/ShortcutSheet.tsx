@@ -69,15 +69,18 @@ function Sheet({
     <DialogContent title={title} className="max-w-2xl" aria-describedby={undefined}>
       <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2" style={{ fontSize: 'var(--text-small)' }}>
         {groups.map(({ group, items }) => (
-          <section key={group} className="flex flex-col gap-1">
-            <div className="font-medium">{group}</div>
+          <section key={group} className="flex flex-col">
+            <div className="flex items-center gap-2 pb-1 font-label text-muted-foreground">
+              {group}
+              <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
+            </div>
             {items.map((s) => (
               <button
                 key={s.keys}
                 type="button"
                 onClick={() => run(s)}
-                className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 text-left hover:bg-secondary"
-                style={{ minHeight: 'calc(var(--control-h) - 6px)' }}
+                className="-mx-2 flex items-center justify-between gap-3 px-2 text-left hover:bg-muted"
+                style={{ minHeight: 'var(--control-h)' }}
               >
                 <span className="text-muted-foreground">{s.label}</span>
                 <Kbd keys={s.keys} className="shrink-0" />

@@ -1,9 +1,10 @@
 import type * as React from 'react'
+import { CardAction, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 /**
  * The wizard's shared furniture, ported from the approved design prototype
- * (`explore/design/index.html`): the centred card, the step indicator, the labelled field and the
+ * (`explore/design/index.html`): the centred panel, the step indicator, the labelled field and the
  * coloured note.
  *
  * The wizard sits outside the app shell, so none of the sidebar or topbar chrome applies. It
@@ -35,11 +36,11 @@ export function Brand({ subtitle }: { subtitle?: string }) {
  */
 export function StepIndicator({ total, current }: { total: number; current: number }) {
   return (
-    <div className="flex gap-1.5 px-6 pt-4" role="progressbar" aria-valuenow={current} aria-valuemin={1} aria-valuemax={total}>
+    <div className="flex gap-px" role="progressbar" aria-valuenow={current} aria-valuemin={1} aria-valuemax={total}>
       {Array.from({ length: total }, (_, i) => (
         <span
           key={i}
-          className={cn('h-[3px] flex-1 rounded-sm', i < current ? 'bg-primary' : 'bg-secondary')}
+          className={cn('h-[3px] flex-1', i < current ? 'bg-primary' : 'bg-secondary')}
         />
       ))}
     </div>
@@ -56,33 +57,30 @@ export function WizardHeader({
   children?: React.ReactNode
 }) {
   return (
-    <div className="px-6 pt-6 pb-4">
-      <div className="text-[0.6875rem] font-semibold tracking-[0.05em] text-primary uppercase">
-        {eyebrow}
-      </div>
-      <h2 className="font-display mt-2 mb-1 text-[19px]">{title}</h2>
+    <>
+      <CardHeader>
+        <CardTitle>
+          <h2>{title}</h2>
+        </CardTitle>
+        <CardAction className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {eyebrow}
+        </CardAction>
+      </CardHeader>
       {children && (
-        <p className="m-0 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <p className="m-0 px-(--panel-pad) pt-(--panel-pad) text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {children}
         </p>
       )}
-    </div>
+    </>
   )
 }
 
 export function WizardBody({ children }: { children: React.ReactNode }) {
-  return <div className="space-y-4 px-6 pb-5">{children}</div>
+  return <div className="space-y-4 p-(--panel-pad)">{children}</div>
 }
 
 export function WizardFooter({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="flex items-center gap-2 border-t bg-secondary px-6 py-4"
-      style={{ borderTopWidth: 'var(--hairline)' }}
-    >
-      {children}
-    </div>
-  )
+  return <CardFooter className="gap-2">{children}</CardFooter>
 }
 
 export function Field({
@@ -143,11 +141,12 @@ export function Tickbox({
 }
 
 /**
- * A coloured left edge, not a coloured box.
+ * A tinted band led by a filled square in the tone's colour.
  *
  * Same reasoning as the destructive button in the prototype: colour is the last signal, after
  * placement and shape. A note that is legible only because it is green fails for a colour-blind
- * moderator and stops registering for everyone else after the tenth time they see it.
+ * moderator and stops registering for everyone else after the tenth time they see it, so the
+ * square and the words carry it and the tint only backs them up.
  */
 export function Note({
   tone = 'info',
@@ -159,19 +158,38 @@ export function Note({
   children?: React.ReactNode
 }) {
   const edge = {
-    info: 'var(--info)',
-    ok: 'var(--ok)',
-    warn: 'var(--warn)',
-    danger: 'var(--destructive)',
+    info: 'border-border',
+    ok: 'border-ok/40',
+    warn: 'border-warn/40',
+    danger: 'border-destructive/40',
+  }[tone]
+
+  const tint = {
+    info: 'var(--strip)',
+    ok: 'color-mix(in oklab, var(--ok) 10%, var(--card))',
+    warn: 'color-mix(in oklab, var(--warn) 10%, var(--card))',
+    danger: 'color-mix(in oklab, var(--destructive) 10%, var(--card))',
+  }[tone]
+
+  const square = {
+    info: 'bg-info',
+    ok: 'bg-ok',
+    warn: 'bg-warn',
+    danger: 'bg-destructive',
   }[tone]
 
   return (
     <div
-      className="rounded-md border bg-secondary p-3 text-muted-foreground"
-      style={{ borderLeft: `2px solid ${edge}`, fontSize: 'var(--text-small)' }}
+      className={cn('border border-(length:--hairline) px-(--panel-pad) py-2', edge)}
+      style={{ background: tint, fontSize: 'var(--text-small)' }}
     >
-      {title && <span className="font-semibold text-foreground">{title} </span>}
-      {children}
+      <div className="flex items-start gap-2">
+        <span aria-hidden className={cn('mt-[0.45em] size-2 shrink-0', square)} />
+        <div className="min-w-0 text-muted-foreground">
+          {title && <span className="font-medium text-foreground">{title} </span>}
+          {children}
+        </div>
+      </div>
     </div>
   )
 }

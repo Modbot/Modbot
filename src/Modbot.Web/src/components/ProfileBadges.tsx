@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Languages, Monitor, Smartphone, Sparkles, Square } from 'lucide-react'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
+import { Badge } from '@/components/ui/badge'
 import { trustRank } from '@/lib/trustRank'
 import { cn } from '@/lib/utils'
 import { moreTagsLabel, parseTags, platformOf, type TagBadge } from '@/lib/vrchatTags'
@@ -45,7 +46,7 @@ export function ProfileBadges({
         <TagPill key={b.kind === 'language' ? `language:${b.code}` : b.kind} badge={b} />
       ))}
       {platform && (
-        <Pill className="text-muted-foreground" title={platform.known ? undefined : 'Last platform, as VRChat sent it'}>
+        <Pill title={platform.known ? undefined : 'Last platform, as VRChat sent it'}>
           {platform.icon === 'pc' ? (
             <Monitor className="size-3" aria-hidden />
           ) : platform.icon === 'phone' ? (
@@ -64,20 +65,20 @@ function TagPill({ badge }: { badge: TagBadge }) {
   switch (badge.kind) {
     case 'vrcplus':
       return (
-        <Pill className="border-transparent bg-gold/15 text-gold">
+        <Pill className="border-gold/40 bg-gold/10 text-gold">
           <Sparkles className="size-3" aria-hidden />
           VRC+
         </Pill>
       )
     case 'staff':
-      return <Pill className="border-transparent bg-info/15 text-info">VRChat staff</Pill>
+      return <Pill className="border-info/40 bg-info/10 text-info">VRChat staff</Pill>
     case 'nuisance':
-      return <Pill className="border-transparent bg-warn/15 text-warn">Nuisance</Pill>
+      return <Pill className="border-warn/40 bg-warn/10 text-warn">Nuisance</Pill>
     case 'early-adopter':
-      return <Pill className="text-muted-foreground">Early adopter</Pill>
+      return <Pill>Early adopter</Pill>
     case 'language':
       return (
-        <Pill className="text-muted-foreground" title={`language_${badge.code}`}>
+        <Pill title={`language_${badge.code}`}>
           <Languages className="size-3" aria-hidden />
           {badge.name}
         </Pill>
@@ -87,16 +88,9 @@ function TagPill({ badge }: { badge: TagBadge }) {
 
 function Pill({ className, title, children }: { className?: string; title?: string; children: React.ReactNode }) {
   return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0 font-medium whitespace-nowrap',
-        className,
-      )}
-      style={{ fontSize: '0.6875rem', borderWidth: 'var(--hairline)' }}
-      title={title}
-    >
+    <Badge variant="outline" className={className} title={title}>
       {children}
-    </span>
+    </Badge>
   )
 }
 
@@ -125,13 +119,9 @@ export function OtherTags({ tags, className }: { tags: readonly string[] | null 
       {open && (
         <div className="flex flex-wrap gap-1">
           {rest.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border px-2 py-0.5 font-mono text-muted-foreground"
-              style={{ borderWidth: 'var(--hairline)', fontSize: '0.6875rem' }}
-            >
+            <Badge key={tag} variant="outline" className="font-mono font-normal">
               {tag}
-            </span>
+            </Badge>
           ))}
         </div>
       )}

@@ -44,10 +44,10 @@ export function RankedList({
             ) : (
               label
             )}
-            <div className="relative h-3 flex-1 overflow-hidden rounded-full bg-secondary">
-              <div className="h-full rounded-full" style={{ width: `${Math.max(2, (row.value / max) * 100)}%`, background: color }} />
+            <div className="relative h-3 flex-1 overflow-hidden bg-secondary">
+              <div className="h-full" style={{ width: `${Math.max(2, (row.value / max) * 100)}%`, background: color }} />
             </div>
-            <div className="w-16 shrink-0 text-right font-medium tabular-nums">{format(row.value)}</div>
+            <div className="w-16 shrink-0 text-right font-mono font-medium">{format(row.value)}</div>
             {row.note && <div className="w-28 shrink-0 truncate text-muted-foreground" title={row.note}>{row.note}</div>}
           </div>
         )

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -166,7 +167,7 @@ function EventPicker({
   return (
     <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">Events</span>
-      <div className="flex max-h-80 flex-col gap-4 overflow-y-auto rounded-md border p-3">
+      <div className="flex max-h-80 flex-col gap-4 overflow-y-auto rounded-sm border border-(length:--hairline) border-input p-(--panel-pad)">
         {groups.map((group) => {
           const types = group.types.map((t) => t.type)
           const count = types.filter((t) => chosen.has(t)).length
@@ -179,7 +180,7 @@ function EventPicker({
                   onChange={(on) => set(types, on)}
                   label={group.name}
                 />
-                <span className="text-muted-foreground tabular-nums">
+                <span className="font-mono text-muted-foreground">
                   {count}/{types.length}
                 </span>
               </div>
@@ -259,9 +260,10 @@ function Chips({
                 aria-pressed={on}
                 onClick={() => onChange(on ? value.filter((id) => id !== option.id) : [...value, option.id])}
                 className={cn(
-                  'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
-                  on ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-accent',
+                  'inline-flex items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input px-2.5 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+                  on ? 'bg-accent text-accent-foreground' : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
+                style={{ fontSize: 'var(--text-small)', height: 'var(--control-h)' }}
               >
                 {option.name}
               </button>
@@ -358,10 +360,7 @@ function PeoplePicker({
           {chips.map(({ platform, id }) => {
             const name = people.get(personKey(platform, id))?.name ?? id
             return (
-              <span
-                key={personKey(platform, id)}
-                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs"
-              >
+              <Badge key={personKey(platform, id)} variant="secondary" className="gap-1 pr-1">
                 {name}
                 <span className="text-muted-foreground">{PLATFORM_LABEL[platform]}</span>
                 <button
@@ -372,7 +371,7 @@ function PeoplePicker({
                 >
                   <X className="size-3" />
                 </button>
-              </span>
+              </Badge>
             )
           })}
         </div>
@@ -389,23 +388,23 @@ function PeoplePicker({
         }}
       />
       {term && (error || shown.length > 0 || typed.length > 0) && (
-        <div className="flex max-h-48 flex-col overflow-y-auto rounded-md border p-1">
-          {error && <span className="px-2 py-1 text-destructive">{error}</span>}
+        <div className="flex max-h-48 flex-col overflow-y-auto rounded-sm border border-(length:--hairline) bg-card">
+          {error && <span className="px-2.5 py-1 text-destructive">{error}</span>}
           {shown.map((person) => (
             <button
               key={personKey(person.platform, person.id)}
               type="button"
               onClick={() => add(person)}
-              className="flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
+              className="flex items-center gap-2 px-2.5 py-1 text-left hover:bg-muted"
             >
               {person.pictureUrl ? (
                 <img src={vrchatMedia(person.pictureUrl)} alt="" className="size-5 shrink-0 rounded-full object-cover" />
               ) : (
-                <span className="size-5 shrink-0 rounded-full bg-secondary" />
+                <span className="size-5 shrink-0 rounded-full bg-muted" />
               )}
               <span className="truncate">{person.name ?? person.id}</span>
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">{PLATFORM_LABEL[person.platform]}</span>
-              <span className="truncate text-xs text-muted-foreground">{person.id}</span>
+              <span className="ml-auto shrink-0 text-muted-foreground">{PLATFORM_LABEL[person.platform]}</span>
+              <span className="truncate font-mono text-muted-foreground">{person.id}</span>
             </button>
           ))}
           {typed.map((person) => (
@@ -413,7 +412,7 @@ function PeoplePicker({
               key={personKey(person.platform, 'typed')}
               type="button"
               onClick={() => add(person)}
-              className="rounded-md px-2 py-1 text-left hover:bg-accent"
+              className="px-2.5 py-1 text-left hover:bg-muted"
             >
               Use {person.id} as a {PLATFORM_LABEL[person.platform]} id
             </button>

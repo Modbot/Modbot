@@ -157,7 +157,7 @@ function Playground({ enabled }: { enabled: boolean }) {
           <Select
             value={method}
             onChange={(m) => setMethod(m as Method)}
-            className="h-9"
+            className="font-mono"
             aria-label="Method"
           >
             {METHODS.map((m) => (
@@ -193,7 +193,7 @@ function Answer({ answer }: { answer: VRChatProxyAnswer }) {
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3" style={{ fontSize: 'var(--text-small)' }}>
         <span className="text-muted-foreground">Status</span>
-        <span className={answer.status < 400 ? 'font-medium tabular-nums' : 'font-medium tabular-nums text-destructive'}>
+        <span className={answer.status < 400 ? 'font-mono font-medium tabular-nums' : 'font-mono font-medium tabular-nums text-destructive'}>
           {answer.status}
         </span>
         {answer.account && (

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
-import { Card, CardContent } from '@/components/ui/card'
+import { PanelGrid } from '@/components/PanelGrid'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, ApiError, type LivePerson, type LiveInstance, type LiveView } from '@/lib/api'
 import { access } from '@/lib/format'
 import { instanceNumber } from '@/lib/instanceName'
@@ -9,6 +11,7 @@ import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent } from '@/lib
 import { openInstance, openWorld } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
+import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
@@ -89,7 +92,7 @@ export function Live() {
   if (!data) return <PageMessage>{error ?? 'Loading…'}</PageMessage>
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-end text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
         <span>{stateWord(stream)}</span>
       </div>
@@ -103,11 +106,11 @@ export function Live() {
       {data.instances.length === 0 ? (
         <PageMessage>No open instances.</PageMessage>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <PanelGrid className="xl:grid-cols-2">
           {data.instances.map((instance) => (
             <InstanceCard key={instance.id} instance={instance} />
           ))}
-        </div>
+        </PanelGrid>
       )}
     </div>
   )
@@ -118,16 +121,16 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
   const watched = instance.watching.length > 0
 
   return (
-    <Card className="gap-0 py-0">
-      <CardContent className="flex flex-col gap-3 p-4">
+    <Card>
+      <CardContent className="flex flex-col gap-3">
         <div className="flex items-start gap-3">
           {instance.worldImageUrl ? (
             <button
               type="button"
               onClick={() => openWorld(instance.worldId)}
-              className="shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-ring"
+              className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
             >
-              <img src={vrchatMedia(instance.worldImageUrl)} alt="" loading="lazy" className="aspect-[4/3] w-24 rounded-md object-cover" />
+              <img src={vrchatMedia(instance.worldImageUrl)} alt="" loading="lazy" className="aspect-[4/3] w-24 rounded-sm object-cover" />
             </button>
           ) : null}
 
@@ -139,7 +142,7 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
               <button
                 type="button"
                 onClick={() => openInstance(instance.id)}
-                className="rounded-md font-mono font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                className="rounded-sm font-mono font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {instanceNumber(instance.vrChatInstanceId)}
               </button>
@@ -148,7 +151,9 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
           </div>
 
           <div className="shrink-0 text-right">
-            <div className="font-mono text-2xl font-medium tabular-nums">{instance.headCount ?? '—'}</div>
+            <div className="font-mono leading-none font-medium tracking-tight" style={{ fontSize: 'calc(var(--text-base) * 1.75)' }}>
+              {instance.headCount ?? '—'}
+            </div>
             <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {instance.headCount === 1 ? 'person' : 'people'}
             </div>
@@ -168,41 +173,55 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
             <span>Nobody watching</span>
           )}
         </div>
-
-        {watched && <People title="Here now" people={instance.people} />}
-
-        {!watched && instance.lastWatchedAt && instance.lastSeen.length > 0 && (
-          <People title={`Last seen ${time(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
-        )}
       </CardContent>
+
+      {watched && <People title="Here now" people={instance.people} />}
+
+      {!watched && instance.lastWatchedAt && instance.lastSeen.length > 0 && (
+        <People title={`Last seen ${time(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
+      )}
     </Card>
   )
 }
 
+/** Who is or was in the instance: a strip naming the list, then one row a person, to the panel's edges. */
 function People({ title, people, muted = false }: { title: string; people: LivePerson[]; muted?: boolean }) {
   return (
-    <section className="flex flex-col gap-1">
-      <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
-        {title} · {people.length}
-      </div>
+    <section className="flex flex-col border-t border-t-(length:--hairline)">
+      <CardHeader className={cn(people.length === 0 && 'border-b-0')} style={{ fontSize: 'var(--text-small)' }}>
+        <CardTitle>{title}</CardTitle>
+        <span className="ml-auto font-mono text-muted-foreground">{people.length}</span>
+      </CardHeader>
       {people.length > 0 && (
-        <ul className={muted ? 'text-muted-foreground' : undefined} style={{ fontSize: 'var(--text-small)' }}>
+        <ul
+          className={cn('divide-y divide-(length:--hairline) divide-border', muted && 'text-muted-foreground')}
+          style={{ fontSize: 'var(--text-small)' }}
+        >
           {people.map((p) => (
             <li
               key={p.userId}
-              className="flex flex-wrap items-baseline gap-x-2 border-t py-1"
-              style={{ borderTopWidth: 'var(--hairline)' }}
+              className="flex min-h-(--row-h) flex-wrap items-center gap-x-2 px-(--panel-pad) py-1"
             >
               <SubjectLink id={p.userId} name={p.displayName} />
-              <TrustRankBadge rank={p.trustRank} className="self-center" />
+              <TrustRankBadge rank={p.trustRank} />
               {p.standing !== 'Ordinary' && <Standing standing={p.standing} />}
               {p.flags.map((flag) => (
                 <span key={flag} className="text-destructive">
                   {flag}
                 </span>
               ))}
-              <span className="ml-auto whitespace-nowrap text-muted-foreground tabular-nums">
-                {p.arrivedAt ? `arrived ${time(p.arrivedAt)}` : p.hereBefore ? `here before ${time(p.hereBefore)}` : ''}
+              <span className="ml-auto whitespace-nowrap text-muted-foreground">
+                {p.arrivedAt ? (
+                  <>
+                    arrived <span className="font-mono">{time(p.arrivedAt)}</span>
+                  </>
+                ) : p.hereBefore ? (
+                  <>
+                    here before <span className="font-mono">{time(p.hereBefore)}</span>
+                  </>
+                ) : (
+                  ''
+                )}
               </span>
             </li>
           ))}
@@ -213,18 +232,7 @@ function People({ title, people, muted = false }: { title: string; people: LiveP
 }
 
 function Standing({ standing }: { standing: string }) {
-  return (
-    <span
-      className={
-        standing === 'Flagged'
-          ? 'rounded-md bg-destructive/10 px-1.5 font-medium text-destructive'
-          : 'rounded-md bg-secondary px-1.5 text-muted-foreground'
-      }
-      style={{ fontSize: 'var(--text-tiny, 11px)' }}
-    >
-      {standing}
-    </span>
-  )
+  return <Badge variant={standing === 'Flagged' ? 'destructive' : 'secondary'}>{standing}</Badge>
 }
 
 function time(iso: string): string {

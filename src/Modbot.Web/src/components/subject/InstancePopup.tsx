@@ -3,7 +3,10 @@ import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
-import { FactList, Field, Figure, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import { Badge } from '@/components/ui/badge'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Block, Empty, FactList, Field, Footer, More, Panel, PopupFrame } from '@/components/subject/shared'
+import { Stat, StatStrip, Table, Td, Th, Tr } from '@/pages/analytics/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type InstanceView } from '@/lib/api'
 import { concernsInstance } from '@/lib/liveRules'
@@ -46,7 +49,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
 
   if (!allowed) {
     return (
-      <PopupFrame title="Instance" lead={lead} left={<Note>You do not have permission to see instances.</Note>}>
+      <PopupFrame title="Instance" lead={lead} left={<Empty>You do not have permission to see instances.</Empty>}>
         <span />
       </PopupFrame>
     )
@@ -60,7 +63,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       title={title}
       subtitle={instance ? <span title={instance.location}>{instance.closedAt ? 'Closed' : 'Open now'}</span> : undefined}
       lead={lead}
-      left={error ? <Note className="text-destructive">{error}</Note> : data ? <Identity view={data} /> : <Note>Loading…</Note>}
+      left={error ? <Empty className="text-destructive">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
     >
       <Tabs
         value={tab}
@@ -74,22 +77,20 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       >
         {data && tab === 'overview' && <Overview view={data} onMore={setTab} />}
         {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
-          <Panel title={tab === 'people' ? 'People' : 'Logs'}>
-            <Note>You do not have permission to see this.</Note>
+          <Panel title={tab === 'people' ? 'People' : 'Logs'} flush>
+            <EmptyRow>You do not have permission to see this.</EmptyRow>
           </Panel>
         )}
         {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
         {data?.canSeeWhoWasThere && tab === 'logs' && (
-          <Panel title="What happened in this instance">
+          <Panel title="What happened in this instance" flush>
             <FactList entries={data.log} empty="Nothing recorded yet." />
-            {data.logTruncated && <Note>Showing the newest {data.log.length}.</Note>}
+            {data.logTruncated && (
+              <Footer>Showing the newest {data.log.length}.</Footer>
+            )}
           </Panel>
         )}
-        {tab === 'json' && (
-          <div className="p-4">
-            <JsonView title="Instance" value={error ?? data} />
-          </div>
-        )}
+        {tab === 'json' && <JsonView title="Instance" value={error ?? data} className="border-0" />}
       </Tabs>
     </PopupFrame>
   )
@@ -101,26 +102,35 @@ function Identity({ view }: { view: InstanceView }) {
 
   return (
     <>
-      {picture && <img src={vrchatMedia(picture)} alt="" className="aspect-[4/3] w-full rounded-xl object-cover" loading="lazy" />}
+      {picture && (
+        <img
+          src={vrchatMedia(picture)}
+          alt=""
+          className="aspect-[4/3] w-full shrink-0 border-b border-b-(length:--hairline) object-cover"
+          loading="lazy"
+        />
+      )}
 
-      <Field label="World" title={instance.worldId}>
-        <WorldLink id={instance.worldId} name={instance.worldName} />
-        <div className="font-mono text-muted-foreground break-all" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
-          {instance.worldId}
-        </div>
-      </Field>
+      <Block>
+        <Field label="World" title={instance.worldId}>
+          <WorldLink id={instance.worldId} name={instance.worldName} />
+          <div className="font-mono text-muted-foreground break-all" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+            {instance.worldId}
+          </div>
+        </Field>
 
-      <Field label="Instance number" title={instance.location}>
-        <span className="font-mono">{instance.vrChatInstanceId ?? '—'}</span>
-      </Field>
+        <Field label="Instance number" title={instance.location}>
+          <span className="font-mono">{instance.vrChatInstanceId ?? '—'}</span>
+        </Field>
 
-      <Field label="Who can join">{access(instance.groupAccessType) ?? view.type ?? '—'}</Field>
+        <Field label="Who can join">{access(instance.groupAccessType) ?? view.type ?? '—'}</Field>
 
-      <Field label={instance.closedAt ? 'Closed' : 'Open now'}>
-        {instance.closedAt
-          ? `${dateTime(instance.closedAt)}${instance.closedBy === 'time' ? ' · went quiet' : ''}`
-          : `last seen ${dateTime(view.lastSeenAt)}`}
-      </Field>
+        <Field label={instance.closedAt ? 'Closed' : 'Open now'}>
+          {instance.closedAt
+            ? `${dateTime(instance.closedAt)}${instance.closedBy === 'time' ? ' · went quiet' : ''}`
+            : `last seen ${dateTime(view.lastSeenAt)}`}
+        </Field>
+      </Block>
     </>
   )
 }
@@ -130,13 +140,17 @@ function Details({ view }: { view: InstanceView }) {
   const instance = view.instance
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="font-medium">Details</div>
-
+    <Panel title="Details">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {instance.region && <Field label="Region">{instance.region.toUpperCase()}</Field>}
-        <Field label="Opened">{dateTime(instance.openedAt)}</Field>
-        {!instance.closedAt && <Field label="People now">{instance.peopleNow ?? 0}</Field>}
+        <Field label="Opened">
+          <span className="font-mono">{dateTime(instance.openedAt)}</span>
+        </Field>
+        {!instance.closedAt && (
+          <Field label="People now">
+            <span className="font-mono">{instance.peopleNow ?? 0}</span>
+          </Field>
+        )}
 
         {view.canSeeWhoWasThere && (
           <Field label="Seen by a moderator's client">
@@ -146,7 +160,7 @@ function Details({ view }: { view: InstanceView }) {
           </Field>
         )}
       </div>
-    </div>
+    </Panel>
   )
 }
 
@@ -156,49 +170,45 @@ function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => 
   const longest = [...view.people].sort((a, b) => b.minutesSeen - a.minutesSeen).slice(0, 6)
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col">
       <Details view={view} />
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <Figure label={instance.closedAt ? 'Ran for' : 'Open for'} value={minutes(instance.minutesOpen)} />
-        <Figure label="Most at once" value={instance.peakPeople === null ? '—' : String(instance.peakPeople)} />
-        <Figure label="People seen" value={compactNumber(view.counts.visitors)} />
-        <Figure label="Arrivals" value={compactNumber(view.counts.arrivals)} />
-      </div>
+      <StatStrip className="m-0 shrink-0">
+        <Stat label={instance.closedAt ? 'Ran for' : 'Open for'} value={minutes(instance.minutesOpen)} />
+        <Stat label="Most at once" value={instance.peakPeople === null ? '—' : String(instance.peakPeople)} />
+        <Stat label="People seen" value={compactNumber(view.counts.visitors)} />
+        <Stat label="Arrivals" value={compactNumber(view.counts.arrivals)} />
+      </StatStrip>
 
       {view.canSeeWhoWasThere ? (
         <>
-          <div className="flex items-center gap-2">
-            <span className="font-medium">Seen longest</span>
-            <span className="flex-1" />
-            <button type="button" onClick={() => onMore('people')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
-              Everybody
-            </button>
-          </div>
-          {longest.length === 0 ? (
-            <Note>Nobody seen.</Note>
-          ) : (
-            <ul className="flex flex-wrap gap-2" style={{ fontSize: 'var(--text-small)' }}>
-              {longest.map((p) => (
-                <li key={p.userId} className="rounded-md border px-2 py-1" style={{ borderWidth: 'var(--hairline)' }}>
-                  <SubjectLink id={p.userId} name={p.displayName} />{' '}
-                  <span className="tabular-nums text-muted-foreground">{minutes(p.minutesSeen)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <Panel
+            title="Seen longest"
+            right={<More onClick={() => onMore('people')}>Everybody</More>}
+            flush={longest.length === 0}
+          >
+            {longest.length === 0 ? (
+              <EmptyRow>Nobody seen.</EmptyRow>
+            ) : (
+              <ul className="flex flex-wrap gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
+                {longest.map((p) => (
+                  <li key={p.userId}>
+                    <Badge variant="outline" className="gap-1.5 text-foreground">
+                      <SubjectLink id={p.userId} name={p.displayName} />
+                      <span className="font-mono text-muted-foreground">{minutes(p.minutesSeen)}</span>
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
 
-          <div className="flex items-center gap-2">
-            <span className="font-medium">Latest</span>
-            <span className="flex-1" />
-            <button type="button" onClick={() => onMore('logs')} className="text-muted-foreground hover:text-foreground hover:underline" style={{ fontSize: 'var(--text-small)' }}>
-              All logs
-            </button>
-          </div>
-          <FactList entries={view.log.slice(0, 8)} empty="Nothing recorded yet." />
+          <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All logs</More>} flush>
+            <FactList entries={view.log.slice(0, 8)} empty="Nothing recorded yet." />
+          </Panel>
         </>
       ) : (
-        <Note>You do not have permission to see who was here.</Note>
+        <Empty>You do not have permission to see who was here.</Empty>
       )}
     </div>
   )
@@ -206,41 +216,38 @@ function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => 
 
 function People({ view }: { view: InstanceView }) {
   return (
-    <Panel title="Who was seen in this instance">
+    <Panel title="Who was seen in this instance" flush>
       {view.people.length === 0 ? (
-        <Note>Nobody seen.</Note>
+        <EmptyRow>Nobody seen.</EmptyRow>
       ) : (
-        <div className="relative overflow-x-auto">
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="py-1 pr-3 font-medium">Person</th>
-                <th className="py-1 pr-3 text-right font-medium">Time seen</th>
-                <th className="py-1 pr-3 text-right font-medium">Arrivals</th>
-                <th className="py-1 pr-3 font-medium">First seen</th>
-                <th className="py-1 font-medium">Last seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.people.map((p) => (
-                <tr key={p.userId} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-                  <td className="py-1 pr-3">
-                    <SubjectLink id={p.userId} name={p.displayName} />
-                    {p.displayName && (
-                      <div className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
-                        {p.userId}
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{minutes(p.minutesSeen)}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{p.arrivals}</td>
-                  <td className="py-1 pr-3 text-muted-foreground">{dateTime(p.firstSeenAt)}</td>
-                  <td className="py-1 text-muted-foreground">{dateTime(p.lastSeenAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          head={
+            <>
+              <Th>Person</Th>
+              <Th className="text-right">Time seen</Th>
+              <Th className="text-right">Arrivals</Th>
+              <Th>First seen</Th>
+              <Th>Last seen</Th>
+            </>
+          }
+        >
+          {view.people.map((p) => (
+            <Tr key={p.userId}>
+              <Td>
+                <SubjectLink id={p.userId} name={p.displayName} />
+                {p.displayName && (
+                  <div className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+                    {p.userId}
+                  </div>
+                )}
+              </Td>
+              <Td className="text-right font-mono">{minutes(p.minutesSeen)}</Td>
+              <Td className="text-right font-mono">{p.arrivals}</Td>
+              <Td className="font-mono text-muted-foreground">{dateTime(p.firstSeenAt)}</Td>
+              <Td className="font-mono text-muted-foreground">{dateTime(p.lastSeenAt)}</Td>
+            </Tr>
+          ))}
+        </Table>
       )}
     </Panel>
   )

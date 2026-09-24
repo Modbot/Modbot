@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type CurrentUser, type PermissionInfo, type RoleView } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { Empty } from '@/pages/Members'
 import { ErrorText, Note } from '@/pages/setup/WizardChrome'
 
 /**
@@ -37,32 +39,34 @@ export function Roles({ me }: { me: CurrentUser }) {
     void refresh()
   }, [refresh])
 
-  if (error) return <Card><CardContent className="py-10 text-center text-muted-foreground">{error}</CardContent></Card>
-  if (!roles) return <Card><CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent></Card>
+  if (error) return <Empty>{error}</Empty>
+  if (!roles) return <Empty>Loading…</Empty>
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setCreating(true)} disabled={creating}>
           New role
         </Button>
       </div>
 
-      {creating && (
-        <RoleEditor
-          catalogue={catalogue}
-          me={me}
-          onCancel={() => setCreating(false)}
-          onSaved={() => {
-            setCreating(false)
-            void refresh()
-          }}
-        />
-      )}
+      <PanelGrid className="grid-cols-1">
+        {creating && (
+          <RoleEditor
+            catalogue={catalogue}
+            me={me}
+            onCancel={() => setCreating(false)}
+            onSaved={() => {
+              setCreating(false)
+              void refresh()
+            }}
+          />
+        )}
 
-      {roles.map((r) => (
-        <RoleEditor key={r.id} role={r} catalogue={catalogue} me={me} onSaved={() => void refresh()} />
-      ))}
+        {roles.map((r) => (
+          <RoleEditor key={r.id} role={r} catalogue={catalogue} me={me} onSaved={() => void refresh()} />
+        ))}
+      </PanelGrid>
     </div>
   )
 }
@@ -129,16 +133,16 @@ function RoleEditor({
   }
 
   return (
-    <Card className="py-4">
-      <CardContent>
+    <Card>
+      <CardHeader className={cn('p-0', !open && 'border-b-0 bg-card')}>
         <button
           type="button"
-          className="flex w-full items-center gap-3 text-left"
+          className="flex w-full items-center gap-3 px-(--panel-pad) py-1.5 text-left hover:bg-muted/50"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
         >
-          <div>
-            <div className="font-semibold">
+          <div className="min-w-0">
+            <div className="font-label">
               {role?.name ?? 'New role'}
               {role?.isBuiltIn && (
                 <Badge variant="outline" className="ml-2">
@@ -154,18 +158,27 @@ function RoleEditor({
           </div>
           <div className="flex-1" />
           {role && (
-            <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {role.locked
-                ? 'everything'
-                : `${role.permissionNames.length} permission${role.permissionNames.length === 1 ? '' : 's'}`}
+            <span className="shrink-0 text-right text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              {role.locked ? (
+                'everything'
+              ) : (
+                <span className="whitespace-nowrap">
+                  <span className="font-mono">{role.permissionNames.length}</span> permission
+                  {role.permissionNames.length === 1 ? '' : 's'}
+                </span>
+              )}
               {' · '}
-              {role.userCount} {role.userCount === 1 ? 'person' : 'people'}
+              <span className="whitespace-nowrap">
+                <span className="font-mono">{role.userCount}</span> {role.userCount === 1 ? 'person' : 'people'}
+              </span>
             </span>
           )}
         </button>
+      </CardHeader>
 
-        {open && (
-          <div className="mt-4 space-y-4" style={{ fontSize: 'var(--text-small)' }}>
+      {open && (
+        <CardContent>
+          <div className="space-y-4" style={{ fontSize: 'var(--text-small)' }}>
             {locked ? (
               <Note>Allows everything. Cannot be changed.</Note>
             ) : (
@@ -198,7 +211,7 @@ function RoleEditor({
                 <div className="grid gap-4 sm:grid-cols-2">
                   {groups.map(([group, items]) => (
                     <div key={group}>
-                      <div className="mb-1 text-[0.6875rem] font-semibold tracking-wider text-muted-foreground uppercase">
+                      <div className="mb-1 font-label text-muted-foreground">
                         {group}
                       </div>
                       <div className="space-y-1">
@@ -207,7 +220,7 @@ function RoleEditor({
                           return (
                             <label
                               key={p.name}
-                              className={cn('flex items-start gap-2 rounded-md px-1 py-0.5', !allowed && 'opacity-60')}
+                              className={cn('flex items-start gap-2 px-1 py-0.5', !allowed && 'opacity-60')}
                               title={allowed ? p.description : 'You can only put permissions into a role that you have yourself.'}
                             >
                               <input
@@ -263,8 +276,8 @@ function RoleEditor({
               </>
             )}
           </div>
-        )}
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   )
 }

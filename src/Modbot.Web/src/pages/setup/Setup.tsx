@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { ApiError, api, type OnboardingStatus, type OnboardingStep } from '@/lib/api'
 import { openRegisterOnce } from '@/lib/myModbot'
 import { AdministratorStep } from './AdministratorStep'
@@ -9,7 +11,7 @@ import { GroupStep } from './GroupStep'
 import { LinkVRChatStep } from './LinkVRChatStep'
 import { OptionalStep } from './OptionalStep'
 import { VRChatStep } from './VRChatStep'
-import { Brand, Note, StepIndicator, WizardFooter, WizardHeader } from './WizardChrome'
+import { Brand, Note, StepIndicator, WizardBody, WizardFooter, WizardHeader } from './WizardChrome'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /**
@@ -73,7 +75,7 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
   if (fatal) {
     return (
       <Shell>
-        <div className="p-6">
+        <div className="p-(--panel-pad)">
           <Note tone="danger" title="Modbot is not answering.">
             {fatal}
           </Note>
@@ -85,9 +87,7 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
   if (!status) {
     return (
       <Shell>
-        <div className="px-6 py-10 text-center text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Loading…
-        </div>
+        <EmptyRow>Loading…</EmptyRow>
       </Shell>
     )
   }
@@ -99,11 +99,11 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
     return (
       <Shell>
         <WizardHeader eyebrow="Setup" title="Sign in to change setup" />
-        <div className="px-6 pb-6">
-          <Button type="button" onClick={onFinished} style={{ height: 'var(--control-h)' }}>
+        <WizardBody>
+          <Button type="button" onClick={onFinished}>
             Go to sign in
           </Button>
-        </div>
+        </WizardBody>
       </Shell>
     )
   }
@@ -144,7 +144,6 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
                 .then(onFinished)
                 .finally(() => setBusy(false))
             }}
-            style={{ height: 'var(--control-h)' }}
           >
             Skip this step
           </Button>
@@ -153,7 +152,6 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
             type="button"
             variant="ghost"
             onClick={onFinished}
-            style={{ height: 'var(--control-h)' }}
           >
             Back to Modbot
           </Button>
@@ -167,13 +165,12 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
             variant="outline"
             disabled={busy}
             onClick={() => setIndex(index - 1)}
-            style={{ height: 'var(--control-h)' }}
           >
             Back
           </Button>
         )}
 
-        <Button type="submit" form={WIZARD_FORM_ID} disabled={busy} style={{ height: 'var(--control-h)' }}>
+        <Button type="submit" form={WIZARD_FORM_ID} disabled={busy}>
           {busy ? 'Working…' : last ? 'Finish setup' : 'Continue'}
         </Button>
       </WizardFooter>
@@ -196,12 +193,12 @@ function Shell({
           signed in, because the health it reads needs a session. */}
       <SignInWaitBanner />
       <div className="grid flex-1 place-items-center p-6">
-        <div className="w-full max-w-[520px]">
+        <div className="w-full min-w-0 max-w-[520px]">
           <Brand subtitle={groupName} />
-          <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
+          <Card>
             {steps && <StepIndicator total={steps.total} current={steps.current} />}
             {children}
-          </div>
+          </Card>
         </div>
       </div>
     </div>

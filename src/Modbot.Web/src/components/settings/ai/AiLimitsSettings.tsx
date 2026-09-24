@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { DailyBars, Legend, nextSlot, type DaySeries } from '@/components/charts'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -32,8 +33,11 @@ const failure = (e: unknown) =>
       ? e.message
       : 'Could not reach the Modbot server.'
 
-const cellClass = 'py-1 pr-3 align-top'
-const headClass = 'py-1 pr-3 font-normal'
+/** Runs the card's content to its edges, so a table meets the card's sides. */
+const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
+const cellClass = 'px-(--panel-pad) py-1.5 align-top'
+const headClass = 'h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap'
+const rowClass = 'border-b border-b-(length:--hairline) last:border-0'
 
 /**
  * Settings → AI → Limits: what AI has cost by feature, the month-end estimate, the spend limits for
@@ -89,7 +93,7 @@ function Spent({ spent, of }: { spent: AiSpent | null; of?: string }) {
   if (!spent) return <span className="text-muted-foreground">—</span>
 
   return (
-    <div className="whitespace-nowrap tabular-nums" title={tokensTitle(spent)}>
+    <div className="font-mono whitespace-nowrap" title={tokensTitle(spent)}>
       <div>
         {spentText(spent)}
         {of && <span className="text-muted-foreground"> · {of}</span>}
@@ -103,36 +107,36 @@ function SpendCard({ data }: { data: AiLimits }) {
   const rows: AiFeatureSpend[] = [...data.spend, data.total]
 
   return (
-    <SettingsCard title="Spend by feature" span={12}>
+    <SettingsCard title="Spend by feature" span={12} className={FLUSH}>
       <div className="relative overflow-x-auto">
         <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-          <thead className="text-left text-muted-foreground">
-            <tr>
+          <thead className="bg-strip text-left text-muted-foreground">
+            <tr className="border-b border-b-(length:--hairline)">
               <th className={headClass}>Feature</th>
-              <th className={headClass}>Today</th>
-              <th className={headClass}>This week</th>
-              <th className={headClass}>This month</th>
-              <th className={headClass}>Last month</th>
-              <th className={headClass}>Month-end estimate</th>
+              <th className={cn(headClass, 'text-right')}>Today</th>
+              <th className={cn(headClass, 'text-right')}>This week</th>
+              <th className={cn(headClass, 'text-right')}>This month</th>
+              <th className={cn(headClass, 'text-right')}>Last month</th>
+              <th className={cn(headClass, 'text-right')}>Month-end estimate</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.feature} className={cn(r === data.total && 'border-t font-medium')}>
+              <tr key={r.feature} className={cn(rowClass, r === data.total && 'font-medium')}>
                 <td className={cn(cellClass, 'whitespace-nowrap')}>{r.label}</td>
-                <td className={cellClass}>
+                <td className={cn(cellClass, 'text-right')}>
                   <Spent spent={r.today} />
                 </td>
-                <td className={cellClass}>
+                <td className={cn(cellClass, 'text-right')}>
                   <Spent spent={r.week} />
                 </td>
-                <td className={cellClass}>
+                <td className={cn(cellClass, 'text-right')}>
                   <Spent spent={r.month} />
                 </td>
-                <td className={cellClass}>
+                <td className={cn(cellClass, 'text-right')}>
                   <Spent spent={r.lastMonth} />
                 </td>
-                <td className={cellClass}>
+                <td className={cn(cellClass, 'text-right')}>
                   <Spent spent={r.estimate} />
                 </td>
               </tr>
@@ -159,9 +163,11 @@ function DailyCard({ data }: { data: AiLimits }) {
     <SettingsCard
       title="Daily spend"
       span={12}
+      className={cn(partUnknown && '[&>[data-slot=card-header]]:bg-warn/10')}
       action={
         partUnknown ? (
-          <span className="text-warn" style={{ fontSize: 'var(--text-small)' }}>
+          <span className="flex items-center gap-1.5 text-warn" style={{ fontSize: 'var(--text-small)' }}>
+            <span aria-hidden className="size-2 shrink-0 bg-warn" />
             Part unknown
           </span>
         ) : undefined
@@ -291,6 +297,7 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
     <SettingsCard
       title="Spend limits"
       span={12}
+      className={FLUSH}
       footer={
         <>
           <Button size="sm" disabled={busy} onClick={save}>
@@ -304,15 +311,15 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
       {(rows.length > 0 || tokenRows.length > 0) && (
         <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="text-left text-muted-foreground">
-              <tr>
+            <thead className="bg-strip text-left text-muted-foreground">
+              <tr className="border-b border-b-(length:--hairline)">
                 <th className={headClass}>Applies to</th>
                 <th className={headClass}>Per day (USD)</th>
                 <th className={headClass}>Per month (USD)</th>
-                <th className={headClass}>Spent today</th>
-                <th className={headClass}>Spent this month</th>
-                <th className={headClass}>Month-end estimate</th>
-                <th />
+                <th className={cn(headClass, 'text-right')}>Spent today</th>
+                <th className={cn(headClass, 'text-right')}>Spent this month</th>
+                <th className={cn(headClass, 'text-right')}>Month-end estimate</th>
+                <th className={headClass} />
               </tr>
             </thead>
             <tbody>
@@ -322,7 +329,7 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                 const eachMember = r.appliesTo === 'role'
 
                 return (
-                  <tr key={rowKey(r)}>
+                  <tr key={rowKey(r)} className={rowClass}>
                     <td className={cn(cellClass, 'whitespace-nowrap')}>{label(r)}</td>
                     <td className={cellClass}>
                       <Money label={`${label(r)} per day`} value={r.perDay} onChange={(v) => set(i, { perDay: v })} />
@@ -330,16 +337,16 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                     <td className={cellClass}>
                       <Money label={`${label(r)} per month`} value={r.perMonth} onChange={(v) => set(i, { perMonth: v })} />
                     </td>
-                    <td className={cellClass}>
+                    <td className={cn(cellClass, 'text-right')}>
                       {eachMember ? 'Each member' : <Spent spent={r.today} of={r.today ? share(r.today.cost, perDay) : ''} />}
                     </td>
-                    <td className={cellClass}>
+                    <td className={cn(cellClass, 'text-right')}>
                       {eachMember ? 'Each member' : <Spent spent={r.month} of={r.month ? share(r.month.cost, perMonth) : ''} />}
                     </td>
-                    <td className={cellClass}>
+                    <td className={cn(cellClass, 'text-right')}>
                       {r.estimate ? <Spent spent={r.estimate} of={share(r.estimate.cost, perMonth)} /> : <span className="text-muted-foreground">—</span>}
                     </td>
-                    <td className="py-1 text-right align-top">
+                    <td className={cn(cellClass, 'text-right')}>
                       <Button size="sm" variant="ghost" onClick={() => setRows((all) => all.filter((_, j) => j !== i))}>
                         Remove
                       </Button>
@@ -348,19 +355,19 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                 )
               })}
               {tokenRows.map((t, i) => (
-                <tr key={`tokens:${t.feature}`}>
+                <tr key={`tokens:${t.feature}`} className={rowClass}>
                   <td className={cn(cellClass, 'whitespace-nowrap')}>{featureLabel(t.feature)} · tokens</td>
                   <td className={cn(cellClass, 'text-muted-foreground')}>—</td>
-                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>{amountText(t.monthlyTokens, 'tokens')}</td>
-                  <td className={cn(cellClass, 'text-muted-foreground')}>—</td>
-                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>
+                  <td className={cn(cellClass, 'whitespace-nowrap font-mono')}>{amountText(t.monthlyTokens, 'tokens')}</td>
+                  <td className={cn(cellClass, 'text-right text-muted-foreground')}>—</td>
+                  <td className={cn(cellClass, 'text-right font-mono whitespace-nowrap')}>
                     {t.month && `${tokensText(t.month)} · ${share(t.month.inputTokens + t.month.outputTokens, t.monthlyTokens)}`}
                   </td>
-                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>
+                  <td className={cn(cellClass, 'text-right font-mono whitespace-nowrap')}>
                     {t.estimate &&
                       `${tokensText(t.estimate)} · ${share(t.estimate.inputTokens + t.estimate.outputTokens, t.monthlyTokens)}`}
                   </td>
-                  <td className="py-1 text-right align-top">
+                  <td className={cn(cellClass, 'text-right')}>
                     <Button size="sm" variant="ghost" onClick={() => setTokenRows((all) => all.filter((_, j) => j !== i))}>
                       Remove
                     </Button>
@@ -372,13 +379,13 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          aria-label="Add a limit for"
-          value={adding}
-          onChange={setAdding}
-          className="h-9 px-3"
-        >
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-2 p-(--panel-pad)',
+          (rows.length > 0 || tokenRows.length > 0) && 'border-t border-t-(length:--hairline)',
+        )}
+      >
+        <Select aria-label="Add a limit for" value={adding} onChange={setAdding}>
           <option value="">Add a limit for…</option>
           {!taken.has('everyone:') && <option value="everyone:">Everyone</option>}
           <optgroup label="Features">
@@ -419,29 +426,27 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
 
 function TopUsersCard({ data }: { data: AiLimits }) {
   return (
-    <SettingsCard title="Top Chat users this month" span={12}>
+    <SettingsCard title="Top Chat users this month" span={12} className={FLUSH}>
       {data.topChatUsers.length === 0 ? (
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          None.
-        </p>
+        <EmptyRow>None.</EmptyRow>
       ) : (
         <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="text-left text-muted-foreground">
-              <tr>
+            <thead className="bg-strip text-left text-muted-foreground">
+              <tr className="border-b border-b-(length:--hairline)">
                 <th className={headClass}>User</th>
-                <th className={headClass}>Spent</th>
-                <th className={headClass}>Tokens</th>
+                <th className={cn(headClass, 'text-right')}>Spent</th>
+                <th className={cn(headClass, 'text-right')}>Tokens</th>
               </tr>
             </thead>
             <tbody>
               {data.topChatUsers.map((u) => (
-                <tr key={u.userId}>
+                <tr key={u.userId} className={rowClass}>
                   <td className={cn(cellClass, 'whitespace-nowrap')}>{u.username ?? u.userId}</td>
-                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')} title={tokensTitle(u.month)}>
+                  <td className={cn(cellClass, 'text-right font-mono whitespace-nowrap')} title={tokensTitle(u.month)}>
                     {spentText(u.month)}
                   </td>
-                  <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>
+                  <td className={cn(cellClass, 'text-right font-mono whitespace-nowrap')}>
                     {count(u.month.inputTokens + u.month.outputTokens)}
                   </td>
                 </tr>
@@ -541,6 +546,7 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
     <SettingsCard
       title="Prices per million tokens"
       span={12}
+      className={FLUSH}
       footer={
         <>
           <Button size="sm" disabled={busy} onClick={save}>
@@ -560,21 +566,21 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
       {rows.length > 0 && (
         <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="text-left text-muted-foreground">
-              <tr>
+            <thead className="bg-strip text-left text-muted-foreground">
+              <tr className="border-b border-b-(length:--hairline)">
                 <th className={headClass}>Model</th>
                 <th className={headClass}>Input (USD)</th>
                 <th className={headClass}>Cached input (USD)</th>
                 <th className={headClass}>Output (USD)</th>
                 <th className={headClass}>Price from</th>
-                <th />
+                <th className={headClass} />
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={r.model}>
-                  <td className="py-1 pr-3 font-mono whitespace-nowrap">{r.model}</td>
-                  <td className="py-1 pr-3">
+                <tr key={r.model} className={rowClass}>
+                  <td className={cn(cellClass, 'font-mono whitespace-nowrap')}>{r.model}</td>
+                  <td className={cellClass}>
                     <Money
                       label={`${r.model} input`}
                       value={r.input}
@@ -582,7 +588,7 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                       onChange={(v) => set(i, { input: v })}
                     />
                   </td>
-                  <td className="py-1 pr-3">
+                  <td className={cellClass}>
                     <Money
                       label={`${r.model} cached input`}
                       value={r.cached}
@@ -590,7 +596,7 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                       onChange={(v) => set(i, { cached: v })}
                     />
                   </td>
-                  <td className="py-1 pr-3">
+                  <td className={cellClass}>
                     <Money
                       label={`${r.model} output`}
                       value={r.output}
@@ -600,13 +606,14 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
                   </td>
                   <td
                     className={cn(
-                      'py-1 pr-3 whitespace-nowrap',
+                      cellClass,
+                      'whitespace-nowrap',
                       !entered(r) && !r.fetched ? 'text-warn' : 'text-muted-foreground',
                     )}
                   >
                     {source(r)}
                   </td>
-                  <td className="py-1 text-right">
+                  <td className={cn(cellClass, 'text-right')}>
                     {entered(r) && (
                       <Button size="sm" variant="ghost" onClick={() => set(i, { input: '', cached: '', output: '' })}>
                         Clear
@@ -620,7 +627,12 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-2 p-(--panel-pad)',
+          rows.length > 0 && 'border-t border-t-(length:--hairline)',
+        )}
+      >
         <Input
           aria-label="Model"
           list={listId}

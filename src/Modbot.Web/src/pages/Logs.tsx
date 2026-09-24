@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { JsonView } from '@/components/JsonView'
@@ -146,78 +147,56 @@ export function Logs() {
   const next = pages[pages.length - 1]?.next ?? null
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <div
-          className="flex flex-wrap items-center gap-2 border-b px-3 py-2"
-          style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-        >
-          <Input
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            placeholder="Search the text"
-            className="h-8 w-64"
-            aria-label="Search the log"
-          />
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Search the text"
+          className="w-64"
+          aria-label="Search the log"
+        />
 
-          <Select value={level} onChange={(v) => setLevel(v as LogLevel | '')} aria-label="Level">
-            <option value="">Any level</option>
-            {(filters?.levels ?? []).map((l) => (
-              <option key={l} value={l}>
-                {l} and above
+        <Select value={level} onChange={(v) => setLevel(v as LogLevel | '')} aria-label="Level">
+          <option value="">Any level</option>
+          {(filters?.levels ?? []).map((l) => (
+            <option key={l} value={l}>
+              {l} and above
+            </option>
+          ))}
+        </Select>
+
+        <Select value={source} onChange={setSource} aria-label="Source">
+          <option value="">Any source</option>
+          {(filters?.sources ?? []).map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </Select>
+
+        {(filters?.areas.length ?? 0) > 0 && (
+          <Select value={area} onChange={setArea} aria-label="Area">
+            <option value="">Any area</option>
+            {(filters?.areas ?? []).map((a) => (
+              <option key={a} value={a}>
+                {a}
               </option>
             ))}
           </Select>
+        )}
 
-          <Select value={source} onChange={setSource} aria-label="Source">
-            <option value="">Any source</option>
-            {(filters?.sources ?? []).map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36" aria-label="From" />
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36" aria-label="To" />
 
-          {(filters?.areas.length ?? 0) > 0 && (
-            <Select value={area} onChange={setArea} aria-label="Area">
-              <option value="">Any area</option>
-              {(filters?.areas ?? []).map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </Select>
-          )}
+        <Button variant="outline" onClick={() => setReloads((n) => n + 1)}>
+          Refresh
+        </Button>
+      </div>
 
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="h-8 w-36"
-            aria-label="From"
-          />
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="h-8 w-36"
-            aria-label="To"
-          />
-
-          <Button variant="outline" size="xs" onClick={() => setReloads((n) => n + 1)}>
-            Refresh
-          </Button>
-
-          <span className="flex-1" />
-          <span className="text-muted-foreground tabular-nums">
-            {(filters?.stored ?? 0).toLocaleString()} stored
-          </span>
-        </div>
-
+      <Card>
         {lines.length === 0 ? (
-          <div className="py-10 text-center text-muted-foreground">
-            {loading ? 'Loading…' : 'Nothing to show.'}
-          </div>
+          <EmptyRow>{loading ? 'Loading…' : 'Nothing to show.'}</EmptyRow>
         ) : (
           <ul>
             {lines.map((line) => (
@@ -231,18 +210,20 @@ export function Logs() {
           </ul>
         )}
 
-        {next && (
-          <div
-            className="flex items-center gap-2 border-t px-3 py-2"
-            style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-          >
+        <div
+          className="flex flex-wrap items-center gap-3 border-t bg-strip px-(--panel-pad) py-1 text-muted-foreground"
+          style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)', minHeight: 'var(--strip-h)' }}
+        >
+          <span className="font-mono">{(filters?.stored ?? 0).toLocaleString()} stored</span>
+          <span className="flex-1" />
+          {next && (
             <Button variant="outline" size="xs" disabled={loading} onClick={more}>
               {loading ? 'Loading…' : 'Load more'}
             </Button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </div>
+      </Card>
+    </div>
   )
 }
 
@@ -251,17 +232,16 @@ function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onTogg
 
   return (
     <li
-      className={cn('border-b border-l-2 last:border-b-0', LEVEL_EDGE[line.level])}
-      style={{ borderBottomWidth: 'var(--hairline)' }}
+      className={cn('border-b border-l-2 border-b-(length:--hairline) last:border-b-0', LEVEL_EDGE[line.level])}
     >
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-baseline gap-3 px-3 py-1.5 text-left hover:bg-muted/50"
-        style={{ fontSize: 'var(--text-small)' }}
+        className="flex w-full items-center gap-3 px-(--panel-pad) py-1 text-left hover:bg-muted/50"
+        style={{ fontSize: 'var(--text-small)', minHeight: 'var(--row-h)' }}
       >
-        <Chevron className="size-3.5 shrink-0 self-center text-muted-foreground" aria-hidden />
-        <span className="shrink-0 tabular-nums text-muted-foreground">{when(line.at)}</span>
+        <Chevron className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="shrink-0 font-mono text-muted-foreground">{when(line.at)}</span>
         {/* The word sits in a span of its own inside the column, so a filled level draws as a
             marker around the word rather than a block the width of the column. */}
         <span className="w-16 shrink-0 font-medium">
@@ -274,7 +254,7 @@ function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onTogg
       </button>
 
       {open && (
-        <div className="px-3 pb-3 pl-10" style={{ fontSize: 'var(--text-small)' }}>
+        <div className="px-(--panel-pad) pb-3 pl-10" style={{ fontSize: 'var(--text-small)' }}>
           <div className="whitespace-pre-wrap break-words">{line.message}</div>
 
           <JsonView className="mt-2" title="Entry" value={wholeEntry(line)} />
@@ -284,7 +264,7 @@ function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onTogg
               most likely to be read line by line. The record still carries it, so what the copy
               button gives is the whole line. */}
           {line.exception && (
-            <pre className="mt-2 overflow-x-auto rounded-md bg-destructive/10 p-2 font-mono text-destructive">
+            <pre className="mt-2 overflow-x-auto bg-destructive/10 p-2 font-mono text-destructive">
               {line.exception}
             </pre>
           )}

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { changesBans } from '@/lib/liveRules'
 import { useLiveVersion } from '@/lib/useLiveVersion'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardHeader } from '@/components/ui/card'
+import { Tabs } from '@/components/ui/tabs'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { CaseFileCell } from '@/components/CaseFileCell'
@@ -45,37 +47,20 @@ export function Bans({
   const [tab, setTab] = useState<'list' | 'repeat'>('list')
 
   return (
-    <div className="flex flex-col gap-3">
-      <div
-        role="tablist"
-        className="flex w-fit gap-1 rounded-md border bg-secondary p-0.5"
-        style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)' }}
-      >
-        {(
-          [
-            ['list', 'Ban list'],
-            ['repeat', 'People acted on more than once'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-            className={cn(
-              'rounded-md px-3 py-1 font-medium transition-colors',
-              tab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {label}
-          </button>
-        ))}
+    <Tabs
+      value={tab}
+      onChange={setTab}
+      tabs={[
+        { value: 'list', label: 'Ban list' },
+        { value: 'repeat', label: 'People acted on more than once' },
+      ]}
+      className="gap-3"
+    >
+      <div className="flex flex-col gap-3">
+        {tab === 'list' && <GroupBans me={me} onOpenSubject={onOpenSubject} onOpenCase={onOpenCase} />}
+        {tab === 'repeat' && <RepeatOffendersTab onOpenSubject={onOpenSubject} />}
       </div>
-
-      {tab === 'list' && <GroupBans me={me} onOpenSubject={onOpenSubject} onOpenCase={onOpenCase} />}
-      {tab === 'repeat' && <RepeatOffendersTab onOpenSubject={onOpenSubject} />}
-    </div>
+    </Tabs>
   )
 }
 
@@ -149,7 +134,6 @@ function GroupBans({
 
   const cases = useCaseFiles(list?.bans.map((b) => b.userId) ?? [], can(me, 'ViewProfile'))
 
-  // A demo's ban list was filled in rather than read, so there is no sync time to state.
   const demo = useDemo()
 
   if (error) return <Empty>{error}</Empty>
@@ -162,166 +146,176 @@ function GroupBans({
 
   return (
     <>
-      {demo ? (
-        <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          <span>Demo data.</span>
-          <span>
-            {list.coverage.banCount.toLocaleString()} {list.coverage.banCount === 1 ? 'ban' : 'bans'}.
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Search by name or id"
+          className="w-64"
+          aria-label="Search bans"
+        />
+        <Select
+          value={status}
+          onChange={(next) => {
+            setStatus(next as typeof status)
+            restart()
+          }}
+          aria-label="Status"
+        >
+          <option value="current">Bans that stand</option>
+          <option value="lifted">Bans that were lifted</option>
+          <option value="all">Both</option>
+        </Select>
+      </div>
+
+      <Card>
+        <CardHeader className={cn(!list.coverage.firstSweepComplete && !demo && 'bg-warn/10')}>
+          <Freshness coverage={list.coverage} demo={demo} />
+          <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
           </span>
-        </div>
-      ) : list.coverage.firstSweepComplete ? (
-        <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          <span>
-            Last synced {ago(list.coverage.lastSyncedAt, list.coverage.now)}
-            {list.coverage.sweepInProgress ? '. A new sweep is running now' : ''}.
-          </span>
-          <span>
-            {list.coverage.banCount.toLocaleString()} {list.coverage.banCount === 1 ? 'ban' : 'bans'} at the last full sweep.
-          </span>
-        </div>
+        </CardHeader>
+
+      {list.bans.length === 0 ? (
+        <EmptyRow>{search ? 'Nobody matches' : 'No bans listed'}</EmptyRow>
       ) : (
-        <div className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3" style={{ borderWidth: 'var(--hairline)' }}>
-          <div className="font-medium">
-            {list.coverage.sweepInProgress
-              ? 'Reading the ban list for the first time.'
-              : 'The ban list has not been read yet.'}
-          </div>
+        <div data-pin-first className="relative overflow-x-auto">
+          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+            <thead className="bg-strip text-muted-foreground">
+              <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
+                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Banned on</th>
+                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Modbot first saw it</th>
+                {status !== 'current' && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Lifted</th>}
+                {showCases && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Case file</th>}
+                {canAct && <th className="px-3 py-2 text-left font-normal whitespace-nowrap"><span className="sr-only">Actions</span></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {list.bans.map((ban) => (
+                <tr
+                  key={ban.userId}
+                  className={cn(
+                    'border-b border-b-(length:--hairline) last:border-0 hover:bg-muted/40',
+                    ban.liftedAt && 'text-muted-foreground',
+                  )}
+                >
+                  <td className="px-3" style={{ height: 'var(--row-h)' }}>
+                    <div className="flex items-center gap-2">
+                      {ban.avatarThumbnailUrl ? (
+                        <img
+                          src={vrchatMedia(ban.avatarThumbnailUrl)}
+                          alt=""
+                          className="size-7 shrink-0 rounded-full bg-muted object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="size-7 shrink-0 rounded-full bg-muted" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} />
+                          <TrustRankBadge rank={ban.trustRank} />
+                        </div>
+                        {ban.plainName && (
+                          <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                            {ban.plainName}
+                          </div>
+                        )}
+                        {ban.displayName && (
+                          <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
+                            {ban.userId}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 whitespace-nowrap font-mono">
+                    {ban.bannedAt ? formatDay(ban.bannedAt) : <span className="text-muted-foreground">—</span>}
+                  </td>
+                  <td className="px-3 whitespace-nowrap font-mono text-muted-foreground">{formatDay(ban.firstSeenAt)}</td>
+                  {status !== 'current' && (
+                    <td className="px-3 whitespace-nowrap font-mono">{ban.liftedAt ? formatDay(ban.liftedAt) : ''}</td>
+                  )}
+                  {showCases && (
+                    <td className="px-3">
+                      <CaseFileCell
+                        userId={ban.userId}
+                        displayName={ban.displayName}
+                        bannedAt={ban.bannedAt}
+                        lookup={cases.get(ban.userId)}
+                        canWrite={can(me, 'Ban')}
+                        onOpenCase={onOpenCase}
+                      />
+                    </td>
+                  )}
+                  {canAct && (
+                    <td className="px-3 text-right">
+                      <ModerationActions
+                        me={me}
+                        person={{ userId: ban.userId, banned: !ban.liftedAt }}
+                        name={ban.displayName ?? ban.userId}
+                        onDone={() => setLifted((n) => n + 1)}
+                        size="xs"
+                      />
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      <Card>
-        <CardContent className="p-0">
-          <div
-            className="flex flex-wrap items-center gap-2 border-b px-3 py-2"
-            style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-          >
-            <Input
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              placeholder="Search by name or id"
-              className="h-8 w-64"
-              aria-label="Search bans"
-            />
-            <Select
-              value={status}
-              onChange={(next) => {
-                setStatus(next as typeof status)
-                restart()
-              }}
-              aria-label="Status"
-            >
-              <option value="current">Bans that stand</option>
-              <option value="lifted">Bans that were lifted</option>
-              <option value="all">Both</option>
-            </Select>
-            <span className="flex-1" />
-            <span className="text-muted-foreground">
-              {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
-            </span>
-          </div>
-
-          {list.bans.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">
-              <div className="font-medium text-foreground">{search ? 'Nobody matches' : 'No bans listed'}</div>
-            </div>
-          ) : (
-            <div data-pin-first className="relative overflow-x-auto">
-              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="text-muted-foreground">
-                  <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                    <th className="px-3 py-2 text-left font-normal">Person</th>
-                    <th className="px-3 py-2 text-left font-normal">Banned on</th>
-                    <th className="px-3 py-2 text-left font-normal">Modbot first saw it</th>
-                    {status !== 'current' && <th className="px-3 py-2 text-left font-normal">Lifted</th>}
-                    {showCases && <th className="px-3 py-2 text-left font-normal">Case file</th>}
-                    {canAct && <th className="px-3 py-2 text-left font-normal"><span className="sr-only">Actions</span></th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.bans.map((ban) => (
-                    <tr
-                      key={ban.userId}
-                      className={cn('border-b last:border-0 hover:bg-muted/40', ban.liftedAt && 'text-muted-foreground')}
-                      style={{ borderBottomWidth: 'var(--hairline)' }}
-                    >
-                      <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                        <div className="flex items-center gap-2">
-                          {ban.avatarThumbnailUrl ? (
-                            <img
-                              src={vrchatMedia(ban.avatarThumbnailUrl)}
-                              alt=""
-                              className="size-7 shrink-0 rounded-full bg-muted object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="size-7 shrink-0 rounded-full bg-muted" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} />
-                              <TrustRankBadge rank={ban.trustRank} />
-                            </div>
-                            {ban.plainName && (
-                              <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
-                                {ban.plainName}
-                              </div>
-                            )}
-                            {ban.displayName && (
-                              <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
-                                {ban.userId}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 tabular-nums">
-                        {ban.bannedAt ? formatDay(ban.bannedAt) : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-3 text-muted-foreground tabular-nums">{formatDay(ban.firstSeenAt)}</td>
-                      {status !== 'current' && (
-                        <td className="px-3 tabular-nums">{ban.liftedAt ? formatDay(ban.liftedAt) : ''}</td>
-                      )}
-                      {showCases && (
-                        <td className="px-3">
-                          <CaseFileCell
-                            userId={ban.userId}
-                            displayName={ban.displayName}
-                            bannedAt={ban.bannedAt}
-                            lookup={cases.get(ban.userId)}
-                            canWrite={can(me, 'Ban')}
-                            onOpenCase={onOpenCase}
-                          />
-                        </td>
-                      )}
-                      {canAct && (
-                        <td className="px-3 text-right">
-                          <ModerationActions
-                            me={me}
-                            person={{ userId: ban.userId, banned: !ban.liftedAt }}
-                            name={ban.displayName ?? ban.userId}
-                            onDone={() => setLifted((n) => n + 1)}
-                            size="xs"
-                          />
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          <Pager at={at} pages={pages} />
-        </CardContent>
+      <Pager at={at} pages={pages} />
       </Card>
     </>
+  )
+}
+
+/**
+ * How old the list is, stated on the strip at the top of it. Before the first full sweep the list
+ * is partial and the strip turns the warning colour.
+ */
+function Freshness({ coverage, demo }: { coverage: GroupBanList['coverage']; demo: boolean }) {
+  // A demo's ban list was filled in rather than read, so there is no sync time to state.
+  if (demo) {
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span>Demo data.</span>
+        <span>
+          {coverage.banCount.toLocaleString()} {coverage.banCount === 1 ? 'ban' : 'bans'}.
+        </span>
+      </div>
+    )
+  }
+
+  if (!coverage.firstSweepComplete) {
+    return (
+      <div className="flex items-center gap-2 font-medium">
+        <span aria-hidden className="size-2 shrink-0 bg-warn" />
+        {coverage.sweepInProgress ? 'Reading the ban list for the first time.' : 'The ban list has not been read yet.'}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      <span>
+        Last synced {ago(coverage.lastSyncedAt, coverage.now)}
+        {coverage.sweepInProgress ? '. A new sweep is running now' : ''}.
+      </span>
+      <span>
+        {coverage.banCount.toLocaleString()} {coverage.banCount === 1 ? 'ban' : 'bans'} at the last full sweep.
+      </span>
+    </div>
   )
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
     <Card>
-      <CardContent className="py-10 text-center text-muted-foreground">{children}</CardContent>
+      <EmptyRow>{children}</EmptyRow>
     </Card>
   )
 }

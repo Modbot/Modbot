@@ -59,12 +59,9 @@ function Group({
   const remove = (index: number) => onChange({ ...rule, rules: rules.filter((_, i) => i !== index) })
 
   return (
-    <div
-      className="flex flex-col gap-2 rounded-md border p-3"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      <div className="flex items-center gap-2">
-        <Select value={rule.kind} onChange={(kind) => onChange({ ...rule, kind })} className="h-9" aria-label="How the rules combine">
+    <div className="flex flex-col border border-(length:--hairline) bg-card" style={{ fontSize: 'var(--text-small)' }}>
+      <div className="flex min-h-(--strip-h) flex-wrap items-center gap-2 bg-strip px-2 py-1">
+        <Select value={rule.kind} onChange={(kind) => onChange({ ...rule, kind })} aria-label="How the rules combine">
           {COMBINING.map((k) => (
             <option key={k} value={k}>
               {COMBINE_LABEL[k]}
@@ -101,25 +98,30 @@ function Group({
         )}
       </div>
 
-      {rules.map((inner, index) =>
-        isCombining(inner.kind) ? (
-          <Group
-            key={index}
-            rule={inner}
-            builder={builder}
-            depth={depth + 1}
-            onChange={(next) => replace(index, next)}
-            onRemove={() => remove(index)}
-          />
-        ) : (
-          <Row
-            key={index}
-            rule={inner}
-            builder={builder}
-            onChange={(next) => replace(index, next)}
-            onRemove={() => remove(index)}
-          />
-        ),
+      {rules.length > 0 && (
+        <div className="flex flex-col divide-y divide-(length:--hairline) divide-border border-t border-t-(length:--hairline)">
+          {rules.map((inner, index) =>
+            isCombining(inner.kind) ? (
+              <div key={index} className="p-2">
+                <Group
+                  rule={inner}
+                  builder={builder}
+                  depth={depth + 1}
+                  onChange={(next) => replace(index, next)}
+                  onRemove={() => remove(index)}
+                />
+              </div>
+            ) : (
+              <Row
+                key={index}
+                rule={inner}
+                builder={builder}
+                onChange={(next) => replace(index, next)}
+                onRemove={() => remove(index)}
+              />
+            ),
+          )}
+        </div>
       )}
     </div>
   )
@@ -140,9 +142,9 @@ function Row({
   const roles = rule.kind === 'groupRole' ? (builder?.groupRoles ?? []) : (builder?.discordRoles ?? [])
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md bg-secondary/50 px-2 py-1.5">
+    <div className="flex flex-wrap items-center gap-2 px-2 py-1.5">
       <Select
-        className="h-9"
+       
         aria-label="Rule"
         value={rule.kind}
         onChange={(kind) =>
@@ -166,7 +168,7 @@ function Row({
           <Input
             type="number"
             min={0}
-            className="h-9 max-w-24"
+            className="max-w-24"
             value={rule.amount ?? 0}
             onChange={(e) => onChange({ ...rule, amount: Number(e.target.value) })}
           />
@@ -176,7 +178,7 @@ function Row({
 
       {takesRole(rule.kind) && (
         <Select
-          className="h-9"
+         
           aria-label="Role"
           value={rule.id ?? ''}
           onChange={(id) => onChange({ ...rule, id: id || undefined })}
@@ -192,7 +194,7 @@ function Row({
 
       {takesRank(rule.kind) && (
         <Select
-          className="h-9"
+         
           aria-label="Trust rank"
           value={rule.id ?? ''}
           onChange={(id) => onChange({ ...rule, id: id || undefined })}
@@ -209,7 +211,7 @@ function Row({
       {takesWindow(rule.kind) && (
         <>
           <Select
-            className="h-9"
+           
             aria-label="When it counts"
             value={rule.withinDays == null ? 'all' : 'window'}
             onChange={(choice) => onChange({ ...rule, withinDays: choice === 'all' ? null : (rule.withinDays ?? 30) })}
@@ -224,7 +226,7 @@ function Row({
                 type="number"
                 min={1}
                 max={3650}
-                className="h-9 max-w-24"
+                className="max-w-24"
                 value={rule.withinDays}
                 onChange={(e) => onChange({ ...rule, withinDays: Number(e.target.value) })}
               />

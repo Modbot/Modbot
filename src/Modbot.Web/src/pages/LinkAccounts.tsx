@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type LinkPageStatus } from '@/lib/api'
 import { Brand, ErrorText, Field, Note, WizardBody, WizardHeader } from './setup/WizardChrome'
@@ -88,9 +89,9 @@ export function LinkAccounts() {
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-6">
-      <div className="w-full max-w-[520px]">
+      <div className="w-full min-w-0 max-w-[520px]">
         <Brand />
-        <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
+        <Card>
           <WizardHeader eyebrow={status?.serverName ?? 'Discord'} title="Link your VRChat account" />
           <WizardBody>
             {!status ? (
@@ -122,7 +123,7 @@ export function LinkAccounts() {
               />
             )}
           </WizardBody>
-        </div>
+        </Card>
       </div>
     </div>
   )
@@ -205,10 +206,7 @@ function Steps({
         {showCode ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <code
-                className="rounded-md border bg-secondary px-3 py-2 font-mono text-[15px] font-semibold tracking-wide select-all"
-                style={{ borderWidth: 'var(--hairline)' }}
-              >
+              <code className="rounded-sm border border-(length:--hairline) bg-strip px-3 py-2 font-mono text-[15px] font-semibold select-all">
                 {pending.code}
               </code>
               <Button type="button" variant="outline" size="sm" onClick={() => onCopy(pending.code)}>
@@ -269,7 +267,7 @@ function Steps({
             {busy ? 'Checking…' : 'Check'}
           </Button>
           {pending.checksLeft !== null && (
-            <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {pending.checksLeft} {pending.checksLeft === 1 ? 'check' : 'checks'} left
             </span>
           )}
@@ -281,9 +279,9 @@ function Steps({
 
 function StepTitle({ done, children }: { done: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 font-medium">
+    <div className="flex items-center gap-2 font-label">
       <span
-        className={done ? 'size-2 rounded-full bg-primary' : 'size-2 rounded-full bg-secondary'}
+        className={done ? 'size-2 shrink-0 bg-primary' : 'size-2 shrink-0 border border-muted-foreground'}
         aria-hidden="true"
       />
       {children}

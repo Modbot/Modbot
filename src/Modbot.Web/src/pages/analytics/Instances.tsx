@@ -3,7 +3,8 @@ import { DailyBars, DailyLine, Heatmap, Legend, compactNumber, dateTime, longDay
 import { InstanceTable } from '@/components/InstanceTable'
 import { api, type HourOfWeek, type InstancePeaks } from '@/lib/api'
 import { InstanceActivityChart } from './InstanceActivityChart'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, Toggle } from './shared'
+import { PanelGrid } from '@/components/PanelGrid'
+import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -37,14 +38,14 @@ export function Instances() {
   const max = (points: { value: number }[]) => points.reduce((m, p) => Math.max(m, p.value), 0)
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />
 
       {!data && <PageMessage>Loading…</PageMessage>}
 
       {data && (
-        <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <PanelGrid className="grid-cols-1">
+          <StatStrip>
             <Stat label="Opened" value={compactNumber(sum(data.opened))} />
             <Stat label="Closed" value={compactNumber(sum(data.closed))} />
             <Stat
@@ -52,7 +53,7 @@ export function Instances() {
               value={data.typicalMinutesOpen === null ? '—' : minutes(data.typicalMinutesOpen)}
             />
             <Stat label="Most open at once" value={compactNumber(max(data.mostOpenAtOnce))} />
-          </div>
+          </StatStrip>
 
           <Peaks peaks={data.peaks} />
 
@@ -105,7 +106,7 @@ export function Instances() {
             )}
           </Panel>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel title="Opened and closed per day">
               <Legend items={[{ label: 'Opened', slot: 1 }, { label: 'Closed', slot: 2 }]} />
               <div className="mt-2">
@@ -127,9 +128,9 @@ export function Instances() {
                 series={[{ key: 'open', label: 'open at once', points: data.mostOpenAtOnce, slot: 4 }]}
               />
             </Panel>
-          </div>
+          </PanelGrid>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel title="Most people at once, per day">
               <DailyBars
                 from={data.from}
@@ -151,9 +152,9 @@ export function Instances() {
                 format={(v) => `${compactNumber(v)} h`}
               />
             </Panel>
-          </div>
+          </PanelGrid>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel title="Typical time open, per day">
               <DailyLine
                 from={data.from}
@@ -174,10 +175,10 @@ export function Instances() {
                 />
               )}
             </Panel>
-          </div>
+          </PanelGrid>
 
           <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
-        </>
+        </PanelGrid>
       )}
     </div>
   )
@@ -211,7 +212,7 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
         </PageMessage>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <StatStrip>
         <Stat
           label="Most people at once"
           value={peaks.mostPeopleAtOnce ? compactNumber(peaks.mostPeopleAtOnce.value) : '—'}
@@ -236,7 +237,7 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
           value={peaks.busiestHour ? minutes(peaks.busiestHour.peopleMinutes) : '—'}
           note={peaks.busiestHour ? dateTime(peaks.busiestHour.startedAt) : undefined}
         />
-      </div>
+      </StatStrip>
     </>
   )
 }

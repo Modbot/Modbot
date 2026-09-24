@@ -4,6 +4,8 @@ import { Check, ListFilter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
+import { SwitchBank } from '@/components/ui/switch-bank'
+import { EmptyRow } from '@/components/PanelGrid'
 import {
   operatorsFor,
   operatorWords,
@@ -75,7 +77,7 @@ export function FilterBar({
       />
 
       {chips.length > 0 && (
-        <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => onChange([])}>
+        <Button variant="ghost" onClick={() => onChange([])}>
           Clear
         </Button>
       )}
@@ -117,24 +119,20 @@ function Chip({
   }
 
   return (
-    <span
-      className="inline-flex h-7 items-stretch overflow-hidden rounded-md border bg-card"
-      style={{ borderWidth: 'var(--hairline)' }}
-    >
+    <span className="inline-flex h-(--control-h) items-stretch divide-x-(--hairline) overflow-hidden rounded-sm border border-(length:--hairline) bg-card">
       <span className="flex items-center px-2 text-muted-foreground">{property.label}</span>
 
       {operators.length > 1 && property.kind !== 'date' ? (
         <button
           type="button"
           onClick={nextOperator}
-          className="border-l px-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
-          style={{ borderLeftWidth: 'var(--hairline)' }}
+          className="px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label={`${property.label}: ${operatorWords(chip.operator, chip.values.length)}`}
         >
           {operatorWords(chip.operator, chip.values.length)}
         </button>
       ) : (
-        <span className="flex items-center border-l px-2 text-muted-foreground" style={{ borderLeftWidth: 'var(--hairline)' }}>
+        <span className="flex items-center px-2 text-muted-foreground">
           {operatorWords(chip.operator, chip.values.length)}
         </span>
       )}
@@ -144,8 +142,7 @@ function Chip({
           <Popover.Trigger asChild>
             <button
               type="button"
-              className="max-w-[20rem] truncate border-l px-2 font-medium hover:bg-secondary"
-              style={{ borderLeftWidth: 'var(--hairline)' }}
+              className="max-w-[20rem] truncate px-2 font-medium hover:bg-muted"
             >
               {shown || '…'}
             </button>
@@ -162,8 +159,7 @@ function Chip({
         type="button"
         onClick={onRemove}
         aria-label={`Remove the ${property.label} filter`}
-        className="border-l px-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
-        style={{ borderLeftWidth: 'var(--hairline)' }}
+        className="px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
       >
         <X className="size-3.5" />
       </button>
@@ -187,7 +183,7 @@ function AddFilter({
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>
-        <Button variant="outline" size="sm" className="h-7 gap-1.5 px-2">
+        <Button variant="outline">
           <ListFilter className="size-3.5" />
           Filter
           <Kbd keys="f" />
@@ -257,11 +253,10 @@ function AddPanel({
         }}
         placeholder="Filter by"
         aria-label="Filter by"
-        className="h-8 w-full border-b bg-transparent px-2 outline-none placeholder:text-muted-foreground"
-        style={{ borderBottomWidth: 'var(--hairline)' }}
+        className="h-(--control-h) w-full border-b border-b-(length:--hairline) bg-transparent px-2 outline-none placeholder:text-muted-foreground"
       />
       <div className="max-h-72 overflow-auto py-1">
-        {matching.length === 0 && <div className="px-2 py-2 text-muted-foreground">Nothing matches</div>}
+        {matching.length === 0 && <EmptyRow className="px-2">Nothing matches</EmptyRow>}
         {matching.map((p, i) => (
           <Row key={p.id} active={i === at} onClick={() => setPicked(p)} onHover={() => setCursor(i)}>
             {p.label}
@@ -339,9 +334,9 @@ function ValueEditor({
             }}
             placeholder={property.placeholder}
             aria-label={property.label}
-            className="h-8 w-64"
+            className="w-64"
           />
-          <Button size="sm" className="h-8" onClick={apply}>
+          <Button onClick={apply}>
             Apply
           </Button>
         </div>
@@ -363,9 +358,9 @@ function ValueEditor({
       <Panel>
         <div className="grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 p-2">
           <span className="text-muted-foreground">From</span>
-          <Input type="date" value={from} onChange={(e) => set(e.target.value, to)} aria-label={`${property.label} from`} className="h-8" autoFocus />
+          <Input type="date" value={from} onChange={(e) => set(e.target.value, to)} aria-label={`${property.label} from`} autoFocus />
           <span className="text-muted-foreground">To</span>
-          <Input type="date" value={to} onChange={(e) => set(from, e.target.value)} aria-label={`${property.label} to`} className="h-8" />
+          <Input type="date" value={to} onChange={(e) => set(from, e.target.value)} aria-label={`${property.label} to`} />
         </div>
       </Panel>
     )
@@ -394,20 +389,13 @@ function ValueEditor({
   return (
     <Panel>
       {operators.length > 1 && (
-        <div className="flex gap-1 border-b p-1" style={{ borderBottomWidth: 'var(--hairline)' }}>
-          {operators.map((o) => (
-            <button
-              key={o}
-              type="button"
-              onClick={() => setOperator(o)}
-              className={cn(
-                'rounded px-2 py-0.5',
-                operator === o ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {operatorWords(o, 2)}
-            </button>
-          ))}
+        <div className="border-b border-b-(length:--hairline) bg-strip p-1">
+          <SwitchBank
+            size="sm"
+            value={operator}
+            onChange={setOperator}
+            options={operators.map((o) => ({ value: o, label: operatorWords(o, 2) }))}
+          />
         </div>
       )}
 
@@ -433,23 +421,22 @@ function ValueEditor({
           }}
           placeholder={property.placeholder ?? property.label}
           aria-label={property.label}
-          className="h-8 w-full border-b bg-transparent px-2 outline-none placeholder:text-muted-foreground"
-          style={{ borderBottomWidth: 'var(--hairline)' }}
+          className="h-(--control-h) w-full border-b border-b-(length:--hairline) bg-transparent px-2 outline-none placeholder:text-muted-foreground"
         />
       )}
 
       <div className="max-h-72 overflow-auto py-1">
-        {rows.length === 0 && <div className="px-2 py-2 text-muted-foreground">Nothing matches</div>}
+        {rows.length === 0 && <EmptyRow className="px-2">Nothing matches</EmptyRow>}
         {rows.map((o, i) => {
           const on = values.includes(o.value)
           return (
             <Row key={o.value} active={i === at} onClick={() => toggle(o.value)} onHover={() => setCursor(i)} role="menuitemcheckbox" checked={on}>
-              <span className={cn('flex size-4 shrink-0 items-center justify-center rounded border', on && 'border-transparent bg-primary text-primary-foreground')} style={{ borderWidth: 'var(--hairline)' }}>
+              <span className={cn('flex size-4 shrink-0 items-center justify-center rounded-sm border border-(length:--hairline)', on && 'border-transparent bg-primary text-primary-foreground')}>
                 {on && <Check className="size-3" />}
               </span>
-              {o.color && <span className="size-2 shrink-0 rounded-full" style={{ background: o.color }} />}
+              {o.color && <span aria-hidden className="size-2 shrink-0" style={{ background: o.color }} />}
               <span className="min-w-0 flex-1 truncate">{o.label}</span>
-              {typeof o.count === 'number' && <span className="tabular-nums text-muted-foreground">{o.count.toLocaleString()}</span>}
+              {typeof o.count === 'number' && <span className="font-mono text-muted-foreground">{o.count.toLocaleString()}</span>}
             </Row>
           )
         })}
@@ -463,8 +450,8 @@ function ValueEditor({
 function Panel({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="w-72 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+      className="w-72 overflow-hidden rounded-sm border border-(length:--hairline) bg-popover text-popover-foreground shadow-sm"
+      style={{ fontSize: 'var(--text-small)' }}
     >
       {children}
     </div>
@@ -501,8 +488,8 @@ function Row({
       onClick={onClick}
       onMouseEnter={onHover}
       className={cn(
-        'flex w-full items-center gap-2 px-2 py-1.5 text-left',
-        active ? 'bg-accent text-accent-foreground' : 'hover:bg-secondary',
+        'flex min-h-(--control-h) w-full items-center gap-2 px-2 py-1 text-left',
+        active ? 'bg-accent text-accent-foreground' : 'hover:bg-muted',
       )}
     >
       {children}

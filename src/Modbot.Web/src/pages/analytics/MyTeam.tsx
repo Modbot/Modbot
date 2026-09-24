@@ -2,7 +2,9 @@ import { useCallback, useState } from 'react'
 import { DailyBars, RankedList, compactNumber, dateTime, minutes } from '@/components/charts'
 import { WorldLink } from '@/components/facts'
 import { api, type CoverageGap } from '@/lib/api'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, Toggle } from './shared'
+import { PanelGrid } from '@/components/PanelGrid'
+import { Button } from '@/components/ui/button'
+import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Toggle, Tr } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
 /**
@@ -32,14 +34,14 @@ export function MyTeam({
   const name = (p: { id: string; name: string | null }) => p.name ?? p.id
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />
 
       {!data && <PageMessage>Loading…</PageMessage>}
 
       {data && (
-        <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <PanelGrid className="grid-cols-1">
+          <StatStrip>
             <Stat label="Moderators active" value={compactNumber(data.moderators.length)} />
             <Stat label="Actions" value={compactNumber(totalActions)} />
             <Stat label="Coverage gaps" value={compactNumber(data.coverageGaps.length)} />
@@ -48,10 +50,11 @@ export function MyTeam({
               value={compactNumber(data.instancesOpenedWithoutAnyWatch)}
               note={`of ${compactNumber(data.instancesOpenedWithoutAnyWatch + data.instancesWatched)} opened`}
             />
-          </div>
+          </StatStrip>
 
           <Panel
             title="Coverage gaps"
+            flush={shownGaps.length > 0}
             right={
               <Toggle
                 value={minPeople}
@@ -72,88 +75,80 @@ export function MyTeam({
             ) : shownGaps.length === 0 ? (
               <Nothing>No gaps with that many people.</Nothing>
             ) : (
-              <div data-pin-first className="relative overflow-x-auto">
-                <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                  <thead className="text-left text-muted-foreground">
-                    <tr>
-                      <th className="py-1 pr-3 font-medium">Began</th>
-                      <th className="py-1 pr-3 font-medium">Lasted</th>
-                      <th className="py-1 pr-3 text-right font-medium">People left behind</th>
-                      <th className="py-1 pr-3 font-medium">Last moderator out</th>
-                      <th className="py-1 pr-3 font-medium">Ended because</th>
-                      <th className="py-1 font-medium">Instance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...shownGaps].reverse().map((g) => (
-                      <GapRow key={`${g.worldId}:${g.instanceId}:${g.startedAt}`} gap={g} onOpenSubject={onOpenSubject} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table
+                pinFirst
+                head={
+                  <>
+                    <Th>Began</Th>
+                    <Th>Lasted</Th>
+                    <Th className="text-right">People left behind</Th>
+                    <Th>Last moderator out</Th>
+                    <Th>Ended because</Th>
+                    <Th>Instance</Th>
+                  </>
+                }
+              >
+                {[...shownGaps].reverse().map((g) => (
+                  <GapRow key={`${g.worldId}:${g.instanceId}:${g.startedAt}`} gap={g} onOpenSubject={onOpenSubject} />
+                ))}
+              </Table>
             )}
           </Panel>
 
           <Panel
             title="Actions per moderator"
+            flush={data.moderators.length > 0}
             right={
               onOpenReviews && (
-                <button
-                  type="button"
-                  className="rounded-md border px-2 font-medium text-muted-foreground hover:text-foreground"
-                  style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)', height: 'calc(var(--control-h) - 8px)' }}
-                  onClick={onOpenReviews}
-                >
+                <Button variant="outline" size="xs" onClick={onOpenReviews}>
                   Reviews of unusual patterns →
-                </button>
+                </Button>
               )
             }
           >
             {data.moderators.length === 0 ? (
               <Nothing>No moderation actions recorded in this range.</Nothing>
             ) : (
-              <div data-pin-first className="relative overflow-x-auto">
-                <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                  <thead className="text-left text-muted-foreground">
-                    <tr>
-                      <th className="py-1 pr-3 font-medium">Moderator</th>
-                      <th className="py-1 pr-3 text-right font-medium">Total</th>
-                      {data.kinds.map((k) => (
-                        <th key={k.metric} className="py-1 pr-3 text-right font-medium">
-                          {k.label}
-                        </th>
-                      ))}
-                      <th className="py-1 font-medium">Last active</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.moderators.map((m) => (
-                      <tr key={`${m.who.platform}:${m.who.id}`} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-                        <td className="py-1 pr-3">
-                          {onOpenSubject ? (
-                            <button type="button" className="font-medium hover:underline" onClick={() => onOpenSubject(m.who.id)}>
-                              {name(m.who)}
-                            </button>
-                          ) : (
-                            <span className="font-medium">{name(m.who)}</span>
-                          )}
-                        </td>
-                        <td className="py-1 pr-3 text-right font-medium tabular-nums">{compactNumber(m.total)}</td>
-                        {data.kinds.map((k) => (
-                          <td key={k.metric} className="py-1 pr-3 text-right tabular-nums text-muted-foreground">
-                            {m.byKind[k.metric] ? compactNumber(m.byKind[k.metric]) : '·'}
-                          </td>
-                        ))}
-                        <td className="py-1 text-muted-foreground">{m.lastActiveDay ?? '—'}</td>
-                      </tr>
+              <Table
+                pinFirst
+                head={
+                  <>
+                    <Th>Moderator</Th>
+                    <Th className="text-right">Total</Th>
+                    {data.kinds.map((k) => (
+                      <Th key={k.metric} className="text-right">
+                        {k.label}
+                      </Th>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                    <Th>Last active</Th>
+                  </>
+                }
+              >
+                {data.moderators.map((m) => (
+                  <Tr key={`${m.who.platform}:${m.who.id}`}>
+                    <Td className="whitespace-nowrap">
+                      {onOpenSubject ? (
+                        <button type="button" className="font-medium hover:underline" onClick={() => onOpenSubject(m.who.id)}>
+                          {name(m.who)}
+                        </button>
+                      ) : (
+                        <span className="font-medium">{name(m.who)}</span>
+                      )}
+                    </Td>
+                    <Td className="text-right font-mono font-medium">{compactNumber(m.total)}</Td>
+                    {data.kinds.map((k) => (
+                      <Td key={k.metric} className="text-right font-mono text-muted-foreground">
+                        {m.byKind[k.metric] ? compactNumber(m.byKind[k.metric]) : '·'}
+                      </Td>
+                    ))}
+                    <Td className="font-mono text-muted-foreground">{m.lastActiveDay ?? '—'}</Td>
+                  </Tr>
+                ))}
+              </Table>
             )}
           </Panel>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel title="Actions per day">
               <DailyBars
                 from={data.from}
@@ -175,10 +170,10 @@ export function MyTeam({
                 />
               )}
             </Panel>
-          </div>
+          </PanelGrid>
 
           <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
-        </>
+        </PanelGrid>
       )}
     </div>
   )
@@ -197,11 +192,11 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
         : 'nothing more was reported'
 
   return (
-    <tr className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-      <td className="py-1 pr-3 whitespace-nowrap">{dateTime(gap.startedAt)}</td>
-      <td className="py-1 pr-3 whitespace-nowrap">{lasted}</td>
-      <td className="py-1 pr-3 text-right font-medium tabular-nums">{gap.peopleWhenLastModeratorLeft}</td>
-      <td className="py-1 pr-3">
+    <Tr>
+      <Td className="font-mono whitespace-nowrap">{dateTime(gap.startedAt)}</Td>
+      <Td className="font-mono whitespace-nowrap">{lasted}</Td>
+      <Td className="text-right font-mono font-medium">{gap.peopleWhenLastModeratorLeft}</Td>
+      <Td>
         {gap.lastModerator ? (
           onOpenSubject ? (
             <button type="button" className="hover:underline" onClick={() => onOpenSubject(gap.lastModerator!.id)}>
@@ -213,16 +208,16 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
         ) : (
           <span className="text-muted-foreground">a client stopped reporting</span>
         )}
-      </td>
-      <td className="py-1 pr-3 text-muted-foreground">{endedBecause}</td>
+      </Td>
+      <Td className="text-muted-foreground">{endedBecause}</Td>
       {/* Instance ids are user-controlled text (spec 5.3): rendered as text, never as markup. */}
-      <td className="py-1 text-muted-foreground" title={`${gap.worldId}:${gap.instanceId}`}>
+      <Td className="text-muted-foreground" title={`${gap.worldId}:${gap.instanceId}`}>
         {/* The world opens its popup. The gap carries no world name, so the id is the label rather
             than a "not read yet" nobody checked. */}
         <span className="inline-block max-w-56 truncate align-bottom">
           <WorldLink id={gap.worldId} unnamed="id" /> <span className="font-mono">#{gap.instanceId}</span>
         </span>
-      </td>
-    </tr>
+      </Td>
+    </Tr>
   )
 }

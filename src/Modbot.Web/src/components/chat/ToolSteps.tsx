@@ -3,6 +3,7 @@ import { AlertCircle, Check, ChevronRight, Loader2 } from 'lucide-react'
 import { SourceChip } from '@/components/chat/Sources'
 import { uniqueSources } from '@/components/chat/sourceLinks'
 import { JsonView } from '@/components/JsonView'
+import { Badge } from '@/components/ui/badge'
 import type { ChatMessage, ChatReference, ChatToolCall } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -35,7 +36,7 @@ export function ToolSteps({ steps }: { steps: readonly ToolStep[] }) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 self-start rounded-md px-1.5 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        className="flex items-center gap-1.5 self-start rounded-sm px-1.5 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         style={{ fontSize: 'var(--text-small)' }}
       >
         <ChevronRight className={cn('size-3.5 transition-transform motion-reduce:transition-none', open && 'rotate-90')} />
@@ -44,7 +45,7 @@ export function ToolSteps({ steps }: { steps: readonly ToolStep[] }) {
       </button>
 
       {open && (
-        <div className="ml-3 flex flex-col gap-1 border-l pl-3" style={{ borderLeftWidth: 'var(--hairline)' }}>
+        <div className="ml-3 flex flex-col gap-1 border-l border-l-(length:--hairline) pl-3">
           {steps.map((step) => (
             <Step key={step.call.id} step={step} />
           ))}
@@ -68,7 +69,7 @@ function Step({ step }: { step: ToolStep }) {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'flex items-center gap-1.5 self-start rounded-md px-1.5 py-1 transition-colors hover:bg-accent hover:text-accent-foreground',
+          'flex items-center gap-1.5 self-start rounded-sm px-1.5 py-1 transition-colors hover:bg-muted hover:text-foreground',
           failed ? 'text-destructive' : 'text-muted-foreground',
         )}
         style={{ fontSize: 'var(--text-small)' }}
@@ -81,8 +82,8 @@ function Step({ step }: { step: ToolStep }) {
 
       {open && (
         <div
-          className="ml-3 flex flex-col gap-2 rounded-xl border bg-muted/40 p-2.5"
-          style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+          className="ml-3 flex flex-col gap-2 border border-(length:--hairline) bg-strip p-(--panel-pad)"
+          style={{ fontSize: 'var(--text-small)' }}
         >
           <Facts heading="Asked for" json={call.arguments} />
 
@@ -104,7 +105,7 @@ function Step({ step }: { step: ToolStep }) {
                 >
                   {raw ? 'Summary' : 'Raw'}
                 </button>
-                {result.durationMs !== null && <span>{took(result.durationMs)}</span>}
+                {result.durationMs !== null && <span className="font-mono">{took(result.durationMs)}</span>}
               </div>
             </>
           )}
@@ -132,14 +133,11 @@ function References({ references }: { references: readonly ChatReference[] }) {
         <SourceChip key={`${r.kind}:${r.id}`} reference={r} />
       ))}
       {!all && sources.length > shown.length && (
-        <button
-          type="button"
-          onClick={() => setAll(true)}
-          className="rounded-full border px-2.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          style={{ borderWidth: 'var(--hairline)' }}
-        >
-          +{sources.length - shown.length}
-        </button>
+        <Badge variant="outline" asChild className="font-mono hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => setAll(true)}>
+            +{sources.length - shown.length}
+          </button>
+        </Badge>
       )}
     </div>
   )
@@ -168,7 +166,7 @@ function Value({ value }: { value: unknown }) {
       <div className="flex flex-col gap-0.5">
         <span>{value.length === 1 ? '1 item' : `${value.length} items`}</span>
         {value.slice(0, 5).map((item, index) => (
-          <div key={index} className="border-l pl-2" style={{ borderLeftWidth: 'var(--hairline)' }}>
+          <div key={index} className="border-l border-l-(length:--hairline) pl-2">
             <Value value={item} />
           </div>
         ))}

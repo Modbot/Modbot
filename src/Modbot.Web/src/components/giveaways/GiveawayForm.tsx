@@ -119,7 +119,7 @@ export function GiveawayForm({
               </Labelled>
               <Labelled label="Draw">
                 <Select
-                  className="h-9"
+                 
                   aria-label="Draw"
                   value={input.drawAt === null ? 'manual' : 'time'}
                   onChange={(choice) => set('drawAt', choice === 'manual' ? null : input.closesAt)}
@@ -146,7 +146,7 @@ export function GiveawayForm({
             <div className="grid gap-3 sm:grid-cols-3">
               <Labelled label="How people enter">
                 <Select
-                  className="h-9"
+                 
                   aria-label="How people enter"
                   value={input.entryWay}
                   // Reacting needs something to react to, so picking it ticks the channel post and
@@ -221,7 +221,7 @@ export function GiveawayForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <Labelled label="Weighted by">
                 <Select
-                  className="h-9"
+                 
                   aria-label="Weighted by"
                   value={input.weighting}
                   onChange={(v) =>
@@ -315,20 +315,24 @@ function PreviewLine({ preview }: { preview: GiveawayPreview }) {
     )
   }
 
-  const count = preview.fromPolledData ? `about ${preview.inDraw}` : String(preview.inDraw)
-
   return (
     <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      {count} of {preview.total}
-      {preview.closeCalls > 0 && ` · ${preview.closeCalls} near the line`}
+      {preview.fromPolledData && 'about '}
+      <span className="font-mono">{preview.inDraw}</span> of <span className="font-mono">{preview.total}</span>
+      {preview.closeCalls > 0 && (
+        <>
+          {' · '}
+          <span className="font-mono">{preview.closeCalls}</span> near the line
+        </>
+      )}
     </span>
   )
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="flex flex-col gap-3 border-t pt-3" style={{ borderTopWidth: 'var(--hairline)' }}>
-      <legend className="pr-2 font-medium">{title}</legend>
+    <fieldset className="flex flex-col gap-3 border-t border-t-(length:--hairline) pt-3">
+      <legend className="pr-2 font-label">{title}</legend>
       {children}
     </fieldset>
   )

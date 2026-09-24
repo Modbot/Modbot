@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ReasonButtons } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
@@ -17,7 +19,6 @@ import {
 } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { confirmTitle, historyNote, mayAnswer, resultText, rowIsAnswered } from '@/lib/joinRequests'
-import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 const PAGE_SIZE = 50
@@ -100,109 +101,105 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          {error ? (
-            <div className="py-10 text-center text-muted-foreground">{error}</div>
-          ) : loading && !list ? (
-            <div className="py-10 text-center text-muted-foreground">Loading…</div>
-          ) : rows.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground">
-              <div className="font-medium text-foreground">Nobody is waiting</div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="text-muted-foreground">
-                  <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                    <th className="px-3 py-2 text-left font-normal">Person</th>
-                    <th className="px-3 py-2 text-left font-normal">Asked</th>
-                    <th className="px-3 py-2 text-left font-normal">History</th>
-                    {canAnswer && (
-                      <th className="px-3 py-2 text-left font-normal">
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr
-                      key={row.userId}
-                      className="border-b last:border-0 hover:bg-muted/40"
-                      style={{ borderBottomWidth: 'var(--hairline)' }}
-                    >
-                      <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                        <div className="flex items-center gap-2">
-                          {row.avatarThumbnailUrl ? (
-                            <img
-                              src={vrchatMedia(row.avatarThumbnailUrl)}
-                              alt=""
-                              className="size-7 shrink-0 rounded-full bg-muted object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="size-7 shrink-0 rounded-full bg-muted" />
-                          )}
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <SubjectLink id={row.userId} name={row.displayName} onOpen={onOpenSubject} />
-                              <TrustRankBadge rank={row.trustRank} />
-                            </div>
-                            {row.plainName && (
-                              <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
-                                {row.plainName}
-                              </div>
-                            )}
-                            {row.displayName && (
-                              <div
-                                className="truncate font-mono text-muted-foreground/70"
-                                style={{ fontSize: '0.6875rem' }}
-                              >
-                                {row.userId}
-                              </div>
-                            )}
+        {error ? (
+          <EmptyRow>{error}</EmptyRow>
+        ) : loading && !list ? (
+          <EmptyRow>Loading…</EmptyRow>
+        ) : rows.length === 0 ? (
+          <EmptyRow>Nobody is waiting</EmptyRow>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+              <thead className="bg-strip text-muted-foreground">
+                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Asked</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">History</th>
+                  {canAnswer && (
+                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr
+                    key={row.userId}
+                    className="border-b last:border-0 hover:bg-muted/40"
+                    style={{ borderBottomWidth: 'var(--hairline)' }}
+                  >
+                    <td className="px-3" style={{ height: 'var(--row-h)' }}>
+                      <div className="flex items-center gap-2">
+                        {row.avatarThumbnailUrl ? (
+                          <img
+                            src={vrchatMedia(row.avatarThumbnailUrl)}
+                            alt=""
+                            className="size-7 shrink-0 rounded-full bg-muted object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="size-7 shrink-0 rounded-full bg-muted" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <SubjectLink id={row.userId} name={row.displayName} onOpen={onOpenSubject} />
+                            <TrustRankBadge rank={row.trustRank} />
                           </div>
+                          {row.plainName && (
+                            <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                              {row.plainName}
+                            </div>
+                          )}
+                          {row.displayName && (
+                            <div
+                              className="truncate font-mono text-muted-foreground/70"
+                              style={{ fontSize: '0.6875rem' }}
+                            >
+                              {row.userId}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 whitespace-nowrap font-mono">
+                      {row.askedAt ? formatDay(row.askedAt) : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3">
+                      <HistoryMark row={row} />
+                    </td>
+                    {canAnswer && (
+                      <td className="px-3 text-right">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <Button size="xs" variant="ghost" onClick={() => setOpen({ answer: 'approve', row })}>
+                            Approve
+                          </Button>
+                          <Button size="xs" variant="outline" onClick={() => setOpen({ answer: 'reject', row })}>
+                            Reject
+                          </Button>
                         </div>
                       </td>
-                      <td className="px-3 tabular-nums">
-                        {row.askedAt ? formatDay(row.askedAt) : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-3">
-                        <HistoryMark row={row} />
-                      </td>
-                      {canAnswer && (
-                        <td className="px-3 text-right">
-                          <div className="flex flex-wrap items-center justify-end gap-1.5">
-                            <Button size="xs" variant="ghost" onClick={() => setOpen({ answer: 'approve', row })}>
-                              Approve
-                            </Button>
-                            <Button size="xs" variant="outline" onClick={() => setOpen({ answer: 'reject', row })}>
-                              Reject
-                            </Button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-          {list && (list.page > 1 || list.hasMore) && (
-            <div
-              className="flex items-center justify-end gap-2 border-t px-3 py-2"
-              style={{ borderTopWidth: 'var(--hairline)' }}
-            >
-              <Button size="sm" variant="outline" disabled={list.page <= 1} onClick={() => setPage((p) => p - 1)}>
-                Previous
-              </Button>
-              <Button size="sm" variant="outline" disabled={!list.hasMore} onClick={() => setPage((p) => p + 1)}>
-                Next
-              </Button>
-            </div>
-          )}
-        </CardContent>
+        {list && (list.page > 1 || list.hasMore) && (
+          <div
+            className="flex flex-wrap items-center gap-1 border-t bg-strip px-(--panel-pad) py-1.5"
+            style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+          >
+            <Button size="xs" variant="outline" disabled={list.page <= 1} onClick={() => setPage((p) => p - 1)}>
+              Previous
+            </Button>
+            <Button size="xs" variant="outline" disabled={!list.hasMore} onClick={() => setPage((p) => p + 1)}>
+              Next
+            </Button>
+          </div>
+        )}
       </Card>
 
       <Dialog open={open !== null} onOpenChange={(next) => !next && setOpen(null)}>
@@ -225,17 +222,7 @@ function HistoryMark({ row }: { row: JoinRequestRow }) {
 
   if (!note) return <span className="text-muted-foreground">—</span>
 
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full border px-2 py-0.5',
-        row.banned ? 'border-transparent bg-destructive/15 text-destructive' : 'text-muted-foreground',
-      )}
-      style={{ borderWidth: 'var(--hairline)' }}
-    >
-      {note}
-    </span>
-  )
+  return <Badge variant={row.banned ? 'destructive' : 'outline'}>{note}</Badge>
 }
 
 /**
@@ -315,8 +302,7 @@ function ConfirmAnswer({
                 <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
                   <span className="text-muted-foreground">Note (optional)</span>
                   <textarea
-                    className="w-full rounded-md border bg-background px-2 py-1"
-                    style={{ borderWidth: 'var(--hairline)' }}
+                    className="w-full rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 py-1 outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
                     rows={3}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}

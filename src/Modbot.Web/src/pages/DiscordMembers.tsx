@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { changesDiscordMembers } from '@/lib/liveRules'
 import { useLiveVersion } from '@/lib/useLiveVersion'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardHeader } from '@/components/ui/card'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { dateTime } from '@/components/charts'
@@ -157,26 +158,17 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
   const showLeft = filter.state !== 'in-server'
   const now = Date.parse(list.coverage.now)
+  const unread = list.coverage.guildId === null || list.coverage.listedAt === null
 
   return (
     <div className="flex flex-col gap-3">
-      {list.coverage.guildId === null ? (
-        <Warning>No Discord server set.</Warning>
-      ) : list.coverage.listedAt === null ? (
-        <Warning>The Discord member list has not been read yet.</Warning>
-      ) : (
-        <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Read {ago(list.coverage.listedAt, list.coverage.now)}. {list.coverage.inServer.toLocaleString()} in server.
-        </div>
-      )}
-
       <FilterBar properties={properties} chips={chips} onChange={setChips}>
         <Input
           ref={searchBox}
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           placeholder="Search by name or id"
-          className="h-7 w-56"
+          className="w-56"
           aria-label="Search Discord members"
         />
 
@@ -192,117 +184,124 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
           <option value="oldest">Oldest joiner first</option>
           <option value="name">By name</option>
         </Select>
-
-        <span className="text-muted-foreground">
-          {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
-        </span>
       </FilterBar>
 
       <Card>
-        <CardContent className="p-0">
-          {list.members.length === 0 ? (
-            <div className="py-10 text-center font-medium">
-              {search || chips.length > 0 ? 'Nobody matches' : 'Nobody listed yet'}
-            </div>
+        <CardHeader className={cn(unread && 'bg-warn/10')}>
+          {list.coverage.guildId === null ? (
+            <Warning>No Discord server set.</Warning>
+          ) : list.coverage.listedAt === null ? (
+            <Warning>The Discord member list has not been read yet.</Warning>
           ) : (
-            <div data-pin-first className="relative overflow-x-auto">
-              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="text-muted-foreground">
-                  <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
-                    <th className="px-3 py-2 text-left font-normal">Person</th>
-                    <th className="px-3 py-2 text-left font-normal">Username</th>
-                    <th className="px-3 py-2 text-left font-normal">Roles</th>
-                    <th className="px-3 py-2 text-left font-normal">Joined</th>
-                    {showLeft && <th className="px-3 py-2 text-left font-normal">Left</th>}
-                    <th className="px-3 py-2 text-left font-normal">Timed out until</th>
-                    {seesLinks && <th className="px-3 py-2 text-left font-normal">VRChat</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.members.map((m, i) => {
-                    const timedOut = m.timedOutUntil !== null && Date.parse(m.timedOutUntil) > now
+            <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              Read {ago(list.coverage.listedAt, list.coverage.now)}.{' '}
+              <span className="font-mono">{list.coverage.inServer.toLocaleString()}</span> in server.
+            </div>
+          )}
+          <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
+          </span>
+        </CardHeader>
+        {list.members.length === 0 ? (
+          <EmptyRow>{search || chips.length > 0 ? 'Nobody matches' : 'Nobody listed yet'}</EmptyRow>
+        ) : (
+          <div data-pin-first className="relative overflow-x-auto">
+            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+              <thead className="bg-strip text-muted-foreground">
+                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Username</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Roles</th>
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Joined</th>
+                  {showLeft && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Left</th>}
+                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Timed out until</th>
+                  {seesLinks && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">VRChat</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {list.members.map((m, i) => {
+                  const timedOut = m.timedOutUntil !== null && Date.parse(m.timedOutUntil) > now
 
-                    return (
-                      <tr
-                        key={m.userId}
-                        {...rowProps(i)}
-                        onClick={() => openDiscordPerson(m.userId)}
-                        className={cn(
-                          'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
-                          m.leftAt && 'text-muted-foreground',
+                  return (
+                    <tr
+                      key={m.userId}
+                      {...rowProps(i)}
+                      onClick={() => openDiscordPerson(m.userId)}
+                      className={cn(
+                        'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
+                        m.leftAt && 'text-muted-foreground',
+                      )}
+                      style={{ borderBottomWidth: 'var(--hairline)' }}
+                    >
+                      <td className="px-3" style={{ height: 'var(--row-h)' }}>
+                        <div className="flex items-center gap-2">
+                          <Avatar url={m.avatarUrl} />
+                          <div className="min-w-0">
+                            <button
+                              type="button"
+                              className="max-w-[18rem] truncate text-left font-medium hover:underline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openDiscordPerson(m.userId)
+                              }}
+                              title={m.userId}
+                            >
+                              {m.displayName}
+                            </button>
+                            {m.isBot && (
+                              <span className="ml-1.5 text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
+                                bot
+                              </span>
+                            )}
+                            {m.plainName && (
+                              <div className="max-w-[18rem] truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                                {m.plainName}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 text-muted-foreground">{m.username}</td>
+                      <td className="px-3">
+                        <div className="flex flex-wrap gap-1">
+                          {m.roles.map((r) => (
+                            <RoleChip key={r.id} id={r.id} name={r.name} color={r.color} />
+                          ))}
+                          {m.roles.length === 0 && <span className="text-muted-foreground">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 whitespace-nowrap font-mono">
+                        {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      {showLeft && <td className="px-3 whitespace-nowrap font-mono">{m.leftAt ? formatDay(m.leftAt) : ''}</td>}
+                      <td className="px-3 whitespace-nowrap font-mono">
+                        {timedOut && m.timedOutUntil ? (
+                          <span className="text-destructive">{dateTime(m.timedOutUntil)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
                         )}
-                        style={{ borderBottomWidth: 'var(--hairline)' }}
-                      >
-                        <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                          <div className="flex items-center gap-2">
-                            <Avatar url={m.avatarUrl} />
-                            <div className="min-w-0">
-                              <button
-                                type="button"
-                                className="max-w-[18rem] truncate text-left font-medium hover:underline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  openDiscordPerson(m.userId)
-                                }}
-                                title={m.userId}
-                              >
-                                {m.displayName}
-                              </button>
-                              {m.isBot && (
-                                <span className="ml-1.5 text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
-                                  bot
-                                </span>
-                              )}
-                              {m.plainName && (
-                                <div className="max-w-[18rem] truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
-                                  {m.plainName}
-                                </div>
-                              )}
+                      </td>
+                      {seesLinks && (
+                        <td className="px-3" onClick={(e) => e.stopPropagation()}>
+                          {m.linkedVRChat ? (
+                            <div className="flex items-center gap-2">
+                              <Avatar url={m.linkedVRChat.avatarUrl} className="size-6" />
+                              <SubjectLink id={m.linkedVRChat.userId} name={m.linkedVRChat.displayName} />
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-3 text-muted-foreground">{m.username}</td>
-                        <td className="px-3">
-                          <div className="flex flex-wrap gap-1">
-                            {m.roles.map((r) => (
-                              <RoleChip key={r.id} id={r.id} name={r.name} color={r.color} />
-                            ))}
-                            {m.roles.length === 0 && <span className="text-muted-foreground">—</span>}
-                          </div>
-                        </td>
-                        <td className="px-3 tabular-nums">
-                          {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
-                        </td>
-                        {showLeft && <td className="px-3 tabular-nums">{m.leftAt ? formatDay(m.leftAt) : ''}</td>}
-                        <td className="px-3 tabular-nums">
-                          {timedOut && m.timedOutUntil ? (
-                            <span className="text-destructive">{dateTime(m.timedOutUntil)}</span>
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>
-                        {seesLinks && (
-                          <td className="px-3" onClick={(e) => e.stopPropagation()}>
-                            {m.linkedVRChat ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar url={m.linkedVRChat.avatarUrl} className="size-6" />
-                                <SubjectLink id={m.linkedVRChat.userId} name={m.linkedVRChat.displayName} />
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-          <Pager at={at} pages={pages} />
-        </CardContent>
+        <Pager at={at} pages={pages} />
       </Card>
     </div>
   )
@@ -310,7 +309,8 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
 
 function Warning({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 font-medium" style={{ borderWidth: 'var(--hairline)' }}>
+    <div className="flex items-center gap-2 font-medium">
+      <span aria-hidden className="size-2 shrink-0 bg-warn" />
       {children}
     </div>
   )

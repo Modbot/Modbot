@@ -345,7 +345,7 @@ export function Chat({
     // `dvh`, and more taken off it on a phone: the bar at the foot of the screen stands over the
     // page, and a `26rem` floor is taller than what is left on a small phone, which pushed the
     // box somebody types in off the bottom.
-    <div className="flex h-[calc(100dvh-16rem)] min-h-[20rem] gap-4 lg:h-[calc(100dvh-11rem)] lg:min-h-[26rem]">
+    <div className="flex h-[calc(100dvh-16rem)] min-h-[20rem] gap-3 lg:h-[calc(100dvh-11rem)] lg:min-h-[26rem]">
       {sidebar && <nav aria-label="Conversations" className="hidden w-60 shrink-0 lg:block">{list}</nav>}
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -417,8 +417,8 @@ export function Chat({
                 setPinned(true)
                 bottom.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
               }}
-              className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 shadow-md hover:bg-accent hover:text-accent-foreground"
-              style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+              className="absolute bottom-3 left-1/2 flex h-(--control-h) -translate-x-1/2 items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input bg-card px-3 shadow-sm hover:bg-muted"
+              style={{ fontSize: 'var(--text-small)' }}
             >
               <ArrowDown className="size-3.5" />
               Jump to latest
@@ -454,7 +454,7 @@ export function Chat({
       <Dialog open={drawer} onOpenChange={setDrawer}>
         <DialogContent
           title="Conversations"
-          className="top-0 left-0 h-full max-w-[17rem] translate-x-0 translate-y-0 rounded-none rounded-r-xl"
+          className="top-0 left-0 h-full max-w-[17rem] translate-x-0 translate-y-0 rounded-none"
           bodyClassName="flex min-h-0 flex-1 flex-col px-3 py-3"
         >
           {list}
@@ -486,18 +486,18 @@ function Spend({ conversationId }: { conversationId: string }) {
         <Popover.Content
           align="end"
           sideOffset={4}
-          className="z-50 w-52 rounded-xl border bg-popover p-3 text-popover-foreground shadow-md"
+          className="z-50 w-52 rounded-sm border border-(length:--hairline) bg-popover p-(--panel-pad) text-popover-foreground shadow-sm"
           style={{ fontSize: 'var(--text-small)' }}
         >
           {spent ? (
             <dl className="flex flex-col gap-1">
               <div className="flex justify-between gap-2">
                 <dt className="text-muted-foreground">Cost</dt>
-                <dd>{spentText(spent)}</dd>
+                <dd className="font-mono">{spentText(spent)}</dd>
               </div>
               <div className="flex justify-between gap-2" title={tokensTitle(spent)}>
                 <dt className="text-muted-foreground">Tokens</dt>
-                <dd>{tokensText(spent)}</dd>
+                <dd className="font-mono">{tokensText(spent)}</dd>
               </div>
             </dl>
           ) : (
@@ -515,7 +515,7 @@ function Skeleton() {
       {[70, 45, 90, 60].map((width, index) => (
         <div
           key={index}
-          className={cn('h-4 animate-pulse rounded-md bg-muted motion-reduce:animate-none', index % 2 === 0 && 'ml-auto')}
+          className={cn('h-4 animate-pulse bg-muted motion-reduce:animate-none', index % 2 === 0 && 'ml-auto')}
           style={{ width: `${width}%` }}
         />
       ))}

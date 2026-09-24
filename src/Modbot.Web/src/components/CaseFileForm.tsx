@@ -36,26 +36,22 @@ export function ReasonButtons({
   return (
     <div role="group" aria-label="Reasons" className="flex flex-wrap gap-1.5">
       {reasons.map((reason) => (
-        <button
+        <Button
           key={reason.id}
           type="button"
+          size="xs"
+          variant="outline"
           aria-pressed={picked.includes(reason.id)}
           title={reason.description}
           onClick={() => toggle(reason.id)}
           className={cn(
-            'inline-flex items-center rounded-md border px-2.5 font-medium transition-colors',
             picked.includes(reason.id)
-              ? 'border-transparent bg-accent text-accent-foreground'
+              ? 'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
               : 'text-muted-foreground hover:text-foreground',
           )}
-          style={{
-            fontSize: 'var(--text-small)',
-            borderWidth: 'var(--hairline)',
-            height: 'calc(var(--control-h) - 6px)',
-          }}
         >
           {reason.label}
-        </button>
+        </Button>
       ))}
     </div>
   )
@@ -84,7 +80,7 @@ export function WrittenReasonBox({
         {requiredBy.length > 0 ? ' (required)' : ' (optional)'}
       </span>
       <textarea
-        className="w-full rounded-md border bg-background px-2 py-1 font-mono"
+        className="w-full rounded-sm border border-input bg-card px-2 py-1 font-mono outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
         style={{ borderWidth: 'var(--hairline)' }}
         rows={rows}
         value={value}

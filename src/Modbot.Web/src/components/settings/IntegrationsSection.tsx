@@ -135,12 +135,23 @@ function IntegrationsForm({
       .finally(() => setSaving(false))
   }
 
-  // One form around the card and its Save row. `contents` keeps the
-  // form element out of the layout so the cards stay direct children of the grid. A blank password
+  // The form sits inside the card, so the card stays a direct child of the grid, and the Save on
+  // the footer reaches it by id. `contents` keeps the form out of the card's layout. A blank password
   // field is left out, so opening this page and pressing Save never clears a stored one.
   return (
-    <form onSubmit={save} className="contents">
-      <SettingsCard title="Email (SMTP)">
+    <SettingsCard
+      title="Email (SMTP)"
+      footer={
+        <>
+          <Button type="submit" form="integrations-form" size="sm" disabled={saving}>
+            {saving ? 'Saving…' : 'Save integrations'}
+          </Button>
+          <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
+          <Outcome tone="problem">{error}</Outcome>
+        </>
+      }
+    >
+      <form id="integrations-form" onSubmit={save} className="contents">
         <Fact
           label="Relay"
           value={
@@ -164,13 +175,12 @@ function IntegrationsForm({
         <Checkbox checked={useTls} onChange={setUseTls}>
           Use TLS
         </Checkbox>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[16rem]">
             <Field label="Send a test message to" value={testTo} onChange={setTestTo} placeholder="you@example.com" />
           </div>
           <Button
             type="button"
-            size="sm"
             variant="outline"
             disabled={testing || !testTo.trim() || !status.integrations.smtpConfigured}
             onClick={sendTest}
@@ -182,7 +192,7 @@ function IntegrationsForm({
           <Outcome tone="problem">{testResult && !testResult.sent && !testResult.queued ? testResult.error : null}</Outcome>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        <div className="grid items-end gap-3 sm:grid-cols-4">
           <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
             <span className="text-muted-foreground">Email limit per 24 hours</span>
             <Input
@@ -205,21 +215,13 @@ function IntegrationsForm({
         </div>
 
         {email && email.emails.length > 0 && <EmailQueueTable email={email} />}
-      </SettingsCard>
-
-      <div className="col-span-12 flex flex-wrap items-center gap-3">
-        <Button type="submit" size="sm" disabled={saving}>
-          {saving ? 'Saving…' : 'Save integrations'}
-        </Button>
-        <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
-        <Outcome tone="problem">{error}</Outcome>
-      </div>
-    </form>
+      </form>
+    </SettingsCard>
   )
 }
 
-const cellClass = 'py-1 pr-3 align-top'
-const headClass = 'py-1 pr-3 font-normal'
+const cellClass = 'px-(--panel-pad) py-1 align-top'
+const headClass = 'px-(--panel-pad) py-1.5 font-normal whitespace-nowrap'
 
 const when = (iso: string) => new Date(iso).toLocaleString()
 
@@ -234,9 +236,10 @@ const STATE_LABEL: Record<string, string> = {
 
 function EmailQueueTable({ email }: { email: EmailSettings }) {
   return (
-    <div className="relative mt-4 overflow-x-auto">
+    // Out to the panel's edges and down to its footer, the way a table sits in any panel.
+    <div className="relative -mx-(--panel-pad) -mb-(--panel-pad) overflow-x-auto border-t border-t-(length:--hairline)">
       <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-        <thead className="text-left text-muted-foreground">
+        <thead className="bg-strip text-left text-muted-foreground">
           <tr>
             <th className={headClass}>Recipient</th>
             <th className={headClass}>Kind</th>
@@ -246,12 +249,12 @@ function EmailQueueTable({ email }: { email: EmailSettings }) {
         </thead>
         <tbody>
           {email.emails.map((row) => (
-            <tr key={row.id}>
+            <tr key={row.id} className="h-(--row-h) border-t border-t-(length:--hairline)">
               <td className={cn(cellClass, 'max-w-[16rem] truncate')} title={row.to}>
                 {row.to}
               </td>
               <td className={cn(cellClass, 'whitespace-nowrap')}>{row.kind === 'account' ? 'Account' : 'Other'}</td>
-              <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>{when(row.queuedAt)}</td>
+              <td className={cn(cellClass, 'whitespace-nowrap font-mono tabular-nums')}>{when(row.queuedAt)}</td>
               <td className={cn(cellClass, row.state === 'failed' && 'text-destructive')}>
                 {STATE_LABEL[row.state] ?? row.state}
                 {row.state === 'failed' && row.error ? `: ${row.error}` : null}

@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { CodeBlock } from '@/components/CodeBlock'
 import { api, ApiError, type McpConnection, type McpSettings as Settings } from '@/lib/api'
 import { CopyBox } from '@/pages/Users'
+import { cn } from '@/lib/utils'
 import { failure, when } from '../api/shared'
 import { Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+
+/** Runs the card's content to its edges, so a table or a row of panels meets the card's sides. */
+const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
+const headClass = 'h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap'
+const cellClass = 'px-(--panel-pad) py-1.5'
 
 /**
  * Settings → AI → MCP (MCP server design): the switch and the address, the connected apps, and
@@ -132,31 +139,31 @@ function ConnectionsCard() {
   }
 
   return (
-    <SettingsCard title="Connected apps">
+    <SettingsCard title="Connected apps" className={FLUSH}>
       {connections === null ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <EmptyRow>Loading…</EmptyRow>
       ) : connections.length === 0 ? (
-        <p className="text-muted-foreground">None.</p>
+        <EmptyRow>None.</EmptyRow>
       ) : (
         <div className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="py-1 pr-3 font-normal">App</th>
-                <th className="py-1 pr-3 font-normal">Connected</th>
-                <th className="py-1 pr-3 font-normal">Last used</th>
-                <th className="py-1 pr-3 font-normal">Expires</th>
-                <th />
+            <thead className="bg-strip text-left text-muted-foreground">
+              <tr className="border-b border-b-(length:--hairline)">
+                <th className={headClass}>App</th>
+                <th className={headClass}>Connected</th>
+                <th className={headClass}>Last used</th>
+                <th className={headClass}>Expires</th>
+                <th className={headClass} />
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {connections.map((c) => (
-                <tr key={c.id}>
-                  <td className="py-2 pr-3 font-medium">{c.clientName}</td>
-                  <td className="py-2 pr-3">{when(c.connectedAt)}</td>
-                  <td className="py-2 pr-3">{c.lastUsedAt ? when(c.lastUsedAt) : 'Never'}</td>
-                  <td className="py-2 pr-3">{when(c.expiresAt)}</td>
-                  <td className="py-2 text-right">
+                <tr key={c.id} className="border-b border-b-(length:--hairline) last:border-0">
+                  <td className={cn(cellClass, 'font-medium')}>{c.clientName}</td>
+                  <td className={cn(cellClass, 'font-mono')}>{when(c.connectedAt)}</td>
+                  <td className={cn(cellClass, c.lastUsedAt && 'font-mono')}>{c.lastUsedAt ? when(c.lastUsedAt) : 'Never'}</td>
+                  <td className={cn(cellClass, 'font-mono')}>{when(c.expiresAt)}</td>
+                  <td className={cn(cellClass, 'text-right')}>
                     <Button size="xs" variant="ghost" onClick={() => disconnect(c.id)}>
                       Disconnect
                     </Button>
@@ -167,7 +174,11 @@ function ConnectionsCard() {
           </table>
         </div>
       )}
-      <Outcome tone="problem">{problem}</Outcome>
+      {problem && (
+        <div className="p-(--panel-pad)">
+          <Outcome tone="problem">{problem}</Outcome>
+        </div>
+      )}
     </SettingsCard>
   )
 }
@@ -185,10 +196,10 @@ const HOSTED = [
 
 function HostedAppsCard({ serverUrl }: { serverUrl: string }) {
   return (
-    <SettingsCard title="Chat apps" span={12}>
-      <div className="grid gap-4 md:grid-cols-2">
+    <SettingsCard title="Chat apps" span={12} className={FLUSH}>
+      <PanelGrid className="m-0 md:grid-cols-2">
         {HOSTED.map((app) => (
-          <div key={app.name} className="flex flex-col gap-2 rounded-xl border p-4" style={{ borderWidth: 'var(--hairline)' }}>
+          <div key={app.name} className="flex flex-col gap-2 p-(--panel-pad)">
             <div className="flex items-center justify-between gap-3">
               <span className="font-medium">{app.name}</span>
               {app.open ? (
@@ -206,7 +217,7 @@ function HostedAppsCard({ serverUrl }: { serverUrl: string }) {
             {app.open && <CopyBox text={serverUrl} />}
           </div>
         ))}
-      </div>
+      </PanelGrid>
     </SettingsCard>
   )
 }
@@ -243,7 +254,7 @@ function LocalAppsCard({ settings }: { settings: Settings }) {
       title="Local apps"
       span={12}
       action={
-        <Button size="sm" disabled={busy} onClick={createKey}>
+        <Button size="xs" disabled={busy} onClick={createKey}>
           {busy ? 'Creating…' : 'Create key'}
         </Button>
       }

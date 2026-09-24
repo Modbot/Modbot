@@ -99,7 +99,7 @@ function Question({
   return (
     <div className="group/turn ml-auto flex max-w-[85%] flex-col items-end gap-1">
       <div
-        className="rounded-xl bg-secondary px-3.5 py-2.5 whitespace-pre-wrap"
+        className="rounded-sm border border-(length:--hairline) bg-strip px-3 py-2 whitespace-pre-wrap"
         title={when(message.createdAt)}
       >
         {message.content}
@@ -137,8 +137,7 @@ function Editor({
         value={draft}
         maxLength={4000}
         onChange={(e) => setDraft(e.target.value)}
-        className="min-h-20 w-full resize-none rounded-xl border bg-card p-3 text-base outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 md:text-sm"
-        style={{ borderWidth: 'var(--hairline)' }}
+        className="min-h-20 w-full resize-none rounded-sm border border-(length:--hairline) border-input bg-card p-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
       />
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onCancel}>
@@ -200,7 +199,7 @@ function Reply({
             <RotateCcw className="size-3.5" />
           </Action>
         )}
-        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {when(first.createdAt)}
         </span>
       </Actions>
@@ -215,7 +214,7 @@ function Writing({ text, stopped }: { text: string; stopped: boolean }) {
       {text ? (
         <Answer text={text} references={[]} />
       ) : (
-        <span className="inline-block size-2.5 animate-pulse rounded-full bg-muted-foreground motion-reduce:animate-none" />
+        <span className="inline-block size-2 animate-pulse bg-muted-foreground motion-reduce:animate-none" />
       )}
       {stopped && (
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -254,7 +253,7 @@ function Action({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
     >
       {children}
     </button>
@@ -286,13 +285,13 @@ function Versions({ message, onReadVersion }: { message: ChatMessage; onReadVers
   const at = message.versions.indexOf(message.id)
 
   return (
-    <span className="flex items-center gap-0.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+    <span className="flex items-center gap-0.5 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
       <button
         type="button"
         aria-label="Previous version"
         disabled={at <= 0}
         onClick={() => onReadVersion(message.versions[at - 1])}
-        className="rounded-md p-0.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
+        className="rounded-sm p-0.5 hover:bg-muted hover:text-foreground disabled:opacity-40"
       >
         <ChevronLeft className="size-3.5" />
       </button>
@@ -302,7 +301,7 @@ function Versions({ message, onReadVersion }: { message: ChatMessage; onReadVers
         aria-label="Next version"
         disabled={at < 0 || at >= message.versions.length - 1}
         onClick={() => onReadVersion(message.versions[at + 1])}
-        className="rounded-md p-0.5 hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
+        className="rounded-sm p-0.5 hover:bg-muted hover:text-foreground disabled:opacity-40"
       >
         <ChevronRight className="size-3.5" />
       </button>

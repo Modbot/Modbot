@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { api, type Showcase, type ShowcasePerson } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
@@ -33,7 +36,7 @@ export function People() {
   if (!showcase) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent>
+        <EmptyRow>Loading…</EmptyRow>
       </Card>
     )
   }
@@ -46,66 +49,70 @@ export function People() {
   if (empty) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">Nothing to show.</CardContent>
+        <EmptyRow>Nothing to show.</EmptyRow>
       </Card>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <PanelGrid className="grid-cols-1">
       {showcase.sponsors.length > 0 && <PeopleCard title="Sponsors" people={showcase.sponsors} />}
       {showcase.earlyAdopters.length > 0 && (
         <PeopleCard title="Early adopters" people={showcase.earlyAdopters} />
       )}
 
       {showcase.contributors.length > 0 && (
-        <Card className="gap-3 py-4">
-          <CardContent className="flex flex-col gap-3 px-4 sm:px-5">
-            <h2 className="font-medium">Contributors</h2>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Contributors</h2>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <ul className="flex flex-wrap gap-2">
               {showcase.contributors.map((person) => (
                 <li key={person.login}>
-                  <a
-                    href={person.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 rounded-full border px-2.5 py-1 hover:bg-muted/50"
-                    style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-                  >
-                    {person.avatarUrl && (
-                      <img
-                        src={vrchatMedia(person.avatarUrl)}
-                        alt=""
-                        loading="lazy"
-                        className="size-5 rounded-full"
-                        referrerPolicy="no-referrer"
-                      />
-                    )}
-                    {person.login}
-                  </a>
+                  <Badge asChild variant="outline" className={cn('gap-2 py-0.5 text-foreground', person.avatarUrl && 'pl-1')}>
+                    <a href={person.url} target="_blank" rel="noreferrer">
+                      {person.avatarUrl && (
+                        <img
+                          src={vrchatMedia(person.avatarUrl)}
+                          alt=""
+                          loading="lazy"
+                          className="size-5 rounded-full"
+                          referrerPolicy="no-referrer"
+                        />
+                      )}
+                      {person.login}
+                    </a>
+                  </Badge>
                 </li>
               ))}
             </ul>
           </CardContent>
         </Card>
       )}
-    </div>
+    </PanelGrid>
   )
 }
 
 function PeopleCard({ title, people }: { title: string; people: ShowcasePerson[] }) {
   return (
-    <Card className="gap-3 py-4">
-      <CardContent className="flex flex-col gap-3 px-4 sm:px-5">
-        <h2 className="font-medium">{title}</h2>
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {people.map((person) => (
-            <li key={`${person.name}-${person.vrChatGroupId ?? person.link}`}>
-              <Person person={person} />
-            </li>
-          ))}
-        </ul>
-      </CardContent>
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>{title}</h2>
+        </CardTitle>
+      </CardHeader>
+      {/* The panel grid's own lines, on a list: the tiles share one hairline with each other and
+          with the panel's edge. */}
+      <ul data-slot="panel-grid" className="m-0 sm:grid-cols-2">
+        {people.map((person) => (
+          <li key={`${person.name}-${person.vrChatGroupId ?? person.link}`}>
+            <Person person={person} />
+          </li>
+        ))}
+      </ul>
     </Card>
   )
 }
@@ -133,7 +140,7 @@ function Person({ person }: { person: ShowcasePerson }) {
           src={vrchatMedia(banner)}
           alt=""
           loading="lazy"
-          className="h-20 w-full rounded-md object-cover"
+          className="h-20 w-full object-cover"
         />
       )}
       <div className="flex items-center gap-2">
@@ -142,7 +149,7 @@ function Person({ person }: { person: ShowcasePerson }) {
             src={vrchatMedia(picture)}
             alt=""
             loading="lazy"
-            className="size-8 shrink-0 rounded-md object-cover"
+            className="size-8 shrink-0 rounded-full object-cover"
           />
         )}
         <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{person.name}</span>
@@ -155,21 +162,13 @@ function Person({ person }: { person: ShowcasePerson }) {
     </>
   )
 
-  const className = 'flex flex-col gap-2 rounded-lg border p-2'
+  const className = 'flex h-full flex-col gap-2 p-(--panel-pad)'
 
   return href ? (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className={`${className} hover:bg-muted/50`}
-      style={{ borderWidth: 'var(--hairline)' }}
-    >
+    <a href={href} target="_blank" rel="noreferrer" className={`${className} hover:bg-muted/50`}>
       {inside}
     </a>
   ) : (
-    <div className={className} style={{ borderWidth: 'var(--hairline)' }}>
-      {inside}
-    </div>
+    <div className={className}>{inside}</div>
   )
 }

@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { DemoMarker } from '@/components/DemoMarker'
 import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
-import { CREDITS_PATH, NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import type { StatusRowId } from '@/lib/status'
 import { cn } from '@/lib/utils'
@@ -12,6 +12,7 @@ import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import { Headset, LogOut, Menu, Moon, Rows3, Rows2, Search, Sun, UserRound, X, Zap } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
+import { SwitchBank } from '@/components/ui/switch-bank'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /** The group this Modbot manages, as the status endpoint reports it. */
@@ -55,8 +56,7 @@ export function Sidebar({
 
   return (
     <aside
-      className={cn('flex flex-col gap-px overflow-y-auto border-r bg-card px-3 py-4', className)}
-      style={{ borderRightWidth: 'var(--hairline)' }}
+      className={cn('flex flex-col overflow-y-auto border-r border-r-(length:--hairline) bg-background py-3', className)}
     >
       {/*
         The group at the top: its banner when VRChat has one, its icon and its name. This is the
@@ -67,8 +67,7 @@ export function Sidebar({
       <button
         type="button"
         onClick={onSearch}
-        className="mb-2 flex w-full items-center gap-2 rounded-md border bg-background px-2 text-muted-foreground hover:text-foreground"
-        style={{ height: 'var(--control-h)', borderWidth: 'var(--hairline)' }}
+        className="mx-3 mb-3 flex h-(--control-h) items-center gap-2 rounded-sm border border-(length:--hairline) border-input bg-card px-2 text-muted-foreground hover:text-foreground"
       >
         <Search className="size-3.5 shrink-0" />
         <span className="flex-1 text-left">Search</span>
@@ -78,30 +77,45 @@ export function Sidebar({
       {rows.map(({ item, showGroup }) => (
         <div key={item.id}>
           {showGroup && 'group' in item && (
-            <div className="px-2 pb-1 pt-4 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            <div
+              className="flex items-center gap-2 pr-3 pb-1 pl-4 pt-4 font-label text-muted-foreground"
+              style={{ fontSize: 'var(--text-small)' }}
+            >
               {item.group}
+              <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
             </div>
           )}
           <button
             onClick={() => onNavigate(item.id)}
             className={cn(
-              'flex w-full items-center justify-between rounded-md px-2 font-medium transition-colors',
+              'relative flex h-(--control-h) w-full items-center gap-2 pr-3 pl-4 text-left transition-colors',
               page === item.id
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                ? 'bg-card font-medium text-foreground'
+                : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
             )}
-            style={{ height: 'var(--control-h)' }}
           >
-            <span>{item.label}</span>
+            {/* The rail's marker: a bar on the edge, not a filled pill. */}
+            {page === item.id && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />}
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {badges?.[item.id] ? (
               <span
-                className="rounded-full bg-primary px-1.5 font-mono text-primary-foreground"
-                style={{ fontSize: '0.6875rem', lineHeight: '1.25rem' }}
+                className="rounded-sm bg-primary px-1 font-mono text-primary-foreground"
+                style={{ fontSize: '0.6875rem', lineHeight: '1.125rem' }}
                 aria-label={`${badges[item.id]} waiting`}
               >
                 {badges[item.id]}
               </span>
             ) : null}
+            {/* The go-to chord, where the page has one. Not on a phone, which has no keyboard. */}
+            {GO_TO_KEYS[item.id] && (
+              <span
+                aria-hidden
+                className="hidden shrink-0 font-mono text-muted-foreground/60 lg:inline"
+                style={{ fontSize: 'calc(var(--text-small) - 1px)' }}
+              >
+                g {GO_TO_KEYS[item.id]}
+              </span>
+            )}
           </button>
         </div>
       ))}
@@ -114,7 +128,7 @@ export function Sidebar({
       {can(me, 'ViewOperationalLog') && <StatusRows onOpen={onOpenHealth} />}
 
       {group && (
-        <div className="mt-auto flex items-center gap-2 px-2 pt-4">
+        <div className="mt-auto flex items-center gap-2 px-4 pt-4">
           <img src="/icon-512.png" alt="" width={20} height={20} className="size-5 shrink-0" />
           <span className="font-display text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             Modbot
@@ -122,14 +136,14 @@ export function Sidebar({
         </div>
       )}
 
-      {footer && <div className={cn('pt-4', !group && 'mt-auto')}>{footer}</div>}
+      {footer && <div className={cn('px-3 pt-4', !group && 'mt-auto')}>{footer}</div>}
     </aside>
   )
 }
 
 function ModbotHeading() {
   return (
-    <div className="flex items-center gap-2 px-2 pb-5">
+    <div className="flex items-center gap-2 px-4 pb-4">
       <img src="/icon-512.png" alt="" width={28} height={28} className="size-7 shrink-0" />
       <div className="font-display text-[0.9375rem] leading-none">Modbot</div>
     </div>
@@ -138,13 +152,13 @@ function ModbotHeading() {
 
 function GroupHeading({ group }: { group: SidebarGroup }) {
   return (
-    <div className="pb-5">
+    <div className="pb-4">
       {group.bannerUrl && (
-        <img src={vrchatMedia(group.bannerUrl)} alt="" className="mb-3 aspect-[3/1] w-full rounded-md object-cover" />
+        <img src={vrchatMedia(group.bannerUrl)} alt="" className="mx-3 mb-3 aspect-[3/1] w-[calc(100%-1.5rem)] rounded-sm object-cover" />
       )}
-      <div className="flex items-center gap-2 px-2">
+      <div className="flex items-center gap-2 px-4">
         {group.iconUrl && (
-          <img src={vrchatMedia(group.iconUrl)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-md object-cover" />
+          <img src={vrchatMedia(group.iconUrl)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-sm object-cover" />
         )}
         <div className="truncate font-display text-[0.9375rem] leading-tight">{group.name}</div>
       </div>
@@ -164,8 +178,7 @@ export function Topbar({
 }) {
   return (
     <header
-      className="sticky top-0 z-10 flex items-center gap-3 border-b bg-background/85 px-4 py-3 backdrop-blur lg:px-5"
-      style={{ borderBottomWidth: 'var(--hairline)' }}
+      className="sticky top-0 z-10 flex items-center gap-3 border-b border-b-(length:--hairline) bg-background px-4 py-2.5 lg:px-5"
     >
       <h1 className="truncate font-display" style={{ fontSize: 'calc(var(--text-base) + 3px)' }}>{title}</h1>
 
@@ -209,7 +222,7 @@ function AppearanceControls({
 }) {
   return (
     <>
-      <Segmented
+      <SwitchBank
         label="Density"
         value={density}
         onChange={setDensity}
@@ -257,14 +270,14 @@ export function NavSheet({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-[2px] lg:hidden" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 dark:bg-background/70 lg:hidden" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[85vw] flex-col bg-card shadow-lg outline-none lg:hidden"
+          className="fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[85vw] flex-col border-r border-r-(length:--hairline) bg-background outline-none lg:hidden"
         >
           <DialogPrimitive.Title className="sr-only">Pages</DialogPrimitive.Title>
           <DialogPrimitive.Close
-            className="absolute top-3 right-3 z-10 grid place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="absolute top-3 right-3 z-10 grid place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
             style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
             aria-label="Close"
           >
@@ -287,7 +300,7 @@ export function NavSheet({
               nav.onOpenHealth(section)
             }}
             footer={
-              <div className="flex flex-col items-start gap-2 border-t pt-4" style={{ borderTopWidth: 'var(--hairline)' }}>
+              <div className="flex flex-col items-start gap-2 border-t border-t-(length:--hairline) pt-4">
                 <AppearanceControls {...appearance} />
                 {onAccount && (
                   <Button
@@ -340,8 +353,7 @@ export function BottomBar({
 }) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
-      style={{ borderTopWidth: 'var(--hairline)' }}
+      className="fixed inset-x-0 bottom-0 z-30 flex divide-x-(--hairline) border-t border-t-(length:--hairline) bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <BottomButton icon={<Menu className="size-5" />} label="Menu" onClick={onMenu} />
       <BottomButton icon={<Search className="size-5" />} label="Search" onClick={onSearch} />
@@ -355,7 +367,7 @@ function BottomButton({ icon, label, onClick }: { icon: React.ReactNode; label: 
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-muted-foreground active:bg-secondary"
+      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-muted-foreground active:bg-muted"
       style={{ minHeight: 'var(--control-h)' }}
     >
       {icon}
@@ -368,8 +380,8 @@ function BottomButton({ icon, label, onClick }: { icon: React.ReactNode; label: 
 export function Footer() {
   return (
     <footer
-      className="mt-auto flex justify-end gap-4 border-t px-5 py-2 text-muted-foreground"
-      style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+      className="mt-auto flex justify-end gap-4 border-t border-t-(length:--hairline) px-5 py-2 text-muted-foreground"
+      style={{ fontSize: 'var(--text-small)' }}
     >
       <a href={DOCS_URL} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
         Docs
@@ -382,32 +394,5 @@ export function Footer() {
         Credits
       </a>
     </footer>
-  )
-}
-
-function Segmented<T extends string>({
-  label, value, onChange, options,
-}: {
-  label: string; value: T; onChange: (v: T) => void
-  options: { value: T; label: string; icon?: React.ReactNode }[]
-}) {
-  return (
-    <div role="group" aria-label={label} className="flex gap-0.5 rounded-md border bg-secondary p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          aria-pressed={value === o.value}
-          className={cn(
-            'flex items-center gap-1.5 rounded-md px-2 font-medium transition-colors',
-            value === o.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-          )}
-          style={{ fontSize: 'var(--text-small)', height: 'calc(var(--control-h) - 6px)' }}
-        >
-          {o.icon}
-          {o.label}
-        </button>
-      ))}
-    </div>
   )
 }

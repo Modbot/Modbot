@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { changesReviews } from '@/lib/liveRules'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyRow } from '@/components/PanelGrid'
+import { SwitchBank } from '@/components/ui/switch-bank'
 import { SubjectLink } from '@/components/facts'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type Person, type ReviewEvidence, type ReviewList, type ReviewView } from '@/lib/api'
 import { PROPOSED_ACTION_LABELS, type ProposedAction } from '@/lib/autoMod'
-import { cn } from '@/lib/utils'
 
 /**
  * Reviews of a moderator's pattern (spec 5.8.5).
@@ -57,36 +58,31 @@ export function Reviews({
   if (error) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">{error}</CardContent>
+        <EmptyRow>{error}</EmptyRow>
       </Card>
     )
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div role="group" className="flex gap-0.5 rounded-md border bg-secondary p-0.5" style={{ borderWidth: 'var(--hairline)' }}>
-          {(
-            [
-              { value: 'open', label: list ? `Waiting (${list.openCount})` : 'Waiting' },
-              { value: 'closed', label: 'Closed' },
-            ] as const
-          ).map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              aria-pressed={state === o.value}
-              onClick={() => setState(o.value)}
-              className={cn(
-                'rounded-md px-3 font-medium transition-colors',
-                state === o.value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              )}
-              style={{ fontSize: 'var(--text-small)', height: 'calc(var(--control-h) - 6px)' }}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+        <SwitchBank
+          value={state}
+          onChange={setState}
+          options={[
+            {
+              value: 'open',
+              label: list ? (
+                <>
+                  Waiting <span className="font-mono">({list.openCount})</span>
+                </>
+              ) : (
+                'Waiting'
+              ),
+            },
+            { value: 'closed', label: 'Closed' },
+          ]}
+        />
         <span className="flex-1" />
         {list && (
           <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -99,15 +95,13 @@ export function Reviews({
 
       {!list && (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent>
+          <EmptyRow>Loading…</EmptyRow>
         </Card>
       )}
 
       {list && list.reviews.length === 0 && (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            {state === 'open' ? 'Nothing waiting.' : 'Nothing closed yet.'}
-          </CardContent>
+          <EmptyRow>{state === 'open' ? 'Nothing waiting.' : 'Nothing closed yet.'}</EmptyRow>
         </Card>
       )}
 
@@ -169,32 +163,31 @@ function ReviewCard({
 
   return (
     <Card>
-      <CardContent className="py-4">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="font-medium">{review.signalLabel}</span>
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {/* The "moderator" of a flag review is the rule, not a person, so it is not a link. */}
-            {flagReview ? (
-              (review.evidence.ruleName ?? '')
-            ) : (
-              <SubjectLink id={review.moderator.id} name={review.moderator.name} onOpen={onOpenSubject} />
-            )}
-            {review.aboutPerson && (
-              <>
-                {' '}and{' '}
-                <SubjectLink id={review.aboutPerson.id} name={review.aboutPerson.name} onOpen={onOpenSubject} />
-              </>
-            )}
-          </span>
-          <span className="flex-1" />
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {review.state === 'Open'
-              ? `Opened ${ago(review.openedAt, now)}${review.updatedAt !== review.openedAt ? `, numbers updated ${ago(review.updatedAt, now)}` : ''}`
-              : `Closed ${ago(review.closedAt ?? review.updatedAt, now)} by ${review.closedByUsername ?? 'somebody'}`}
-          </span>
-        </div>
+      <CardHeader className="items-baseline">
+        <CardTitle>{review.signalLabel}</CardTitle>
+        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {/* The "moderator" of a flag review is the rule, not a person, so it is not a link. */}
+          {flagReview ? (
+            (review.evidence.ruleName ?? '')
+          ) : (
+            <SubjectLink id={review.moderator.id} name={review.moderator.name} onOpen={onOpenSubject} />
+          )}
+          {review.aboutPerson && (
+            <>
+              {' '}and{' '}
+              <SubjectLink id={review.aboutPerson.id} name={review.aboutPerson.name} onOpen={onOpenSubject} />
+            </>
+          )}
+        </span>
+        <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {review.state === 'Open'
+            ? `Opened ${ago(review.openedAt, now)}${review.updatedAt !== review.openedAt ? `, numbers updated ${ago(review.updatedAt, now)}` : ''}`
+            : `Closed ${ago(review.closedAt ?? review.updatedAt, now)} by ${review.closedByUsername ?? 'somebody'}`}
+        </span>
+      </CardHeader>
 
-        <p className="mt-2 max-w-3xl">{review.summary}</p>
+      <CardContent>
+        <p className="max-w-3xl">{review.summary}</p>
 
         {flagReview ? (
           <FlagEvidence review={review} />
@@ -219,52 +212,53 @@ function ReviewCard({
           </>
         )}
 
-        {review.state === 'Closed' ? (
-          <div className="mt-3 rounded-md bg-muted/40 px-3 py-2" style={{ fontSize: 'var(--text-small)' }}>
-            <span className="text-muted-foreground">{review.closedByUsername ?? 'Somebody'} wrote: </span>
-            <span className="whitespace-pre-wrap break-words">{review.note}</span>
-            {review.outcome && (
-              <span className="ml-2 text-muted-foreground">
-                ({review.outcome === 'right' ? 'rule was right' : 'rule was wrong'})
-              </span>
-            )}
-          </div>
-        ) : (
-          <div className="mt-3 flex flex-col gap-2">
-            <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-              <span className="text-muted-foreground">What did you conclude?</span>
-              <textarea
-                className="min-h-16 rounded-md border bg-background px-2 py-1"
-                style={{ borderWidth: 'var(--hairline)' }}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                maxLength={2000}
-              />
-            </label>
-            <div className="flex items-center gap-2">
-              {flagReview ? (
-                <>
-                  <Button size="xs" onClick={() => close('right')} disabled={busy}>
-                    The rule was right
-                  </Button>
-                  <Button size="xs" variant="outline" onClick={() => close('wrong')} disabled={busy}>
-                    The rule was wrong
-                  </Button>
-                </>
-              ) : (
-                <Button size="xs" onClick={() => close()} disabled={busy}>
-                  Close review
-                </Button>
-              )}
-              {problem && (
-                <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-                  {problem}
-                </span>
-              )}
-            </div>
-          </div>
+        {review.state === 'Open' && (
+          <label className="mt-3 flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="text-muted-foreground">What did you conclude?</span>
+            <textarea
+              className="min-h-16 rounded-sm border border-input bg-card px-2 py-1 outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+              style={{ borderWidth: 'var(--hairline)' }}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              maxLength={2000}
+            />
+          </label>
         )}
       </CardContent>
+
+      {review.state === 'Closed' ? (
+        <CardFooter className="block" style={{ fontSize: 'var(--text-small)' }}>
+          <span className="text-muted-foreground">{review.closedByUsername ?? 'Somebody'} wrote: </span>
+          <span className="whitespace-pre-wrap break-words">{review.note}</span>
+          {review.outcome && (
+            <span className="ml-2 text-muted-foreground">
+              ({review.outcome === 'right' ? 'rule was right' : 'rule was wrong'})
+            </span>
+          )}
+        </CardFooter>
+      ) : (
+        <CardFooter className="flex-wrap gap-2">
+          {flagReview ? (
+            <>
+              <Button size="xs" onClick={() => close('right')} disabled={busy}>
+                The rule was right
+              </Button>
+              <Button size="xs" variant="outline" onClick={() => close('wrong')} disabled={busy}>
+                The rule was wrong
+              </Button>
+            </>
+          ) : (
+            <Button size="xs" onClick={() => close()} disabled={busy}>
+              Close review
+            </Button>
+          )}
+          {problem && (
+            <span className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+              {problem}
+            </span>
+          )}
+        </CardFooter>
+      )}
     </Card>
   )
 }

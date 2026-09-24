@@ -39,7 +39,7 @@ export function Tabs<T extends string>({
       <div className="shrink-0 border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
         <div
           role="tablist"
-          className="flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:thin]"
+          className="flex items-stretch overflow-x-auto [scrollbar-width:thin]"
         >
           {tabs.map((tab) => (
             <button
@@ -51,7 +51,7 @@ export function Tabs<T extends string>({
               aria-controls={`${id}-panel`}
               onClick={() => onChange(tab.value)}
               className={cn(
-                'relative flex shrink-0 items-center rounded-t px-3 py-2 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-ring',
+                'relative flex shrink-0 items-center px-3 py-2 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
                 value === tab.value
                   ? 'text-foreground'
                   : 'text-muted-foreground hover:text-foreground',
@@ -60,10 +60,10 @@ export function Tabs<T extends string>({
             >
               {tab.label}
               {typeof tab.badge === 'number' && tab.badge > 0 && (
-                <span className="ml-1.5 tabular-nums text-muted-foreground">{tab.badge}</span>
+                <span className="ml-1.5 font-mono text-muted-foreground">{tab.badge}</span>
               )}
               {value === tab.value && (
-                <span className="absolute inset-x-1 bottom-0 h-0.5 rounded-full bg-foreground" />
+                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />
               )}
             </button>
           ))}

@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from 'react'
 import { ArrowUp, Square } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 /** The message box grows with what is typed, up to this, and then scrolls. */
@@ -48,11 +49,10 @@ export function Composer({
     >
       <div
         className={cn(
-          'flex items-end gap-2 rounded-xl border bg-card p-2 shadow-sm transition-colors',
-          'focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/40',
+          'flex items-end gap-2 rounded-sm border border-(length:--hairline) border-input bg-card p-1.5 transition-colors',
+          'focus-within:border-ring focus-within:ring-1 focus-within:ring-ring',
           disabled && 'opacity-60',
         )}
-        style={{ borderWidth: 'var(--hairline)' }}
       >
         <textarea
           ref={inputRef}
@@ -69,32 +69,22 @@ export function Composer({
               onSend()
             }
           }}
-          className="max-h-[200px] min-h-9 flex-1 resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-muted-foreground md:text-sm"
+          className="max-h-[200px] min-h-(--control-h) flex-1 resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-muted-foreground md:text-sm"
         />
 
         {busy ? (
-          <button
-            type="button"
-            aria-label="Stop"
-            onClick={onStop}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground transition-colors hover:bg-secondary/80 focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
+          <Button type="button" variant="secondary" size="icon" aria-label="Stop" onClick={onStop}>
             <Square className="size-3.5 fill-current" />
-          </button>
+          </Button>
         ) : (
-          <button
-            type="submit"
-            aria-label="Send"
-            disabled={disabled || value.trim().length === 0}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-40"
-          >
+          <Button type="submit" size="icon" aria-label="Send" disabled={disabled || value.trim().length === 0}>
             <ArrowUp className="size-4" />
-          </button>
+          </Button>
         )}
       </div>
 
       {model && (
-        <span className="px-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span className="px-1.5 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {model}
         </span>
       )}

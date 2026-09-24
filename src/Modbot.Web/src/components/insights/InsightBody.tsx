@@ -25,9 +25,9 @@ export function InsightBody({ insight }: { insight: Insight }) {
             <table className="w-full">
               <thead className="text-left">
                 <tr>
-                  <th className="py-1 font-medium" />
-                  <th className="py-1 text-right font-medium">{insightDays(figures)}</th>
-                  <th className="py-1 text-right font-medium">
+                  <th className="py-1 font-normal" />
+                  <th className="py-1 text-right font-normal">{insightDays(figures)}</th>
+                  <th className="py-1 text-right font-normal">
                     {insightDays({ firstDay: figures.beforeFirstDay, lastDay: figures.beforeLastDay })}
                   </th>
                 </tr>
@@ -36,8 +36,8 @@ export function InsightBody({ insight }: { insight: Insight }) {
                 {figures.figures.map((f) => (
                   <tr key={f.name} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
                     <td className="py-1 pr-3">{f.name}</td>
-                    <td className="py-1 text-right tabular-nums">{number(f.now)}</td>
-                    <td className="py-1 text-right tabular-nums">{number(f.before)}</td>
+                    <td className="py-1 text-right font-mono">{number(f.now)}</td>
+                    <td className="py-1 text-right font-mono">{number(f.before)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -49,7 +49,7 @@ export function InsightBody({ insight }: { insight: Insight }) {
                 <table key={l.name} className="mt-3 w-full">
                   <thead className="text-left">
                     <tr>
-                      <th className="py-1 font-medium">{l.name}</th>
+                      <th className="py-1 font-normal">{l.name}</th>
                       <th className="py-1" />
                     </tr>
                   </thead>
@@ -57,7 +57,7 @@ export function InsightBody({ insight }: { insight: Insight }) {
                     {l.items.map((item, i) => (
                       <tr key={`${i}-${item.name}`} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
                         <td className="py-1 pr-3">{item.name}</td>
-                        <td className="py-1 text-right tabular-nums">{number(item.value)}</td>
+                        <td className="py-1 text-right font-mono">{number(item.value)}</td>
                       </tr>
                     ))}
                   </tbody>

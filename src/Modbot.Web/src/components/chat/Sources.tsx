@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { openReference, uniqueSources } from '@/components/chat/sourceLinks'
+import { Badge } from '@/components/ui/badge'
 import type { ChatReference } from '@/lib/api'
 
 /** How many sources are shown before the rest fold behind a count. */
@@ -29,14 +30,11 @@ export function Sources({ references }: { references: readonly ChatReference[] }
         <SourceChip key={`${reference.kind}:${reference.id}`} reference={reference} />
       ))}
       {!all && sources.length > shown.length && (
-        <button
-          type="button"
-          onClick={() => setAll(true)}
-          className="rounded-full border px-2.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-        >
-          +{sources.length - shown.length}
-        </button>
+        <Badge variant="outline" asChild className="font-mono hover:bg-muted hover:text-foreground">
+          <button type="button" onClick={() => setAll(true)}>
+            +{sources.length - shown.length}
+          </button>
+        </Badge>
       )}
     </div>
   )
@@ -44,14 +42,10 @@ export function Sources({ references }: { references: readonly ChatReference[] }
 
 export function SourceChip({ reference }: { reference: ChatReference }) {
   return (
-    <button
-      type="button"
-      title={reference.id}
-      onClick={() => openReference(reference)}
-      className="max-w-[16rem] truncate rounded-full border bg-card px-2.5 py-0.5 font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-    >
-      {reference.label ?? reference.id}
-    </button>
+    <Badge variant="outline" asChild className="block max-w-[16rem] truncate bg-card text-foreground hover:bg-muted">
+      <button type="button" title={reference.id} onClick={() => openReference(reference)}>
+        {reference.label ?? reference.id}
+      </button>
+    </Badge>
   )
 }

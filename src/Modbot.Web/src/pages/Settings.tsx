@@ -114,7 +114,7 @@ export function Settings({ me }: { me: CurrentUser }) {
         value={tab}
         onChange={choose}
         tabs={TABS.filter((t) => open.includes(t.value)).map(({ value, label }) => ({ value, label }))}
-        className="gap-5"
+        className="gap-3"
       >
         <Panel tab={tab} me={me} status={status} refresh={refresh} />
       </Tabs>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api } from '@/lib/api'
 import { Brand, ErrorText, Field, Tickbox, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
@@ -52,53 +53,47 @@ export function Login({
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-6">
-      <div className="w-full max-w-[420px]">
+      <div className="w-full min-w-0 max-w-[420px]">
         <Brand />
-        <form
-          onSubmit={submit}
-          className="overflow-hidden rounded-xl border bg-card shadow-lg"
-        >
-          <WizardHeader eyebrow="Sign in" title="Welcome back" />
-          <WizardBody>
-            <Field label="Email or username" htmlFor="login-username">
-              <Input
-                id="login-username"
-                autoComplete="username"
-                autoFocus
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </Field>
-            <Field label="Password" htmlFor="login-password">
-              <Input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </Field>
-            <Tickbox id="login-keep-signed-in" checked={keepSignedIn} onChange={setKeepSignedIn}>
-              Keep me signed in
-            </Tickbox>
-            <ErrorText>{error}</ErrorText>
-          </WizardBody>
-          <WizardFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={onForgotPassword}
-              style={{ height: 'var(--control-h)' }}
-            >
-              Forgot password?
-            </Button>
-            <div className="flex-1" />
-            <Button type="submit" disabled={busy} style={{ height: 'var(--control-h)' }}>
-              {busy ? 'Signing in…' : 'Sign in'}
-            </Button>
-          </WizardFooter>
+        <form onSubmit={submit}>
+          <Card>
+            <WizardHeader eyebrow="Sign in" title="Welcome back" />
+            <WizardBody>
+              <Field label="Email or username" htmlFor="login-username">
+                <Input
+                  id="login-username"
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </Field>
+              <Field label="Password" htmlFor="login-password">
+                <Input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </Field>
+              <Tickbox id="login-keep-signed-in" checked={keepSignedIn} onChange={setKeepSignedIn}>
+                Keep me signed in
+              </Tickbox>
+              <ErrorText>{error}</ErrorText>
+            </WizardBody>
+            <WizardFooter>
+              <Button type="button" variant="ghost" onClick={onForgotPassword}>
+                Forgot password?
+              </Button>
+              <div className="flex-1" />
+              <Button type="submit" disabled={busy}>
+                {busy ? 'Signing in…' : 'Sign in'}
+              </Button>
+            </WizardFooter>
+          </Card>
         </form>
       </div>
     </div>

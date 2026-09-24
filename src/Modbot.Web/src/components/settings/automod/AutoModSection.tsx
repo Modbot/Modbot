@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,6 +33,9 @@ import { HubListsDialog } from './HubListsDialog'
 import { TermListDialog } from './TermListDialog'
 import { TestSetDialog } from './TestSetDialog'
 import { TopicDialog } from './TopicDialog'
+
+/** Runs a list card's content to its edges, so each rule's line meets the card's sides. */
+const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 
 /**
  * Settings → AutoMod: the switch, term lists (local and from Modbot Hub), the "Try it" box, and --
@@ -221,13 +225,10 @@ function RuleRow({
   return (
     <li
       className={cn(
-        'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b py-2 last:border-0',
+        'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-b-(length:--hairline) px-(--panel-pad) py-2 last:border-0',
         !enabled && 'text-muted-foreground',
       )}
-      style={{
-        borderBottomWidth: 'var(--hairline)',
-        fontSize: 'var(--text-small)',
-      }}
+      style={{ fontSize: 'var(--text-small)' }}
     >
       <Switch checked={enabled} disabled={busy} onChange={onToggle}>
         <span className="sr-only">On</span>
@@ -350,6 +351,7 @@ function TermListsCard({
     <SettingsCard
       span={12}
       title="Term lists"
+      className={FLUSH}
       action={
         <div className="flex gap-1">
           <Button size="xs" variant="outline" onClick={() => setHubOpen(true)}>
@@ -363,9 +365,7 @@ function TermListsCard({
       footer={problem ? <Outcome tone="problem">{problem}</Outcome> : undefined}
     >
       {lists.length === 0 ? (
-        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          No term lists
-        </span>
+        <EmptyRow>No term lists</EmptyRow>
       ) : (
         <ul className="flex flex-col">
           {lists.map((list) => (
@@ -379,7 +379,9 @@ function TermListsCard({
                 <>
                   <Badge variant="outline">{list.source === 'cloud' ? 'Modbot Hub' : 'Local'}</Badge>
                   {list.source === 'cloud' && list.hubVersion && (
-                    <Badge variant="secondary">{list.hubVersion}</Badge>
+                    <Badge variant="secondary" className="font-mono">
+                      {list.hubVersion}
+                    </Badge>
                   )}
                   {acts(list) && (
                     <Badge
@@ -499,6 +501,7 @@ function TopicsCard({
     <SettingsCard
       span={12}
       title="AI topics"
+      className={FLUSH}
       action={
         <div className="flex items-center gap-2">
           {!aiReady && <Badge variant="outline">AI off</Badge>}
@@ -510,9 +513,7 @@ function TopicsCard({
       footer={problem ? <Outcome tone="problem">{problem}</Outcome> : undefined}
     >
       {topics.length === 0 ? (
-        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          No AI topics
-        </span>
+        <EmptyRow>No AI topics</EmptyRow>
       ) : (
         <ul className="flex flex-col">
           {topics.map((topic) => (
@@ -644,17 +645,16 @@ function TryCard({ aiEnabled }: { aiEnabled: boolean }) {
       {result && (
         <div className="flex flex-col gap-2" style={{ fontSize: 'var(--text-small)' }}>
           {result.matches.length === 0 ? (
-            <span className="text-muted-foreground">Nothing matched</span>
+            <EmptyRow className="px-0">Nothing matched</EmptyRow>
           ) : (
             <ul className="flex flex-col">
               {result.matches.map((m, i) => (
                 <li
                   key={`${m.ruleId}-${i}`}
                   className={cn(
-                    'flex flex-col border-b py-1.5 last:border-0',
+                    'flex flex-col border-b border-b-(length:--hairline) py-1.5 last:border-0',
                     !m.ruleEnabled && 'text-muted-foreground',
                   )}
-                  style={{ borderBottomWidth: 'var(--hairline)' }}
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{m.ruleName}</span>

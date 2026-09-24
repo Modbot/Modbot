@@ -127,6 +127,9 @@ function StoreHealth({ health, onProbed }: { health: EvidenceHealth; onProbed: (
   )
 }
 
+/** The chosen backend, marked the way the pager marks the page being read. */
+const CURRENT = 'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
+
 function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved: () => void }) {
   const hint = settings.environmentHint
   const [backend, setBackend] = useState<EvidenceBackendId>(settings.backend.backend)
@@ -216,28 +219,19 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
         <Notice tone="warn" title={settings.switchBlockedReason} />
       )}
 
-      <div role="group" className="flex flex-wrap gap-1.5">
+      <div role="group" className="flex flex-wrap gap-2">
         {settings.backends.map((b) => (
-          <button
+          <Button
             key={b.id}
-            type="button"
+            size="xs"
+            variant="outline"
             aria-pressed={backend === b.id}
             onClick={() => setBackend(b.id)}
-            className={cn(
-              'inline-flex items-center rounded-full border px-2.5 font-medium transition-colors',
-              backend === b.id
-                ? 'border-transparent bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-            style={{
-              fontSize: 'var(--text-small)',
-              borderWidth: 'var(--hairline)',
-              height: 'calc(var(--control-h) - 6px)',
-            }}
+            className={cn(backend === b.id && CURRENT)}
           >
             {b.label}
             {b.recommended && ' · recommended'}
-          </button>
+          </Button>
         ))}
       </div>
 

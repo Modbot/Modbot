@@ -177,7 +177,9 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
                 ))}
               </Select>
               {w.last && (
-                <span className="text-muted-foreground">{`Last ${new Date(w.last.at).toLocaleString()}`}</span>
+                <span className="text-muted-foreground">
+                  Last <span className="font-mono">{new Date(w.last.at).toLocaleString()}</span>
+                </span>
               )}
             </label>
           ))}

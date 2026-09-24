@@ -1,10 +1,12 @@
 import { useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { dateTime } from '@/components/charts'
 import { FactSentence } from '@/components/factSentence'
 import { PersonLink, InstanceLink, SourceBadge, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
+import { EmptyRow } from '@/components/PanelGrid'
 import { VersionCard } from '@/components/subject/ProfileVersions'
 import { api, type AuditEntry } from '@/lib/api'
 import { fieldName } from '@/lib/profileFields'
@@ -22,8 +24,8 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
   const changed = changedFields(entry)
 
   return (
-    <div className="grid gap-4 border-t bg-muted/20 px-4 py-3 lg:grid-cols-2" style={{ borderTopWidth: 'var(--hairline)' }}>
-      <div className="flex flex-col gap-4">
+    <div className="grid gap-3 border-t bg-muted/20 p-(--panel-pad) lg:grid-cols-2" style={{ borderTopWidth: 'var(--hairline)' }}>
+      <div className="flex flex-col gap-3">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
           <Item label="Type">
             <span className="font-mono">{entry.type}</span>
@@ -38,11 +40,18 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
             <SourceBadge source={entry.source} />
           </Item>
           <Item label="When">
-            {entry.occurredBefore
-              ? `Between ${dateTime(entry.occurredAt)} and ${dateTime(entry.occurredBefore)}`
-              : dateTime(entry.occurredAt)}
+            {entry.occurredBefore ? (
+              <>
+                Between <span className="font-mono">{dateTime(entry.occurredAt)}</span> and{' '}
+                <span className="font-mono">{dateTime(entry.occurredBefore)}</span>
+              </>
+            ) : (
+              <span className="font-mono">{dateTime(entry.occurredAt)}</span>
+            )}
           </Item>
-          <Item label="Recorded">{dateTime(entry.observedAt)}</Item>
+          <Item label="Recorded">
+            <span className="font-mono">{dateTime(entry.observedAt)}</span>
+          </Item>
           <Item label="About">
             <span className="text-muted-foreground">{entry.subjectKind.toLowerCase()} · {entry.subjectPlatform} · </span>
             {entry.subjectKind === 'Person' ? (
@@ -87,7 +96,7 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
                 {entry.reportedBy.map((reporter) => (
                   <li key={reporter.accountId}>
                     {reporter.name ?? reporter.accountId}
-                    <span className="ml-2 text-muted-foreground">{dateTime(reporter.at)}</span>
+                    <span className="ml-2 font-mono text-muted-foreground">{dateTime(reporter.at)}</span>
                   </li>
                 ))}
               </ul>
@@ -100,27 +109,29 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
         </dl>
 
         {changed.length > 0 && (
-          <div>
-            <div className="mb-1 font-medium" style={{ fontSize: 'var(--text-small)' }}>Changed</div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Changed</CardTitle>
+            </CardHeader>
             <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-              <thead className="text-left text-muted-foreground">
-                <tr>
-                  <th className="py-1 pr-3 font-normal">Field</th>
-                  <th className="py-1 pr-3 font-normal">Before</th>
-                  <th className="py-1 font-normal">After</th>
+              <thead className="bg-strip text-left text-muted-foreground">
+                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                  <th className="px-3 py-1 font-normal">Field</th>
+                  <th className="px-3 py-1 font-normal">Before</th>
+                  <th className="px-3 py-1 font-normal">After</th>
                 </tr>
               </thead>
               <tbody>
                 {changed.map(([key, pair]) => (
-                  <tr key={key} className="border-t align-top" style={{ borderTopWidth: 'var(--hairline)' }}>
-                    <td className="py-1 pr-3 whitespace-nowrap">{fieldName(key)}</td>
-                    <td className="py-1 pr-3 break-all text-muted-foreground">{shown(pair.old)}</td>
-                    <td className="py-1 break-all">{shown(pair.new)}</td>
+                  <tr key={key} className="border-b border-b-(length:--hairline) align-top last:border-0">
+                    <td className="px-3 py-1 whitespace-nowrap">{fieldName(key)}</td>
+                    <td className="px-3 py-1 break-all text-muted-foreground">{shown(pair.old)}</td>
+                    <td className="px-3 py-1 break-all">{shown(pair.new)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         )}
 
         <Snapshot entry={entry} />
@@ -154,26 +165,27 @@ function SameDecision({ entry }: { entry: AuditEntry }) {
   if (linked.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>Same decision</div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Same decision</CardTitle>
+      </CardHeader>
       {linked.map((fact) => (
         <details
           key={fact.id}
-          className="rounded-md border bg-card"
-          style={{ borderWidth: 'var(--hairline)' }}
+          className="border-b border-b-(length:--hairline) last:border-0"
         >
           <summary
-            className="flex cursor-pointer flex-wrap items-center gap-2 px-3 py-2"
+            className="flex cursor-pointer flex-wrap items-center gap-2 px-(--panel-pad) py-2"
             style={{ fontSize: 'var(--text-small)' }}
           >
             <SourceBadge source={fact.source} />
             <FactSentence entry={fact} />
-            <span className="text-muted-foreground">{dateTime(fact.occurredAt)}</span>
+            <span className="font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
           </summary>
           <EntryDetail entry={fact} />
         </details>
       ))}
-    </div>
+    </Card>
   )
 }
 
@@ -207,8 +219,12 @@ function Snapshot({ entry }: { entry: AuditEntry }) {
     return (
       <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
         <span className="font-medium">Snapshot</span>
-        <Badge variant="secondary">{count.toLocaleString()} listed</Badge>
-        <span className="text-muted-foreground">on {dateTime(entry.occurredAt)}</span>
+        <Badge variant="secondary">
+          <span className="font-mono">{count.toLocaleString()}</span> listed
+        </Badge>
+        <span className="text-muted-foreground">
+          on <span className="font-mono">{dateTime(entry.occurredAt)}</span>
+        </span>
       </div>
     )
   }
@@ -223,23 +239,24 @@ function ProfileAt({ entry }: { entry: AuditEntry }) {
   const version = data?.versions.find((v) => v.factId === entry.id)
 
   return (
-    <div className="flex flex-col gap-2 rounded-md border p-3" style={{ borderWidth: 'var(--hairline)' }}>
-      <div className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-        <span className="font-medium">Profile after this change</span>
-        <span className="flex-1" />
-        <Button size="xs" variant="outline" onClick={() => openPersonVersion(entry.subjectId, entry.id)}>
-          Open in the person popup
-        </Button>
-      </div>
-      {error && <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>{error}</p>}
-      {!error && !data && <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Loading…</p>}
-      {data && !version && (
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          This change is older than the versions still on record.
-        </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>Profile after this change</CardTitle>
+        <CardAction>
+          <Button size="xs" variant="outline" onClick={() => openPersonVersion(entry.subjectId, entry.id)}>
+            Open in the person popup
+          </Button>
+        </CardAction>
+      </CardHeader>
+      {error && <p className="px-(--panel-pad) py-2 text-destructive" style={{ fontSize: 'var(--text-small)' }}>{error}</p>}
+      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+      {data && !version && <EmptyRow>This change is older than the versions still on record.</EmptyRow>}
+      {version && (
+        <CardContent>
+          <VersionCard version={version} />
+        </CardContent>
       )}
-      {version && <VersionCard version={version} />}
-    </div>
+    </Card>
   )
 }
 

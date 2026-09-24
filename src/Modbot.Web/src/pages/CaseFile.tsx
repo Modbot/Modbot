@@ -3,7 +3,8 @@ import { changesCases } from '@/lib/liveRules'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { EvidenceGallery } from '@/components/EvidenceGallery'
 import { Markdown } from '@/components/Markdown'
 import { ReasonButtons, WrittenReasonBox } from '@/components/CaseFileForm'
@@ -86,12 +87,12 @@ export function CaseFile({
   if (error) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">
-          <p>{error}</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={onBack}>
+        <EmptyRow>{error}</EmptyRow>
+        <CardFooter>
+          <Button variant="outline" size="sm" onClick={onBack}>
             Back to bans
           </Button>
-        </CardContent>
+        </CardFooter>
       </Card>
     )
   }
@@ -99,84 +100,94 @@ export function CaseFile({
   if (!view) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">Loading…</CardContent>
+        <EmptyRow>Loading…</EmptyRow>
       </Card>
     )
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-      <Header view={view} onOpenSubject={onOpenSubject} onBack={onBack} />
+    <div className="flex w-full max-w-4xl flex-col gap-3">
+      <PanelGrid className="grid-cols-1">
+        <Header view={view} onOpenSubject={onOpenSubject} onBack={onBack} />
 
-      {view.withdrawn && (
-        <div
-          className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3"
-          style={{ borderWidth: 'var(--hairline)' }}
+        {view.withdrawn && (
+          <Card>
+            <CardHeader className="bg-warn/10">
+              <div className="flex items-center gap-2 font-medium">
+                <span aria-hidden className="size-2 shrink-0 bg-warn" />
+                This case file has been withdrawn.
+              </div>
+            </CardHeader>
+            <CardContent className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              {view.withdrawnByUsername ?? 'Somebody'} withdrew it
+              {view.withdrawnAt ? ` on ${formatDay(view.withdrawnAt)}` : ''}: {view.withdrawnNote}
+            </CardContent>
+          </Card>
+        )}
+
+        <Section
+          title="Why they were banned"
+          action={
+            view.canEdit &&
+            !editing && (
+              <Button variant="outline" size="xs" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+            )
+          }
         >
-          <div className="font-medium">This case file has been withdrawn.</div>
-          <p className="mt-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {view.withdrawnByUsername ?? 'Somebody'} withdrew it
-            {view.withdrawnAt ? ` on ${formatDay(view.withdrawnAt)}` : ''}: {view.withdrawnNote}
-          </p>
-        </div>
-      )}
-
-      <Section title="Why they were banned">
-        {editing ? (
-          <EditReport view={view} onDone={() => { setEditing(false); void load() }} onCancel={() => setEditing(false)} />
-        ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {view.reasons.map((reason) => (
-                <Badge key={reason.id} variant={reason.isActive ? 'default' : 'secondary'} title={reason.isActive ? undefined : 'Switched off'}>
-                  {reason.label}
-                </Badge>
-              ))}
-              <span className="flex-1" />
-              {view.canEdit && (
-                <Button variant="outline" size="xs" onClick={() => setEditing(true)}>
-                  Edit
-                </Button>
+          {editing ? (
+            <EditReport view={view} onDone={() => { setEditing(false); void load() }} onCancel={() => setEditing(false)} />
+          ) : (
+            <>
+              {view.reasons.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {view.reasons.map((reason) => (
+                    <Badge key={reason.id} variant={reason.isActive ? 'default' : 'secondary'} title={reason.isActive ? undefined : 'Switched off'}>
+                      {reason.label}
+                    </Badge>
+                  ))}
+                </div>
               )}
-            </div>
 
-            {view.writtenReason ? (
-              <Markdown text={view.writtenReason} images={images} className="mt-2" />
-            ) : (
-              <p className="mt-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                No written reason was given.
+              {view.writtenReason ? (
+                <Markdown text={view.writtenReason} images={images} className="mt-2" />
+              ) : (
+                <p className="mt-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                  No written reason was given.
+                </p>
+              )}
+
+              <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                Written by {view.authorUsername} on {formatDay(view.createdAt)}
+                {view.updatedByUsername && view.updatedAt !== view.createdAt && (
+                  <> · last edited by {view.updatedByUsername} {ago(view.updatedAt, view.now)}</>
+                )}
+                .
               </p>
-            )}
+            </>
+          )}
+        </Section>
 
-            <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              Written by {view.authorUsername} on {formatDay(view.createdAt)}
-              {view.updatedByUsername && view.updatedAt !== view.createdAt && (
-                <> · last edited by {view.updatedByUsername} {ago(view.updatedAt, view.now)}</>
-              )}
-              .
+        <Section title="Evidence">
+          {view.canViewEvidence && view.evidence ? (
+            <EvidenceGallery
+              caseId={view.id}
+              items={view.evidence}
+              delivery={view.evidenceDelivery}
+              canAttach={view.canAttach}
+              onChanged={() => void load()}
+              onImageReady={noteImage}
+            />
+          ) : (
+            <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              You do not have permission to view evidence.
             </p>
-          </>
-        )}
-      </Section>
+          )}
+        </Section>
 
-      <Section title="Evidence">
-        {view.canViewEvidence && view.evidence ? (
-          <EvidenceGallery
-            caseId={view.id}
-            items={view.evidence}
-            delivery={view.evidenceDelivery}
-            canAttach={view.canAttach}
-            onChanged={() => void load()}
-            onImageReady={noteImage}
-          />
-        ) : (
-          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            You do not have permission to view evidence.
-          </p>
-        )}
-      </Section>
-
-      <Snapshot view={view} onCaptured={setView} />
+        <Snapshot view={view} onCaptured={setView} />
+      </PanelGrid>
 
       {view.canEdit && !view.withdrawn && <Withdraw view={view} onWithdrawn={setView} />}
     </div>
@@ -193,43 +204,68 @@ function Header({
   onBack: () => void
 }) {
   return (
-    <div className="flex flex-wrap items-start gap-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-semibold" style={{ fontSize: 'calc(var(--text-base) + 2px)' }}>
-            <SubjectLink id={view.userId} name={view.displayName} onOpen={onOpenSubject} />
-          </span>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+          <SubjectLink id={view.userId} name={view.displayName} onOpen={onOpenSubject} />
           {view.displayName && (
-            <span className="font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="min-w-0 break-all font-mono font-normal text-muted-foreground/70" style={{ fontSize: 'var(--text-small)' }}>
               {view.userId}
             </span>
           )}
-        </div>
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {view.bannedAt ? <>Banned {formatDay(view.bannedAt)}</> : <>No ban time recorded</>}
-          {view.bannedBy && (
-            <>
-              {' '}by{' '}
-              <SubjectLink id={view.bannedBy.id} name={view.bannedBy.name} onOpen={onOpenSubject} />
-            </>
-          )}
-          {view.auditEntryId && <> · audit entry {view.auditEntryId}</>}
-        </p>
-      </div>
-      <Button variant="outline" size="sm" onClick={onBack}>
-        Back to bans
-      </Button>
-    </div>
+        </CardTitle>
+        <CardAction>
+          <Button variant="outline" size="xs" onClick={onBack}>
+            Back to bans
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        {view.bannedAt ? <>Banned {formatDay(view.bannedAt)}</> : <>No ban time recorded</>}
+        {view.bannedBy && (
+          <>
+            {' '}by{' '}
+            <SubjectLink id={view.bannedBy.id} name={view.bannedBy.name} onOpen={onOpenSubject} />
+          </>
+        )}
+        {view.auditEntryId && (
+          <>
+            {' · audit entry '}
+            <span className="font-mono">{view.auditEntryId}</span>
+          </>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  action,
+  note,
+  children,
+}: {
+  title: string
+  action?: React.ReactNode
+  /** A line about the whole section, on a band of its own under the strip. */
+  note?: React.ReactNode
+  children: React.ReactNode
+}) {
   return (
     <Card>
-      <CardContent className="flex flex-col gap-2 px-5">
-        <div className="font-medium">{title}</div>
-        {children}
-      </CardContent>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {action && <CardAction>{action}</CardAction>}
+      </CardHeader>
+      {note && (
+        <div
+          className="border-b px-(--panel-pad) py-2 text-muted-foreground"
+          style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+        >
+          {note}
+        </div>
+      )}
+      <CardContent className="flex flex-col gap-2">{children}</CardContent>
     </Card>
   )
 }
@@ -316,14 +352,7 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
   }
 
   return (
-    <Section title="The profile at the time">
-      <div
-        className="rounded-md bg-muted/40 px-3 py-2 text-muted-foreground"
-        style={{ fontSize: 'var(--text-small)' }}
-      >
-        {snapshot.explanation}
-      </div>
-
+    <Section title="The profile at the time" note={snapshot.explanation}>
       {snapshot.canCaptureAgain && (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="xs" variant="outline" onClick={captureAgain} disabled={busy}>
@@ -344,7 +373,10 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
       {profile ? <ProfileBlock profile={profile} /> : null}
 
       {snapshot.membership && (
-        <div className="rounded-md border px-3 py-2" style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}>
+        <div
+          className="-mx-(--panel-pad) border-t px-(--panel-pad) pt-2"
+          style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+        >
           <div className="font-medium">Membership at the time</div>
           <p className="mt-1 text-muted-foreground">
             {snapshot.membership.isMember ? 'A member' : 'No longer a member'}
@@ -354,13 +386,9 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
           {roleIds.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {roleIds.map((id) => (
-                <span
-                  key={id}
-                  className="rounded-full border px-2 py-0.5 font-mono text-muted-foreground"
-                  style={{ borderWidth: 'var(--hairline)', fontSize: '0.6875rem' }}
-                >
+                <Badge key={id} variant="outline" className="font-mono">
                   {id}
-                </span>
+                </Badge>
               ))}
             </div>
           )}
@@ -402,8 +430,8 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
         marks={
           profile.eighteenPlus?.verified ? (
             <span
-              className="inline-flex items-center self-center rounded-full border border-transparent bg-ok/15 px-2 py-0.5 font-medium text-ok"
-              style={{ borderWidth: 'var(--hairline)' }}
+              className="inline-flex items-center self-center rounded-sm border border-ok/30 bg-ok/10 px-1.5 font-medium text-ok"
+              style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
             >
               18+ verified
             </span>
@@ -424,7 +452,7 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
           {profile.dateJoined && (
             <div className="flex gap-1">
               <dt>Joined VRChat:</dt>
-              <dd className="text-foreground">{formatDay(profile.dateJoined)}</dd>
+              <dd className="font-mono text-foreground">{formatDay(profile.dateJoined)}</dd>
             </div>
           )}
           {profile.ageVerificationStatus && (
@@ -468,24 +496,25 @@ function Withdraw({ view, onWithdrawn }: { view: CaseFileView; onWithdrawn: (nex
           Withdraw this case file
         </Button>
       ) : (
-        <div
-          className="rounded-md border px-3 py-2"
-          style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-        >
-          <div className="font-medium">Why are you withdrawing it?</div>
-          <p className="mt-1 text-muted-foreground">
-            It can no longer be edited after this.
-          </p>
-          <textarea
-            className="mt-2 w-full rounded-md border bg-background px-2 py-1"
-            style={{ borderWidth: 'var(--hairline)' }}
-            rows={3}
-            value={note}
-            maxLength={2000}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Wrong person; the display name matched somebody else."
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Card style={{ fontSize: 'var(--text-small)' }}>
+          <CardHeader>
+            <CardTitle>Why are you withdrawing it?</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              It can no longer be edited after this.
+            </p>
+            <textarea
+              className="mt-2 w-full rounded-sm border border-input bg-card px-2 py-1 outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+              style={{ borderWidth: 'var(--hairline)' }}
+              rows={3}
+              value={note}
+              maxLength={2000}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Wrong person; the display name matched somebody else."
+            />
+          </CardContent>
+          <CardFooter className="flex-wrap gap-2">
             <Button size="xs" variant="destructive" onClick={submit} disabled={busy || note.trim().length === 0}>
               {busy ? 'Withdrawing…' : 'Withdraw'}
             </Button>
@@ -493,8 +522,8 @@ function Withdraw({ view, onWithdrawn }: { view: CaseFileView; onWithdrawn: (nex
               Cancel
             </Button>
             {problem && <span className="text-destructive">{problem}</span>}
-          </div>
-        </div>
+          </CardFooter>
+        </Card>
       )}
     </div>
   )

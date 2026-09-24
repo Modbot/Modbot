@@ -37,10 +37,10 @@ function DialogContent({
 }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 backdrop-blur-[2px]" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 dark:bg-background/70" />
       <DialogPrimitive.Content
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 flex -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border bg-card p-0 text-card-foreground shadow-lg outline-none',
+          'fixed top-1/2 left-1/2 z-50 flex -translate-x-1/2 -translate-y-1/2 flex-col rounded-sm border border-(length:--hairline) bg-card p-0 text-card-foreground shadow-sm outline-none',
           // Never wider than the screen and never taller than it either. A dialog that ran off
           // the bottom of a phone had no scrollbar of its own and nothing could reach its Save
           // button; the body below scrolls instead.
@@ -50,12 +50,12 @@ function DialogContent({
         {...props}
       >
         <div
-          className="flex shrink-0 items-center gap-3 border-b px-5 py-3"
+          className="flex shrink-0 items-center gap-3 border-b bg-strip px-4 py-2"
           style={{ borderBottomWidth: 'var(--hairline)' }}
         >
           {lead}
           <div className="min-w-0 flex-1">
-            <DialogPrimitive.Title className="truncate font-semibold tracking-tight">
+            <DialogPrimitive.Title className="truncate font-label" style={{ fontSize: 'calc(var(--text-base) + 1px)' }}>
               {title}
             </DialogPrimitive.Title>
             {subtitle && (
@@ -68,14 +68,14 @@ function DialogContent({
           {/* Sized from --control-h rather than from the glyph: on a phone this is the way out of
               a dialog that covers the screen, and a 24px target is not one a finger can hit. */}
           <DialogPrimitive.Close
-            className="grid shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+            className="grid shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
             style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
             aria-label="Close"
           >
             <X className="size-4" />
           </DialogPrimitive.Close>
         </div>
-        <div className={cn('min-h-0 flex-1 overflow-auto px-5 py-4', bodyClassName)}>{children}</div>
+        <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', bodyClassName)}>{children}</div>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   )

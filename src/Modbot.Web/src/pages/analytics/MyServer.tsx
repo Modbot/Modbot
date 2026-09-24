@@ -2,7 +2,8 @@ import { useCallback, useState } from 'react'
 import { DailyBars, DailyLine, Heatmap, Legend, RankedList, compactNumber, longDay, minutes, percent } from '@/components/charts'
 import { PersonLink } from '@/components/facts'
 import { api, type ServerContributor } from '@/lib/api'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, Toggle } from './shared'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Toggle, Tr } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -31,14 +32,14 @@ export function MyServer() {
   const lastActive = data?.active[data.active.length - 1]
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />
 
       {!data && <PageMessage>Loading…</PageMessage>}
 
       {data && (
-        <>
-          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <PanelGrid className="grid-cols-1">
+          <StatStrip>
             <Stat
               label="Members"
               value={latestCount ? compactNumber(latestCount.value) : '—'}
@@ -51,7 +52,7 @@ export function MyServer() {
               note={percent(data.health.activeLast30Days, data.health.members)}
             />
             <Stat label="Time in voice" value={minutes(sum(data.voiceMinutes))} />
-          </div>
+          </StatStrip>
 
           <Panel title="Member count">
             <DailyLine
@@ -63,7 +64,7 @@ export function MyServer() {
             />
           </Panel>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel title="Joins and leaves per day">
               <Legend items={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]} />
               <div className="mt-2">
@@ -85,11 +86,12 @@ export function MyServer() {
                 series={[{ key: 'messages', label: 'messages', points: data.messages, slot: 1 }]}
               />
             </Panel>
-          </div>
+          </PanelGrid>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel
               title="Active members"
+              flush
               right={
                 <Toggle
                   value={activeSpan}
@@ -102,24 +104,26 @@ export function MyServer() {
                 />
               }
             >
-              <DailyLine
-                from={data.from}
-                to={data.to}
-                series={[
-                  {
-                    key: 'active',
+              <div className="p-(--panel-pad)">
+                <DailyLine
+                  from={data.from}
+                  to={data.to}
+                  series={[
+                    {
+                      key: 'active',
                     label: 'active',
-                    points: data.active.map((a) => ({ day: a.day, value: a[activeSpan] })),
-                    slot: 4,
-                  },
-                ]}
-              />
+                      points: data.active.map((a) => ({ day: a.day, value: a[activeSpan] })),
+                      slot: 4,
+                    },
+                  ]}
+                />
+              </div>
               {lastActive && (
-                <div className="mt-2 grid grid-cols-3 gap-3">
+                <StatStrip className="m-0 grid-cols-3 xl:grid-cols-3">
                   <Stat label="Day" value={compactNumber(lastActive.daily)} />
                   <Stat label="7 days" value={compactNumber(lastActive.weekly)} />
                   <Stat label="30 days" value={compactNumber(lastActive.monthly)} />
-                </div>
+                </StatStrip>
               )}
             </Panel>
 
@@ -130,9 +134,9 @@ export function MyServer() {
                 series={[{ key: 'voice', label: 'minutes', points: data.voiceMinutes, slot: 5 }]}
               />
             </Panel>
-          </div>
+          </PanelGrid>
 
-          <div className="grid gap-4 lg:grid-cols-2">
+          <PanelGrid className="lg:grid-cols-2">
             <Panel title="Busiest channels">
               {data.busiestChannels.length === 0 ? (
                 <Nothing>No messages in this range.</Nothing>
@@ -161,7 +165,7 @@ export function MyServer() {
                 />
               )}
             </Panel>
-          </div>
+          </PanelGrid>
 
           <Panel title="Moderation actions per day">
             <Legend
@@ -187,52 +191,52 @@ export function MyServer() {
             </div>
           </Panel>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Panel title="New members still here">
-              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="text-left text-muted-foreground">
-                  <tr>
-                    <th className="py-1 font-medium">After</th>
-                    <th className="py-1 text-right font-medium">Joined</th>
-                    <th className="py-1 text-right font-medium">Still here</th>
-                    <th className="py-1 text-right font-medium">Still active</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.newMembers.map((n) => (
-                    <tr key={n.days} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-                      <td className="py-1">{n.days} days</td>
-                      <td className="py-1 text-right tabular-nums">{compactNumber(n.joined)}</td>
-                      <td className="py-1 text-right tabular-nums">
-                        {compactNumber(n.stillHere)} <span className="text-muted-foreground">{percent(n.stillHere, n.joined)}</span>
-                      </td>
-                      <td className="py-1 text-right tabular-nums">
-                        {compactNumber(n.stillActive)} <span className="text-muted-foreground">{percent(n.stillActive, n.joined)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <PanelGrid className="lg:grid-cols-2">
+            <Panel title="New members still here" flush>
+              <Table
+                head={
+                  <>
+                    <Th>After</Th>
+                    <Th className="text-right">Joined</Th>
+                    <Th className="text-right">Still here</Th>
+                    <Th className="text-right">Still active</Th>
+                  </>
+                }
+              >
+                {data.newMembers.map((n) => (
+                  <Tr key={n.days}>
+                    <Td>{n.days} days</Td>
+                    <Td className="text-right font-mono">{compactNumber(n.joined)}</Td>
+                    <Td className="text-right font-mono">
+                      {compactNumber(n.stillHere)} <span className="text-muted-foreground">{percent(n.stillHere, n.joined)}</span>
+                    </Td>
+                    <Td className="text-right font-mono">
+                      {compactNumber(n.stillActive)} <span className="text-muted-foreground">{percent(n.stillActive, n.joined)}</span>
+                    </Td>
+                  </Tr>
+                ))}
+              </Table>
             </Panel>
 
-            <Panel title="Member health">
-              <div className="mb-3 grid grid-cols-3 gap-3">
+            <Panel title="Member health" flush>
+              {/* The margin is the room for the strip's lower line, which the table's head would cover. */}
+              <StatStrip className="m-0 mb-(--hairline) grid-cols-3 xl:grid-cols-3">
                 <Stat label="Members" value={compactNumber(data.health.members)} />
                 <Stat
                   label="Active in 30 days"
                   value={percent(data.health.activeLast30Days, data.health.members)}
                 />
                 <Stat label="Went quiet" value={compactNumber(data.health.wentQuiet)} />
-              </div>
+              </StatStrip>
               {data.health.quiet.length === 0 ? (
-                <Nothing height={60}>Nobody went quiet.</Nothing>
+                <EmptyRow>Nobody went quiet.</EmptyRow>
               ) : (
                 <PeopleTable people={data.health.quiet} />
               )}
             </Panel>
-          </div>
+          </PanelGrid>
 
-          <Panel title="Top contributors">
+          <Panel title="Top contributors" flush={data.topContributors.length > 0}>
             {data.topContributors.length === 0 ? (
               <Nothing>No messages in this range.</Nothing>
             ) : (
@@ -241,7 +245,7 @@ export function MyServer() {
           </Panel>
 
           <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
-        </>
+        </PanelGrid>
       )}
     </div>
   )
@@ -250,28 +254,27 @@ export function MyServer() {
 /** Everybody here is a Discord member, so every name opens the Discord person popup. */
 function PeopleTable({ people }: { people: ServerContributor[] }) {
   return (
-    <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-      <thead className="text-left text-muted-foreground">
-        <tr>
-          <th className="py-1 font-medium">Person</th>
-          <th className="py-1 text-right font-medium">Messages</th>
-          <th className="py-1 text-right font-medium">Voice</th>
-        </tr>
-      </thead>
-      <tbody>
-        {people.map((p) => (
-          <tr key={p.who.id} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
-            <td className="py-1">
-              <PersonLink platform={p.who.platform} id={p.who.id} name={p.who.name} />
-            </td>
-            <td className="py-1 text-right tabular-nums">{compactNumber(p.messages)}</td>
-            <td className="py-1 text-right tabular-nums text-muted-foreground">
-              {p.voiceMinutes > 0 ? minutes(p.voiceMinutes) : '·'}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Table
+      head={
+        <>
+          <Th>Person</Th>
+          <Th className="text-right">Messages</Th>
+          <Th className="text-right">Voice</Th>
+        </>
+      }
+    >
+      {people.map((p) => (
+        <Tr key={p.who.id}>
+          <Td>
+            <PersonLink platform={p.who.platform} id={p.who.id} name={p.who.name} />
+          </Td>
+          <Td className="text-right font-mono">{compactNumber(p.messages)}</Td>
+          <Td className="text-right font-mono text-muted-foreground">
+            {p.voiceMinutes > 0 ? minutes(p.voiceMinutes) : '·'}
+          </Td>
+        </Tr>
+      ))}
+    </Table>
   )
 }
 

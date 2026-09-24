@@ -1,8 +1,9 @@
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { trustRank, trustRankColour, trustRankLabel } from '@/lib/trustRank'
 
 /**
- * A person's VRChat trust rank: a dot in VRChat's colour for the rank, and the rank's name.
+ * A person's VRChat trust rank: a square in VRChat's colour for the rank, and the rank's name.
  *
  * The same shape as the source badge on a fact: the colour is a second channel and the word
  * carries the identity, so a rank whose VRChat colour is faint on one theme still reads on both.
@@ -13,15 +14,9 @@ export function TrustRankBadge({ rank, className }: { rank: unknown; className?:
   if (!known) return null
 
   return (
-    <span
-      className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-1.5 py-0 font-medium whitespace-nowrap text-muted-foreground',
-        className,
-      )}
-      style={{ fontSize: '0.6875rem', borderWidth: 'var(--hairline)' }}
-    >
-      <span className="size-1.5 shrink-0 rounded-full" style={{ background: trustRankColour(known) }} />
+    <Badge variant="outline" className={cn('gap-1.5', className)}>
+      <span aria-hidden className="size-1.5 shrink-0" style={{ background: trustRankColour(known) }} />
       {trustRankLabel(known)}
-    </span>
+    </Badge>
   )
 }

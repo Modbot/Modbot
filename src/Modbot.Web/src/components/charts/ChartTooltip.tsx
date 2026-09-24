@@ -21,17 +21,19 @@ export function ChartTooltip({
 }) {
   return (
     <div
-      className="rounded-xl border bg-popover px-2 py-1 text-popover-foreground shadow-md"
-      style={{ fontSize: 'var(--text-small)', borderWidth: 'var(--hairline)' }}
+      className="overflow-hidden rounded-sm border border-(length:--hairline) bg-popover text-popover-foreground shadow-sm"
+      style={{ fontSize: 'var(--text-small)' }}
     >
-      <div className="text-muted-foreground">{title}</div>
-      {rows.map((row) => (
-        <div key={row.name} className="flex items-center gap-1.5 tabular-nums">
-          {row.color && <span className="size-2 shrink-0 rounded-full" style={{ background: row.color }} />}
-          <span className="font-medium">{typeof row.value === 'number' ? format(row.value) : row.value}</span>
-          <span className="text-muted-foreground">{row.name}</span>
-        </div>
-      ))}
+      <div className="border-b border-b-(length:--hairline) bg-strip px-2 py-1 font-mono text-muted-foreground">{title}</div>
+      <div className="px-2 py-1">
+        {rows.map((row) => (
+          <div key={row.name} className="flex items-center gap-1.5">
+            {row.color && <span className="size-2 shrink-0 rounded-full" style={{ background: row.color }} />}
+            <span className="font-mono font-medium">{typeof row.value === 'number' ? format(row.value) : row.value}</span>
+            <span className="text-muted-foreground">{row.name}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -79,7 +79,10 @@ export function Conversations({
       >
         {groups.map(({ group, items }) => (
           <div key={group} className="flex flex-col gap-0.5">
-            <h3 className="px-2 py-1 font-medium tracking-wide text-muted-foreground uppercase">{group}</h3>
+            <h3 className="flex items-center gap-2 px-2 py-1 font-label text-muted-foreground">
+              {group}
+              <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
+            </h3>
             {items.map((c) => (
               <Row
                 key={c.id}
@@ -156,12 +159,13 @@ function Row({
         aria-current={current ? 'true' : undefined}
         title={conversation.title}
         className={cn(
-          'w-full truncate rounded-md py-1.5 pr-8 pl-2 text-left transition-colors',
+          'relative min-h-(--control-h) w-full truncate py-1.5 pr-8 pl-2 text-left transition-colors',
           current
-            ? 'bg-accent text-accent-foreground'
-            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+            ? 'bg-card font-medium text-foreground'
+            : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
         )}
       >
+        {current && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />}
         {conversation.title}
       </button>
 
@@ -171,7 +175,7 @@ function Row({
             type="button"
             aria-label="More"
             className={cn(
-              'absolute right-1 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-secondary hover:text-foreground',
+              'absolute right-1 rounded-sm p-1 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground',
               'focus-visible:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100',
               menu && 'opacity-100',
             )}
@@ -183,7 +187,7 @@ function Row({
           <Popover.Content
             align="end"
             sideOffset={4}
-            className="z-50 flex w-40 flex-col rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
+            className="z-50 flex w-40 flex-col rounded-sm border border-(length:--hairline) bg-popover p-1 text-popover-foreground shadow-sm"
             style={{ fontSize: 'var(--text-small)' }}
           >
             <MenuItem
@@ -246,7 +250,7 @@ function MenuItem({
       type="button"
       onClick={onSelect}
       className={cn(
-        'flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent hover:text-accent-foreground',
+        'flex items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-muted',
         destructive && 'text-destructive',
       )}
     >

@@ -1,15 +1,21 @@
-import { Card, CardContent } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 /** The small furniture every settings card is built from. */
 
+/** Mono for anything with a figure in it (a count, a size, a version, a time, a commit), the body face for a word like "Off". */
+function face(value: string) {
+  return /\d/.test(value) ? 'font-mono' : undefined
+}
+
 /** A label and a value on one line, for lists of read-only facts. */
 export function Row({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
     <div className="flex justify-between gap-4 py-1" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right tabular-nums" title={title}>{value}</span>
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className={cn('min-w-0 text-right break-words tabular-nums', face(value))} title={title}>{value}</span>
     </div>
   )
 }
@@ -21,7 +27,7 @@ export function Fact({ label, value }: { label: string; value: string }) {
       <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
         {label}
       </div>
-      <div className="truncate font-medium tabular-nums" title={value}>
+      <div className={cn('truncate font-medium tabular-nums', face(value))} title={value}>
         {value}
       </div>
     </div>
@@ -99,9 +105,9 @@ export function LongField({
       <span className="text-muted-foreground">{label}</span>
       <textarea
         className={cn(
-          'border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50',
-          'dark:bg-input/30 flex w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs',
-          'transition-[color,box-shadow] outline-none focus-visible:ring-[3px] md:text-sm',
+          'flex w-full rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 py-1 text-base',
+          'transition-colors outline-none placeholder:text-muted-foreground md:text-(length:--text-base)',
+          'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
         )}
         rows={rows}
         placeholder={placeholder}
@@ -182,14 +188,14 @@ export function Switch({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'relative inline-flex h-5 w-9 shrink-0 items-center rounded-sm transition-colors',
+          'outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
           checked ? 'bg-primary' : 'bg-input',
         )}
       >
         <span
           className={cn(
-            'inline-block size-4 rounded-full bg-background shadow-sm transition-transform',
+            'inline-block size-4 rounded-xs bg-background transition-transform',
             checked ? 'translate-x-[18px]' : 'translate-x-[2px]',
           )}
         />
@@ -229,9 +235,9 @@ export function Outcome({
 }
 
 /**
- * A tinted box for something the operator has to read before the controls make sense: a lock, a
+ * A tinted band for something the operator has to read before the controls make sense: a lock, a
  * warning, a reason a setting cannot be changed. Tone is a hint, never the whole message — the
- * title says what is wrong in words.
+ * title says what is wrong in words, after a filled square in the tone's colour.
  */
 export function Notice({
   tone,
@@ -246,24 +252,35 @@ export function Notice({
   className?: string
   children?: React.ReactNode
 }) {
+  // Set inline so the tint survives a PanelGrid, whose cells are otherwise painted the card colour.
   const tint = {
-    ok: 'border-ok/40 bg-ok/10',
-    warn: 'border-warn/40 bg-warn/10',
-    danger: 'border-destructive/40 bg-destructive/10',
-    neutral: 'border-border bg-secondary',
+    ok: 'color-mix(in oklab, var(--ok) 10%, var(--card))',
+    warn: 'color-mix(in oklab, var(--warn) 10%, var(--card))',
+    danger: 'color-mix(in oklab, var(--destructive) 10%, var(--card))',
+    neutral: 'var(--strip)',
+  }[tone]
+
+  const square = {
+    ok: 'bg-ok',
+    warn: 'bg-warn',
+    danger: 'bg-destructive',
+    neutral: 'bg-muted-foreground',
   }[tone]
 
   return (
     <div
-      className={cn('rounded-xl border px-4 py-3', tint, className)}
-      style={{ borderWidth: 'var(--hairline)' }}
+      className={cn('px-(--panel-pad) py-2', className)}
+      style={{ background: tint }}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="font-medium">{title}</div>
+          <div className="flex items-start gap-2 font-medium">
+            <span aria-hidden className={cn('mt-[0.45em] size-2 shrink-0', square)} />
+            {title}
+          </div>
           {children && (
             <div
-              className="mt-1 flex flex-col gap-1 text-muted-foreground"
+              className="mt-1 flex flex-col gap-1 pl-4 text-muted-foreground"
               style={{ fontSize: 'var(--text-small)' }}
             >
               {children}
@@ -280,7 +297,7 @@ export function Notice({
 export function Placeholder({ children }: { children: React.ReactNode }) {
   return (
     <Card className="col-span-12">
-      <CardContent className="py-10 text-center text-muted-foreground">{children}</CardContent>
+      <EmptyRow>{children}</EmptyRow>
     </Card>
   )
 }

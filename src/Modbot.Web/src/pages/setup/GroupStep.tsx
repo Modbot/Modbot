@@ -85,7 +85,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
 
         {candidates && candidates.groups.length > 0 && (
           <div
-            className="overflow-hidden rounded-xl border bg-card"
+            className="border border-(length:--hairline)"
             role="radiogroup"
             aria-label="Groups"
           >
@@ -93,11 +93,10 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
               <label
                 key={group.id}
                 className={cn(
-                  'flex cursor-pointer items-center gap-3 px-4 py-2.5',
-                  index > 0 && 'border-t',
-                  selected === group.id && 'bg-accent/40',
+                  'flex min-h-(--row-h) cursor-pointer items-center gap-3 px-(--panel-pad) py-2',
+                  index > 0 && 'border-t border-t-(length:--hairline)',
+                  selected === group.id && 'bg-accent text-accent-foreground',
                 )}
-                style={{ borderTopWidth: index > 0 ? 'var(--hairline)' : undefined }}
               >
                 <input
                   type="radio"
@@ -166,7 +165,6 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
           variant="outline"
           onClick={() => void load(true)}
           disabled={loading || busy}
-          style={{ height: 'var(--control-h)' }}
         >
           {loading ? 'Checking…' : 'Check again'}
         </Button>

@@ -120,6 +120,7 @@ function PurgeCard() {
         <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
           <span className="text-muted-foreground">Id</span>
           <Input
+            className="font-mono"
             value={id}
             onChange={(e) => {
               setId(e.target.value)
@@ -130,7 +131,6 @@ function PurgeCard() {
 
         <Button
           variant="outline"
-          size="sm"
           disabled={busy || id.trim().length === 0}
           onClick={() => void look()}
         >
@@ -146,7 +146,7 @@ function PurgeCard() {
           style={{ fontSize: 'var(--text-small)' }}
         >
           <span className="text-muted-foreground">Type the id to confirm</span>
-          <Input value={typed} onChange={(e) => setTyped(e.target.value)} />
+          <Input className="font-mono" value={typed} onChange={(e) => setTyped(e.target.value)} />
         </label>
       )}
 

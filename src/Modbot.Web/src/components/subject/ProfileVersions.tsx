@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/badge'
 import { dateTime } from '@/components/charts'
 import { SourceBadge } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
-import { Note, Panel } from '@/components/subject/shared'
+import { EmptyRow } from '@/components/PanelGrid'
+import { Panel } from '@/components/subject/shared'
 import { api, type ProfileFields, type ProfileVersion } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { fieldName } from '@/lib/profileFields'
@@ -24,26 +25,23 @@ export function ProfileVersions({ id, openAt }: { id: string; openAt: number | n
   const { data, error } = useLoad(load)
   const [chosen, setChosen] = useState<number | null>(openAt)
 
-  if (error) return <Panel title="History"><Note className="text-destructive">{error}</Note></Panel>
-  if (!data) return <Panel title="History"><Note>Loading…</Note></Panel>
+  if (error) return <Panel title="History" flush><EmptyRow className="text-destructive">{error}</EmptyRow></Panel>
+  if (!data) return <Panel title="History" flush><EmptyRow>Loading…</EmptyRow></Panel>
 
   if (!data.known || data.versions.length === 0)
-    return <Panel title="History"><Note>No profile recorded yet.</Note></Panel>
+    return <Panel title="History" flush><EmptyRow>No profile recorded yet.</EmptyRow></Panel>
 
   const version = data.versions.find((v) => v.factId === chosen) ?? data.versions[0]
 
   return (
-    <div className="grid min-h-0 flex-1 md:grid-cols-[18rem_minmax(0,1fr)] md:overflow-hidden">
-      <ol
-        className="flex flex-col border-b md:overflow-auto md:border-r md:border-b-0"
-        style={{ borderWidth: 0, borderRightWidth: 'var(--hairline)', borderBottomWidth: 'var(--hairline)' }}
-      >
+    <div className="grid min-h-0 flex-1 md:h-full md:grid-cols-[18rem_minmax(0,1fr)] md:overflow-hidden">
+      <ol className="flex flex-col border-b border-b-(length:--hairline) md:overflow-auto md:border-r md:border-b-0 md:border-r-(length:--hairline)">
         {data.versions.map((v) => (
           <VersionRow key={v.factId} version={v} chosen={v.factId === version.factId} onClick={() => setChosen(v.factId)} />
         ))}
       </ol>
 
-      <div className="min-h-0 overflow-auto p-4">
+      <div className="min-h-0 overflow-auto p-(--panel-pad)">
         <VersionCard version={version} />
       </div>
     </div>
@@ -67,13 +65,13 @@ function VersionRow({ version, chosen, onClick }: { version: ProfileVersion; cho
         onClick={onClick}
         aria-current={chosen}
         className={cn(
-          'flex w-full flex-col gap-0.5 border-b px-3 py-2 text-left hover:bg-secondary',
+          'flex w-full flex-col gap-0.5 border-b px-(--panel-pad) py-2 text-left hover:bg-muted',
           chosen && 'bg-accent text-accent-foreground',
         )}
         style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
       >
         <span className="flex items-center gap-2">
-          <span className="tabular-nums">{formatDay(version.at)}</span>
+          <span className="font-mono">{formatDay(version.at)}</span>
           {version.current && <Badge variant="secondary">Now</Badge>}
           {version.baseline && <Badge variant="outline">First seen</Badge>}
         </span>
@@ -135,7 +133,7 @@ export function Fields({ fields: p, highlight }: { fields: ProfileFields; highli
   const banner = vrchatMedia(p.bannerUrl)
   const icon = vrchatMedia(p.iconUrl)
   const groupIcon = vrchatMedia(p.representedGroup?.iconUrl)
-  const marked = (field: string) => (highlight.includes(field) ? 'ring-2 ring-ring/50 rounded-md' : '')
+  const marked = (field: string) => (highlight.includes(field) ? 'ring-2 ring-ring/50 rounded-sm' : '')
 
   return (
     <div className="flex gap-3">
@@ -149,7 +147,7 @@ export function Fields({ fields: p, highlight }: { fields: ProfileFields; highli
         <Row label="Name" mark={marked('displayName')}>{p.displayName ?? '—'}</Row>
         <Row label="Banner" mark={marked('bannerUrl')}>
           {banner ? (
-            <img src={banner} alt="" className="aspect-[3/1] w-full max-w-xs rounded-md bg-muted object-cover" referrerPolicy="no-referrer" />
+            <img src={banner} alt="" className="aspect-[3/1] w-full max-w-xs bg-muted object-cover" referrerPolicy="no-referrer" />
           ) : '—'}
         </Row>
         <Row label="Icon" mark={marked('iconUrl')}>

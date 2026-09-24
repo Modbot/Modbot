@@ -141,7 +141,6 @@ export function ConnectionStep({ eyebrow, status, run, refresh, busy }: StepProp
             variant="outline"
             onClick={() => void test()}
             disabled={testing || busy}
-            style={{ height: 'var(--control-h)' }}
           >
             {testing ? 'Testing…' : diagnosis ? 'Test again' : 'Test connection'}
           </Button>
@@ -155,7 +154,6 @@ export function ConnectionStep({ eyebrow, status, run, refresh, busy }: StepProp
                 setProxyPassword('')
               }}
               disabled={testing || busy}
-              style={{ height: 'var(--control-h)' }}
             >
               Test without the proxy
             </Button>

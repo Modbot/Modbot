@@ -2,10 +2,11 @@ import { useCallback, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { dateTime } from '@/components/charts'
-import { Note as Muted } from '@/components/subject/shared'
+import { Block, Empty, Note as Muted } from '@/components/subject/shared'
 import { api, ApiError, type Note, type NoteList } from '@/lib/api'
 import { MAX_NOTE_LENGTH, noteAuthor, noteProblem, notesBeforeActing } from '@/lib/notes'
 import { useLoad } from '@/lib/useLoad'
+import { cn } from '@/lib/utils'
 
 /**
  * A person's notes: what moderators have written about them, and a box to write another.
@@ -45,16 +46,16 @@ export function PersonNotes({
   const again = () => setVersion((n) => n + 1)
 
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-auto p-4">
-      {error && <Muted className="text-destructive">{error}</Muted>}
-      {!error && !data && <Muted>Loading…</Muted>}
+    <div className="flex min-h-0 flex-col">
+      {error && <Empty className="text-destructive">{error}</Empty>}
+      {!error && !data && <Empty>Loading…</Empty>}
 
       {data?.canWrite && <WriteNote subjectId={subjectId} platform={platform} onWritten={again} />}
 
-      {data && data.notes.length === 0 && <Muted>No notes.</Muted>}
+      {data && data.notes.length === 0 && <Empty>No notes.</Empty>}
 
       {data && data.notes.length > 0 && (
-        <ol className="flex flex-col gap-2">
+        <ol className="flex shrink-0 flex-col border-b border-b-(length:--hairline)">
           {data.notes.map((note) => (
             <NoteRow key={note.id} note={note} onTakenBack={again} />
           ))}
@@ -83,15 +84,15 @@ function NoteRow({ note, onTakenBack }: { note: Note; onTakenBack: () => void })
 
   return (
     <li
-      className="rounded-md border px-3 py-2"
-      style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+      className="border-t border-t-(length:--hairline) px-(--panel-pad) py-2 first:border-t-0"
+      style={{ fontSize: 'var(--text-small)' }}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{noteAuthor(note)}</span>
         {note.imported && <Badge variant="secondary">imported</Badge>}
         {note.takenBack && <Badge variant="secondary">taken back</Badge>}
         <span className="flex-1" />
-        <span className="text-muted-foreground">{dateTime(note.writtenAt)}</span>
+        <span className="font-mono text-muted-foreground">{dateTime(note.writtenAt)}</span>
         {note.canTakeBack && (
           <Button size="xs" variant="ghost" onClick={takeBack} disabled={busy}>
             Take back
@@ -105,7 +106,7 @@ function NoteRow({ note, onTakenBack }: { note: Note; onTakenBack: () => void })
 
       {note.takenBack && note.takenBackAt && (
         <Muted>
-          {note.takenBackByName ?? 'Somebody'} · {dateTime(note.takenBackAt)}
+          {note.takenBackByName ?? 'Somebody'} · <span className="font-mono">{dateTime(note.takenBackAt)}</span>
         </Muted>
       )}
 
@@ -146,12 +147,10 @@ function WriteNote({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <Block className="gap-2">
       <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
         <span className="text-muted-foreground">Note</span>
-        <textarea
-          className="w-full rounded-md border bg-background px-2 py-1"
-          style={{ borderWidth: 'var(--hairline)' }}
+        <Textarea
           rows={3}
           maxLength={MAX_NOTE_LENGTH}
           value={text}
@@ -166,7 +165,21 @@ function WriteNote({
       </div>
 
       {problem && <Muted className="text-destructive">{problem}</Muted>}
-    </div>
+    </Block>
+  )
+}
+
+/** A box for a written note, drawn like the app's inputs: the same edge, surface and focus. */
+export function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
+  return (
+    <textarea
+      className={cn(
+        'w-full rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 py-1 outline-none transition-colors',
+        'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
+        className,
+      )}
+      {...props}
+    />
   )
 }
 
@@ -192,17 +205,13 @@ export function NotesBeforeActing({ userId }: { userId: string }) {
   return (
     <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">Notes</span>
-      <ol className="flex flex-col gap-1">
+      <ol className="flex flex-col border border-(length:--hairline)">
         {showing.map((note) => (
-          <li
-            key={note.id}
-            className="rounded-md border px-2 py-1"
-            style={{ borderWidth: 'var(--hairline)' }}
-          >
+          <li key={note.id} className="border-t border-t-(length:--hairline) px-2 py-1 first:border-t-0">
             <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
               <span>{noteAuthor(note)}</span>
               <span className="flex-1" />
-              <span>{dateTime(note.writtenAt)}</span>
+              <span className="font-mono">{dateTime(note.writtenAt)}</span>
             </div>
             <p className="break-words whitespace-pre-wrap">{note.text}</p>
           </li>

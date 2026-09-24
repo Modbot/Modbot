@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
+import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { api, ApiError, type DiscordRoute, type DiscordRoutes } from '@/lib/api'
@@ -8,6 +9,9 @@ import { cn } from '@/lib/utils'
 import { Outcome, Switch } from '../fields'
 import { SettingsCard } from '../SettingsCard'
 import { RouteEditor } from './RouteEditor'
+
+/** Runs the card's content to its edges, so each channel's line meets the card's sides. */
+const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 
 /** Whether a route has any filter beyond its event types. */
 function filtered(route: DiscordRoute): boolean {
@@ -86,9 +90,10 @@ export function ChannelsCard() {
     <SettingsCard
       title="Channels"
       span={12}
+      className={FLUSH}
       action={
         data && (
-          <Button type="button" size="sm" variant="outline" onClick={() => setEditing('new')}>
+          <Button type="button" size="xs" variant="outline" onClick={() => setEditing('new')}>
             <Plus />
             Add channel
           </Button>
@@ -97,32 +102,34 @@ export function ChannelsCard() {
       footer={error ? <Outcome tone="problem">{error}</Outcome> : undefined}
     >
       {loadError ? (
-        <Outcome tone="problem">{loadError}</Outcome>
+        <div className="p-(--panel-pad)">
+          <Outcome tone="problem">{loadError}</Outcome>
+        </div>
       ) : !data ? (
-        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Loading…
-        </span>
+        <EmptyRow>Loading…</EmptyRow>
       ) : data.routes.length === 0 ? (
-        <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          No channels
-        </span>
+        <EmptyRow>No channels</EmptyRow>
       ) : (
-        <ul className="flex flex-col divide-y" style={{ fontSize: 'var(--text-small)' }}>
+        <ul className="flex flex-col" style={{ fontSize: 'var(--text-small)' }}>
           {data.routes.map((route) => {
             const channel = channelLabel(route.channelId)
             return (
-              <li key={route.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-2">
+              <li
+                key={route.id}
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-b-(length:--hairline) px-(--panel-pad) py-2 last:border-0"
+              >
                 <div className="flex min-w-[12rem] flex-1 flex-wrap items-baseline gap-x-2">
                   <span className={cn('font-medium', !route.enabled && 'text-muted-foreground')}>{channel.name}</span>
                   {route.name && <span className="text-muted-foreground">{route.name}</span>}
                   {channel.mark && (
-                    <span className={cn('text-xs', channel.problem ? 'text-warn' : 'text-muted-foreground')}>
+                    <span className={cn(channel.problem ? 'text-warn' : 'font-mono text-muted-foreground')}>
                       {channel.mark}
                     </span>
                   )}
                 </div>
-                <span className="text-muted-foreground tabular-nums">
-                  {route.eventTypes.length === 1 ? '1 event' : `${route.eventTypes.length} events`}
+                <span className="text-muted-foreground">
+                  <span className="font-mono">{route.eventTypes.length}</span>
+                  {route.eventTypes.length === 1 ? ' event' : ' events'}
                   {filtered(route) && ' · Filtered'}
                 </span>
                 <Switch checked={route.enabled} onChange={(enabled) => toggle(route, enabled)}>

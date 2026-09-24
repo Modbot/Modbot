@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type IssuedPairingCode } from '@/lib/api'
 import { encodePairingToken, pairingLink } from '@/lib/pairingToken'
@@ -85,9 +86,9 @@ export function Pair() {
 
   return (
     <div className="grid min-h-dvh place-items-center bg-background p-6">
-      <div className="w-full max-w-[460px]">
+      <div className="w-full min-w-0 max-w-[460px]">
         <Brand subtitle="companion" />
-        <div className="overflow-hidden rounded-xl border bg-card shadow-lg">
+        <Card>
           <WizardHeader eyebrow="Pair" title="Pair this computer" />
 
           <WizardBody>
@@ -95,13 +96,13 @@ export function Pair() {
 
             {issued && !expired && (
               <>
-                <Button asChild className="w-full" style={{ height: 'var(--control-h)' }}>
+                <Button asChild className="w-full">
                   <a href={issued.link}>Open in Modbot</a>
                 </Button>
 
                 <div className="flex gap-2">
                   <Input readOnly value={issued.token} aria-label="Pairing token" className="font-mono" />
-                  <Button variant="secondary" onClick={copy} style={{ height: 'var(--control-h)' }}>
+                  <Button variant="secondary" onClick={copy}>
                     {copied === 'yes' ? 'Copied' : 'Copy pairing token'}
                   </Button>
                 </div>
@@ -125,9 +126,16 @@ export function Pair() {
 
           <WizardFooter>
             <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {issued && !expired && secondsLeft !== null
-                ? `Expires in ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`
-                : ' '}
+              {issued && !expired && secondsLeft !== null ? (
+                <>
+                  Expires in{' '}
+                  <span className="font-mono">
+                    {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+                  </span>
+                </>
+              ) : (
+                ' '
+              )}
             </span>
             <div className="flex-1" />
             <Button
@@ -139,7 +147,7 @@ export function Pair() {
               {busy ? 'Preparing…' : 'Get a new link'}
             </Button>
           </WizardFooter>
-        </div>
+        </Card>
       </div>
     </div>
   )

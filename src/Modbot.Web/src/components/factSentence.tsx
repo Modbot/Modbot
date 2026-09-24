@@ -214,7 +214,7 @@ function VersionLink({ entry }: { entry: AuditEntry }) {
     <button
       type="button"
       onClick={() => openPersonVersion(entry.subjectId, entry.id)}
-      className="rounded-md font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+      className="rounded-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
       style={{ display: 'inline' }}
       title="The profile as it stood after this change"
     >
