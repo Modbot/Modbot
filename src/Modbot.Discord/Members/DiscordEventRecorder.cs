@@ -139,11 +139,13 @@ public sealed class DiscordEventRecorder
         var now = _clock.UtcNow;
         var row = await RowAsync(guildId, userId, ct).ConfigureAwait(false);
 
+        var channels = await ChannelNamesAsync(guildId, ct).ConfigureAwait(false);
+
         var fact = (from, to) switch
         {
-            (null, { } joined) => Fact(FactType.DiscordVoiceJoined, userId, now, data: new JsonObject { ["channelId"] = joined }),
-            ({ } left, null) => Fact(FactType.DiscordVoiceLeft, userId, now, data: new JsonObject { ["channelId"] = left }),
-            ({ } left, { } joined) => Fact(FactType.DiscordVoiceMoved, userId, now, data: new JsonObject { ["from"] = left, ["channelId"] = joined }),
+            (null, { } joined) => Fact(FactType.DiscordVoiceJoined, userId, now, data: Voice(joined, null, channels)),
+            ({ } left, null) => Fact(FactType.DiscordVoiceLeft, userId, now, data: Voice(left, null, channels)),
+            ({ } left, { } joined) => Fact(FactType.DiscordVoiceMoved, userId, now, data: Voice(joined, left, channels)),
             _ => null,
         };
 
@@ -285,6 +287,8 @@ public sealed class DiscordEventRecorder
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        var channels = await ChannelNamesAsync(guildId, ct).ConfigureAwait(false);
+
         var facts = new List<FactRecord>();
 
         foreach (var row in open)
@@ -292,7 +296,7 @@ public sealed class DiscordEventRecorder
             if (inVoice.TryGetValue(row.UserId, out var channel) && channel == row.VoiceChannelId)
                 continue;
 
-            facts.Add(Fact(FactType.DiscordVoiceLeft, row.UserId, since, before, new JsonObject { ["channelId"] = row.VoiceChannelId }));
+            facts.Add(Fact(FactType.DiscordVoiceLeft, row.UserId, since, before, Voice(row.VoiceChannelId, null, channels)));
             row.VoiceChannelId = null;
             row.VoiceSince = null;
             row.UpdatedAt = now;
@@ -306,7 +310,9 @@ public sealed class DiscordEventRecorder
                 continue;
 
             var row = await RowAsync(guildId, userId, ct).ConfigureAwait(false);
-            facts.Add(Fact(FactType.DiscordVoiceJoined, userId, now, data: new JsonObject { ["channelId"] = channelId, ["alreadyThere"] = true }));
+            var joinedVoice = Voice(channelId, null, channels);
+            joinedVoice["alreadyThere"] = true;
+            facts.Add(Fact(FactType.DiscordVoiceJoined, userId, now, data: joinedVoice));
             row.VoiceChannelId = channelId;
             row.VoiceSince = now;
             row.UpdatedAt = now;
@@ -532,6 +538,46 @@ public sealed class DiscordEventRecorder
     /// The facts a member's change implies. Roles and timeouts only when the audit log will not
     /// record them itself.
     /// </summary>
+    /// <summary>
+    /// What the server index calls each of this server's channels, by id.
+    /// </summary>
+    /// <remarks>
+    /// So a voice fact says which channel rather than "a Discord voice channel". A channel the
+    /// index has never seen, or one deleted before it was indexed, is left out and the sentence
+    /// falls back to the general one.
+    /// </remarks>
+    private async Task<IReadOnlyDictionary<string, string>> ChannelNamesAsync(string guildId, CancellationToken ct)
+        => await _db.DiscordChannels
+            .AsNoTracking()
+            .Where(c => c.GuildId == guildId)
+            .ToDictionaryAsync(c => c.ChannelId, c => c.Name, StringComparer.Ordinal, ct)
+            .ConfigureAwait(false);
+
+    /// <summary>
+    /// A voice fact: the channel it is about, the one left behind on a move, and both their names
+    /// where the index has them.
+    /// </summary>
+    private static JsonObject Voice(string? channelId, string? from, IReadOnlyDictionary<string, string> names)
+    {
+        var payload = new JsonObject { ["channelId"] = channelId };
+        NameChannel(payload, "channelName", channelId, names);
+
+        if (from is not null)
+        {
+            payload["from"] = from;
+            NameChannel(payload, "fromName", from, names);
+        }
+
+        return payload;
+    }
+
+    /// <summary>One channel named, when the index knows it.</summary>
+    private static void NameChannel(JsonObject payload, string key, string? channelId, IReadOnlyDictionary<string, string> names)
+    {
+        if (channelId is not null && names.TryGetValue(channelId, out var name) && !string.IsNullOrWhiteSpace(name))
+            payload[key] = name;
+    }
+
     /// <summary>
     /// What the server index calls each of this server's roles, by id.
     /// </summary>

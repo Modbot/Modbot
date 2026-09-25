@@ -82,6 +82,16 @@ function named(name: string | null | undefined, kind: string): React.ReactNode {
   return name ? <>the {kind} {name}</> : `a ${kind}`
 }
 
+/**
+ * A Discord voice channel by name, or the general phrase when Modbot never learned it.
+ *
+ * Channels are named with a leading hash by everyone who uses Discord, so the name carries its own
+ * punctuation and needs no word in front of it.
+ */
+function voice(name: string | null | undefined): React.ReactNode {
+  return name ? <>the Discord voice channel {name}</> : 'a Discord voice channel'
+}
+
 /** A count in the payload, written out, or the given word when there is none. */
 function howMany(p: Parts, otherwise: string): string {
   const value = p.entry.data?.['count']
@@ -443,9 +453,21 @@ const SENTENCES: Record<string, Sentence> = {
   // ── Discord ─────────────────────────────────────────────────────────────────────────────────
   'discord.member.join': (p) => <>{p.subject} joined the Discord server.</>,
   'discord.member.leave': (p) => <>{p.subject} left the Discord server.</>,
-  'discord.voice.join': (p) => <>{p.subject} joined a Discord voice channel.</>,
-  'discord.voice.leave': (p) => <>{p.subject} left a Discord voice channel.</>,
-  'discord.voice.move': (p) => <>{p.subject} moved to another Discord voice channel.</>,
+  'discord.voice.join': (p) => <>{p.subject} joined {voice(p.text('channelName'))}.</>,
+  'discord.voice.leave': (p) => <>{p.subject} left {voice(p.text('channelName'))}.</>,
+
+  'discord.voice.move': (p) => {
+    const to = p.text('channelName')
+    const from = p.text('fromName')
+
+    return from && to ? (
+      <>
+        {p.subject} moved from {from} to {to} in Discord voice.
+      </>
+    ) : (
+      <>{p.subject} moved to {voice(to)}.</>
+    )
+  },
 
   'discord.members.snapshot': (p) => {
     const count = p.entry.data?.['count']

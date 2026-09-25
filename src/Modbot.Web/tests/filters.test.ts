@@ -34,19 +34,19 @@ test('no filters at all is written so it can be told apart from nothing said', (
 
 test('a chip that cannot be read is dropped rather than breaking the page', () => {
   assert.equal(decodeChip('nonsense'), null)
-  assert.deepEqual(readChips(new URLSearchParams('f=nonsense&f=source:is:Client')), [
-    { property: 'source', operator: 'is', values: ['Client'] },
+  assert.deepEqual(readChips(new URLSearchParams('f=nonsense&f=source:is:Companion')), [
+    { property: 'source', operator: 'is', values: ['Companion'] },
   ])
 })
 
 test('chips compare regardless of order', () => {
   const a: FilterChip[] = [
-    { property: 'source', operator: 'is', values: ['Client', 'AuditLog'] },
+    { property: 'source', operator: 'is', values: ['Companion', 'AuditLog'] },
     { property: 'hasActor', operator: 'yes', values: [] },
   ]
   const b: FilterChip[] = [
     { property: 'hasActor', operator: 'yes', values: [] },
-    { property: 'source', operator: 'is', values: ['AuditLog', 'Client'] },
+    { property: 'source', operator: 'is', values: ['AuditLog', 'Companion'] },
   ]
 
   assert.equal(sameChips(a, b), true)
@@ -65,7 +65,7 @@ test('a date chip becomes a half-open stretch that includes the last day', () =>
 })
 
 test('the audit log leaves Sync out by default and turns is-not into the rest of the list', () => {
-  assert.deepEqual(auditQueryFrom(AUDIT_DEFAULTS).source, ['AuditLog', 'Discord', 'Client', 'Import'])
+  assert.deepEqual(auditQueryFrom(AUDIT_DEFAULTS).source, ['AuditLog', 'Discord', 'Companion', 'Import'])
 
   const query = auditQueryFrom([
     { property: 'source', operator: 'is-not', values: ['SyncDiff'] },
@@ -74,7 +74,7 @@ test('the audit log leaves Sync out by default and turns is-not into the rest of
     { property: 'text', operator: 'contains', values: ['black cat'] },
   ])
 
-  assert.deepEqual(query.source, ['AuditLog', 'Client', 'Discord', 'Manual', 'Modbot', 'Import'])
+  assert.deepEqual(query.source, ['AuditLog', 'Companion', 'Discord', 'Manual', 'Modbot', 'Import'])
   assert.equal(query.actor, 'usr_mod')
   assert.equal(query.hasActor, false)
   assert.equal(query.q, 'black cat')

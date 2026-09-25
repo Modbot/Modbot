@@ -146,7 +146,7 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
         what the page is for. The JSON is here to be checked when the words are not enough.
       */}
       <div className="flex flex-col gap-3">
-        <JsonView title="The whole record" value={entry} closed />
+        <JsonView title="Raw JSON" value={entry} closed />
       </div>
     </div>
   )
