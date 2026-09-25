@@ -517,6 +517,11 @@ public static class CalendarEndpoints
         if (description.Length > CalendarEvent.MaxDescriptionLength)
             return $"The description is longer than {CalendarEvent.MaxDescriptionLength} characters.";
 
+        // VRChat refuses a calendar event with no description (400, seen 2026-09-25). A draft is
+        // never sent, so it may stay empty until it is published.
+        if (body.PublishToVRChat && !body.Draft && description.Length == 0)
+            return "VRChat's calendar needs a description.";
+
         if (CalendarRepeat.FindZone(body.TimeZone) is not { } zone)
             return "That time zone is not known.";
 

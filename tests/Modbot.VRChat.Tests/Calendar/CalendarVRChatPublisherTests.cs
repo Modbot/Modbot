@@ -105,6 +105,121 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
     }
 
     [Fact]
+    public async Task ARefusalKeepsVRChatsOwnWords()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        VRChat.Calendar.Refuse(HttpStatusCode.BadRequest, "description is required");
+
+        Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
+        Assert.Equal("description is required", (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.Error);
+    }
+
+    [Fact]
+    public async Task ACreateAnsweredWith500ThatWasSavedAnywayIsFound_NotMadeTwice()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        VRChat.Calendar.SaveButAnswer(HttpStatusCode.InternalServerError);
+
+        Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
+        Assert.Equal(0, VRChat.Calendar.Lists);
+
+        // Not asked again before the wait for an unanswered write is over.
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+        Assert.Equal(0, VRChat.Calendar.Lists);
+
+        Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter + TimeSpan.FromSeconds(1));
+        Assert.Equal(CalendarPublishOutcome.NothingToDo, (await PublishAsync()).Outcome);
+
+        Assert.Equal(1, VRChat.Calendar.Lists);
+        Assert.Single(VRChat.Calendar.Creates);
+
+        var place = await PlaceAsync(e.Id, CalendarPlaces.VRChat);
+        Assert.Equal("cal_1", place?.ExternalId);
+        Assert.Null(place?.Error);
+
+        // What VRChat holds is not known, so it is brought up to date with an update, not a create.
+        Clock.Advance(TimeSpan.FromMinutes(1));
+        var result = await PublishAsync();
+
+        Assert.Equal("update", result.Action);
+        Assert.Equal("cal_1", Assert.Single(VRChat.Calendar.Updates).Id);
+        Assert.Single(VRChat.Calendar.OnVRChat);
+        Assert.Equal(CalendarPlaceStates.Published, (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.State);
+    }
+
+    [Fact]
+    public async Task ACreateAnsweredWith500ThatWasNotSavedIsSentAgain()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        VRChat.Calendar.Answer(HttpStatusCode.InternalServerError);
+
+        Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
+
+        Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter + TimeSpan.FromSeconds(1));
+        var result = await PublishAsync();
+
+        Assert.Equal(CalendarPublishOutcome.Written, result.Outcome);
+        Assert.Equal("create", result.Action);
+        Assert.Equal(1, VRChat.Calendar.Lists);
+        Assert.Single(VRChat.Calendar.OnVRChat);
+        Assert.Equal("cal_1", (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.ExternalId);
+    }
+
+    [Fact]
+    public async Task AnEventLetGoAfterA500IsTakenOffVRChatIfTheCreateWentThrough()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        VRChat.Calendar.SaveButAnswer(HttpStatusCode.InternalServerError);
+        await PublishAsync();
+
+        await EditAsync(e.Id, x =>
+        {
+            x.State = CalendarEventStates.Cancelled;
+            x.CancelledAt = Clock.UtcNow;
+            x.DeletedAt = Clock.UtcNow;
+        });
+
+        Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter + TimeSpan.FromSeconds(1));
+        var result = await PublishAsync();
+
+        Assert.Equal("delete", result.Action);
+        Assert.Equal("cal_1", Assert.Single(VRChat.Calendar.Deletes));
+        Assert.Empty(VRChat.Calendar.OnVRChat);
+        Assert.Equal(CalendarPlaceStates.Removed, (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.State);
+    }
+
+    [Fact]
+    public async Task NothingIsSentAgainWhileTheCalendarCannotBeChecked()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        VRChat.Calendar.Answer(HttpStatusCode.InternalServerError);
+        await PublishAsync();
+
+        VRChat.Calendar.ListStatus = HttpStatusCode.Forbidden;
+        Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter + TimeSpan.FromSeconds(1));
+
+        Assert.Equal(CalendarPublishOutcome.Failed, (await PublishAsync()).Outcome);
+        Assert.Equal(1, VRChat.Calendar.Calls);
+        Assert.StartsWith("Could not check VRChat's calendar", (await PlaceAsync(e.Id, CalendarPlaces.VRChat))?.Error);
+
+        // The fact says it was the check that failed, not a write: nothing was written.
+        var held = (await FactsOfTypeAsync(FactType.PlannedEventPublishFailed)).Last();
+        Assert.Equal("check", System.Text.Json.Nodes.JsonNode.Parse(held.Data)?["action"]?.ToString());
+
+        // Still looked for, not given up on: once the calendar can be read, the create goes ahead.
+        VRChat.Calendar.ListStatus = HttpStatusCode.OK;
+        Clock.Advance(CalendarVRChatPublisher.RetryUnansweredAfter + TimeSpan.FromSeconds(1));
+
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+        Assert.Equal(2, VRChat.Calendar.Lists);
+    }
+
+    [Fact]
     public async Task CancellingDeletesTheEventOnVRChat()
     {
         var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);

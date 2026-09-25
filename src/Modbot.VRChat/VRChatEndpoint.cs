@@ -112,7 +112,7 @@ public static class VRChatEndpointClass
     public const string CalendarWrite = "calendar.write";
 
     /// <summary>Reading the group's VRChat calendar events. <strong>Not measured.</strong></summary>
-    /// <remarks>Nothing reads the calendar yet (calendar design §3.1); the budget is set so a later read-back has one.</remarks>
+    /// <remarks>Read only to look for an earlier copy before a create that got no answer is sent again (calendar design §3.1).</remarks>
     public const string CalendarRead = "calendar.read";
 
     /// <summary>
