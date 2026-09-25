@@ -239,7 +239,8 @@ public class LiveStreamTests
         Assert.Equal(LiveKinds.Fact, @event.GetProperty("kind").GetString());
         Assert.Equal(FactType.MemberBanned, @event.GetProperty("type").GetString());
         Assert.Equal("moderation", @event.GetProperty("category").GetString());
-        Assert.Equal("Client", @event.GetProperty("source").GetString());
+        // The name the source goes by on the wire, which is what a reader of this stream sees.
+        Assert.Equal("Companion", @event.GetProperty("source").GetString());
         Assert.Equal(subject, @event.GetProperty("subject").GetProperty("id").GetString());
         Assert.Equal("VRChat", @event.GetProperty("subject").GetProperty("platform").GetString());
         Assert.Equal("Person", @event.GetProperty("subject").GetProperty("kind").GetString());
