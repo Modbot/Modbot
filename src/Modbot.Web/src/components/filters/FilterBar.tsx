@@ -119,7 +119,7 @@ function Chip({
   }
 
   return (
-    <span className="inline-flex h-(--control-h) items-stretch divide-x-(--hairline) overflow-hidden rounded-sm border border-(length:--hairline) bg-card">
+    <span className="inline-flex h-(--control-h) items-stretch divide-x-(--hairline) divide-border overflow-hidden rounded-sm border border-(length:--hairline) bg-card">
       <span className="flex items-center px-2 text-muted-foreground">{property.label}</span>
 
       {operators.length > 1 && property.kind !== 'date' ? (

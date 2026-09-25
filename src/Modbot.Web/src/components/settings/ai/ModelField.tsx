@@ -3,6 +3,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Chip } from '@/components/ui/chip'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import {
@@ -283,18 +284,18 @@ function ModelPicker({
                 </option>
               ))}
             </Select>
-            <Toggle on={filters.tools} onClick={() => set({ tools: !filters.tools })}>
+            <Chip on={filters.tools} onClick={() => set({ tools: !filters.tools })}>
               Tools
-            </Toggle>
-            <Toggle
+            </Chip>
+            <Chip
               on={filters.structuredOutput}
               onClick={() => set({ structuredOutput: !filters.structuredOutput })}
             >
               Structured output
-            </Toggle>
-            <Toggle on={filters.free} onClick={() => set({ free: !filters.free })}>
+            </Chip>
+            <Chip on={filters.free} onClick={() => set({ free: !filters.free })}>
               Free
-            </Toggle>
+            </Chip>
             <Input
               aria-label="Max price"
               type="number"
@@ -433,31 +434,5 @@ function Row({
         <TableCell className="text-right font-mono">{priceText(model.costPerThousandCalls)}</TableCell>
       )}
     </TableRow>
-  )
-}
-
-/** A button that stays pressed while its choice is on: a filter here, a provider on Base. */
-export function Toggle({
-  on,
-  onClick,
-  children,
-}: {
-  on: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input px-2.5 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-        on ? 'bg-accent text-accent-foreground' : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
-      )}
-      style={{ fontSize: 'var(--text-small)', height: 'var(--control-h)' }}
-    >
-      {children}
-    </button>
   )
 }

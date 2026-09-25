@@ -207,7 +207,7 @@ function Marks({ marks }: { marks: PickerMark[] }) {
       {marks.map((mark) => (
         <span
           key={mark.text}
-          className={cn('ml-auto shrink-0 text-xs', mark.tone === 'problem' ? 'text-warn' : 'text-muted-foreground')}
+          className={cn('ml-auto shrink-0 text-(length:--text-small)', mark.tone === 'problem' ? 'text-warn' : 'text-muted-foreground')}
         >
           {mark.text}
         </span>

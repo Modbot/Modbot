@@ -42,7 +42,7 @@ export function DailyBars({
         <CartesianGrid vertical={false} />
         <XAxis dataKey="day" ticks={tickDays(days)} tickFormatter={shortDay} tickLine={false} axisLine={false} minTickGap={16} />
         <YAxis
-          width={format ? 56 : 40}
+          width="auto"
           allowDecimals={format !== undefined}
           tickFormatter={format ?? compactNumber}
           tickLine={false}

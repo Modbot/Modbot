@@ -46,7 +46,7 @@ export function DailyLine({
         <CartesianGrid vertical={false} />
         <XAxis dataKey="day" ticks={tickDays(days)} tickFormatter={shortDay} tickLine={false} axisLine={false} minTickGap={16} />
         <YAxis
-          width={44}
+          width="auto"
           domain={zeroBased ? [0, 'auto'] : ['auto', 'auto']}
           tickFormatter={format ?? compactNumber}
           tickLine={false}

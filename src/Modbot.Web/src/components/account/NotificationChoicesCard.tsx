@@ -102,7 +102,7 @@ export function NotificationChoicesCard() {
         ))}
       </CardContent>
       <CardFooter>
-        <Button size="sm" onClick={save} disabled={saving || !channels}>
+        <Button size="xs" onClick={save} disabled={saving || !channels}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
       </CardFooter>

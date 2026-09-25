@@ -50,6 +50,7 @@ export function SettingsCard({
   action,
   footer,
   span = 6,
+  flush = false,
   className,
   children,
 }: {
@@ -58,6 +59,8 @@ export function SettingsCard({
   action?: React.ReactNode
   footer?: React.ReactNode
   span?: 6 | 12
+  /** Runs the content to the card's edges, for a table or a list. */
+  flush?: boolean
   className?: string
   children: React.ReactNode
 }) {
@@ -73,7 +76,7 @@ export function SettingsCard({
         <CardTitle>{title}</CardTitle>
         {action && <CardAction>{action}</CardAction>}
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3">{children}</CardContent>
+      <CardContent className={cn('flex flex-1 flex-col', flush ? 'p-0' : 'gap-3')}>{children}</CardContent>
       {footer && <CardFooter className="flex-wrap gap-3">{footer}</CardFooter>}
     </Card>
   )

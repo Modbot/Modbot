@@ -24,7 +24,7 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
   const changed = changedFields(entry)
 
   return (
-    <div className="grid gap-3 border-t bg-muted/20 p-(--panel-pad) lg:grid-cols-2" style={{ borderTopWidth: 'var(--hairline)' }}>
+    <div className="grid gap-3 border-t-(length:--hairline) bg-muted/20 p-(--panel-pad) lg:grid-cols-2">
       <div className="flex flex-col gap-3">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
           <Item label="Type">
@@ -115,7 +115,7 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
             </CardHeader>
             <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
               <thead className="bg-strip text-left text-muted-foreground">
-                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                <tr className="border-b-(length:--hairline)">
                   <th className="px-3 py-1 font-normal">Field</th>
                   <th className="px-3 py-1 font-normal">Before</th>
                   <th className="px-3 py-1 font-normal">After</th>

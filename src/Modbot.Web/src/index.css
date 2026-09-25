@@ -32,6 +32,8 @@
 }
 
 :root {
+  color-scheme: light;
+
   --radius: 0.375rem;
 
   /* Light */
@@ -83,19 +85,24 @@
   --control-h: 1.875rem;
   --text-base: 0.8125rem;
   --text-small: 0.75rem;
+  --text-tiny: 0.6875rem; /* the line under a name: its id, its region */
   --hairline: 1px;
 
-  /* Console surfaces. Not new colours: each is a mix of two tokens above, so it follows the
-     theme and the VR panel values without a second definition. The strip is the thin band a
-     panel's label, a table's column names and a list's footer sit on. */
+  /* Panel surfaces. Not new colours: each is a mix of two tokens above, so it follows the
+     VR panel values on its own. The strip is the thin band a panel's label, a table's column
+     names and a list's footer sit on. Dark mixes its own, below. */
   --strip: color-mix(in oklab, var(--muted) 65%, var(--card));
 
-  /* Console spacing: the inset inside a panel and the height of its header strip. */
+  /* Panel spacing: the inset inside a panel and the height of its header strip. A strip is
+     exactly an `xs` control (--control-h less 0.375rem), 0.25rem above and below it and the
+     hairline along its edge, so a strip holding a button is as high as one holding only a label. */
   --panel-pad: 0.75rem;
-  --strip-h: calc(var(--control-h) + 0.125rem);
+  --strip-h: calc(var(--control-h) + 0.125rem + var(--hairline));
 }
 
 .dark {
+  color-scheme: dark;
+
   --background: #0f0e15;
   --foreground: #e6e6eb;
   --card: #17151f;
@@ -131,6 +138,10 @@
   --series-5: #d55181;
 
   --chart-grid: #272b36;
+
+  /* The dark muted sits too close to the card for a strip to show against it, so the dark strip
+     takes the border instead, at the same step off the card as the light one. */
+  --strip: color-mix(in oklab, var(--border) 45%, var(--card));
 }
 
 [data-density="comfortable"] {
@@ -138,6 +149,7 @@
   --control-h: 2.25rem;
   --text-base: 0.875rem;
   --text-small: 0.8125rem;
+  --text-tiny: 0.75rem;
 }
 
 /* VR: every number here has a reason, not a multiplier. */
@@ -146,6 +158,7 @@
   --control-h: 3rem;      /* >= 48px, the fat-finger floor */
   --text-base: 1.125rem;  /* below ~16px is mush at headset PPD */
   --text-small: 1rem;
+  --text-tiny: 1rem;      /* the same mush floor: an id under a name must still be read */
   --hairline: 2px;        /* 1px borders disappear entirely */
   --radius: 0.5rem;
   --chart-stroke: 3px;    /* a 2px line at headset PPD is a suggestion */
@@ -183,6 +196,7 @@
     --control-h: 2.75rem;  /* 44px, the fingertip floor */
     --text-base: 0.875rem; /* 13px is a scanning size for a mouse, not a phone */
     --text-small: 0.8125rem;
+    --text-tiny: 0.75rem;
   }
 
   /* Safari zooms the page when a field with text under 16px takes focus, and
@@ -206,6 +220,12 @@
   textarea,
   input:not([type="checkbox"]):not([type="radio"]) {
     min-height: var(--control-h);
+  }
+
+  /* A switch bank's segments sit inside its edge, so each one is the floor
+     less the two hairlines, and the bank as a whole is a control high. */
+  [data-slot="switch-bank"] > button {
+    min-height: calc(var(--control-h) - 2 * var(--hairline));
   }
 
   /* An icon button has no label to widen it, so it needs the floor twice. */
@@ -269,8 +289,9 @@
     background: color-mix(in oklab, var(--accent) 60%, var(--card));
   }
 
-  /* The column names sit on the strip, and so does the pinned one. */
-  [data-pin-first] thead tr > :first-child {
+  /* Column names on the strip keep the strip under the pinned one too. A header with no strip
+     keeps the card surface above, so the pinned cell never paints half a strip on its own. */
+  [data-pin-first] thead.bg-strip tr > :first-child {
     background: var(--strip);
   }
 }

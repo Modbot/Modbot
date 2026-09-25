@@ -79,7 +79,7 @@ export function AutoInvitesSection() {
         span={12}
         footer={
           <>
-            <Button size="sm" disabled={busy || !loaded} onClick={save}>
+            <Button size="xs" disabled={busy || !loaded} onClick={save}>
               {busy ? 'Saving…' : 'Save'}
             </Button>
             <Outcome tone="ok">{saved}</Outcome>
@@ -120,10 +120,11 @@ export function AutoInvitesSection() {
               <RuleBuilder rule={rules} builder={builder} onChange={setRules} />
             </div>
 
-            <Row label="Invites sent" value={String(loaded?.invitesSent ?? 0)} />
+            <Row label="Invites sent" value={String(loaded?.invitesSent ?? 0)} mono />
             <Row
               label="Last invite"
               value={loaded?.lastInviteAt ? new Date(loaded.lastInviteAt).toLocaleString() : '—'}
+              mono={!!loaded?.lastInviteAt}
             />
           </>
         )}

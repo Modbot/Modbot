@@ -13,7 +13,8 @@ import {
 } from '@/lib/api'
 import { CREDITS_PATH } from '@/lib/nav'
 import { followLink } from '@/lib/router'
-import { Checkbox, Fact, Field, Hint, Notice, Outcome, Placeholder, Row, Switch } from './fields'
+import { Notice } from '@/components/ui/notice'
+import { Fact, Field, Hint, Outcome, Placeholder, Row, Switch } from './fields'
 import { MachineUsageCard } from './MachineUsageCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
@@ -104,11 +105,12 @@ function StorageCard({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <Fact label="Database" value={bytes(storage.bytes)} />
-            <Fact label="Facts recorded" value={storage.facts.toLocaleString()} />
+            <Fact label="Database" value={bytes(storage.bytes)} mono />
+            <Fact label="Facts recorded" value={storage.facts.toLocaleString()} mono />
             <Fact
               label="Per fact"
               value={storage.facts > 0 ? `${Math.round(storage.bytesPerFact)} bytes` : '—'}
+              mono={storage.facts > 0}
             />
             <Fact
               label="Arriving"
@@ -117,6 +119,7 @@ function StorageCard({
                   ? `${Math.round(storage.factsPerDay).toLocaleString()} facts/day`
                   : 'Not measurable yet'
               }
+              mono={storage.observedDays >= 1}
             />
           </div>
 
@@ -148,7 +151,7 @@ function DeploymentCard({ deployment }: { deployment: DataSettings['deployment']
     <SettingsCard
       title="Deployment"
       footer={
-        <Button asChild size="sm" variant="outline">
+        <Button asChild size="xs" variant="outline">
           <a href={CREDITS_PATH} onClick={followLink(CREDITS_PATH)}>
             Credits
           </a>
@@ -156,13 +159,14 @@ function DeploymentCard({ deployment }: { deployment: DataSettings['deployment']
       }
     >
       <div>
-        <Row label="Version" value={deployment.version} />
+        <Row label="Version" value={deployment.version} mono />
         <Row
           label="Version commit"
           value={deployment.commit ? deployment.commit.slice(0, 7) : 'Unknown'}
           title={deployment.commit ?? undefined}
+          mono={!!deployment.commit}
         />
-        <Row label="Release branch" value={deployment.branch ?? 'Unknown'} />
+        <Row label="Release branch" value={deployment.branch ?? 'Unknown'} mono={!!deployment.branch} />
         <Row label="Host" value={deployment.platform} />
         <Row
           label="Log files"
@@ -209,7 +213,7 @@ function UpdatesCard() {
       title="Updates"
       footer={
         view?.newerAvailable && view.notesUrl ? (
-          <Button asChild size="sm" variant="outline">
+          <Button asChild size="xs" variant="outline">
             <a href={view.notesUrl} target="_blank" rel="noreferrer noopener">
               Release notes
             </a>
@@ -218,14 +222,15 @@ function UpdatesCard() {
       }
     >
       <div>
-        <Row label="Running" value={view?.running ?? '…'} />
-        <Row label="Newest" value={newest} />
+        <Row label="Running" value={view?.running ?? '…'} mono={!!view?.running} />
+        <Row label="Newest" value={newest} mono={!!view?.on && !!view.newest} />
         {view?.newerAvailable && view.image && (
-          <Row label="Pull" value={`${view.image}:${view.tag ?? view.newest ?? ''}`} />
+          <Row label="Pull" value={`${view.image}:${view.tag ?? view.newest ?? ''}`} mono />
         )}
         <Row
           label="Last checked"
           value={view?.checkedAt ? new Date(view.checkedAt).toLocaleString() : '—'}
+          mono={!!view?.checkedAt}
         />
       </div>
       <Switch checked={view?.on ?? false} disabled={saving || !view} onChange={choose}>
@@ -280,7 +285,7 @@ function RetentionCard({
       title="Retention"
       footer={
         <>
-          <Button size="sm" disabled={!dirty || saving} onClick={save}>
+          <Button size="xs" disabled={!dirty || saving} onClick={save}>
             {saving ? 'Saving…' : 'Save retention'}
           </Button>
           <Outcome tone="problem">{problem}</Outcome>
@@ -362,7 +367,7 @@ function LogsCard() {
       title="Logs"
       footer={
         <>
-          <Button size="sm" disabled={!dirty || saving} onClick={save}>
+          <Button size="xs" disabled={!dirty || saving} onClick={save}>
             {saving ? 'Saving...' : 'Save logs'}
           </Button>
           <Outcome tone="problem">{problem}</Outcome>
@@ -372,13 +377,13 @@ function LogsCard() {
       <div className="grid max-w-lg gap-3 sm:grid-cols-2">
         <Field label="Keep for (days)" placeholder="180" value={keepDays} onChange={setKeepDays} />
       </div>
-      <Checkbox
+      <Switch
         checked={sendToCloud}
         disabled={current === null || !current.cloudAllowed}
         onChange={setSendToCloud}
       >
         Send logs to Modbot Cloud
-      </Checkbox>
+      </Switch>
       <Hint>0 keeps forever.</Hint>
     </SettingsCard>
   )
@@ -430,7 +435,7 @@ function CloudCard() {
         <>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             onClick={ask}
             disabled={asking || !status || status.disabled}
           >
@@ -441,13 +446,18 @@ function CloudCard() {
       }
     >
       <div className="flex flex-col gap-3">
-        <Fact label="Cloud" value={status ? (status.disabled ? 'Turned off' : status.endpoint) : '…'} />
+        <Fact
+          label="Cloud"
+          value={status ? (status.disabled ? 'Turned off' : status.endpoint) : '…'}
+          mono={!!status && !status.disabled}
+        />
         <Fact label="Registered" value={status ? (status.registered ? 'Yes' : 'No') : '…'} />
-        <Fact label="Last report" value={reported} />
+        <Fact label="Last report" value={reported} mono={!!status?.lastReportAt && !!status.lastReportOk} />
         {code && (
           <Fact
             label="Link code"
             value={`${code.code} · ${code.expiresInMinutes} min`}
+            mono
           />
         )}
       </div>
@@ -501,7 +511,7 @@ function PublicAddressCard() {
       title="Public address"
       footer={
         <>
-          <Button type="submit" form="public-address-form" size="sm" disabled={saving || !view}>
+          <Button type="submit" form="public-address-form" size="xs" disabled={saving || !view}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -510,7 +520,7 @@ function PublicAddressCard() {
       }
     >
       <form id="public-address-form" onSubmit={save} className="flex flex-col gap-3">
-        <Fact label="Address" value={view ? (view.publicAddress ?? 'Not set') : '…'} />
+        <Fact label="Address" value={view ? (view.publicAddress ?? 'Not set') : '…'} mono={!!view?.publicAddress} />
         <div className="max-w-lg">
           <Field
             label="Public address"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Popover } from 'radix-ui'
+import { badgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { OtherTags } from '@/components/ProfileBadges'
@@ -9,7 +10,6 @@ import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
-import { cn } from '@/lib/utils'
 
 /**
  * One person's stored VRChat profile, with how old it is written next to it.
@@ -165,7 +165,7 @@ function Freshness({
       {note && <div className="mt-1 text-muted-foreground">{note}</div>}
       {profile.notFoundAt && (
         <div className="mt-1 text-muted-foreground">
-          No VRChat account with this id as of {formatDay(profile.notFoundAt)}.
+          No VRChat account with this id as of <span className="font-mono">{formatDay(profile.notFoundAt)}</span>.
         </div>
       )}
     </div>
@@ -294,12 +294,7 @@ function AgeMark({
             if (open && openedBy.current === 'hover') event.preventDefault()
             openedBy.current = 'press'
           }}
-          className={cn(
-            'inline-flex shrink-0 items-center rounded-sm border px-1 py-0 font-medium whitespace-nowrap outline-none',
-            'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-            flag.verified ? 'border-ok/30 bg-ok/10 text-ok' : 'border-border text-muted-foreground',
-          )}
-          style={{ fontSize: '0.6875rem', borderWidth: 'var(--hairline)' }}
+          className={badgeVariants({ variant: flag.verified ? 'ok' : 'outline' })}
         >
           {flag.verified ? '18+ verified' : 'Not seen as 18+ verified'}
         </button>
@@ -321,8 +316,8 @@ function AgeMark({
           onCloseAutoFocus={(event) => {
             if (openedBy.current === 'hover') event.preventDefault()
           }}
-          className="z-50 flex w-64 max-w-[min(20rem,var(--radix-popover-content-available-width))] flex-col gap-2 rounded-sm border bg-popover p-(--panel-pad) text-popover-foreground shadow-sm outline-none"
-          style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+          className="z-50 flex w-64 max-w-[min(20rem,var(--radix-popover-content-available-width))] flex-col gap-2 rounded-sm border-(length:--hairline) bg-popover p-(--panel-pad) text-popover-foreground shadow-sm outline-none"
+          style={{ fontSize: 'var(--text-small)' }}
         >
           {flag.verified && flag.source === 'vrchat' && flag.since && (
             <div className="text-muted-foreground">First seen on VRChat <span className="font-mono">{formatDay(flag.since)}</span>.</div>

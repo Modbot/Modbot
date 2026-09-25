@@ -4,6 +4,7 @@ import { Answer } from '@/components/chat/Answer'
 import { Sources } from '@/components/chat/Sources'
 import { ToolSteps, type ToolStep } from '@/components/chat/ToolSteps'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import type { ChatMessage, ChatReference } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -131,13 +132,13 @@ function Editor({
 
   return (
     <div className="ml-auto flex w-full max-w-[85%] flex-col gap-2">
-      <textarea
+      <Textarea
         autoFocus
         aria-label="Message"
         value={draft}
         maxLength={4000}
         onChange={(e) => setDraft(e.target.value)}
-        className="min-h-20 w-full resize-none rounded-sm border border-(length:--hairline) border-input bg-card p-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
+        className="min-h-20 resize-none"
       />
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="ghost" onClick={onCancel}>

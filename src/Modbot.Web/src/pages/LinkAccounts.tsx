@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type LinkPageStatus } from '@/lib/api'
-import { Brand, ErrorText, Field, Note, WizardBody, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, WizardBody, WizardHeader } from './setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /** What `?error=` from the sign-in redirect means, in the words the page shows. */
 const SIGN_IN_ERRORS: Record<string, string> = {
@@ -165,9 +166,9 @@ function Steps({
   if (discord && link) {
     return (
       <div className="space-y-4">
-        <Note tone="ok" title="Linked">
+        <Notice tone="ok" title="Linked">
           {discord.username} · {link.vrChatDisplayName ?? link.vrChatUserId}
-        </Note>
+        </Notice>
         <ErrorText>{error}</ErrorText>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onUnlink} disabled={busy}>
@@ -258,7 +259,7 @@ function Steps({
         )}
       </section>
 
-      {message && <Note tone={message.ok ? 'ok' : 'info'}>{message.text}</Note>}
+      {message && <Notice tone={message.ok ? 'ok' : 'neutral'}>{message.text}</Notice>}
       <ErrorText>{error}</ErrorText>
 
       {showCode && (

@@ -19,7 +19,8 @@ import { formatDay } from '@/lib/format'
 import { usernameProblem } from '@/lib/username'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/pages/Members'
-import { ErrorText, Field, Note } from '@/pages/setup/WizardChrome'
+import { ErrorText, Field } from '@/pages/setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /**
  * The users page (accounts and access design §4, §8).
@@ -128,7 +129,7 @@ export function Users({ me }: { me: CurrentUser }) {
           <CardHeader>
             <CardTitle>Invite links not used yet</CardTitle>
           </CardHeader>
-          <div className="divide-y divide-(length:--hairline)" style={{ fontSize: 'var(--text-small)' }}>
+          <div className="divide-y-(--hairline) divide-border" style={{ fontSize: 'var(--text-small)' }}>
             {invites.map((i) => (
               <div
                 key={i.id}
@@ -236,16 +237,16 @@ function AddSomeone({
   if (made) {
     return (
       <div className="space-y-3">
-        <Note tone="ok" title="Invite link made.">
+        <Notice tone="ok" title="Invite link made.">
           It will not be shown again.
-        </Note>
+        </Notice>
         <CopyBox text={fullUrl(made)} />
       </div>
     )
   }
 
   if (created) {
-    return <Note tone="ok" title={`${created} can sign in now.`} />
+    return <Notice tone="ok" title={`${created} can sign in now.`} />
   }
 
   return (
@@ -380,13 +381,12 @@ function UserDrawer({
 
   return (
     <aside
-      className="fixed inset-y-0 right-0 z-30 flex w-[26rem] max-w-full flex-col overflow-auto border-l bg-card shadow-sm"
-      style={{ borderLeftWidth: 'var(--hairline)' }}
+      className="fixed inset-y-0 right-0 z-30 flex w-[26rem] max-w-full flex-col overflow-auto border-l-(length:--hairline) bg-card shadow-sm"
       aria-label={`Account: ${user.username}`}
     >
       <div
-        className="flex items-center gap-2 border-b bg-strip px-(--panel-pad) py-1.5"
-        style={{ borderBottomWidth: 'var(--hairline)', minHeight: 'var(--strip-h)' }}
+        className="flex items-center gap-2 border-b-(length:--hairline) bg-strip px-(--panel-pad) py-1.5"
+        style={{ minHeight: 'var(--strip-h)' }}
       >
         <div className="min-w-0">
           <div className="font-label">{user.username}</div>
@@ -437,7 +437,7 @@ function UserDrawer({
           <div className="font-label">Password</div>
           {resetLink ? (
             <>
-              <Note tone="ok" title="Reset link made." />
+              <Notice tone="ok" title="Reset link made." />
               <CopyBox text={fullUrl(resetLink)} />
             </>
           ) : (

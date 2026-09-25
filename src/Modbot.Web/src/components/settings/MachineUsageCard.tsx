@@ -231,7 +231,7 @@ function Usage({
             minTickGap={16}
           />
           <YAxis
-            width={56}
+            width="auto"
             domain={[0, top]}
             tickFormatter={format}
             tickLine={false}

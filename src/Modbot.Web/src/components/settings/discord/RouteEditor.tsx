@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
 import { Input } from '@/components/ui/input'
 import {
   api,
@@ -13,7 +14,6 @@ import {
   type DiscordRoutePlatform,
   type DiscordRoutes,
 } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import { Checkbox, Field, Outcome } from '../fields'
 import { EVENT_POST_NEEDS } from '@/lib/discordLists'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -254,19 +254,13 @@ function Chips({
           {all.map((option) => {
             const on = chosen.has(option.id)
             return (
-              <button
+              <Chip
                 key={option.id}
-                type="button"
-                aria-pressed={on}
+                on={on}
                 onClick={() => onChange(on ? value.filter((id) => id !== option.id) : [...value, option.id])}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input px-2.5 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-                  on ? 'bg-accent text-accent-foreground' : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
-                )}
-                style={{ fontSize: 'var(--text-small)', height: 'var(--control-h)' }}
               >
                 {option.name}
-              </button>
+              </Chip>
             )
           })}
         </div>

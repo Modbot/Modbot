@@ -91,7 +91,7 @@ function PurgeCard() {
         <>
           <Button
             variant="destructive"
-            size="sm"
+            size="xs"
             disabled={!matches || busy}
             onClick={() => void purge()}
           >
@@ -170,6 +170,7 @@ function Counts({ preview }: { preview: PurgePreview }) {
             label={`Linked ${preview.linkedAccount.platform} account`}
             value={preview.linkedAccount.name ?? preview.linkedAccount.subjectId}
             title={preview.linkedAccount.subjectId}
+            mono={!preview.linkedAccount.name}
           />
         )}
       </div>
@@ -178,19 +179,19 @@ function Counts({ preview }: { preview: PurgePreview }) {
         <h3 className="pt-2 font-medium lg:pt-0" style={{ fontSize: 'var(--text-small)' }}>
           Removed
         </h3>
-        <Row label="Facts" value={preview.facts.toLocaleString()} />
-        <Row label="Discord messages" value={preview.messages.toLocaleString()} />
-        <Row label="Daily totals" value={preview.countedDailyTotals.toLocaleString()} />
-        <Row label="Days worked out again" value={preview.days.toLocaleString()} />
-        <Row label="Giveaway entries" value={preview.giveawayEntries.toLocaleString()} />
-        <Row label="Places in past draws" value={preview.giveawayPlaces.toLocaleString()} />
-        <Row label="Imported records" value={preview.importRecords.toLocaleString()} />
+        <Row label="Facts" value={preview.facts.toLocaleString()} mono />
+        <Row label="Discord messages" value={preview.messages.toLocaleString()} mono />
+        <Row label="Daily totals" value={preview.countedDailyTotals.toLocaleString()} mono />
+        <Row label="Days worked out again" value={preview.days.toLocaleString()} mono />
+        <Row label="Giveaway entries" value={preview.giveawayEntries.toLocaleString()} mono />
+        <Row label="Places in past draws" value={preview.giveawayPlaces.toLocaleString()} mono />
+        <Row label="Imported records" value={preview.importRecords.toLocaleString()} mono />
 
         <h3 className="pt-3 font-medium" style={{ fontSize: 'var(--text-small)' }}>
           Kept
         </h3>
-        <Row label="Case files" value={preview.caseFilesKept.toLocaleString()} />
-        <Row label="Evidence files" value={preview.evidenceFilesKept.toLocaleString()} />
+        <Row label="Case files" value={preview.caseFilesKept.toLocaleString()} mono />
+        <Row label="Evidence files" value={preview.evidenceFilesKept.toLocaleString()} mono />
       </div>
     </div>
   )
@@ -203,20 +204,20 @@ function Receipt({ receipt }: { receipt: PurgeReceipt }) {
         <h3 className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
           Removed
         </h3>
-        <Row label="Facts" value={receipt.facts.toLocaleString()} />
-        <Row label="Discord messages" value={receipt.messages.toLocaleString()} />
-        <Row label="Daily totals" value={receipt.countedDailyTotals.toLocaleString()} />
-        <Row label="Days worked out again" value={receipt.days.toLocaleString()} />
-        <Row label="Giveaway entries" value={receipt.giveawayEntries.toLocaleString()} />
-        <Row label="Places in past draws" value={receipt.giveawayPlaces.toLocaleString()} />
+        <Row label="Facts" value={receipt.facts.toLocaleString()} mono />
+        <Row label="Discord messages" value={receipt.messages.toLocaleString()} mono />
+        <Row label="Daily totals" value={receipt.countedDailyTotals.toLocaleString()} mono />
+        <Row label="Days worked out again" value={receipt.days.toLocaleString()} mono />
+        <Row label="Giveaway entries" value={receipt.giveawayEntries.toLocaleString()} mono />
+        <Row label="Places in past draws" value={receipt.giveawayPlaces.toLocaleString()} mono />
       </div>
 
       <div>
         <h3 className="pt-2 font-medium lg:pt-0" style={{ fontSize: 'var(--text-small)' }}>
           Kept
         </h3>
-        <Row label="Case files" value={receipt.caseFilesKept.toLocaleString()} />
-        <Row label="Evidence files" value={receipt.evidenceFilesKept.toLocaleString()} />
+        <Row label="Case files" value={receipt.caseFilesKept.toLocaleString()} mono />
+        <Row label="Evidence files" value={receipt.evidenceFilesKept.toLocaleString()} mono />
       </div>
     </div>
   )

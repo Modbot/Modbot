@@ -2,8 +2,9 @@ import { useCallback, useState } from 'react'
 import { DailyLine, Legend, compactNumber, dateTime, minutes, nextSlot } from '@/components/charts'
 import { WorldLink } from '@/components/facts'
 import { api } from '@/lib/api'
-import { PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Tr } from './shared'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -52,9 +53,9 @@ export function Worlds() {
             <Stat label="Presence reports" value={compactNumber(data.presenceReports)} />
           </StatStrip>
 
-          <Panel title="Worlds, by time people were seen in them" flush={data.worlds.length > 0}>
+          <Panel title="Worlds, by time people were seen in them" flush>
             {data.worlds.length === 0 ? (
-              <Nothing>No worlds in this range.</Nothing>
+              <EmptyRow>No worlds in this range.</EmptyRow>
             ) : (
               <Table
                 pinFirst
@@ -93,11 +94,11 @@ export function Worlds() {
                             <WorldLink id={w.worldId} name={w.name} />
                           </div>
                           <div
-                            className="truncate font-mono text-muted-foreground"
-                            style={{ fontSize: 'var(--text-tiny, 11px)' }}
+                            className="truncate text-muted-foreground"
+                            style={{ fontSize: 'var(--text-tiny)' }}
                           >
                             {w.authorName ? `by ${w.authorName} · ` : ''}
-                            {w.worldId}
+                            <span className="font-mono">{w.worldId}</span>
                           </div>
                         </div>
                       </div>
@@ -114,9 +115,9 @@ export function Worlds() {
             )}
           </Panel>
 
-          <Panel title="Visitors per day, busiest worlds">
+          <Panel title="Visitors per day, busiest worlds" flush={data.visitorsPerDay.length === 0}>
             {data.visitorsPerDay.length === 0 ? (
-              <Nothing>No data yet.</Nothing>
+              <EmptyRow>No data yet.</EmptyRow>
             ) : (
               <>
                 <Legend items={data.visitorsPerDay.map((s, i) => ({ label: worldLabel(data.worlds, s.worldId), slot: nextSlot(i) }))} />

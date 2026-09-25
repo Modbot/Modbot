@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { ApiError, api, type ConnectionDiagnosis, type GroupCandidates } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { DiagnosisNote } from './DiagnosisNote'
-import { ErrorText, Note, WizardBody, WizardHeader } from './WizardChrome'
+import { ErrorText, WizardBody, WizardHeader } from './WizardChrome'
+import { Notice } from '@/components/ui/notice'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -137,7 +138,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
         {candidates && candidates.groups.length === 0 && (
           // Spec 7.1 step 4: say so explicitly and explain the required permissions. An empty
           // list on its own leaves the operator with nothing to act on.
-          <Note
+          <Notice
             tone="warn"
             title={
               candidates.totalGroups === 0
@@ -151,7 +152,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
                 <li key={permission}>{permission}</li>
               ))}
             </ul>
-          </Note>
+          </Notice>
         )}
 
         {candidates && filteredOut > 0 && candidates.groups.length > 0 && (

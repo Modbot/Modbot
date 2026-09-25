@@ -52,7 +52,7 @@ export function AiSection() {
       value={tab}
       onChange={choose}
       tabs={AI_TABS.map(({ value, label }) => ({ value, label }))}
-      className="gap-5"
+      className="gap-3"
     >
       {AI_TABS.map(({ value, panel: Panel }) => (value === tab ? <Panel key={value} /> : null))}
     </Tabs>

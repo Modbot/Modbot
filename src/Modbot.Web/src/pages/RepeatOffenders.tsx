@@ -90,8 +90,8 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
       </CardHeader>
 
       <div
-        className="border-b px-(--panel-pad) py-2 text-muted-foreground"
-        style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+        className="border-b-(length:--hairline) px-(--panel-pad) py-2 text-muted-foreground"
+        style={{ fontSize: 'var(--text-small)' }}
       >
         <p>{list.rule}</p>
         <p className="mt-1">
@@ -105,7 +105,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
         <div data-pin-first className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead className="bg-strip text-muted-foreground">
-              <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+              <tr className="border-b-(length:--hairline)">
                 <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
                 <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Status</th>
                 <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Actions</th>

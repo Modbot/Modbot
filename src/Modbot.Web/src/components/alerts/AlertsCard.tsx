@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, type Alert } from '@/lib/api'
 import { type LiveEvent } from '@/lib/liveStream'
 import { followLink } from '@/lib/router'
@@ -48,6 +48,9 @@ export function AlertsCard() {
 
   return (
     <Card>
+      <CardHeader>
+        <CardTitle>Unusual activity</CardTitle>
+      </CardHeader>
       {alerts.map((alert) => (
         <Row key={alert.id} alert={alert} onDismiss={() => dismiss(alert.id)} />
       ))}

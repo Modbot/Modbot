@@ -3,8 +3,8 @@ import { DailyBars, DailyLine, Heatmap, Legend, compactNumber, dateTime, longDay
 import { InstanceTable } from '@/components/InstanceTable'
 import { api, type HourOfWeek, type InstancePeaks } from '@/lib/api'
 import { InstanceActivityChart } from './InstanceActivityChart'
-import { PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -63,13 +63,13 @@ export function Instances() {
             page usually came with -- and a page of numbers with no instances on it cannot answer it.
           */}
           {data.openNow.length > 0 && (
-            <Panel title="Open right now">
+            <Panel title="Open right now" flush>
               <InstanceTable instances={data.openNow} />
             </Panel>
           )}
 
-          <Panel title="Recent instances">
-            {data.recent.length === 0 ? <Nothing>No instances yet.</Nothing> : <InstanceTable instances={data.recent} />}
+          <Panel title="Recent instances" flush>
+            {data.recent.length === 0 ? <EmptyRow>No instances yet.</EmptyRow> : <InstanceTable instances={data.recent} />}
           </Panel>
 
           <InstanceActivityChart />
@@ -80,6 +80,7 @@ export function Instances() {
 
           <Panel
             title={`When the community is active (${zoneLabel()})`}
+            flush={sum(toPoints(data.hourOfWeek[layer])) === 0}
             right={
               <Toggle
                 value={layer}
@@ -92,9 +93,9 @@ export function Instances() {
             }
           >
             {sum(toPoints(data.hourOfWeek[layer])) === 0 ? (
-              <Nothing>
+              <EmptyRow>
                 {layer === 'arrivals' ? 'No arrivals seen in this range.' : 'No instances opened in this range.'}
-              </Nothing>
+              </EmptyRow>
             ) : (
               <Heatmap
                 rows={DAYS}
@@ -164,9 +165,9 @@ export function Instances() {
               />
             </Panel>
 
-            <Panel title="Most people seen in one instance, per day">
+            <Panel title="Most people seen in one instance, per day" flush={data.presenceReports === 0}>
               {data.presenceReports === 0 ? (
-                <Nothing>No presence reports in this range.</Nothing>
+                <EmptyRow>No presence reports in this range.</EmptyRow>
               ) : (
                 <DailyBars
                   from={data.from}

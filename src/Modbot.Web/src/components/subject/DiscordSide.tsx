@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Empty, FactList, Field, Note, Panel } from '@/components/subject/shared'
+import { Empty, FactList, Field, Footer, Note, Panel } from '@/components/subject/shared'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { api, type DiscordMember } from '@/lib/api'
 import type { DiscordMemberRead } from '@/lib/useDiscordMember'
@@ -173,7 +173,7 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
       {data.messages.length === 0 ? (
         <Empty>No messages stored.</Empty>
       ) : (
-        <ol className="flex shrink-0 flex-col border-b border-b-(length:--hairline)">
+        <ol className={cn('flex shrink-0 flex-col', pages <= 1 && 'border-b border-b-(length:--hairline)')}>
           {data.messages.map((m) => (
             <Message key={m.messageId} marked={anchored && m.messageId === at}>
               <div className="flex flex-wrap items-center gap-2">
@@ -228,10 +228,7 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
       )}
 
       {pages > 1 && (
-        <div
-          className="flex shrink-0 items-center gap-2 border-b border-b-(length:--hairline) bg-strip px-(--panel-pad) py-1.5"
-          style={{ fontSize: 'var(--text-small)' }}
-        >
+        <Footer>
           <Button variant="outline" size="xs" disabled={data.page <= 1} onClick={() => turn(data.page - 1)}>
             Previous
           </Button>
@@ -241,7 +238,7 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
           <Button variant="outline" size="xs" disabled={data.page >= pages} onClick={() => turn(data.page + 1)}>
             Next
           </Button>
-        </div>
+        </Footer>
       )}
     </div>
   )

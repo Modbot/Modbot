@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { api, ApiError, type EvidenceDelivery, type EvidenceItem } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { bytes } from '@/components/settings/units'
-import { EmptyRow } from '@/components/PanelGrid'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { cn } from '@/lib/utils'
 
 /**
  * The evidence attached to a case file, and the control that attaches more.
@@ -37,17 +38,19 @@ export function EvidenceGallery({
   onImageReady?: (hash: string, url: string) => void
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col">
       {items.length === 0 ? (
-        <EmptyRow className="px-0">Nothing attached.</EmptyRow>
+        <EmptyRow>Nothing attached.</EmptyRow>
       ) : (
-        <ul data-slot="panel-grid" className="sm:grid-cols-2">
+        // Edge to edge in its panel, so each item's lines are the panel's own. Two across only when
+        // there are two to put side by side; a lone item takes the width.
+        <PanelGrid as="ul" className={cn('m-0', items.length > 1 && 'sm:grid-cols-2')}>
           {items.map((item) => (
-            <li key={item.hash} className="p-2">
+            <li key={item.hash} className="p-(--panel-pad)">
               <Item item={item} onImageReady={onImageReady} />
             </li>
           ))}
-        </ul>
+        </PanelGrid>
       )}
 
       {canAttach && <Attach caseId={caseId} delivery={delivery} onChanged={onChanged} />}
@@ -86,7 +89,7 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
           </a>
         )}
       </div>
-      <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }} title={item.hash}>
+      <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }} title={item.hash}>
         sha256 {item.hash}
       </div>
     </div>
@@ -218,8 +221,7 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
 
   return (
     <div
-      className="-mx-(--panel-pad) -mb-(--panel-pad) flex flex-col gap-2 border-t bg-strip px-(--panel-pad) py-2"
-      style={{ borderTopWidth: 'var(--hairline)' }}
+      className="flex flex-col gap-2 border-t-(length:--hairline) bg-strip px-(--panel-pad) py-2"
     >
       <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
         <input

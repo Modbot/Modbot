@@ -5,7 +5,7 @@ import type { InstanceRow } from '@/lib/api'
 import { access } from '@/lib/format'
 import { instanceNumber } from '@/lib/instanceName'
 import { vrchatMedia } from '@/lib/vrchatMedia'
-import { Table, Td, Th, Tr } from '@/pages/analytics/shared'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 
 /**
  * A table of actual instances: where, when, how busy, and how it ended.
@@ -59,7 +59,7 @@ export function InstanceTable({
                   </div>
                   <div
                     className="truncate font-mono text-muted-foreground"
-                    style={{ fontSize: 'var(--text-tiny, 11px)' }}
+                    style={{ fontSize: 'var(--text-tiny)' }}
                   >
                     {r.worldId}
                   </div>
@@ -77,7 +77,7 @@ export function InstanceTable({
             </button>
             {/* "Group members · EU" over three lines makes every row in the table three lines
                 tall on a phone. The table already scrolls; the row need not also be a stack. */}
-            <div className="whitespace-nowrap text-muted-foreground" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+            <div className="whitespace-nowrap text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
               {[access(r.groupAccessType), r.region?.toUpperCase()].filter(Boolean).join(' · ') || '—'}
             </div>
           </Td>
@@ -86,7 +86,7 @@ export function InstanceTable({
           <Td className="text-right font-mono">{minutes(r.minutesOpen)}</Td>
           <Td className="whitespace-nowrap text-muted-foreground">
             <div className="font-mono">{dateTime(r.openedAt)}</div>
-            <div style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+            <div style={{ fontSize: 'var(--text-tiny)' }}>
               {!r.closedAt
                 ? 'open now'
                 : r.closedBy === 'time'

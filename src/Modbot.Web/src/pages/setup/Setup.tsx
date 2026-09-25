@@ -11,7 +11,8 @@ import { GroupStep } from './GroupStep'
 import { LinkVRChatStep } from './LinkVRChatStep'
 import { OptionalStep } from './OptionalStep'
 import { VRChatStep } from './VRChatStep'
-import { Brand, Note, StepIndicator, WizardBody, WizardFooter, WizardHeader } from './WizardChrome'
+import { Brand, StepIndicator, WizardBody, WizardFooter, WizardHeader } from './WizardChrome'
+import { Notice } from '@/components/ui/notice'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /**
@@ -76,9 +77,9 @@ export function Setup({ onFinished }: { onFinished: () => void }) {
     return (
       <Shell>
         <div className="p-(--panel-pad)">
-          <Note tone="danger" title="Modbot is not answering.">
+          <Notice tone="danger" title="Modbot is not answering.">
             {fatal}
-          </Note>
+          </Notice>
         </div>
       </Shell>
     )

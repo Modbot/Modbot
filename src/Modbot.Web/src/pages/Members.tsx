@@ -23,6 +23,7 @@ import { MEMBER_DEFAULTS, memberQueryFrom } from '@/lib/pageFilters'
 import { can, canAny } from '@/lib/permissions'
 import { useQueryParam } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
+import { Freshness } from '@/components/Freshness'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -240,7 +241,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
 
       <Card>
         <CardHeader className={cn(!list.coverage.firstSweepComplete && !demo && 'bg-warn/10')}>
-          <Freshness coverage={list.coverage} demo={demo} />
+          <Freshness coverage={list.coverage} count={list.coverage.memberCount} list="member list" noun="member" demo={demo} />
           <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
           </span>
@@ -251,7 +252,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
           <div data-pin-first className="relative overflow-x-auto">
             <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
               <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                <tr className="border-b-(length:--hairline)">
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
                   {seesLinks && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Discord</th>}
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Roles</th>
@@ -267,10 +268,9 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                     key={m.userId}
                     {...rowProps(i)}
                     className={cn(
-                      'border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
+                      'border-b-(length:--hairline) last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
                       m.leftAt && 'text-muted-foreground',
                     )}
-                    style={{ borderBottomWidth: 'var(--hairline)' }}
                   >
                     <td className="px-3" style={{ height: 'var(--row-h)' }}>
                       <div className="flex items-center gap-2">
@@ -288,31 +288,27 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                           <div className="flex flex-wrap items-center gap-1.5">
                             <SubjectLink id={m.userId} name={m.displayName} onOpen={onOpenSubject} />
                             {m.eighteenPlus && (
-                              <span
-                                className="inline-flex items-center rounded-sm border border-ok/30 bg-ok/10 px-1 py-0 font-mono font-medium text-ok"
-                                style={{ fontSize: '0.6875rem' }}
-                                title="18+ verified"
-                              >
+                              <Badge variant="ok" className="font-mono" title="18+ verified">
                                 18+
-                              </span>
+                              </Badge>
                             )}
                             <TrustRankBadge rank={m.trustRank} />
                             {m.isRepresenting && (
                               <span
                                 className="text-muted-foreground"
-                                style={{ fontSize: '0.6875rem' }}
+                                style={{ fontSize: 'var(--text-tiny)' }}
                               >
                                 representing
                               </span>
                             )}
                           </div>
                           {m.plainName && (
-                            <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                            <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                               {m.plainName}
                             </div>
                           )}
                           {m.displayName && (
-                            <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
+                            <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
                               {m.userId}
                             </div>
                           )}
@@ -329,7 +325,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                       </td>
                     )}
                     <td className="px-3">
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
                         {m.roleNames.map((name, i) => (
                           <Badge key={m.roleIds[i] ?? name} variant="secondary" title={m.roleIds[i]}>
                             {name}
@@ -379,54 +375,10 @@ function DiscordAccount({ account }: { account: LinkedDiscord }) {
       <Avatar url={account.avatarUrl} className="size-6" />
       <div className="min-w-0">
         <DiscordPersonLink id={account.userId} name={account.name} />
-        <div className="text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
+        <div className="text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
           {account.inServer ? 'In server' : account.leftAt ? 'Left' : 'Not in server'}
         </div>
       </div>
-    </div>
-  )
-}
-
-/**
- * How old the list is, stated on the strip at the top of it. Before the first full sweep the list
- * is partial and the strip turns the warning colour, because a short list shown as the group is
- * the mistake this page most needs to not make.
- */
-function Freshness({ coverage, demo }: { coverage: MemberList['coverage']; demo: boolean }) {
-  // A demo's member list was filled in rather than read, so there is no sync time to state and
-  // nothing is waiting to be read.
-  if (demo) {
-    return (
-      <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        <span>Demo data.</span>
-        <span>
-          <span className="font-mono">{coverage.memberCount.toLocaleString()}</span> {coverage.memberCount === 1 ? 'member' : 'members'}.
-        </span>
-      </div>
-    )
-  }
-
-  if (!coverage.firstSweepComplete) {
-    return (
-      <div className="flex items-center gap-2 font-medium">
-        <span aria-hidden className="size-2 shrink-0 bg-warn" />
-        {coverage.sweepInProgress
-          ? 'Reading the member list for the first time.'
-          : 'The member list has not been read yet.'}
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      <span>
-        Last synced {ago(coverage.lastSyncedAt, coverage.now)}
-        {coverage.sweepInProgress ? '. A new sweep is running now' : ''}.
-      </span>
-      <span>
-        <span className="font-mono">{coverage.memberCount.toLocaleString()}</span> {coverage.memberCount === 1 ? 'member' : 'members'} at the last full
-        sweep.
-      </span>
     </div>
   )
 }

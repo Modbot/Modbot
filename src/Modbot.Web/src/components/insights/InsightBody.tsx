@@ -34,7 +34,7 @@ export function InsightBody({ insight }: { insight: Insight }) {
               </thead>
               <tbody className="text-foreground">
                 {figures.figures.map((f) => (
-                  <tr key={f.name} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
+                  <tr key={f.name} className="border-t-(length:--hairline)">
                     <td className="py-1 pr-3">{f.name}</td>
                     <td className="py-1 text-right font-mono">{number(f.now)}</td>
                     <td className="py-1 text-right font-mono">{number(f.before)}</td>
@@ -55,7 +55,7 @@ export function InsightBody({ insight }: { insight: Insight }) {
                   </thead>
                   <tbody className="text-foreground">
                     {l.items.map((item, i) => (
-                      <tr key={`${i}-${item.name}`} className="border-t" style={{ borderTopWidth: 'var(--hairline)' }}>
+                      <tr key={`${i}-${item.name}`} className="border-t-(length:--hairline)">
                         <td className="py-1 pr-3">{item.name}</td>
                         <td className="py-1 text-right font-mono">{number(item.value)}</td>
                       </tr>

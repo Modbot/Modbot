@@ -179,7 +179,7 @@ export function Calendar() {
           <CardHeader>
             <CardTitle>Drafts</CardTitle>
           </CardHeader>
-          <div className="flex flex-col divide-y divide-(length:--hairline) divide-border">
+          <div className="flex flex-col divide-y-(--hairline) divide-border">
             {drafts.map((d) => (
               <button
                 key={d.id}
@@ -307,7 +307,7 @@ function Agenda({ entries, now, onOpen }: { entries: Entry[]; now: string; onOpe
   if (upcoming.length === 0) return <PageMessage>No events.</PageMessage>
 
   return (
-    <Card className="divide-y divide-(length:--hairline) divide-border">
+    <Card className="divide-y-(--hairline) divide-border">
         {upcoming.map((entry) => (
           <div
             key={`${entry.event.id}-${entry.startsAt.toISOString()}`}

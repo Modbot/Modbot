@@ -99,7 +99,7 @@ export function Giveaways() {
       {shown.length === 0 ? (
         <PageMessage>No giveaways.</PageMessage>
       ) : (
-        <Card className="divide-y divide-(length:--hairline) divide-border">
+        <Card className="divide-y-(--hairline) divide-border">
           {shown.map((giveaway) => (
             <Row key={giveaway.id} giveaway={giveaway} onOpen={() => setOpenId(giveaway.id)} />
           ))}

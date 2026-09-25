@@ -37,10 +37,12 @@ function DialogContent({
 }) {
   return (
     <DialogPrimitive.Portal>
+      {/* The overlay and the dialog share one layer, so the page order decides: a dialog opened
+          from another one comes later, and its overlay dims the one behind it. */}
       <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 dark:bg-background/70" />
       <DialogPrimitive.Content
         className={cn(
-          'fixed top-1/2 left-1/2 z-50 flex -translate-x-1/2 -translate-y-1/2 flex-col rounded-sm border border-(length:--hairline) bg-card p-0 text-card-foreground shadow-sm outline-none',
+          'fixed top-1/2 left-1/2 z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col rounded-sm border border-(length:--hairline) bg-card p-0 text-card-foreground shadow-sm outline-none',
           // Never wider than the screen and never taller than it either. A dialog that ran off
           // the bottom of a phone had no scrollbar of its own and nothing could reach its Save
           // button; the body below scrolls instead.
@@ -50,8 +52,7 @@ function DialogContent({
         {...props}
       >
         <div
-          className="flex shrink-0 items-center gap-3 border-b bg-strip px-4 py-2"
-          style={{ borderBottomWidth: 'var(--hairline)' }}
+          className="flex shrink-0 items-center gap-3 border-b-(length:--hairline) bg-strip px-4 py-2"
         >
           {lead}
           <div className="min-w-0 flex-1">
@@ -59,7 +60,7 @@ function DialogContent({
               {title}
             </DialogPrimitive.Title>
             {subtitle && (
-              <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              <div className="text-muted-foreground [overflow-wrap:anywhere]" style={{ fontSize: 'var(--text-small)' }}>
                 {subtitle}
               </div>
             )}
@@ -68,7 +69,7 @@ function DialogContent({
           {/* Sized from --control-h rather than from the glyph: on a phone this is the way out of
               a dialog that covers the screen, and a 24px target is not one a finger can hit. */}
           <DialogPrimitive.Close
-            className="grid shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="grid shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
             style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
             aria-label="Close"
           >

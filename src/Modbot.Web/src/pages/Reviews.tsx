@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { SwitchBank } from '@/components/ui/switch-bank'
+import { Textarea } from '@/components/ui/textarea'
 import { SubjectLink } from '@/components/facts'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type Person, type ReviewEvidence, type ReviewList, type ReviewView } from '@/lib/api'
 import { PROPOSED_ACTION_LABELS, type ProposedAction } from '@/lib/autoMod'
+import { cn } from '@/lib/utils'
 
 /**
  * Reviews of a moderator's pattern (spec 5.8.5).
@@ -205,7 +207,7 @@ function ReviewCard({
               </button>
             </div>
             {showFacts && (
-              <p className="mt-1 break-all font-mono text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
+              <p className="mt-1 break-all font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                 {review.evidence.factIds.join(', ')}
               </p>
             )}
@@ -215,9 +217,8 @@ function ReviewCard({
         {review.state === 'Open' && (
           <label className="mt-3 flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
             <span className="text-muted-foreground">What did you conclude?</span>
-            <textarea
-              className="min-h-16 rounded-sm border border-input bg-card px-2 py-1 outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
-              style={{ borderWidth: 'var(--hairline)' }}
+            <Textarea
+              className="min-h-16"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={2000}
@@ -314,14 +315,33 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
 
   return (
     <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      <Pair label="Actions" value={String(e.actions)} />
+      <Pair label="Actions" value={String(e.actions)} mono />
       {kinds.length > 0 && (
-        <Pair label="Of which" value={kinds.map(([k, n]) => `${n} ${KIND_WORDS[k] ?? k}`).join(', ')} />
+        <Pair
+          label="Of which"
+          value={kinds.map(([k, n], i) => (
+            <span key={k}>
+              {i > 0 && ', '}
+              <span className="font-mono">{n}</span> {KIND_WORDS[k] ?? k}
+            </span>
+          ))}
+        />
       )}
-      {e.places !== undefined && <Pair label="Different instances or days" value={String(e.places)} />}
-      {e.otherModerators !== undefined && <Pair label="Other moderators who acted on them" value={String(e.otherModerators)} />}
-      {e.windowDays !== undefined && <Pair label="Looking back" value={`${e.windowDays} days`} />}
-      {e.day !== undefined && <Pair label="Day (UTC)" value={e.day} />}
+      {e.places !== undefined && <Pair label="Different instances or days" value={String(e.places)} mono />}
+      {e.otherModerators !== undefined && (
+        <Pair label="Other moderators who acted on them" value={String(e.otherModerators)} mono />
+      )}
+      {e.windowDays !== undefined && (
+        <Pair
+          label="Looking back"
+          value={
+            <>
+              <span className="font-mono">{e.windowDays}</span> days
+            </>
+          }
+        />
+      )}
+      {e.day !== undefined && <Pair label="Day (UTC)" value={e.day} mono />}
       {e.nextBusiest !== undefined && (
         <Pair
           label="Next busiest that day"
@@ -329,7 +349,7 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
             e.nextBusiest ? (
               <>
                 <PersonLink person={{ platform: 'vrchat', id: e.nextBusiest.moderatorId, name: null }} onOpen={onOpenSubject} /> with{' '}
-                {e.nextBusiest.actions}
+                <span className="font-mono">{e.nextBusiest.actions}</span>
               </>
             ) : (
               'nobody else did anything'
@@ -337,18 +357,32 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
           }
         />
       )}
-      {e.teamUsualPerDay !== undefined && <Pair label="Team’s usual per moderator-day" value={fixed(e.teamUsualPerDay)} />}
+      {e.teamUsualPerDay !== undefined && (
+        <Pair label="Team’s usual per moderator-day" value={fixed(e.teamUsualPerDay)} mono />
+      )}
       {e.ownUsualPerDay !== undefined && (
         <Pair
           label="Their usual"
-          value={e.ownUsualPerDay === null ? 'none yet' : `${fixed(e.ownUsualPerDay)} a day over ${e.ownActiveDays ?? '?'} active days`}
+          value={
+            e.ownUsualPerDay === null ? (
+              'none yet'
+            ) : (
+              <>
+                <span className="font-mono">{fixed(e.ownUsualPerDay)}</span> a day over{' '}
+                <span className="font-mono">{e.ownActiveDays ?? '?'}</span> active days
+              </>
+            )
+          }
         />
       )}
       <Pair
         label="Rule applied"
-        value={Object.entries(e.threshold)
-          .map(([k, v]) => `${THRESHOLD_WORDS[k] ?? k} ${fixed(v)}`)
-          .join(' · ')}
+        value={Object.entries(e.threshold).map(([k, v], i) => (
+          <span key={k}>
+            {i > 0 && ' · '}
+            {THRESHOLD_WORDS[k] ?? k} <span className="font-mono">{fixed(v)}</span>
+          </span>
+        ))}
       />
     </dl>
   )
@@ -370,11 +404,12 @@ function PersonLink({ person, onOpen }: { person: Person; onOpen: (id: string) =
   return <SubjectLink id={person.id} name={person.name} onOpen={onOpen} className="text-foreground" />
 }
 
-function Pair({ label, value }: { label: string; value: React.ReactNode }) {
+/** One fact of the evidence. `mono` for a count or a date; a word or a name stays in the body face. */
+function Pair({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="flex gap-1.5">
-      <dt>{label}:</dt>
-      <dd className="text-foreground">{value}</dd>
+    <div className="flex flex-wrap gap-x-1.5 gap-y-0.5">
+      <dt className="shrink-0">{label}:</dt>
+      <dd className={cn('min-w-0 text-foreground tabular-nums', mono && 'font-mono')}>{value}</dd>
     </div>
   )
 }

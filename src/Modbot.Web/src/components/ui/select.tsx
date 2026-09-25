@@ -26,6 +26,7 @@ export function Select({
   children,
   className,
   disabled,
+  size = 'default',
   ...rest
 }: {
   value: string
@@ -33,6 +34,8 @@ export function Select({
   children: React.ReactNode
   className?: string
   disabled?: boolean
+  /** `sm` for a dropdown inside a panel's strip, the height of an `xs` button beside it. */
+  size?: 'default' | 'sm'
   'aria-label'?: string
   'aria-labelledby'?: string
 }) {
@@ -178,7 +181,8 @@ export function Select({
           // height, and 32px is under what a fingertip hits (see index.css).
           data-slot="select-trigger"
           className={cn(
-            'flex h-(--control-h) min-w-0 items-center justify-between gap-1.5 rounded-sm border border-(length:--hairline) border-input bg-card px-2 text-left text-foreground outline-none',
+            'flex min-w-0 items-center justify-between gap-1.5 rounded-sm border border-(length:--hairline) border-input bg-card px-2 text-left text-foreground outline-none',
+            size === 'sm' ? 'h-[calc(var(--control-h)-0.375rem)]' : 'h-(--control-h)',
             'text-(length:--text-small) focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
             'disabled:cursor-not-allowed disabled:opacity-50',
             className,

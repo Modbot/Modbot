@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardFooter } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -210,18 +210,17 @@ export function Logs() {
           </ul>
         )}
 
-        <div
-          className="flex flex-wrap items-center gap-3 border-t bg-strip px-(--panel-pad) py-1 text-muted-foreground"
-          style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)', minHeight: 'var(--strip-h)' }}
-        >
-          <span className="font-mono">{(filters?.stored ?? 0).toLocaleString()} stored</span>
+        <CardFooter className="flex-wrap gap-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <span>
+            <span className="font-mono">{(filters?.stored ?? 0).toLocaleString()}</span> stored
+          </span>
           <span className="flex-1" />
           {next && (
             <Button variant="outline" size="xs" disabled={loading} onClick={more}>
               {loading ? 'Loading…' : 'Load more'}
             </Button>
           )}
-        </div>
+        </CardFooter>
       </Card>
     </div>
   )

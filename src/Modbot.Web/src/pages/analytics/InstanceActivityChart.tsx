@@ -102,7 +102,7 @@ export function InstanceActivityChart() {
               />
               <YAxis
                 yAxisId="people"
-                width={44}
+                width="auto"
                 domain={[0, 'auto']}
                 tickFormatter={compactNumber}
                 tickLine={false}
@@ -111,7 +111,7 @@ export function InstanceActivityChart() {
               <YAxis
                 yAxisId="instances"
                 orientation="right"
-                width={40}
+                width="auto"
                 domain={[0, 'auto']}
                 allowDecimals={false}
                 tickFormatter={compactNumber}

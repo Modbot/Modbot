@@ -73,7 +73,7 @@ function TagPill({ badge }: { badge: TagBadge }) {
     case 'staff':
       return <Pill className="border-info/40 bg-info/10 text-info">VRChat staff</Pill>
     case 'nuisance':
-      return <Pill className="border-warn/40 bg-warn/10 text-warn">Nuisance</Pill>
+      return <Pill variant="warn">Nuisance</Pill>
     case 'early-adopter':
       return <Pill>Early adopter</Pill>
     case 'language':
@@ -86,9 +86,19 @@ function TagPill({ badge }: { badge: TagBadge }) {
   }
 }
 
-function Pill({ className, title, children }: { className?: string; title?: string; children: React.ReactNode }) {
+function Pill({
+  variant = 'outline',
+  className,
+  title,
+  children,
+}: {
+  variant?: 'outline' | 'warn'
+  className?: string
+  title?: string
+  children: React.ReactNode
+}) {
   return (
-    <Badge variant="outline" className={className} title={title}>
+    <Badge variant={variant} className={className} title={title}>
       {children}
     </Badge>
   )

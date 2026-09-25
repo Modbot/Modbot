@@ -4,7 +4,8 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type IssuedPairingCode } from '@/lib/api'
 import { encodePairingToken, pairingLink } from '@/lib/pairingToken'
-import { Brand, ErrorText, Note, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 type Issued = IssuedPairingCode & { token: string; link: string }
 
@@ -108,13 +109,13 @@ export function Pair() {
                 </div>
 
                 {copied === 'no' && (
-                  <Note tone="warn">Could not copy.</Note>
+                  <Notice tone="warn">Could not copy.</Notice>
                 )}
               </>
             )}
 
             {issued && expired && (
-              <Note tone="warn" title="This link has expired." />
+              <Notice tone="warn" title="This link has expired." />
             )}
 
             {!issued && !error && (
@@ -140,7 +141,6 @@ export function Pair() {
             <div className="flex-1" />
             <Button
               variant={issued && expired ? 'default' : 'ghost'}
-              size="sm"
               disabled={busy}
               onClick={reissue}
             >

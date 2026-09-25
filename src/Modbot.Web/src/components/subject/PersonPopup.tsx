@@ -20,6 +20,7 @@ import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { Block, Empty, FactList, More, Panel, PopupFrame } from '@/components/subject/shared'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Unread } from '@/components/Freshness'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useDiscordRecords } from '@/lib/useDiscordRecords'
 import { useLoad } from '@/lib/useLoad'
@@ -474,24 +475,29 @@ function MembershipCard({
   const loadProfile = useCallback(() => api.userProfile(subjectId), [subjectId])
   const { data: profile } = useLoad(loadProfile)
 
+  const unread = view != null && !view.members.firstSweepComplete
+
   return (
-    <Panel title="Membership" flush={!view}>
+    <Panel
+      title="Membership"
+      flush={!view}
+      warn={unread}
+      right={unread ? <Unread>Member list not read yet.</Unread> : undefined}
+    >
       {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
       {!error && !view && <EmptyRow>Loading…</EmptyRow>}
 
       {view && (
         <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
-          {!view.members.firstSweepComplete ? (
-            <p className="text-warn">Member list not read yet.</p>
-          ) : view.isMember ? (
+          {unread ? null : view.isMember ? (
             <p>
-              Member{view.joinedAt ? <> since {formatDay(view.joinedAt)}</> : ''}
+              Member{view.joinedAt ? <> since <span className="font-mono">{formatDay(view.joinedAt)}</span></> : ''}
               {view.isRepresenting ? ', representing the group' : ''}.
             </p>
           ) : view.known ? (
             <p>
-              Not a member{view.leftAt ? <>, left {formatDay(view.leftAt)}</> : ''}
-              {view.joinedAt ? <>, had joined {formatDay(view.joinedAt)}</> : ''}.
+              Not a member{view.leftAt ? <>, left <span className="font-mono">{formatDay(view.leftAt)}</span></> : ''}
+              {view.joinedAt ? <>, had joined <span className="font-mono">{formatDay(view.joinedAt)}</span></> : ''}.
             </p>
           ) : (
             <p className="text-muted-foreground">Not a member.</p>
@@ -517,12 +523,12 @@ function MembershipCard({
 
           {view.banned ? (
             <p className="text-destructive">
-              On the ban list{view.bannedAt ? <> since {formatDay(view.bannedAt)}</> : ''}.
+              On the ban list{view.bannedAt ? <> since <span className="font-mono">{formatDay(view.bannedAt)}</span></> : ''}.
             </p>
           ) : view.banLiftedAt ? (
             <p className="text-muted-foreground">
-              Was banned{view.bannedAt ? <> on {formatDay(view.bannedAt)}</> : ''}; lifted by{' '}
-              {formatDay(view.banLiftedAt)}.
+              Was banned{view.bannedAt ? <> on <span className="font-mono">{formatDay(view.bannedAt)}</span></> : ''}; lifted by{' '}
+              <span className="font-mono">{formatDay(view.banLiftedAt)}</span>.
             </p>
           ) : !view.bans.firstSweepComplete ? (
             <p className="text-muted-foreground">Ban list not read yet.</p>

@@ -14,7 +14,7 @@ import { SubjectLink } from '@/components/facts'
 import { RepeatOffendersTab } from '@/pages/RepeatOffenders'
 import { useCaseFiles } from '@/lib/caseFiles'
 import { useDemo } from '@/lib/demo'
-import { ago, formatDay } from '@/lib/format'
+import { formatDay } from '@/lib/format'
 import { useListPage } from '@/lib/listPage'
 import { can, canAny } from '@/lib/permissions'
 import {
@@ -24,6 +24,8 @@ import {
   type GroupBanList,
   type GroupBanQuery,
 } from '@/lib/api'
+import { Freshness } from '@/components/Freshness'
+import { Empty } from '@/pages/Members'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -170,7 +172,7 @@ function GroupBans({
 
       <Card>
         <CardHeader className={cn(!list.coverage.firstSweepComplete && !demo && 'bg-warn/10')}>
-          <Freshness coverage={list.coverage} demo={demo} />
+          <Freshness coverage={list.coverage} count={list.coverage.banCount} list="ban list" noun="ban" demo={demo} />
           <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
           </span>
@@ -182,7 +184,7 @@ function GroupBans({
         <div data-pin-first className="relative overflow-x-auto">
           <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
             <thead className="bg-strip text-muted-foreground">
-              <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+              <tr className="border-b-(length:--hairline)">
                 <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
                 <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Banned on</th>
                 <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Modbot first saw it</th>
@@ -218,12 +220,12 @@ function GroupBans({
                           <TrustRankBadge rank={ban.trustRank} />
                         </div>
                         {ban.plainName && (
-                          <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                          <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                             {ban.plainName}
                           </div>
                         )}
                         {ban.displayName && (
-                          <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
+                          <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
                             {ban.userId}
                           </div>
                         )}
@@ -270,52 +272,5 @@ function GroupBans({
       <Pager at={at} pages={pages} />
       </Card>
     </>
-  )
-}
-
-/**
- * How old the list is, stated on the strip at the top of it. Before the first full sweep the list
- * is partial and the strip turns the warning colour.
- */
-function Freshness({ coverage, demo }: { coverage: GroupBanList['coverage']; demo: boolean }) {
-  // A demo's ban list was filled in rather than read, so there is no sync time to state.
-  if (demo) {
-    return (
-      <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        <span>Demo data.</span>
-        <span>
-          {coverage.banCount.toLocaleString()} {coverage.banCount === 1 ? 'ban' : 'bans'}.
-        </span>
-      </div>
-    )
-  }
-
-  if (!coverage.firstSweepComplete) {
-    return (
-      <div className="flex items-center gap-2 font-medium">
-        <span aria-hidden className="size-2 shrink-0 bg-warn" />
-        {coverage.sweepInProgress ? 'Reading the ban list for the first time.' : 'The ban list has not been read yet.'}
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      <span>
-        Last synced {ago(coverage.lastSyncedAt, coverage.now)}
-        {coverage.sweepInProgress ? '. A new sweep is running now' : ''}.
-      </span>
-      <span>
-        {coverage.banCount.toLocaleString()} {coverage.banCount === 1 ? 'ban' : 'bans'} at the last full sweep.
-      </span>
-    </div>
-  )
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <Card>
-      <EmptyRow>{children}</EmptyRow>
-    </Card>
   )
 }
