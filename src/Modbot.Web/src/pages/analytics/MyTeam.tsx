@@ -206,7 +206,7 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
             gap.lastModerator.name ?? gap.lastModerator.id
           )
         ) : (
-          <span className="text-muted-foreground">a client stopped reporting</span>
+          <span className="text-muted-foreground">a companion stopped reporting</span>
         )}
       </Td>
       <Td className="text-muted-foreground">{endedBecause}</Td>

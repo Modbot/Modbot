@@ -7,7 +7,7 @@ import { chipFor, dateRange, yesNo, type FilterChip } from './filters.ts'
  */
 
 /**
- * The audit log's default: VRChat, Discord, Client and Import on, Sync off, so a sweep's noticed
+ * The audit log's default: VRChat, Discord, Companion App and Import on, Sync off, so a sweep's noticed
  * changes do not crowd the exact entries. Import is on because old data is what somebody uploaded
  * on purpose (import design §5).
  */

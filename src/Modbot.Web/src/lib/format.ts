@@ -8,7 +8,7 @@
 const SOURCE_LABEL: Record<string, string> = {
   AuditLog: 'VRChat',
   SyncDiff: 'Sync',
-  Client: 'Client',
+  Client: 'Companion App',
   Discord: 'Discord',
   Manual: 'Manual',
   Modbot: 'Modbot',
@@ -20,8 +20,10 @@ const SOURCE_LABEL: Record<string, string> = {
 /**
  * The name of the system a fact came from.
  *
- * `AuditLog` reads as "VRChat" because that is whose record it is — spec 5.9.5's chips are named
- * for the sources people think in, not for the enum members.
+ * `AuditLog` reads as "VRChat" because that is whose record it is, and `Client` reads as
+ * "Companion App" because that is what the thing is called — spec 5.9.5's chips are named for the
+ * sources people think in, not for the enum members. The stored values are unchanged; a row
+ * written years ago still says `Client` in the database and always will.
  */
 export const sourceLabel = (source: string): string => SOURCE_LABEL[source] ?? source
 
