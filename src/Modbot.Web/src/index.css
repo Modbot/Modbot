@@ -138,6 +138,7 @@
   --control-h: 2.25rem;
   --text-base: 0.875rem;
   --text-small: 0.8125rem;
+  --scrollbar: 10px;
 }
 
 /* VR: every number here has a reason, not a multiplier. */
@@ -149,6 +150,7 @@
   --hairline: 2px;        /* 1px borders disappear entirely */
   --radius: 0.5rem;
   --chart-stroke: 3px;    /* a 2px line at headset PPD is a suggestion */
+  --scrollbar: 18px;      /* a laser pointer cannot catch a ten-pixel bar */
 }
 /* Headset panels bloom at the extremes, so pull black and white inward and
    lift muted text -- low-contrast greys that read fine on a monitor vanish. */
@@ -406,6 +408,52 @@
 
 @layer base {
   * { border-color: var(--border); }
+
+  /* ── Scrollbars ──────────────────────────────────────────────────────────
+     The platform ones are grey on grey in the light theme and bright white in
+     the dark one, which on a page made of dark cards is the loudest thing on
+     the screen. These are drawn from the same tokens as everything else, so
+     they follow the theme, the density and the VR palette without knowing
+     about any of them.
+
+     The thumb is the border colour at rest and lifts to muted-foreground when
+     the pointer is on it: present enough to grab, quiet enough to ignore. It
+     is drawn inside a transparent border with background-clip, which is what
+     puts a margin around it -- a bar that runs edge to edge reads as part of
+     the frame rather than as something you can hold.
+
+     The track stays transparent. Cards, tables and the sidebar all have their
+     own backgrounds, and a track with a colour of its own draws a stripe down
+     every one of them. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: var(--scrollbar);
+    height: var(--scrollbar);
+  }
+
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
+  }
+
+  /* A touch screen draws its own, over the content and only while scrolling,
+     which is better than anything specified here. Nothing is overridden for
+     the phone density for that reason. */
   body {
     background: var(--background);
     color: var(--foreground);
