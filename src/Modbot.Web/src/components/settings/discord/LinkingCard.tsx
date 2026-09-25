@@ -95,7 +95,7 @@ function LinkingForm({
       title="Account linking"
       footer={
         <>
-          <Button type="button" size="sm" onClick={save} disabled={busy}>
+          <Button type="button" size="xs" onClick={save} disabled={busy}>
             {busy ? 'Saving…' : 'Save account linking'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -31,9 +32,6 @@ function callFromHash(): string | null {
   const parts = window.location.hash.slice(1).split('/')
   return parts[0] === 'ai' && parts[1] === 'calls' && parts[2] ? parts[2] : null
 }
-
-/** Runs the card's content to its edges, so the table meets the panel's sides. */
-const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 
 const noFilters: AiCallFilters = { feature: '', outcome: '', model: '', from: '', to: '', flagged: false }
 
@@ -99,12 +97,12 @@ export function AiCallLogSettings() {
       <SettingsCard
         title="Call log"
         span={12}
-        className={FLUSH}
+        flush
         footer={
           (page?.next != null || error) && (
             <>
               {page?.next != null && (
-                <Button size="sm" variant="outline" disabled={busy} onClick={next}>
+                <Button size="xs" variant="outline" disabled={busy} onClick={next}>
                   {busy ? 'Loading…' : 'Show more'}
                 </Button>
               )}
@@ -164,15 +162,9 @@ export function AiCallLogSettings() {
             value={filters.to}
             onChange={(e) => set({ to: e.target.value })}
           />
-          <Button
-            size="sm"
-            variant="outline"
-            className="aria-pressed:bg-accent aria-pressed:text-accent-foreground"
-            aria-pressed={filters.flagged}
-            onClick={() => set({ flagged: !filters.flagged })}
-          >
+          <Chip on={filters.flagged} onClick={() => set({ flagged: !filters.flagged })}>
             Flagged only
-          </Button>
+          </Chip>
           <Button size="sm" variant="outline" onClick={() => setFilters(noFilters)}>
             Clear
           </Button>

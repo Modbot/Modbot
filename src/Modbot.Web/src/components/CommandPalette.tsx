@@ -259,7 +259,7 @@ function Palette({
                   {item.picture !== undefined && <Avatar url={item.picture} className="size-6" />}
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   {item.detail && (
-                    <span className="truncate font-mono text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
+                    <span className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                       {item.detail}
                     </span>
                   )}

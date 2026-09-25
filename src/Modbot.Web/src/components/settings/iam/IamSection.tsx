@@ -60,7 +60,7 @@ export function IamSection({ me }: { me: CurrentUser }) {
       value={tab}
       onChange={choose}
       tabs={IAM_TABS.filter((t) => open.includes(t.value)).map(({ value, label }) => ({ value, label }))}
-      className="gap-5"
+      className="gap-3"
     >
       {tab === 'users' && <Users me={me} />}
       {tab === 'roles' && <Roles me={me} />}

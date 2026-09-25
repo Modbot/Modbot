@@ -106,13 +106,13 @@ function PeopleCard({ title, people }: { title: string; people: ShowcasePerson[]
       </CardHeader>
       {/* The panel grid's own lines, on a list: the tiles share one hairline with each other and
           with the panel's edge. */}
-      <ul data-slot="panel-grid" className="m-0 sm:grid-cols-2">
+      <PanelGrid as="ul" className="m-0 sm:grid-cols-2">
         {people.map((person) => (
           <li key={`${person.name}-${person.vrChatGroupId ?? person.link}`}>
             <Person person={person} />
           </li>
         ))}
-      </ul>
+      </PanelGrid>
     </Card>
   )
 }

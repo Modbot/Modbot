@@ -33,8 +33,6 @@ const failure = (e: unknown) =>
       ? e.message
       : 'Could not reach the Modbot server.'
 
-/** Runs the card's content to its edges, so a table meets the card's sides. */
-const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 const cellClass = 'px-(--panel-pad) py-1.5 align-top'
 const headClass = 'h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap'
 const rowClass = 'border-b border-b-(length:--hairline) last:border-0'
@@ -107,7 +105,7 @@ function SpendCard({ data }: { data: AiLimits }) {
   const rows: AiFeatureSpend[] = [...data.spend, data.total]
 
   return (
-    <SettingsCard title="Spend by feature" span={12} className={FLUSH}>
+    <SettingsCard title="Spend by feature" span={12} flush>
       <div className="relative overflow-x-auto">
         <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
           <thead className="bg-strip text-left text-muted-foreground">
@@ -297,10 +295,10 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
     <SettingsCard
       title="Spend limits"
       span={12}
-      className={FLUSH}
+      flush
       footer={
         <>
-          <Button size="sm" disabled={busy} onClick={save}>
+          <Button size="xs" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -426,7 +424,7 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
 
 function TopUsersCard({ data }: { data: AiLimits }) {
   return (
-    <SettingsCard title="Top Chat users this month" span={12} className={FLUSH}>
+    <SettingsCard title="Top Chat users this month" span={12} flush>
       {data.topChatUsers.length === 0 ? (
         <EmptyRow>None.</EmptyRow>
       ) : (
@@ -546,13 +544,13 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
     <SettingsCard
       title="Prices per million tokens"
       span={12}
-      className={FLUSH}
+      flush
       footer={
         <>
-          <Button size="sm" disabled={busy} onClick={save}>
+          <Button size="xs" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
-          <Button size="sm" variant="outline" disabled={fetching} onClick={fetchPrices}>
+          <Button size="xs" variant="outline" disabled={fetching} onClick={fetchPrices}>
             {fetching ? 'Fetching…' : 'Fetch prices'}
           </Button>
           <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>

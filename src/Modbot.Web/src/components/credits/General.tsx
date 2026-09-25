@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PanelGrid } from '@/components/PanelGrid'
+import { Row } from '@/components/settings/fields'
 import credits from '@/lib/credits.json'
 import { DOCS_URL } from '@/lib/docs'
 import { myModbotOrigin } from '@/lib/myModbot'
@@ -24,23 +25,17 @@ export function General() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
-            <Line label="Source">
-              <Link href={REPO}>{REPO.replace('https://', '')}</Link>
-            </Line>
-            <Line label="Licence">
-              <Link href={`${REPO}/blob/master/LICENSE`}>AGPL-3.0</Link>
-            </Line>
-            <Line label="Privacy policy">
-              <Link href={`${REPO}/blob/master/PRIVACY_POLICY.md`}>PRIVACY_POLICY.md</Link>
-            </Line>
-            <Line label="Documentation">
-              <Link href={DOCS_URL}>{DOCS_URL.replace('https://', '')}</Link>
-            </Line>
-            <Line label="Your servers">
-              <Link href={myModbotOrigin()}>{myModbotOrigin().replace('https://', '')}</Link>
-            </Line>
-          </dl>
+          <Row label="Source" value={<Link href={REPO}>{REPO.replace('https://', '')}</Link>} />
+          <Row label="Licence" value={<Link href={`${REPO}/blob/master/LICENSE`}>AGPL-3.0</Link>} />
+          <Row
+            label="Privacy policy"
+            value={<Link href={`${REPO}/blob/master/PRIVACY_POLICY.md`}>PRIVACY_POLICY.md</Link>}
+          />
+          <Row label="Documentation" value={<Link href={DOCS_URL}>{DOCS_URL.replace('https://', '')}</Link>} />
+          <Row
+            label="Your servers"
+            value={<Link href={myModbotOrigin()}>{myModbotOrigin().replace('https://', '')}</Link>}
+          />
         </CardContent>
       </Card>
 
@@ -51,30 +46,13 @@ export function General() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[minmax(0,10rem)_minmax(0,1fr)]">
-            <Line label="Name">Sarmad Wahab</Line>
-            <Line label="Username">bin</Line>
-            <Line label="Website">
-              <Link href="https://bin.moe">bin.moe</Link>
-            </Line>
-            <Line label="GitHub">
-              <Link href="https://github.com/binn">github.com/binn</Link>
-            </Line>
-          </dl>
+          <Row label="Name" value="Sarmad Wahab" />
+          <Row label="Username" value="bin" />
+          <Row label="Website" value={<Link href="https://bin.moe">bin.moe</Link>} />
+          <Row label="GitHub" value={<Link href="https://github.com/binn">github.com/binn</Link>} />
         </CardContent>
       </Card>
     </PanelGrid>
-  )
-}
-
-function Line({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <>
-      <dt className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {label}
-      </dt>
-      <dd className="pb-1 [overflow-wrap:anywhere] sm:pb-0">{children}</dd>
-    </>
   )
 }
 

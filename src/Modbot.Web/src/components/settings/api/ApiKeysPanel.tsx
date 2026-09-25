@@ -11,9 +11,6 @@ import { Checkbox, Field, Outcome, Placeholder } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { failure, when } from './shared'
 
-/** Runs the card's content to its edges, so a list meets the card's sides. */
-const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
-
 /**
  * Settings → API → Keys. The key is shown once, in the dialog that made it; the server keeps only
  * its hash. The permission list offers only what the signed-in person holds, because the server
@@ -50,7 +47,7 @@ export function ApiKeysPanel() {
         <SettingsCard
           title="Keys"
           span={12}
-          className={FLUSH}
+          flush
           action={
             <Button size="xs" onClick={() => setCreating(true)}>
               Create key

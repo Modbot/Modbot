@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input'
 import { ApiError, api, type InviteView } from '@/lib/api'
 import { openRegisterOnce } from '@/lib/myModbot'
 import { usernameProblem } from '@/lib/username'
-import { Brand, ErrorText, Field, Note, Tickbox, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, Tickbox, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /**
  * Opening an invite link (accounts and access design §4.1): pick a username and a password,
@@ -78,7 +79,7 @@ export function Join({ token, onJoined }: { token: string; onJoined: () => void 
             </WizardHeader>
             <WizardBody>
               {invite && !invite.usable ? (
-                <Note tone="warn">{invite.reason}</Note>
+                <Notice tone="warn">{invite.reason}</Notice>
               ) : (
                 <>
                   <Field label="Username" htmlFor="join-username">

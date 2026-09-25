@@ -1,4 +1,4 @@
-import { CardAction, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { DialogContent } from '@/components/ui/dialog'
 import { EmptyRow } from '@/components/PanelGrid'
 import { FactSentence } from '@/components/factSentence'
@@ -46,6 +46,7 @@ export function Panel({
   title,
   right,
   flush = false,
+  warn = false,
   className,
   children,
 }: {
@@ -53,16 +54,18 @@ export function Panel({
   right?: React.ReactNode
   /** Runs the content to the section's edges, for a list or a table. */
   flush?: boolean
+  /** Tints the strip, when what it says on the right is that the section cannot be trusted yet. */
+  warn?: boolean
   className?: string
   children: React.ReactNode
 }) {
   return (
     <section className={cn('shrink-0 border-b border-b-(length:--hairline)', className)}>
-      <CardHeader>
+      <CardHeader className={cn(warn && 'bg-warn/10')}>
         <CardTitle>{title}</CardTitle>
         {right && <CardAction>{right}</CardAction>}
       </CardHeader>
-      <div className={flush ? undefined : 'flex flex-col gap-2 p-(--panel-pad)'}>{children}</div>
+      {flush ? <div>{children}</div> : <CardContent className="flex flex-col gap-2">{children}</CardContent>}
     </section>
   )
 }
@@ -84,12 +87,9 @@ export function Empty({ children, className }: { children: React.ReactNode; clas
 /** The strip along the foot of a section's list: what the list shows, and how fresh it is. */
 export function Footer({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="flex flex-wrap items-center gap-2 border-t border-t-(length:--hairline) bg-strip px-(--panel-pad) py-1.5 text-muted-foreground"
-      style={{ fontSize: 'var(--text-small)' }}
-    >
+    <CardFooter className="flex-wrap gap-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
       {children}
-    </div>
+    </CardFooter>
   )
 }
 

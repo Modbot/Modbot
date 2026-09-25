@@ -3,7 +3,8 @@ import { DailyBars, DailyLine, Heatmap, Legend, RankedList, compactNumber, longD
 import { PersonLink } from '@/components/facts'
 import { api, type ServerContributor } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Toggle, Tr } from './shared'
+import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -137,9 +138,9 @@ export function MyServer() {
           </PanelGrid>
 
           <PanelGrid className="lg:grid-cols-2">
-            <Panel title="Busiest channels">
+            <Panel title="Busiest channels" flush={data.busiestChannels.length === 0}>
               {data.busiestChannels.length === 0 ? (
-                <Nothing>No messages in this range.</Nothing>
+                <EmptyRow>No messages in this range.</EmptyRow>
               ) : (
                 <RankedList
                   slot={1}
@@ -152,9 +153,9 @@ export function MyServer() {
               )}
             </Panel>
 
-            <Panel title={`Busiest hours (${zoneLabel()})`}>
+            <Panel title={`Busiest hours (${zoneLabel()})`} flush={data.hourOfWeek.messages.every((v) => v === 0)}>
               {data.hourOfWeek.messages.every((v) => v === 0) ? (
-                <Nothing>No messages in this range.</Nothing>
+                <EmptyRow>No messages in this range.</EmptyRow>
               ) : (
                 <Heatmap
                   rows={DAYS}
@@ -236,9 +237,9 @@ export function MyServer() {
             </Panel>
           </PanelGrid>
 
-          <Panel title="Top contributors" flush={data.topContributors.length > 0}>
+          <Panel title="Top contributors" flush>
             {data.topContributors.length === 0 ? (
-              <Nothing>No messages in this range.</Nothing>
+              <EmptyRow>No messages in this range.</EmptyRow>
             ) : (
               <PeopleTable people={data.topContributors} />
             )}

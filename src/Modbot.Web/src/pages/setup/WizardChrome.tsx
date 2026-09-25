@@ -4,8 +4,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * The wizard's shared furniture, ported from the approved design prototype
- * (`explore/design/index.html`): the centred panel, the step indicator, the labelled field and the
- * coloured note.
+ * (`explore/design/index.html`): the centred panel, the step indicator and the labelled field.
  *
  * The wizard sits outside the app shell, so none of the sidebar or topbar chrome applies. It
  * still reads from the same tokens in index.css, which is what keeps it from drifting into
@@ -137,60 +136,6 @@ export function Tickbox({
       />
       <span>{children}</span>
     </label>
-  )
-}
-
-/**
- * A tinted band led by a filled square in the tone's colour.
- *
- * Same reasoning as the destructive button in the prototype: colour is the last signal, after
- * placement and shape. A note that is legible only because it is green fails for a colour-blind
- * moderator and stops registering for everyone else after the tenth time they see it, so the
- * square and the words carry it and the tint only backs them up.
- */
-export function Note({
-  tone = 'info',
-  title,
-  children,
-}: {
-  tone?: 'info' | 'ok' | 'warn' | 'danger'
-  title?: string
-  children?: React.ReactNode
-}) {
-  const edge = {
-    info: 'border-border',
-    ok: 'border-ok/40',
-    warn: 'border-warn/40',
-    danger: 'border-destructive/40',
-  }[tone]
-
-  const tint = {
-    info: 'var(--strip)',
-    ok: 'color-mix(in oklab, var(--ok) 10%, var(--card))',
-    warn: 'color-mix(in oklab, var(--warn) 10%, var(--card))',
-    danger: 'color-mix(in oklab, var(--destructive) 10%, var(--card))',
-  }[tone]
-
-  const square = {
-    info: 'bg-info',
-    ok: 'bg-ok',
-    warn: 'bg-warn',
-    danger: 'bg-destructive',
-  }[tone]
-
-  return (
-    <div
-      className={cn('border border-(length:--hairline) px-(--panel-pad) py-2', edge)}
-      style={{ background: tint, fontSize: 'var(--text-small)' }}
-    >
-      <div className="flex items-start gap-2">
-        <span aria-hidden className={cn('mt-[0.45em] size-2 shrink-0', square)} />
-        <div className="min-w-0 text-muted-foreground">
-          {title && <span className="font-medium text-foreground">{title} </span>}
-          {children}
-        </div>
-      </div>
-    </div>
   )
 }
 

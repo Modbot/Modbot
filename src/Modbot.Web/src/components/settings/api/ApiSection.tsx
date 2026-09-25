@@ -44,7 +44,7 @@ export function ApiSection() {
       value={tab}
       onChange={choose}
       tabs={API_TABS.map(({ value, label }) => ({ value, label }))}
-      className="gap-5"
+      className="gap-3"
     >
       {API_TABS.map(({ value, panel: Panel }) => (value === tab ? <Panel key={value} /> : null))}
     </Tabs>

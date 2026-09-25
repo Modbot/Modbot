@@ -1,6 +1,7 @@
 import { Children, useEffect, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { Row } from '@/components/settings/fields'
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { statusOf } from '@/lib/gate'
 import { discordState, DOT, TONE, type Tone } from '@/lib/status'
@@ -126,24 +127,21 @@ export function Health() {
             <span className="font-mono">{new Date(health.gate.coldStopEndsAt).toLocaleTimeString()}</span>
           </p>
         )}
-        <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-          <dt>Last signed in</dt>
-          <dd className={cn('text-foreground', health.gate.lastSignedInAt && 'font-mono')}>
-            {health.gate.lastSignedInAt ? new Date(health.gate.lastSignedInAt).toLocaleString() : 'Never'}
-          </dd>
-          <dt>Sign-ins this hour</dt>
-          <dd className="font-mono text-foreground">
-            {health.gate.signInsInLastHour} of {health.gate.signInLimit}
-          </dd>
+        {/* Row's value takes its colour from around it and its label stays muted, so the wrapper
+            sets the value's tone. */}
+        <div className="mt-1 max-w-xs text-foreground">
+          <Row
+            label="Last signed in"
+            value={health.gate.lastSignedInAt ? new Date(health.gate.lastSignedInAt).toLocaleString() : 'Never'}
+            mono={!!health.gate.lastSignedInAt}
+          />
+          <Row label="Sign-ins this hour" value={`${health.gate.signInsInLastHour} of ${health.gate.signInLimit}`} mono />
           {health.gate.signInWait && (
-            <>
-              <dt>Next sign-in</dt>
-              <dd className="font-mono text-destructive">
-                {new Date(health.gate.signInWait.retryAt).toLocaleTimeString()}
-              </dd>
-            </>
+            <div className="text-destructive">
+              <Row label="Next sign-in" value={new Date(health.gate.signInWait.retryAt).toLocaleTimeString()} mono />
+            </div>
           )}
-        </dl>
+        </div>
       </Part>
 
       <Database reachable={databaseReachable} />
@@ -151,14 +149,14 @@ export function Health() {
       {/* One anchor over both AI panels, because either can be the only one on the screen. It is a
           row of the sheet rather than a panel, so the two draw the sheet's lines and no box of
           their own. */}
-      <div id="ai" data-slot="panel-grid" className="scroll-mt-20 grid-cols-1 empty:hidden">
+      <PanelGrid id="ai" className="scroll-mt-20 grid-cols-1 empty:hidden">
         {health.aiSpend && health.aiSpend.length > 0 && <AiSpend warnings={health.aiSpend} />}
 
         {health.aiCalls &&
           (health.aiCalls.errors > 0 || health.aiCalls.timedOut > 0 || health.aiCalls.fallbacks > 0) && (
             <AiCalls calls={health.aiCalls} />
           )}
-      </div>
+      </PanelGrid>
 
       {health.email && (health.email.queued > 0 || health.email.failed > 0) && <EmailQueue email={health.email} />}
       {health.logs && <Logs logs={health.logs} />}
@@ -272,7 +270,7 @@ export function Health() {
           <div data-pin-first className="relative overflow-x-auto">
             <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
               <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                <tr className="border-b-(length:--hairline)">
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Bucket</th>
                   <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Rate (req/s)</th>
                   <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Budget</th>

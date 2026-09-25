@@ -3,7 +3,8 @@ import { Input } from '@/components/ui/input'
 import { ApiError, api, type ConnectionDiagnosis } from '@/lib/api'
 import { refreshGateHealth } from '@/lib/useGateHealth'
 import { DiagnosisNote } from './DiagnosisNote'
-import { ErrorText, Field, Note, WizardBody, WizardHeader } from './WizardChrome'
+import { ErrorText, Field, WizardBody, WizardHeader } from './WizardChrome'
+import { Notice } from '@/components/ui/notice'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /**
@@ -81,7 +82,7 @@ export function VRChatStep({ eyebrow, status, run, refresh }: StepProps) {
           />
         </Field>
 
-        <Note tone="warn" title="Use a dedicated account, not your personal one." />
+        <Notice tone="warn" title="Use a dedicated account, not your personal one." />
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
         <ErrorText>{error}</ErrorText>

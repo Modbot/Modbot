@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardFooter, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { EntryDetail } from '@/components/audit/EntryDetail'
 import { FilterBar } from '@/components/filters/FilterBar'
@@ -299,17 +299,17 @@ export function AuditLog() {
             {pending} new
           </Button>
         )}
-        {coverage && <Coverage coverage={coverage} />}
       </FilterBar>
 
       <Card>
+          <CardHeader>{coverage && <Coverage coverage={coverage} />}</CardHeader>
           {entries.length === 0 && !loading ? (
             <EmptyRow>No entries match these filters.</EmptyRow>
           ) : (
             <div className="relative overflow-x-auto">
               <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
                 <thead className="bg-strip text-muted-foreground">
-                  <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                  <tr className="border-b-(length:--hairline)">
                     <th className="w-6 px-2 py-2" />
                     <th className="px-3 py-2 text-left font-normal">When</th>
                     <th className="px-3 py-2 text-left font-normal">Source</th>
@@ -332,20 +332,17 @@ export function AuditLog() {
             </div>
           )}
 
-          <div
-            className="flex items-center gap-3 border-t bg-strip px-3 py-1.5 text-muted-foreground"
-            style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)', minHeight: 'var(--strip-h)' }}
-          >
-            <span className="font-mono">
-              {entries.length} {entries.length === 1 ? 'entry' : 'entries'} shown
+          <CardFooter className="gap-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span>
+              <span className="font-mono">{entries.length}</span> {entries.length === 1 ? 'entry' : 'entries'} shown
             </span>
             <span className="flex-1" />
             {next && (
-              <Button size="sm" variant="outline" disabled={loading} onClick={more}>
+              <Button size="xs" variant="outline" disabled={loading} onClick={more}>
                 {loading ? 'Loading…' : 'Load more'}
               </Button>
             )}
-          </div>
+          </CardFooter>
       </Card>
     </div>
   )
@@ -416,7 +413,7 @@ function Row({
         <td className="px-3 py-1 align-top">
           <SourceBadge source={entry.source} />
         </td>
-        <td className="max-w-3xl px-3 py-1.5 align-top" title={entry.type}>
+        <td className="max-w-3xl min-w-[20rem] px-3 py-1.5 align-top" title={entry.type}>
           {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
               markup. */}
           <FactSentence entry={entry} />
@@ -454,7 +451,7 @@ function Coverage({ coverage }: { coverage: AuditPage['coverage'] }) {
 
   return (
     <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      Oldest recorded entry: {formatDay(coverage.oldestFact)}
+      Oldest recorded entry: <span className="font-mono">{formatDay(coverage.oldestFact)}</span>
       {coverage.catchUpComplete ? '' : ' · catch-up still running'}
     </span>
   )

@@ -61,7 +61,7 @@ function Group({
   return (
     <div className="flex flex-col border border-(length:--hairline) bg-card" style={{ fontSize: 'var(--text-small)' }}>
       <div className="flex min-h-(--strip-h) flex-wrap items-center gap-2 bg-strip px-2 py-1">
-        <Select value={rule.kind} onChange={(kind) => onChange({ ...rule, kind })} aria-label="How the rules combine">
+        <Select size="sm" value={rule.kind} onChange={(kind) => onChange({ ...rule, kind })} aria-label="How the rules combine">
           {COMBINING.map((k) => (
             <option key={k} value={k}>
               {COMBINE_LABEL[k]}
@@ -74,7 +74,7 @@ function Group({
         <Button
           type="button"
           variant="outline"
-          size="sm"
+          size="xs"
           onClick={() => onChange({ ...rule, rules: [...rules, { kind: kinds[0] ?? 'inGroup', amount: 1 }] })}
         >
           Add rule
@@ -84,7 +84,7 @@ function Group({
           <Button
             type="button"
             variant="outline"
-            size="sm"
+            size="xs"
             onClick={() => onChange({ ...rule, rules: [...rules, { kind: 'anyOf', rules: [] }] })}
           >
             Add group
@@ -92,14 +92,14 @@ function Group({
         )}
 
         {onRemove && (
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove group" onClick={onRemove}>
+          <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove group" onClick={onRemove}>
             <X />
           </Button>
         )}
       </div>
 
       {rules.length > 0 && (
-        <div className="flex flex-col divide-y divide-(length:--hairline) divide-border border-t border-t-(length:--hairline)">
+        <div className="flex flex-col divide-y-(--hairline) divide-border border-t border-t-(length:--hairline)">
           {rules.map((inner, index) =>
             isCombining(inner.kind) ? (
               <div key={index} className="p-2">

@@ -6,8 +6,9 @@ import { api, type MemberCountPeaks } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { InsightsPanel } from './InsightsPanel'
 import { MemberCountChart } from './MemberCountChart'
-import { PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Tr } from './shared'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 
 /**
@@ -123,7 +124,7 @@ export function MyGroup() {
 
           <PanelGrid className="lg:grid-cols-2">
             <Panel
-              flush={data.roles.length > 0}
+              flush
               title="Roles"
               right={
                 data.rolesKnownAt && (
@@ -134,7 +135,7 @@ export function MyGroup() {
               }
             >
               {data.roles.length === 0 ? (
-                <Nothing>No roles yet.</Nothing>
+                <EmptyRow>No roles yet.</EmptyRow>
               ) : (
                 <Table
                   head={
@@ -163,6 +164,7 @@ export function MyGroup() {
 
             <Panel
               title="How long members have been members"
+              flush={data.membersWithKnownTenure === 0}
               right={
                 data.membersWithKnownTenure > 0 && (
                   <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -172,7 +174,7 @@ export function MyGroup() {
               }
             >
               {data.membersWithKnownTenure === 0 ? (
-                <Nothing>No data yet.</Nothing>
+                <EmptyRow>No data yet.</EmptyRow>
               ) : (
                 <RankedList
                   slot={1}

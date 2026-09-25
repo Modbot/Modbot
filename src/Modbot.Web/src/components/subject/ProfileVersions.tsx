@@ -65,10 +65,10 @@ function VersionRow({ version, chosen, onClick }: { version: ProfileVersion; cho
         onClick={onClick}
         aria-current={chosen}
         className={cn(
-          'flex w-full flex-col gap-0.5 border-b px-(--panel-pad) py-2 text-left hover:bg-muted',
+          'flex w-full flex-col gap-0.5 border-b-(length:--hairline) px-(--panel-pad) py-2 text-left hover:bg-muted',
           chosen && 'bg-accent text-accent-foreground',
         )}
-        style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+        style={{ fontSize: 'var(--text-small)' }}
       >
         <span className="flex items-center gap-2">
           <span className="font-mono">{formatDay(version.at)}</span>

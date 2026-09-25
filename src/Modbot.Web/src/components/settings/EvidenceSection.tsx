@@ -9,8 +9,9 @@ import {
   type EvidenceHealth,
   type EvidenceSettings,
 } from '@/lib/api'
-import { cn } from '@/lib/utils'
-import { Checkbox, Field, Hint, Notice, Outcome, PasswordField, Placeholder, Row } from './fields'
+import { SwitchBank } from '@/components/ui/switch-bank'
+import { Notice } from '@/components/ui/notice'
+import { Checkbox, Field, Hint, Outcome, PasswordField, Placeholder, Row } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { MB, bytes } from './units'
 
@@ -127,9 +128,6 @@ function StoreHealth({ health, onProbed }: { health: EvidenceHealth; onProbed: (
   )
 }
 
-/** The chosen backend, marked the way the pager marks the page being read. */
-const CURRENT = 'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
-
 function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved: () => void }) {
   const hint = settings.environmentHint
   const [backend, setBackend] = useState<EvidenceBackendId>(settings.backend.backend)
@@ -200,11 +198,11 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
       title="Where evidence is stored"
       footer={
         <>
-          <Button size="sm" disabled={busy !== null} onClick={() => run('save')}>
+          <Button size="xs" disabled={busy !== null} onClick={() => run('save')}>
             {busy === 'save' ? 'Testing and saving…' : 'Test and save'}
           </Button>
           <Button
-            size="sm"
+            size="xs"
             variant="outline"
             disabled={busy !== null || backend === 'None'}
             onClick={() => run('test')}
@@ -219,21 +217,19 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
         <Notice tone="warn" title={settings.switchBlockedReason} />
       )}
 
-      <div role="group" className="flex flex-wrap gap-2">
-        {settings.backends.map((b) => (
-          <Button
-            key={b.id}
-            size="xs"
-            variant="outline"
-            aria-pressed={backend === b.id}
-            onClick={() => setBackend(b.id)}
-            className={cn(backend === b.id && CURRENT)}
-          >
-            {b.label}
-            {b.recommended && ' · recommended'}
-          </Button>
-        ))}
-      </div>
+      <SwitchBank
+        value={backend}
+        onChange={setBackend}
+        options={settings.backends.map((b) => ({
+          value: b.id,
+          label: (
+            <>
+              {b.label}
+              {b.recommended && ' · recommended'}
+            </>
+          ),
+        }))}
+      />
 
       {backend === 'Filesystem' && (
         <div className="flex max-w-lg flex-col gap-3">
@@ -293,7 +289,7 @@ function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
   return (
     <SettingsCard title="What this store is doing">
       <div>
-        <Row label="Store marker" value={settings.backend.storeId ?? 'none written yet'} />
+        <Row label="Store marker" value={settings.backend.storeId ?? 'none written yet'} mono={!!settings.backend.storeId} />
         <Row
           label="Delivery"
           value={
@@ -307,6 +303,7 @@ function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
         <Row
           label="Evidence held"
           value={`${settings.stored.count.toLocaleString()} files, ${bytes(settings.stored.bytes)}`}
+          mono
         />
         <Row
           label="Destroyed"
@@ -315,6 +312,7 @@ function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
               ? 'None'
               : settings.stored.destroyedCount.toLocaleString()
           }
+          mono={settings.stored.destroyedCount !== 0}
         />
         <Row label="Accepted formats" value={settings.acceptedTypes.join(', ')} />
       </div>
@@ -361,10 +359,10 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
 
   return (
     <SettingsCard
-      title="File Upload Limits"
+      title="File upload limits"
       footer={
         <>
-          <Button size="sm" disabled={!dirty || saving} onClick={save}>
+          <Button size="xs" disabled={!dirty || saving} onClick={save}>
             {saving ? 'Saving…' : 'Save limits'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>

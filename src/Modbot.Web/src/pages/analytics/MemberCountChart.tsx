@@ -97,7 +97,7 @@ export function MemberCountChart() {
               />
               <YAxis
                 yAxisId="members"
-                width={44}
+                width="auto"
                 domain={['auto', 'auto']}
                 tickFormatter={compactNumber}
                 tickLine={false}
@@ -106,7 +106,7 @@ export function MemberCountChart() {
               <YAxis
                 yAxisId="online"
                 orientation="right"
-                width={40}
+                width="auto"
                 domain={[0, 'auto']}
                 tickFormatter={compactNumber}
                 tickLine={false}

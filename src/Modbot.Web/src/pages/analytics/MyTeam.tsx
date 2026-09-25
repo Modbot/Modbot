@@ -2,9 +2,10 @@ import { useCallback, useState } from 'react'
 import { DailyBars, RankedList, compactNumber, dateTime, minutes } from '@/components/charts'
 import { WorldLink } from '@/components/facts'
 import { api, type CoverageGap } from '@/lib/api'
-import { PanelGrid } from '@/components/PanelGrid'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Toggle, Tr } from './shared'
+import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 
 /**
@@ -54,7 +55,7 @@ export function MyTeam({
 
           <Panel
             title="Coverage gaps"
-            flush={shownGaps.length > 0}
+            flush
             right={
               <Toggle
                 value={minPeople}
@@ -69,11 +70,11 @@ export function MyTeam({
             }
           >
             {data.coverageGaps.length === 0 ? (
-              <Nothing>
+              <EmptyRow>
                 {data.instancesWatched === 0 ? 'No presence reports in this range.' : 'No gaps in this range.'}
-              </Nothing>
+              </EmptyRow>
             ) : shownGaps.length === 0 ? (
-              <Nothing>No gaps with that many people.</Nothing>
+              <EmptyRow>No gaps with that many people.</EmptyRow>
             ) : (
               <Table
                 pinFirst
@@ -97,7 +98,7 @@ export function MyTeam({
 
           <Panel
             title="Actions per moderator"
-            flush={data.moderators.length > 0}
+            flush
             right={
               onOpenReviews && (
                 <Button variant="outline" size="xs" onClick={onOpenReviews}>
@@ -107,7 +108,7 @@ export function MyTeam({
             }
           >
             {data.moderators.length === 0 ? (
-              <Nothing>No moderation actions recorded in this range.</Nothing>
+              <EmptyRow>No moderation actions recorded in this range.</EmptyRow>
             ) : (
               <Table
                 pinFirst
@@ -157,9 +158,9 @@ export function MyTeam({
               />
             </Panel>
 
-            <Panel title="What kind of actions">
+            <Panel title="What kind of actions" flush={totalActions === 0}>
               {totalActions === 0 ? (
-                <Nothing>Nothing yet.</Nothing>
+                <EmptyRow>Nothing yet.</EmptyRow>
               ) : (
                 <RankedList
                   slot={1}
@@ -196,7 +197,7 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
       <Td className="font-mono whitespace-nowrap">{dateTime(gap.startedAt)}</Td>
       <Td className="font-mono whitespace-nowrap">{lasted}</Td>
       <Td className="text-right font-mono font-medium">{gap.peopleWhenLastModeratorLeft}</Td>
-      <Td>
+      <Td className="whitespace-normal">
         {gap.lastModerator ? (
           onOpenSubject ? (
             <button type="button" className="hover:underline" onClick={() => onOpenSubject(gap.lastModerator!.id)}>
@@ -209,7 +210,7 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
           <span className="text-muted-foreground">a companion stopped reporting</span>
         )}
       </Td>
-      <Td className="text-muted-foreground">{endedBecause}</Td>
+      <Td className="whitespace-normal text-muted-foreground">{endedBecause}</Td>
       {/* Instance ids are user-controlled text (spec 5.3): rendered as text, never as markup. */}
       <Td className="text-muted-foreground" title={`${gap.worldId}:${gap.instanceId}`}>
         {/* The world opens its popup. The gap carries no world name, so the id is the label rather

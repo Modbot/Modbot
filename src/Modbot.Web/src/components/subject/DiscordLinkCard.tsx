@@ -80,7 +80,7 @@ export function DiscordLinkCard({
 
         {link && (
           <>
-            <p className="text-muted-foreground">Linked {formatDay(link.linkedAt)}</p>
+            <p className="text-muted-foreground">Linked <span className="font-mono">{formatDay(link.linkedAt)}</span></p>
 
             {link.roles.length > 0 && (
               <div className="flex flex-wrap items-center gap-1">

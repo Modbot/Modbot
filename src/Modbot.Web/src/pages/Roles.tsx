@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { ApiError, api, type CurrentUser, type PermissionInfo, type RoleView } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/pages/Members'
-import { ErrorText, Note } from '@/pages/setup/WizardChrome'
+import { ErrorText } from '@/pages/setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /**
  * Roles: a name and a checklist of what it allows (accounts and access design §3, §8).
@@ -180,7 +181,7 @@ function RoleEditor({
         <CardContent>
           <div className="space-y-4" style={{ fontSize: 'var(--text-small)' }}>
             {locked ? (
-              <Note>Allows everything. Cannot be changed.</Note>
+              <Notice>Allows everything. Cannot be changed.</Notice>
             ) : (
               <>
                 <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">

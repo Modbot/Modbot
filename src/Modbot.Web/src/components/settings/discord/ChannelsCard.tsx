@@ -10,9 +10,6 @@ import { Outcome, Switch } from '../fields'
 import { SettingsCard } from '../SettingsCard'
 import { RouteEditor } from './RouteEditor'
 
-/** Runs the card's content to its edges, so each channel's line meets the card's sides. */
-const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
-
 /** Whether a route has any filter beyond its event types. */
 function filtered(route: DiscordRoute): boolean {
   return (
@@ -90,7 +87,7 @@ export function ChannelsCard() {
     <SettingsCard
       title="Channels"
       span={12}
-      className={FLUSH}
+      flush
       action={
         data && (
           <Button type="button" size="xs" variant="outline" onClick={() => setEditing('new')}>

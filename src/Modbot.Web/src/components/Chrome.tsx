@@ -185,11 +185,9 @@ export function Topbar({
       {/* Nothing at all unless this deployment is a demo. */}
       <DemoMarker />
 
-      <div className="flex-1" />
-
       {/* Below the sidebar's breakpoint these five controls would leave no room for the title, so
           they move into the navigation sheet, which is one tap away at the foot of the screen. */}
-      <div className="hidden items-center gap-3 lg:flex">
+      <div className="ml-auto hidden items-center gap-3 lg:flex">
         <AppearanceControls density={density} setDensity={setDensity} theme={theme} setTheme={setTheme} />
 
         {/* Your account: username, password, where a reset link reaches you, sign out everywhere. */}
@@ -353,7 +351,7 @@ export function BottomBar({
 }) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 flex divide-x-(--hairline) border-t border-t-(length:--hairline) bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex divide-x-(--hairline) divide-border border-t border-t-(length:--hairline) bg-background pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <BottomButton icon={<Menu className="size-5" />} label="Menu" onClick={onMenu} />
       <BottomButton icon={<Search className="size-5" />} label="Search" onClick={onSearch} />

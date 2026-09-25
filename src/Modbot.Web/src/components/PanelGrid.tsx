@@ -7,11 +7,23 @@ import { cn } from '@/lib/utils'
  * the lines are index.css's, which strips each child's own border and gives it an outline that
  * merges with its neighbour's. Any child works: a Card, a Stat, a SettingsCard, a chart panel.
  */
-export function PanelGrid({ className, children }: { className?: string; children: React.ReactNode }) {
+export function PanelGrid({
+  id,
+  as: Tag = 'div',
+  className,
+  children,
+}: {
+  /** An anchor to scroll to, such as Health's `#ai`. */
+  id?: string
+  /** `ul` or `ol` when the panels are the items of a list. */
+  as?: 'div' | 'ul' | 'ol'
+  className?: string
+  children: React.ReactNode
+}) {
   return (
-    <div data-slot="panel-grid" className={className}>
+    <Tag id={id} data-slot="panel-grid" className={className}>
       {children}
-    </div>
+    </Tag>
   )
 }
 

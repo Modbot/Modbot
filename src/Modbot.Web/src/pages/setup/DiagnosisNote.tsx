@@ -1,5 +1,5 @@
 import type { ConnectionDiagnosis } from '@/lib/api'
-import { Note } from './WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /**
  * One connection attempt, rendered.
@@ -13,7 +13,7 @@ export function DiagnosisNote({ diagnosis }: { diagnosis: ConnectionDiagnosis })
   const ok = diagnosis.outcome === 'Ok'
 
   return (
-    <Note tone={ok ? 'ok' : diagnosis.proxyWouldHelp ? 'warn' : 'danger'} title={diagnosis.headline}>
+    <Notice tone={ok ? 'ok' : diagnosis.proxyWouldHelp ? 'warn' : 'danger'} title={diagnosis.headline}>
       {diagnosis.detail}
       {ok && (
         <>
@@ -35,6 +35,6 @@ export function DiagnosisNote({ diagnosis }: { diagnosis: ConnectionDiagnosis })
           </span>
         </>
       ) : null}
-    </Note>
+    </Notice>
   )
 }

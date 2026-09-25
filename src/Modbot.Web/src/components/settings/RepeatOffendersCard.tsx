@@ -56,7 +56,7 @@ export function RepeatOffendersCard() {
       title="Repeat offenders"
       footer={
         <>
-          <Button size="sm" disabled={busy || !rules} onClick={save}>
+          <Button size="xs" disabled={busy || !rules} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved}</Outcome>

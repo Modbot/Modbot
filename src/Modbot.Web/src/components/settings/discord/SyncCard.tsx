@@ -106,7 +106,7 @@ function SyncForm({
         <>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             disabled={busy}
             onClick={() =>
               run(() => api.setDiscordSync({ roleSyncOn, banSyncToDiscord: toDiscord, banSyncToVRChat: toVRChat, banCopyAction }))
@@ -114,10 +114,10 @@ function SyncForm({
           >
             {busy ? 'Saving…' : 'Save sync'}
           </Button>
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => look(false)}>
+          <Button type="button" size="xs" variant="outline" disabled={busy} onClick={() => look(false)}>
             Show what would change
           </Button>
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => look(true)}>
+          <Button type="button" size="xs" variant="outline" disabled={busy} onClick={() => look(true)}>
             Copy what is different
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -126,8 +126,8 @@ function SyncForm({
       }
     >
       <div className="grid gap-3 sm:grid-cols-3">
-        <Fact label="Roles last checked" value={when(settings.rolesRanAt)} />
-        <Fact label="Bans last checked" value={when(settings.bansReadAt)} />
+        <Fact label="Roles last checked" value={when(settings.rolesRanAt)} mono={!!settings.rolesRanAt} />
+        <Fact label="Bans last checked" value={when(settings.bansReadAt)} mono={!!settings.bansReadAt} />
         <Fact label="Bot in Discord" value={permissions(settings)} />
       </div>
 
@@ -306,7 +306,7 @@ function PairRow({
 function Preview({ preview }: { preview: SyncPreview }) {
   return (
     <div className="flex flex-col gap-2">
-      <Fact label="Changes found" value={preview.total.toString()} />
+      <Fact label="Changes found" value={preview.total.toString()} mono />
       <Outcome tone="problem">{preview.problem}</Outcome>
       {preview.changes.length > 0 && (
         <ul className="flex max-h-80 flex-col gap-1 overflow-y-auto">

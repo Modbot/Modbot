@@ -36,7 +36,7 @@ export function Tabs<T extends string>({
       */}
       {/* The line under the row belongs to the wrapper, not to the scrolling row: a scrolling box
           clips both axes, and an underline drawn one pixel below a tab would be cut off. */}
-      <div className="shrink-0 border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+      <div className="shrink-0 border-b-(length:--hairline)">
         <div
           role="tablist"
           className="flex items-stretch overflow-x-auto [scrollbar-width:thin]"

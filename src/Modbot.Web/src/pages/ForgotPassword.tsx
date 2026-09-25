@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ForgotPasswordWays } from '@/lib/api'
-import { Brand, ErrorText, Field, Note, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /**
  * Forgot password (accounts and access design §4.2). The server answers the same sentence
@@ -42,11 +43,11 @@ export function ForgotPassword({ onBack }: { onBack: () => void }) {
               {!ways ? (
                 <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>Checking…</div>
               ) : !ways.available ? (
-                <Note tone="warn">
+                <Notice tone="warn">
                   {ways.reason ?? 'This Modbot cannot send reset links. Ask an administrator.'}
-                </Note>
+                </Notice>
               ) : message ? (
-                <Note tone="ok">{message}</Note>
+                <Notice tone="ok">{message}</Notice>
               ) : (
                 <>
                   <Field label="Username" htmlFor="forgot-username">

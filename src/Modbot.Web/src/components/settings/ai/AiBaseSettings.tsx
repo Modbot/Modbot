@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { api, ApiError, type AiSettings, type AiSettingsInput } from '@/lib/api'
 import { Field, NumberField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
-import { ModelField, Toggle } from './ModelField'
+import { SwitchBank } from '@/components/ui/switch-bank'
+import { ModelField } from './ModelField'
 
 /**
  * Settings → AI → Base: where AI requests go, with which key, to which model, and whether they go
@@ -169,11 +169,11 @@ function ConnectionCard({
       title="Connection"
       footer={
         <>
-          <Button size="sm" disabled={busy !== null} onClick={saveOrConfirm}>
+          <Button size="xs" disabled={busy !== null} onClick={saveOrConfirm}>
             {busy === 'save' ? 'Saving…' : 'Save'}
           </Button>
           <Button
-            size="sm"
+            size="xs"
             variant="outline"
             disabled={busy !== null || !endpoint.trim() || !model.trim()}
             onClick={runTest}
@@ -182,7 +182,7 @@ function ConnectionCard({
           </Button>
           {settings.apiKeyStored && (
             <Button
-              size="sm"
+              size="xs"
               variant="outline"
               disabled={busy !== null}
               onClick={() =>
@@ -231,14 +231,20 @@ function ConnectionCard({
         )}
       </Dialog>
 
-      <div role="group" aria-label="Provider" className="flex flex-wrap gap-1.5">
-        {settings.providers.map((p) => (
-          <Toggle key={p.id} on={provider === p.id} onClick={() => chooseProvider(p.id)}>
-            {p.label}
-            {p.recommended && <Badge variant="secondary">Recommended</Badge>}
-          </Toggle>
-        ))}
-      </div>
+      <SwitchBank
+        label="Provider"
+        value={provider}
+        onChange={chooseProvider}
+        options={settings.providers.map((p) => ({
+          value: p.id,
+          label: (
+            <>
+              {p.label}
+              {p.recommended && <span className="font-normal text-muted-foreground">Recommended</span>}
+            </>
+          ),
+        }))}
+      />
 
       <div className="flex max-w-lg flex-col gap-3">
         <Field

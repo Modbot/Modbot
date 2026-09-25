@@ -76,7 +76,7 @@ export function BanReasonsCard() {
       footer={
         canEdit ? (
           <>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => setAdding((open) => !open)}>
+            <Button size="xs" variant="outline" disabled={busy} onClick={() => setAdding((open) => !open)}>
               {adding ? 'Cancel' : 'Add a reason'}
             </Button>
             <Outcome tone="problem">{problem}</Outcome>
@@ -104,15 +104,20 @@ export function BanReasonsCard() {
               >
                 <span className="font-medium">{reason.label}</span>
                 {reason.needsWrittenReason && (
-                  <span className="text-muted-foreground">needs a written reason</span>
+                  <span className="text-muted-foreground max-sm:order-2 max-sm:basis-full">needs a written reason</span>
                 )}
-                {!reason.isActive && <span className="text-muted-foreground">switched off</span>}
-                <span className="min-w-0 flex-1 truncate text-muted-foreground" title={reason.description}>
+                {!reason.isActive && (
+                  <span className="text-muted-foreground max-sm:order-2 max-sm:basis-full">switched off</span>
+                )}
+                <span
+                  className="min-w-0 flex-1 truncate text-muted-foreground max-sm:order-3 max-sm:basis-full max-sm:whitespace-normal"
+                  title={reason.description}
+                >
                   {reason.description}
                 </span>
 
                 {canEdit && (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 max-sm:order-1 max-sm:ml-auto">
                     <Button
                       size="icon-xs"
                       variant="ghost"

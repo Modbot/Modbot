@@ -57,6 +57,7 @@ export function PublicInstancesCard() {
           <Fact
             label="Last sent"
             value={view.lastSentAt ? new Date(view.lastSentAt).toLocaleString() : '—'}
+            mono={!!view.lastSentAt}
           />
           <Outcome tone="problem">{error}</Outcome>
         </>

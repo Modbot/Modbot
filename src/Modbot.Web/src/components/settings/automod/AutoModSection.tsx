@@ -34,9 +34,6 @@ import { TermListDialog } from './TermListDialog'
 import { TestSetDialog } from './TestSetDialog'
 import { TopicDialog } from './TopicDialog'
 
-/** Runs a list card's content to its edges, so each rule's line meets the card's sides. */
-const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
-
 /**
  * Settings → AutoMod: the switch, term lists (local and from Modbot Hub), the "Try it" box, and --
  * only while AI is on under Settings → AI → Base -- the AI topics and the AI tools (AutoMod design).
@@ -122,7 +119,7 @@ function SwitchCard({ settings, onSaved }: { settings: AutoMod; onSaved: (next: 
       title="AutoMod"
       footer={
         <>
-          <Button size="sm" disabled={busy} onClick={save}>
+          <Button size="xs" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -175,7 +172,7 @@ function AiToolsCard({ settings, onSaved }: { settings: AutoMod; onSaved: (next:
       span={12}
       footer={
         <>
-          <Button size="sm" disabled={busy} onClick={save}>
+          <Button size="xs" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -197,7 +194,7 @@ function AiToolsCard({ settings, onSaved }: { settings: AutoMod; onSaved: (next:
         <Input type="number" min={0} max={100000} value={limit} onChange={(e) => setLimit(e.target.value)} />
       </label>
       <div className="flex max-w-xs flex-col">
-        <Row label="AI calls today" value={`${settings.aiCallsToday} of ${settings.dailyAiCallLimit}`} />
+        <Row label="AI calls today" value={`${settings.aiCallsToday} of ${settings.dailyAiCallLimit}`} mono />
         <Row label="AI" value={settings.aiReady ? 'Ready' : 'Off'} />
       </div>
     </SettingsCard>
@@ -351,7 +348,7 @@ function TermListsCard({
     <SettingsCard
       span={12}
       title="Term lists"
-      className={FLUSH}
+      flush
       action={
         <div className="flex gap-1">
           <Button size="xs" variant="outline" onClick={() => setHubOpen(true)}>
@@ -501,7 +498,7 @@ function TopicsCard({
     <SettingsCard
       span={12}
       title="AI topics"
-      className={FLUSH}
+      flush
       action={
         <div className="flex items-center gap-2">
           {!aiReady && <Badge variant="outline">AI off</Badge>}
@@ -615,7 +612,7 @@ function TryCard({ aiEnabled }: { aiEnabled: boolean }) {
       title="Try it"
       footer={
         <>
-          <Button size="sm" variant="outline" disabled={busy || !text.trim()} onClick={run}>
+          <Button size="xs" variant="outline" disabled={busy || !text.trim()} onClick={run}>
             {busy ? 'Checking…' : 'Try'}
           </Button>
           <Outcome tone="problem">{problem}</Outcome>

@@ -143,7 +143,7 @@ function IntegrationsForm({
       title="Email (SMTP)"
       footer={
         <>
-          <Button type="submit" form="integrations-form" size="sm" disabled={saving}>
+          <Button type="submit" form="integrations-form" size="xs" disabled={saving}>
             {saving ? 'Saving…' : 'Save integrations'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -159,6 +159,7 @@ function IntegrationsForm({
               ? (status.integrations.smtpHost ?? 'Configured')
               : 'Not configured'
           }
+          mono={status.integrations.smtpConfigured && !!status.integrations.smtpHost}
         />
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Host" value={host} onChange={setHost} placeholder="smtp.example.com" />
@@ -207,9 +208,9 @@ function IntegrationsForm({
           </label>
           {email && (
             <>
-              <Fact label="Sent in the last 24 hours" value={`${email.sentInLast24Hours} of ${email.limitPer24Hours}`} />
-              <Fact label="Queued" value={String(email.queued)} />
-              <Fact label="Next queued email" value={email.nextSendAt ? when(email.nextSendAt) : '—'} />
+              <Fact label="Sent in the last 24 hours" value={`${email.sentInLast24Hours} of ${email.limitPer24Hours}`} mono />
+              <Fact label="Queued" value={String(email.queued)} mono />
+              <Fact label="Next queued email" value={email.nextSendAt ? when(email.nextSendAt) : '—'} mono={!!email.nextSendAt} />
             </>
           )}
         </div>
