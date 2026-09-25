@@ -281,8 +281,8 @@ function ChangedLists({ changed }: { changed: Parts['changed'] }) {
 }
 
 /**
- * A heading, then one entry to a bullet. A list read as a sentence ("A, B, C and D") is hard to run
- * an eye down; bullets are not.
+ * A bulleted heading, then one entry to an indented bullet under it. A list read as a sentence
+ * ("A, B, C and D") is hard to run an eye down; bullets are not.
  *
  * Spans shown as list items rather than a `<ul>`, because a sentence also sits inside a
  * `<summary>`, which may only hold inline content.
@@ -291,10 +291,10 @@ function Bullets({ heading, items }: { heading: string; items: string[] }) {
   if (items.length === 0) return null
 
   return (
-    <span className="mt-1 block">
-      <span className="block">{heading}:</span>
+    <span className="mt-1 ml-5 list-item list-disc">
+      {heading}:
       {items.map((item) => (
-        <span key={item} className="ml-5 list-item list-disc">
+        <span key={item} className="ml-5 list-item list-[circle]">
           {item}
         </span>
       ))}
