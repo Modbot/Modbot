@@ -9,8 +9,6 @@ import { failure, when } from '../api/shared'
 import { Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
-/** Runs the card's content to its edges, so a table or a row of panels meets the card's sides. */
-const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 const headClass = 'h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap'
 const cellClass = 'px-(--panel-pad) py-1.5'
 
@@ -92,7 +90,7 @@ function ServerCard({ settings, onSaved }: { settings: Settings; onSaved: (next:
       title="MCP server"
       footer={
         <>
-          <Button size="sm" disabled={busy} onClick={save}>
+          <Button size="xs" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -139,7 +137,7 @@ function ConnectionsCard() {
   }
 
   return (
-    <SettingsCard title="Connected apps" className={FLUSH}>
+    <SettingsCard title="Connected apps" flush>
       {connections === null ? (
         <EmptyRow>Loading…</EmptyRow>
       ) : connections.length === 0 ? (
@@ -196,7 +194,7 @@ const HOSTED = [
 
 function HostedAppsCard({ serverUrl }: { serverUrl: string }) {
   return (
-    <SettingsCard title="Chat apps" span={12} className={FLUSH}>
+    <SettingsCard title="Chat apps" span={12} flush>
       <PanelGrid className="m-0 md:grid-cols-2">
         {HOSTED.map((app) => (
           <div key={app.name} className="flex flex-col gap-2 p-(--panel-pad)">

@@ -51,7 +51,7 @@ export function InsightsPanel() {
               options={kinds}
             />
           )}
-          <Select aria-label="Days" value={insight.id} onChange={setChosen}>
+          <Select size="sm" aria-label="Days" value={insight.id} onChange={setChosen}>
             {ofKind.map((i) => (
               <option key={i.id} value={i.id}>
                 {insightDays(i)}

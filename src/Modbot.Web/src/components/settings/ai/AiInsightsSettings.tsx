@@ -191,7 +191,7 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
             footer={footer(
               kind,
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
                 disabled={generating !== null || !stored.aiOn}
                 onClick={() => generate(kind)}

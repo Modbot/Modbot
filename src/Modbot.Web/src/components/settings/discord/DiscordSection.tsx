@@ -89,7 +89,7 @@ function BotCard({ status, refresh }: { status: OnboardingStatus; refresh: () =>
       title="Bot"
       footer={
         <>
-          <Button type="submit" form="discord-bot" size="sm" disabled={saving}>
+          <Button type="submit" form="discord-bot" size="xs" disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -122,7 +122,7 @@ function InstanceCard({ status, refresh }: { status: OnboardingStatus; refresh: 
       title="Instance announcements"
       footer={
         <>
-          <Button type="submit" form="discord-instances" size="sm" disabled={saving}>
+          <Button type="submit" form="discord-instances" size="xs" disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>

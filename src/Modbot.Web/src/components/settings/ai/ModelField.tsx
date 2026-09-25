@@ -3,16 +3,10 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Chip } from '@/components/ui/chip'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import {
   api,
   ApiError,
@@ -225,13 +219,15 @@ function ModelPicker({
   }
 
   const head = (text: string, next: ModelSort, className?: string) => (
-    <TableHead className={className}>
+    <Th className={className}>
       <button type="button" className="hover:text-foreground" onClick={() => by(next)}>
         {text}
         {sort === next && (descending ? ' ↓' : ' ↑')}
       </button>
-    </TableHead>
+    </Th>
   )
+
+  const loading = chosen === null || (openRouter ? catalog === null : listed === null)
 
   return (
     <DialogContent
@@ -251,14 +247,17 @@ function ModelPicker({
         )
       }
     >
-      {problem && (
+      {/* With nothing to list, a failure stands in for the list; over a list, it is said above it. */}
+      {problem && !loading && (
         <div className="px-4 pt-3">
           <Outcome tone="problem">{problem}</Outcome>
         </div>
       )}
 
-      {chosen === null || (openRouter ? catalog === null : listed === null) ? (
-        <EmptyRow className="px-4">Loading…</EmptyRow>
+      {loading ? (
+        <EmptyRow className="px-4" tone={problem ? 'danger' : 'neutral'}>
+          {problem ?? 'Loading…'}
+        </EmptyRow>
       ) : openRouter ? (
         <>
           <div
@@ -283,18 +282,18 @@ function ModelPicker({
                 </option>
               ))}
             </Select>
-            <Toggle on={filters.tools} onClick={() => set({ tools: !filters.tools })}>
+            <Chip on={filters.tools} onClick={() => set({ tools: !filters.tools })}>
               Tools
-            </Toggle>
-            <Toggle
+            </Chip>
+            <Chip
               on={filters.structuredOutput}
               onClick={() => set({ structuredOutput: !filters.structuredOutput })}
             >
               Structured output
-            </Toggle>
-            <Toggle on={filters.free} onClick={() => set({ free: !filters.free })}>
+            </Chip>
+            <Chip on={filters.free} onClick={() => set({ free: !filters.free })}>
               Free
-            </Toggle>
+            </Chip>
             <Input
               aria-label="Max price"
               type="number"
@@ -309,74 +308,68 @@ function ModelPicker({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <Table style={{ fontSize: 'var(--text-small)' }}>
-              <TableHeader>
-                <TableRow>
+            <Table
+              head={
+                <>
                   {head('Model', 'name')}
-                  <TableHead className="hidden md:table-cell">Maker</TableHead>
+                  <Th className="hidden md:table-cell">Maker</Th>
                   {head('Input $/1M', 'input', 'text-right')}
                   {head('Output $/1M', 'output', 'text-right')}
-                  <TableHead className="hidden text-right lg:table-cell">Cached $/1M</TableHead>
+                  <Th className="hidden text-right lg:table-cell">Cached $/1M</Th>
                   {head('Context', 'context', 'hidden text-right sm:table-cell')}
                   {costs && head('Per 1,000 calls', 'cost', 'text-right')}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {unlisted && (
-                  <TableRow aria-selected className="bg-accent/40">
-                    <TableCell colSpan={costs ? 7 : 6}>
-                      <span className="font-mono">{value}</span>
-                      <Badge variant="outline" className="ml-2">
-                        Not in list
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                )}
-                {models.map((m) => (
-                  <Row key={m.id} model={m} chosen={m.id === value} costs={costs} onPick={onPick} />
-                ))}
-              </TableBody>
+                </>
+              }
+            >
+              {unlisted && (
+                <Tr aria-selected className="bg-accent/40">
+                  <Td colSpan={costs ? 7 : 6}>
+                    <span className="font-mono">{value}</span>
+                    <Badge variant="outline" className="ml-2">
+                      Not in list
+                    </Badge>
+                  </Td>
+                </Tr>
+              )}
+              {models.map((m) => (
+                <Row key={m.id} model={m} chosen={m.id === value} costs={costs} onPick={onPick} />
+              ))}
             </Table>
           </div>
         </>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <Table style={{ fontSize: 'var(--text-small)' }}>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Model</TableHead>
-                <TableHead className="text-right">Input $/1M</TableHead>
-                <TableHead className="text-right">Output $/1M</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(listed ?? []).map((id) => {
-                const price = catalog?.prices.find((p) => p.model === id) ?? null
+          <Table
+            head={
+              <>
+                <Th>Model</Th>
+                <Th className="text-right">Input $/1M</Th>
+                <Th className="text-right">Output $/1M</Th>
+              </>
+            }
+          >
+            {(listed ?? []).map((id) => {
+              const price = catalog?.prices.find((p) => p.model === id) ?? null
 
-                return (
-                  <TableRow
-                    key={id}
-                    aria-selected={id === value}
-                    className={cn('cursor-pointer', id === value && 'bg-accent/40')}
-                    onClick={() => onPick(id)}
-                  >
-                    <TableCell className="font-mono">
-                      <button type="button" className="text-left" onClick={() => onPick(id)}>
-                        {id}
-                      </button>
-                    </TableCell>
-                    <TableCell className="text-right font-mono" colSpan={price ? 1 : 2}>
-                      {price ? priceText(price.inputPerMillion) : 'No price'}
-                    </TableCell>
-                    {price && (
-                      <TableCell className="text-right font-mono">
-                        {priceText(price.outputPerMillion)}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                )
-              })}
-            </TableBody>
+              return (
+                <Tr
+                  key={id}
+                  aria-selected={id === value}
+                  className={cn('cursor-pointer hover:bg-muted/40', id === value && 'bg-accent/40')}
+                  onClick={() => onPick(id)}
+                >
+                  <Td className="font-mono">
+                    <button type="button" className="text-left" onClick={() => onPick(id)}>
+                      {id}
+                    </button>
+                  </Td>
+                  <Td className="text-right font-mono" colSpan={price ? 1 : 2}>
+                    {price ? priceText(price.inputPerMillion) : 'No price'}
+                  </Td>
+                  {price && <Td className="text-right font-mono">{priceText(price.outputPerMillion)}</Td>}
+                </Tr>
+              )
+            })}
           </Table>
         </div>
       )}
@@ -396,16 +389,16 @@ function Row({
   onPick: (model: string) => void
 }) {
   return (
-    <TableRow
+    <Tr
       aria-selected={chosen}
-      className={cn('cursor-pointer', chosen && 'bg-accent/40')}
+      className={cn('cursor-pointer hover:bg-muted/40', chosen && 'bg-accent/40')}
       onClick={() => onPick(model.id)}
     >
-      <TableCell className="max-w-[22rem] whitespace-normal">
+      <Td className="max-w-[22rem] whitespace-normal">
         <button type="button" className="text-left font-medium" onClick={() => onPick(model.id)}>
           {model.name ?? model.id}
         </button>
-        <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
           {model.id}
         </div>
         <div className="mt-1 flex flex-wrap gap-1">
@@ -419,45 +412,13 @@ function Row({
             </Badge>
           ))}
         </div>
-      </TableCell>
-      <TableCell className="hidden text-muted-foreground md:table-cell">{model.maker}</TableCell>
-      <TableCell className="text-right font-mono">{priceText(model.inputPerMillion)}</TableCell>
-      <TableCell className="text-right font-mono">{priceText(model.outputPerMillion)}</TableCell>
-      <TableCell className="hidden text-right font-mono lg:table-cell">
-        {priceText(model.cachedInputPerMillion)}
-      </TableCell>
-      <TableCell className="hidden text-right font-mono sm:table-cell">
-        {contextText(model.contextLength)}
-      </TableCell>
-      {costs && (
-        <TableCell className="text-right font-mono">{priceText(model.costPerThousandCalls)}</TableCell>
-      )}
-    </TableRow>
-  )
-}
-
-/** A button that stays pressed while its choice is on: a filter here, a provider on Base. */
-export function Toggle({
-  on,
-  onClick,
-  children,
-}: {
-  on: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input px-2.5 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-        on ? 'bg-accent text-accent-foreground' : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
-      )}
-      style={{ fontSize: 'var(--text-small)', height: 'var(--control-h)' }}
-    >
-      {children}
-    </button>
+      </Td>
+      <Td className="hidden text-muted-foreground md:table-cell">{model.maker}</Td>
+      <Td className="text-right font-mono">{priceText(model.inputPerMillion)}</Td>
+      <Td className="text-right font-mono">{priceText(model.outputPerMillion)}</Td>
+      <Td className="hidden text-right font-mono lg:table-cell">{priceText(model.cachedInputPerMillion)}</Td>
+      <Td className="hidden text-right font-mono sm:table-cell">{contextText(model.contextLength)}</Td>
+      {costs && <Td className="text-right font-mono">{priceText(model.costPerThousandCalls)}</Td>}
+    </Tr>
   )
 }

@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ResetView } from '@/lib/api'
-import { Brand, ErrorText, Field, Note, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /** Opening a reset link (accounts and access design §4.1): set a new password, then sign in. */
 export function ResetPassword({ token }: { token: string }) {
@@ -47,9 +48,9 @@ export function ResetPassword({ token }: { token: string }) {
             </WizardHeader>
             <WizardBody>
               {done ? (
-                <Note tone="ok">Every session was signed out.</Note>
+                <Notice tone="ok">Every session was signed out.</Notice>
               ) : view && !view.usable ? (
-                <Note tone="warn">{view.reason}</Note>
+                <Notice tone="warn">{view.reason}</Notice>
               ) : view ? (
                 <>
                   <Field label="New password" hint="at least 12 characters" htmlFor="reset-password">

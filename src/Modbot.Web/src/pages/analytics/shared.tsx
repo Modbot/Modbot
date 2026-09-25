@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { longDay } from '@/components/charts'
 import { ago } from '@/lib/format'
@@ -48,8 +48,9 @@ export function RangePicker({
 /**
  * One reading, laid out like a gauge on a panel: its name in the top-left corner, the number in
  * the bottom-right, and any note beside the number on the left, so the numbers of a row share
- * one baseline whether or not they carry a note. On its own it draws its own edge; inside a
- * StatStrip it shares its edges with the others.
+ * one baseline whether or not they carry a note. A note with no room beside the number goes on
+ * its own line above it rather than losing its end, because the end is often the time. On its
+ * own it draws its own edge; inside a StatStrip it shares its edges with the others.
  */
 export function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -58,12 +59,12 @@ export function Stat({ label, value, note }: { label: string; value: string; not
       className="flex min-w-0 flex-col border border-(length:--hairline) bg-card px-(--panel-pad) pt-2 pb-2.5"
       style={{ minHeight: 'calc(var(--row-h) * 2)' }}
     >
-      <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      <div className="break-words text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
         {label}
       </div>
-      <div className="mt-auto flex items-end gap-2 pt-3">
+      <div className="mt-auto flex flex-wrap items-end gap-x-2 gap-y-1 pt-3">
         {note && (
-          <div className="min-w-0 truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <div className="min-w-0 break-words text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {note}
           </div>
         )}
@@ -98,7 +99,7 @@ export function Panel({
 }: {
   title: string
   right?: React.ReactNode
-  /** Runs the content to the panel's edges, for a table. */
+  /** Runs the content to the panel's edges, for a table or an `EmptyRow`. */
   flush?: boolean
   children: React.ReactNode
 }) {
@@ -106,7 +107,7 @@ export function Panel({
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        {right && <span className="ml-auto">{right}</span>}
+        {right && <CardAction>{right}</CardAction>}
       </CardHeader>
       <CardContent className={flush ? 'p-0' : undefined}>{children}</CardContent>
     </Card>
@@ -114,44 +115,11 @@ export function Panel({
 }
 
 /**
- * A table run to its panel's edges (pass `flush` to the Panel): the column names on the strip,
- * one hairline between rows. `pinFirst` keeps the first column in place while a phone scrolls the
- * rest sideways, for tables whose first column names the row.
+ * Where a chart will be, while it loads or after it failed: as tall as the chart, so the panel
+ * does not jump when the data arrives. A panel with nothing to show at all is `flush` and holds
+ * an `EmptyRow`.
  */
-export function Table({
-  head,
-  pinFirst = false,
-  children,
-}: {
-  head: React.ReactNode
-  pinFirst?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <div data-pin-first={pinFirst || undefined} className="relative overflow-x-auto">
-      <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-        <thead className="bg-strip text-left text-muted-foreground">
-          <tr>{head}</tr>
-        </thead>
-        <tbody>{children}</tbody>
-      </table>
-    </div>
-  )
-}
-
-export function Th({ className, ...props }: React.ComponentProps<'th'>) {
-  return <th className={cn('px-(--panel-pad) py-1.5 font-normal whitespace-nowrap', className)} {...props} />
-}
-
-export function Tr({ className, ...props }: React.ComponentProps<'tr'>) {
-  return <tr className={cn('h-(--row-h) border-t border-t-(length:--hairline)', className)} {...props} />
-}
-
-export function Td({ className, ...props }: React.ComponentProps<'td'>) {
-  return <td className={cn('px-(--panel-pad) py-1', className)} {...props} />
-}
-
-export function Nothing({ children, height }: { children: React.ReactNode; height?: number }) {
+export function Nothing({ children, height }: { children: React.ReactNode; height: number }) {
   return (
     <EmptyRow className="px-0" minHeight={height}>
       {children}

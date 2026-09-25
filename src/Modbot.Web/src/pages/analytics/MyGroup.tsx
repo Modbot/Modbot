@@ -1,13 +1,14 @@
 import { useCallback, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { Badge } from '@/components/ui/badge'
-import { DailyBars, DailyLine, Legend, RankedList, compactNumber, dateTime, longDay, percent } from '@/components/charts'
+import { DailyBars, DailyLine, RankedList, compactNumber, dateTime, longDay, percent } from '@/components/charts'
 import { api, type MemberCountPeaks } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { InsightsPanel } from './InsightsPanel'
 import { MemberCountChart } from './MemberCountChart'
-import { PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, Nothing, PageMessage, Panel, RangePicker, Stat, StatStrip, Table, Td, Th, Tr } from './shared'
+import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 
 /**
@@ -68,17 +69,15 @@ export function MyGroup() {
 
           <PanelGrid className="lg:grid-cols-2">
             <Panel title="Joins and leaves per day">
-              <Legend items={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]} />
-              <div className="mt-2">
-                <DailyBars
-                  from={data.from}
-                  to={data.to}
-                  series={[
-                    { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
-                    { key: 'left', label: 'left', points: data.left, slot: 2 },
-                  ]}
-                />
-              </div>
+              <DailyBars
+                from={data.from}
+                to={data.to}
+                legend={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]}
+                series={[
+                  { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
+                  { key: 'left', label: 'left', points: data.left, slot: 2 },
+                ]}
+              />
             </Panel>
 
             <Panel title="Joined minus left, running">
@@ -107,23 +106,21 @@ export function MyGroup() {
               />
             </StatStrip>
             <div className="p-(--panel-pad)">
-              <Legend items={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]} />
-              <div className="mt-2">
-                <DailyBars
-                  from={data.from}
-                  to={data.to}
-                  series={[
-                    { key: 'invites', label: 'invites sent', points: data.invitesSent, slot: 1 },
-                    { key: 'requests', label: 'join requests', points: data.requestsReceived, slot: 5 },
-                  ]}
-                />
-              </div>
+              <DailyBars
+                from={data.from}
+                to={data.to}
+                legend={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]}
+                series={[
+                  { key: 'invites', label: 'invites sent', points: data.invitesSent, slot: 1 },
+                  { key: 'requests', label: 'join requests', points: data.requestsReceived, slot: 5 },
+                ]}
+              />
             </div>
           </Panel>
 
           <PanelGrid className="lg:grid-cols-2">
             <Panel
-              flush={data.roles.length > 0}
+              flush
               title="Roles"
               right={
                 data.rolesKnownAt && (
@@ -134,7 +131,7 @@ export function MyGroup() {
               }
             >
               {data.roles.length === 0 ? (
-                <Nothing>No roles yet.</Nothing>
+                <EmptyRow>No roles yet.</EmptyRow>
               ) : (
                 <Table
                   head={
@@ -163,6 +160,7 @@ export function MyGroup() {
 
             <Panel
               title="How long members have been members"
+              flush={data.membersWithKnownTenure === 0}
               right={
                 data.membersWithKnownTenure > 0 && (
                   <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -172,7 +170,7 @@ export function MyGroup() {
               }
             >
               {data.membersWithKnownTenure === 0 ? (
-                <Nothing>No data yet.</Nothing>
+                <EmptyRow>No data yet.</EmptyRow>
               ) : (
                 <RankedList
                   slot={1}

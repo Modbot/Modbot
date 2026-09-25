@@ -3,7 +3,7 @@ import { ChartFrame } from './ChartFrame'
 import { rechartsTooltip } from './rechartsTooltip'
 import { compactNumber, longDay, mergeDays, shortDay, tickDays } from './format'
 import type { DaySeries } from './DailyBars'
-import { chartHeight, seriesColor } from './theme'
+import { chartHeight, seriesColor, type SeriesSlot } from './theme'
 
 /**
  * One or more values over time, as lines.
@@ -24,6 +24,7 @@ export function DailyLine({
   zeroBased = true,
   height = chartHeight.regular,
   emptyText,
+  legend,
   format,
 }: {
   from: string
@@ -33,6 +34,8 @@ export function DailyLine({
   zeroBased?: boolean
   height?: number
   emptyText?: string
+  /** Names and colours for the series, left out with the plot when there is nothing to draw. */
+  legend?: { label: string; slot: SeriesSlot }[]
   format?: (value: number) => string
 }) {
   const rows = mergeDays(from, to, series, mode)
@@ -41,12 +44,12 @@ export function DailyLine({
   const empty = series.every((s) => s.points.length === 0)
 
   return (
-    <ChartFrame height={height} empty={empty} emptyText={emptyText}>
+    <ChartFrame height={height} empty={empty} emptyText={emptyText} legend={legend}>
       <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="day" ticks={tickDays(days)} tickFormatter={shortDay} tickLine={false} axisLine={false} minTickGap={16} />
         <YAxis
-          width={44}
+          width="auto"
           domain={zeroBased ? [0, 'auto'] : ['auto', 'auto']}
           tickFormatter={format ?? compactNumber}
           tickLine={false}

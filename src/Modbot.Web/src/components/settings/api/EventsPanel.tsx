@@ -8,9 +8,6 @@ import { Field, Outcome, PasswordField } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { failure, when } from './shared'
 
-/** Runs the card's content to its edges, so a list meets the card's sides. */
-const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
-
 type Received = { at: number; kind: string; text: string; type?: string; occurredAt?: string }
 
 type Status = 'closed' | 'connecting' | 'open'
@@ -115,15 +112,15 @@ export function EventsPanel() {
         footer={
           <>
             {status === 'closed' ? (
-              <Button size="sm" onClick={connect}>
+              <Button size="xs" onClick={connect}>
                 Connect
               </Button>
             ) : (
-              <Button size="sm" variant="outline" onClick={disconnect}>
+              <Button size="xs" variant="outline" onClick={disconnect}>
                 Disconnect
               </Button>
             )}
-            <Button size="sm" variant="outline" disabled={received.length === 0} onClick={() => setReceived([])}>
+            <Button size="xs" variant="outline" disabled={received.length === 0} onClick={() => setReceived([])}>
               Clear
             </Button>
             <Outcome tone="ok">{status === 'open' && 'Connected'}</Outcome>
@@ -138,7 +135,7 @@ export function EventsPanel() {
         </div>
       </SettingsCard>
 
-      <SettingsCard title="Received" span={12} className={FLUSH}>
+      <SettingsCard title="Received" span={12} flush>
         {received.length === 0 ? (
           <EmptyRow>Nothing yet.</EmptyRow>
         ) : (

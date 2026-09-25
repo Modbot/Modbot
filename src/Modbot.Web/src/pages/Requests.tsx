@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
+import { Card, CardFooter } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import { ReasonButtons } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
@@ -102,7 +103,7 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
 
       <Card>
         {error ? (
-          <EmptyRow>{error}</EmptyRow>
+          <EmptyRow tone="danger">{error}</EmptyRow>
         ) : loading && !list ? (
           <EmptyRow>Loading…</EmptyRow>
         ) : rows.length === 0 ? (
@@ -111,7 +112,7 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
           <div className="overflow-x-auto">
             <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
               <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                <tr className="border-b-(length:--hairline)">
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Asked</th>
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">History</th>
@@ -126,8 +127,7 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
                 {rows.map((row) => (
                   <tr
                     key={row.userId}
-                    className="border-b last:border-0 hover:bg-muted/40"
-                    style={{ borderBottomWidth: 'var(--hairline)' }}
+                    className="border-b-(length:--hairline) last:border-0 hover:bg-muted/40"
                   >
                     <td className="px-3" style={{ height: 'var(--row-h)' }}>
                       <div className="flex items-center gap-2">
@@ -147,14 +147,14 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
                             <TrustRankBadge rank={row.trustRank} />
                           </div>
                           {row.plainName && (
-                            <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                            <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                               {row.plainName}
                             </div>
                           )}
                           {row.displayName && (
                             <div
-                              className="truncate font-mono text-muted-foreground/70"
-                              style={{ fontSize: '0.6875rem' }}
+                              className="font-mono whitespace-nowrap text-muted-foreground/70"
+                              style={{ fontSize: 'var(--text-tiny)' }}
                             >
                               {row.userId}
                             </div>
@@ -188,17 +188,14 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
         )}
 
         {list && (list.page > 1 || list.hasMore) && (
-          <div
-            className="flex flex-wrap items-center gap-1 border-t bg-strip px-(--panel-pad) py-1.5"
-            style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-          >
+          <CardFooter className="flex-wrap gap-1" style={{ fontSize: 'var(--text-small)' }}>
             <Button size="xs" variant="outline" disabled={list.page <= 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </Button>
             <Button size="xs" variant="outline" disabled={!list.hasMore} onClick={() => setPage((p) => p + 1)}>
               Next
             </Button>
-          </div>
+          </CardFooter>
         )}
       </Card>
 
@@ -301,8 +298,7 @@ function ConfirmAnswer({
 
                 <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
                   <span className="text-muted-foreground">Note (optional)</span>
-                  <textarea
-                    className="w-full rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 py-1 outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+                  <Textarea
                     rows={3}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}

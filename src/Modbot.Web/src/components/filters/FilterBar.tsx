@@ -87,8 +87,13 @@ export function FilterBar({
           at the start of a line and grow to the whole width, leaving a blank row with the search
           box indented after it and Clear stranded above. Wrapped together, the group either
           shares the line and is pushed right, or takes a line of its own and starts at the left
-          edge like everything else. */}
-      <div className="flex flex-1 flex-wrap items-center gap-2 md:justify-end">{children}</div>
+          edge like everything else. Below `md` it always takes a line of its own, so a phone reads
+          the bar as two rows, the filters and then the search, with nothing squeezed in beside
+          Clear; the search box there gives up its fixed width and fills what the sort leaves.
+          Empty, it takes no line at all. */}
+      <div className="flex grow basis-full flex-wrap items-center gap-2 empty:hidden md:basis-0 md:justify-end max-md:[&>[data-slot=input]]:flex-[1_1_10rem]">
+        {children}
+      </div>
     </div>
   )
 }
@@ -119,7 +124,7 @@ function Chip({
   }
 
   return (
-    <span className="inline-flex h-(--control-h) items-stretch divide-x-(--hairline) overflow-hidden rounded-sm border border-(length:--hairline) bg-card">
+    <span className="inline-flex h-(--control-h) items-stretch divide-x-(--hairline) divide-border overflow-hidden rounded-sm border border-(length:--hairline) bg-card">
       <span className="flex items-center px-2 text-muted-foreground">{property.label}</span>
 
       {operators.length > 1 && property.kind !== 'date' ? (

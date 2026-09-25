@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type CurrentUser, type PermissionInfo, type RoleView } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/pages/Members'
-import { ErrorText, Note } from '@/pages/setup/WizardChrome'
+import { ErrorText } from '@/pages/setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /**
  * Roles: a name and a checklist of what it allows (accounts and access design §3, §8).
@@ -39,7 +41,7 @@ export function Roles({ me }: { me: CurrentUser }) {
     void refresh()
   }, [refresh])
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
   if (!roles) return <Empty>Loading…</Empty>
 
   return (
@@ -180,7 +182,7 @@ function RoleEditor({
         <CardContent>
           <div className="space-y-4" style={{ fontSize: 'var(--text-small)' }}>
             {locked ? (
-              <Note>Allows everything. Cannot be changed.</Note>
+              <Notice>Allows everything. Cannot be changed.</Notice>
             ) : (
               <>
                 <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">
@@ -218,29 +220,18 @@ function RoleEditor({
                         {items.map((p) => {
                           const allowed = canTick(p)
                           return (
-                            <label
+                            <Checkbox
                               key={p.name}
-                              className={cn('flex items-start gap-2 px-1 py-0.5', !allowed && 'opacity-60')}
+                              disabled={!allowed}
                               title={allowed ? p.description : 'You can only put permissions into a role that you have yourself.'}
+                              checked={permissions.includes(p.name)}
+                              onChange={(on) =>
+                                setPermissions(on ? [...permissions, p.name] : permissions.filter((n) => n !== p.name))
+                              }
                             >
-                              <input
-                                type="checkbox"
-                                className="mt-0.5"
-                                disabled={!allowed}
-                                checked={permissions.includes(p.name)}
-                                onChange={(e) =>
-                                  setPermissions(
-                                    e.target.checked
-                                      ? [...permissions, p.name]
-                                      : permissions.filter((n) => n !== p.name),
-                                  )
-                                }
-                              />
-                              <span>
-                                <span className="font-medium">{p.label}</span>
-                                <span className="text-muted-foreground"> · {p.description}</span>
-                              </span>
-                            </label>
+                              <span className="font-medium">{p.label}</span>
+                              <span className="text-muted-foreground"> · {p.description}</span>
+                            </Checkbox>
                           )
                         })}
                       </div>

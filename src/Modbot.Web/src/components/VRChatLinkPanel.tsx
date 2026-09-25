@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type VRChatLinkStatus } from '@/lib/api'
-import { ErrorText, Field, Note } from '@/pages/setup/WizardChrome'
+import { ErrorText, Field } from '@/pages/setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /**
  * Link your VRChat account (accounts and access design §4.3), in three moves: paste your user id
@@ -95,9 +96,9 @@ export function VRChatLinkPanel({
     return (
       <form onSubmit={start} className="space-y-4">
         {status.linked && !compact && (
-          <Note tone="ok" title="Linked to">
+          <Notice tone="ok" title="Linked to">
             {status.vrChatDisplayName ?? status.vrChatUserId}
-          </Note>
+          </Notice>
         )}
 
         <div>
@@ -139,8 +140,8 @@ export function VRChatLinkPanel({
 
       <div className="flex items-center gap-2">
         <code
-          className="rounded-sm border bg-strip px-3 py-1.5 font-mono font-semibold select-all"
-          style={{ borderWidth: 'var(--hairline)', fontSize: 'calc(var(--text-base) + 2px)' }}
+          className="rounded-sm border-(length:--hairline) bg-strip px-3 py-1.5 font-mono font-semibold select-all"
+          style={{ fontSize: 'calc(var(--text-base) + 2px)' }}
         >
           {pending.code}
         </code>
@@ -154,7 +155,7 @@ export function VRChatLinkPanel({
         </Button>
       </div>
 
-      {message && <Note tone={status.linked ? 'ok' : 'info'}>{message}</Note>}
+      {message && <Notice tone={status.linked ? 'ok' : 'neutral'}>{message}</Notice>}
       <ErrorText>{error}</ErrorText>
 
       <div className="flex items-center gap-2">

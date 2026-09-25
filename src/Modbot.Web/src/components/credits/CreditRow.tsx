@@ -96,11 +96,11 @@ export function CreditCard({
       )}
 
       {groups.map((g, i) => (
-        <div key={g.label ?? i} className={i > 0 ? 'border-t' : undefined} style={{ borderTopWidth: 'var(--hairline)' }}>
+        <div key={g.label ?? i} className={i > 0 ? 'border-t-(length:--hairline)' : undefined}>
           {g.label && (
             <h3
-              className="flex items-center border-b bg-strip px-(--panel-pad) text-muted-foreground"
-              style={{ borderBottomWidth: 'var(--hairline)', minHeight: 'var(--strip-h)', fontSize: 'var(--text-small)' }}
+              className="flex items-center border-b-(length:--hairline) bg-strip px-(--panel-pad) text-muted-foreground"
+              style={{ minHeight: 'var(--strip-h)', fontSize: 'var(--text-small)' }}
             >
               {g.label}
             </h3>

@@ -179,7 +179,7 @@ export function Calendar() {
           <CardHeader>
             <CardTitle>Drafts</CardTitle>
           </CardHeader>
-          <div className="flex flex-col divide-y divide-(length:--hairline) divide-border">
+          <div className="flex flex-col divide-y-(--hairline) divide-border">
             {drafts.map((d) => (
               <button
                 key={d.id}
@@ -257,7 +257,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
             <div
               key={day.toISOString()}
               className={cn(
-                'min-h-16 border-r border-b border-(length:--hairline) p-1 sm:min-h-24 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0',
+                'min-h-16 border-r border-r-(length:--hairline) border-b border-b-(length:--hairline) p-1 sm:min-h-24 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0',
                 !inMonth && 'bg-strip/50',
               )}
             >
@@ -307,7 +307,7 @@ function Agenda({ entries, now, onOpen }: { entries: Entry[]; now: string; onOpe
   if (upcoming.length === 0) return <PageMessage>No events.</PageMessage>
 
   return (
-    <Card className="divide-y divide-(length:--hairline) divide-border">
+    <Card className="divide-y-(--hairline) divide-border">
         {upcoming.map((entry) => (
           <div
             key={`${entry.event.id}-${entry.startsAt.toISOString()}`}

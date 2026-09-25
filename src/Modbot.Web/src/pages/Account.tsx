@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,7 +10,8 @@ import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
 import { ApiError, api, type CurrentUser } from '@/lib/api'
 import { registerLink } from '@/lib/myModbot'
 import { usernameProblem } from '@/lib/username'
-import { ErrorText, Field, Note } from '@/pages/setup/WizardChrome'
+import { ErrorText, Field } from '@/pages/setup/WizardChrome'
+import { Notice } from '@/components/ui/notice'
 
 /**
  * The signed-in person's own account (accounts and access design §4, §8): username, password,
@@ -39,11 +41,6 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
         </CardContent>
       </Card>
 
-      <ChangeUsername me={me} onChanged={onChanged} />
-      <ChangePassword />
-      <Contact me={me} onChanged={onChanged} />
-      <NotificationChoicesCard />
-
       <Card>
         <CardHeader>
           <CardTitle>Your VRChat account</CardTitle>
@@ -59,8 +56,15 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
               'Not linked yet.'
             )}
           </div>
-          <details>
-            <summary className="cursor-pointer text-primary" style={{ fontSize: 'var(--text-small)' }}>
+          <details className="group">
+            <summary
+              className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+              style={{ fontSize: 'var(--text-small)' }}
+            >
+              <ChevronRight
+                className="size-3.5 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                aria-hidden
+              />
               Link a different account
             </summary>
             <div className="mt-3">
@@ -69,6 +73,11 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
           </details>
         </CardContent>
       </Card>
+
+      <ChangeUsername me={me} onChanged={onChanged} />
+      <Contact me={me} onChanged={onChanged} />
+      <ChangePassword />
+      <NotificationChoicesCard />
 
       <Card>
         <CardHeader>
@@ -135,7 +144,7 @@ function ChangeUsername({ me, onChanged }: { me: CurrentUser; onChanged: () => v
           <ErrorText>{error}</ErrorText>
         </CardContent>
         <CardFooter className="flex-wrap gap-3">
-          <Button type="submit" size="sm" disabled={busy || username.trim() === me.username || !password}>
+          <Button type="submit" size="xs" disabled={busy || username.trim() === me.username || !password}>
             {busy ? 'Saving…' : 'Change username'}
           </Button>
           {done && <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>Changed.</span>}
@@ -184,7 +193,7 @@ function ChangePassword() {
           <Field label="Current password" htmlFor="acct-pw-current">
             <Input id="acct-pw-current" type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 items-end gap-3">
             <Field label="New password" hint="at least 12 characters" htmlFor="acct-pw-new">
               <Input id="acct-pw-new" type="password" required minLength={12} autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
             </Field>
@@ -195,7 +204,7 @@ function ChangePassword() {
           <ErrorText>{error}</ErrorText>
         </CardContent>
         <CardFooter className="flex-wrap gap-3">
-          <Button type="submit" size="sm" disabled={busy}>
+          <Button type="submit" size="xs" disabled={busy}>
             {busy ? 'Saving…' : 'Change password'}
           </Button>
           {done && (
@@ -252,7 +261,7 @@ function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) 
           <ErrorText>{error}</ErrorText>
         </CardContent>
         <CardFooter className="flex-wrap gap-3">
-          <Button type="submit" size="sm" variant="outline" disabled={busy}>
+          <Button type="submit" size="xs" disabled={busy}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
           {done && <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>Saved.</span>}
@@ -270,12 +279,10 @@ function SignOutEverywhere() {
       <CardHeader>
         <CardTitle>Sign out everywhere</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Note>Includes this browser.</Note>
-      </CardContent>
+      <Notice>Includes this browser.</Notice>
       <CardFooter>
         <Button
-          size="sm"
+          size="xs"
           variant="destructive"
           disabled={busy}
           onClick={() => {

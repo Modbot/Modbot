@@ -43,17 +43,18 @@ export function DemoMarker() {
 
   if (!status?.on) return null
 
-  const label = status.busy
-    ? status.total > 0
-      ? `${status.step} ${Math.round((status.done / status.total) * 100)}%`
-      : status.step
-    : 'Demo'
+  const percent = status.busy && status.total > 0 ? `${Math.round((status.done / status.total) * 100)}%` : null
 
+  // The marker takes whatever the title leaves, and the step wraps inside it, so on a phone the
+  // title keeps its name and Reset demo stays on screen.
   return (
-    <>
-      <Badge variant="secondary" className="gap-1.5 font-mono text-muted-foreground">
+    <div className="flex min-w-0 flex-1 items-center gap-3">
+      <Badge variant="secondary" className="min-w-0 shrink justify-start gap-1.5 whitespace-normal text-muted-foreground">
         <span aria-hidden className={status.busy ? 'size-1.5 shrink-0 bg-warn' : 'size-1.5 shrink-0 bg-muted-foreground/60'} />
-        {label}
+        <span>
+          {status.busy ? status.step : 'Demo'}
+          {percent && <span className="font-mono"> {percent}</span>}
+        </span>
       </Badge>
 
       <Button
@@ -70,6 +71,6 @@ export function DemoMarker() {
       >
         Reset demo
       </Button>
-    </>
+    </div>
   )
 }

@@ -1,38 +1,13 @@
 import { Card } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
 /** The small furniture every settings card is built from. */
 
-/** Mono for anything with a figure in it (a count, a size, a version, a time, a commit), the body face for a word like "Off". */
-function face(value: string) {
-  return /\d/.test(value) ? 'font-mono' : undefined
-}
-
-/** A label and a value on one line, for lists of read-only facts. */
-export function Row({ label, value, title }: { label: string; value: string; title?: string }) {
-  return (
-    <div className="flex justify-between gap-4 py-1" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className={cn('min-w-0 text-right break-words tabular-nums', face(value))} title={title}>{value}</span>
-    </div>
-  )
-}
-
-/** A label above a value, for a few facts laid out side by side. */
-export function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {label}
-      </div>
-      <div className={cn('truncate font-medium tabular-nums', face(value))} title={value}>
-        {value}
-      </div>
-    </div>
-  )
-}
+export { Checkbox } from '@/components/ui/checkbox'
+export { Fact, Row } from '@/components/ui/fact-row'
 
 export function Field({
   label,
@@ -103,12 +78,7 @@ export function LongField({
   return (
     <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">{label}</span>
-      <textarea
-        className={cn(
-          'flex w-full rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 py-1 text-base',
-          'transition-colors outline-none placeholder:text-muted-foreground md:text-(length:--text-base)',
-          'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
-        )}
+      <Textarea
         rows={rows}
         placeholder={placeholder}
         value={value}
@@ -140,31 +110,11 @@ export function PasswordField({
   )
 }
 
-export function Checkbox({
-  checked,
-  disabled,
-  onChange,
-  children,
-}: {
-  checked: boolean
-  disabled?: boolean
-  onChange: (checked: boolean) => void
-  children: React.ReactNode
-}) {
-  return (
-    <label className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      {children}
-    </label>
-  )
-}
-
-/** An on/off switch with its label beside it. */
+/**
+ * An on/off switch with its label beside it. The track is two thirds of the control height and
+ * the row is a control high, so the switch grows with the density the way a button does, and at
+ * VR the row is the 48px target.
+ */
 export function Switch({
   checked,
   disabled,
@@ -178,7 +128,7 @@ export function Switch({
 }) {
   return (
     <label
-      className={cn('flex w-fit items-center gap-3', disabled ? 'opacity-50' : 'cursor-pointer')}
+      className={cn('flex min-h-(--control-h) w-fit items-center gap-3', disabled ? 'opacity-50' : 'cursor-pointer')}
       style={{ fontSize: 'var(--text-small)' }}
     >
       <button
@@ -188,15 +138,16 @@ export function Switch({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative inline-flex h-5 w-9 shrink-0 items-center rounded-sm transition-colors',
+          'relative inline-flex h-(--switch-h) w-[calc(var(--switch-h)*1.8)] shrink-0 items-center rounded-sm transition-colors',
           'outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
           checked ? 'bg-primary' : 'bg-input',
         )}
+        style={{ '--switch-h': 'calc(var(--control-h) * 2 / 3)' } as React.CSSProperties}
       >
         <span
           className={cn(
-            'inline-block size-4 rounded-xs bg-background transition-transform',
-            checked ? 'translate-x-[18px]' : 'translate-x-[2px]',
+            'inline-block size-[calc(var(--switch-h)-4px)] rounded-xs bg-background transition-transform',
+            checked ? 'translate-x-[calc(var(--switch-h)*0.8+2px)]' : 'translate-x-[2px]',
           )}
         />
       </button>
@@ -235,69 +186,19 @@ export function Outcome({
 }
 
 /**
- * A tinted band for something the operator has to read before the controls make sense: a lock, a
- * warning, a reason a setting cannot be changed. Tone is a hint, never the whole message — the
- * title says what is wrong in words, after a filled square in the tone's colour.
+ * "Loading…" and load failures, filling the row a section's cards would have taken. A failure
+ * passes `tone="danger"`.
  */
-export function Notice({
+export function Placeholder({
   tone,
-  title,
-  action,
-  className,
   children,
 }: {
-  tone: 'ok' | 'warn' | 'danger' | 'neutral'
-  title: string
-  action?: React.ReactNode
-  className?: string
-  children?: React.ReactNode
+  tone?: 'neutral' | 'danger'
+  children: React.ReactNode
 }) {
-  // Set inline so the tint survives a PanelGrid, whose cells are otherwise painted the card colour.
-  const tint = {
-    ok: 'color-mix(in oklab, var(--ok) 10%, var(--card))',
-    warn: 'color-mix(in oklab, var(--warn) 10%, var(--card))',
-    danger: 'color-mix(in oklab, var(--destructive) 10%, var(--card))',
-    neutral: 'var(--strip)',
-  }[tone]
-
-  const square = {
-    ok: 'bg-ok',
-    warn: 'bg-warn',
-    danger: 'bg-destructive',
-    neutral: 'bg-muted-foreground',
-  }[tone]
-
-  return (
-    <div
-      className={cn('px-(--panel-pad) py-2', className)}
-      style={{ background: tint }}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-start gap-2 font-medium">
-            <span aria-hidden className={cn('mt-[0.45em] size-2 shrink-0', square)} />
-            {title}
-          </div>
-          {children && (
-            <div
-              className="mt-1 flex flex-col gap-1 pl-4 text-muted-foreground"
-              style={{ fontSize: 'var(--text-small)' }}
-            >
-              {children}
-            </div>
-          )}
-        </div>
-        {action}
-      </div>
-    </div>
-  )
-}
-
-/** "Loading…" and load failures, filling the row a section's cards would have taken. */
-export function Placeholder({ children }: { children: React.ReactNode }) {
   return (
     <Card className="col-span-12">
-      <EmptyRow>{children}</EmptyRow>
+      <EmptyRow tone={tone}>{children}</EmptyRow>
     </Card>
   )
 }

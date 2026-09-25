@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { SwitchBank } from '@/components/ui/switch-bank'
+import { Textarea } from '@/components/ui/textarea'
 import { SubjectLink } from '@/components/facts'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type Person, type ReviewEvidence, type ReviewList, type ReviewView } from '@/lib/api'
 import { PROPOSED_ACTION_LABELS, type ProposedAction } from '@/lib/autoMod'
+import { Row } from '@/components/ui/fact-row'
 
 /**
  * Reviews of a moderator's pattern (spec 5.8.5).
@@ -58,7 +60,7 @@ export function Reviews({
   if (error) {
     return (
       <Card>
-        <EmptyRow>{error}</EmptyRow>
+        <EmptyRow tone="danger">{error}</EmptyRow>
       </Card>
     )
   }
@@ -86,9 +88,13 @@ export function Reviews({
         <span className="flex-1" />
         {list && (
           <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {list.lastRunAt
-              ? `Detection last ran ${ago(list.lastRunAt, list.now)}`
-              : 'Detection has not run yet'}
+            {list.lastRunAt ? (
+              <>
+                Detection last ran <span className="font-mono">{ago(list.lastRunAt, list.now)}</span>
+              </>
+            ) : (
+              'Detection has not run yet'
+            )}
           </span>
         )}
       </div>
@@ -180,9 +186,21 @@ function ReviewCard({
           )}
         </span>
         <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {review.state === 'Open'
-            ? `Opened ${ago(review.openedAt, now)}${review.updatedAt !== review.openedAt ? `, numbers updated ${ago(review.updatedAt, now)}` : ''}`
-            : `Closed ${ago(review.closedAt ?? review.updatedAt, now)} by ${review.closedByUsername ?? 'somebody'}`}
+          {review.state === 'Open' ? (
+            <>
+              Opened <span className="font-mono">{ago(review.openedAt, now)}</span>
+              {review.updatedAt !== review.openedAt && (
+                <>
+                  , numbers updated <span className="font-mono">{ago(review.updatedAt, now)}</span>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              Closed <span className="font-mono">{ago(review.closedAt ?? review.updatedAt, now)}</span> by{' '}
+              {review.closedByUsername ?? 'somebody'}
+            </>
+          )}
         </span>
       </CardHeader>
 
@@ -197,15 +215,20 @@ function ReviewCard({
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               <span>
-                Covers {formatDay(review.windowStart)}
-                {formatDay(review.windowStart) !== formatDay(review.windowEnd) ? ` – ${formatDay(review.windowEnd)}` : ''}
+                Covers <span className="font-mono">{formatDay(review.windowStart)}</span>
+                {formatDay(review.windowStart) !== formatDay(review.windowEnd) && (
+                  <>
+                    {' – '}
+                    <span className="font-mono">{formatDay(review.windowEnd)}</span>
+                  </>
+                )}
               </span>
               <button type="button" className="hover:underline" onClick={() => setShowFacts((v) => !v)}>
                 {showFacts ? 'Hide' : 'Show'} the {review.evidence.factIds.length} fact id{review.evidence.factIds.length === 1 ? '' : 's'}
               </button>
             </div>
             {showFacts && (
-              <p className="mt-1 break-all font-mono text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
+              <p className="mt-1 break-all font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                 {review.evidence.factIds.join(', ')}
               </p>
             )}
@@ -215,9 +238,8 @@ function ReviewCard({
         {review.state === 'Open' && (
           <label className="mt-3 flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
             <span className="text-muted-foreground">What did you conclude?</span>
-            <textarea
-              className="min-h-16 rounded-sm border border-input bg-card px-2 py-1 outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
-              style={{ borderWidth: 'var(--hairline)' }}
+            <Textarea
+              className="min-h-16"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={2000}
@@ -271,18 +293,17 @@ const KIND_WORDS: Record<string, string> = {
   rejections: 'join requests turned away',
 }
 
-/** The numbers, laid out, so the sentence above can be checked against them. */
 /** What a review opened by a moderation flag was opened on (AI moderation design §19). */
 function FlagEvidence({ review }: { review: ReviewView }) {
   const e = review.evidence
 
   return (
-    <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      {e.ruleName && <Pair label="Rule" value={`${e.ruleName} v${e.ruleVersion ?? 1}`} />}
-      {e.target && <Pair label="Checked" value={e.target} />}
-      {e.language && <Pair label="Language" value={e.language} />}
+    <Facts>
+      {e.ruleName && <Row label="Rule" value={`${e.ruleName} v${e.ruleVersion ?? 1}`} />}
+      {e.target && <Row label="Checked" value={e.target} />}
+      {e.language && <Row label="Language" value={e.language} />}
       {e.picture ? (
-        <Pair
+        <Row
           label="Picture"
           value={
             e.pictureUrl ? (
@@ -295,41 +316,63 @@ function FlagEvidence({ review }: { review: ReviewView }) {
           }
         />
       ) : (
-        e.matched && <Pair label="Matched" value={`“${e.matched}”`} />
+        e.matched && <Row label="Matched" value={`“${e.matched}”`} />
       )}
-      {e.reason && <Pair label="Reason" value={e.reason} />}
+      {e.reason && <Row label="Reason" value={e.reason} />}
       {e.aiOpinion && (
-        <Pair label="AI" value={`${e.aiOpinion === 'keep' ? 'Keep' : 'Dismiss'}${e.aiOpinionReason ? ` — ${e.aiOpinionReason}` : ''}`} />
+        <Row label="AI" value={`${e.aiOpinion === 'keep' ? 'Keep' : 'Dismiss'}${e.aiOpinionReason ? ` — ${e.aiOpinionReason}` : ''}`} />
       )}
       {e.aiProposedAction && e.aiProposedAction !== 'none' && (
-        <Pair label="AI proposed" value={PROPOSED_ACTION_LABELS[e.aiProposedAction as ProposedAction] ?? e.aiProposedAction} />
+        <Row label="AI proposed" value={PROPOSED_ACTION_LABELS[e.aiProposedAction as ProposedAction] ?? e.aiProposedAction} />
       )}
-    </dl>
+    </Facts>
   )
 }
 
+/** The numbers, laid out, so the sentence above can be checked against them. */
 function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject: (id: string) => void }) {
   const e: ReviewEvidence = review.evidence
   const kinds = Object.entries(e.byKind).filter(([, n]) => n > 0)
 
   return (
-    <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      <Pair label="Actions" value={String(e.actions)} />
+    <Facts>
+      <Row label="Actions" value={String(e.actions)} mono />
       {kinds.length > 0 && (
-        <Pair label="Of which" value={kinds.map(([k, n]) => `${n} ${KIND_WORDS[k] ?? k}`).join(', ')} />
+        <Row
+          label="Of which"
+          value={kinds.map(([k, n], i) => (
+            <span key={k}>
+              {i > 0 && ', '}
+              <span className="font-mono">{n}</span> {KIND_WORDS[k] ?? k}
+            </span>
+          ))}
+        />
       )}
-      {e.places !== undefined && <Pair label="Different instances or days" value={String(e.places)} />}
-      {e.otherModerators !== undefined && <Pair label="Other moderators who acted on them" value={String(e.otherModerators)} />}
-      {e.windowDays !== undefined && <Pair label="Looking back" value={`${e.windowDays} days`} />}
-      {e.day !== undefined && <Pair label="Day (UTC)" value={e.day} />}
+      {e.places !== undefined && <Row label="Different instances or days" value={String(e.places)} mono />}
+      {e.otherModerators !== undefined && (
+        <Row label="Other moderators who acted on them" value={String(e.otherModerators)} mono />
+      )}
+      {e.windowDays !== undefined && (
+        <Row
+          label="Looking back"
+          value={
+            <>
+              <span className="font-mono">{e.windowDays}</span> days
+            </>
+          }
+        />
+      )}
+      {e.day !== undefined && <Row label="Day (UTC)" value={e.day} mono />}
       {e.nextBusiest !== undefined && (
-        <Pair
+        <Row
           label="Next busiest that day"
           value={
             e.nextBusiest ? (
               <>
-                <PersonLink person={{ platform: 'vrchat', id: e.nextBusiest.moderatorId, name: null }} onOpen={onOpenSubject} /> with{' '}
-                {e.nextBusiest.actions}
+                <PersonLink person={{ platform: 'vrchat', id: e.nextBusiest.moderatorId, name: null }} onOpen={onOpenSubject} />{' '}
+                <span className="whitespace-nowrap">
+                  with <span className="font-mono">{e.nextBusiest.actions}</span>
+                </span>
               </>
             ) : (
               'nobody else did anything'
@@ -337,20 +380,34 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
           }
         />
       )}
-      {e.teamUsualPerDay !== undefined && <Pair label="Team’s usual per moderator-day" value={fixed(e.teamUsualPerDay)} />}
+      {e.teamUsualPerDay !== undefined && (
+        <Row label="Team’s usual per moderator-day" value={fixed(e.teamUsualPerDay)} mono />
+      )}
       {e.ownUsualPerDay !== undefined && (
-        <Pair
+        <Row
           label="Their usual"
-          value={e.ownUsualPerDay === null ? 'none yet' : `${fixed(e.ownUsualPerDay)} a day over ${e.ownActiveDays ?? '?'} active days`}
+          value={
+            e.ownUsualPerDay === null ? (
+              'none yet'
+            ) : (
+              <>
+                <span className="font-mono">{fixed(e.ownUsualPerDay)}</span> a day over{' '}
+                <span className="font-mono">{e.ownActiveDays ?? '?'}</span> active days
+              </>
+            )
+          }
         />
       )}
-      <Pair
+      <Row
         label="Rule applied"
-        value={Object.entries(e.threshold)
-          .map(([k, v]) => `${THRESHOLD_WORDS[k] ?? k} ${fixed(v)}`)
-          .join(' · ')}
+        value={Object.entries(e.threshold).map(([k, v], i) => (
+          <span key={k}>
+            {i > 0 && ' · '}
+            {THRESHOLD_WORDS[k] ?? k} <span className="font-mono">{fixed(v)}</span>
+          </span>
+        ))}
       />
-    </dl>
+    </Facts>
   )
 }
 
@@ -367,14 +424,11 @@ const THRESHOLD_WORDS: Record<string, string> = {
 const fixed = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 
 function PersonLink({ person, onOpen }: { person: Person; onOpen: (id: string) => void }) {
-  return <SubjectLink id={person.id} name={person.name} onOpen={onOpen} className="text-foreground" />
+  // No wider than the fact's value, so a long id on a phone ends in an ellipsis inside the row.
+  return <SubjectLink id={person.id} name={person.name} onOpen={onOpen} className="max-w-full text-foreground" />
 }
 
-function Pair({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex gap-1.5">
-      <dt>{label}:</dt>
-      <dd className="text-foreground">{value}</dd>
-    </div>
-  )
+/** The evidence's facts, one `Row` each, with the values in the text colour and the labels muted. */
+function Facts({ children }: { children: React.ReactNode }) {
+  return <div className="mt-2 max-w-lg text-foreground">{children}</div>
 }

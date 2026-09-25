@@ -1,12 +1,12 @@
 import { useCallback, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { dateTime } from '@/components/charts'
 import { Block, Empty, Note as Muted } from '@/components/subject/shared'
 import { api, ApiError, type Note, type NoteList } from '@/lib/api'
 import { MAX_NOTE_LENGTH, noteAuthor, noteProblem, notesBeforeActing } from '@/lib/notes'
 import { useLoad } from '@/lib/useLoad'
-import { cn } from '@/lib/utils'
 
 /**
  * A person's notes: what moderators have written about them, and a box to write another.
@@ -166,20 +166,6 @@ function WriteNote({
 
       {problem && <Muted className="text-destructive">{problem}</Muted>}
     </Block>
-  )
-}
-
-/** A box for a written note, drawn like the app's inputs: the same edge, surface and focus. */
-export function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
-  return (
-    <textarea
-      className={cn(
-        'w-full rounded-sm border border-(length:--hairline) border-input bg-card px-2.5 py-1 outline-none transition-colors',
-        'focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring',
-        className,
-      )}
-      {...props}
-    />
   )
 }
 

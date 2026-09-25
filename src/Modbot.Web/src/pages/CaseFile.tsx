@@ -4,6 +4,7 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { EvidenceGallery } from '@/components/EvidenceGallery'
 import { Markdown } from '@/components/Markdown'
@@ -89,7 +90,7 @@ export function CaseFile({
       <Card>
         <EmptyRow>{error}</EmptyRow>
         <CardFooter>
-          <Button variant="outline" size="sm" onClick={onBack}>
+          <Button variant="outline" size="xs" onClick={onBack}>
             Back to bans
           </Button>
         </CardFooter>
@@ -169,7 +170,7 @@ export function CaseFile({
           )}
         </Section>
 
-        <Section title="Evidence">
+        <Section title="Evidence" flush>
           {view.canViewEvidence && view.evidence ? (
             <EvidenceGallery
               caseId={view.id}
@@ -180,9 +181,7 @@ export function CaseFile({
               onImageReady={noteImage}
             />
           ) : (
-            <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              You do not have permission to view evidence.
-            </p>
+            <EmptyRow>You do not have permission to view evidence.</EmptyRow>
           )}
         </Section>
 
@@ -243,12 +242,15 @@ function Section({
   title,
   action,
   note,
+  flush = false,
   children,
 }: {
   title: string
   action?: React.ReactNode
   /** A line about the whole section, on a band of its own under the strip. */
   note?: React.ReactNode
+  /** Runs the content to the panel's edges, for a grid or a list that draws its own lines. */
+  flush?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -259,13 +261,13 @@ function Section({
       </CardHeader>
       {note && (
         <div
-          className="border-b px-(--panel-pad) py-2 text-muted-foreground"
-          style={{ borderBottomWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
+          className="border-b-(length:--hairline) px-(--panel-pad) py-2 text-muted-foreground"
+          style={{ fontSize: 'var(--text-small)' }}
         >
           {note}
         </div>
       )}
-      <CardContent className="flex flex-col gap-2">{children}</CardContent>
+      {flush ? children : <CardContent className="flex flex-col gap-2">{children}</CardContent>}
     </Card>
   )
 }
@@ -352,60 +354,65 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
   }
 
   return (
-    <Section title="The profile at the time" note={snapshot.explanation}>
-      {snapshot.canCaptureAgain && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="xs" variant="outline" onClick={captureAgain} disabled={busy}>
-            {busy ? 'Capturing…' : 'Refresh and capture again'}
-          </Button>
-          <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            Once only.
-          </span>
-        </div>
-      )}
+    <>
+      <Section
+        title="The profile at the time"
+        note={snapshot.explanation}
+        action={
+          snapshot.canCaptureAgain && (
+            <>
+              <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                Once only.
+              </span>
+              <Button size="xs" variant="outline" onClick={captureAgain} disabled={busy}>
+                {busy ? 'Capturing…' : 'Refresh and capture again'}
+              </Button>
+            </>
+          )
+        }
+      >
+        {/* First in the section, so the banner can run to its edges. */}
+        {profile ? <ProfileBlock profile={profile} /> : null}
 
-      {problem && (
-        <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-          {problem}
-        </p>
-      )}
+        {snapshot.banListEntry && (
+          <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            On the group's ban list
+            {snapshot.banListEntry.bannedAt ? ` since ${formatDay(snapshot.banListEntry.bannedAt)}` : ''}
+            {snapshot.banListEntry.liftedAt ? `; lifted by ${formatDay(snapshot.banListEntry.liftedAt)}` : ''}.
+          </p>
+        )}
 
-      {profile ? <ProfileBlock profile={profile} /> : null}
+        {problem && (
+          <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+            {problem}
+          </p>
+        )}
+      </Section>
 
       {snapshot.membership && (
-        <div
-          className="-mx-(--panel-pad) border-t px-(--panel-pad) pt-2"
-          style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-        >
-          <div className="font-medium">Membership at the time</div>
-          <p className="mt-1 text-muted-foreground">
-            {snapshot.membership.isMember ? 'A member' : 'No longer a member'}
-            {snapshot.membership.joinedAt ? `, joined ${formatDay(snapshot.membership.joinedAt)}` : ''}
-            {snapshot.membership.membershipStatus ? ` · ${snapshot.membership.membershipStatus}` : ''}.
-          </p>
-          {roleIds.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {roleIds.map((id) => (
-                <Badge key={id} variant="outline" className="font-mono">
-                  {id}
-                </Badge>
-              ))}
-            </div>
-          )}
-          {snapshot.membership.managerNotes && (
-            <p className="mt-1 whitespace-pre-wrap break-words">{snapshot.membership.managerNotes}</p>
-          )}
-        </div>
+        <Section title="Membership at the time">
+          <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+            <p className="text-muted-foreground">
+              {snapshot.membership.isMember ? 'A member' : 'No longer a member'}
+              {snapshot.membership.joinedAt ? `, joined ${formatDay(snapshot.membership.joinedAt)}` : ''}
+              {snapshot.membership.membershipStatus ? ` · ${snapshot.membership.membershipStatus}` : ''}.
+            </p>
+            {roleIds.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {roleIds.map((id) => (
+                  <Badge key={id} variant="outline" className="font-mono">
+                    {id}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {snapshot.membership.managerNotes && (
+              <p className="whitespace-pre-wrap break-words">{snapshot.membership.managerNotes}</p>
+            )}
+          </div>
+        </Section>
       )}
-
-      {snapshot.banListEntry && (
-        <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          On the group's ban list
-          {snapshot.banListEntry.bannedAt ? ` since ${formatDay(snapshot.banListEntry.bannedAt)}` : ''}
-          {snapshot.banListEntry.liftedAt ? `; lifted by ${formatDay(snapshot.banListEntry.liftedAt)}` : ''}.
-        </p>
-      )}
-    </Section>
+    </>
   )
 }
 
@@ -429,12 +436,9 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
         representedGroup={profile.representedGroup}
         marks={
           profile.eighteenPlus?.verified ? (
-            <span
-              className="inline-flex items-center self-center rounded-sm border border-ok/30 bg-ok/10 px-1.5 font-medium text-ok"
-              style={{ borderWidth: 'var(--hairline)', fontSize: 'var(--text-small)' }}
-            >
+            <Badge variant="ok" className="self-center">
               18+ verified
-            </span>
+            </Badge>
           ) : null
         }
       />
@@ -504,9 +508,8 @@ function Withdraw({ view, onWithdrawn }: { view: CaseFileView; onWithdrawn: (nex
             <p className="text-muted-foreground">
               It can no longer be edited after this.
             </p>
-            <textarea
-              className="mt-2 w-full rounded-sm border border-input bg-card px-2 py-1 outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
-              style={{ borderWidth: 'var(--hairline)' }}
+            <Textarea
+              className="mt-2"
               rows={3}
               value={note}
               maxLength={2000}

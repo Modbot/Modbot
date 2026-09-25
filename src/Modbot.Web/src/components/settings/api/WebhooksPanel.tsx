@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Select } from '@/components/ui/select'
 import {
@@ -18,9 +19,6 @@ import { CopyBox } from '@/pages/Users'
 import { Field, LongField, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { failure, when } from './shared'
-
-/** Runs the card's content to its edges, so a list meets the card's sides. */
-const FLUSH = '[&>[data-slot=card-content]]:gap-0 [&>[data-slot=card-content]]:p-0'
 
 const STATE_LABEL: Record<WebhookState, string> = {
   working: 'Working',
@@ -70,7 +68,7 @@ export function WebhooksPanel() {
           <SettingsCard
             title="Webhooks"
             span={12}
-            className={FLUSH}
+            flush
             action={
               <Button size="xs" onClick={() => setEditing('new')}>
                 Create webhook
@@ -370,33 +368,33 @@ function DeliveryLog({ webhook }: { webhook: WebhookView }) {
   if (rows.length === 0) return <EmptyRow>No deliveries.</EmptyRow>
 
   return (
-    <div className="max-h-[60vh] overflow-auto">
-      <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-        <thead className="bg-strip text-left text-muted-foreground">
-          <tr className="border-b border-b-(length:--hairline)">
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">When</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Event</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap text-right">Try</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap text-right">Status</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap text-right">Time</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Error</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((d) => (
-            <tr key={d.id} className="border-b border-b-(length:--hairline) last:border-0">
-              <td className="px-(--panel-pad) py-1.5 font-mono whitespace-nowrap">{when(d.attemptedAt)}</td>
-              <td className="px-(--panel-pad) py-1.5 font-mono">{d.test ? 'Test' : `${d.eventType} #${d.eventId}`}</td>
-              <td className="px-(--panel-pad) py-1.5 text-right font-mono">{d.attempt}</td>
-              <td className={cn('px-(--panel-pad) py-1.5 text-right font-mono', d.outcome === 'delivered' ? 'text-ok' : 'text-destructive')}>
-                {d.statusCode ?? '—'}
-              </td>
-              <td className="px-(--panel-pad) py-1.5 text-right font-mono whitespace-nowrap">{d.durationMs} ms</td>
-              <td className="px-(--panel-pad) py-1.5">{d.error}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="max-h-[60vh] overflow-y-auto">
+      <Table
+        pinFirst
+        head={
+          <>
+            <Th>When</Th>
+            <Th>Event</Th>
+            <Th className="text-right">Try</Th>
+            <Th className="text-right">Status</Th>
+            <Th className="text-right">Time</Th>
+            <Th>Error</Th>
+          </>
+        }
+      >
+        {rows.map((d) => (
+          <Tr key={d.id}>
+            <Td className="font-mono">{when(d.attemptedAt)}</Td>
+            <Td className="font-mono">{d.test ? 'Test' : `${d.eventType} #${d.eventId}`}</Td>
+            <Td className="text-right font-mono">{d.attempt}</Td>
+            <Td className={cn('text-right font-mono', d.outcome === 'delivered' ? 'text-ok' : 'text-destructive')}>
+              {d.statusCode ?? '—'}
+            </Td>
+            <Td className="text-right font-mono">{d.durationMs} ms</Td>
+            <Td className="whitespace-normal">{d.error}</Td>
+          </Tr>
+        ))}
+      </Table>
     </div>
   )
 }

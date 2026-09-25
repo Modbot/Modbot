@@ -3,14 +3,15 @@ import { SubjectLink, WorldLink } from '@/components/facts'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, ApiError, type LivePerson, type LiveInstance, type LiveView } from '@/lib/api'
 import { access } from '@/lib/format'
 import { instanceNumber } from '@/lib/instanceName'
-import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent } from '@/lib/liveStream'
+import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
+import { DOT, type Tone } from '@/lib/status'
 import { openInstance, openWorld } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
-import { PageMessage } from '@/pages/analytics/shared'
+import { PageMessage, Stat } from '@/pages/analytics/shared'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -22,6 +23,15 @@ const REFRESH_MS = 30_000
 
 /** A burst of joins is one redraw, not one per join. */
 const SETTLE_MS = 300
+
+/** The square before the stream's state: a warning while events are not being pushed, bad once it has given up. */
+const STREAM_TONE: Record<LiveState, Tone> = {
+  live: 'ok',
+  polling: 'warn',
+  connecting: 'warn',
+  stopped: 'bad',
+  off: 'muted',
+}
 
 /**
  * Live -- the group's open instances right now, and who is in each.
@@ -93,7 +103,8 @@ export function Live() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-end text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      <div className="flex items-center justify-end gap-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span aria-hidden className={cn('size-1.5 shrink-0', DOT[STREAM_TONE[stream]])} />
         <span>{stateWord(stream)}</span>
       </div>
 
@@ -122,8 +133,8 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
 
   return (
     <Card>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex items-start gap-3">
+      <PanelGrid className="m-0 grid-cols-[minmax(0,1fr)_auto]">
+        <div className="flex min-w-0 items-start gap-3 p-(--panel-pad)">
           {instance.worldImageUrl ? (
             <button
               type="button"
@@ -149,31 +160,27 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
               {where && <span>{where}</span>}
             </div>
           </div>
-
-          <div className="shrink-0 text-right">
-            <div className="font-mono leading-none font-medium tracking-tight" style={{ fontSize: 'calc(var(--text-base) * 1.75)' }}>
-              {instance.headCount ?? '—'}
-            </div>
-            <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {instance.headCount === 1 ? 'person' : 'people'}
-            </div>
-          </div>
         </div>
 
-        <div className="flex flex-wrap items-baseline gap-x-2" style={{ fontSize: 'var(--text-small)' }}>
-          <span className="text-muted-foreground">Watching</span>
-          {watched ? (
-            instance.watching.map((w, i) => (
-              <span key={w.userId}>
-                <SubjectLink id={w.userId} name={w.displayName} />
-                {i < instance.watching.length - 1 ? ',' : ''}
-              </span>
-            ))
-          ) : (
-            <span>Nobody watching</span>
-          )}
-        </div>
-      </CardContent>
+        <Stat
+          label={instance.headCount === 1 ? 'person' : 'people'}
+          value={String(instance.headCount ?? '—')}
+        />
+      </PanelGrid>
+
+      <div className="flex flex-wrap items-baseline gap-x-2 p-(--panel-pad)" style={{ fontSize: 'var(--text-small)' }}>
+        <span className="text-muted-foreground">Watching</span>
+        {watched ? (
+          instance.watching.map((w, i) => (
+            <span key={w.userId}>
+              <SubjectLink id={w.userId} name={w.displayName} />
+              {i < instance.watching.length - 1 ? ',' : ''}
+            </span>
+          ))
+        ) : (
+          <span>Nobody watching</span>
+        )}
+      </div>
 
       {watched && <People title="Here now" people={instance.people} />}
 
@@ -188,13 +195,15 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
 function People({ title, people, muted = false }: { title: string; people: LivePerson[]; muted?: boolean }) {
   return (
     <section className="flex flex-col border-t border-t-(length:--hairline)">
-      <CardHeader className={cn(people.length === 0 && 'border-b-0')} style={{ fontSize: 'var(--text-small)' }}>
+      <CardHeader className={cn(people.length === 0 && 'border-b-0')}>
         <CardTitle>{title}</CardTitle>
-        <span className="ml-auto font-mono text-muted-foreground">{people.length}</span>
+        <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {people.length}
+        </span>
       </CardHeader>
       {people.length > 0 && (
         <ul
-          className={cn('divide-y divide-(length:--hairline) divide-border', muted && 'text-muted-foreground')}
+          className={cn('divide-y-(length:--hairline) divide-border', muted && 'text-muted-foreground')}
           style={{ fontSize: 'var(--text-small)' }}
         >
           {people.map((p) => (

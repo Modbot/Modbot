@@ -9,6 +9,7 @@ import { dateTime } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
+import { Unread } from '@/components/Freshness'
 import { Pager } from '@/components/Pager'
 import { api, ApiError, type CurrentUser, type DiscordMemberList, type DiscordMemberQuery } from '@/lib/api'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
@@ -152,7 +153,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
     if (m) openDiscordPerson(m.userId)
   })
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
@@ -189,9 +190,9 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
       <Card>
         <CardHeader className={cn(unread && 'bg-warn/10')}>
           {list.coverage.guildId === null ? (
-            <Warning>No Discord server set.</Warning>
+            <Unread>No Discord server set.</Unread>
           ) : list.coverage.listedAt === null ? (
-            <Warning>The Discord member list has not been read yet.</Warning>
+            <Unread>The Discord member list has not been read yet.</Unread>
           ) : (
             <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               Read {ago(list.coverage.listedAt, list.coverage.now)}.{' '}
@@ -208,7 +209,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
           <div data-pin-first className="relative overflow-x-auto">
             <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
               <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                <tr className="border-b-(length:--hairline)">
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Username</th>
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Roles</th>
@@ -228,10 +229,9 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
                       {...rowProps(i)}
                       onClick={() => openDiscordPerson(m.userId)}
                       className={cn(
-                        'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
+                        'cursor-pointer border-b-(length:--hairline) last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
                         m.leftAt && 'text-muted-foreground',
                       )}
-                      style={{ borderBottomWidth: 'var(--hairline)' }}
                     >
                       <td className="px-3" style={{ height: 'var(--row-h)' }}>
                         <div className="flex items-center gap-2">
@@ -249,12 +249,12 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
                               {m.displayName}
                             </button>
                             {m.isBot && (
-                              <span className="ml-1.5 text-muted-foreground" style={{ fontSize: '0.6875rem' }}>
+                              <span className="ml-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                                 bot
                               </span>
                             )}
                             {m.plainName && (
-                              <div className="max-w-[18rem] truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                              <div className="max-w-[18rem] truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                                 {m.plainName}
                               </div>
                             )}
@@ -263,7 +263,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
                       </td>
                       <td className="px-3 text-muted-foreground">{m.username}</td>
                       <td className="px-3">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
                           {m.roles.map((r) => (
                             <RoleChip key={r.id} id={r.id} name={r.name} color={r.color} />
                           ))}
@@ -303,15 +303,6 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
 
         <Pager at={at} pages={pages} />
       </Card>
-    </div>
-  )
-}
-
-function Warning({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2 font-medium">
-      <span aria-hidden className="size-2 shrink-0 bg-warn" />
-      {children}
     </div>
   )
 }

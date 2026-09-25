@@ -6,7 +6,8 @@ import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Block, Empty, FactList, Field, Footer, More, Panel, PopupFrame } from '@/components/subject/shared'
-import { Stat, StatStrip, Table, Td, Th, Tr } from '@/pages/analytics/shared'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type InstanceView } from '@/lib/api'
 import { concernsInstance } from '@/lib/liveRules'
@@ -114,7 +115,7 @@ function Identity({ view }: { view: InstanceView }) {
       <Block>
         <Field label="World" title={instance.worldId}>
           <WorldLink id={instance.worldId} name={instance.worldName} />
-          <div className="font-mono text-muted-foreground break-all" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+          <div className="font-mono text-muted-foreground break-all" style={{ fontSize: 'var(--text-tiny)' }}>
             {instance.worldId}
           </div>
         </Field>
@@ -236,7 +237,7 @@ function People({ view }: { view: InstanceView }) {
               <Td>
                 <SubjectLink id={p.userId} name={p.displayName} />
                 {p.displayName && (
-                  <div className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny, 11px)' }}>
+                  <div className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                     {p.userId}
                   </div>
                 )}

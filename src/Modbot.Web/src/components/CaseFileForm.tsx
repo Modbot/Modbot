@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
+import { Textarea } from '@/components/ui/textarea'
 import { api, ApiError, type BanReasonView } from '@/lib/api'
 import { formatDay } from '@/lib/format'
-import { cn } from '@/lib/utils'
 
 /**
  * The pieces of writing up a ban, shared by the form that creates a case file and the edit mode
@@ -36,22 +37,11 @@ export function ReasonButtons({
   return (
     <div role="group" aria-label="Reasons" className="flex flex-wrap gap-1.5">
       {reasons.map((reason) => (
-        <Button
-          key={reason.id}
-          type="button"
-          size="xs"
-          variant="outline"
-          aria-pressed={picked.includes(reason.id)}
-          title={reason.description}
-          onClick={() => toggle(reason.id)}
-          className={cn(
-            picked.includes(reason.id)
-              ? 'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {reason.label}
-        </Button>
+        <span key={reason.id} title={reason.description} className="contents">
+          <Chip on={picked.includes(reason.id)} onClick={() => toggle(reason.id)}>
+            {reason.label}
+          </Chip>
+        </span>
       ))}
     </div>
   )
@@ -79,9 +69,8 @@ export function WrittenReasonBox({
         What happened
         {requiredBy.length > 0 ? ' (required)' : ' (optional)'}
       </span>
-      <textarea
-        className="w-full rounded-sm border border-input bg-card px-2 py-1 font-mono outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
-        style={{ borderWidth: 'var(--hairline)' }}
+      <Textarea
+        className="font-mono"
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}

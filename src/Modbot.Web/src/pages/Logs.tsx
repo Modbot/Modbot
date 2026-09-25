@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { Card, CardFooter } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
@@ -12,6 +12,21 @@ import { cn } from '@/lib/utils'
 import { Empty } from './Members'
 
 const PAGE_SIZE = 100
+
+/**
+ * A day box. The date is set in mono like every other time on the page, and an empty box reads its
+ * `mm/dd/yyyy` in the muted colour of the search box's placeholder. The browser's calendar button
+ * is drawn at the size and weight of the dropdown chevrons beside it; it stays, because in Chromium
+ * it is the only way to open the calendar with the mouse. The width is in `ch` so the whole date
+ * fits at every density.
+ */
+function dayBox(value: string) {
+  return cn(
+    'w-[calc(10ch+3.5rem)] font-mono',
+    '[&::-webkit-calendar-picker-indicator]:ms-1.5 [&::-webkit-calendar-picker-indicator]:size-3.5 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60',
+    !value && 'text-muted-foreground focus:text-foreground',
+  )
+}
 
 /**
  * The colour each level is written in, as a ramp from quiet to loud: grey, blue, plain, amber,
@@ -186,8 +201,8 @@ export function Logs() {
           </Select>
         )}
 
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36" aria-label="From" />
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36" aria-label="To" />
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={dayBox(from)} aria-label="From" />
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={dayBox(to)} aria-label="To" />
 
         <Button variant="outline" onClick={() => setReloads((n) => n + 1)}>
           Refresh
@@ -210,18 +225,17 @@ export function Logs() {
           </ul>
         )}
 
-        <div
-          className="flex flex-wrap items-center gap-3 border-t bg-strip px-(--panel-pad) py-1 text-muted-foreground"
-          style={{ borderTopWidth: 'var(--hairline)', fontSize: 'var(--text-small)', minHeight: 'var(--strip-h)' }}
-        >
-          <span className="font-mono">{(filters?.stored ?? 0).toLocaleString()} stored</span>
+        <CardFooter className="flex-wrap gap-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <span>
+            <span className="font-mono">{(filters?.stored ?? 0).toLocaleString()}</span> stored
+          </span>
           <span className="flex-1" />
           {next && (
             <Button variant="outline" size="xs" disabled={loading} onClick={more}>
               {loading ? 'Loading…' : 'Load more'}
             </Button>
           )}
-        </div>
+        </CardFooter>
       </Card>
     </div>
   )

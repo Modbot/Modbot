@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Chip } from '@/components/ui/chip'
 import { Input } from '@/components/ui/input'
 import {
   api,
@@ -13,8 +14,8 @@ import {
   type DiscordRoutePlatform,
   type DiscordRoutes,
 } from '@/lib/api'
-import { cn } from '@/lib/utils'
-import { Checkbox, Field, Outcome } from '../fields'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Field, Outcome } from '../fields'
 import { EVENT_POST_NEEDS } from '@/lib/discordLists'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -184,7 +185,7 @@ function EventPicker({
                   {count}/{types.length}
                 </span>
               </div>
-              <div className="grid gap-x-4 gap-y-1 pl-5 sm:grid-cols-2">
+              <div className="grid gap-x-4 gap-y-1 pl-[calc(var(--control-h)/2_+_0.5rem)] sm:grid-cols-2">
                 {group.types.map((t) => (
                   <Checkbox key={t.type} checked={chosen.has(t.type)} onChange={(on) => set([t.type], on)}>
                     {t.label}
@@ -210,17 +211,10 @@ function GroupBox({
   label: string
   onChange: (checked: boolean) => void
 }) {
-  const ref = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = mixed
-  }, [mixed])
-
   return (
-    <label className="flex items-center gap-2 font-medium">
-      <input ref={ref} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      {label}
-    </label>
+    <Checkbox checked={checked} mixed={mixed} onChange={onChange}>
+      <span className="font-medium">{label}</span>
+    </Checkbox>
   )
 }
 
@@ -254,19 +248,13 @@ function Chips({
           {all.map((option) => {
             const on = chosen.has(option.id)
             return (
-              <button
+              <Chip
                 key={option.id}
-                type="button"
-                aria-pressed={on}
+                on={on}
                 onClick={() => onChange(on ? value.filter((id) => id !== option.id) : [...value, option.id])}
-                className={cn(
-                  'inline-flex items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input px-2.5 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-                  on ? 'bg-accent text-accent-foreground' : 'bg-card text-muted-foreground hover:bg-muted hover:text-foreground',
-                )}
-                style={{ fontSize: 'var(--text-small)', height: 'var(--control-h)' }}
               >
                 {option.name}
-              </button>
+              </Chip>
             )
           })}
         </div>

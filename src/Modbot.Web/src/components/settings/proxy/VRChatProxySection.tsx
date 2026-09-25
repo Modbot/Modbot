@@ -87,7 +87,7 @@ function ProxyCard({ settings, onSaved }: { settings: Settings; onSaved: (next: 
       title="VRChat proxy"
       footer={
         <>
-          <Button size="sm" disabled={busy} onClick={save}>
+          <Button size="xs" disabled={busy} onClick={save}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
@@ -144,7 +144,7 @@ function Playground({ enabled }: { enabled: boolean }) {
       span={12}
       footer={
         <>
-          <Button size="sm" disabled={busy || !enabled || !path.trim()} onClick={send}>
+          <Button size="xs" disabled={busy || !enabled || !path.trim()} onClick={send}>
             {busy ? 'Sending…' : 'Send'}
           </Button>
           <Outcome tone="problem">{problem}</Outcome>

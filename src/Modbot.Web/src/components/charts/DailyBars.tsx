@@ -20,6 +20,7 @@ export function DailyBars({
   stacked = false,
   height = chartHeight.regular,
   emptyText,
+  legend,
   format,
 }: {
   from: string
@@ -28,6 +29,8 @@ export function DailyBars({
   stacked?: boolean
   height?: number
   emptyText?: string
+  /** Names and colours for the series, left out with the plot when there is nothing to draw. */
+  legend?: { label: string; slot: SeriesSlot }[]
   /** How a value is written on the axis and in the tooltip, for something that is not a count -- money. */
   format?: (value: number) => string
 }) {
@@ -37,12 +40,12 @@ export function DailyBars({
   const empty = series.every((s) => s.points.every((p) => p.value === 0))
 
   return (
-    <ChartFrame height={height} empty={empty} emptyText={emptyText}>
+    <ChartFrame height={height} empty={empty} emptyText={emptyText} legend={legend}>
       <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} barCategoryGap="20%">
         <CartesianGrid vertical={false} />
         <XAxis dataKey="day" ticks={tickDays(days)} tickFormatter={shortDay} tickLine={false} axisLine={false} minTickGap={16} />
         <YAxis
-          width={format ? 56 : 40}
+          width="auto"
           allowDecimals={format !== undefined}
           tickFormatter={format ?? compactNumber}
           tickLine={false}

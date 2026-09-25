@@ -50,12 +50,14 @@ function AccountCard({ status }: { status: OnboardingStatus }) {
           value={
             status.vrChat.verifiedAt ? new Date(status.vrChat.verifiedAt).toLocaleString() : 'Never'
           }
+          mono={!!status.vrChat.verifiedAt}
         />
         <Fact
           label="Last signed in"
           value={
             status.vrChat.lastSignedInAt ? new Date(status.vrChat.lastSignedInAt).toLocaleString() : 'Never'
           }
+          mono={!!status.vrChat.lastSignedInAt}
         />
         <Fact label="Managed group" value={status.group ? status.group.name : 'None chosen'} />
       </div>
@@ -110,7 +112,7 @@ function CredentialsCard({
           <Button
             type="submit"
             form="vrchat-credentials"
-            size="sm"
+            size="xs"
             disabled={verifying || !username || !password}
           >
             {verifying ? 'Checking with VRChat…' : 'Verify and store'}
@@ -185,7 +187,7 @@ function ProxyCard({
       title="Egress proxy"
       footer={
         <>
-          <Button size="sm" variant="outline" disabled={testing} onClick={test}>
+          <Button size="xs" variant="outline" disabled={testing} onClick={test}>
             {testing ? 'Testing…' : 'Test connection'}
           </Button>
           <Hint>

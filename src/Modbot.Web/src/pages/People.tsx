@@ -21,7 +21,7 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { Select } from '@/components/ui/select'
-import { Empty } from '@/pages/Members'
+import { Empty, Marks } from '@/pages/Members'
 
 /**
  * Everyone Modbot has a record of.
@@ -183,7 +183,7 @@ export function People() {
     if (person) openPerson(person.userId)
   })
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
@@ -231,11 +231,11 @@ export function People() {
           <div data-pin-first className="relative overflow-x-auto">
             <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
               <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b" style={{ borderBottomWidth: 'var(--hairline)' }}>
+                <tr className="border-b-(length:--hairline)">
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Standing</th>
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Last seen by Modbot</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Known for</th>
+                  <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Known for</th>
                   <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Profile</th>
                 </tr>
               </thead>
@@ -246,10 +246,9 @@ export function People() {
                     {...rowProps(i)}
                     onClick={() => openPerson(person.userId)}
                     className={cn(
-                      'cursor-pointer border-b last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
+                      'cursor-pointer border-b-(length:--hairline) last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
                       person.notFoundAt && 'text-muted-foreground',
                     )}
-                    style={{ borderBottomWidth: 'var(--hairline)' }}
                   >
                     <td className="px-3" style={{ height: 'var(--row-h)' }}>
                       <div className="flex items-center gap-2">
@@ -264,26 +263,24 @@ export function People() {
                           <div className="size-7 shrink-0 rounded-full bg-muted" />
                         )}
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <SubjectLink id={person.userId} name={person.displayName} onOpen={openPerson} />
-                            {person.eighteenPlus && (
-                              <span
-                                className="inline-flex items-center rounded-sm border border-ok/30 bg-ok/10 px-1 py-0 font-mono font-medium text-ok"
-                                style={{ fontSize: '0.6875rem' }}
-                                title="18+ verified"
-                              >
-                                18+
-                              </span>
-                            )}
-                            <TrustRankBadge rank={person.trustRank} />
+                          <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
+                            <SubjectLink id={person.userId} name={person.displayName} onOpen={openPerson} className="max-md:max-w-full max-md:shrink-0" />
+                            <Marks>
+                              {person.eighteenPlus && (
+                                <Badge variant="ok" className="font-mono" title="18+ verified">
+                                  18+
+                                </Badge>
+                              )}
+                              <TrustRankBadge rank={person.trustRank} />
+                            </Marks>
                           </div>
                           {person.plainName && (
-                            <div className="truncate text-muted-foreground" style={{ fontSize: '0.75rem' }}>
+                            <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                               {person.plainName}
                             </div>
                           )}
                           {person.displayName && (
-                            <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: '0.6875rem' }}>
+                            <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
                               {person.userId}
                             </div>
                           )}
@@ -294,10 +291,10 @@ export function People() {
                       <Standing person={person} />
                     </td>
                     <td className="px-3 font-mono whitespace-nowrap text-muted-foreground">{ago(person.lastSeenAt, now)}</td>
-                    <td className="px-3 font-mono whitespace-nowrap text-muted-foreground">
+                    <td className="px-3 text-right font-mono whitespace-nowrap text-muted-foreground">
                       {howLong(person.firstSeenAt, now)}
                     </td>
-                    <td className="px-3 text-muted-foreground">
+                    <td className="px-3 whitespace-nowrap text-muted-foreground">
                       {person.notFoundAt
                         ? 'No such account'
                         : person.profileRefreshedAt
@@ -320,7 +317,7 @@ export function People() {
 /** Where this person stands with the group: a member, somebody who left, on the ban list, or none of those. */
 function Standing({ person }: { person: PeopleList['people'][number] }) {
   return (
-    <div className="flex flex-wrap items-center gap-1">
+    <div className="flex items-center gap-1 whitespace-nowrap">
       {person.isMember && <Badge variant="secondary">Member</Badge>}
       {person.leftAt && !person.isMember && <Badge variant="outline">Left</Badge>}
       {person.banned && <Badge variant="destructive">Banned</Badge>}

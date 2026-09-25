@@ -74,7 +74,7 @@ export function HealthAlertsCard() {
       span={12}
       footer={
         <>
-          <Button size="sm" disabled={!view || saving} onClick={save}>
+          <Button size="xs" disabled={!view || saving} onClick={save}>
             {saving ? 'Saving…' : 'Save alerts'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
