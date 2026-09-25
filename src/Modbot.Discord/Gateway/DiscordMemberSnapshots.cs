@@ -75,6 +75,12 @@ public static class DiscordAuditKinds
 /// <param name="Count">For deleted messages, how many.</param>
 /// <param name="Until">For a timeout, when it ends.</param>
 /// <param name="Roles">For a role change, which roles.</param>
+/// <param name="Changes">
+/// For a channel or role that was edited, each field that changed, before and after. Discord sends
+/// only the fields that changed, so an edit that left the name alone has none for it.
+/// </param>
+/// <param name="PermissionsGiven">For a role that was edited, the permissions it gained, by Discord's own names.</param>
+/// <param name="PermissionsTaken">For a role that was edited, the permissions it lost.</param>
 public sealed record DiscordAuditEntry(
     string Id,
     DateTimeOffset At,
@@ -86,7 +92,16 @@ public sealed record DiscordAuditEntry(
     string? Name = null,
     int? Count = null,
     DateTimeOffset? Until = null,
-    IReadOnlyList<DiscordRoleChange>? Roles = null);
+    IReadOnlyList<DiscordRoleChange>? Roles = null,
+    IReadOnlyList<DiscordFieldChange>? Changes = null,
+    IReadOnlyList<string>? PermissionsGiven = null,
+    IReadOnlyList<string>? PermissionsTaken = null);
+
+/// <summary>One field of a channel or role, before and after an edit.</summary>
+/// <param name="Field">The field, in a plain word: <c>name</c>, <c>color</c>, <c>slowMode</c>.</param>
+/// <param name="Old">What it was: text, a number or true/false. Null for nothing.</param>
+/// <param name="New">What it became.</param>
+public sealed record DiscordFieldChange(string Field, object? Old, object? New);
 
 /// <summary>
 /// A read of the audit log.

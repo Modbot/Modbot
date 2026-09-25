@@ -1128,7 +1128,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
                 .ToList();
 
             return new DiscordAuditPage(
-                entries.Select(Describe).OfType<DiscordAuditEntry>().ToList(),
+                entries.Select(e => Describe(e, guild)).OfType<DiscordAuditEntry>().ToList(),
                 entries.Count > 0 ? Text(entries[^1].Id) : null);
         }
         catch (HttpException e) when (e.HttpCode == HttpStatusCode.Forbidden)
@@ -1192,7 +1192,12 @@ public sealed class DiscordNetGateway : IDiscordGateway
         user.PremiumSince);
 
     /// <summary>An audit log entry in Modbot's words, or null for a kind Modbot does not record.</summary>
-    private static DiscordAuditEntry? Describe(RestAuditLogEntry entry)
+    /// <remarks>
+    /// An edit names the channel or role only when the edit renamed it: Discord sends the fields that
+    /// changed and nothing else. The server's current name stands in otherwise, so the entry still says
+    /// which role it was.
+    /// </remarks>
+    private static DiscordAuditEntry? Describe(RestAuditLogEntry entry, SocketGuild guild)
     {
         var id = Text(entry.Id);
         var actor = entry.User is { } user ? Text(user.Id) : null;
@@ -1224,14 +1229,20 @@ public sealed class DiscordNetGateway : IDiscordGateway
             ChannelCreateAuditLogData created => new(
                 id, entry.CreatedAt, DiscordAuditKinds.ChannelCreated, actor, Text(created.ChannelId), reason, Name: created.ChannelName),
             ChannelUpdateAuditLogData changed => new(
-                id, entry.CreatedAt, DiscordAuditKinds.ChannelChanged, actor, Text(changed.ChannelId), reason, Name: changed.After.Name),
+                id, entry.CreatedAt, DiscordAuditKinds.ChannelChanged, actor, Text(changed.ChannelId), reason,
+                Name: changed.After.Name ?? guild.GetChannel(changed.ChannelId)?.Name,
+                Changes: ChannelChanges(changed.Before, changed.After)),
             ChannelDeleteAuditLogData removed => new(
                 id, entry.CreatedAt, DiscordAuditKinds.ChannelDeleted, actor, Text(removed.ChannelId), reason, Name: removed.ChannelName),
 
             RoleCreateAuditLogData created => new(
                 id, entry.CreatedAt, DiscordAuditKinds.RoleCreated, actor, Text(created.RoleId), reason, Name: created.Properties.Name),
             RoleUpdateAuditLogData changed => new(
-                id, entry.CreatedAt, DiscordAuditKinds.RoleChanged, actor, Text(changed.RoleId), reason, Name: changed.After.Name),
+                id, entry.CreatedAt, DiscordAuditKinds.RoleChanged, actor, Text(changed.RoleId), reason,
+                Name: changed.After.Name ?? guild.GetRole(changed.RoleId)?.Name,
+                Changes: RoleChanges(changed.Before, changed.After),
+                PermissionsGiven: Permissions(changed.After.Permissions, changed.Before.Permissions),
+                PermissionsTaken: Permissions(changed.Before.Permissions, changed.After.Permissions)),
             RoleDeleteAuditLogData removed => new(
                 id, entry.CreatedAt, DiscordAuditKinds.RoleDeleted, actor, Text(removed.RoleId), reason, Name: removed.Properties.Name),
 
@@ -1239,6 +1250,67 @@ public sealed class DiscordNetGateway : IDiscordGateway
         };
 
         static string? Target(IUser? target) => target is null ? null : Text(target.Id);
+    }
+
+    /// <summary>The fields of a role an edit changed. The icon is left out: its before and after are only file ids.</summary>
+    private static IReadOnlyList<DiscordFieldChange> RoleChanges(RoleEditInfo before, RoleEditInfo after)
+    {
+        var changes = new List<DiscordFieldChange>();
+        Add(changes, "name", before.Name, after.Name);
+        Add(changes, "color", Hex(before.Colors?.PrimaryColor), Hex(after.Colors?.PrimaryColor));
+        Add(changes, "shownSeparately", before.Hoist, after.Hoist);
+        Add(changes, "anyoneCanMention", before.Mentionable, after.Mentionable);
+        return changes;
+
+        static string? Hex(Color? color) => color is { } c ? $"#{c.RawValue:X6}" : null;
+    }
+
+    /// <summary>The fields of a channel an edit changed, in words and units a moderator would use.</summary>
+    private static IReadOnlyList<DiscordFieldChange> ChannelChanges(ChannelInfo before, ChannelInfo after)
+    {
+        var changes = new List<DiscordFieldChange>();
+        Add(changes, "name", before.Name, after.Name);
+        Add(changes, "topic", before.Topic, after.Topic);
+        Add(changes, "slowMode", Seconds(before.SlowModeInterval), Seconds(after.SlowModeInterval));
+        Add(changes, "ageRestricted", before.IsNsfw, after.IsNsfw);
+        Add(changes, "bitrate", Kbps(before.Bitrate), Kbps(after.Bitrate));
+        Add(changes, "userLimit", Limit(before.UserLimit), Limit(after.UserLimit));
+        Add(changes, "voiceRegion", before.RtcRegion, after.RtcRegion);
+        return changes;
+
+        static string? Seconds(int? value) => value switch
+        {
+            null => null,
+            0 => "off",
+            1 => "1 second",
+            _ => $"{value} seconds",
+        };
+
+        static string? Kbps(int? value) => value is { } v ? $"{v / 1000} kbps" : null;
+
+        static string? Limit(int? value) => value switch
+        {
+            null => null,
+            0 => "no limit",
+            _ => value.Value.ToString(CultureInfo.InvariantCulture),
+        };
+    }
+
+    /// <summary>A field Discord said changed. Discord leaves out the ones that did not.</summary>
+    private static void Add(List<DiscordFieldChange> changes, string field, object? before, object? after)
+    {
+        if ((before is not null || after is not null) && !Equals(before, after))
+            changes.Add(new DiscordFieldChange(field, before, after));
+    }
+
+    /// <summary>The permissions in <paramref name="having"/> that <paramref name="lacking"/> does not have.</summary>
+    private static IReadOnlyList<string>? Permissions(GuildPermissions? having, GuildPermissions? lacking)
+    {
+        if (having is not { } has || lacking is not { } lacks)
+            return null;
+
+        var names = has.ToList().Except(lacks.ToList()).Select(p => p.ToString()).ToList();
+        return names.Count > 0 ? names : null;
     }
 
     private Task ServerChangedIn(ulong guildId)
