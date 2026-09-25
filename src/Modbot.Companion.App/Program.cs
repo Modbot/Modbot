@@ -2678,11 +2678,36 @@ internal sealed class CompanionHost : IOverlayListener
         await PairAsync(message);
     }
 
+    /// <summary>
+    /// Brings the window back and puts it in front.
+    /// </summary>
+    /// <remarks>
+    /// Two things, because Windows can refuse the second. A program that does not hold the
+    /// foreground is not allowed to raise itself, so the copy that was just started gives its own
+    /// claim away before it sends this (<see cref="Foreground"/>) — that covers somebody starting
+    /// the client again from the Start menu, which is the case this exists for.
+    /// <para>
+    /// When that claim is not there to give, the lift below still works: putting the window over
+    /// the others is a change to the order they are stacked in, which needs no permission, unlike
+    /// taking the keyboard. It is always put back, in a finally, because a window left over
+    /// everything else for the rest of the session is a worse bug than the one being fixed.
+    /// </para>
+    /// </remarks>
     private void ShowWindow()
     {
         Window.Show();
         Window.WindowState = WindowState.Normal;
-        Window.Activate();
+
+        var wasOverEverything = Window.Topmost;
+        Window.Topmost = true;
+        try
+        {
+            Window.Activate();
+        }
+        finally
+        {
+            Window.Topmost = wasOverEverything;
+        }
     }
 
     private void Render()
@@ -3102,6 +3127,12 @@ internal static class Program
             // Another copy owns the tray icon and the log. Hand it the link -- or, with no link,
             // ask it to show its window, which is what somebody double-clicking the icon again
             // wanted -- and leave. A few tries, because the other copy may still be starting.
+            // Before the message, not after: Windows only lets whoever holds the foreground give
+            // it away, and for this moment that is this copy, because the moderator just started
+            // it. Without this the running copy calls Activate(), Windows declines, and the window
+            // comes back behind whatever was in front of it (Foreground).
+            Foreground.LetTheRunningCopyComeForward();
+
             var message = link ?? CompanionHost.ShowCommand;
             for (var attempt = 0; attempt < 5; attempt++)
             {
