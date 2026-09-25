@@ -54,9 +54,7 @@ public static class AuditNaming
             {
                 ReportedBy = reporters.GetValueOrDefault(e.Id),
                 SubjectName = NameOf(e, people.Names, discord, accounts),
-                ActorName = e.ActorName ?? (e.ActorId is { } actor
-                    ? (IsDiscord(e.ActorPlatform) ? discord : people.Names).GetValueOrDefault(actor)
-                    : null),
+                ActorName = e.ActorName ?? ActorNameOf(e, people.Names, discord, accounts),
                 SubjectTrustRank = e.SubjectKind == SubjectKind.Person && !IsDiscord(e.SubjectPlatform)
                     ? people.Ranks.GetValueOrDefault(e.SubjectId)
                     : null,
@@ -84,8 +82,30 @@ public static class AuditNaming
         return (IsDiscord(entry.SubjectPlatform) ? discord : people).GetValueOrDefault(entry.SubjectId);
     }
 
+    /// <summary>
+    /// The actor's name now, for a fact whose payload kept none. A Modbot account is named from the
+    /// accounts, not from VRChat's people: its id is an account id, and VRChat has never heard of it.
+    /// </summary>
+    private static string? ActorNameOf(
+        AuditEntry entry,
+        IReadOnlyDictionary<string, string> people,
+        IReadOnlyDictionary<string, string> discord,
+        IReadOnlyDictionary<Guid, string> accounts)
+    {
+        if (entry.ActorId is not { } actor)
+            return null;
+
+        if (IsModbot(entry.ActorPlatform))
+            return Guid.TryParse(actor, out var id) ? accounts.GetValueOrDefault(id) : null;
+
+        return (IsDiscord(entry.ActorPlatform) ? discord : people).GetValueOrDefault(actor);
+    }
+
     private static bool IsDiscord(string? platform)
         => string.Equals(platform, nameof(FactPlatform.Discord), StringComparison.Ordinal);
+
+    private static bool IsModbot(string? platform)
+        => string.Equals(platform, nameof(FactPlatform.Modbot), StringComparison.Ordinal);
 
     /// <summary>What the stored profiles say about the VRChat people on a page: names, and trust ranks.</summary>
     private sealed record People(
@@ -159,7 +179,7 @@ public static class AuditNaming
         return names;
     }
 
-    /// <summary>Usernames for the Modbot accounts Modbot's own entries are about.</summary>
+    /// <summary>Usernames for the Modbot accounts on a page: the ones entries are about, and the ones that acted without their name kept.</summary>
     private static async Task<IReadOnlyDictionary<Guid, string>> AccountsAsync(
         ModbotContext db,
         IReadOnlyList<AuditEntry> entries,
@@ -167,7 +187,9 @@ public static class AuditNaming
     {
         var ids = entries
             .Where(e => e.SubjectKind == SubjectKind.Account)
-            .Select(e => Guid.TryParse(e.SubjectId, out var id) ? id : Guid.Empty)
+            .Select(e => e.SubjectId)
+            .Concat(entries.Where(e => e.ActorId is not null && e.ActorName is null && IsModbot(e.ActorPlatform)).Select(e => e.ActorId!))
+            .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
             .Where(id => id != Guid.Empty)
             .Distinct()
             .ToList();

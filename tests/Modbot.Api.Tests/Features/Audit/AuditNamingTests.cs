@@ -81,6 +81,55 @@ public class AuditNamingTests
     }
 
     /// <summary>
+    /// A Modbot account that acted is named from the accounts, even when the fact kept no name for
+    /// it. Its id is an account id, so looking it up among VRChat's people found nobody.
+    /// </summary>
+    [Fact]
+    public async Task AModbotAccountThatActed_IsNamed_EvenWhenTheFactKeptNoName()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var moderator = await host.CreateUserAsync("mira", "hunter2", ModbotPermissions.ViewAuditLog, ct);
+
+        await host.WriteFactAsync(
+            new FactRecord
+            {
+                Type = FactType.AutoModFlagConfirmed,
+                OccurredAt = host.Clock.UtcNow.AddMinutes(-5),
+                SubjectPlatform = FactPlatform.VRChat,
+                SubjectId = "usr_a",
+                ActorPlatform = FactPlatform.Modbot,
+                ActorId = moderator.Id.ToString(),
+                Source = FactSource.Modbot,
+                Data = new JsonObject { ["ruleName"] = "Scams", ["username"] = "mira" },
+            },
+            ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+        var page = await host.GetJsonAsync<AuditPage>("/api/audit?limit=10", cookie, ct);
+
+        Assert.Equal("mira", Assert.Single(page.Entries).ActorName);
+    }
+
+    /// <summary>
+    /// A giveaway, a paused rule and an alert are not people, so their rows must not open a person
+    /// popup on their ids; an operator's own AutoMod change is about their account.
+    /// </summary>
+    [Theory]
+    [InlineData(FactType.GiveawayCreated, SubjectKind.Other)]
+    [InlineData(FactType.GiveawayDrawn, SubjectKind.Other)]
+    [InlineData(FactType.GiveawayPublishFailed, SubjectKind.Other)]
+    [InlineData(FactType.GiveawayEntered, SubjectKind.Person)]
+    [InlineData(FactType.AutoModRulePaused, SubjectKind.Other)]
+    [InlineData(FactType.InsightAlert, SubjectKind.Other)]
+    [InlineData(FactType.AutoModRuleChanged, SubjectKind.Account)]
+    [InlineData(FactType.AiAcknowledged, SubjectKind.Account)]
+    public void WhatAFactIsAbout_ComesFromItsType(string type, SubjectKind kind)
+        => Assert.Equal(kind, FactSubjects.For(type));
+
+    /// <summary>
     /// An event Modbot had no name for when it was recorded keeps VRChat's own word, so a screen
     /// that learns the word later reads every old row correctly — with nothing rewritten.
     /// </summary>

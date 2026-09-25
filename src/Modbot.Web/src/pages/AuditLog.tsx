@@ -405,7 +405,7 @@ function Row({
           />
         </td>
         <td className="whitespace-nowrap px-3 align-top">
-          <div className="flex flex-col py-1 font-mono leading-tight">
+          <div className="flex items-baseline gap-2 py-1 font-mono leading-tight">
             <FactTime entry={entry} />
             <span className="text-muted-foreground/70">{formatDay(entry.occurredAt)}</span>
           </div>
