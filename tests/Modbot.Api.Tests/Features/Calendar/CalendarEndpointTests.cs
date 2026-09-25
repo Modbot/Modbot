@@ -27,14 +27,16 @@ public class CalendarEndpointTests(PostgresFixture db)
         return await ApiTestHost.StartAsync(db);
     }
 
-    private static object Body(ApiTestHost host, string title = "Movie night", bool draft = false, string repeat = "none", string[]? days = null)
+    private static object Body(
+        ApiTestHost host, string title = "Movie night", bool draft = false, string repeat = "none", string[]? days = null,
+        string description = "Bring snacks")
     {
         var start = host.Clock.UtcNow.AddDays(2);
 
         return new
         {
             title,
-            description = "Bring snacks",
+            description,
             startsAt = start.ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
             endsAt = start.AddHours(2).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture),
             timeZone = "UTC",
@@ -148,6 +150,22 @@ public class CalendarEndpointTests(PostgresFixture db)
         var response = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/events", body, manager, Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AnEventForVRChatNeedsADescription_ButADraftDoesNot()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ManageCalendar, Ct);
+
+        var refused = await host.SendJsonAsync(HttpMethod.Post, "/api/calendar/events", Body(host, description: "  "), manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal("VRChat's calendar needs a description.", (await ApiTestHost.BodyOf(refused, Ct)).GetProperty("error").GetString());
+
+        var id = await CreateAsync(host, manager, Body(host, draft: true, description: ""));
+
+        var publish = await host.SendJsonAsync(HttpMethod.Put, $"/api/calendar/events/{id}", Body(host, description: ""), manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, publish.StatusCode);
     }
 
     [Fact]

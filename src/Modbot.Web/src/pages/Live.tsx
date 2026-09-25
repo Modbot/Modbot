@@ -12,6 +12,7 @@ import { DOT, type Tone } from '@/lib/status'
 import { openInstance, openWorld } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage, Stat } from '@/pages/analytics/shared'
+import { Marks } from '@/pages/Members'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -207,19 +208,23 @@ function People({ title, people, muted = false }: { title: string; people: LiveP
           style={{ fontSize: 'var(--text-small)' }}
         >
           {people.map((p) => (
-            <li
-              key={p.userId}
-              className="flex min-h-(--row-h) flex-wrap items-center gap-x-2 px-(--panel-pad) py-1"
-            >
-              <SubjectLink id={p.userId} name={p.displayName} />
-              <TrustRankBadge rank={p.trustRank} />
-              {p.standing !== 'Ordinary' && <Standing standing={p.standing} />}
-              {p.flags.map((flag) => (
-                <span key={flag} className="text-destructive">
-                  {flag}
-                </span>
-              ))}
-              <span className="ml-auto whitespace-nowrap text-muted-foreground">
+            <li key={p.userId} className="flex min-h-(--row-h) items-center gap-2 px-(--panel-pad) py-1">
+              {/* The name and its marks as the member lists draw them: on a phone the name keeps
+                  its line and truncates, and a mark that does not fit is hidden, so the time stays
+                  on the line and every row is one height. */}
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 max-md:flex-nowrap">
+                <SubjectLink id={p.userId} name={p.displayName} className="max-md:max-w-full max-md:shrink-0" />
+                <Marks>
+                  <TrustRankBadge rank={p.trustRank} />
+                  {p.standing !== 'Ordinary' && <Standing standing={p.standing} />}
+                  {p.flags.map((flag) => (
+                    <span key={flag} className="whitespace-nowrap text-destructive">
+                      {flag}
+                    </span>
+                  ))}
+                </Marks>
+              </div>
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground">
                 {p.arrivedAt ? (
                   <>
                     arrived <span className="font-mono">{time(p.arrivedAt)}</span>

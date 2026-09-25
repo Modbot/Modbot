@@ -60,7 +60,7 @@ export function WebhooksPanel() {
   return (
     <SettingsSection id="api-webhooks" title="Webhooks">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (

@@ -20,7 +20,7 @@ import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { Block, Empty, FactList, More, Panel, PopupFrame } from '@/components/subject/shared'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Unread } from '@/components/Freshness'
+import { Ago, Unread } from '@/components/Freshness'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useDiscordRecords } from '@/lib/useDiscordRecords'
 import { useLoad } from '@/lib/useLoad'
@@ -307,6 +307,7 @@ function Overview({
             label="Last seen"
             value={metrics.data.counts.lastSeenAt ? ago(metrics.data.counts.lastSeenAt, metrics.data.now) : '—'}
             note={metrics.data.counts.lastSeenAt ? dateTime(metrics.data.counts.lastSeenAt) : undefined}
+            noteMono
           />
         </StatStrip>
       )}
@@ -444,6 +445,7 @@ function TimeInWorld({ data }: { data: PersonMetrics }) {
         label="Last seen"
         value={c.lastSeenAt ? ago(c.lastSeenAt, data.now) : '—'}
         note={c.lastSeenAt ? dateTime(c.lastSeenAt) : undefined}
+        noteMono
       />
       <Stat label="First seen" value={c.firstSeenAt ? formatDay(c.firstSeenAt) : '—'} />
     </StatStrip>
@@ -539,8 +541,8 @@ function MembershipCard({
               'Demo data.'
             ) : (
               <>
-                Member list synced {ago(view.members.lastSyncedAt, view.members.now)}; ban list synced{' '}
-                {ago(view.bans.lastSyncedAt, view.bans.now)}.
+                Member list synced <Ago iso={view.members.lastSyncedAt} now={view.members.now} />; ban list synced{' '}
+                <Ago iso={view.bans.lastSyncedAt} now={view.bans.now} />.
               </>
             )}
           </p>

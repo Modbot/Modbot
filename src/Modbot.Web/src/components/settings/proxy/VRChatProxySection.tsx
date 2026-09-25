@@ -47,7 +47,7 @@ export function VRChatProxySection() {
   return (
     <SettingsSection id="proxy" title="VRChat Proxy">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (
@@ -85,6 +85,7 @@ function ProxyCard({ settings, onSaved }: { settings: Settings; onSaved: (next: 
   return (
     <SettingsCard
       title="VRChat proxy"
+      span={12}
       footer={
         <>
           <Button size="xs" disabled={busy} onClick={save}>
@@ -103,7 +104,7 @@ function ProxyCard({ settings, onSaved }: { settings: Settings; onSaved: (next: 
         Proxy VRChat images through Modbot
       </Switch>
 
-      <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+      <label className="flex max-w-lg flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
         <span className="text-muted-foreground">Base URL</span>
         <CopyBox text={settings.baseUrl} />
       </label>

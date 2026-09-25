@@ -64,6 +64,11 @@ public static class FactSubjects
         [FactType.SignedOutEverywhere] = SubjectKind.Account,
         [FactType.UpdatesSubscribed] = SubjectKind.Account,
 
+        // An operator's own act, recorded against their account: the rule or setting they changed
+        // is named in the payload.
+        [FactType.AutoModRuleChanged] = SubjectKind.Account,
+        [FactType.AiAcknowledged] = SubjectKind.Account,
+
         // Neither a person nor a place: an invite link, a Modbot role, a case file, a key, a
         // channel, a partition name. Clicking these opens nothing, and pretending otherwise
         // would open the wrong popup on somebody's id-shaped case file number.
@@ -96,6 +101,22 @@ public static class FactSubjects
         [FactType.PlannedEventInstanceFailed] = SubjectKind.Other,
         [FactType.PlannedEventPublishFailed] = SubjectKind.Other,
         [FactType.CalendarFeedRegenerated] = SubjectKind.Other,
+
+        // The subject is the giveaway's id. Entering and withdrawing are about the person on
+        // Discord, so those two keep the default.
+        [FactType.GiveawayCreated] = SubjectKind.Other,
+        [FactType.GiveawayChanged] = SubjectKind.Other,
+        [FactType.GiveawayOpened] = SubjectKind.Other,
+        [FactType.GiveawayClosed] = SubjectKind.Other,
+        [FactType.GiveawayDrawn] = SubjectKind.Other,
+        [FactType.GiveawayCancelled] = SubjectKind.Other,
+        [FactType.GiveawayDeleted] = SubjectKind.Other,
+        [FactType.GiveawayWinnerAnnounced] = SubjectKind.Other,
+        [FactType.GiveawayPublishFailed] = SubjectKind.Other,
+
+        // A rule that paused itself, and a watcher that saw something unusual. Neither is anybody.
+        [FactType.AutoModRulePaused] = SubjectKind.Other,
+        [FactType.InsightAlert] = SubjectKind.Other,
         [FactType.BanReasonsChanged] = SubjectKind.Other,
         [FactType.SyncFailed] = SubjectKind.Other,
         [FactType.RateLimitColdStop] = SubjectKind.Other,

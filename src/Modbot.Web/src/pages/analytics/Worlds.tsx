@@ -43,7 +43,9 @@ export function Worlds() {
           {data.presenceReports === 0 ? (
             <PageMessage>No presence reports in this range.</PageMessage>
           ) : data.presenceReports < THIN ? (
-            <PageMessage>Only {compactNumber(data.presenceReports)} presence reports in this range.</PageMessage>
+            <PageMessage>
+              Only <span className="font-mono">{compactNumber(data.presenceReports)}</span> presence reports in this range.
+            </PageMessage>
           ) : null}
 
           <StatStrip>

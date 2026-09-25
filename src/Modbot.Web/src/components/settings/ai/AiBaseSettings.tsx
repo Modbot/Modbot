@@ -44,7 +44,7 @@ export function AiBaseSettings() {
   return (
     <SettingsSection id="ai-base" title="AI base settings">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (
@@ -167,6 +167,7 @@ function ConnectionCard({
   return (
     <SettingsCard
       title="Connection"
+      span={12}
       footer={
         <>
           <Button size="xs" disabled={busy !== null} onClick={saveOrConfirm}>

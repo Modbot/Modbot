@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
 import { ChartFrame, chartHeight, rechartsTooltip, seriesColor } from '@/components/charts'
 import { api, type MachineUsage } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCountSeries'
 import { SettingsCard } from './SettingsCard'
 import {
@@ -79,9 +80,14 @@ export function MachineUsageCard() {
   const mostMemory = Math.max(0, ...rows.map((r) => r.memory ?? 0))
   const limit = data.memoryLimitBytes
 
+  // As many columns as there are charts, so a host that cannot report its disk leaves no empty
+  // third on the right.
+  const charts = [processor, memory, disk].filter(Boolean).length
+  const columns = charts === 3 ? 'lg:grid-cols-3' : charts === 2 ? 'lg:grid-cols-2' : ''
+
   return (
     <SettingsCard span={12} title="Machine usage">
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className={cn('grid gap-6', columns)}>
         {processor && (
           <Usage
             label="Processor"

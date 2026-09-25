@@ -285,6 +285,35 @@ public class DiscordEventRecorderTests
         Assert.Equal("5002", (await db.DiscordServers.AsNoTracking().SingleAsync(Ct)).AuditLogReadThrough);
     }
 
+    /// <summary>
+    /// "bin changed the Discord role admin." says nothing a moderator can use. The entry keeps what
+    /// Discord said changed, before and after, and the permissions the role gained and lost.
+    /// </summary>
+    [Fact]
+    public async Task AnEditedRole_KeepsWhatChanged_AndThePermissionsGivenAndTaken()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services, canViewAuditLog: true, configure: g =>
+            g.Members = [Member("9", "Mod")]);
+
+        gateway.AuditLog.Add(new DiscordAuditEntry("6001", services.Clock.UtcNow, DiscordAuditKinds.RoleChanged, "9", "r1",
+            Name: "admin",
+            Changes: [new DiscordFieldChange("color", "#FF0000", "#00FF00"), new DiscordFieldChange("shownSeparately", false, true)],
+            PermissionsGiven: ["KickMembers"],
+            PermissionsTaken: ["BanMembers"]));
+        await gateway.RaiseAuditLogChangedAsync(Guild);
+
+        var changed = Assert.Single(await FactsAsync(services), f => f.Type == FactType.DiscordRoleChanged);
+        var data = JsonNode.Parse(changed.Data)!;
+
+        Assert.Equal("admin", data["name"]?.ToString());
+        Assert.Equal("#FF0000", data["changed"]?["color"]?["old"]?.ToString());
+        Assert.Equal("#00FF00", data["changed"]?["color"]?["new"]?.ToString());
+        Assert.True(data["changed"]?["shownSeparately"]?["new"]?.GetValue<bool>());
+        Assert.Equal("KickMembers", data["permissionsGiven"]?[0]?.ToString());
+        Assert.Equal("BanMembers", data["permissionsTaken"]?[0]?.ToString());
+    }
+
     [Fact]
     public async Task ReadingTheAuditLogAgain_RecordsNothingTwice()
     {

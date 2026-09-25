@@ -54,7 +54,7 @@ export function DataSection() {
   return (
     <SettingsSection id="data" title="Host & Database">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (
@@ -158,7 +158,7 @@ function DeploymentCard({ deployment }: { deployment: DataSettings['deployment']
         </Button>
       }
     >
-      <div>
+      <div className="max-w-lg">
         <Row label="Version" value={deployment.version} mono />
         <Row
           label="Version commit"
@@ -221,7 +221,7 @@ function UpdatesCard() {
         ) : undefined
       }
     >
-      <div>
+      <div className="max-w-lg">
         <Row label="Running" value={view?.running ?? '…'} mono={!!view?.running} />
         <Row label="Newest" value={newest} mono={!!view?.on && !!view.newest} />
         {view?.newerAvailable && view.image && (
@@ -293,7 +293,8 @@ function RetentionCard({
       }
     >
       {!keepingEverything && <Hint>Facts past the retention window are destroyed permanently.</Hint>}
-      <div className="grid max-w-lg grid-cols-3 gap-3">
+      {/* items-end: a label that wraps grows upward, and the three inputs stay on one line. */}
+      <div className="grid max-w-lg grid-cols-3 items-end gap-3">
         <Field
           label="Moderation facts (days)"
           placeholder="0"
@@ -445,16 +446,16 @@ function CloudCard() {
         </>
       }
     >
-      <div className="flex flex-col gap-3">
-        <Fact
+      <div className="max-w-lg">
+        <Row
           label="Cloud"
           value={status ? (status.disabled ? 'Turned off' : status.endpoint) : '…'}
           mono={!!status && !status.disabled}
         />
-        <Fact label="Registered" value={status ? (status.registered ? 'Yes' : 'No') : '…'} />
-        <Fact label="Last report" value={reported} mono={!!status?.lastReportAt && !!status.lastReportOk} />
+        <Row label="Registered" value={status ? (status.registered ? 'Yes' : 'No') : '…'} />
+        <Row label="Last report" value={reported} mono={!!status?.lastReportAt && !!status.lastReportOk} />
         {code && (
-          <Fact
+          <Row
             label="Link code"
             value={`${code.code} · ${code.expiresInMinutes} min`}
             mono
@@ -520,8 +521,8 @@ function PublicAddressCard() {
       }
     >
       <form id="public-address-form" onSubmit={save} className="flex flex-col gap-3">
-        <Fact label="Address" value={view ? (view.publicAddress ?? 'Not set') : '…'} mono={!!view?.publicAddress} />
-        <div className="max-w-lg">
+        <div className="flex max-w-lg flex-col gap-3">
+          <Row label="Address" value={view ? (view.publicAddress ?? 'Not set') : '…'} mono={!!view?.publicAddress} />
           <Field
             label="Public address"
             value={value}

@@ -517,6 +517,11 @@ public static class CalendarEndpoints
         if (description.Length > CalendarEvent.MaxDescriptionLength)
             return $"The description is longer than {CalendarEvent.MaxDescriptionLength} characters.";
 
+        // VRChat refuses a calendar event with no description (400, seen 2026-09-25). A draft is
+        // never sent, so it may stay empty until it is published.
+        if (body.PublishToVRChat && !body.Draft && description.Length == 0)
+            return "VRChat's calendar needs a description.";
+
         if (CalendarRepeat.FindZone(body.TimeZone) is not { } zone)
             return "That time zone is not known.";
 
@@ -679,9 +684,21 @@ public static class CalendarEndpoints
         return result.Success ? result.Value : null;
     }
 
+    // Everything a moderator can edit, so a change fact can say what changed. The description,
+    // pictures, category, languages, platforms, tags, visibility and notifying were left out until
+    // 2026-09-25, and an edit to only those was recorded as a change with no difference in it.
     private static JsonObject Describe(CalendarEvent e) => new()
     {
         ["title"] = e.Title,
+        ["description"] = e.Description,
+        ["imageUrl"] = e.ImageUrl,
+        ["vrchatImageId"] = e.VRChatImageId,
+        ["category"] = e.Category,
+        ["languages"] = string.Join(", ", e.Languages),
+        ["platforms"] = string.Join(", ", e.Platforms),
+        ["tags"] = string.Join(", ", e.Tags),
+        ["visibility"] = e.Visibility,
+        ["notifyMembers"] = e.NotifyMembers,
         ["startsAt"] = e.StartsAt.ToString("O", CultureInfo.InvariantCulture),
         ["endsAt"] = e.EndsAt.ToString("O", CultureInfo.InvariantCulture),
         ["timeZone"] = e.TimeZone,

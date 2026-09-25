@@ -1,7 +1,8 @@
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { longDay } from '@/components/charts'
-import { ago } from '@/lib/format'
+import { Ago } from '@/components/Freshness'
+import { Row } from '@/components/ui/fact-row'
 import type { AnalyticsCoverage } from '@/lib/api'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { cn } from '@/lib/utils'
@@ -51,8 +52,21 @@ export function RangePicker({
  * one baseline whether or not they carry a note. A note with no room beside the number goes on
  * its own line above it rather than losing its end, because the end is often the time. On its
  * own it draws its own edge; inside a StatStrip it shares its edges with the others.
+ *
+ * `noteMono` for a note that is a machine value (a day, a time, a share), as on `Row`; a note
+ * that is a sentence stays in the body face, with any time in it set in mono by the caller.
  */
-export function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
+export function Stat({
+  label,
+  value,
+  note,
+  noteMono = false,
+}: {
+  label: string
+  value: string
+  note?: React.ReactNode
+  noteMono?: boolean
+}) {
   return (
     <div
       data-slot="stat"
@@ -64,7 +78,10 @@ export function Stat({ label, value, note }: { label: string; value: string; not
       </div>
       <div className="mt-auto flex flex-wrap items-end gap-x-2 gap-y-1 pt-3">
         {note && (
-          <div className="min-w-0 break-words text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          <div
+            className={cn('min-w-0 break-words text-muted-foreground', noteMono && 'font-mono')}
+            style={{ fontSize: 'var(--text-small)' }}
+          >
             {note}
           </div>
         )}
@@ -158,7 +175,7 @@ export function Toggle<T extends string>({
  */
 export function CoverageNote({ coverage, generatedAt }: { coverage: AnalyticsCoverage; generatedAt: string }) {
   const day = (d: string | null) => (d ? <span className="font-mono">{longDay(d)}</span> : 'nothing recorded')
-  const kept = (days: number) => (days > 0 ? `${days} days` : 'forever')
+  const kept = (days: number) => (days > 0 ? <span className="font-mono">{days} days</span> : 'forever')
 
   return (
     <Card>
@@ -166,34 +183,38 @@ export function CoverageNote({ coverage, generatedAt }: { coverage: AnalyticsCov
         <CardTitle>Data covered</CardTitle>
       </CardHeader>
       <CardContent>
-        <dl className="flex flex-col gap-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          <div className="flex flex-wrap gap-1.5">
-            <dt>Daily totals cover</dt>
-            <dd className="font-medium text-foreground">
-              {day(coverage.dailyTotalsFirstDay)} – {day(coverage.dailyTotalsLastDay)}
-            </dd>
-            <dd>
-              · last updated{' '}
-              <span className="font-medium text-foreground">
-                {coverage.dailyTotalsUpdatedAt ? ago(coverage.dailyTotalsUpdatedAt, generatedAt) : 'never'}
-              </span>
-            </dd>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <dt>The fact log covers</dt>
-            <dd className="font-medium text-foreground">
-              {day(coverage.factFirstDay)} – {day(coverage.factLastDay)}
-            </dd>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <dt>Facts kept for</dt>
-            <dd className="font-medium text-foreground">
-              {coverage.retentionConfigured
-                ? `moderation ${kept(coverage.moderationFactRetentionDays)} · presence ${kept(coverage.presenceFactRetentionDays)}`
-                : 'forever'}
-            </dd>
-          </div>
-        </dl>
+        <div className="max-w-lg text-foreground">
+          <Row
+            label="Daily totals cover"
+            value={
+              <>
+                {day(coverage.dailyTotalsFirstDay)} – {day(coverage.dailyTotalsLastDay)} · last updated{' '}
+                <Ago iso={coverage.dailyTotalsUpdatedAt} now={generatedAt} />
+              </>
+            }
+          />
+          <Row
+            label="The fact log covers"
+            value={
+              <>
+                {day(coverage.factFirstDay)} – {day(coverage.factLastDay)}
+              </>
+            }
+          />
+          <Row
+            label="Facts kept for"
+            value={
+              coverage.retentionConfigured ? (
+                <>
+                  moderation {kept(coverage.moderationFactRetentionDays)} · presence{' '}
+                  {kept(coverage.presenceFactRetentionDays)}
+                </>
+              ) : (
+                'forever'
+              )
+            }
+          />
+        </div>
       </CardContent>
     </Card>
   )

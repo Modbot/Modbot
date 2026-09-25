@@ -148,7 +148,9 @@ function GroupBans({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 md:justify-end">
+      {/* The same row as the filter bar's right end: below `md` the search box gives up its fixed
+          width and fills what the status leaves, so a phone keeps the two on one line. */}
+      <div className="flex flex-wrap items-center gap-2 md:justify-end max-md:[&>[data-slot=input]]:flex-[1_1_10rem]">
         <Input
           value={typed}
           onChange={(e) => setTyped(e.target.value)}

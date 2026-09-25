@@ -70,7 +70,7 @@ export function AiLimitsSettings() {
   return (
     <SettingsSection id="ai-limits" title="AI limits">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (

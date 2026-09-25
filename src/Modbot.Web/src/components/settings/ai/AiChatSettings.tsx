@@ -39,7 +39,7 @@ export function AiChatSettings() {
   return (
     <SettingsSection id="ai-chat" title="AI chat settings">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (

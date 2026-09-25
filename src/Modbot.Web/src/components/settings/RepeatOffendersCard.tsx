@@ -54,6 +54,7 @@ export function RepeatOffendersCard() {
   return (
     <SettingsCard
       title="Repeat offenders"
+      span={12}
       footer={
         <>
           <Button size="xs" disabled={busy || !rules} onClick={save}>
@@ -64,13 +65,15 @@ export function RepeatOffendersCard() {
         </>
       }
     >
-      <NumberField
-        label="Repeat offender threshold"
-        value={threshold}
-        min={2}
-        max={100}
-        onChange={setThreshold}
-      />
+      <div className="max-w-lg">
+        <NumberField
+          label="Repeat offender threshold"
+          value={threshold}
+          min={2}
+          max={100}
+          onChange={setThreshold}
+        />
+      </div>
 
       <div className="flex flex-col gap-1">
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>

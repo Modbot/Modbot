@@ -61,7 +61,7 @@ export function EvidenceSection() {
   return (
     <SettingsSection id="evidence" title="Evidence">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (
@@ -288,7 +288,7 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
 function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
   return (
     <SettingsCard title="What this store is doing">
-      <div>
+      <div className="max-w-lg">
         <Row label="Store marker" value={settings.backend.storeId ?? 'none written yet'} mono={!!settings.backend.storeId} />
         <Row
           label="Delivery"
@@ -360,6 +360,7 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
   return (
     <SettingsCard
       title="File upload limits"
+      span={12}
       footer={
         <>
           <Button size="xs" disabled={!dirty || saving} onClick={save}>
@@ -370,7 +371,7 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
         </>
       }
     >
-      <div className="grid max-w-md gap-3 sm:grid-cols-3">
+      <div className="grid max-w-md items-end gap-3 sm:grid-cols-3">
         <Field label="Per file (MB)" value={perFile} placeholder="100" onChange={setPerFile} />
         <Field label="Per report (MB)" value={perReport} placeholder="0" onChange={setPerReport} />
         <Field

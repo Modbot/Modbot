@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { api, type ApiKeysResponse, type ApiKeyView, type PermissionInfo } from '@/lib/api'
@@ -40,7 +41,7 @@ export function ApiKeysPanel() {
   return (
     <SettingsSection id="api-keys" title="API keys">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (
@@ -81,53 +82,57 @@ function KeyList({ keys, onChanged }: { keys: ApiKeyView[]; onChanged: () => voi
   }
 
   return (
-    <div className="relative overflow-x-auto">
-      <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-        <thead className="bg-strip text-left text-muted-foreground">
-          <tr className="border-b border-b-(length:--hairline)">
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Name</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Key</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Owner</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Permissions</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Created</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Last used</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">Expires</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap">State</th>
-            <th className="h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap" />
-          </tr>
-        </thead>
-        <tbody>
-          {keys.map((k) => (
-            <tr key={k.id} className={cn('border-b border-b-(length:--hairline) last:border-0', k.state !== 'active' && 'text-muted-foreground')}>
-              <td className="px-(--panel-pad) py-1.5 font-medium">{k.name}</td>
-              <td className="px-(--panel-pad) py-1.5 font-mono">{k.start}…</td>
-              <td className="px-(--panel-pad) py-1.5">{k.ownerName ?? '—'}</td>
-              <td className="px-(--panel-pad) py-1.5">{k.permissionNames.join(', ')}</td>
-              <td className="px-(--panel-pad) py-1.5 font-mono whitespace-nowrap">{when(k.createdAt)}</td>
-              <td className={cn('px-(--panel-pad) py-1.5 whitespace-nowrap', k.lastUsedAt && 'font-mono')}>{k.lastUsedAt ? when(k.lastUsedAt) : 'Never'}</td>
-              <td className={cn('px-(--panel-pad) py-1.5 whitespace-nowrap', k.expiresAt && 'font-mono')}>{k.expiresAt ? when(k.expiresAt) : 'Never'}</td>
-              <td className="px-(--panel-pad) py-1.5">
-                <Badge variant={k.state === 'active' ? 'secondary' : 'outline'}>
-                  {k.state === 'active' ? 'Active' : k.state === 'expired' ? 'Expired' : 'Revoked'}
-                </Badge>
-              </td>
-              <td className="px-(--panel-pad) py-1.5 text-right">
-                {k.state !== 'revoked' && (
-                  <Button size="xs" variant="ghost" onClick={() => revoke(k.id)}>
-                    Revoke
-                  </Button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <>
+      <Table
+        pinFirst
+        head={
+          <>
+            <Th>Name</Th>
+            <Th>Key</Th>
+            <Th>Owner</Th>
+            <Th>Permissions</Th>
+            <Th>Created</Th>
+            <Th>Last used</Th>
+            <Th>Expires</Th>
+            <Th>State</Th>
+            <Th />
+          </>
+        }
+      >
+        {keys.map((k) => (
+          <Tr key={k.id} className={cn(k.state !== 'active' && 'text-muted-foreground')}>
+            <Td className="font-medium">
+              <div className="max-w-[16rem] truncate" title={k.name}>
+                {k.name}
+              </div>
+            </Td>
+            <Td className="font-mono">{k.start}…</Td>
+            <Td>{k.ownerName ?? '—'}</Td>
+            <Td>{k.permissionNames.join(', ')}</Td>
+            <Td className="font-mono">{when(k.createdAt)}</Td>
+            <Td className={cn(k.lastUsedAt && 'font-mono')}>{k.lastUsedAt ? when(k.lastUsedAt) : 'Never'}</Td>
+            <Td className={cn(k.expiresAt && 'font-mono')}>{k.expiresAt ? when(k.expiresAt) : 'Never'}</Td>
+            <Td>
+              <Badge variant={k.state === 'active' ? 'secondary' : 'outline'}>
+                {k.state === 'active' ? 'Active' : k.state === 'expired' ? 'Expired' : 'Revoked'}
+              </Badge>
+            </Td>
+            <Td className="text-right">
+              {k.state !== 'revoked' && (
+                <Button size="xs" variant="ghost" onClick={() => revoke(k.id)}>
+                  Revoke
+                </Button>
+              )}
+            </Td>
+          </Tr>
+        ))}
+      </Table>
       {problem && (
         <div className="border-t border-t-(length:--hairline) p-(--panel-pad)">
           <Outcome tone="problem">{problem}</Outcome>
         </div>
       )}
-    </div>
+    </>
   )
 }
 

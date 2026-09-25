@@ -480,19 +480,51 @@ public sealed class DiscordEventRecorder
             case DiscordAuditKinds.ChannelCreated:
                 return [Make(FactType.DiscordChannelCreated, With(("name", entry.Name)))];
             case DiscordAuditKinds.ChannelChanged:
-                return [Make(FactType.DiscordChannelChanged, With(("name", entry.Name)))];
+                return [Make(FactType.DiscordChannelChanged, Edited(With(("name", entry.Name)), entry))];
             case DiscordAuditKinds.ChannelDeleted:
                 return [Make(FactType.DiscordChannelDeleted, With(("name", entry.Name)))];
             case DiscordAuditKinds.RoleCreated:
                 return [Make(FactType.DiscordRoleCreated, With(("name", entry.Name)))];
             case DiscordAuditKinds.RoleChanged:
-                return [Make(FactType.DiscordRoleChanged, With(("name", entry.Name)))];
+                return [Make(FactType.DiscordRoleChanged, Edited(With(("name", entry.Name)), entry))];
             case DiscordAuditKinds.RoleDeleted:
                 return [Make(FactType.DiscordRoleDeleted, With(("name", entry.Name)))];
 
             default:
                 return [];
         }
+    }
+
+    /// <summary>
+    /// What an edit changed, in the <c>changed: {field: {old, new}}</c> shape every producer uses, and
+    /// for a role the permissions it gained and lost.
+    /// </summary>
+    private static JsonObject Edited(JsonObject payload, DiscordAuditEntry entry)
+    {
+        if (entry.Changes is { Count: > 0 } changes)
+        {
+            var changed = new JsonObject();
+            foreach (var change in changes)
+                changed[change.Field] = new JsonObject { ["old"] = Node(change.Old), ["new"] = Node(change.New) };
+
+            payload["changed"] = changed;
+        }
+
+        if (entry.PermissionsGiven is { Count: > 0 } given)
+            payload["permissionsGiven"] = new JsonArray([.. given.Select(p => (JsonNode?)JsonValue.Create(p))]);
+
+        if (entry.PermissionsTaken is { Count: > 0 } taken)
+            payload["permissionsTaken"] = new JsonArray([.. taken.Select(p => (JsonNode?)JsonValue.Create(p))]);
+
+        return payload;
+
+        static JsonNode? Node(object? value) => value switch
+        {
+            null => null,
+            bool b => JsonValue.Create(b),
+            int i => JsonValue.Create(i),
+            _ => JsonValue.Create(value.ToString()),
+        };
     }
 
     /// <summary>

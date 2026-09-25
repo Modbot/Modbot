@@ -6,6 +6,7 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 const changesOffenders = (event: Parameters<typeof changesBans>[0]) => changesBans(event) || changesMembers(event)
 import { Card, CardAction, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Ago } from '@/components/Freshness'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { SubjectLink } from '@/components/facts'
 import { StatusPill } from '@/components/SubjectHistory'
@@ -95,7 +96,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
       >
         <p>{list.rule}</p>
         <p className="mt-1">
-          {list.lastRunAt ? `Counts rebuilt ${ago(list.lastRunAt, list.now)}.` : 'Counts not built yet.'}
+          {list.lastRunAt ? <>Counts rebuilt <Ago iso={list.lastRunAt} now={list.now} />.</> : 'Counts not built yet.'}
         </p>
       </div>
 

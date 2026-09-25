@@ -61,12 +61,13 @@ export function Freshness({
 
 /**
  * How long ago something happened, said inside a sentence: "Last synced 9h ago". The time is a
- * reading, so it is set in mono like every other timestamp; with no time the sentence says "never",
- * which is a word and stays in the sentence's own face.
+ * reading, so it is set in mono like every other timestamp, and kept on one line so "3h" and "ago"
+ * never land on two; with no time the sentence says "never", which is a word and stays in the
+ * sentence's own face.
  */
 export function Ago({ iso, now }: { iso: string | null; now: string }) {
   const text = ago(iso, now)
-  return iso ? <span className="font-mono">{text}</span> : text
+  return iso ? <span className="font-mono whitespace-nowrap">{text}</span> : text
 }
 
 /** A list that cannot be trusted yet, said on its strip after a warning square. */

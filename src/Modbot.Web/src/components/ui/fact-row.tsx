@@ -25,14 +25,17 @@ export function Row({
   )
 }
 
-/** A label above a value, for a few facts laid out side by side. `mono` as on `Row`. */
+/**
+ * A label above a value, for a few facts laid out side by side. `mono` as on `Row`. The value wraps,
+ * so a sentence such as "Not measurable yet" reads whole in a narrow column at VR.
+ */
 export function Fact({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="min-w-0">
       <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
         {label}
       </div>
-      <div className={cn('truncate font-medium tabular-nums', mono && 'font-mono')} title={value}>
+      <div className={cn('font-medium break-words tabular-nums', mono && 'font-mono')} title={value}>
         {value}
       </div>
     </div>
