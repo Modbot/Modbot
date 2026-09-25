@@ -98,7 +98,7 @@ export function DiscordLinkCard({
 
             {can(me, 'ManageDiscordLinks') && (
               <div>
-                <Button type="button" variant="outline" size="sm" onClick={unlink} disabled={busy}>
+                <Button type="button" variant="outline" size="xs" onClick={unlink} disabled={busy}>
                   Unlink
                 </Button>
               </div>

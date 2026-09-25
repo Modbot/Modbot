@@ -192,7 +192,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
     if (m) onOpenSubject(m.userId)
   })
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
@@ -285,22 +285,21 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                           <div className="size-7 shrink-0 rounded-full bg-muted" />
                         )}
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <SubjectLink id={m.userId} name={m.displayName} onOpen={onOpenSubject} />
-                            {m.eighteenPlus && (
-                              <Badge variant="ok" className="font-mono" title="18+ verified">
-                                18+
-                              </Badge>
-                            )}
-                            <TrustRankBadge rank={m.trustRank} />
-                            {m.isRepresenting && (
-                              <span
-                                className="text-muted-foreground"
-                                style={{ fontSize: 'var(--text-tiny)' }}
-                              >
-                                representing
-                              </span>
-                            )}
+                          <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
+                            <SubjectLink id={m.userId} name={m.displayName} onOpen={onOpenSubject} className="max-md:max-w-full max-md:shrink-0" />
+                            <Marks>
+                              {m.eighteenPlus && (
+                                <Badge variant="ok" className="font-mono" title="18+ verified">
+                                  18+
+                                </Badge>
+                              )}
+                              <TrustRankBadge rank={m.trustRank} />
+                              {m.isRepresenting && (
+                                <span className="text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
+                                  representing
+                                </span>
+                              )}
+                            </Marks>
                           </div>
                           {m.plainName && (
                             <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -383,10 +382,34 @@ function DiscordAccount({ account }: { account: LinkedDiscord }) {
   )
 }
 
-export function Empty({ children }: { children: React.ReactNode }) {
+/**
+ * The marks after a name in a list's first column: 18+, the trust rank, "representing".
+ *
+ * On a phone that column is pinned and capped, so the name keeps its line and the marks take what
+ * is left of it. A mark that does not fit whole goes to a second line the box cuts off, so a row is
+ * always one height and never shows half a badge; the popup the row opens lists them all. The box
+ * is one badge high: the badge's line of `--text-small` at 1.35, its 1px of padding above and
+ * below and its two hairlines. From `md` up the box is not drawn and the marks sit on the name's
+ * line.
+ */
+export function Marks({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden md:contents"
+      style={{ height: 'calc(var(--text-small) * 1.35 + 2px + 2 * var(--hairline))' }}
+    >
+      {/* Holds the first line, so a first mark too wide for it goes down with the rest. */}
+      <span aria-hidden className="-mr-1.5 h-full w-0 md:hidden" />
+      {children}
+    </span>
+  )
+}
+
+/** A page that has no list to show yet: loading, or `danger` when the list could not be read. */
+export function Empty({ tone, children }: { tone?: 'neutral' | 'danger'; children: React.ReactNode }) {
   return (
     <Card>
-      <EmptyRow>{children}</EmptyRow>
+      <EmptyRow tone={tone}>{children}</EmptyRow>
     </Card>
   )
 }

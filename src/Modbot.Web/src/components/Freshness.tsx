@@ -51,12 +51,22 @@ export function Freshness({
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
       <span>
-        Last synced {ago(coverage.lastSyncedAt, coverage.now)}
+        Last synced <Ago iso={coverage.lastSyncedAt} now={coverage.now} />
         {coverage.sweepInProgress ? '. A new sweep is running now' : ''}.
       </span>
       <span>{counted} at the last full sweep.</span>
     </div>
   )
+}
+
+/**
+ * How long ago something happened, said inside a sentence: "Last synced 9h ago". The time is a
+ * reading, so it is set in mono like every other timestamp; with no time the sentence says "never",
+ * which is a word and stays in the sentence's own face.
+ */
+export function Ago({ iso, now }: { iso: string | null; now: string }) {
+  const text = ago(iso, now)
+  return iso ? <span className="font-mono">{text}</span> : text
 }
 
 /** A list that cannot be trusted yet, said on its strip after a warning square. */

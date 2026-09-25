@@ -5,6 +5,7 @@ import type { CurrentUser } from '@/lib/api'
 import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import type { StatusRowId } from '@/lib/status'
+import { IS_MAC, keyNames } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
 import type { Density, Theme } from '@/lib/preferences'
@@ -67,7 +68,7 @@ export function Sidebar({
       <button
         type="button"
         onClick={onSearch}
-        className="mx-3 mb-3 flex h-(--control-h) items-center gap-2 rounded-sm border border-(length:--hairline) border-input bg-card px-2 text-muted-foreground hover:text-foreground"
+        className="mx-3 mb-3 flex h-(--control-h) shrink-0 items-center gap-2 rounded-sm border border-(length:--hairline) border-input bg-card px-2 text-muted-foreground hover:text-foreground"
       >
         <Search className="size-3.5 shrink-0" />
         <span className="flex-1 text-left">Search</span>
@@ -100,20 +101,22 @@ export function Sidebar({
             {badges?.[item.id] ? (
               <span
                 className="rounded-sm bg-primary px-1 font-mono text-primary-foreground"
-                style={{ fontSize: '0.6875rem', lineHeight: '1.125rem' }}
+                style={{ fontSize: 'var(--text-tiny)', lineHeight: 1.5 }}
                 aria-label={`${badges[item.id]} waiting`}
               >
                 {badges[item.id]}
               </span>
             ) : null}
-            {/* The go-to chord, where the page has one. Not on a phone, which has no keyboard. */}
+            {/* The go-to chord, where the page has one. Not on a phone, which has no keyboard. The
+                keys side by side with no "then" between, which the palette's boxes have room for
+                and a VR row with a long name does not. */}
             {GO_TO_KEYS[item.id] && (
               <span
                 aria-hidden
                 className="hidden shrink-0 font-mono text-muted-foreground/60 lg:inline"
-                style={{ fontSize: 'calc(var(--text-small) - 1px)' }}
+                style={{ fontSize: 'var(--text-tiny)' }}
               >
-                g {GO_TO_KEYS[item.id]}
+                {keyNames(`g ${GO_TO_KEYS[item.id]}`, IS_MAC).join(' ')}
               </span>
             )}
           </button>
@@ -369,7 +372,7 @@ function BottomButton({ icon, label, onClick }: { icon: React.ReactNode; label: 
       style={{ minHeight: 'var(--control-h)' }}
     >
       {icon}
-      <span style={{ fontSize: '0.6875rem' }}>{label}</span>
+      <span style={{ fontSize: 'var(--text-tiny)' }}>{label}</span>
     </button>
   )
 }

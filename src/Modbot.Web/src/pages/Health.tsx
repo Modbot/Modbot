@@ -1,7 +1,7 @@
 import { Children, useEffect, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
-import { Row } from '@/components/settings/fields'
+import { Row } from '@/components/ui/fact-row'
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { statusOf } from '@/lib/gate'
 import { discordState, DOT, TONE, type Tone } from '@/lib/status'
@@ -99,7 +99,7 @@ export function Health() {
     }
   }, [loaded])
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
   if (!health) return <Empty>Loading…</Empty>
 
   const status = statusOf(health.gate.status)
@@ -129,7 +129,7 @@ export function Health() {
         )}
         {/* Row's value takes its colour from around it and its label stays muted, so the wrapper
             sets the value's tone. */}
-        <div className="mt-1 max-w-xs text-foreground">
+        <div className="mt-1 max-w-lg text-foreground">
           <Row
             label="Last signed in"
             value={health.gate.lastSignedInAt ? new Date(health.gate.lastSignedInAt).toLocaleString() : 'Never'}
@@ -780,32 +780,59 @@ function Logs({ logs }: { logs: LogHealth }) {
   const storeProblem = logs.storeError !== null || logs.storedDropped > 0
   const cloudProblem = logs.sendingToCloud && (logs.cloudError !== null || logs.cloudDropped > 0)
 
+  const cloudState = !logs.cloudAllowed || !logs.sendingToCloud ? (
+    'Off'
+  ) : logs.cloudSentAt ? (
+    <>
+      Last sent <span className="font-mono whitespace-nowrap">{new Date(logs.cloudSentAt).toLocaleString()}</span>
+    </>
+  ) : logs.cloudRegistered ? (
+    'Nothing sent yet'
+  ) : (
+    'Not registered yet'
+  )
+
   return (
     <Part title="Logs">
-      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-        <dt>Stored</dt>
-        <dd className={cn('tabular-nums', storeProblem ? 'text-warn' : 'text-foreground')}>
-          {logs.storing ? `${logs.storedWritten.toLocaleString()} written` : 'Not writing'}
-          {logs.storedDropped > 0 && ` · ${logs.storedDropped.toLocaleString()} dropped`}
-          {logs.storeError && ` · ${logs.storeError}`}
-        </dd>
-
-        <dt>To Modbot Cloud</dt>
-        <dd className={cn('tabular-nums', cloudProblem ? 'text-warn' : 'text-foreground')}>
-          {!logs.cloudAllowed
-            ? 'Off'
-            : !logs.sendingToCloud
-              ? 'Off'
-              : logs.cloudSentAt
-                ? `Last sent ${new Date(logs.cloudSentAt).toLocaleString()}`
-                : logs.cloudRegistered
-                  ? 'Nothing sent yet'
-                  : 'Not registered yet'}
-          {logs.sendingToCloud && logs.cloudWaiting > 0 && ` · ${logs.cloudWaiting.toLocaleString()} waiting`}
-          {logs.cloudDropped > 0 && ` · ${logs.cloudDropped.toLocaleString()} dropped`}
-          {logs.sendingToCloud && logs.cloudError && ` · ${logs.cloudError}`}
-        </dd>
-      </dl>
+      {/* As on the VRChat part, each value takes its tone from a wrapper and its label stays muted. */}
+      <div className="max-w-lg">
+        <div className={storeProblem ? 'text-warn' : 'text-foreground'}>
+          <Row
+            label="Stored"
+            value={
+              <>
+                {logs.storing ? <Count n={logs.storedWritten} what="written" /> : 'Not writing'}
+                {logs.storedDropped > 0 && <> · <Count n={logs.storedDropped} what="dropped" /></>}
+              </>
+            }
+          />
+        </div>
+        <div className={cloudProblem ? 'text-warn' : 'text-foreground'}>
+          <Row
+            label="To Modbot Cloud"
+            value={
+              <>
+                {cloudState}
+                {logs.sendingToCloud && logs.cloudWaiting > 0 && <> · <Count n={logs.cloudWaiting} what="waiting" /></>}
+                {logs.cloudDropped > 0 && <> · <Count n={logs.cloudDropped} what="dropped" /></>}
+              </>
+            }
+          />
+        </div>
+      </div>
+      {/* An error is a sentence, so it reads from the left on a line of its own under the counts,
+          like the Discord bot's last problem, and not squeezed into a right-aligned value. */}
+      {logs.storeError && <p className="max-w-3xl text-warn">{logs.storeError}</p>}
+      {logs.sendingToCloud && logs.cloudError && <p className="max-w-3xl text-warn">{logs.cloudError}</p>}
     </Part>
+  )
+}
+
+/** "18,234 written": the number in mono, kept on one line with its word. */
+function Count({ n, what }: { n: number; what: string }) {
+  return (
+    <span className="whitespace-nowrap">
+      <span className="font-mono">{n.toLocaleString()}</span> {what}
+    </span>
   )
 }

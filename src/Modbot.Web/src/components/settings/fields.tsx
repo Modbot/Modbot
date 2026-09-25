@@ -6,44 +6,8 @@ import { cn } from '@/lib/utils'
 
 /** The small furniture every settings card is built from. */
 
-/**
- * A label and a value on one line, for lists of read-only facts. `mono` for a machine value (an
- * id, a version, an address, a count, a size, a time); a word or a name stays in the body face.
- */
-export function Row({
-  label,
-  value,
-  title,
-  mono = false,
-}: {
-  label: string
-  value: React.ReactNode
-  title?: string
-  mono?: boolean
-}) {
-  return (
-    <div className="flex justify-between gap-4 py-1" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className={cn('min-w-0 text-right break-words tabular-nums', mono && 'font-mono')} title={title}>
-        {value}
-      </span>
-    </div>
-  )
-}
-
-/** A label above a value, for a few facts laid out side by side. `mono` as on `Row`. */
-export function Fact({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {label}
-      </div>
-      <div className={cn('truncate font-medium tabular-nums', mono && 'font-mono')} title={value}>
-        {value}
-      </div>
-    </div>
-  )
-}
+export { Checkbox } from '@/components/ui/checkbox'
+export { Fact, Row } from '@/components/ui/fact-row'
 
 export function Field({
   label,
@@ -147,44 +111,6 @@ export function PasswordField({
 }
 
 /**
- * A tick box with its label beside it, for one choice among several that are each on or off. The
- * box is half the control height, so it grows with the density, and the tick is drawn on the
- * input itself: two edges of a turned box in the primary's foreground.
- */
-export function Checkbox({
-  checked,
-  disabled,
-  onChange,
-  children,
-}: {
-  checked: boolean
-  disabled?: boolean
-  onChange: (checked: boolean) => void
-  children: React.ReactNode
-}) {
-  return (
-    <label
-      className={cn('flex items-center gap-2', disabled ? 'opacity-50' : 'cursor-pointer')}
-      style={{ fontSize: 'var(--text-small)' }}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        className={cn(
-          'relative size-[calc(var(--control-h)/2)] shrink-0 cursor-[inherit] appearance-none rounded-sm border border-(length:--hairline) border-input bg-card transition-colors',
-          'outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-          'checked:border-primary checked:bg-primary',
-          'before:absolute before:top-[42%] before:left-1/2 before:h-[55%] before:w-[30%] before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:border-r-2 before:border-b-2 before:border-primary-foreground before:opacity-0 checked:before:opacity-100',
-        )}
-      />
-      {children}
-    </label>
-  )
-}
-
-/**
  * An on/off switch with its label beside it. The track is two thirds of the control height and
  * the row is a control high, so the switch grows with the density the way a button does, and at
  * VR the row is the 48px target.
@@ -259,11 +185,20 @@ export function Outcome({
   )
 }
 
-/** "Loading…" and load failures, filling the row a section's cards would have taken. */
-export function Placeholder({ children }: { children: React.ReactNode }) {
+/**
+ * "Loading…" and load failures, filling the row a section's cards would have taken. A failure
+ * passes `tone="danger"`.
+ */
+export function Placeholder({
+  tone,
+  children,
+}: {
+  tone?: 'neutral' | 'danger'
+  children: React.ReactNode
+}) {
   return (
     <Card className="col-span-12">
-      <EmptyRow>{children}</EmptyRow>
+      <EmptyRow tone={tone}>{children}</EmptyRow>
     </Card>
   )
 }

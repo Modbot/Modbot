@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { Badge } from '@/components/ui/badge'
-import { DailyBars, DailyLine, Legend, RankedList, compactNumber, dateTime, longDay, percent } from '@/components/charts'
+import { DailyBars, DailyLine, RankedList, compactNumber, dateTime, longDay, percent } from '@/components/charts'
 import { api, type MemberCountPeaks } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { InsightsPanel } from './InsightsPanel'
@@ -69,17 +69,15 @@ export function MyGroup() {
 
           <PanelGrid className="lg:grid-cols-2">
             <Panel title="Joins and leaves per day">
-              <Legend items={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]} />
-              <div className="mt-2">
-                <DailyBars
-                  from={data.from}
-                  to={data.to}
-                  series={[
-                    { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
-                    { key: 'left', label: 'left', points: data.left, slot: 2 },
-                  ]}
-                />
-              </div>
+              <DailyBars
+                from={data.from}
+                to={data.to}
+                legend={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]}
+                series={[
+                  { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
+                  { key: 'left', label: 'left', points: data.left, slot: 2 },
+                ]}
+              />
             </Panel>
 
             <Panel title="Joined minus left, running">
@@ -108,17 +106,15 @@ export function MyGroup() {
               />
             </StatStrip>
             <div className="p-(--panel-pad)">
-              <Legend items={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]} />
-              <div className="mt-2">
-                <DailyBars
-                  from={data.from}
-                  to={data.to}
-                  series={[
-                    { key: 'invites', label: 'invites sent', points: data.invitesSent, slot: 1 },
-                    { key: 'requests', label: 'join requests', points: data.requestsReceived, slot: 5 },
-                  ]}
-                />
-              </div>
+              <DailyBars
+                from={data.from}
+                to={data.to}
+                legend={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]}
+                series={[
+                  { key: 'invites', label: 'invites sent', points: data.invitesSent, slot: 1 },
+                  { key: 'requests', label: 'join requests', points: data.requestsReceived, slot: 5 },
+                ]}
+              />
             </div>
           </Panel>
 

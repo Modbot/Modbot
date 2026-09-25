@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { DailyBars, DailyLine, Heatmap, Legend, RankedList, compactNumber, longDay, minutes, percent } from '@/components/charts'
+import { DailyBars, DailyLine, Heatmap, RankedList, compactNumber, longDay, minutes, percent } from '@/components/charts'
 import { PersonLink } from '@/components/facts'
 import { api, type ServerContributor } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
@@ -67,17 +67,15 @@ export function MyServer() {
 
           <PanelGrid className="lg:grid-cols-2">
             <Panel title="Joins and leaves per day">
-              <Legend items={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]} />
-              <div className="mt-2">
-                <DailyBars
-                  from={data.from}
-                  to={data.to}
-                  series={[
-                    { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
-                    { key: 'left', label: 'left', points: data.left, slot: 2 },
-                  ]}
-                />
-              </div>
+              <DailyBars
+                from={data.from}
+                to={data.to}
+                legend={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]}
+                series={[
+                  { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
+                  { key: 'left', label: 'left', points: data.left, slot: 2 },
+                ]}
+              />
             </Panel>
 
             <Panel title="Messages per day">
@@ -169,56 +167,52 @@ export function MyServer() {
           </PanelGrid>
 
           <Panel title="Moderation actions per day">
-            <Legend
-              items={[
+            <DailyBars
+              from={data.from}
+              to={data.to}
+              stacked
+              legend={[
                 { label: 'Bans', slot: 2 },
                 { label: 'Kicks', slot: 3 },
                 { label: 'Timeouts', slot: 4 },
                 { label: 'Messages removed', slot: 5 },
               ]}
+              series={[
+                { key: 'bans', label: 'bans', points: data.bans, slot: 2 },
+                { key: 'kicks', label: 'kicks', points: data.kicks, slot: 3 },
+                { key: 'timeouts', label: 'timeouts', points: data.timeouts, slot: 4 },
+                { key: 'removed', label: 'messages removed', points: data.messagesRemoved, slot: 5 },
+              ]}
             />
-            <div className="mt-2">
-              <DailyBars
-                from={data.from}
-                to={data.to}
-                stacked
-                series={[
-                  { key: 'bans', label: 'bans', points: data.bans, slot: 2 },
-                  { key: 'kicks', label: 'kicks', points: data.kicks, slot: 3 },
-                  { key: 'timeouts', label: 'timeouts', points: data.timeouts, slot: 4 },
-                  { key: 'removed', label: 'messages removed', points: data.messagesRemoved, slot: 5 },
-                ]}
-              />
-            </div>
+          </Panel>
+
+          <Panel title="New members still here" flush>
+            <Table
+              head={
+                <>
+                  <Th>After</Th>
+                  <Th className="text-right">Joined</Th>
+                  <Th className="text-right">Still here</Th>
+                  <Th className="text-right">Still active</Th>
+                </>
+              }
+            >
+              {data.newMembers.map((n) => (
+                <Tr key={n.days}>
+                  <Td>{n.days} days</Td>
+                  <Td className="text-right font-mono">{compactNumber(n.joined)}</Td>
+                  <Td className="text-right font-mono">
+                    {compactNumber(n.stillHere)} <span className="text-muted-foreground">{percent(n.stillHere, n.joined)}</span>
+                  </Td>
+                  <Td className="text-right font-mono">
+                    {compactNumber(n.stillActive)} <span className="text-muted-foreground">{percent(n.stillActive, n.joined)}</span>
+                  </Td>
+                </Tr>
+              ))}
+            </Table>
           </Panel>
 
           <PanelGrid className="lg:grid-cols-2">
-            <Panel title="New members still here" flush>
-              <Table
-                head={
-                  <>
-                    <Th>After</Th>
-                    <Th className="text-right">Joined</Th>
-                    <Th className="text-right">Still here</Th>
-                    <Th className="text-right">Still active</Th>
-                  </>
-                }
-              >
-                {data.newMembers.map((n) => (
-                  <Tr key={n.days}>
-                    <Td>{n.days} days</Td>
-                    <Td className="text-right font-mono">{compactNumber(n.joined)}</Td>
-                    <Td className="text-right font-mono">
-                      {compactNumber(n.stillHere)} <span className="text-muted-foreground">{percent(n.stillHere, n.joined)}</span>
-                    </Td>
-                    <Td className="text-right font-mono">
-                      {compactNumber(n.stillActive)} <span className="text-muted-foreground">{percent(n.stillActive, n.joined)}</span>
-                    </Td>
-                  </Tr>
-                ))}
-              </Table>
-            </Panel>
-
             <Panel title="Member health" flush>
               {/* The margin is the room for the strip's lower line, which the table's head would cover. */}
               <StatStrip className="m-0 mb-(--hairline) grid-cols-3 xl:grid-cols-3">
@@ -235,15 +229,15 @@ export function MyServer() {
                 <PeopleTable people={data.health.quiet} />
               )}
             </Panel>
-          </PanelGrid>
 
-          <Panel title="Top contributors" flush>
-            {data.topContributors.length === 0 ? (
-              <EmptyRow>No messages in this range.</EmptyRow>
-            ) : (
-              <PeopleTable people={data.topContributors} />
-            )}
-          </Panel>
+            <Panel title="Top contributors" flush>
+              {data.topContributors.length === 0 ? (
+                <EmptyRow>No messages in this range.</EmptyRow>
+              ) : (
+                <PeopleTable people={data.topContributors} />
+              )}
+            </Panel>
+          </PanelGrid>
 
           <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
         </PanelGrid>

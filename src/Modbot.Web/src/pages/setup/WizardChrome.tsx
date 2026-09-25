@@ -1,5 +1,6 @@
 import type * as React from 'react'
 import { CardAction, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 
 /**
@@ -109,10 +110,8 @@ export function Field({
 }
 
 /**
- * A checkbox with its label beside it, for the two screens outside the app shell.
- *
- * The settings pages have their own; this one lives here because the wizard and the invite page
- * share the wizard's card and not the settings chrome.
+ * The tick box on the two screens outside the app shell (sign-in and joining), which is the same
+ * `Checkbox` the settings use, named here so those pages take all their furniture from one place.
  */
 export function Tickbox({
   id,
@@ -126,16 +125,9 @@ export function Tickbox({
   children: React.ReactNode
 }) {
   return (
-    <label htmlFor={id} className="flex items-start gap-2" style={{ fontSize: 'var(--text-small)' }}>
-      <input
-        id={id}
-        type="checkbox"
-        className="mt-0.5"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <span>{children}</span>
-    </label>
+    <Checkbox id={id} checked={checked} onChange={onChange}>
+      {children}
+    </Checkbox>
   )
 }
 

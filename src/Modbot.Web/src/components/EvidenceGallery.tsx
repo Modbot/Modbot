@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { CardFooter } from '@/components/ui/card'
 import { api, ApiError, type EvidenceDelivery, type EvidenceItem } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { bytes } from '@/components/settings/units'
@@ -220,41 +221,41 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
   }
 
   return (
-    <div
-      className="flex flex-col gap-2 border-t-(length:--hairline) bg-strip px-(--panel-pad) py-2"
-    >
-      <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-        <input
-          ref={input}
-          type="file"
-          accept={delivery.acceptedTypes.join(',')}
-          disabled={busy || !delivery.uploadsAllowed}
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) void upload(file)
-          }}
-          className="hidden"
-          id={`attach-${caseId}`}
-        />
-        <Button asChild size="sm" variant="outline" disabled={busy || !delivery.uploadsAllowed}>
-          <label htmlFor={`attach-${caseId}`} className={busy || !delivery.uploadsAllowed ? 'pointer-events-none opacity-50' : 'cursor-pointer'}>
-            {busy ? 'Uploading…' : 'Attach a screenshot or video'}
-          </label>
-        </Button>
-        <span className="text-muted-foreground">
-          {delivery.acceptedTypes.join(', ')}
-          {delivery.maxFileBytes > 0 ? ` · up to ${bytes(delivery.maxFileBytes)} each` : ''}
-        </span>
-      </div>
+    <CardFooter className="flex-wrap gap-x-2 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
+      <input
+        ref={input}
+        type="file"
+        accept={delivery.acceptedTypes.join(',')}
+        disabled={busy || !delivery.uploadsAllowed}
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) void upload(file)
+        }}
+        className="hidden"
+        id={`attach-${caseId}`}
+      />
+      <Button asChild size="xs" variant="outline" disabled={busy || !delivery.uploadsAllowed}>
+        <label htmlFor={`attach-${caseId}`} className={busy || !delivery.uploadsAllowed ? 'pointer-events-none opacity-50' : 'cursor-pointer'}>
+          {busy ? 'Uploading…' : 'Attach a screenshot or video'}
+        </label>
+      </Button>
+      <span className="text-muted-foreground">
+        {delivery.acceptedTypes.join(', ')}
+        {delivery.maxFileBytes > 0 ? ` · up to ${bytes(delivery.maxFileBytes)} each` : ''}
+      </span>
 
+      {/* The refusal and the upload's progress each take a line of their own under the button, and
+          only while there is something to say, so the strip at rest is one control high. */}
       {!delivery.uploadsAllowed && (
-        <p className="text-warn" style={{ fontSize: 'var(--text-small)' }}>
-          Uploads are refused right now: {delivery.storeExplanation}
-        </p>
+        <p className="basis-full text-warn">Uploads are refused right now: {delivery.storeExplanation}</p>
       )}
 
-      <ProgressLine progress={progress} />
-    </div>
+      {progress.phase !== 'idle' && (
+        <div className="basis-full">
+          <ProgressLine progress={progress} />
+        </div>
+      )}
+    </CardFooter>
   )
 }
 

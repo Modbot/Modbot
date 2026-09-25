@@ -199,8 +199,12 @@ export function matchKeys(
   return {}
 }
 
-/** The keys as a person reads them: `Ctrl K`, `⌘ K`, `g then m`, `?`. */
-export function describeKeys(keys: string, mac: boolean): string {
+/**
+ * Each key of a chord as a person reads it: `g m` is `['G', 'M']`, `mod+k` is `['Ctrl K']`. Every
+ * key hint on screen is spelled from this, so a key never reads `g` in one place and `G` in another:
+ * `Kbd` draws one box per name, and the sidebar's go-to chords are the names side by side.
+ */
+export function keyNames(keys: string, mac: boolean): string[] {
   const names: Record<string, string> = {
     mod: mac ? '⌘' : 'Ctrl',
     alt: mac ? '⌥' : 'Alt',
@@ -214,15 +218,17 @@ export function describeKeys(keys: string, mac: boolean): string {
     ' ': 'Space',
   }
 
-  return keys
-    .split(' ')
-    .map((combo) =>
-      combo
-        .split('+')
-        .map((part) => names[part] ?? (part.length === 1 ? part.toUpperCase() : part))
-        .join(' '),
-    )
-    .join(' then ')
+  return keys.split(' ').map((combo) =>
+    combo
+      .split('+')
+      .map((part) => names[part] ?? (part.length === 1 ? part.toUpperCase() : part))
+      .join(' '),
+  )
+}
+
+/** The keys as a person reads them: `Ctrl K`, `⌘ K`, `G then M`, `?`. */
+export function describeKeys(keys: string, mac: boolean): string {
+  return keyNames(keys, mac).join(' then ')
 }
 
 // ── The listener ────────────────────────────────────────────────────────────────────────────

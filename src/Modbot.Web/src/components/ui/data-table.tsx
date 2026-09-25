@@ -2,6 +2,8 @@ import { cn } from '@/lib/utils'
 
 /**
  * A table run to its panel's edges: the column names on the strip, one hairline between rows.
+ * The column names are one line with 0.5rem above and below it and a row is `--row-h`, taller
+ * only when a cell holds more than that: the same two heights as every other table in the app.
  * `pinFirst` keeps the first column in place while a phone scrolls the rest sideways, for tables
  * whose first column names the row.
  */
@@ -27,7 +29,7 @@ export function Table({
 }
 
 export function Th({ className, ...props }: React.ComponentProps<'th'>) {
-  return <th className={cn('px-(--panel-pad) py-1.5 font-normal whitespace-nowrap', className)} {...props} />
+  return <th className={cn('px-(--panel-pad) py-2 font-normal whitespace-nowrap', className)} {...props} />
 }
 
 export function Tr({ className, ...props }: React.ComponentProps<'tr'>) {
@@ -35,5 +37,5 @@ export function Tr({ className, ...props }: React.ComponentProps<'tr'>) {
 }
 
 export function Td({ className, ...props }: React.ComponentProps<'td'>) {
-  return <td className={cn('px-(--panel-pad) py-1 whitespace-nowrap', className)} {...props} />
+  return <td className={cn('px-(--panel-pad) whitespace-nowrap', className)} {...props} />
 }

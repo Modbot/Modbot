@@ -215,7 +215,7 @@ function Palette({
             aria-activedescendant={items[cursor] ? `palette-${items[cursor].id}` : undefined}
             className="h-[calc(var(--control-h)+var(--panel-pad))] w-full bg-transparent outline-none placeholder:text-muted-foreground"
           />
-          <Kbd keys="escape" className="hidden lg:inline-flex" />
+          <Kbd keys="escape" />
           {/* Escape is the way out on a keyboard; this is the way out without one. */}
           <button
             type="button"

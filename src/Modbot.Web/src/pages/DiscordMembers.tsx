@@ -153,7 +153,7 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
     if (m) openDiscordPerson(m.userId)
   })
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))

@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Tabs } from '@/components/ui/tabs'
 import {
   ApiError,
@@ -56,7 +57,7 @@ export function Users({ me }: { me: CurrentUser }) {
 
   const current = useMemo(() => users?.find((u) => u.id === selected) ?? null, [users, selected])
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
   if (!users) return <Empty>Loading…</Empty>
 
   return (
@@ -68,59 +69,54 @@ export function Users({ me }: { me: CurrentUser }) {
       </div>
 
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Username</TableHead>
-              <TableHead>VRChat account</TableHead>
-              <TableHead>Roles</TableHead>
-              <TableHead>Last sign-in</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((u) => (
-              <TableRow
-                key={u.id}
-                className={cn(!u.isDeleted && 'cursor-pointer', u.isDisabled && 'text-muted-foreground')}
-                onClick={() => !u.isDeleted && setSelected(u.id)}
-              >
-                <TableCell className="font-medium">
-                  {u.username}
-                  {u.id === me.id && (
-                    <span className="ml-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                      you
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {u.vrChatLinked ? (
-                    <span title={u.vrChatUserId ?? undefined}>{u.vrChatDisplayName ?? u.vrChatUserId}</span>
-                  ) : (
-                    <Badge variant="outline">Not linked yet</Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1">
-                    {u.roles.map((r) => (
-                      <Badge key={r.id} variant="secondary">
-                        {r.name}
-                      </Badge>
-                    ))}
-                    {u.roles.length === 0 && <span className="text-muted-foreground">No roles</span>}
-                  </div>
-                </TableCell>
-                <TableCell className={cn(u.lastLoginAt && 'font-mono')}>{u.lastLoginAt ? formatDay(u.lastLoginAt) : 'Never'}</TableCell>
-                <TableCell className="text-right">
-                  {u.isDeleted ? (
-                    <Badge variant="destructive">Deleted</Badge>
-                  ) : (
-                    u.isDisabled && <Badge variant="destructive">Disabled</Badge>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
+        <Table
+          head={
+            <>
+              <Th>Username</Th>
+              <Th>VRChat account</Th>
+              <Th>Roles</Th>
+              <Th>Last sign-in</Th>
+              <Th />
+            </>
+          }
+        >
+          {users.map((u) => (
+            <Tr
+              key={u.id}
+              className={cn(!u.isDeleted && 'cursor-pointer hover:bg-muted/40', u.isDisabled && 'text-muted-foreground')}
+              onClick={() => !u.isDeleted && setSelected(u.id)}
+            >
+              <Td className="font-medium">
+                {u.username}
+                {u.id === me.id && <span className="ml-2 text-muted-foreground">you</span>}
+              </Td>
+              <Td>
+                {u.vrChatLinked ? (
+                  <span title={u.vrChatUserId ?? undefined}>{u.vrChatDisplayName ?? u.vrChatUserId}</span>
+                ) : (
+                  <Badge variant="outline">Not linked yet</Badge>
+                )}
+              </Td>
+              <Td>
+                <div className="flex flex-wrap gap-1">
+                  {u.roles.map((r) => (
+                    <Badge key={r.id} variant="secondary">
+                      {r.name}
+                    </Badge>
+                  ))}
+                  {u.roles.length === 0 && <span className="text-muted-foreground">No roles</span>}
+                </div>
+              </Td>
+              <Td className={cn(u.lastLoginAt && 'font-mono')}>{u.lastLoginAt ? formatDay(u.lastLoginAt) : 'Never'}</Td>
+              <Td className="text-right">
+                {u.isDeleted ? (
+                  <Badge variant="destructive">Deleted</Badge>
+                ) : (
+                  u.isDisabled && <Badge variant="destructive">Disabled</Badge>
+                )}
+              </Td>
+            </Tr>
+          ))}
         </Table>
       </Card>
 
@@ -319,26 +315,16 @@ function RolePicker({
         {roles.map((r) => {
           const allowed = canGive(r)
           return (
-            <label
+            <Checkbox
               key={r.id}
-              className={cn('flex items-start gap-2 px-2 py-1', !allowed && 'opacity-60')}
-              style={{ fontSize: 'var(--text-small)' }}
+              disabled={!allowed}
               title={allowed ? undefined : 'You can only give people permissions you have yourself.'}
+              checked={value.includes(r.id)}
+              onChange={(on) => onChange(on ? [...value, r.id] : value.filter((id) => id !== r.id))}
             >
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                disabled={!allowed}
-                checked={value.includes(r.id)}
-                onChange={(e) =>
-                  onChange(e.target.checked ? [...value, r.id] : value.filter((id) => id !== r.id))
-                }
-              />
-              <span>
-                <span className="font-medium">{r.name}</span>
-                {r.description && <span className="text-muted-foreground"> · {r.description}</span>}
-              </span>
-            </label>
+              <span className="font-medium">{r.name}</span>
+              {r.description && <span className="text-muted-foreground"> · {r.description}</span>}
+            </Checkbox>
           )
         })}
       </div>

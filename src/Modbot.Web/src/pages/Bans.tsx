@@ -25,7 +25,7 @@ import {
   type GroupBanQuery,
 } from '@/lib/api'
 import { Freshness } from '@/components/Freshness'
-import { Empty } from '@/pages/Members'
+import { Empty, Marks } from '@/pages/Members'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -138,7 +138,7 @@ function GroupBans({
 
   const demo = useDemo()
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
   if (!list) return <Empty>Loading…</Empty>
 
   const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
@@ -148,12 +148,12 @@ function GroupBans({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 md:justify-end">
         <Input
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           placeholder="Search by name or id"
-          className="w-64"
+          className="w-56"
           aria-label="Search bans"
         />
         <Select
@@ -215,9 +215,11 @@ function GroupBans({
                         <div className="size-7 shrink-0 rounded-full bg-muted" />
                       )}
                       <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} />
-                          <TrustRankBadge rank={ban.trustRank} />
+                        <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
+                          <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} className="max-md:max-w-full max-md:shrink-0" />
+                          <Marks>
+                            <TrustRankBadge rank={ban.trustRank} />
+                          </Marks>
                         </div>
                         {ban.plainName && (
                           <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>

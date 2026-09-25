@@ -112,6 +112,10 @@ No `rounded-lg` or `rounded-2xl` on new work. Borders are one hairline (`var(--h
 cards on the landing page carry one soft shadow (`--shadow`); inside the apps, cards carry
 `shadow-sm` at most. Nothing glows.
 
+The moderator app narrows this for its own screens: its controls are `rounded-sm` and its panels
+square, so the controls read as parts mounted on a flat panel (`2026-09-25-console-look-design.md`
+§19).
+
 ## 6. Writing on a screen
 
 The project's existing rules hold: controls, not explanations (`CLAUDE.md`); plain words a

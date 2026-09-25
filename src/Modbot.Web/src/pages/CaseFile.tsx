@@ -355,24 +355,23 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
 
   return (
     <>
-      <Section title="The profile at the time" note={snapshot.explanation}>
-        {snapshot.canCaptureAgain && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="xs" variant="outline" onClick={captureAgain} disabled={busy}>
-              {busy ? 'Capturing…' : 'Refresh and capture again'}
-            </Button>
-            <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              Once only.
-            </span>
-          </div>
-        )}
-
-        {problem && (
-          <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-            {problem}
-          </p>
-        )}
-
+      <Section
+        title="The profile at the time"
+        note={snapshot.explanation}
+        action={
+          snapshot.canCaptureAgain && (
+            <>
+              <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                Once only.
+              </span>
+              <Button size="xs" variant="outline" onClick={captureAgain} disabled={busy}>
+                {busy ? 'Capturing…' : 'Refresh and capture again'}
+              </Button>
+            </>
+          )
+        }
+      >
+        {/* First in the section, so the banner can run to its edges. */}
         {profile ? <ProfileBlock profile={profile} /> : null}
 
         {snapshot.banListEntry && (
@@ -380,6 +379,12 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
             On the group's ban list
             {snapshot.banListEntry.bannedAt ? ` since ${formatDay(snapshot.banListEntry.bannedAt)}` : ''}
             {snapshot.banListEntry.liftedAt ? `; lifted by ${formatDay(snapshot.banListEntry.liftedAt)}` : ''}.
+          </p>
+        )}
+
+        {problem && (
+          <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+            {problem}
           </p>
         )}
       </Section>

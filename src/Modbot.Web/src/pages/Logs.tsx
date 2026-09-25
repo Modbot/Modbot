@@ -14,6 +14,21 @@ import { Empty } from './Members'
 const PAGE_SIZE = 100
 
 /**
+ * A day box. The date is set in mono like every other time on the page, and an empty box reads its
+ * `mm/dd/yyyy` in the muted colour of the search box's placeholder. The browser's calendar button
+ * is drawn at the size and weight of the dropdown chevrons beside it; it stays, because in Chromium
+ * it is the only way to open the calendar with the mouse. The width is in `ch` so the whole date
+ * fits at every density.
+ */
+function dayBox(value: string) {
+  return cn(
+    'w-[calc(10ch+3.5rem)] font-mono',
+    '[&::-webkit-calendar-picker-indicator]:ms-1.5 [&::-webkit-calendar-picker-indicator]:size-3.5 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60',
+    !value && 'text-muted-foreground focus:text-foreground',
+  )
+}
+
+/**
  * The colour each level is written in, as a ramp from quiet to loud: grey, blue, plain, amber,
  * red, and red filled in. Every level looks different from every other one, and the two that
  * matter — a warning and an error — carry a hue nothing else on the row uses.
@@ -186,8 +201,8 @@ export function Logs() {
           </Select>
         )}
 
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36" aria-label="From" />
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36" aria-label="To" />
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={dayBox(from)} aria-label="From" />
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={dayBox(to)} aria-label="To" />
 
         <Button variant="outline" onClick={() => setReloads((n) => n + 1)}>
           Refresh

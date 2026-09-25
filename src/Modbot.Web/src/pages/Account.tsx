@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,8 +56,15 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
               'Not linked yet.'
             )}
           </div>
-          <details>
-            <summary className="cursor-pointer text-primary" style={{ fontSize: 'var(--text-small)' }}>
+          <details className="group">
+            <summary
+              className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+              style={{ fontSize: 'var(--text-small)' }}
+            >
+              <ChevronRight
+                className="size-3.5 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                aria-hidden
+              />
               Link a different account
             </summary>
             <div className="mt-3">
@@ -253,7 +261,7 @@ function Contact({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) 
           <ErrorText>{error}</ErrorText>
         </CardContent>
         <CardFooter className="flex-wrap gap-3">
-          <Button type="submit" size="xs" variant="outline" disabled={busy}>
+          <Button type="submit" size="xs" disabled={busy}>
             {busy ? 'Saving…' : 'Save'}
           </Button>
           {done && <span className="text-ok" style={{ fontSize: 'var(--text-small)' }}>Saved.</span>}

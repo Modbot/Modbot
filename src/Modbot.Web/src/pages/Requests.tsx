@@ -103,7 +103,7 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
 
       <Card>
         {error ? (
-          <EmptyRow>{error}</EmptyRow>
+          <EmptyRow tone="danger">{error}</EmptyRow>
         ) : loading && !list ? (
           <EmptyRow>Loading…</EmptyRow>
         ) : rows.length === 0 ? (

@@ -5,7 +5,11 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
 /**
  * Who a VRChat person is, the way their own profile page shows it: the banner across the top,
  * the picture over its bottom edge, then the name, pronouns and the badge row, and the group
- * they represent under that.
+ * they represent under that. A person with no banner starts at the picture, with nothing drawn
+ * where the banner would have been.
+ *
+ * It goes first in a block padded by `--panel-pad`, and the banner runs out to that block's edges
+ * with a hairline under it, the same as a world's picture in its popup.
  *
  * One block for the person popup's left column and the case file's snapshot, so the same person
  * looks the same in both. `pictureUrl` is the picture the server chose as the best it has; nothing
@@ -45,20 +49,27 @@ export function ProfileHeader({
 
   return (
     <div className={cn('flex flex-col', className)}>
-      <div className="aspect-[3/1] max-h-48 w-full overflow-hidden bg-muted">
-        {banner && <img src={banner} alt="" className="size-full object-cover" referrerPolicy="no-referrer" />}
-      </div>
+      {banner && (
+        <img
+          src={banner}
+          alt=""
+          className="-mx-(--panel-pad) -mt-(--panel-pad) aspect-[3/1] max-h-48 w-[calc(100%+2*var(--panel-pad))] max-w-none border-b border-b-(length:--hairline) bg-muted object-cover"
+          referrerPolicy="no-referrer"
+        />
+      )}
 
-      <div className="-mt-8 ml-3">
+      {/* Over the banner's edge, the picture is cut out of the panel by a ring of the panel's own
+          colour. */}
+      <div className={cn(banner && '-mt-8')}>
         {picture ? (
           <img
             src={picture}
             alt=""
-            className="size-16 rounded-full bg-muted object-cover ring-4 ring-background"
+            className={cn('size-16 rounded-full bg-muted object-cover', banner && 'ring-4 ring-card')}
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="size-16 rounded-full bg-muted ring-4 ring-background" />
+          <div className={cn('size-16 rounded-full bg-muted', banner && 'ring-4 ring-card')} />
         )}
       </div>
 

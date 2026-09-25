@@ -25,17 +25,21 @@ export function General() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Row label="Source" value={<Link href={REPO}>{REPO.replace('https://', '')}</Link>} />
-          <Row label="Licence" value={<Link href={`${REPO}/blob/master/LICENSE`}>AGPL-3.0</Link>} />
-          <Row
-            label="Privacy policy"
-            value={<Link href={`${REPO}/blob/master/PRIVACY_POLICY.md`}>PRIVACY_POLICY.md</Link>}
-          />
-          <Row label="Documentation" value={<Link href={DOCS_URL}>{DOCS_URL.replace('https://', '')}</Link>} />
-          <Row
-            label="Your servers"
-            value={<Link href={myModbotOrigin()}>{myModbotOrigin().replace('https://', '')}</Link>}
-          />
+          {/* Row's label stays muted and its value takes the colour around it; the width keeps each
+              value near its label. */}
+          <div className="max-w-lg text-foreground">
+            <Row label="Source" value={<Link href={REPO}>{REPO.replace('https://', '')}</Link>} />
+            <Row label="Licence" value={<Link href={`${REPO}/blob/master/LICENSE`}>AGPL-3.0</Link>} />
+            <Row
+              label="Privacy policy"
+              value={<Link href={`${REPO}/blob/master/PRIVACY_POLICY.md`}>PRIVACY_POLICY.md</Link>}
+            />
+            <Row label="Documentation" value={<Link href={DOCS_URL}>{DOCS_URL.replace('https://', '')}</Link>} />
+            <Row
+              label="Your servers"
+              value={<Link href={myModbotOrigin()}>{myModbotOrigin().replace('https://', '')}</Link>}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -46,10 +50,12 @@ export function General() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Row label="Name" value="Sarmad Wahab" />
-          <Row label="Username" value="bin" />
-          <Row label="Website" value={<Link href="https://bin.moe">bin.moe</Link>} />
-          <Row label="GitHub" value={<Link href="https://github.com/binn">github.com/binn</Link>} />
+          <div className="max-w-lg text-foreground">
+            <Row label="Name" value="Sarmad Wahab" />
+            <Row label="Username" value="bin" />
+            <Row label="Website" value={<Link href="https://bin.moe">bin.moe</Link>} />
+            <Row label="GitHub" value={<Link href="https://github.com/binn">github.com/binn</Link>} />
+          </div>
         </CardContent>
       </Card>
     </PanelGrid>

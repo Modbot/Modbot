@@ -6,14 +6,7 @@ import { Chip } from '@/components/ui/chip'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import {
   api,
   ApiError,
@@ -23,7 +16,6 @@ import {
   type AiCallLogPage,
 } from '@/lib/api'
 import { count, money } from '@/lib/aiSpend'
-import { cn } from '@/lib/utils'
 import { Outcome } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
@@ -99,9 +91,12 @@ export function AiCallLogSettings() {
         span={12}
         flush
         footer={
-          (page?.next != null || error) && (
+          // Before the first page arrives a failure stands in for the list; after it, a failed
+          // "Show more" is said here beside the button.
+          page &&
+          (page.next != null || error) && (
             <>
-              {page?.next != null && (
+              {page.next != null && (
                 <Button size="xs" variant="outline" disabled={busy} onClick={next}>
                   {busy ? 'Loading…' : 'Show more'}
                 </Button>
@@ -170,70 +165,61 @@ export function AiCallLogSettings() {
           </Button>
         </div>
 
-        {!page && !error ? (
-          <EmptyRow>Loading…</EmptyRow>
+        {!page ? (
+          <EmptyRow tone={error ? 'danger' : 'neutral'}>{error ?? 'Loading…'}</EmptyRow>
         ) : rows.length === 0 ? (
           <EmptyRow>No calls.</EmptyRow>
         ) : (
-          <div className="relative overflow-x-auto">
-            <Table style={{ fontSize: 'var(--text-small)' }}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>Feature</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Outcome</TableHead>
-                  <TableHead className="text-right">In</TableHead>
-                  <TableHead className="hidden text-right lg:table-cell">Cached</TableHead>
-                  <TableHead className="text-right">Out</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
-                  <TableHead className="text-right">Took</TableHead>
-                  <TableHead className="hidden md:table-cell">Asked by</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-mono whitespace-nowrap">{new Date(c.at).toLocaleString()}</TableCell>
-                    <TableCell>{c.featureLabel}</TableCell>
-                    <TableCell className="max-w-[18rem] whitespace-normal font-mono">
-                      {c.modelAnswered ?? c.modelAsked}
-                      {c.fallback && (
-                        <Badge variant="outline" className="ml-1.5">
-                          Fallback
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className={cn('whitespace-nowrap', tone(c.outcome))}>
-                      {c.outcomeLabel}
-                      {c.error && (
-                        <div className="max-w-[22rem] whitespace-normal text-muted-foreground">{c.error}</div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{count(c.inputTokens)}</TableCell>
-                    <TableCell className="hidden text-right font-mono lg:table-cell">
-                      {count(c.cachedInputTokens)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{count(c.outputTokens)}</TableCell>
-                    <TableCell className="text-right font-mono">
-                      {c.cost === null ? '—' : money(c.cost)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{took(c.durationMs)}</TableCell>
-                    <TableCell className="hidden md:table-cell">{c.username ?? '—'}</TableCell>
-                    <TableCell className="text-right">
-                      {c.flagged && <Badge variant="secondary">Flagged</Badge>}
-                      {c.hasText && (
-                        <Button size="sm" variant="outline" className="ml-1.5" onClick={() => setOpen(c.id)}>
-                          Open
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <Table
+            head={
+              <>
+                <Th>When</Th>
+                <Th>Feature</Th>
+                <Th>Model</Th>
+                <Th>Outcome</Th>
+                <Th className="text-right">In</Th>
+                <Th className="hidden text-right lg:table-cell">Cached</Th>
+                <Th className="text-right">Out</Th>
+                <Th className="text-right">Cost</Th>
+                <Th className="text-right">Took</Th>
+                <Th className="hidden md:table-cell">Asked by</Th>
+                <Th />
+              </>
+            }
+          >
+            {rows.map((c) => (
+              <Tr key={c.id}>
+                <Td className="font-mono">{new Date(c.at).toLocaleString()}</Td>
+                <Td>{c.featureLabel}</Td>
+                <Td className="max-w-[18rem] whitespace-normal font-mono">
+                  {c.modelAnswered ?? c.modelAsked}
+                  {c.fallback && (
+                    <Badge variant="outline" className="ml-1.5">
+                      Fallback
+                    </Badge>
+                  )}
+                </Td>
+                <Td className={tone(c.outcome)}>
+                  {c.outcomeLabel}
+                  {c.error && <div className="max-w-[22rem] whitespace-normal text-muted-foreground">{c.error}</div>}
+                </Td>
+                <Td className="text-right font-mono">{count(c.inputTokens)}</Td>
+                <Td className="hidden text-right font-mono lg:table-cell">{count(c.cachedInputTokens)}</Td>
+                <Td className="text-right font-mono">{count(c.outputTokens)}</Td>
+                <Td className="text-right font-mono">{c.cost === null ? '—' : money(c.cost)}</Td>
+                <Td className="text-right font-mono">{took(c.durationMs)}</Td>
+                <Td className="hidden md:table-cell">{c.username ?? '—'}</Td>
+                <Td className="text-right">
+                  {c.flagged && <Badge variant="secondary">Flagged</Badge>}
+                  {c.hasText && (
+                    <Button size="sm" variant="outline" className="ml-1.5" onClick={() => setOpen(c.id)}>
+                      Open
+                    </Button>
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </Table>
         )}
       </SettingsCard>
 
@@ -277,11 +263,11 @@ function CallDialog({ id }: { id: string }) {
       className="max-w-[900px]"
       bodyClassName="flex max-h-[76vh] flex-col gap-3 overflow-y-auto"
     >
-      <Outcome tone="problem">{error}</Outcome>
-
-      {!detail && !error ? (
-        <EmptyRow className="px-0">Loading…</EmptyRow>
-      ) : detail ? (
+      {!detail ? (
+        <EmptyRow className="px-0" tone={error ? 'danger' : 'neutral'}>
+          {error ?? 'Loading…'}
+        </EmptyRow>
+      ) : (
         <>
           <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
             <span>{detail.call.featureLabel}</span>
@@ -293,7 +279,7 @@ function CallDialog({ id }: { id: string }) {
           <Block title="Sent" text={detail.prompt} />
           <Block title="Answered" text={detail.answer} />
         </>
-      ) : null}
+      )}
     </DialogContent>
   )
 }

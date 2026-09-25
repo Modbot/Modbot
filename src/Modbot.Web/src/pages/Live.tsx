@@ -203,7 +203,7 @@ function People({ title, people, muted = false }: { title: string; people: LiveP
       </CardHeader>
       {people.length > 0 && (
         <ul
-          className={cn('divide-y-(--hairline) divide-border', muted && 'text-muted-foreground')}
+          className={cn('divide-y-(length:--hairline) divide-border', muted && 'text-muted-foreground')}
           style={{ fontSize: 'var(--text-small)' }}
         >
           {people.map((p) => (

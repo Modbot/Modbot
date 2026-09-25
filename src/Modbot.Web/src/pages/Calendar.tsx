@@ -257,7 +257,7 @@ function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entr
             <div
               key={day.toISOString()}
               className={cn(
-                'min-h-16 border-r border-b border-(length:--hairline) p-1 sm:min-h-24 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0',
+                'min-h-16 border-r border-r-(length:--hairline) border-b border-b-(length:--hairline) p-1 sm:min-h-24 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0',
                 !inMonth && 'bg-strip/50',
               )}
             >

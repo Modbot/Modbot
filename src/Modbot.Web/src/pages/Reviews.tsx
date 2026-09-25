@@ -10,7 +10,7 @@ import { SubjectLink } from '@/components/facts'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type Person, type ReviewEvidence, type ReviewList, type ReviewView } from '@/lib/api'
 import { PROPOSED_ACTION_LABELS, type ProposedAction } from '@/lib/autoMod'
-import { cn } from '@/lib/utils'
+import { Row } from '@/components/ui/fact-row'
 
 /**
  * Reviews of a moderator's pattern (spec 5.8.5).
@@ -60,7 +60,7 @@ export function Reviews({
   if (error) {
     return (
       <Card>
-        <EmptyRow>{error}</EmptyRow>
+        <EmptyRow tone="danger">{error}</EmptyRow>
       </Card>
     )
   }
@@ -88,9 +88,13 @@ export function Reviews({
         <span className="flex-1" />
         {list && (
           <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {list.lastRunAt
-              ? `Detection last ran ${ago(list.lastRunAt, list.now)}`
-              : 'Detection has not run yet'}
+            {list.lastRunAt ? (
+              <>
+                Detection last ran <span className="font-mono">{ago(list.lastRunAt, list.now)}</span>
+              </>
+            ) : (
+              'Detection has not run yet'
+            )}
           </span>
         )}
       </div>
@@ -182,9 +186,21 @@ function ReviewCard({
           )}
         </span>
         <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {review.state === 'Open'
-            ? `Opened ${ago(review.openedAt, now)}${review.updatedAt !== review.openedAt ? `, numbers updated ${ago(review.updatedAt, now)}` : ''}`
-            : `Closed ${ago(review.closedAt ?? review.updatedAt, now)} by ${review.closedByUsername ?? 'somebody'}`}
+          {review.state === 'Open' ? (
+            <>
+              Opened <span className="font-mono">{ago(review.openedAt, now)}</span>
+              {review.updatedAt !== review.openedAt && (
+                <>
+                  , numbers updated <span className="font-mono">{ago(review.updatedAt, now)}</span>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              Closed <span className="font-mono">{ago(review.closedAt ?? review.updatedAt, now)}</span> by{' '}
+              {review.closedByUsername ?? 'somebody'}
+            </>
+          )}
         </span>
       </CardHeader>
 
@@ -199,8 +215,13 @@ function ReviewCard({
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               <span>
-                Covers {formatDay(review.windowStart)}
-                {formatDay(review.windowStart) !== formatDay(review.windowEnd) ? ` – ${formatDay(review.windowEnd)}` : ''}
+                Covers <span className="font-mono">{formatDay(review.windowStart)}</span>
+                {formatDay(review.windowStart) !== formatDay(review.windowEnd) && (
+                  <>
+                    {' – '}
+                    <span className="font-mono">{formatDay(review.windowEnd)}</span>
+                  </>
+                )}
               </span>
               <button type="button" className="hover:underline" onClick={() => setShowFacts((v) => !v)}>
                 {showFacts ? 'Hide' : 'Show'} the {review.evidence.factIds.length} fact id{review.evidence.factIds.length === 1 ? '' : 's'}
@@ -272,18 +293,17 @@ const KIND_WORDS: Record<string, string> = {
   rejections: 'join requests turned away',
 }
 
-/** The numbers, laid out, so the sentence above can be checked against them. */
 /** What a review opened by a moderation flag was opened on (AI moderation design §19). */
 function FlagEvidence({ review }: { review: ReviewView }) {
   const e = review.evidence
 
   return (
-    <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      {e.ruleName && <Pair label="Rule" value={`${e.ruleName} v${e.ruleVersion ?? 1}`} />}
-      {e.target && <Pair label="Checked" value={e.target} />}
-      {e.language && <Pair label="Language" value={e.language} />}
+    <Facts>
+      {e.ruleName && <Row label="Rule" value={`${e.ruleName} v${e.ruleVersion ?? 1}`} />}
+      {e.target && <Row label="Checked" value={e.target} />}
+      {e.language && <Row label="Language" value={e.language} />}
       {e.picture ? (
-        <Pair
+        <Row
           label="Picture"
           value={
             e.pictureUrl ? (
@@ -296,28 +316,29 @@ function FlagEvidence({ review }: { review: ReviewView }) {
           }
         />
       ) : (
-        e.matched && <Pair label="Matched" value={`“${e.matched}”`} />
+        e.matched && <Row label="Matched" value={`“${e.matched}”`} />
       )}
-      {e.reason && <Pair label="Reason" value={e.reason} />}
+      {e.reason && <Row label="Reason" value={e.reason} />}
       {e.aiOpinion && (
-        <Pair label="AI" value={`${e.aiOpinion === 'keep' ? 'Keep' : 'Dismiss'}${e.aiOpinionReason ? ` — ${e.aiOpinionReason}` : ''}`} />
+        <Row label="AI" value={`${e.aiOpinion === 'keep' ? 'Keep' : 'Dismiss'}${e.aiOpinionReason ? ` — ${e.aiOpinionReason}` : ''}`} />
       )}
       {e.aiProposedAction && e.aiProposedAction !== 'none' && (
-        <Pair label="AI proposed" value={PROPOSED_ACTION_LABELS[e.aiProposedAction as ProposedAction] ?? e.aiProposedAction} />
+        <Row label="AI proposed" value={PROPOSED_ACTION_LABELS[e.aiProposedAction as ProposedAction] ?? e.aiProposedAction} />
       )}
-    </dl>
+    </Facts>
   )
 }
 
+/** The numbers, laid out, so the sentence above can be checked against them. */
 function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject: (id: string) => void }) {
   const e: ReviewEvidence = review.evidence
   const kinds = Object.entries(e.byKind).filter(([, n]) => n > 0)
 
   return (
-    <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      <Pair label="Actions" value={String(e.actions)} mono />
+    <Facts>
+      <Row label="Actions" value={String(e.actions)} mono />
       {kinds.length > 0 && (
-        <Pair
+        <Row
           label="Of which"
           value={kinds.map(([k, n], i) => (
             <span key={k}>
@@ -327,12 +348,12 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
           ))}
         />
       )}
-      {e.places !== undefined && <Pair label="Different instances or days" value={String(e.places)} mono />}
+      {e.places !== undefined && <Row label="Different instances or days" value={String(e.places)} mono />}
       {e.otherModerators !== undefined && (
-        <Pair label="Other moderators who acted on them" value={String(e.otherModerators)} mono />
+        <Row label="Other moderators who acted on them" value={String(e.otherModerators)} mono />
       )}
       {e.windowDays !== undefined && (
-        <Pair
+        <Row
           label="Looking back"
           value={
             <>
@@ -341,15 +362,17 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
           }
         />
       )}
-      {e.day !== undefined && <Pair label="Day (UTC)" value={e.day} mono />}
+      {e.day !== undefined && <Row label="Day (UTC)" value={e.day} mono />}
       {e.nextBusiest !== undefined && (
-        <Pair
+        <Row
           label="Next busiest that day"
           value={
             e.nextBusiest ? (
               <>
-                <PersonLink person={{ platform: 'vrchat', id: e.nextBusiest.moderatorId, name: null }} onOpen={onOpenSubject} /> with{' '}
-                <span className="font-mono">{e.nextBusiest.actions}</span>
+                <PersonLink person={{ platform: 'vrchat', id: e.nextBusiest.moderatorId, name: null }} onOpen={onOpenSubject} />{' '}
+                <span className="whitespace-nowrap">
+                  with <span className="font-mono">{e.nextBusiest.actions}</span>
+                </span>
               </>
             ) : (
               'nobody else did anything'
@@ -358,10 +381,10 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
         />
       )}
       {e.teamUsualPerDay !== undefined && (
-        <Pair label="Team’s usual per moderator-day" value={fixed(e.teamUsualPerDay)} mono />
+        <Row label="Team’s usual per moderator-day" value={fixed(e.teamUsualPerDay)} mono />
       )}
       {e.ownUsualPerDay !== undefined && (
-        <Pair
+        <Row
           label="Their usual"
           value={
             e.ownUsualPerDay === null ? (
@@ -375,7 +398,7 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
           }
         />
       )}
-      <Pair
+      <Row
         label="Rule applied"
         value={Object.entries(e.threshold).map(([k, v], i) => (
           <span key={k}>
@@ -384,7 +407,7 @@ function Evidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject
           </span>
         ))}
       />
-    </dl>
+    </Facts>
   )
 }
 
@@ -401,15 +424,11 @@ const THRESHOLD_WORDS: Record<string, string> = {
 const fixed = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 
 function PersonLink({ person, onOpen }: { person: Person; onOpen: (id: string) => void }) {
-  return <SubjectLink id={person.id} name={person.name} onOpen={onOpen} className="text-foreground" />
+  // No wider than the fact's value, so a long id on a phone ends in an ellipsis inside the row.
+  return <SubjectLink id={person.id} name={person.name} onOpen={onOpen} className="max-w-full text-foreground" />
 }
 
-/** One fact of the evidence. `mono` for a count or a date; a word or a name stays in the body face. */
-function Pair({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
-  return (
-    <div className="flex flex-wrap gap-x-1.5 gap-y-0.5">
-      <dt className="shrink-0">{label}:</dt>
-      <dd className={cn('min-w-0 text-foreground tabular-nums', mono && 'font-mono')}>{value}</dd>
-    </div>
-  )
+/** The evidence's facts, one `Row` each, with the values in the text colour and the labels muted. */
+function Facts({ children }: { children: React.ReactNode }) {
+  return <div className="mt-2 max-w-lg text-foreground">{children}</div>
 }
