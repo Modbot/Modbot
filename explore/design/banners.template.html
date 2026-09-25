@@ -138,43 +138,46 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
    at 960 x 540 and shot at 2x, which is 1920 x 1080. Use this one if the
    uploader still cuts the 2048 x 472; use that one if VRChat wants the
    banner's own shape. */
-/* The words get the whole of it; the head stays out of the way.
+/* The words get the strip; the head sits above them, whole.
 
    Measured off a real nameplate rather than guessed at. VRChat's uploader
-   crops to 16:9, the nameplate then shows that at about 2.09:1 -- keeping the
+   crops to 16:9, the nameplate shows that at about 2.09:1 -- keeping the
    middle 85% -- and the panel carrying the person's name covers everything
-   below the halfway line. What is left to read is y 7% to 51% of this file,
-   and nothing else: a strip about 960 by 240 at this scale.
+   below the halfway line. What is left is y 7% to 51% of this file.
 
-   That strip is too short to hold a head beside a line of type and have
-   either be big enough to read across a room. So the head sits above it,
-   mostly outside the crop, where it is a mark on the banner rather than
-   something competing for the space -- and the line gets the full width,
-   set large, with the three promises under it. Everything below is ground
-   for the nameplate to cover. */
+   Two things that strip does not forgive. It is a rounded pill, so whatever
+   sits near the left and right edges is cut away by the corner radius: the
+   ends need real margins, not the few pixels a layout would give them. And
+   the mascot file has no transparent margin of its own -- the art runs to all
+   four edges -- so hanging it off the top of the canvas does not fade it out
+   of the strip, it saws the top off the head. It stays inside the canvas and
+   lets the crop do the trimming.
+
+   Everything below is ground for the nameplate to cover. */
 .wide{width:960px;height:540px;display:block;padding:0;position:relative}
 .wide::after{content:none}
 
-/* Straddling the top edge on purpose: most of it is above y 7% and is cropped
-   away, so what shows is the bottom of the head peeking into the strip. */
+/* Whole, inside the canvas. The crop takes its top third; the rest reads as a
+   head leaning into the strip from above. */
 .wide .icon{
-  position:absolute;left:30px;top:-74px;width:164px;height:164px;margin:0;filter:none;
+  position:absolute;left:100px;top:6px;width:104px;height:104px;margin:0;filter:none;
 }
 
+/* The hundred pixels a side are the corner radius, not taste. */
 .wide .words{
-  position:absolute;left:34px;right:34px;top:74px;
-  display:flex;flex-direction:column;align-items:flex-start;gap:16px;
+  position:absolute;left:100px;right:100px;top:126px;
+  display:flex;flex-direction:column;align-items:flex-start;gap:15px;
 }
 
 .wide .says{
   font-family:"Bricolage Grotesque";font-weight:700;
-  font-size:43px;line-height:1.05;letter-spacing:-0.025em;color:#5b4bd6;white-space:nowrap;
+  font-size:35px;line-height:1.05;letter-spacing:-0.025em;color:#5b4bd6;white-space:nowrap;
 }
 
-.wide .chips{display:flex;gap:12px}
+.wide .chips{display:flex;gap:11px}
 .wide .chip{
-  font-size:21px;font-weight:600;line-height:1;letter-spacing:0.01em;
-  padding:11px 20px;border-radius:999px;white-space:nowrap;
+  font-size:19px;font-weight:600;line-height:1;letter-spacing:0.01em;
+  padding:10px 18px;border-radius:999px;white-space:nowrap;
   background:rgb(91 75 214 / 0.10);color:#4c3fb8;
 }
 .banner.wide.dark .says{color:#a78bfa}
