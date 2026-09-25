@@ -9,11 +9,11 @@ import { dateTime } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
-import { Unread } from '@/components/Freshness'
+import { Ago, Unread } from '@/components/Freshness'
 import { Pager } from '@/components/Pager'
 import { api, ApiError, type CurrentUser, type DiscordMemberList, type DiscordMemberQuery } from '@/lib/api'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
-import { ago, formatDay } from '@/lib/format'
+import { formatDay } from '@/lib/format'
 import { useListPage } from '@/lib/listPage'
 import { useListSelection } from '@/lib/listSelection'
 import { DISCORD_MEMBER_DEFAULTS, discordMemberQueryFrom } from '@/lib/pageFilters'
@@ -195,12 +195,12 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
             <Unread>The Discord member list has not been read yet.</Unread>
           ) : (
             <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              Read {ago(list.coverage.listedAt, list.coverage.now)}.{' '}
+              Read <Ago iso={list.coverage.listedAt} now={list.coverage.now} />.{' '}
               <span className="font-mono">{list.coverage.inServer.toLocaleString()}</span> in server.
             </div>
           )}
-          <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
+          <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="font-mono">{list.total.toLocaleString()}</span> {list.total === 1 ? 'person' : 'people'}
           </span>
         </CardHeader>
         {list.members.length === 0 ? (

@@ -45,12 +45,14 @@ export function MyServer() {
               label="Members"
               value={latestCount ? compactNumber(latestCount.value) : '—'}
               note={latestCount ? longDay(latestCount.day) : undefined}
+              noteMono
             />
             <Stat label="Messages" value={compactNumber(sum(data.messages))} />
             <Stat
               label="Active in 30 days"
               value={compactNumber(data.health.activeLast30Days)}
               note={percent(data.health.activeLast30Days, data.health.members)}
+              noteMono
             />
             <Stat label="Time in voice" value={minutes(sum(data.voiceMinutes))} />
           </StatStrip>

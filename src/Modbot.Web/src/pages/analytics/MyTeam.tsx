@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { DailyBars, RankedList, compactNumber, dateTime, minutes } from '@/components/charts'
+import { DailyBars, RankedList, compactNumber, dateTime, longDay, minutes } from '@/components/charts'
 import { WorldLink } from '@/components/facts'
 import { api, type CoverageGap } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
@@ -49,7 +49,12 @@ export function MyTeam({
             <Stat
               label="Instances nobody watched"
               value={compactNumber(data.instancesOpenedWithoutAnyWatch)}
-              note={`of ${compactNumber(data.instancesOpenedWithoutAnyWatch + data.instancesWatched)} opened`}
+              note={
+                <>
+                  of <span className="font-mono">{compactNumber(data.instancesOpenedWithoutAnyWatch + data.instancesWatched)}</span>{' '}
+                  opened
+                </>
+              }
             />
           </StatStrip>
 
@@ -142,7 +147,7 @@ export function MyTeam({
                         {m.byKind[k.metric] ? compactNumber(m.byKind[k.metric]) : '·'}
                       </Td>
                     ))}
-                    <Td className="font-mono text-muted-foreground">{m.lastActiveDay ?? '—'}</Td>
+                    <Td className="font-mono text-muted-foreground">{m.lastActiveDay ? longDay(m.lastActiveDay) : '—'}</Td>
                   </Tr>
                 ))}
               </Table>

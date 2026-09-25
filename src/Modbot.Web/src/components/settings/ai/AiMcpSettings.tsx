@@ -49,7 +49,7 @@ export function AiMcpSettings() {
   return (
     <SettingsSection id="ai-mcp" title="MCP server settings">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (

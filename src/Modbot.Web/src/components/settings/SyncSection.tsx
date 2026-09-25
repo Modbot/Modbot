@@ -29,7 +29,7 @@ export function SyncSection() {
   return (
     <SettingsSection id="sync" title="Sync">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !settings ? (
         <Placeholder>Loading…</Placeholder>
       ) : (
@@ -41,7 +41,7 @@ export function SyncSection() {
           )}
 
           <SettingsCard title="Group audit log">
-            <div>
+            <div className="max-w-lg">
               <Row label="Fastest interval" value={seconds(settings.auditLog.minIntervalSeconds)} mono />
               <Row label="Slowest interval" value={seconds(settings.auditLog.maxIntervalSeconds)} mono />
               <Row label="Pacing floor" value={seconds(settings.auditLog.pacingFloorSeconds)} mono />
@@ -69,7 +69,7 @@ export function SyncSection() {
           <SweepCard title="Ban list" sweep={settings.banSweep} />
 
           <SettingsCard title="Group info">
-            <div>
+            <div className="max-w-lg">
               <Row label="Interval" value={seconds(settings.groupInfo.intervalSeconds)} mono />
               <Row
                 label="After a failure"
@@ -98,7 +98,7 @@ export function SyncSection() {
 function SweepCard({ title, sweep }: { title: string; sweep: SweepSettings }) {
   return (
     <SettingsCard title={title}>
-      <div>
+      <div className="max-w-lg">
         <Row label="Time between pages" value={seconds(sweep.pageDelaySeconds)} mono />
         <Row label="Rest between sweeps" value={seconds(sweep.restSeconds)} mono />
         <Row label="Entries per page" value={String(sweep.pageSize)} mono />

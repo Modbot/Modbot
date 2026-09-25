@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Ago } from '@/components/Freshness'
 import { Footer, Panel } from '@/components/subject/shared'
-import { ago, formatDay } from '@/lib/format'
+import { formatDay } from '@/lib/format'
 import { api, ApiError, type RepeatOffenderView, type SubjectHistory as History } from '@/lib/api'
 
 /**
@@ -53,7 +54,7 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
       {history?.counts && <Counts counts={history.counts} rule={history.rule} now={history.now} />}
 
       {history?.lastRunAt && (
-        <Footer>Counts rebuilt {ago(history.lastRunAt, history.now)}.</Footer>
+        <Footer>Counts rebuilt <Ago iso={history.lastRunAt} now={history.now} />.</Footer>
       )}
     </Panel>
   )
@@ -81,7 +82,7 @@ function Counts({ counts, rule, now }: { counts: RepeatOffenderView; rule: strin
       </p>
 
       <p className="text-muted-foreground">
-        Last: {counts.lastActionLabel.toLowerCase()} {ago(counts.lastActionAt, now)} ({formatDay(counts.lastActionAt)})
+        Last: {counts.lastActionLabel.toLowerCase()} <Ago iso={counts.lastActionAt} now={now} /> (<span className="font-mono">{formatDay(counts.lastActionAt)}</span>)
         {counts.lastBy && (
           <>
             {' '}by {counts.lastBy.name ?? <span className="font-mono">{counts.lastBy.id}</span>}

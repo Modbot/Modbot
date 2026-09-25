@@ -1,11 +1,12 @@
-import { Children, useEffect, useState } from 'react'
+import { Children, Fragment, useEffect, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { Ago } from '@/components/Freshness'
 import { Row } from '@/components/ui/fact-row'
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { statusOf } from '@/lib/gate'
 import { discordState, DOT, TONE, type Tone } from '@/lib/status'
-import { ago, duration, formatDay } from '@/lib/format'
+import { duration, formatDay } from '@/lib/format'
 import { amountText, share } from '@/lib/aiSpend'
 import {
   api,
@@ -198,9 +199,12 @@ export function Health() {
             polledAt={health.auditLogPolledAt}
             now={health.now}
             detail={
-              health.auditLogPollRate
-                ? `Polling every ${duration(health.auditLogPollRate.intervalSeconds)}: ${health.auditLogPollRate.reason}`
-                : undefined
+              health.auditLogPollRate ? (
+                <>
+                  Polling every <span className="font-mono">{duration(health.auditLogPollRate.intervalSeconds)}</span>:{' '}
+                  {health.auditLogPollRate.reason}
+                </>
+              ) : undefined
             }
             run={health.lastAuditLogRun}
           />
@@ -247,12 +251,23 @@ export function Health() {
 
         <CardFooter className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           <p>
-            {health.auditLogCatchUpComplete
-              ? health.auditLogHistoryHorizon
-                ? `Audit log catch-up finished · ${health.auditLogHistoryHorizon.entriesRead} entries read`
-                : 'Audit log catch-up finished'
-              : 'Audit log catch-up running'}
-            {health.auditLogSyncedThrough && ` · synced through ${formatDay(health.auditLogSyncedThrough)}`}
+            {health.auditLogCatchUpComplete ? (
+              health.auditLogHistoryHorizon ? (
+                <>
+                  Audit log catch-up finished · <Count n={health.auditLogHistoryHorizon.entriesRead} what="entries read" />
+                </>
+              ) : (
+                'Audit log catch-up finished'
+              )
+            ) : (
+              'Audit log catch-up running'
+            )}
+            {health.auditLogSyncedThrough && (
+              <>
+                {' · synced through '}
+                <span className="font-mono">{formatDay(health.auditLogSyncedThrough)}</span>
+              </>
+            )}
           </p>
         </CardFooter>
       </Card>
@@ -406,17 +421,19 @@ const REASON_LABEL: [key: string, label: string][] = [
  * One line for a sweep. The phase comes first because it is the thing "last ran 9 minutes
  * ago" cannot say: resting for fifteen minutes on purpose and stuck look the same from the age.
  */
-function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'members' | 'bans'): string {
+function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'members' | 'bans'): React.ReactNode {
   if (!sweep) return 'Not running'
 
-  const pages = (n: number) => `${n} ${n === 1 ? 'page' : 'pages'}`
+  const pages = (n: number) => <Count n={n} what={n === 1 ? 'page' : 'pages'} />
 
   const phase =
-    sweep.coldStopped
-      ? 'Cold-stopped'
-      : sweep.phase === 'sweeping'
-        ? `Sweeping · ${pages(sweep.pagesWalked)} read · offset ${sweep.offset.toLocaleString()}`
-        : sweep.phase === 'resting'
+    sweep.coldStopped ? (
+      'Cold-stopped'
+    ) : sweep.phase === 'sweeping' ? (
+      <>
+        Sweeping · {pages(sweep.pagesWalked)} read · offset <span className="font-mono">{sweep.offset.toLocaleString()}</span>
+      </>
+    ) : sweep.phase === 'resting'
           ? 'Resting'
           : sweep.phase === 'retrying'
             ? 'Retrying'
@@ -424,46 +441,86 @@ function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'membe
               ? 'Idle'
               : sweep.phase
 
-  const last = sweep.lastCompletedAt
-    ? `last full sweep ${ago(sweep.lastCompletedAt, now)}: ${sweep.count.toLocaleString()} ${what}${sweep.phase !== 'sweeping' ? `, ${pages(sweep.pagesWalked)}` : ''}, ${sweep.rowsChanged.toLocaleString()} ${sweep.rowsChanged === 1 ? 'row' : 'rows'} changed`
-    : 'no full sweep yet'
+  const last = sweep.lastCompletedAt ? (
+    <>
+      last full sweep <Ago iso={sweep.lastCompletedAt} now={now} />: <Count n={sweep.count} what={what} />
+      {sweep.phase !== 'sweeping' && <>, {pages(sweep.pagesWalked)}</>},{' '}
+      <Count n={sweep.rowsChanged} what={sweep.rowsChanged === 1 ? 'row changed' : 'rows changed'} />
+    </>
+  ) : (
+    'no full sweep yet'
+  )
 
   // Counted since this process started. "Already in the audit log" is a change the list saw that
   // the audit log had recorded first, so the list left it alone.
-  const facts = `${sweep.factsWritten.toLocaleString()} changes recorded · ${sweep.factsDeduplicated.toLocaleString()} already in the audit log`
+  const facts = (
+    <>
+      <Count n={sweep.factsWritten} what="changes recorded" /> ·{' '}
+      <Count n={sweep.factsDeduplicated} what="already in the audit log" />
+    </>
+  )
 
-  const next = sweep.nextPassAt ? `next pass ${nextAt(sweep.nextPassAt, now)}` : null
+  const next = sweep.nextPassAt ? (
+    <>
+      next pass <span className="font-mono whitespace-nowrap">{nextAt(sweep.nextPassAt, now)}</span>
+    </>
+  ) : null
 
-  return [phase, last, facts, next].filter(Boolean).join(' · ')
+  return dotted(phase, last, facts, next)
 }
 
 /** The profile queue's numbers, as one line. */
-function profileDetail(p: NonNullable<SyncHealth['userProfiles']>, now: string): string {
+function profileDetail(p: NonNullable<SyncHealth['userProfiles']>, now: string): React.ReactNode {
   const reasons = waitingByReason(p.waitingByReason)
 
-  return [
-    `${p.knownUsers.toLocaleString()} known`,
-    `${p.neverRefreshed.toLocaleString()} never refreshed`,
-    `${p.notFound.toLocaleString()} no longer on VRChat`,
-    `${p.waiting.toLocaleString()} waiting${reasons ? ` (${reasons})` : ''}`,
-    `${p.refreshesInLastHour.toLocaleString()} refreshed in the last hour`,
-    p.oldestRefreshedAt ? `oldest refreshed ${ago(p.oldestRefreshedAt, now)}` : null,
-    p.lastRateLimitedAt ? `last rate limited ${ago(p.lastRateLimitedAt, now)}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  return dotted(
+    <Count n={p.knownUsers} what="known" />,
+    <Count n={p.neverRefreshed} what="never refreshed" />,
+    <Count n={p.notFound} what="no longer on VRChat" />,
+    <>
+      <Count n={p.waiting} what="waiting" />
+      {reasons && <> ({reasons})</>}
+    </>,
+    <Count n={p.refreshesInLastHour} what="refreshed in the last hour" />,
+    p.oldestRefreshedAt && (
+      <>
+        oldest refreshed <Ago iso={p.oldestRefreshedAt} now={now} />
+      </>
+    ),
+    p.lastRateLimitedAt && (
+      <>
+        last rate limited <Ago iso={p.lastRateLimitedAt} now={now} />
+      </>
+    ),
+  )
 }
 
 /** The rarer read's numbers, as one line. */
-function userReadDetail(u: NonNullable<SyncHealth['userReads']>, now: string): string {
-  return [
-    `${u.neverRead.toLocaleString()} never read`,
-    `${u.readsInLastHour.toLocaleString()} read in the last hour`,
-    u.oldestReadAt ? `oldest read ${ago(u.oldestReadAt, now)}` : null,
-    u.lastRateLimitedAt ? `last rate limited ${ago(u.lastRateLimitedAt, now)}` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+function userReadDetail(u: NonNullable<SyncHealth['userReads']>, now: string): React.ReactNode {
+  return dotted(
+    <Count n={u.neverRead} what="never read" />,
+    <Count n={u.readsInLastHour} what="read in the last hour" />,
+    u.oldestReadAt && (
+      <>
+        oldest read <Ago iso={u.oldestReadAt} now={now} />
+      </>
+    ),
+    u.lastRateLimitedAt && (
+      <>
+        last rate limited <Ago iso={u.lastRateLimitedAt} now={now} />
+      </>
+    ),
+  )
+}
+
+/** The parts of one line of detail, the empty ones left out and the rest set apart by middle dots. */
+function dotted(...parts: React.ReactNode[]): React.ReactNode {
+  return parts.filter(Boolean).map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && ' · '}
+      {part}
+    </Fragment>
+  ))
 }
 
 /** "in 12 minutes" or "any moment now", against the server's clock. */
@@ -475,11 +532,16 @@ function nextAt(iso: string, now: string): string {
   return `in ${(seconds / 3600).toFixed(1)} hours`
 }
 
-function waitingByReason(counts: Record<string, number>): string {
-  const parts = REASON_LABEL.filter(([key]) => (counts[key] ?? 0) > 0).map(
-    ([key, label]) => `${counts[key]} ${label}`,
-  )
-  return parts.join(', ')
+function waitingByReason(counts: Record<string, number>): React.ReactNode {
+  const parts = REASON_LABEL.filter(([key]) => (counts[key] ?? 0) > 0)
+  if (parts.length === 0) return null
+
+  return parts.map(([key, label], i) => (
+    <Fragment key={key}>
+      {i > 0 && ', '}
+      <Count n={counts[key]} what={label} />
+    </Fragment>
+  ))
 }
 
 function CloudReport({
@@ -496,7 +558,17 @@ function CloudReport({
     <Part
       title="Modbot Cloud"
       state={<State tone={tone}>{state}</State>}
-      aside={report.sentAt === null ? report.endpoint : `${ago(report.sentAt, now)} · ${report.endpoint}`}
+      aside={
+        <>
+          {report.sentAt !== null && (
+            <>
+              <Ago iso={report.sentAt} now={now} />
+              {' · '}
+            </>
+          )}
+          <span className="font-mono">{report.endpoint}</span>
+        </>
+      }
     >
       {report.problem && <p className="max-w-3xl">{report.problem}</p>}
     </Part>
@@ -513,7 +585,7 @@ function Producer({
   name: string
   polledAt: string | null
   now: string
-  detail?: string
+  detail?: React.ReactNode
   run: SyncHealth['lastAuditLogRun']
 }) {
   return (
@@ -521,7 +593,7 @@ function Producer({
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-medium">{name}</span>
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          last completed a pass <span className="font-mono">{ago(polledAt, now)}</span>
+          last completed a pass <Ago iso={polledAt} now={now} />
         </span>
       </div>
       {detail && (
@@ -531,8 +603,8 @@ function Producer({
       )}
       {run && (
         <p className="mt-0.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Last run: {run.outcome.toLowerCase()}. {run.summary} ({run.durationSeconds.toFixed(1)}s,{' '}
-          {ago(run.at, now)})
+          Last run: {run.outcome.toLowerCase()}. {run.summary} (
+          <span className="font-mono">{run.durationSeconds.toFixed(1)}s</span>, <Ago iso={run.at} now={now} />)
         </p>
       )}
     </div>
@@ -571,7 +643,7 @@ function PausedRules({ rules, now }: { rules: PausedRule[]; now: string }) {
     <Part title="Paused moderation rules">
       {rules.map((r) => (
         <p key={r.ruleId} className="max-w-3xl text-warn">
-          {r.ruleName} · {r.reason ?? 'Paused'} ({ago(r.pausedAt, now)})
+          {r.ruleName} · {r.reason ?? 'Paused'} (<Ago iso={r.pausedAt} now={now} />)
         </p>
       ))}
     </Part>
@@ -585,7 +657,12 @@ function CalendarProblems({ calendar, now }: { calendar: CalendarHealth; now: st
       {calendar.problems.map((p) => (
         <p key={`${p.eventId}-${p.place}`} className="max-w-3xl text-warn">
           {p.title} · {CALENDAR_PLACE[p.place] ?? p.place} · {p.error}
-          {p.at ? ` (${ago(p.at, now)})` : ''}
+          {p.at && (
+            <>
+              {' ('}
+              <Ago iso={p.at} now={now} />)
+            </>
+          )}
         </p>
       ))}
     </Part>
@@ -619,13 +696,22 @@ function DiscordBot({
       state={<State tone={state.tone}>{state.label}</State>}
       aside={
         bot.state === 'Connected' &&
-        bot.connectedSince &&
-        `since ${ago(bot.connectedSince, now)} · ${bot.commandsRegistered} slash commands registered`
+        bot.connectedSince && (
+          <>
+            since <Ago iso={bot.connectedSince} now={now} /> ·{' '}
+            <Count n={bot.commandsRegistered} what="slash commands registered" />
+          </>
+        )
       }
     >
       {bot.state !== 'NotConfigured' && (
         <p className="max-w-3xl">
-          {`Posted to Discord: ${bot.postedInThisProcess}${bot.lastPostedAt ? `, last ${ago(bot.lastPostedAt, now)}` : ''}`}
+          Posted to Discord: <span className="font-mono">{bot.postedInThisProcess.toLocaleString()}</span>
+          {bot.lastPostedAt && (
+            <>
+              , last <Ago iso={bot.lastPostedAt} now={now} />
+            </>
+          )}
           {!bot.logChannelConfigured && ' · No channels set'}
         </p>
       )}
@@ -634,8 +720,17 @@ function DiscordBot({
           {channel.name ? `#${channel.name}` : channel.channelId}
           {channel.removed && ' · Removed'}
           {channel.missing.length > 0 && ` · Missing ${channel.missing.join(', ')}`}
-          {channel.lastError &&
-            ` · ${channel.lastError}${channel.lastErrorAt ? ` (${ago(channel.lastErrorAt, now)})` : ''}`}
+          {channel.lastError && (
+            <>
+              {` · ${channel.lastError}`}
+              {channel.lastErrorAt && (
+                <>
+                  {' ('}
+                  <Ago iso={channel.lastErrorAt} now={now} />)
+                </>
+              )}
+            </>
+          )}
         </p>
       ))}
       {missingManageEvents && <p className="max-w-3xl text-warn">Missing Manage Events</p>}
@@ -646,18 +741,39 @@ function DiscordBot({
       )}
       {readBack && readBack.channels > 0 && (
         <p className="max-w-3xl">
-          {`Message history read back: ${readBack.finished.toLocaleString()} of ${readBack.channels.toLocaleString()} channels and threads · ${readBack.messagesStored.toLocaleString()} messages stored`}
-          {readBack.noAccess > 0 && ` · ${readBack.noAccess.toLocaleString()} without access`}
+          Message history read back: <span className="font-mono">{readBack.finished.toLocaleString()}</span> of{' '}
+          <Count n={readBack.channels} what="channels and threads" /> ·{' '}
+          <Count n={readBack.messagesStored} what="messages stored" />
+          {readBack.noAccess > 0 && (
+            <>
+              {' · '}
+              <Count n={readBack.noAccess} what="without access" />
+            </>
+          )}
         </p>
       )}
       {readBack?.lastError && (
         <p className="max-w-3xl">
-          Last reading problem{readBack.lastErrorAt ? ` (${ago(readBack.lastErrorAt, now)})` : ''}: {readBack.lastError}
+          Last reading problem
+          {readBack.lastErrorAt && (
+            <>
+              {' ('}
+              <Ago iso={readBack.lastErrorAt} now={now} />)
+            </>
+          )}
+          : {readBack.lastError}
         </p>
       )}
       {bot.lastError && (
         <p className="max-w-3xl">
-          Last problem{bot.lastErrorAt ? ` (${ago(bot.lastErrorAt, now)})` : ''}: {bot.lastError}
+          Last problem
+          {bot.lastErrorAt && (
+            <>
+              {' ('}
+              <Ago iso={bot.lastErrorAt} now={now} />)
+            </>
+          )}
+          : {bot.lastError}
         </p>
       )}
     </Part>
@@ -768,9 +884,19 @@ function EmailQueue({ email }: { email: EmailHealth }) {
       }
     >
       <p className="max-w-3xl tabular-nums text-warn">
-        {`${email.queued} queued`}
-        {email.nextSendAt && ` · next at ${new Date(email.nextSendAt).toLocaleString()}`}
-        {email.failed > 0 && ` · ${email.failed} failed`}
+        <Count n={email.queued} what="queued" />
+        {email.nextSendAt && (
+          <>
+            {' · next at '}
+            <span className="font-mono whitespace-nowrap">{new Date(email.nextSendAt).toLocaleString()}</span>
+          </>
+        )}
+        {email.failed > 0 && (
+          <>
+            {' · '}
+            <Count n={email.failed} what="failed" />
+          </>
+        )}
       </p>
     </Part>
   )

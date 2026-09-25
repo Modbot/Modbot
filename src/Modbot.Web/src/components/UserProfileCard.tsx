@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { OtherTags } from '@/components/ProfileBadges'
 import { ProfileHeader } from '@/components/ProfileHeader'
 import { Field } from '@/components/subject/shared'
+import { Ago } from '@/components/Freshness'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
@@ -147,9 +148,11 @@ function Freshness({
       <div className="flex flex-wrap items-center gap-x-2">
         {profile.stale && <span aria-hidden className="size-2 shrink-0 bg-warn" />}
         <span className="font-medium">
-          {profile.lastRefreshedAt
-            ? `Last refreshed ${ago(profile.lastRefreshedAt, profile.now)}`
-            : 'Never refreshed'}
+          {profile.lastRefreshedAt ? (
+            <>Last refreshed <Ago iso={profile.lastRefreshedAt} now={profile.now} /></>
+          ) : (
+            'Never refreshed'
+          )}
         </span>
         {profile.stale && profile.lastRefreshedAt && (
           <span className="text-warn">
@@ -332,7 +335,7 @@ function AgeMark({
           <div className="text-muted-foreground">
             VRChat shows this person as{' '}
             <span className="font-mono">{profile.ageVerificationStatusLastSeen ?? 'unknown'}</span>
-            {profile.lastRefreshedAt ? ` as of ${ago(profile.lastRefreshedAt, profile.now)}` : ''}.
+            {profile.lastRefreshedAt ? <> as of <Ago iso={profile.lastRefreshedAt} now={profile.now} /></> : ''}.
           </div>
 
           {canEdit && editing === null && (

@@ -54,7 +54,7 @@ export function AiInsightsSettings() {
   return (
     <SettingsSection id="ai-insights" title="AI insights">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (

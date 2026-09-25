@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type PublicInstancesView } from '@/lib/api'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Fact, Outcome, Switch } from './fields'
+import { Row } from '@/components/ui/fact-row'
+import { Outcome, Switch } from './fields'
 import { SettingsCard } from './SettingsCard'
 
 /**
@@ -47,18 +48,20 @@ export function PublicInstancesCard() {
   return (
     <SettingsCard title="Modbot Cloud">
       {!view ? (
-        <EmptyRow className="px-0">{error ?? 'Loading…'}</EmptyRow>
+        <EmptyRow className="px-0" tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</EmptyRow>
       ) : (
         <>
           <Switch checked={view.shared} disabled={saving || view.cloudDisabled} onChange={choose}>
             List this group&rsquo;s public instances on modbot.co
           </Switch>
-          {view.cloudDisabled && <Fact label="Modbot Cloud" value="Off (MODBOT_CLOUD_DISABLED)" />}
-          <Fact
-            label="Last sent"
-            value={view.lastSentAt ? new Date(view.lastSentAt).toLocaleString() : '—'}
-            mono={!!view.lastSentAt}
-          />
+          <div className="max-w-lg">
+            {view.cloudDisabled && <Row label="Modbot Cloud" value="Off (MODBOT_CLOUD_DISABLED)" />}
+            <Row
+              label="Last sent"
+              value={view.lastSentAt ? new Date(view.lastSentAt).toLocaleString() : '—'}
+              mono={!!view.lastSentAt}
+            />
+          </div>
           <Outcome tone="problem">{error}</Outcome>
         </>
       )}

@@ -3,6 +3,7 @@ import { changesCases } from '@/lib/liveRules'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Fact } from '@/components/ui/fact-row'
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
@@ -205,10 +206,11 @@ function Header({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+        {/* The id gives way first and is cut short on a phone; the popup the name opens writes it out. */}
+        <CardTitle className="flex min-w-0 flex-1 items-baseline gap-x-2">
           <SubjectLink id={view.userId} name={view.displayName} onOpen={onOpenSubject} />
           {view.displayName && (
-            <span className="min-w-0 break-all font-mono font-normal text-muted-foreground/70" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="min-w-0 flex-1 truncate font-mono font-normal text-muted-foreground/70" style={{ fontSize: 'var(--text-small)' }}>
               {view.userId}
             </span>
           )}
@@ -256,7 +258,9 @@ function Section({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        {/* The title wraps beside the action, down to a few words a line; any narrower and the
+            action goes under it. */}
+        <CardTitle className="min-w-[5em] flex-1">{title}</CardTitle>
         {action && <CardAction>{action}</CardAction>}
       </CardHeader>
       {note && (
@@ -452,20 +456,12 @@ function ProfileBlock({ profile }: { profile: ProfileAtBan }) {
             it is a bio, not a document. */}
         {profile.bio && <p className="mt-2 whitespace-pre-wrap break-words">{profile.bio}</p>}
 
-        <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-muted-foreground">
-          {profile.dateJoined && (
-            <div className="flex gap-1">
-              <dt>Joined VRChat:</dt>
-              <dd className="font-mono text-foreground">{formatDay(profile.dateJoined)}</dd>
-            </div>
-          )}
-          {profile.ageVerificationStatus && (
-            <div className="flex gap-1">
-              <dt>VRChat showed:</dt>
-              <dd className="font-mono text-foreground">{profile.ageVerificationStatus}</dd>
-            </div>
-          )}
-        </dl>
+        {(profile.dateJoined || profile.ageVerificationStatus) && (
+          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+            {profile.dateJoined && <Fact label="Joined VRChat" value={formatDay(profile.dateJoined)} mono />}
+            {profile.ageVerificationStatus && <Fact label="VRChat showed" value={profile.ageVerificationStatus} mono />}
+          </div>
+        )}
 
         <OtherTags tags={tags} className="mt-2" />
       </div>

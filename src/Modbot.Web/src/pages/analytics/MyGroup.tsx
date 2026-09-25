@@ -3,7 +3,7 @@ import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { Badge } from '@/components/ui/badge'
 import { DailyBars, DailyLine, RankedList, compactNumber, dateTime, longDay, percent } from '@/components/charts'
 import { api, type MemberCountPeaks } from '@/lib/api'
-import { ago } from '@/lib/format'
+import { Ago } from '@/components/Freshness'
 import { InsightsPanel } from './InsightsPanel'
 import { MemberCountChart } from './MemberCountChart'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
@@ -54,6 +54,7 @@ export function MyGroup() {
               label="Members"
               value={latestCount ? compactNumber(latestCount.value) : '—'}
               note={latestCount ? longDay(latestCount.day) : undefined}
+              noteMono
             />
             <Stat label="Joined" value={compactNumber(joined)} />
             <Stat label="Left" value={compactNumber(left)} />
@@ -96,7 +97,12 @@ export function MyGroup() {
               <Stat
                 label="Invites accepted"
                 value={percent(data.invites.joinedAfterInvite, data.invites.invitesSent)}
-                note={`${compactNumber(data.invites.joinedAfterInvite)} joined within ${data.invites.followUpDays} days`}
+                note={
+                  <>
+                    <span className="font-mono">{compactNumber(data.invites.joinedAfterInvite)}</span> joined within{' '}
+                    <span className="font-mono">{data.invites.followUpDays} days</span>
+                  </>
+                }
               />
               <Stat label="Join requests" value={compactNumber(data.invites.requestsReceived)} />
               <Stat
@@ -125,7 +131,7 @@ export function MyGroup() {
               right={
                 data.rolesKnownAt && (
                   <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                    read {ago(data.rolesKnownAt, data.generatedAt)}
+                    read <Ago iso={data.rolesKnownAt} now={data.generatedAt} />
                   </span>
                 )
               }
@@ -164,7 +170,7 @@ export function MyGroup() {
               right={
                 data.membersWithKnownTenure > 0 && (
                   <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                    {compactNumber(data.membersWithKnownTenure)} with a known join date
+                    <span className="font-mono">{compactNumber(data.membersWithKnownTenure)}</span> with a known join date
                   </span>
                 )
               }
@@ -202,11 +208,13 @@ function Peaks({ peaks }: { peaks: MemberCountPeaks }) {
         label="Most members"
         value={peaks.members ? compactNumber(peaks.members.value) : '—'}
         note={peaks.members ? dateTime(peaks.members.at) : undefined}
+        noteMono
       />
       <Stat
         label="Most online at once"
         value={peaks.online ? compactNumber(peaks.online.value) : '—'}
         note={peaks.online ? dateTime(peaks.online.at) : undefined}
+        noteMono
       />
     </>
   )
@@ -221,7 +229,8 @@ function PeaksCoverage({ peaks }: { peaks: MemberCountPeaks }) {
   if (coverage.thin) {
     return (
       <PageMessage>
-        Readings on {coverage.daysWithReadings} of {coverage.windowDays} days in this range.
+        Readings on <span className="font-mono">{coverage.daysWithReadings}</span> of{' '}
+        <span className="font-mono">{coverage.windowDays}</span> days in this range.
       </PageMessage>
     )
   }

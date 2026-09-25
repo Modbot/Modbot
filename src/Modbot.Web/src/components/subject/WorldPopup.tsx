@@ -13,6 +13,7 @@ import { concernsWorld } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { ago, formatDay } from '@/lib/format'
+import { Ago } from '@/components/Freshness'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -158,10 +159,12 @@ function Details({ world }: { world: WorldView }) {
             above it (spec 3.1). */}
         {world.capacity !== null && (
           <Field label="Holds">
-            {world.capacity} people
-            {world.recommendedCapacity !== null && world.recommendedCapacity !== world.capacity
-              ? `, ${world.recommendedCapacity} suggested`
-              : ''}
+            <span className="font-mono">{world.capacity}</span> people
+            {world.recommendedCapacity !== null && world.recommendedCapacity !== world.capacity && (
+              <>
+                , <span className="font-mono">{world.recommendedCapacity}</span> suggested
+              </>
+            )}
           </Field>
         )}
 
@@ -177,7 +180,13 @@ function Details({ world }: { world: WorldView }) {
         )}
 
         <Field label="Page last read">
-          {world.lastReadAt ? `${ago(world.lastReadAt, world.now)} (${dateTime(world.lastReadAt)})` : 'never'}
+          {world.lastReadAt ? (
+            <>
+              <Ago iso={world.lastReadAt} now={world.now} /> (<span className="font-mono">{dateTime(world.lastReadAt)}</span>)
+            </>
+          ) : (
+            'never'
+          )}
         </Field>
       </div>
 
@@ -207,7 +216,7 @@ function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => v
       <StatStrip className="m-0 shrink-0">
         <Stat label="Time seen" value={minutes(c.minutesSeen)} />
         <Stat label="Visitors" value={compactNumber(c.visitors)} />
-        <Stat label="Instances opened" value={compactNumber(world.instancesTotal)} note={`${world.instancesOpenNow} open now`} />
+        <Stat label="Instances opened" value={compactNumber(world.instancesTotal)} note={<OpenNow world={world} />} />
         <Stat label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
       </StatStrip>
 
@@ -223,6 +232,15 @@ function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => v
         )}
       </Panel>
     </div>
+  )
+}
+
+/** How many of the world's instances are open now, under the count of all of them. */
+function OpenNow({ world }: { world: WorldView }) {
+  return (
+    <>
+      <span className="font-mono">{world.instancesOpenNow}</span> open now
+    </>
   )
 }
 
@@ -253,7 +271,7 @@ function Metrics({ world }: { world: WorldView }) {
         <StatStrip className="m-0">
           <Stat label="Time seen" value={minutes(c.minutesSeen)} />
           <Stat label="Visitors" value={compactNumber(c.visitors)} />
-          <Stat label="Instances opened" value={compactNumber(world.instancesTotal)} note={`${world.instancesOpenNow} open now`} />
+          <Stat label="Instances opened" value={compactNumber(world.instancesTotal)} note={<OpenNow world={world} />} />
           <Stat label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
         </StatStrip>
         {!(from && to) && <EmptyRow className="border-t border-t-(length:--hairline)">Nothing recorded yet.</EmptyRow>}

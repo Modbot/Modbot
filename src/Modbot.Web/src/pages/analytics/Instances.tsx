@@ -75,7 +75,9 @@ export function Instances() {
           <InstanceActivityChart />
 
           {data.presenceReports > 0 && data.presenceReports < THIN_REPORTS && (
-            <PageMessage>Only {compactNumber(data.presenceReports)} presence reports in this range.</PageMessage>
+            <PageMessage>
+              Only <span className="font-mono">{compactNumber(data.presenceReports)}</span> presence reports in this range.
+            </PageMessage>
           )}
 
           <Panel
@@ -208,7 +210,8 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
         <PageMessage>No head counts in this range.</PageMessage>
       ) : coverage.thin ? (
         <PageMessage>
-          Head counts cover {percent(coverage.minutesCounted, coverage.minutesInstancesWereOpen)} of the time
+          Head counts cover{' '}
+          <span className="font-mono">{percent(coverage.minutesCounted, coverage.minutesInstancesWereOpen)}</span> of the time
           instances were open.
         </PageMessage>
       ) : null}
@@ -218,25 +221,31 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
           label="Most people at once"
           value={peaks.mostPeopleAtOnce ? compactNumber(peaks.mostPeopleAtOnce.value) : '—'}
           note={peaks.mostPeopleAtOnce ? dateTime(peaks.mostPeopleAtOnce.at) : undefined}
+          noteMono
         />
         <Stat
           label="Fullest instance"
           value={peaks.busiestInstance ? compactNumber(peaks.busiestInstance.people) : '—'}
           note={
-            peaks.busiestInstance
-              ? `${peaks.busiestInstance.worldName ?? peaks.busiestInstance.worldId} · ${dateTime(peaks.busiestInstance.at)}`
-              : undefined
+            peaks.busiestInstance ? (
+              <>
+                {peaks.busiestInstance.worldName ?? <span className="font-mono">{peaks.busiestInstance.worldId}</span>} ·{' '}
+                <span className="font-mono whitespace-nowrap">{dateTime(peaks.busiestInstance.at)}</span>
+              </>
+            ) : undefined
           }
         />
         <Stat
           label="Busiest day"
           value={peaks.busiestDay ? minutes(peaks.busiestDay.peopleMinutes) : '—'}
           note={peaks.busiestDay ? longDay(peaks.busiestDay.day) : undefined}
+          noteMono
         />
         <Stat
           label="Busiest hour"
           value={peaks.busiestHour ? minutes(peaks.busiestHour.peopleMinutes) : '—'}
           note={peaks.busiestHour ? dateTime(peaks.busiestHour.startedAt) : undefined}
+          noteMono
         />
       </StatStrip>
     </>

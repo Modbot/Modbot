@@ -64,7 +64,7 @@ export function AutoModSection() {
   return (
     <SettingsSection id="automod" title="AutoMod">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (

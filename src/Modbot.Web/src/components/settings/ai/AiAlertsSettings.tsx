@@ -48,7 +48,7 @@ export function AiAlertsSettings() {
   return (
     <SettingsSection id="ai-alerts" title="Unusual activity">
       {error ? (
-        <Placeholder>{error}</Placeholder>
+        <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
         <Placeholder>Loading…</Placeholder>
       ) : (

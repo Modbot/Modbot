@@ -95,7 +95,7 @@ export function AutoInvitesSection() {
               Invite people automatically
             </Switch>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid max-w-lg items-end gap-3 sm:grid-cols-2">
               <NumberField
                 label="Minutes in the instance"
                 value={minutes}
@@ -120,12 +120,14 @@ export function AutoInvitesSection() {
               <RuleBuilder rule={rules} builder={builder} onChange={setRules} />
             </div>
 
-            <Row label="Invites sent" value={String(loaded?.invitesSent ?? 0)} mono />
-            <Row
-              label="Last invite"
-              value={loaded?.lastInviteAt ? new Date(loaded.lastInviteAt).toLocaleString() : '—'}
-              mono={!!loaded?.lastInviteAt}
-            />
+            <div className="max-w-lg">
+              <Row label="Invites sent" value={String(loaded?.invitesSent ?? 0)} mono />
+              <Row
+                label="Last invite"
+                value={loaded?.lastInviteAt ? new Date(loaded.lastInviteAt).toLocaleString() : '—'}
+                mono={!!loaded?.lastInviteAt}
+              />
+            </div>
           </>
         )}
       </SettingsCard>

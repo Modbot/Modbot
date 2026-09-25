@@ -127,9 +127,16 @@ function Identity({ view }: { view: InstanceView }) {
         <Field label="Who can join">{access(instance.groupAccessType) ?? view.type ?? '—'}</Field>
 
         <Field label={instance.closedAt ? 'Closed' : 'Open now'}>
-          {instance.closedAt
-            ? `${dateTime(instance.closedAt)}${instance.closedBy === 'time' ? ' · went quiet' : ''}`
-            : `last seen ${dateTime(view.lastSeenAt)}`}
+          {instance.closedAt ? (
+            <>
+              <span className="font-mono">{dateTime(instance.closedAt)}</span>
+              {instance.closedBy === 'time' ? ' · went quiet' : ''}
+            </>
+          ) : (
+            <>
+              last seen <span className="font-mono">{dateTime(view.lastSeenAt)}</span>
+            </>
+          )}
         </Field>
       </Block>
     </>
@@ -155,9 +162,14 @@ function Details({ view }: { view: InstanceView }) {
 
         {view.canSeeWhoWasThere && (
           <Field label="Seen by a moderator's client">
-            {view.counts.visitors > 0
-              ? `${compactNumber(view.counts.visitors)} people, ${minutes(view.counts.minutesSeen)} of people-time`
-              : 'nobody'}
+            {view.counts.visitors > 0 ? (
+              <>
+                <span className="font-mono">{compactNumber(view.counts.visitors)}</span> people,{' '}
+                <span className="font-mono">{minutes(view.counts.minutesSeen)}</span> of people-time
+              </>
+            ) : (
+              'nobody'
+            )}
           </Field>
         )}
       </div>

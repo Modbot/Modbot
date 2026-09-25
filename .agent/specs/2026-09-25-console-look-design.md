@@ -100,10 +100,11 @@ Some parts share a name. None of them delegates to the other.
   `EmptyRow` ruled off like a popup section, for a popup.
 - **`Footer`.** `Footer` in `components/Chrome.tsx` is the foot of every page (Docs and Credits).
   `Footer` in `components/subject/shared.tsx` is the strip along the foot of a popup section.
-- **A label over a value.** `Fact` (`ui/fact-row.tsx`) sets the value in `font-medium` and cuts it
-  with an ellipsis, for a few facts side by side on a page or in settings. `Field` in
-  `subject/shared.tsx` wraps the value and is for the left column of a popup. A label on one line
-  with its value on the right is `Row`.
+- **A label over a value.** `Fact` (`ui/fact-row.tsx`) sets the value in `font-medium` and wraps
+  it, for a few facts side by side on a page or in settings.
+  `Field` in `subject/shared.tsx` wraps the value too and is for the left column of a popup. A
+  label on one line with its value on the right is `Row`, and facts stacked one under another are
+  always `Row`s, never `Fact`s, so a panel's facts read the same as the panel beside it.
 - **A labelled input.** `Field` in `settings/fields.tsx` is a label over an `Input`. `Field` in
   `setup/WizardChrome.tsx` is a label over any control, joined by `htmlFor`, for the sign-in and
   setup cards.
@@ -310,7 +311,8 @@ under a hairline, holds the density bank, the theme button, your account and Sig
 7. The marks after a name in that column (18+, the trust rank, "representing") go in `Marks`
    (`pages/Members.tsx`), and the name gets `max-md:max-w-full max-md:shrink-0`. On a phone the
    name keeps its line and truncates, and a mark that does not fit whole is hidden, never wrapped
-   under the name or cut in half, so every row is one height.
+   under the name or cut in half, so every row is one height. Live's lists of who is in an
+   instance draw a person the same way, with the time on the right kept whole on its line.
 8. A row that opens something takes `hover:bg-muted/40`, and the row the keyboard is on takes
    `data-[selected]:bg-accent/60`.
 
@@ -342,7 +344,9 @@ The row of controls above a list decides what the list shows. It is one of two t
    the sort leaves. A bar with nothing at its right end has no second row.
 2. **Plain controls**, on a list with no filter properties. The row is
    `flex flex-wrap items-center gap-2 md:justify-end` and holds the same things in the same order
-   as the filter bar's right end (Bans: search, then status).
+   as the filter bar's right end (Bans: search, then status). Below `md` the search box gives up
+   its fixed width the same way (`max-md:[&>[data-slot=input]]:flex-[1_1_10rem]`), so a phone
+   keeps the search and the status on one line.
 
 In both, the search box is `Input className="w-56"` with a placeholder that says what it
 searches ("Search by name or id") and an `aria-label`, and `/` selects it. A control that changes
@@ -358,7 +362,9 @@ above the sheet, never at the right end.
    1.75 times `--text-base`, and any note on the value's baseline to its left. A note with no room
    beside the value goes on its own line above it. Neither the note nor the label is ever cut with
    an ellipsis; the label wraps to a second line. It is at least two rows high. Never a card with
-   an uppercase label over a number.
+   an uppercase label over a number. A note that is a day, a time or a share passes `noteMono`
+   ("Sep 24, 2026" under Members, a peak's time); a note that is a sentence stays in the body face
+   and sets only its time or count in mono ("Quiet Library · `Aug 30, 05:14 AM`").
 2. Readings always come in a `StatStrip`: a `PanelGrid` two across, and four from `xl`.
    A page with six readings gives it `md:grid-cols-3 xl:grid-cols-6` and fills the row. A strip of
    three inside a popup or a panel gives `md:grid-cols-3 xl:grid-cols-3`.
@@ -582,8 +588,9 @@ toolbar's `dayBox` is the one written so far.
    can add a muted hint after a middle dot.
 2. **Fields one under another** in a panel are `gap-3` apart (the body of a `SettingsCard`). On
    the sign-in and setup cards the body is `space-y-4`.
-3. **Fields side by side** are `grid gap-3 sm:grid-cols-2` (or `sm:grid-cols-3`), one column on a
-   phone.
+3. **Fields side by side** are `grid items-end gap-3 sm:grid-cols-2` (or `sm:grid-cols-3`), one
+   column on a phone. `items-end` lines the fields up on their bottom edge, so a label that wraps
+   to two lines at VR grows upward and the inputs stay on one line.
 4. **Widths.** A field fills its column (`Input` is `w-full`). The caller caps a field only when
    its value is short: a number `w-24` or `w-28`, a list's search `w-56`, a day field as in §13.4.
 5. **The footer.** In settings, the card's `footer` strip holds Save first on the left, `xs`,
@@ -722,6 +729,8 @@ are mono wherever they appear. Names and sentences never are. The caller says wh
 (`mono` on `Row` and `Fact`); the face is never guessed from what the value contains, so a
 username with a digit in it stays in the body face. In a sentence only the machine part is mono:
 "Opened `3h ago`", "Detection last ran `10m ago`", Health's "last completed a pass `8h ago`".
+An age inside a sentence is `Ago` (`components/Freshness.tsx`): mono, kept on one line, and the
+word "never" in the sentence's own face when there is no time.
 
 ### 17.3 Dates and times
 
@@ -898,7 +907,9 @@ A page of panels is one sheet instead:
 ```
 
 A settings tab is a `SettingsSection` of `SettingsCard`s, each `span={6}` unless it holds a chart
-or a wide table (`span={12}`), with its Save in `footer`. A new page also gets a title in the top
+or a wide table (`span={12}`), with its Save in `footer`. A card with no partner beside it (the
+only card on a tab, or the odd one out before a full-width card or the end) is `span={12}` too, so
+the sheet has no notch where its partner would be. A new page also gets a title in the top
 bar, an entry in `lib/nav.ts` and, if it has one, a go-to chord in `GO_TO_KEYS`.
 
 Before a page is done, look at it four ways: 1440px wide in light and in dark, 390px wide on a
@@ -934,15 +945,15 @@ way round.
 
 ### 22.1 Hand-written tables
 
-Twenty `<table>`s in fifteen files draw their own column names and rows instead of using `Table`,
+Nineteen `<table>`s in fourteen files draw their own column names and rows instead of using `Table`,
 `Th`, `Tr` and `Td` (§7.1). Most copy the classes exactly; some keep their own local
 `headClass` and `cellClass`:
 
 - `pages/Members.tsx`, `People.tsx`, `Bans.tsx`, `DiscordMembers.tsx`, `Requests.tsx`,
   `RepeatOffenders.tsx`, `AuditLog.tsx`, `Giveaways.tsx`, `Health.tsx` (two)
 - `components/audit/EntryDetail.tsx`, `components/insights/InsightBody.tsx` (two)
-- `components/settings/IntegrationsSection.tsx`, `settings/api/ApiKeysPanel.tsx`,
-  `settings/ai/AiMcpSettings.tsx`, `settings/ai/AiLimitsSettings.tsx` (four)
+- `components/settings/IntegrationsSection.tsx`, `settings/ai/AiMcpSettings.tsx`,
+  `settings/ai/AiLimitsSettings.tsx` (four)
 
 `components/Markdown.tsx`'s table draws a table inside a chat answer and is not a list.
 
@@ -950,8 +961,6 @@ Of those, these also break the heights in §7:
 
 - `AuditLog.tsx`: the cells are `align-top` with `py-1` and `py-1.5`, so its rows are 39 to 51px
   at dense instead of growing only for their content.
-- `ApiKeysPanel.tsx`: the column names are `h-(--row-h)`, a row high instead of `py-2`, and the
-  cells are `py-1.5`.
 - `Giveaways.tsx` (the draw's entrants): the column names are `h-(--strip-h)` and the cells `px-2`.
 - `EntryDetail.tsx` and `InsightBody.tsx`: `py-1` rows with no `--row-h`; `InsightBody`'s column
   names have no strip and no side padding.
@@ -1008,9 +1017,8 @@ Three more draw their legend by hand, as `size-2.5 rounded-full` spans, instead 
 
 ### 22.5 Lists of facts
 
-A list of facts is `Row`s (§17.6), never a `<dl>` grid. Two still are:
-`components/audit/EntryDetail.tsx` (`grid grid-cols-[auto_1fr]`) and `CoverageNote` in
-`pages/analytics/shared.tsx`.
+A list of facts is `Row`s (§17.6), never a `<dl>` grid. One still is:
+`components/audit/EntryDetail.tsx` (`grid grid-cols-[auto_1fr]`).
 
 ### 22.6 Buttons and actions
 
@@ -1036,8 +1044,6 @@ The Logs toolbar is plain controls on the left, with its search box `w-64`, wher
   brand's and stays.
 - `charts/Heatmap.tsx` draws its cells `1.25rem` high a fixed `1px` apart, instead of following the
   density and the hairline.
-- An age on a strip is in the body face where §17.2 makes it mono: `Freshness`'s "Last synced 3h
-  ago" and Discord members' "Read 3h ago".
 - The count on the Members and Bans strips sets its noun in mono too ("`1,204 people`"), where
   only the number is the machine part.
 
