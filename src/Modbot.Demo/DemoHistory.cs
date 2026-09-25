@@ -323,7 +323,7 @@ public sealed class DemoHistory
                     SubjectId = visit.Person.UserId,
                     WorldId = instance.World.WorldId,
                     InstanceId = instance.Number,
-                    Source = FactSource.Client,
+                    Source = FactSource.Companion,
                     Data = new JsonObject
                     {
                         ["deviceId"] = device,
@@ -341,7 +341,7 @@ public sealed class DemoHistory
                         SubjectId = visit.Person.UserId,
                         WorldId = instance.World.WorldId,
                         InstanceId = instance.Number,
-                        Source = FactSource.Client,
+                        Source = FactSource.Companion,
                         Data = new JsonObject
                         {
                             ["deviceId"] = device,

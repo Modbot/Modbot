@@ -63,5 +63,5 @@ public interface IFactWriter
 /// </remarks>
 public static class FactDeduplication
 {
-    public static bool AppliesTo(FactSource source) => source is FactSource.Client;
+    public static bool AppliesTo(FactSource source) => source is FactSource.Companion;
 }

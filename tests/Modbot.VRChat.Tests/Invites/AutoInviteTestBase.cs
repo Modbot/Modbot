@@ -265,7 +265,7 @@ public abstract class AutoInviteTestBase(PostgresFixture fixture) : SyncTestBase
             SubjectId = userId,
             WorldId = World,
             InstanceId = Instance,
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
             Data = data,
         };
     }

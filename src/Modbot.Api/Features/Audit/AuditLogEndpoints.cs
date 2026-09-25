@@ -256,7 +256,17 @@ public static class AuditLogEndpoints
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-    private static List<FactSource> ParseSources(string[]? values) => ParseEnums<FactSource>(values);
+    /// <summary>
+    /// Sources, with the spelling this one used to have.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="FactSource.Companion"/> was called <c>Client</c> until 2026-09-24, and an
+    /// unreadable value here is dropped rather than refused -- so a saved filter, a bookmark or a
+    /// caller written against the old name would quietly stop filtering by it and show everything
+    /// instead. Taking the old spelling costs one line and means nobody has to be told.
+    /// </remarks>
+    private static List<FactSource> ParseSources(string[]? values) => ParseEnums<FactSource>(
+        values?.Select(v => v.Replace("Client", nameof(FactSource.Companion), StringComparison.OrdinalIgnoreCase)).ToArray());
 
     private static FactPlatform? ParsePlatform(string? value)
         => Enum.TryParse<FactPlatform>(value, ignoreCase: true, out var parsed) ? parsed : null;

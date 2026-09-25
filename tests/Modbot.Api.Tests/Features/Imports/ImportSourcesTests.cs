@@ -29,7 +29,7 @@ public class ImportSourcesTests
     [InlineData(" Discord ", FactSource.Discord)]
     [InlineData("Manual", FactSource.Manual)]
     [InlineData("Modbot", FactSource.Modbot)]
-    [InlineData("Client", FactSource.Client)]
+    [InlineData("Client", FactSource.Companion)]
     public void ANameIsRead_WithoutRegardToCaseOrSpace(string name, FactSource expected)
     {
         Assert.True(ImportSources.TryParse(name, out var source, out var reason));

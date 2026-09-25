@@ -8,6 +8,8 @@
 const SOURCE_LABEL: Record<string, string> = {
   AuditLog: 'VRChat',
   SyncDiff: 'Sync',
+  Companion: 'Companion App',
+  // Called Client until 2026-09-24. Rows are unchanged; only the name is.
   Client: 'Companion App',
   Discord: 'Discord',
   Manual: 'Manual',

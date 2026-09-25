@@ -117,7 +117,7 @@ public class LiveStreamTests
             SubjectId = subject,
             WorldId = instance is null ? null : "wrld_4b34",
             InstanceId = instance,
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
             Data = data,
         }, Ct);
 

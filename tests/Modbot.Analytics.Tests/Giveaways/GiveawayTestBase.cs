@@ -343,7 +343,7 @@ public abstract class GiveawayTestBase : IAsyncLifetime
         SubjectId = subjectId,
         WorldId = World,
         InstanceId = instance,
-        Source = FactSource.Client,
+        Source = FactSource.Companion,
     };
 
     private async Task WriteAsync(params FactRecord[] facts)

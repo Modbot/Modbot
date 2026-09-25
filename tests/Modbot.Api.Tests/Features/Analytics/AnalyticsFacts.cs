@@ -65,7 +65,7 @@ internal static class AnalyticsFacts
             SubjectId = subject,
             WorldId = worldId,
             InstanceId = instanceId,
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
             Data = data,
         };
     }

@@ -44,6 +44,15 @@ public static class ImportSources
 
         var word = name.Trim();
 
+        // Companion was called Client until 2026-09-24, and a file somebody exported before then
+        // still says so. An import is a thing people keep on disk for years; refusing a word
+        // Modbot itself wrote would be refusing our own older self.
+        if (string.Equals(word, "Client", StringComparison.OrdinalIgnoreCase))
+        {
+            source = FactSource.Companion;
+            return true;
+        }
+
         foreach (var candidate in All)
         {
             if (string.Equals(candidate.ToString(), word, StringComparison.OrdinalIgnoreCase))

@@ -152,7 +152,7 @@ public static class ImportEndpoints
                 + "else; it does not turn off the check that stops the same file being imported "
                 + "twice, which always runs. seenBy is the "
                 + "source every record is filed under unless the record sets its own: one of "
-                + "AuditLog, SyncDiff, Client, Discord, Manual or Modbot, and Manual when nothing "
+                + "AuditLog, SyncDiff, Companion, Discord, Manual or Modbot, and Manual when nothing "
                 + "says otherwise. The format is documented at "
                 + "docs.modbot.co/self-hosting/importing-old-data.")
             .Produces<ImportView>()

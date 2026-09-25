@@ -122,7 +122,7 @@ public class CompanionLiveTests
             SubjectId = subject,
             WorldId = "wrld_4b34",
             InstanceId = instance,
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
             Data = data,
         }, Ct);
 

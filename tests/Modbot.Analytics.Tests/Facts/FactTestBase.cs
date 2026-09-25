@@ -57,7 +57,7 @@ public abstract class FactTestBase : IAsyncLifetime
             SubjectId = subjectId,
             WorldId = "wrld_test",
             InstanceId = instanceId,
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
             Data = device is { } reporter
                 ? new JsonObject { [ClientReport.DeviceIdKey] = reporter.ToString() }
                 : null,

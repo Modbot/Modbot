@@ -200,7 +200,7 @@ public class RouteRolesAndPeopleTests
             SubjectId = TeaSpoon,
             WorldId = "wrld_1",
             InstanceId = "1",
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
         }, ct);
 
         var warn = HeldRoles.Read(Assert.Single(await services.FactsOfTypeAsync(FactType.GroupInstanceWarn, ct)).Data)!;

@@ -149,14 +149,14 @@ public class DailyTotalsJobTests : AnalyticsTestBase
     public async Task WorldVisitorsCountsEachPersonOncePerDay()
     {
         await WriteAsync(
-            Fact(FactType.InstanceJoined, Start, subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Client),
-            Fact(FactType.InstancePresenceObserved, Start.AddHours(1), subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Client),
-            Fact(FactType.InstancePresenceObserved, Start.AddHours(1), subjectId: "usr_b", worldId: "wrld_a", instanceId: "1", source: FactSource.Client),
-            Fact(FactType.InstanceJoined, Start.AddHours(2), subjectId: "usr_a", worldId: "wrld_b", instanceId: "9", source: FactSource.Client),
+            Fact(FactType.InstanceJoined, Start, subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Companion),
+            Fact(FactType.InstancePresenceObserved, Start.AddHours(1), subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Companion),
+            Fact(FactType.InstancePresenceObserved, Start.AddHours(1), subjectId: "usr_b", worldId: "wrld_a", instanceId: "1", source: FactSource.Companion),
+            Fact(FactType.InstanceJoined, Start.AddHours(2), subjectId: "usr_a", worldId: "wrld_b", instanceId: "9", source: FactSource.Companion),
 
             // Leaving is not a visit, and a fact with no world has no world row.
-            Fact(FactType.InstanceLeft, Start.AddHours(3), subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Client),
-            Fact(FactType.InstanceJoined, Start.AddHours(4), subjectId: "usr_c", source: FactSource.Client));
+            Fact(FactType.InstanceLeft, Start.AddHours(3), subjectId: "usr_a", worldId: "wrld_a", instanceId: "1", source: FactSource.Companion),
+            Fact(FactType.InstanceJoined, Start.AddHours(4), subjectId: "usr_c", source: FactSource.Companion));
 
         await using var context = Database.NewContext();
         await NewJob(context).RunIncrementalAsync(Ct);

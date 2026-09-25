@@ -286,7 +286,7 @@ public class RetentionPrunerTests : AnalyticsTestBase
             Type = FactType.InstanceJoined,
             SubjectPlatform = FactPlatform.VRChat,
             SubjectId = "usr_archived",
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
         });
 
         await context.SaveChangesAsync(Ct);

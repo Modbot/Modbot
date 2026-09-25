@@ -309,7 +309,7 @@ public static class EventsHandler
             SubjectId = submitted.SubjectId,
             WorldId = submitted.WorldId,
             InstanceId = submitted.InstanceId,
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
             Data = data,
         };
     }

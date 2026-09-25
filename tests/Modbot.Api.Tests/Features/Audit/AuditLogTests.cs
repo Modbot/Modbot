@@ -60,6 +60,31 @@ public class AuditLogTests
         Assert.Equal([FactType.MemberBanned], page.Entries.Select(e => e.Type));
     }
 
+    /// <summary>
+    /// Companion was called Client until 2026-09-24. A filter that still says Client has to keep
+    /// working, and the failure it would otherwise have is the quiet kind: an unreadable source is
+    /// dropped rather than refused, so a saved filter would stop narrowing and show everything.
+    /// </summary>
+    [Theory]
+    [InlineData("Companion")]
+    [InlineData("Client")]
+    [InlineData("client")]
+    public async Task ASourceFilter_TakesTheNameTheCompanionUsedToHave(string spelling)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        await host.WriteFactAsync(Ban("usr_a", "usr_mod", Day) with { Source = FactSource.Companion }, ct);
+        await host.WriteFactAsync(Ban("usr_b", "usr_mod", Day.AddMinutes(1)), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+        var page = await host.GetJsonAsync<AuditPage>($"/api/audit?source={spelling}", cookie, ct);
+
+        // The one from the companion, and not the one from VRChat's audit log.
+        Assert.Equal(["usr_a"], page.Entries.Select(e => e.SubjectId));
+    }
+
     [Fact]
     public async Task AnOperatorSeesSettingsChanges_AndNotBans()
     {

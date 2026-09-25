@@ -44,7 +44,7 @@ const AT_TOP_PX = 40
 // `Import` is a legacy source: imports file each record under where it really came from now, and
 // nothing writes it any more. It stays on the list, and in the defaults, so the rows that do hold
 // it are still findable (import design §5.1).
-const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot', 'Import']
+const SOURCES = ['AuditLog', 'SyncDiff', 'Companion', 'Discord', 'Manual', 'Modbot', 'Import']
 
 export function AuditLog() {
   const [location] = useLocation()

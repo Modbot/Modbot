@@ -55,7 +55,7 @@ public class LinkedFactTests : ReviewTestBase
             Start.AddDays(-1).AddSeconds(2),
             subjectId: "usr_p",
             actorId: "alice",
-            source: FactSource.Client,
+            source: FactSource.Companion,
             worldId: "wrld_a",
             instanceId: "1"));
 

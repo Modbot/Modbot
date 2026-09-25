@@ -331,7 +331,7 @@ public sealed class FactWriter : IFactWriter
         // than by its source, which is now the source the record really came from: roles at a
         // date years back are not something the recorded role changes can answer, and it would be
         // a query per record on a path that runs for thousands (import design §5).
-        if (fact.Source is FactSource.Client
+        if (fact.Source is FactSource.Companion
             || fact.Data?.ContainsKey(ImportedFact.ImportIdKey) == true
             || fact.Data?.ContainsKey(HeldRoles.Key) == true)
         {

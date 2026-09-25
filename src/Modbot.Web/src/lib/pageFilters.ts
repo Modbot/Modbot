@@ -12,7 +12,7 @@ import { chipFor, dateRange, yesNo, type FilterChip } from './filters.ts'
  * on purpose (import design §5).
  */
 export const AUDIT_DEFAULTS: FilterChip[] = [
-  { property: 'source', operator: 'is', values: ['AuditLog', 'Discord', 'Client', 'Import'] },
+  { property: 'source', operator: 'is', values: ['AuditLog', 'Discord', 'Companion', 'Import'] },
 ]
 
 export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' | 'before'> {
@@ -28,7 +28,7 @@ export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' 
   const when = dateRange(chips, 'when')
 
   // "Is not" on a fixed list is the rest of the list, which the server takes as a plain list.
-  const SOURCES = ['AuditLog', 'SyncDiff', 'Client', 'Discord', 'Manual', 'Modbot', 'Import']
+  const SOURCES = ['AuditLog', 'SyncDiff', 'Companion', 'Discord', 'Manual', 'Modbot', 'Import']
 
   return {
     source:

@@ -78,7 +78,7 @@ public class LiveTests
             SubjectId = subject,
             WorldId = "wrld_a",
             InstanceId = "39047",
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
             Data = data,
         };
     }

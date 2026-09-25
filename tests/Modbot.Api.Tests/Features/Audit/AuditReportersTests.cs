@@ -55,7 +55,7 @@ public class AuditReportersTests
             SubjectId = subject,
             WorldId = "wrld_a",
             InstanceId = "39047",
-            Source = device is null ? FactSource.AuditLog : FactSource.Client,
+            Source = device is null ? FactSource.AuditLog : FactSource.Companion,
             Data = device is { } reporter
                 ? new JsonObject { [ClientReport.DeviceIdKey] = reporter.ToString() }
                 : null,

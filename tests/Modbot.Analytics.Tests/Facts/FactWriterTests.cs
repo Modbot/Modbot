@@ -78,7 +78,7 @@ public class FactWriterTests : FactTestBase
             SubjectId = subject,
             WorldId = "wrld_test",
             InstanceId = "42",
-            Source = FactSource.Client,
+            Source = FactSource.Companion,
             Data = new JsonObject(),
         };
 

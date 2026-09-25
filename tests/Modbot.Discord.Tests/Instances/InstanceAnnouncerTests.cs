@@ -345,7 +345,7 @@ public class InstanceAnnouncerTests
         SubjectId = subject,
         WorldId = World,
         InstanceId = number,
-        Source = FactSource.Client,
+        Source = FactSource.Companion,
         Data = new JsonObject { ["deviceId"] = device.ToString(), ["displayName"] = name },
     };
 

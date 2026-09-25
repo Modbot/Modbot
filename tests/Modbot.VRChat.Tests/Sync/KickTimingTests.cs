@@ -88,7 +88,7 @@ public class KickTimingTests(PostgresFixture fixture) : SyncTestBase(fixture)
                 SubjectId = subject,
                 WorldId = World,
                 InstanceId = Number,
-                Source = FactSource.Client,
+                Source = FactSource.Companion,
                 Data = new JsonObject { [ClientReport.DeviceIdKey] = device.ToString() },
             },
             Ct);

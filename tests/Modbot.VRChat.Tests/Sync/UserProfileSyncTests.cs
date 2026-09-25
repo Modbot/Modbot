@@ -326,7 +326,7 @@ public class UserProfileSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         await SeedRowAsync("usr_opened", lastSeen: Now.AddDays(-3), lastRefreshed: Now.AddDays(-1));
 
         // A presence report and an audit-log entry, both fresh.
-        await WriteFactAsync(FactType.InstancePresenceObserved, "usr_here", at: Now.AddMinutes(-2), source: FactSource.Client);
+        await WriteFactAsync(FactType.InstancePresenceObserved, "usr_here", at: Now.AddMinutes(-2), source: FactSource.Companion);
         await WriteFactAsync(FactType.MemberJoined, "usr_seen", at: Now.AddMinutes(-1));
 
         // A moderator opens one of the old ones.

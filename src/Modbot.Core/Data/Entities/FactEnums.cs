@@ -35,8 +35,18 @@ public enum FactSource : short
     /// <summary>Inferred by comparing two syncs. Carries an <c>occurred_before</c> window.</summary>
     SyncDiff = 2,
 
-    /// <summary>Reported by a moderator's Windows client (M3). The deduplicated path.</summary>
-    Client = 3,
+    /// <summary>
+    /// Reported by a moderator's companion (M3). The deduplicated path.
+    /// </summary>
+    /// <remarks>
+    /// Called <c>Client</c> until 2026-09-24. In VRChat a "client" is a modified game used to
+    /// grief people, and the word is about as welcome as any word gets: a moderation tool had no
+    /// business printing it on a chip beside somebody's name. The number is unchanged, so no row
+    /// was rewritten -- the column is a smallint and never held the word at all. The old spelling
+    /// is still accepted wherever a source arrives as text, so saved filters and older callers
+    /// keep working.
+    /// </remarks>
+    Companion = 3,
 
     /// <summary>Observed in Discord (M5).</summary>
     Discord = 4,
