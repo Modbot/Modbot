@@ -157,10 +157,13 @@ body{font-family:"IBM Plex Sans",system-ui,sans-serif}
 .wide{width:960px;height:540px;display:block;padding:0;position:relative}
 .wide::after{content:none}
 
-/* Whole, inside the canvas. The crop takes its top third; the rest reads as a
-   head leaning into the strip from above. */
+/* Under the words, in the middle of the file. The nameplate covers everything
+   below the halfway line, so this is the one place a mark can sit at a decent
+   size without taking any of the strip the words need: it belongs to the file
+   rather than to the nameplate. */
 .wide .icon{
-  position:absolute;left:100px;top:6px;width:104px;height:104px;margin:0;filter:none;
+  position:absolute;left:50%;top:66%;transform:translate(-50%,-50%);
+  width:168px;height:168px;margin:0;filter:none;
 }
 
 /* The hundred pixels a side are the corner radius, not taste. */
