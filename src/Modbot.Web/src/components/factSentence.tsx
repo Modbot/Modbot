@@ -248,34 +248,57 @@ function isListChange(pair: { old?: unknown; new?: unknown }): boolean {
  * role reads the same whichever platform it is on.
  */
 function ChangedLists({ changed }: { changed: Parts['changed'] }) {
-  const lines = changed
-    .filter(([, pair]) => isListChange(pair))
-    .flatMap(([key, pair]) => {
-      const permissionList = /permissions/i.test(key)
-      const item = permissionList ? permissionLabel : listItem
-      const was = (Array.isArray(pair.old) ? pair.old : []).map(item)
-      const now = (Array.isArray(pair.new) ? pair.new : []).map(item)
-      const added = now.filter((v) => !was.includes(v))
-      const removed = was.filter((v) => !now.includes(v))
-      const field = fieldName(key)
-
-      if (added.length === 0 && removed.length === 0)
-        return [`${field.charAt(0).toUpperCase()}${field.slice(1)} put in a different order.`]
-
-      return [
-        added.length > 0 ? `${permissionList ? 'Gave it' : `Added to ${field}`}: ${list(added)}.` : null,
-        removed.length > 0 ? `${permissionList ? 'Took away' : `Removed from ${field}`}: ${list(removed)}.` : null,
-      ].filter((line): line is string => line !== null)
-    })
-
   return (
     <>
-      {lines.map((line) => (
-        <span key={line} className="block">
-          {line}
+      {changed
+        .filter(([, pair]) => isListChange(pair))
+        .map(([key, pair]) => {
+          const permissionList = /permissions/i.test(key)
+          const item = permissionList ? permissionLabel : listItem
+          const was = (Array.isArray(pair.old) ? pair.old : []).map(item)
+          const now = (Array.isArray(pair.new) ? pair.new : []).map(item)
+          const added = now.filter((v) => !was.includes(v))
+          const removed = was.filter((v) => !now.includes(v))
+          const field = fieldName(key)
+
+          if (added.length === 0 && removed.length === 0)
+            return (
+              <span key={key} className="block">
+                {field.charAt(0).toUpperCase()}
+                {field.slice(1)} put in a different order.
+              </span>
+            )
+
+          return (
+            <span key={key} className="contents">
+              <Bullets heading={permissionList ? 'Gave it' : `Added to ${field}`} items={added} />
+              <Bullets heading={permissionList ? 'Took away' : `Removed from ${field}`} items={removed} />
+            </span>
+          )
+        })}
+    </>
+  )
+}
+
+/**
+ * A heading, then one entry to a bullet. A list read as a sentence ("A, B, C and D") is hard to run
+ * an eye down; bullets are not.
+ *
+ * Spans shown as list items rather than a `<ul>`, because a sentence also sits inside a
+ * `<summary>`, which may only hold inline content.
+ */
+function Bullets({ heading, items }: { heading: string; items: string[] }) {
+  if (items.length === 0) return null
+
+  return (
+    <span className="mt-1 block">
+      <span className="block">{heading}:</span>
+      {items.map((item) => (
+        <span key={item} className="ml-5 list-item list-disc">
+          {item}
         </span>
       ))}
-    </>
+    </span>
   )
 }
 
@@ -283,7 +306,6 @@ function ChangedLists({ changed }: { changed: Parts['changed'] }) {
  * One field's change, for a field holding a single value.
  */
 function changePhrase(key: string, pair: { old?: unknown; new?: unknown }): string {
-
   const say = (value: unknown) =>
     typeof value === 'string' && value && NAMING_FIELD.test(key) ? `“${clipped(value)}”` : clipped(shown(value))
 
@@ -667,9 +689,9 @@ const SENTENCES: Record<string, Sentence> = {
       <>
         {p.actor} changed {named(p.text('name'), 'Discord role')}
         <Changed changed={p.changed} />.
-      <ChangedLists changed={p.changed} />
-        {given ? <span className="block">Gave it: {given}.</span> : null}
-        {taken ? <span className="block">Took away: {taken}.</span> : null}
+        <ChangedLists changed={p.changed} />
+        <Bullets heading="Gave it" items={given} />
+        <Bullets heading="Took away" items={taken} />
       </>
     )
   },
@@ -1736,15 +1758,13 @@ const DISCORD_PERMISSIONS: Record<string, string> = {
   ViewMonetizationAnalytics: 'View Server Subscription Insights',
 }
 
-/** "Kick Members, Ban Members and Timeout Members" out of the stored permission names. */
-function permissions(value: unknown): string | null {
-  if (!Array.isArray(value)) return null
+/** The stored permission names, as Discord's settings show them. */
+function permissions(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
 
-  const words = value
+  return value
     .filter((v): v is string => typeof v === 'string')
     .map((v) => DISCORD_PERMISSIONS[v] ?? v.replace(/([a-z0-9])([A-Z])/g, '$1 $2'))
-
-  return words.length > 0 ? list(words) : null
 }
 
 /** "Modbot could not add “Movie night” to VRChat's calendar", for each place an event goes. */
