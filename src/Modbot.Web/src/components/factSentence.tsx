@@ -71,6 +71,17 @@ type Parts = {
   changed: [string, { old?: unknown; new?: unknown }][]
 }
 
+/**
+ * A thing by name, or the kind of thing when Modbot never learned its name.
+ *
+ * "the Discord role Moderator" when the name is there, "a Discord role" when it is not. Dropping a
+ * placeholder into the sentence instead gives "the Discord role a role", which is not a sentence:
+ * a name that is missing changes the shape of the clause around it, not just the word in the hole.
+ */
+function named(name: string | null | undefined, kind: string): React.ReactNode {
+  return name ? <>the {kind} {name}</> : `a ${kind}`
+}
+
 /** A count in the payload, written out, or the given word when there is none. */
 function howMany(p: Parts, otherwise: string): string {
   const value = p.entry.data?.['count']
@@ -489,21 +500,12 @@ const SENTENCES: Record<string, Sentence> = {
   'discord.channel.create': (p) => <>{p.actor} created the Discord channel {p.text('name') ?? 'a channel'}.</>,
   'discord.channel.update': (p) => <>{p.actor} changed the Discord channel {p.text('name') ?? 'a channel'}.</>,
   'discord.channel.delete': (p) => <>{p.actor} deleted the Discord channel {p.text('name') ?? 'a channel'}.</>,
-  'discord.role.create': (p) => <>{p.actor} created the Discord role {p.text('name') ?? 'a role'}.</>,
-  'discord.role.update': (p) => <>{p.actor} changed the Discord role {p.text('name') ?? 'a role'}.</>,
-  'discord.role.delete': (p) => <>{p.actor} deleted the Discord role {p.text('name') ?? 'a role'}.</>,
+  'discord.role.create': (p) => <>{p.actor} created {named(p.text('name'), 'Discord role')}.</>,
+  'discord.role.update': (p) => <>{p.actor} changed {named(p.text('name'), 'Discord role')}.</>,
+  'discord.role.delete': (p) => <>{p.actor} deleted {named(p.text('name'), 'Discord role')}.</>,
 
-  'discord.role.assign': (p) => (
-    <>
-      {p.subject} was given the Discord role {p.text('roleName') ?? 'a role'}.
-    </>
-  ),
-
-  'discord.role.unassign': (p) => (
-    <>
-      {p.subject} lost the Discord role {p.text('roleName') ?? 'a role'}.
-    </>
-  ),
+  'discord.role.assign': (p) => <>{p.subject} was given {named(p.text('roleName'), 'Discord role')}.</>,
+  'discord.role.unassign': (p) => <>{p.subject} lost {named(p.text('roleName'), 'Discord role')}.</>,
 
   'modbot.discord.command': (p) => (
     <>

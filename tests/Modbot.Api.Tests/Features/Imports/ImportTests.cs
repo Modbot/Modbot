@@ -1028,6 +1028,76 @@ public class ImportTests
         Assert.Equal(2, (await host.FactsAsync(FactType.MemberBanned, subject, Ct)).Count);
     }
 
+    /// <summary>
+    /// The body is read into a buffer sized from the length the sender declared, and that buffer is
+    /// handed on as the file when it came out exactly full. Both halves can go wrong quietly: a
+    /// buffer longer than the body would carry trailing zeroes into the file, and a length nobody
+    /// declared has to still work.
+    /// </summary>
+    [Fact]
+    public async Task ABodyWithADeclaredLength_ArrivesWithNothingAddedToTheEndOfIt()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("join", "2024-02-01T00:00:00Z", "vrchat", NewUser()),
+            Record("leave", "2024-02-02T00:00:00Z", "vrchat", NewUser()),
+        });
+
+        var content = new ByteArrayContent(Encoding.UTF8.GetBytes(body));
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        Assert.NotNull(content.Headers.ContentLength);
+
+        var request = host.Authenticated(HttpMethod.Post, $"{Path}?source={source}", cookie);
+        request.Content = content;
+
+        var response = await host.Client.SendAsync(request, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var id = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("id").GetString()!;
+        var done = await FinishedAsync(host, cookie, id);
+
+        // Trailing zeroes would make the JSON unreadable and the whole file would fail instead.
+        Assert.Equal("Done", done.GetProperty("status").GetString());
+        Assert.Equal(2, done.GetProperty("imported").GetInt32());
+    }
+
+    /// <summary>
+    /// And a sender that declares no length at all, which is what chunked encoding is. There is
+    /// nothing to size the buffer from, so it grows the way it always did.
+    /// </summary>
+    [Fact]
+    public async Task ABodyThatDeclaresNoLength_IsReadJustTheSame()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ImportOldData, Ct);
+
+        var source = NewSource();
+        var body = JsonSerializer.Serialize(new object[]
+        {
+            Record("join", "2024-02-03T00:00:00Z", "vrchat", NewUser()),
+        });
+
+        var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes(body)));
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        var request = host.Authenticated(HttpMethod.Post, $"{Path}?source={source}", cookie);
+        request.Content = content;
+        request.Headers.TransferEncodingChunked = true;
+
+        var response = await host.Client.SendAsync(request, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var id = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("id").GetString()!;
+        var done = await FinishedAsync(host, cookie, id);
+
+        Assert.Equal("Done", done.GetProperty("status").GetString());
+        Assert.Equal(1, done.GetProperty("imported").GetInt32());
+    }
+
     private static object Record(string kind, string at, string platform, string id)
         => new { kind, at, subject = new { platform, id } };
 

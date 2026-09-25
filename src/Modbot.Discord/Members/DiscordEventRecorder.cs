@@ -107,7 +107,9 @@ public sealed class DiscordEventRecorder
         var row = await RowAsync(guildId, member.UserId, ct).ConfigureAwait(false);
         var auditLog = await AuditLogCoversAsync(guildId, ct).ConfigureAwait(false);
 
-        foreach (var fact in Changes(row, member, now, before: null, auditLog))
+        var roleNames = await RoleNamesAsync(guildId, ct).ConfigureAwait(false);
+
+        foreach (var fact in Changes(row, member, now, before: null, auditLog, roleNames))
             await WriteAsync(fact, ct).ConfigureAwait(false);
 
         Apply(row, member, now);
@@ -185,6 +187,8 @@ public sealed class DiscordEventRecorder
             .ToDictionaryAsync(m => m.UserId, StringComparer.Ordinal, ct)
             .ConfigureAwait(false);
 
+        var roleNames = await RoleNamesAsync(guildId, ct).ConfigureAwait(false);
+
         var facts = new List<FactRecord>();
         var present = new HashSet<string>(StringComparer.Ordinal);
 
@@ -214,7 +218,7 @@ public sealed class DiscordEventRecorder
             }
             else
             {
-                facts.AddRange(Changes(row, member, since, before, auditLog));
+                facts.AddRange(Changes(row, member, since, before, auditLog, roleNames));
             }
 
             Apply(row, member, now);
@@ -528,8 +532,57 @@ public sealed class DiscordEventRecorder
     /// The facts a member's change implies. Roles and timeouts only when the audit log will not
     /// record them itself.
     /// </summary>
+    /// <summary>
+    /// What the server index calls each of this server's roles, by id.
+    /// </summary>
+    /// <remarks>
+    /// Read once per pass rather than once per member: a sweep of a large server compares
+    /// thousands of members against a role list that does not change while it runs. A server whose
+    /// roles have never been indexed answers an empty list, and every fact below then carries the
+    /// role's id alone, which is what it carried before this was here.
+    /// </remarks>
+    private async Task<IReadOnlyDictionary<string, string>> RoleNamesAsync(string guildId, CancellationToken ct)
+        => await _db.DiscordRoles
+            .AsNoTracking()
+            .Where(r => r.GuildId == guildId)
+            .ToDictionaryAsync(r => r.RoleId, r => r.Name, StringComparer.Ordinal, ct)
+            .ConfigureAwait(false);
+
+    /// <summary>
+    /// One role changing hands, said the way the audit log path says it.
+    /// </summary>
+    /// <remarks>
+    /// The name is left out when the index has never seen the role, rather than written empty: a
+    /// missing name is a sentence that says "a Discord role", and an empty one is a sentence with
+    /// a hole in it.
+    /// </remarks>
+    private static JsonObject AboutRole(
+        string roleId, DiscordMemberSnapshot member, IReadOnlyDictionary<string, string> roleNames)
+    {
+        var payload = new JsonObject
+        {
+            ["roleId"] = roleId,
+            ["displayName"] = member.DisplayName,
+        };
+
+        if (roleNames.TryGetValue(roleId, out var name) && !string.IsNullOrWhiteSpace(name))
+            payload["roleName"] = name;
+
+        return payload;
+    }
+
+    /// <param name="roleNames">
+    /// Role names by id, so a fact written from a snapshot says which role the same way one
+    /// written from the audit log does. A role the index has not seen is left out rather than
+    /// written as an empty name.
+    /// </param>
     private static IEnumerable<FactRecord> Changes(
-        DiscordMember row, DiscordMemberSnapshot member, DateTimeOffset at, DateTimeOffset? before, bool auditLog)
+        DiscordMember row,
+        DiscordMemberSnapshot member,
+        DateTimeOffset at,
+        DateTimeOffset? before,
+        bool auditLog,
+        IReadOnlyDictionary<string, string> roleNames)
     {
         // A row made a moment ago for somebody never listed has nothing to compare with.
         if (row.UpdatedAt == default)
@@ -552,10 +605,10 @@ public sealed class DiscordEventRecorder
         var has = member.RoleIds.ToHashSet(StringComparer.Ordinal);
 
         foreach (var added in has.Except(had).Order(StringComparer.Ordinal))
-            yield return Fact(FactType.DiscordRoleGranted, member.UserId, at, before, new JsonObject { ["roleId"] = added, ["displayName"] = member.DisplayName });
+            yield return Fact(FactType.DiscordRoleGranted, member.UserId, at, before, AboutRole(added, member, roleNames));
 
         foreach (var removed in had.Except(has).Order(StringComparer.Ordinal))
-            yield return Fact(FactType.DiscordRoleRevoked, member.UserId, at, before, new JsonObject { ["roleId"] = removed, ["displayName"] = member.DisplayName });
+            yield return Fact(FactType.DiscordRoleRevoked, member.UserId, at, before, AboutRole(removed, member, roleNames));
 
         if (row.TimedOutUntil != member.TimedOutUntil)
         {

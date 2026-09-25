@@ -92,11 +92,11 @@ public static class ImportEndpoints
                         skipKnown = formDedup;
 
                     await using var stream = file.OpenReadStream();
-                    body = await ReadCappedAsync(stream, ct);
+                    body = await ReadCappedAsync(stream, file.Length, ct);
                 }
                 else
                 {
-                    body = await ReadCappedAsync(http.Request.Body, ct);
+                    body = await ReadCappedAsync(http.Request.Body, http.Request.ContentLength, ct);
                 }
 
                 if (body is null)
@@ -250,9 +250,37 @@ public static class ImportEndpoints
     /// Reads the stream in full, up to the cap. False when there is more than the cap allows:
     /// the cap is enforced against bytes actually seen, not against Content-Length.
     /// </summary>
-    private static async Task<byte[]?> ReadCappedAsync(Stream stream, CancellationToken ct)
+    /// <summary>
+    /// The whole body, or null when it is over <see cref="MaxBytes"/>.
+    /// </summary>
+    /// <param name="declared">
+    /// How long the sender said it would be, or null when nobody said. A hint and not a promise:
+    /// it only decides the starting size, so a body that turns out longer still grows and one that
+    /// claims to be enormous is still stopped at the cap.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// Sized from the declared length because the alternative is expensive twice over. A
+    /// <see cref="MemoryStream"/> given no capacity doubles its way up -- 256 bytes, 512, and on
+    /// to sixty-four megabytes -- allocating a new array and copying everything so far at each
+    /// step, and every array past eighty-five kilobytes lands on the large object heap, which is
+    /// not compacted. Starting at the right size makes it one allocation.
+    /// </para>
+    /// <para>
+    /// And the buffer is handed back rather than copied out when it came out exactly full, which
+    /// is the ordinary case once the size is right. <see cref="MemoryStream.ToArray"/> allocates a
+    /// second copy of everything just read, so a sixty-four megabyte import held a hundred and
+    /// twenty-eight at the moment it returned -- on the machine least able to spare it, with
+    /// PostgreSQL about to take the same sixty-four again. A buffer that is not exactly full still
+    /// gets copied, because the caller is handed the array itself and trailing zeroes would become
+    /// part of the file.
+    /// </para>
+    /// </remarks>
+    private static async Task<byte[]?> ReadCappedAsync(Stream stream, long? declared, CancellationToken ct)
     {
-        var buffer = new MemoryStream();
+        var buffer = declared is > 0 and <= MaxBytes
+            ? new MemoryStream((int)declared.Value)
+            : new MemoryStream();
 
         var chunk = new byte[64 * 1024];
         while (true)
@@ -267,6 +295,7 @@ public static class ImportEndpoints
             buffer.Write(chunk, 0, read);
         }
 
-        return buffer.ToArray();
+        var held = buffer.GetBuffer();
+        return held.Length == buffer.Length ? held : buffer.ToArray();
     }
 }

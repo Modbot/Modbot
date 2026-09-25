@@ -196,6 +196,63 @@ public class DiscordEventRecorderTests
         Assert.Equal(services.Clock.UtcNow, left.LeftAt);
     }
 
+    /// <summary>
+    /// A role change noticed by comparing members carries the role's name, the same as one read
+    /// from the audit log. Without it the Logs page had nothing to put in the sentence and said
+    /// "was given the Discord role a role", once per role, which is not a sentence and does not
+    /// say which role either.
+    /// </summary>
+    [Fact]
+    public async Task ARoleChangeNoticedByComparing_NamesTheRole_NotJustItsId()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services, configure: g =>
+        {
+            g.Server = Server(canViewAuditLog: false) with
+            {
+                Roles =
+                [
+                    new DiscordRoleSnapshot("r1", "Member", 0, 1, false, false, true),
+                    new DiscordRoleSnapshot("r2", "Moderator", 0, 2, false, false, true),
+                ],
+            };
+            g.Members = [Member("1", "Ada", roles: ["r1"])];
+        });
+
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseMemberUpdatedAsync(Guild, Member("1", "Ada", roles: ["r2"]));
+
+        var facts = (await FactsAsync(services)).Where(f => f.Type != FactType.DiscordMembersSnapshot).ToList();
+
+        var granted = Assert.Single(facts, f => f.Type == FactType.DiscordRoleGranted);
+        Assert.Equal("r2", Data(granted, "roleId"));
+        Assert.Equal("Moderator", Data(granted, "roleName"));
+
+        var revoked = Assert.Single(facts, f => f.Type == FactType.DiscordRoleRevoked);
+        Assert.Equal("r1", Data(revoked, "roleId"));
+        Assert.Equal("Member", Data(revoked, "roleName"));
+    }
+
+    /// <summary>
+    /// A role the server index has never heard of leaves the name out rather than writing it
+    /// empty, so the sentence says "a Discord role" instead of having a hole in it.
+    /// </summary>
+    [Fact]
+    public async Task ARoleNobodyHasIndexed_IsStillRecorded_WithNoNameRatherThanABlankOne()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services, configure: g => g.Members = [Member("1", "Ada", roles: [])]);
+
+        services.Clock.Advance(TimeSpan.FromMinutes(1));
+        await gateway.RaiseMemberUpdatedAsync(Guild, Member("1", "Ada", roles: ["unknown"]));
+
+        var facts = await FactsAsync(services);
+        var granted = Assert.Single(facts, f => f.Type == FactType.DiscordRoleGranted);
+
+        Assert.Equal("unknown", Data(granted, "roleId"));
+        Assert.Null(Data(granted, "roleName"));
+    }
+
     [Fact]
     public async Task WithTheAuditLog_ModerationComesFromItAlone_WithTheModeratorNamed()
     {
