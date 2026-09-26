@@ -3373,12 +3373,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (isDiagnosis(body)) throw new ApiError(response.status, body.headline, body)
 
-  const message =
-    typeof body === 'object' && body !== null && 'error' in body
-      ? String((body as { error: unknown }).error)
-      : `The server answered ${response.status}.`
+  throw new ApiError(response.status, refusalMessage(body, response.status), null, body)
+}
 
-  throw new ApiError(response.status, message, null, body)
+/**
+ * The sentence a refusal carries. Most endpoints answer `{ error }`; a few answer with ASP.NET's
+ * problem shape (`{ title, detail }`), and reading only the first turned those into a bare status
+ * code on screen.
+ */
+function refusalMessage(body: unknown, status: number): string {
+  if (typeof body === 'object' && body !== null) {
+    const b = body as { error?: unknown; detail?: unknown; title?: unknown }
+    if (b.error !== undefined && b.error !== null) return String(b.error)
+    if (typeof b.detail === 'string' && b.detail) return b.detail
+    if (typeof b.title === 'string' && b.title) return b.title
+  }
+  return `The server answered ${status}.`
 }
 
 /**
@@ -3421,11 +3431,7 @@ async function sendChatMessage(
     } catch {
       parsed = null
     }
-    const message =
-      typeof parsed === 'object' && parsed !== null && 'error' in parsed
-        ? String((parsed as { error: unknown }).error)
-        : `The server answered ${response.status}.`
-    throw new ApiError(response.status, message, null, parsed)
+    throw new ApiError(response.status, refusalMessage(parsed, response.status), null, parsed)
   }
 
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
