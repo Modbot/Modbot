@@ -1,8 +1,8 @@
 import { ResponsiveContainer } from 'recharts'
 import { EmptyRow } from '@/components/PanelGrid'
 import './charts.css'
-import { Legend } from './RankedList'
-import { chartHeight, type SeriesSlot } from './theme'
+import { Legend, type LegendItem } from './RankedList'
+import { chartHeight } from './theme'
 
 /**
  * The box every chart sits in: a fixed height (Recharts measures its parent, and a parent with no
@@ -29,7 +29,7 @@ export function ChartFrame({
   empty?: boolean
   emptyText?: string
   /** The series' names and colours, drawn above the plot only when there is a plot. */
-  legend?: { label: string; slot: SeriesSlot }[]
+  legend?: LegendItem[]
   children: React.ReactElement
 }) {
   if (empty) {

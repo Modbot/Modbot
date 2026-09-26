@@ -64,7 +64,7 @@ export function AccountHistory({ accountId }: { accountId: string }) {
 
   return (
     <Panel title="Signed in, changed and did" flush>
-      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
       {!error && !data && <EmptyRow>Loading…</EmptyRow>}
       {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
     </Panel>

@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GiveawayForm } from '@/components/giveaways/GiveawayForm'
+import { Pager } from '@/components/Pager'
+import { usePageState } from '@/lib/listPage'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Row } from '@/components/ui/fact-row'
 import { SwitchBank } from '@/components/ui/switch-bank'
+import { SubjectLink } from '@/components/facts'
 import { ApiError } from '@/lib/api'
 import {
   ENTRY_WAY_LABEL,
@@ -20,7 +25,6 @@ import {
   type GiveawayState,
 } from '@/lib/giveaways'
 import { useLocation } from '@/lib/router'
-import { openPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
 
@@ -80,7 +84,7 @@ export function Giveaways() {
 
   const opened = data?.giveaways.find((g) => g.id === openId) ?? null
 
-  if (!data) return <PageMessage>{error ?? 'Loading…'}</PageMessage>
+  if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
 
   return (
     <div className="flex flex-col gap-3">
@@ -101,7 +105,7 @@ export function Giveaways() {
       ) : (
         <Card className="divide-y-(--hairline) divide-border">
           {shown.map((giveaway) => (
-            <Row key={giveaway.id} giveaway={giveaway} onOpen={() => setOpenId(giveaway.id)} />
+            <GiveawayRow key={giveaway.id} giveaway={giveaway} onOpen={() => setOpenId(giveaway.id)} />
           ))}
         </Card>
       )}
@@ -134,7 +138,7 @@ export function Giveaways() {
   )
 }
 
-function Row({ giveaway, onOpen }: { giveaway: Giveaway; onOpen: () => void }) {
+function GiveawayRow({ giveaway, onOpen }: { giveaway: Giveaway; onOpen: () => void }) {
   const winners = giveaway.draws[0]?.winners ?? []
 
   return (
@@ -227,22 +231,16 @@ function GiveawayDialog({
 
           {giveaway.prize && <p className="whitespace-pre-wrap">{giveaway.prize}</p>}
 
-          <Rows>
-            <Row2 label="Opens">
-              <span className="font-mono">{new Date(giveaway.opensAt).toLocaleString()}</span>
-            </Row2>
-            <Row2 label="Closes">
-              <span className="font-mono">{new Date(giveaway.closesAt).toLocaleString()}</span>
-            </Row2>
-            <Row2 label="Draw">
-              {giveaway.drawAt ? <span className="font-mono">{new Date(giveaway.drawAt).toLocaleString()}</span> : 'By hand'}
-            </Row2>
-            {giveaway.entryWay === 'react' && (
-              <Row2 label="Entries">
-                <span className="font-mono">{giveaway.entryCount}</span>
-              </Row2>
-            )}
-          </Rows>
+          <div className="max-w-lg text-foreground">
+            <Row label="Opens" value={new Date(giveaway.opensAt).toLocaleString()} mono />
+            <Row label="Closes" value={new Date(giveaway.closesAt).toLocaleString()} mono />
+            <Row
+              label="Draw"
+              value={giveaway.drawAt ? new Date(giveaway.drawAt).toLocaleString() : 'By hand'}
+              mono={giveaway.drawAt !== null}
+            />
+            {giveaway.entryWay === 'react' && <Row label="Entries" value={giveaway.entryCount} mono />}
+          </div>
 
           <Section title="Rules">
             <ul className="flex flex-col gap-0.5">
@@ -304,7 +302,7 @@ function GiveawayDialog({
                 </Button>
               )}
               <Button
-                variant="ghost"
+                variant="destructive"
                 disabled={busy}
                 onClick={() => act(() => giveawayApi.remove(giveaway.id).then(onClose))}
               >
@@ -321,7 +319,7 @@ function GiveawayDialog({
 /** One draw: its seed, its parameters, its winners, and the frozen entrant list a page at a time. */
 function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw }) {
   const [entrants, setEntrants] = useState<GiveawayEntrant[] | null>(null)
-  const [page, setPage] = useState(1)
+  const at = usePageState()
   const [total, setTotal] = useState(0)
   const [open, setOpen] = useState(false)
 
@@ -330,7 +328,7 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
 
     let cancelled = false
     giveawayApi
-      .entrants(giveaway.id, draw.id, page)
+      .entrants(giveaway.id, draw.id, at.page)
       .then((answer) => {
         if (cancelled) return
         setEntrants(answer.people)
@@ -343,35 +341,46 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
     return () => {
       cancelled = true
     }
-  }, [open, page, giveaway.id, draw.id])
+  }, [open, at.page, giveaway.id, draw.id])
 
   return (
     <Section title={`Draw ${draw.number}`}>
-      <Rows>
-        <Row2 label="Drawn">
-          <span className="font-mono">{new Date(draw.drawnAt).toLocaleString()}</span>
-          {draw.drawnBy && ` by ${draw.drawnBy}`}
-        </Row2>
-        <Row2 label="Entrants">
-          <span className="font-mono">{draw.inDrawCount}</span> of <span className="font-mono">{draw.entrantCount}</span>
-          {draw.closeCalls > 0 && (
+      <div className="max-w-lg text-foreground">
+        <Row
+          label="Drawn"
+          value={
             <>
-              {' · '}
-              <span className="font-mono">{draw.closeCalls}</span> near the line
+              <span className="font-mono">{new Date(draw.drawnAt).toLocaleString()}</span>
+              {draw.drawnBy && ` by ${draw.drawnBy}`}
             </>
-          )}
-        </Row2>
-        <Row2 label="Total weight">
-          <span className="font-mono">{draw.totalWeight}</span>
-        </Row2>
-        <Row2 label="Promise">
-          <code className="font-mono break-all">{draw.seedPromise}</code>
-        </Row2>
-        <Row2 label="Seed">
-          <code className="font-mono break-all">{draw.seed}</code>
-          {!draw.seedKept && <span className="ml-2 text-destructive">Does not match the promise</span>}
-        </Row2>
-      </Rows>
+          }
+        />
+        <Row
+          label="Entrants"
+          value={
+            <>
+              <span className="font-mono">{draw.inDrawCount}</span> of <span className="font-mono">{draw.entrantCount}</span>
+              {draw.closeCalls > 0 && (
+                <>
+                  {' · '}
+                  <span className="font-mono">{draw.closeCalls}</span> near the line
+                </>
+              )}
+            </>
+          }
+        />
+        <Row label="Total weight" value={draw.totalWeight} mono />
+        <Row label="Promise" value={<code className="font-mono break-all">{draw.seedPromise}</code>} />
+        <Row
+          label="Seed"
+          value={
+            <>
+              <code className="font-mono break-all">{draw.seed}</code>
+              {!draw.seedKept && <span className="ml-2 text-destructive">Does not match the promise</span>}
+            </>
+          }
+        />
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {draw.winners.map((w) => (
@@ -381,77 +390,52 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
         ))}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen((o) => !o)}>
           {open ? 'Hide entrants' : 'Entrants'}
         </Button>
-        {open && total > 0 && (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              Back
-            </Button>
-            <span className="font-mono text-muted-foreground">
-              {page} of {Math.max(1, Math.ceil(total / 50))}
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={page >= Math.ceil(total / 50)}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </>
-        )}
       </div>
 
       {open && entrants && (
-        <div className="relative overflow-x-auto border border-(length:--hairline)">
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="bg-strip text-muted-foreground">
-              <tr className="h-(--strip-h)">
-                <th className="px-2 text-left font-normal">#</th>
-                <th className="px-2 text-left font-normal">Name</th>
-                <th className="px-2 text-right font-normal">Weight</th>
-                <th className="px-2 text-right font-normal">{WEIGHTING_LABEL[draw.weighting] ?? draw.weighting}</th>
-                <th className="px-2 text-left font-normal">In the draw</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entrants.map((e) => (
-                <tr key={e.position} className="h-(--row-h) border-t border-t-(length:--hairline)">
-                  <td className="px-2 font-mono text-muted-foreground">{e.position + 1}</td>
-                  <td className="px-2">
-                    <EntrantName entrant={e} />
-                  </td>
-                  <td className="px-2 text-right font-mono">{e.weight}</td>
-                  <td
-                    className={cn('px-2 text-right font-mono', e.closeCall && 'text-warn')}
-                    title={e.closeCall ? 'Near the line' : undefined}
-                  >
-                    {draw.weighting === 'uniform' ? '—' : measured(e.measured, e.fromPolledData)}
-                  </td>
-                  <td className="px-2">
-                    {e.winnerRank !== null ? (
-                      <span className="text-ok">Won ({e.winnerRank})</span>
-                    ) : e.keptOut === '' ? (
-                      'Yes'
-                    ) : (
-                      <span className="text-muted-foreground">{e.because ?? e.keptOutLabel}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <Table
+            head={
+              <>
+                <Th>#</Th>
+                <Th>Name</Th>
+                <Th className="text-right">Weight</Th>
+                <Th className="text-right">{WEIGHTING_LABEL[draw.weighting] ?? draw.weighting}</Th>
+                <Th>In the draw</Th>
+              </>
+            }
+          >
+            {entrants.map((e) => (
+              <Tr key={e.position}>
+                <Td className="font-mono text-muted-foreground">{e.position + 1}</Td>
+                <Td>
+                  <EntrantName entrant={e} />
+                </Td>
+                <Td className="text-right font-mono">{e.weight}</Td>
+                <Td
+                  className={cn('text-right font-mono', e.closeCall && 'text-warn')}
+                  title={e.closeCall ? 'Near the line' : undefined}
+                >
+                  {draw.weighting === 'uniform' ? '—' : measured(e.measured, e.fromPolledData)}
+                </Td>
+                <Td>
+                  {e.winnerRank !== null ? (
+                    <span className="text-ok">Won ({e.winnerRank})</span>
+                  ) : e.keptOut === '' ? (
+                    'Yes'
+                  ) : (
+                    <span className="text-muted-foreground">{e.because ?? e.keptOutLabel}</span>
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </Table>
+          <Pager at={at} pages={Math.max(1, Math.ceil(total / 50))} />
+        </Card>
       )}
     </Section>
   )
@@ -463,9 +447,7 @@ function EntrantName({ entrant }: { entrant: GiveawayEntrant }) {
   const name = entrant.name ?? entrant.key
 
   return entrant.vrChatUserId ? (
-    <button type="button" className="hover:underline" onClick={() => openPerson(entrant.vrChatUserId!)}>
-      {name}
-    </button>
+    <SubjectLink id={entrant.vrChatUserId} name={name} />
   ) : (
     <span>{name}</span>
   )
@@ -496,19 +478,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="flex flex-col gap-2 border-t border-t-(length:--hairline) pt-3">
       <span className="font-label">{title}</span>
       {children}
-    </div>
-  )
-}
-
-function Rows({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col gap-0.5">{children}</div>
-}
-
-function Row2({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap gap-2">
-      <span className="w-32 shrink-0 text-muted-foreground">{label}</span>
-      <span className="min-w-0 flex-1">{children}</span>
     </div>
   )
 }

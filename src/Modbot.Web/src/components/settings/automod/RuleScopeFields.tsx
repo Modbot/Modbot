@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { SwitchBank } from '@/components/ui/switch-bank'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { RolePicker } from '@/components/discord/RolePicker'
 import { useDiscordChannels, useDiscordRoles } from '@/lib/discordLists'
@@ -47,19 +48,12 @@ export function RuleScopeFields({
   return (
     <>
       <Group label="Channels">
-        <div role="radiogroup" aria-label="Channels" className="flex flex-wrap gap-4">
-          {MODES.map((m) => (
-            <label key={m.value} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="channelMode"
-                checked={value.channelMode === m.value}
-                onChange={() => onChange({ ...value, channelMode: m.value })}
-              />
-              {m.label}
-            </label>
-          ))}
-        </div>
+        <SwitchBank
+          label="Channels"
+          value={value.channelMode}
+          options={MODES}
+          onChange={(channelMode) => onChange({ ...value, channelMode })}
+        />
 
         {value.channelMode !== 'all' && (
           <>

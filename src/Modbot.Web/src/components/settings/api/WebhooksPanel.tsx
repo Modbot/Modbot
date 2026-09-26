@@ -315,7 +315,7 @@ function WebhookForm({
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <Field label="Name" value={name} placeholder="Our Discord bot" onChange={setName} />
-      <Field label="Address" value={url} placeholder="https://example.com/modbot" onChange={setUrl} />
+      <Field label="Address" mono value={url} placeholder="https://example.com/modbot" onChange={setUrl} />
       <LongField label="Event types" value={eventTypes} placeholder="vrchat.group.member.*" rows={4} onChange={setEventTypes} />
       {types.length > 0 && (
         <Select

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type EmailSettings, type OnboardingStatus, type TestEmailResult } from '@/lib/api'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Checkbox, Fact, Field, Outcome, PasswordField, Placeholder } from './fields'
@@ -21,9 +22,12 @@ import { SettingsCard, SettingsSection } from './SettingsCard'
  */
 export function IntegrationsSection({
   status,
+  statusError,
   refresh,
 }: {
   status: OnboardingStatus | null
+  /** Why `status` could not be read, while it is null because the read failed. */
+  statusError?: string | null
   refresh: () => Promise<void>
 }) {
   return (
@@ -32,9 +36,10 @@ export function IntegrationsSection({
       {status ? (
         <IntegrationsForm status={status} refresh={refresh} />
       ) : (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone={statusError ? 'danger' : undefined}>{statusError ?? 'Loading…'}</Placeholder>
       )}
-      <PublicInstancesCard />
+      {/* Beside the email card, or on a row of its own while that card waits for the status. */}
+      <PublicInstancesCard span={status ? 6 : 12} />
       <HealthAlertsCard />
     </SettingsSection>
   )
@@ -137,10 +142,13 @@ function IntegrationsForm({
 
   // The form sits inside the card, so the card stays a direct child of the grid, and the Save on
   // the footer reaches it by id. `contents` keeps the form out of the card's layout. A blank password
-  // field is left out, so opening this page and pressing Save never clears a stored one.
+  // field is left out, so opening this page and pressing Save never clears a stored one. The card is
+  // flush so the queue table meets its edges; the fields above it keep the card's inset in a block of
+  // their own.
   return (
     <SettingsCard
       title="Email (SMTP)"
+      flush
       footer={
         <>
           <Button type="submit" form="integrations-form" size="xs" disabled={saving}>
@@ -152,67 +160,70 @@ function IntegrationsForm({
       }
     >
       <form id="integrations-form" onSubmit={save} className="contents">
-        <Fact
-          label="Relay"
-          value={
-            status.integrations.smtpConfigured
-              ? (status.integrations.smtpHost ?? 'Configured')
-              : 'Not configured'
-          }
-          mono={status.integrations.smtpConfigured && !!status.integrations.smtpHost}
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Host" value={host} onChange={setHost} placeholder="smtp.example.com" />
-          <Field label="Port" value={port} onChange={setPort} placeholder="587" />
-          <Field
-            label="From address"
-            value={fromAddress}
-            onChange={setFromAddress}
-            placeholder="modbot@example.com"
+        <div className="flex flex-col gap-3 p-(--panel-pad)">
+          <Fact
+            label="Relay"
+            value={
+              status.integrations.smtpConfigured
+                ? (status.integrations.smtpHost ?? 'Configured')
+                : 'Not configured'
+            }
+            mono={status.integrations.smtpConfigured && !!status.integrations.smtpHost}
           />
-          <Field label="Username" value={smtpUsername} onChange={setSmtpUsername} placeholder="" />
-          <PasswordField label="Password" value={smtpPassword} onChange={setSmtpPassword} />
-        </div>
-        <Checkbox checked={useTls} onChange={setUseTls}>
-          Use TLS
-        </Checkbox>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[16rem]">
-            <Field label="Send a test message to" value={testTo} onChange={setTestTo} placeholder="you@example.com" />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={testing || !testTo.trim() || !status.integrations.smtpConfigured}
-            onClick={sendTest}
-          >
-            {testing ? 'Sending…' : 'Send a test email'}
-          </Button>
-          <Outcome tone="ok">{testResult?.sent && 'Sent.'}</Outcome>
-          <Outcome tone="ok">{testResult?.queued && queuedText(testResult.sendsAt ?? null)}</Outcome>
-          <Outcome tone="problem">{testResult && !testResult.sent && !testResult.queued ? testResult.error : null}</Outcome>
-        </div>
-
-        <div className="grid items-end gap-3 sm:grid-cols-4">
-          <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-            <span className="text-muted-foreground">Email limit per 24 hours</span>
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={email?.minimumLimit ?? 20}
-              step={1}
-              value={limit}
-              disabled={!email}
-              onChange={(e) => setLimit(e.target.value)}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Host" mono value={host} onChange={setHost} placeholder="smtp.example.com" />
+            <Field label="Port" value={port} onChange={setPort} placeholder="587" />
+            <Field
+              label="From address"
+              mono
+              value={fromAddress}
+              onChange={setFromAddress}
+              placeholder="modbot@example.com"
             />
-          </label>
-          {email && (
-            <>
-              <Fact label="Sent in the last 24 hours" value={`${email.sentInLast24Hours} of ${email.limitPer24Hours}`} mono />
-              <Fact label="Queued" value={String(email.queued)} mono />
-              <Fact label="Next queued email" value={email.nextSendAt ? when(email.nextSendAt) : '—'} mono={!!email.nextSendAt} />
-            </>
-          )}
+            <Field label="Username" value={smtpUsername} onChange={setSmtpUsername} placeholder="" />
+            <PasswordField label="Password" value={smtpPassword} onChange={setSmtpPassword} />
+          </div>
+          <Checkbox checked={useTls} onChange={setUseTls}>
+            Use TLS
+          </Checkbox>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[16rem]">
+              <Field label="Send a test message to" value={testTo} onChange={setTestTo} placeholder="you@example.com" />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={testing || !testTo.trim() || !status.integrations.smtpConfigured}
+              onClick={sendTest}
+            >
+              {testing ? 'Sending…' : 'Send a test email'}
+            </Button>
+            <Outcome tone="ok">{testResult?.sent && 'Sent.'}</Outcome>
+            <Outcome tone="ok">{testResult?.queued && queuedText(testResult.sendsAt ?? null)}</Outcome>
+            <Outcome tone="problem">{testResult && !testResult.sent && !testResult.queued ? testResult.error : null}</Outcome>
+          </div>
+
+          <div className="grid items-start gap-3 sm:grid-cols-4">
+            <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+              <span className="text-muted-foreground">Email limit per 24 hours</span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={email?.minimumLimit ?? 20}
+                step={1}
+                value={limit}
+                disabled={!email}
+                onChange={(e) => setLimit(e.target.value)}
+              />
+            </label>
+            {email && (
+              <>
+                <Fact label="Sent in the last 24 hours" value={`${email.sentInLast24Hours} of ${email.limitPer24Hours}`} mono />
+                <Fact label="Queued" value={String(email.queued)} mono />
+                <Fact label="Next queued email" value={email.nextSendAt ? when(email.nextSendAt) : '—'} mono={!!email.nextSendAt} />
+              </>
+            )}
+          </div>
         </div>
 
         {email && email.emails.length > 0 && <EmailQueueTable email={email} />}
@@ -221,12 +232,16 @@ function IntegrationsForm({
   )
 }
 
-const cellClass = 'px-(--panel-pad) py-1 align-top'
-const headClass = 'px-(--panel-pad) py-1.5 font-normal whitespace-nowrap'
-
 const when = (iso: string) => new Date(iso).toLocaleString()
 
-const queuedText = (sendsAt: string | null) => (sendsAt ? `Queued, sends at ${when(sendsAt)}.` : 'Queued.')
+const queuedText = (sendsAt: string | null) =>
+  sendsAt ? (
+    <>
+      Queued, sends at <span className="font-mono">{when(sendsAt)}</span>.
+    </>
+  ) : (
+    'Queued.'
+  )
 
 const STATE_LABEL: Record<string, string> = {
   queued: 'Queued',
@@ -237,33 +252,37 @@ const STATE_LABEL: Record<string, string> = {
 
 function EmailQueueTable({ email }: { email: EmailSettings }) {
   return (
-    // Out to the panel's edges and down to its footer, the way a table sits in any panel.
-    <div className="relative -mx-(--panel-pad) -mb-(--panel-pad) overflow-x-auto border-t border-t-(length:--hairline)">
-      <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-        <thead className="bg-strip text-left text-muted-foreground">
-          <tr>
-            <th className={headClass}>Recipient</th>
-            <th className={headClass}>Kind</th>
-            <th className={headClass}>Queued at</th>
-            <th className={headClass}>State</th>
-          </tr>
-        </thead>
-        <tbody>
-          {email.emails.map((row) => (
-            <tr key={row.id} className="h-(--row-h) border-t border-t-(length:--hairline)">
-              <td className={cn(cellClass, 'max-w-[16rem] truncate')} title={row.to}>
-                {row.to}
-              </td>
-              <td className={cn(cellClass, 'whitespace-nowrap')}>{row.kind === 'account' ? 'Account' : 'Other'}</td>
-              <td className={cn(cellClass, 'whitespace-nowrap font-mono tabular-nums')}>{when(row.queuedAt)}</td>
-              <td className={cn(cellClass, row.state === 'failed' && 'text-destructive')}>
-                {STATE_LABEL[row.state] ?? row.state}
-                {row.state === 'failed' && row.error ? `: ${row.error}` : null}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    // Under the fields, with a hairline between them and the column names.
+    <div className="border-t border-t-(length:--hairline)">
+      <Table
+        head={
+          <>
+            <Th>Recipient</Th>
+            <Th>Kind</Th>
+            <Th>Queued at</Th>
+            <Th>State</Th>
+          </>
+        }
+      >
+        {email.emails.map((row) => (
+          <Tr key={row.id}>
+            <Td className="max-w-[16rem] truncate" title={row.to}>
+              {row.to}
+            </Td>
+            <Td>{row.kind === 'account' ? 'Account' : 'Other'}</Td>
+            <Td className="font-mono">{when(row.queuedAt)}</Td>
+            <Td
+              className={cn(
+                row.state === 'failed' && 'text-destructive',
+                row.state === 'failed' && row.error && 'min-w-[16rem] whitespace-normal',
+              )}
+            >
+              {STATE_LABEL[row.state] ?? row.state}
+              {row.state === 'failed' && row.error ? `: ${row.error}` : null}
+            </Td>
+          </Tr>
+        ))}
+      </Table>
     </div>
   )
 }

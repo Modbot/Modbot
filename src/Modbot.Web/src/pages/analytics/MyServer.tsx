@@ -26,7 +26,7 @@ export function MyServer() {
   const load = useCallback((q: string) => api.serverAnalytics(q), [])
   const { data, error } = useAnalytics(load, range)
 
-  if (error) return <PageMessage>{error}</PageMessage>
+  if (error) return <PageMessage tone="danger">{error}</PageMessage>
 
   const sum = (points: { value: number }[]) => points.reduce((s, p) => s + p.value, 0)
   const latestCount = data?.memberCount[data.memberCount.length - 1]
@@ -267,7 +267,7 @@ function PeopleTable({ people }: { people: ServerContributor[] }) {
           </Td>
           <Td className="text-right font-mono">{compactNumber(p.messages)}</Td>
           <Td className="text-right font-mono text-muted-foreground">
-            {p.voiceMinutes > 0 ? minutes(p.voiceMinutes) : '·'}
+            {p.voiceMinutes > 0 ? minutes(p.voiceMinutes) : '—'}
           </Td>
         </Tr>
       ))}

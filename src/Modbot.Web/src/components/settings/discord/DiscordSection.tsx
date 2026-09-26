@@ -24,9 +24,12 @@ const ANNOUNCE_NEEDS: DiscordChannelPermission[] = ['viewChannel', 'sendMessages
  */
 export function DiscordSection({
   status,
+  statusError,
   refresh,
 }: {
   status: OnboardingStatus | null
+  /** Why `status` could not be read, while it is null because the read failed. */
+  statusError?: string | null
   refresh: () => Promise<void>
 }) {
   return (
@@ -41,7 +44,7 @@ export function DiscordSection({
           <SyncCard />
         </>
       ) : (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone={statusError ? 'danger' : undefined}>{statusError ?? 'Loading…'}</Placeholder>
       )}
     </SettingsSection>
   )
@@ -99,8 +102,8 @@ function BotCard({ status, refresh }: { status: OnboardingStatus; refresh: () =>
     >
       <Fact label="Bot" value={status.integrations.discordConfigured ? 'Token stored' : 'Not configured'} />
       <form id="discord-bot" onSubmit={save} className="flex max-w-lg flex-col gap-3">
-        <PasswordField label="Bot token" value={botToken} onChange={setBotToken} />
-        <Field label="Guild id" value={guildId} onChange={setGuildId} placeholder="" />
+        <PasswordField label="Bot token" mono value={botToken} onChange={setBotToken} />
+        <Field label="Guild id" mono value={guildId} onChange={setGuildId} placeholder="" />
       </form>
     </SettingsCard>
   )

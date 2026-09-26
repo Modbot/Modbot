@@ -14,7 +14,7 @@ import { ApiSection } from '@/components/settings/api/ApiSection'
 import { VRChatProxySection } from '@/components/settings/proxy/VRChatProxySection'
 import { PurgeSection } from '@/components/settings/PurgeSection'
 import { Tabs } from '@/components/ui/tabs'
-import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
+import { api, ApiError, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { canAny } from '@/lib/permissions'
 
 /**
@@ -80,10 +80,23 @@ export function Settings({ me }: { me: CurrentUser }) {
   )
 
   const [status, setStatus] = useState<OnboardingStatus | null>(null)
+  // Kept apart from `status`, which is null both while it loads and after it failed, so the three
+  // tabs that wait for it can say which.
+  const [statusError, setStatusError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabId | null>(() => (open.length === 0 ? null : tabFromHash(open)))
 
   const refresh = useCallback(
-    () => api.onboardingStatus().then(setStatus).catch(() => setStatus(null)),
+    () =>
+      api
+        .onboardingStatus()
+        .then((next) => {
+          setStatus(next)
+          setStatusError(null)
+        })
+        .catch((e: unknown) => {
+          setStatus(null)
+          setStatusError(e instanceof ApiError ? e.message : 'Could not load settings.')
+        }),
     [],
   )
 
@@ -116,7 +129,7 @@ export function Settings({ me }: { me: CurrentUser }) {
         tabs={TABS.filter((t) => open.includes(t.value)).map(({ value, label }) => ({ value, label }))}
         className="gap-3"
       >
-        <Panel tab={tab} me={me} status={status} refresh={refresh} />
+        <Panel tab={tab} me={me} status={status} statusError={statusError} refresh={refresh} />
       </Tabs>
     </div>
   )
@@ -126,11 +139,13 @@ function Panel({
   tab,
   me,
   status,
+  statusError,
   refresh,
 }: {
   tab: TabId
   me: CurrentUser
   status: OnboardingStatus | null
+  statusError: string | null
   refresh: () => Promise<void>
 }) {
   switch (tab) {
@@ -139,11 +154,11 @@ function Panel({
     case 'iam':
       return <IamSection me={me} />
     case 'vrchat':
-      return <VRChatSection status={status} refresh={refresh} />
+      return <VRChatSection status={status} statusError={statusError} refresh={refresh} />
     case 'integrations':
-      return <IntegrationsSection status={status} refresh={refresh} />
+      return <IntegrationsSection status={status} statusError={statusError} refresh={refresh} />
     case 'discord':
-      return <DiscordSection status={status} refresh={refresh} />
+      return <DiscordSection status={status} statusError={statusError} refresh={refresh} />
     case 'moderation':
       return <ModerationSection />
     case 'automod':

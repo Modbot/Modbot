@@ -166,7 +166,7 @@ export function VRChatLinkPanel({
           Start over
         </Button>
         <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {pending.checksLeft} {pending.checksLeft === 1 ? 'check' : 'checks'} left on this code
+          <span className="font-mono">{pending.checksLeft}</span> {pending.checksLeft === 1 ? 'check' : 'checks'} left on this code
         </span>
       </div>
     </div>

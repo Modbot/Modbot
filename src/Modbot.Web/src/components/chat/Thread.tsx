@@ -200,7 +200,7 @@ function Reply({
             <RotateCcw className="size-3.5" />
           </Action>
         )}
-        <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span className="font-mono whitespace-nowrap text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
           {when(first.createdAt)}
         </span>
       </Actions>
@@ -230,7 +230,7 @@ function Actions({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        'flex items-center gap-1 opacity-0 transition-opacity motion-reduce:transition-none',
+        'flex flex-wrap items-center gap-1 opacity-0 transition-opacity motion-reduce:transition-none',
         'focus-within:opacity-100 group-hover/turn:opacity-100 [@media(hover:none)]:opacity-100',
       )}
     >
@@ -249,15 +249,9 @@ function Action({
   children: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className="rounded-sm p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
-    >
+    <Button type="button" variant="ghost" size="icon-xs" aria-label={label} title={label} onClick={onClick}>
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -287,25 +281,27 @@ function Versions({ message, onReadVersion }: { message: ChatMessage; onReadVers
 
   return (
     <span className="flex items-center gap-0.5 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         aria-label="Previous version"
         disabled={at <= 0}
         onClick={() => onReadVersion(message.versions[at - 1])}
-        className="rounded-sm p-0.5 hover:bg-muted hover:text-foreground disabled:opacity-40"
       >
         <ChevronLeft className="size-3.5" />
-      </button>
+      </Button>
       {at + 1}/{message.versions.length}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         aria-label="Next version"
         disabled={at < 0 || at >= message.versions.length - 1}
         onClick={() => onReadVersion(message.versions[at + 1])}
-        className="rounded-sm p-0.5 hover:bg-muted hover:text-foreground disabled:opacity-40"
       >
         <ChevronRight className="size-3.5" />
-      </button>
+      </Button>
     </span>
   )
 }

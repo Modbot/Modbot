@@ -64,7 +64,7 @@ export function General() {
 
 function Link({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="hover:underline">
+    <a href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
       {children}
     </a>
   )

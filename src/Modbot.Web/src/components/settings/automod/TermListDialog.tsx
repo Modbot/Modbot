@@ -12,7 +12,7 @@ import {
   type TermListDetail,
 } from '@/lib/autoMod'
 import { cn } from '@/lib/utils'
-import { Checkbox, Outcome } from '../fields'
+import { Checkbox, Field, Outcome } from '../fields'
 import { Group, RuleActionFields } from './RuleFields'
 
 const KINDS: { value: TermInput['kind']; label: string }[] = [
@@ -164,12 +164,7 @@ function TermListForm({
       className="max-w-[720px]"
       bodyClassName="flex max-h-[75vh] flex-col gap-4 overflow-y-auto"
     >
-      {!hub && (
-        <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-          <span className="text-muted-foreground">Name</span>
-          <Input value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
-        </label>
-      )}
+      {!hub && <Field label="Name" value={name} maxLength={100} onChange={setName} />}
 
       <RuleActionFields
         value={rule}
@@ -259,15 +254,16 @@ function TermListForm({
         </Group>
       )}
 
-      <div className="flex items-center gap-2">
-        <Button size="sm" disabled={busy} onClick={save}>
-          {busy ? 'Saving…' : 'Save'}
-        </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
           Cancel
         </Button>
-        <Outcome tone="problem">{problem}</Outcome>
+        <Button size="sm" disabled={busy} onClick={save}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
       </div>
+
+      <Outcome tone="problem">{problem}</Outcome>
     </DialogContent>
   )
 }

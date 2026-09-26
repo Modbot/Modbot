@@ -57,10 +57,12 @@ public sealed class WorldSync
     public async Task<WorldSyncRunResult> RunOnceAsync(CancellationToken ct = default)
     {
         // Oldest sighting first, so the world somebody has been looking at an id for longest is
-        // the one that gets a name first.
+        // the one that gets a name first. Never-read worlds come before the catch-up: a world read
+        // before its platforms were kept (2026-09-26) is read once more for them.
         var waiting = await _db.VRChatWorlds
-            .Where(w => w.LastRefreshedAt == null && w.RefreshError == null)
-            .OrderBy(w => w.FirstSeenAt)
+            .Where(w => w.RefreshError == null && (w.LastRefreshedAt == null || w.Platforms == null))
+            .OrderBy(w => w.LastRefreshedAt != null)
+            .ThenBy(w => w.FirstSeenAt)
             .Take(WorldsPerPass)
             .ToListAsync(ct).ConfigureAwait(false);
 
@@ -104,6 +106,10 @@ public sealed class WorldSync
             }
 
             WorldSnapshot.From(world).ApplyTo(row, _clock.UtcNow);
+
+            // A world's own page lists its builds. One with none is recorded as none, so the
+            // catch-up does not read it again on every pass.
+            row.Platforms ??= "[]";
             named++;
         }
 

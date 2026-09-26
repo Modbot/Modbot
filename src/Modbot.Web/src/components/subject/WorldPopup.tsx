@@ -65,7 +65,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
       title={title}
       subtitle={<Id id={id} />}
       lead={lead}
-      left={error ? <Empty className="text-destructive">{error}</Empty> : data ? <Identity world={data} /> : <Empty>Loading…</Empty>}
+      left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity world={data} /> : <Empty>Loading…</Empty>}
     >
       <Tabs
         value={tab}
@@ -127,7 +127,7 @@ function Identity({ world }: { world: WorldView }) {
 
       <Block>
         <div>
-          <div className="font-display text-lg">
+          <div className="font-medium break-words" style={{ fontSize: 'var(--text-base)' }}>
             {world.name ?? <span className="text-muted-foreground">Name not read yet</span>}
           </div>
           {/* A missing name is ordinary, not an error: the world sweep reads a page shortly after
@@ -252,7 +252,7 @@ function History({ id }: { id: string }) {
 
   return (
     <Panel title="What happened in this world" flush>
-      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
       {!error && !data && <EmptyRow>Loading…</EmptyRow>}
       {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
     </Panel>

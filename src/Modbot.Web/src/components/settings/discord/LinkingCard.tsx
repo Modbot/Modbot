@@ -40,7 +40,7 @@ export function LinkingCard() {
   if (error || !data) {
     return (
       <SettingsCard title="Account linking">
-        <EmptyRow className="px-0">{error ?? 'Loading…'}</EmptyRow>
+        <EmptyRow className="px-0" tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</EmptyRow>
       </SettingsCard>
     )
   }
@@ -109,8 +109,8 @@ function LinkingForm({
       </div>
 
       <div className="flex max-w-lg flex-col gap-3">
-        <Field label="OAuth client id" value={clientId} onChange={setClientId} placeholder="" />
-        <PasswordField label="OAuth client secret" value={clientSecret} onChange={setClientSecret} />
+        <Field label="OAuth client id" mono value={clientId} onChange={setClientId} placeholder="" />
+        <PasswordField label="OAuth client secret" mono value={clientSecret} onChange={setClientSecret} />
         <CopyValue label="Redirect URL" value={settings.redirectUrl} />
         <CopyValue label="Bot invite link" value={settings.inviteUrl} open />
       </div>

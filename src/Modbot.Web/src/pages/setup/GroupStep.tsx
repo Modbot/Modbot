@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ApiError, api, type ConnectionDiagnosis, type GroupCandidates } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import { DiagnosisNote } from './DiagnosisNote'
 import { ErrorText, WizardBody, WizardHeader } from './WizardChrome'
 import { Notice } from '@/components/ui/notice'
+import { SwitchBank } from '@/components/ui/switch-bank'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -85,54 +85,46 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
         <ErrorText>{error}</ErrorText>
 
         {candidates && candidates.groups.length > 0 && (
-          <div
-            className="border border-(length:--hairline)"
-            role="radiogroup"
-            aria-label="Groups"
-          >
-            {candidates.groups.map((group, index) => (
-              <label
-                key={group.id}
-                className={cn(
-                  'flex min-h-(--row-h) cursor-pointer items-center gap-3 px-(--panel-pad) py-2',
-                  index > 0 && 'border-t border-t-(length:--hairline)',
-                  selected === group.id && 'bg-accent text-accent-foreground',
-                )}
-              >
-                <input
-                  type="radio"
-                  name="group"
-                  className="accent-[var(--primary)]"
-                  checked={selected === group.id}
-                  onChange={() => setSelected(group.id)}
-                />
-                <div className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary text-[0.625rem] font-semibold text-muted-foreground">
-                  {group.iconUrl ? (
-                    <img src={vrchatMedia(group.iconUrl)} alt="" className="size-full object-cover" />
-                  ) : (
-                    initials(group.name)
-                  )}
-                </div>
-                <div className="min-w-0 flex-1 leading-tight">
-                  <div className="truncate font-medium">{group.name}</div>
-                  <div
-                    className="truncate font-mono text-muted-foreground/70"
-                    style={{ fontSize: 'var(--text-small)' }}
+          <SwitchBank
+            layout="list"
+            label="Groups"
+            value={selected ?? ''}
+            onChange={setSelected}
+            options={candidates.groups.map((group) => ({
+              value: group.id,
+              label: (
+                <span className="flex min-w-0 flex-1 items-center gap-3">
+                  <span
+                    className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary font-semibold text-muted-foreground"
+                    style={{ fontSize: 'var(--text-tiny)' }}
                   >
-                    {group.id}
-                  </div>
-                  {group.missingPermissions.length > 0 && (
-                    <div className="mt-0.5 text-warn" style={{ fontSize: 'var(--text-small)' }}>
-                      Missing {group.missingPermissions.join(', ')}
-                    </div>
-                  )}
-                </div>
-                <div className="shrink-0 font-mono text-muted-foreground">
-                  {group.memberCount.toLocaleString()}
-                </div>
-              </label>
-            ))}
-          </div>
+                    {group.iconUrl ? (
+                      <img src={vrchatMedia(group.iconUrl)} alt="" className="size-full object-cover" />
+                    ) : (
+                      initials(group.name)
+                    )}
+                  </span>
+                  <span className="block min-w-0 flex-1 leading-tight">
+                    <span className="block truncate font-medium">{group.name}</span>
+                    <span
+                      className="block truncate font-mono text-muted-foreground/70"
+                      style={{ fontSize: 'var(--text-tiny)' }}
+                    >
+                      {group.id}
+                    </span>
+                    {group.missingPermissions.length > 0 && (
+                      <span className="mt-0.5 block text-warn" style={{ fontSize: 'var(--text-small)' }}>
+                        Missing {group.missingPermissions.join(', ')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 font-mono text-muted-foreground">
+                    {group.memberCount.toLocaleString()}
+                  </span>
+                </span>
+              ),
+            }))}
+          />
         )}
 
         {candidates && candidates.groups.length === 0 && (

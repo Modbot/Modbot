@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
@@ -242,123 +243,118 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
       <Card>
         <CardHeader className={cn(!list.coverage.firstSweepComplete && !demo && 'bg-warn/10')}>
           <Freshness coverage={list.coverage} count={list.coverage.memberCount} list="member list" noun="member" demo={demo} />
-          <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
+          <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="font-mono">{list.total.toLocaleString()}</span> {list.total === 1 ? 'person' : 'people'}
           </span>
         </CardHeader>
         {list.members.length === 0 ? (
           <EmptyRow>{search || chips.length > 0 ? 'Nobody matches' : 'Nobody listed yet'}</EmptyRow>
         ) : (
-          <div data-pin-first className="relative overflow-x-auto">
-            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-              <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b-(length:--hairline)">
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
-                  {seesLinks && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Discord</th>}
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Roles</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Joined</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Last seen by Modbot</th>
-                  {status !== 'current' && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Left</th>}
-                  {canAct && <th className="px-3 py-2 text-left font-normal whitespace-nowrap"><span className="sr-only">Actions</span></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {list.members.map((m, i) => (
-                  <tr
-                    key={m.userId}
-                    {...rowProps(i)}
-                    className={cn(
-                      'border-b-(length:--hairline) last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
-                      m.leftAt && 'text-muted-foreground',
+          <Table
+            pinFirst
+            head={
+              <>
+                <Th>Person</Th>
+                {seesLinks && <Th>Discord</Th>}
+                <Th>Roles</Th>
+                <Th>Joined</Th>
+                <Th>Last seen by Modbot</Th>
+                {status !== 'current' && <Th>Left</Th>}
+                {canAct && <Th><span className="sr-only">Actions</span></Th>}
+              </>
+            }
+          >
+            {list.members.map((m, i) => (
+              <Tr
+                key={m.userId}
+                {...rowProps(i)}
+                className={cn('hover:bg-muted/40 data-[selected]:bg-accent/60', m.leftAt && 'text-muted-foreground')}
+              >
+                <Td>
+                  <div className="flex items-center gap-2">
+                    {m.avatarThumbnailUrl ? (
+                      <img
+                        src={vrchatMedia(m.avatarThumbnailUrl)}
+                        alt=""
+                        className="size-7 shrink-0 rounded-full bg-muted object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="size-7 shrink-0 rounded-full bg-muted" />
                     )}
-                  >
-                    <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                      <div className="flex items-center gap-2">
-                        {m.avatarThumbnailUrl ? (
-                          <img
-                            src={vrchatMedia(m.avatarThumbnailUrl)}
-                            alt=""
-                            className="size-7 shrink-0 rounded-full bg-muted object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="size-7 shrink-0 rounded-full bg-muted" />
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
-                            <SubjectLink id={m.userId} name={m.displayName} onOpen={onOpenSubject} className="max-md:max-w-full max-md:shrink-0" />
-                            <Marks>
-                              {m.eighteenPlus && (
-                                <Badge variant="ok" className="font-mono" title="18+ verified">
-                                  18+
-                                </Badge>
-                              )}
-                              <TrustRankBadge rank={m.trustRank} />
-                              {m.isRepresenting && (
-                                <span className="text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
-                                  representing
-                                </span>
-                              )}
-                            </Marks>
-                          </div>
-                          {m.plainName && (
-                            <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                              {m.plainName}
-                            </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
+                        <SubjectLink id={m.userId} name={m.displayName} onOpen={onOpenSubject} className="max-md:max-w-full max-md:shrink-0" />
+                        <Marks>
+                          {m.eighteenPlus && (
+                            <Badge variant="ok" className="font-mono" title="18+ verified">
+                              18+
+                            </Badge>
                           )}
-                          {m.displayName && (
-                            <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
-                              {m.userId}
-                            </div>
+                          <TrustRankBadge rank={m.trustRank} />
+                          {m.isRepresenting && (
+                            <span className="text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
+                              representing
+                            </span>
                           )}
+                        </Marks>
+                      </div>
+                      {m.plainName && (
+                        <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                          {m.plainName}
                         </div>
-                      </div>
-                    </td>
-                    {seesLinks && (
-                      <td className="px-3">
-                        {m.linkedDiscord ? (
-                          <DiscordAccount account={m.linkedDiscord} />
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
+                      )}
+                      {m.displayName && (
+                        <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
+                          {m.userId}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Td>
+                {seesLinks && (
+                  <Td>
+                    {m.linkedDiscord ? (
+                      <DiscordAccount account={m.linkedDiscord} />
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
                     )}
-                    <td className="px-3">
-                      <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
-                        {m.roleNames.map((name, i) => (
-                          <Badge key={m.roleIds[i] ?? name} variant="secondary" title={m.roleIds[i]}>
-                            {name}
-                          </Badge>
-                        ))}
-                        {m.roleNames.length === 0 && <span className="text-muted-foreground">—</span>}
-                      </div>
-                    </td>
-                    <td className="px-3 whitespace-nowrap font-mono">
-                      {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-3 whitespace-nowrap font-mono text-muted-foreground">
-                      {m.lastSeenAt ? ago(m.lastSeenAt, list.coverage.now) : '—'}
-                    </td>
-                    {status !== 'current' && (
-                      <td className="px-3 whitespace-nowrap font-mono">{m.leftAt ? formatDay(m.leftAt) : ''}</td>
-                    )}
-                    {canAct && (
-                      <td className="px-3 text-right">
-                        <ModerationActions
-                          me={me}
-                          person={{ userId: m.userId, isMember: !m.leftAt }}
-                          name={m.displayName ?? m.userId}
-                          onDone={() => setActed((n) => n + 1)}
-                          size="xs"
-                          layout="menu"
-                        />
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                  </Td>
+                )}
+                <Td>
+                  <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
+                    {m.roleNames.map((name, i) => (
+                      <Badge key={m.roleIds[i] ?? name} variant="secondary" title={m.roleIds[i]}>
+                        {name}
+                      </Badge>
+                    ))}
+                    {m.roleNames.length === 0 && <span className="text-muted-foreground">—</span>}
+                  </div>
+                </Td>
+                <Td className="font-mono">
+                  {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
+                </Td>
+                <Td className="font-mono text-muted-foreground">
+                  {m.lastSeenAt ? ago(m.lastSeenAt, list.coverage.now) : '—'}
+                </Td>
+                {status !== 'current' && (
+                  <Td className="font-mono">{m.leftAt ? formatDay(m.leftAt) : ''}</Td>
+                )}
+                {canAct && (
+                  <Td className="text-right">
+                    <ModerationActions
+                      me={me}
+                      person={{ userId: m.userId, isMember: !m.leftAt }}
+                      name={m.displayName ?? m.userId}
+                      onDone={() => setActed((n) => n + 1)}
+                      size="xs"
+                      layout="menu"
+                    />
+                  </Td>
+                )}
+              </Tr>
+            ))}
+          </Table>
         )}
 
         <Pager at={at} pages={pages} />

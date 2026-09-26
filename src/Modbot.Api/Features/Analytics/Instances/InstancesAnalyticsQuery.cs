@@ -147,7 +147,7 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
         var instances = db.VRChatInstances.AsNoTracking();
 
         instances = openOnly
-            ? instances.Where(i => i.ClosedAt == null).OrderByDescending(i => i.LastUserCount).ThenByDescending(i => i.OpenedAt)
+            ? instances.Where(i => i.ClosedAt == null).OrderByDescending(i => i.HeadCount ?? i.LastUserCount).ThenByDescending(i => i.OpenedAt)
             : instances
                 .Where(i => i.OpenedAt >= AnalyticsSql.DayStart(from) && i.OpenedAt < AnalyticsSql.DayEnd(to))
                 .OrderByDescending(i => i.OpenedAt);

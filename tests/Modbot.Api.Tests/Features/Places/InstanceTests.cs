@@ -1,6 +1,8 @@
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Tests.Features.Audit;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using static Modbot.Api.Tests.Features.Analytics.AnalyticsFacts;
@@ -120,6 +122,39 @@ public class InstanceTests
         Assert.False(view.CanSeeWhoWasThere);
         Assert.Empty(view.People);
         Assert.Empty(view.Log);
+    }
+
+    /// <summary>
+    /// The popup draws how many were in the instance over time from its head count changes, oldest
+    /// first, and only this instance's. How many is not who, so it shows without ViewAuditLog too.
+    /// </summary>
+    [Fact]
+    public async Task AnInstance_CarriesItsHeadCountsOverTime_OldestFirst()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var t = host.Clock.UtcNow.AddHours(-4);
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(2), null, ct);
+        var other = await PlacesFixtures.InstanceAsync(host, "wrld_a", "50000", t, t.AddHours(2), null, ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.InstanceHeadCounts.AddRange(
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(30), HeadCount = 4, Source = "page" },
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(1), HeadCount = 1, Source = "list" },
+                new InstanceHeadCount { InstanceId = other.Id, CountedAt = t.AddMinutes(10), HeadCount = 9, Source = "page" });
+            await db.SaveChangesAsync(ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{instance.Id}", cookie, ct);
+
+        Assert.Equal([1, 4], view.HeadCounts.Select(h => h.People));
+        Assert.Equal([t.AddMinutes(1), t.AddMinutes(30)], view.HeadCounts.Select(h => h.At));
     }
 
     [Fact]

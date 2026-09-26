@@ -47,7 +47,7 @@ export function PersonNotes({
 
   return (
     <div className="flex min-h-0 flex-col">
-      {error && <Empty className="text-destructive">{error}</Empty>}
+      {error && <Empty tone="danger">{error}</Empty>}
       {!error && !data && <Empty>Loading…</Empty>}
 
       {data?.canWrite && <WriteNote subjectId={subjectId} platform={platform} onWritten={again} />}
@@ -158,13 +158,12 @@ function WriteNote({
         />
       </label>
 
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={send} disabled={sending || stops !== null}>
           {sending ? 'Saving…' : 'Add note'}
         </Button>
+        {problem && <Muted className="text-destructive">{problem}</Muted>}
       </div>
-
-      {problem && <Muted className="text-destructive">{problem}</Muted>}
     </Block>
   )
 }

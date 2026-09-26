@@ -16,9 +16,12 @@ import { SettingsCard, SettingsSection } from './SettingsCard'
  */
 export function VRChatSection({
   status,
+  statusError,
   refresh,
 }: {
   status: OnboardingStatus | null
+  /** Why `status` could not be read, while it is null because the read failed. */
+  statusError?: string | null
   refresh: () => Promise<void>
 }) {
   return (
@@ -33,7 +36,7 @@ export function VRChatSection({
           <ProxyCard status={status} refresh={refresh} />
         </>
       ) : (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone={statusError ? 'danger' : undefined}>{statusError ?? 'Loading…'}</Placeholder>
       )}
     </SettingsSection>
   )
@@ -128,7 +131,7 @@ function CredentialsCard({
         <div className="flex max-w-lg flex-col gap-3">
           <Field label="Email or username" value={username} onChange={setUsername} placeholder="" />
           <PasswordField label="Password" value={password} onChange={setPassword} />
-          <PasswordField label="TOTP secret (optional)" value={totpSecret} onChange={setTotpSecret} />
+          <PasswordField label="TOTP secret (optional)" mono value={totpSecret} onChange={setTotpSecret} />
         </div>
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
@@ -191,9 +194,13 @@ function ProxyCard({
             {testing ? 'Testing…' : 'Test connection'}
           </Button>
           <Hint>
-            {status.connection.checkedAt
-              ? `Last passed ${new Date(status.connection.checkedAt).toLocaleString()}`
-              : 'Never passed'}
+            {status.connection.checkedAt ? (
+              <>
+                Last passed <span className="font-mono">{new Date(status.connection.checkedAt).toLocaleString()}</span>
+              </>
+            ) : (
+              'Never passed'
+            )}
           </Hint>
           <Outcome tone="problem">{error}</Outcome>
         </>
@@ -207,6 +214,7 @@ function ProxyCard({
         <div className="flex max-w-lg flex-col gap-3">
           <Field
             label="Proxy URL"
+            mono
             value={proxyUrl}
             onChange={setProxyUrl}
             placeholder="socks5://host:port"

@@ -1458,6 +1458,10 @@ export type InstanceRow = {
   peopleNow: number | null
   peakPeople: number | null
   minutesOpen: number
+  /** How many people the world holds, as its page says. Null until Modbot has read the world. */
+  worldCapacity: number | null
+  /** The platforms the world has a build for, in VRChat's words. Null until Modbot has read them. */
+  worldPlatforms: string[] | null
 }
 
 /** A moderator whose client is in an open instance right now. */
@@ -1501,11 +1505,23 @@ export type LiveInstance = {
   lastWatchedAt: string | null
   /** Who was there at `lastWatchedAt`. Not "here now". */
   lastSeen: LivePerson[]
+  /** How many the world holds, as its page says. Null until Modbot has read the world. */
+  worldCapacity: number | null
+  /** The platforms the world has a build for, in VRChat's words. Null until Modbot has read them. */
+  worldPlatforms: string[] | null
 }
+
+/** Somebody in a Discord voice channel. `since` is null when they were already there as the bot came online. */
+export type LiveVoiceMember = { userId: string; displayName: string; avatarUrl: string | null; since: string | null }
+
+/** A Discord voice channel with people in it right now. */
+export type LiveVoiceChannel = { channelId: string; name: string | null; people: LiveVoiceMember[] }
 
 export type LiveView = {
   instances: LiveInstance[]
   generatedAt: string
+  /** The Discord server's voice channels with somebody in them, in the server's own order. */
+  voice: LiveVoiceChannel[] | null
 }
 
 /** People active on one day, and over the 7 and 30 days ending on it. Distinct people. */
@@ -1690,6 +1706,8 @@ export type InstanceView = {
   log: AuditEntry[]
   logTruncated: boolean
   now: string
+  /** How many were in it each time the count changed, oldest first. The most recent 2000. */
+  headCounts: { at: string; people: number }[]
 }
 
 export type PersonMetrics = {

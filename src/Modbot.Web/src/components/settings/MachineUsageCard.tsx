@@ -204,26 +204,12 @@ function Usage({
         {label}
       </div>
 
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        {lines.map((line) => (
-          <div key={line.key} className="flex items-center gap-1.5">
-            {!single && (
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ background: seriesColor(line.slot) }}
-              />
-            )}
-            {!single && (
-              <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                {line.label}
-              </span>
-            )}
-            <span className="font-mono font-medium tabular-nums">{line.value}</span>
-          </div>
-        ))}
-      </div>
+      {single && <span className="font-mono font-medium tabular-nums">{lines[0].value}</span>}
 
-      <ChartFrame height={chartHeight.regular}>
+      <ChartFrame
+        height={chartHeight.regular}
+        legend={single ? undefined : lines.map((l) => ({ label: l.label, slot: l.slot, value: l.value }))}
+      >
         <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} />
           <XAxis

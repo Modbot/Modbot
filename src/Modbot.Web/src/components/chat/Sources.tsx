@@ -42,7 +42,7 @@ export function Sources({ references }: { references: readonly ChatReference[] }
 
 export function SourceChip({ reference }: { reference: ChatReference }) {
   return (
-    <Badge variant="outline" asChild className="block max-w-[16rem] truncate bg-card text-foreground hover:bg-muted">
+    <Badge variant="outline" asChild className="block max-w-[16rem] truncate hover:bg-muted hover:text-foreground">
       <button type="button" title={reference.id} onClick={() => openReference(reference)}>
         {reference.label ?? reference.id}
       </button>

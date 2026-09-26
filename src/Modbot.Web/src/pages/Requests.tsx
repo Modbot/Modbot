@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardFooter } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { ReasonButtons } from '@/components/CaseFileForm'
@@ -21,6 +22,7 @@ import {
 import { formatDay } from '@/lib/format'
 import { confirmTitle, historyNote, mayAnswer, resultText, rowIsAnswered } from '@/lib/joinRequests'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { Marks } from '@/pages/Members'
 
 const PAGE_SIZE = 50
 
@@ -96,7 +98,7 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
           again when Refresh is pressed, and saying so in a sentence would be explaining the
           screen rather than driving it. */}
       <div className="flex items-center justify-end">
-        <Button size="sm" variant="outline" onClick={() => setReload((n) => n + 1)} disabled={loading}>
+        <Button variant="outline" onClick={() => setReload((n) => n + 1)} disabled={loading}>
           Refresh
         </Button>
       </div>
@@ -109,82 +111,76 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
         ) : rows.length === 0 ? (
           <EmptyRow>Nobody is waiting</EmptyRow>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-              <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b-(length:--hairline)">
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Asked</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">History</th>
-                  {canAnswer && (
-                    <th className="px-3 py-2 text-left font-normal whitespace-nowrap">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.userId}
-                    className="border-b-(length:--hairline) last:border-0 hover:bg-muted/40"
-                  >
-                    <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                      <div className="flex items-center gap-2">
-                        {row.avatarThumbnailUrl ? (
-                          <img
-                            src={vrchatMedia(row.avatarThumbnailUrl)}
-                            alt=""
-                            className="size-7 shrink-0 rounded-full bg-muted object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="size-7 shrink-0 rounded-full bg-muted" />
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <SubjectLink id={row.userId} name={row.displayName} onOpen={onOpenSubject} />
-                            <TrustRankBadge rank={row.trustRank} />
-                          </div>
-                          {row.plainName && (
-                            <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                              {row.plainName}
-                            </div>
-                          )}
-                          {row.displayName && (
-                            <div
-                              className="font-mono whitespace-nowrap text-muted-foreground/70"
-                              style={{ fontSize: 'var(--text-tiny)' }}
-                            >
-                              {row.userId}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 whitespace-nowrap font-mono">
-                      {row.askedAt ? formatDay(row.askedAt) : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-3">
-                      <HistoryMark row={row} />
-                    </td>
-                    {canAnswer && (
-                      <td className="px-3 text-right">
-                        <div className="flex flex-wrap items-center justify-end gap-1.5">
-                          <Button size="xs" variant="ghost" onClick={() => setOpen({ answer: 'approve', row })}>
-                            Approve
-                          </Button>
-                          <Button size="xs" variant="outline" onClick={() => setOpen({ answer: 'reject', row })}>
-                            Reject
-                          </Button>
-                        </div>
-                      </td>
+          <Table
+            pinFirst
+            head={
+              <>
+                <Th>Person</Th>
+                <Th>Asked</Th>
+                <Th>History</Th>
+                {canAnswer && (
+                  <Th>
+                    <span className="sr-only">Actions</span>
+                  </Th>
+                )}
+              </>
+            }
+          >
+            {rows.map((row) => (
+              <Tr key={row.userId} className="hover:bg-muted/40">
+                <Td>
+                  <div className="flex items-center gap-2">
+                    {row.avatarThumbnailUrl ? (
+                      <img
+                        src={vrchatMedia(row.avatarThumbnailUrl)}
+                        alt=""
+                        className="size-7 shrink-0 rounded-full bg-muted object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="size-7 shrink-0 rounded-full bg-muted" />
                     )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
+                        <SubjectLink id={row.userId} name={row.displayName} onOpen={onOpenSubject} className="max-md:max-w-full max-md:shrink-0" />
+                        <Marks>
+                          <TrustRankBadge rank={row.trustRank} />
+                        </Marks>
+                      </div>
+                      {row.plainName && (
+                        <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                          {row.plainName}
+                        </div>
+                      )}
+                      {row.displayName && (
+                        <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
+                          {row.userId}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Td>
+                <Td className="font-mono">
+                  {row.askedAt ? formatDay(row.askedAt) : <span className="text-muted-foreground">—</span>}
+                </Td>
+                <Td>
+                  <HistoryMark row={row} />
+                </Td>
+                {canAnswer && (
+                  <Td className="text-right">
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      <Button size="xs" variant="ghost" onClick={() => setOpen({ answer: 'approve', row })}>
+                        Approve
+                      </Button>
+                      <Button size="xs" variant="outline" onClick={() => setOpen({ answer: 'reject', row })}>
+                        Reject
+                      </Button>
+                    </div>
+                  </Td>
+                )}
+              </Tr>
+            ))}
+          </Table>
         )}
 
         {list && (list.page > 1 || list.hasMore) && (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { CodeBlock } from '@/components/CodeBlock'
 import { api, ApiError, type McpConnection, type McpSettings as Settings } from '@/lib/api'
 import { CopyBox } from '@/pages/Users'
@@ -8,9 +9,6 @@ import { cn } from '@/lib/utils'
 import { failure, when } from '../api/shared'
 import { Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
-
-const headClass = 'h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap'
-const cellClass = 'px-(--panel-pad) py-1.5'
 
 /**
  * Settings → AI → MCP (MCP server design): the switch and the address, the connected apps, and
@@ -143,34 +141,31 @@ function ConnectionsCard() {
       ) : connections.length === 0 ? (
         <EmptyRow>None.</EmptyRow>
       ) : (
-        <div className="relative overflow-x-auto">
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="bg-strip text-left text-muted-foreground">
-              <tr className="border-b border-b-(length:--hairline)">
-                <th className={headClass}>App</th>
-                <th className={headClass}>Connected</th>
-                <th className={headClass}>Last used</th>
-                <th className={headClass}>Expires</th>
-                <th className={headClass} />
-              </tr>
-            </thead>
-            <tbody>
-              {connections.map((c) => (
-                <tr key={c.id} className="border-b border-b-(length:--hairline) last:border-0">
-                  <td className={cn(cellClass, 'font-medium')}>{c.clientName}</td>
-                  <td className={cn(cellClass, 'font-mono')}>{when(c.connectedAt)}</td>
-                  <td className={cn(cellClass, c.lastUsedAt && 'font-mono')}>{c.lastUsedAt ? when(c.lastUsedAt) : 'Never'}</td>
-                  <td className={cn(cellClass, 'font-mono')}>{when(c.expiresAt)}</td>
-                  <td className={cn(cellClass, 'text-right')}>
-                    <Button size="xs" variant="ghost" onClick={() => disconnect(c.id)}>
-                      Disconnect
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          head={
+            <>
+              <Th>App</Th>
+              <Th>Connected</Th>
+              <Th>Last used</Th>
+              <Th>Expires</Th>
+              <Th />
+            </>
+          }
+        >
+          {connections.map((c) => (
+            <Tr key={c.id}>
+              <Td className="font-medium">{c.clientName}</Td>
+              <Td className="font-mono">{when(c.connectedAt)}</Td>
+              <Td className={cn(c.lastUsedAt && 'font-mono')}>{c.lastUsedAt ? when(c.lastUsedAt) : 'Never'}</Td>
+              <Td className="font-mono">{when(c.expiresAt)}</Td>
+              <Td className="text-right">
+                <Button size="xs" variant="ghost" onClick={() => disconnect(c.id)}>
+                  Disconnect
+                </Button>
+              </Td>
+            </Tr>
+          ))}
+        </Table>
       )}
       {problem && (
         <div className="p-(--panel-pad)">

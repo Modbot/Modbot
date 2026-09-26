@@ -1,7 +1,10 @@
 import { useCallback } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { Row } from '@/components/ui/fact-row'
 import { dateTime } from '@/components/charts'
 import { FactSentence } from '@/components/factSentence'
 import { PersonLink, InstanceLink, SourceBadge, WorldLink } from '@/components/facts'
@@ -18,119 +21,135 @@ import { useLoad } from '@/lib/useLoad'
  *
  * The sentence in the row says what happened; this says everything the fact recorded: every
  * column, the diff a change carried, the snapshot a profile fact stands for, and the payload and
- * the whole entry as JSON. Nothing here reworded — the JSON is what the server answered.
+ * the whole entry as JSON. Nothing here is reworded: the JSON is what the server answered.
  */
 export function EntryDetail({ entry }: { entry: AuditEntry }) {
   const changed = changedFields(entry)
 
+  // Under a row of the audit log this sits in a cell as wide as the whole table, which a narrow
+  // screen scrolls sideways. Below lg it is held to the width the screen shows (less the page's
+  // inset and the panel's two edges), so each fact's value lands on screen beside its label.
   return (
-    <div className="grid gap-3 border-t-(length:--hairline) bg-muted/20 p-(--panel-pad) lg:grid-cols-2">
+    <div className="grid gap-3 border-t-(length:--hairline) bg-muted/20 p-(--panel-pad) grid-cols-1 max-lg:max-w-[calc(100vw-2rem-2*var(--hairline))] lg:grid-cols-2">
       <div className="flex flex-col gap-3">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
-          <Item label="Type">
-            <span className="font-mono">{entry.type}</span>
-            {entry.typeRaw && (
-              <span className="ml-2 font-mono text-muted-foreground" title="The source's own word">
-                {entry.typeRaw}
-              </span>
-            )}
-          </Item>
-          <Item label="Log">{entry.category}</Item>
-          <Item label="Source">
-            <SourceBadge source={entry.source} />
-          </Item>
-          <Item label="When">
-            {entry.occurredBefore ? (
+        <div className="max-w-lg text-foreground">
+          <Row
+            label="Type"
+            mono
+            value={
               <>
-                Between <span className="font-mono">{dateTime(entry.occurredAt)}</span> and{' '}
-                <span className="font-mono">{dateTime(entry.occurredBefore)}</span>
+                {entry.type}
+                {entry.typeRaw && (
+                  <span className="ml-2 text-muted-foreground" title="The source's own word">
+                    {entry.typeRaw}
+                  </span>
+                )}
               </>
-            ) : (
-              <span className="font-mono">{dateTime(entry.occurredAt)}</span>
-            )}
-          </Item>
-          <Item label="Recorded">
-            <span className="font-mono">{dateTime(entry.observedAt)}</span>
-          </Item>
-          <Item label="About">
-            <span className="text-muted-foreground">{entry.subjectKind.toLowerCase()} · {entry.subjectPlatform} · </span>
-            {entry.subjectKind === 'Person' ? (
-              <PersonLink platform={entry.subjectPlatform} id={entry.subjectId} name={entry.subjectName} />
-            ) : (
-              <span className="font-mono break-all">{entry.subjectId}</span>
-            )}
-            {entry.subjectName && entry.subjectKind === 'Person' && (
-              <span className="ml-2 font-mono text-muted-foreground break-all">{entry.subjectId}</span>
-            )}
-          </Item>
-          <Item label="Done by">
-            {entry.actorId ? (
+            }
+          />
+          <Row label="Log" value={entry.category} />
+          <Row label="Source" value={<SourceBadge source={entry.source} />} />
+          {entry.occurredBefore ? (
+            <Row
+              label="When"
+              value={
+                <>
+                  Between <span className="font-mono">{dateTime(entry.occurredAt)}</span> and{' '}
+                  <span className="font-mono">{dateTime(entry.occurredBefore)}</span>
+                </>
+              }
+            />
+          ) : (
+            <Row label="When" mono value={dateTime(entry.occurredAt)} />
+          )}
+          <Row label="Recorded" mono value={dateTime(entry.observedAt)} />
+          <Row
+            label="About"
+            value={
               <>
-                <span className="text-muted-foreground">{entry.actorPlatform} · </span>
-                <PersonLink platform={entry.actorPlatform} id={entry.actorId} name={entry.actorName} />
-                <span className="ml-2 font-mono text-muted-foreground break-all">{entry.actorId}</span>
+                <span className="text-muted-foreground">{entry.subjectKind.toLowerCase()} · {entry.subjectPlatform} · </span>
+                {entry.subjectKind === 'Person' ? (
+                  <PersonLink platform={entry.subjectPlatform} id={entry.subjectId} name={entry.subjectName} />
+                ) : (
+                  <span className="font-mono break-all">{entry.subjectId}</span>
+                )}
+                {entry.subjectName && entry.subjectKind === 'Person' && (
+                  <span className="ml-2 font-mono text-muted-foreground break-all">{entry.subjectId}</span>
+                )}
               </>
-            ) : (
-              <span className="text-muted-foreground">nobody named</span>
-            )}
-          </Item>
+            }
+          />
+          <Row
+            label="Done by"
+            value={
+              entry.actorId ? (
+                <>
+                  <span className="text-muted-foreground">{entry.actorPlatform} · </span>
+                  <PersonLink platform={entry.actorPlatform} id={entry.actorId} name={entry.actorName} />
+                  <span className="ml-2 font-mono text-muted-foreground break-all">{entry.actorId}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">nobody named</span>
+              )
+            }
+          />
           {entry.worldId && (
-            <Item label="World">
-              <WorldLink id={entry.worldId} name={entry.worldName} unnamed="id" />
-              <span className="ml-2 font-mono text-muted-foreground break-all">{entry.worldId}</span>
-            </Item>
+            <Row
+              label="World"
+              value={
+                <>
+                  <WorldLink id={entry.worldId} name={entry.worldName} unnamed="id" />
+                  <span className="ml-2 font-mono text-muted-foreground break-all">{entry.worldId}</span>
+                </>
+              }
+            />
           )}
           {entry.instanceId && (
-            <Item label="Instance">
-              <InstanceLink
-                modbotInstanceId={entry.modbotInstanceId}
-                worldId={entry.worldId}
-                worldName={entry.worldName}
-                number={entry.instanceId}
-              />
-            </Item>
+            <Row
+              label="Instance"
+              value={
+                <InstanceLink
+                  modbotInstanceId={entry.modbotInstanceId}
+                  worldId={entry.worldId}
+                  worldName={entry.worldName}
+                  number={entry.instanceId}
+                />
+              }
+            />
           )}
           {entry.reportedBy && entry.reportedBy.length > 0 && (
-            <Item label="Reported by">
-              <ul>
-                {entry.reportedBy.map((reporter) => (
-                  <li key={reporter.accountId}>
-                    {reporter.name ?? reporter.accountId}
-                    <span className="ml-2 font-mono text-muted-foreground">{dateTime(reporter.at)}</span>
-                  </li>
-                ))}
-              </ul>
-            </Item>
+            <Row
+              label="Reported by"
+              value={
+                <ul>
+                  {entry.reportedBy.map((reporter) => (
+                    <li key={reporter.accountId}>
+                      {reporter.name ?? reporter.accountId}
+                      <span className="ml-2 font-mono text-muted-foreground">{dateTime(reporter.at)}</span>
+                    </li>
+                  ))}
+                </ul>
+              }
+            />
           )}
-          {entry.description && <Item label="Description">{entry.description}</Item>}
-          <Item label="Entry id">
-            <span className="font-mono">{entry.id}</span>
-          </Item>
-        </dl>
+          {entry.description && <Row label="Description" value={entry.description} />}
+          <Row label="Entry id" mono value={entry.id} />
+        </div>
 
         {changed.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Changed</CardTitle>
             </CardHeader>
-            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-              <thead className="bg-strip text-left text-muted-foreground">
-                <tr className="border-b-(length:--hairline)">
-                  <th className="px-3 py-1 font-normal">Field</th>
-                  <th className="px-3 py-1 font-normal">Before</th>
-                  <th className="px-3 py-1 font-normal">After</th>
-                </tr>
-              </thead>
-              <tbody>
-                {changed.map(([key, pair]) => (
-                  <tr key={key} className="border-b border-b-(length:--hairline) align-top last:border-0">
-                    <td className="px-3 py-1 whitespace-nowrap">{fieldName(key)}</td>
-                    <td className="px-3 py-1 break-all text-muted-foreground">{shown(pair.old)}</td>
-                    <td className="px-3 py-1 break-all">{shown(pair.new)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table head={<><Th>Field</Th><Th>Before</Th><Th>After</Th></>}>
+              {changed.map(([key, pair]) => (
+                <Tr key={key}>
+                  <Td>{fieldName(key)}</Td>
+                  <Td className="min-w-[10rem] break-all whitespace-normal text-muted-foreground">{shown(pair.old)}</Td>
+                  <Td className="min-w-[10rem] break-all whitespace-normal">{shown(pair.new)}</Td>
+                </Tr>
+              ))}
+            </Table>
           </Card>
         )}
 
@@ -170,14 +189,15 @@ function SameDecision({ entry }: { entry: AuditEntry }) {
         <CardTitle>Same decision</CardTitle>
       </CardHeader>
       {linked.map((fact) => (
-        <details
-          key={fact.id}
-          className="border-b border-b-(length:--hairline) last:border-0"
-        >
+        <details key={fact.id} className="group border-b border-b-(length:--hairline) last:border-0">
           <summary
-            className="flex cursor-pointer flex-wrap items-center gap-2 px-(--panel-pad) py-2"
+            className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-(--panel-pad) py-2 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
             style={{ fontSize: 'var(--text-small)' }}
           >
+            <ChevronRight
+              className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
+              aria-hidden
+            />
             <SourceBadge source={fact.source} />
             <FactSentence entry={fact} />
             <span className="font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
@@ -186,15 +206,6 @@ function SameDecision({ entry }: { entry: AuditEntry }) {
         </details>
       ))}
     </Card>
-  )
-}
-
-function Item({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 break-words">{children}</dd>
-    </>
   )
 }
 
@@ -248,7 +259,7 @@ function ProfileAt({ entry }: { entry: AuditEntry }) {
           </Button>
         </CardAction>
       </CardHeader>
-      {error && <p className="px-(--panel-pad) py-2 text-destructive" style={{ fontSize: 'var(--text-small)' }}>{error}</p>}
+      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
       {!error && !data && <EmptyRow>Loading…</EmptyRow>}
       {data && !version && <EmptyRow>This change is older than the versions still on record.</EmptyRow>}
       {version && (

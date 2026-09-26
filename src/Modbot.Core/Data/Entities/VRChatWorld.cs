@@ -69,6 +69,14 @@ public class VRChatWorld
     public string? Tags { get; set; }
 
     /// <summary>
+    /// The platforms the world has a build for, in VRChat's words (<c>standalonewindows</c>,
+    /// <c>android</c>, <c>ios</c>), as a JSON array. What the game's instance card shows as PC,
+    /// Android and iOS badges. Null until a read that carried the world's builds.
+    /// </summary>
+    [Column(TypeName = "jsonb")]
+    public string? Platforms { get; set; }
+
+    /// <summary>
     /// Whether the world is public, private or in Labs, in VRChat's own words. Kept as text
     /// rather than an enum: a value this build has not seen is still a real world.
     /// </summary>

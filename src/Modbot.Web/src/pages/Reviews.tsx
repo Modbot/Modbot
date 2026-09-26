@@ -76,7 +76,7 @@ export function Reviews({
               value: 'open',
               label: list ? (
                 <>
-                  Waiting <span className="font-mono">({list.openCount})</span>
+                  Waiting <span className="font-mono">{list.openCount}</span>
                 </>
               ) : (
                 'Waiting'

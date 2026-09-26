@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { DailyLine, Legend, compactNumber, dateTime, minutes, nextSlot } from '@/components/charts'
+import { DailyLine, compactNumber, dateTime, minutes, nextSlot } from '@/components/charts'
 import { WorldLink } from '@/components/facts'
 import { api } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
@@ -27,7 +27,7 @@ export function Worlds() {
   const load = useCallback((q: string) => api.worldsAnalytics(q), [])
   const { data, error } = useAnalytics(load, range)
 
-  if (error) return <PageMessage>{error}</PageMessage>
+  if (error) return <PageMessage tone="danger">{error}</PageMessage>
 
   const totalMinutes = data ? data.worlds.reduce((s, w) => s + w.minutesSeen, 0) : 0
   const totalVisitors = data ? data.worlds.reduce((s, w) => s + w.visitors, 0) : 0
@@ -87,7 +87,7 @@ export function Worlds() {
                             src={vrchatMedia(w.thumbnailImageUrl)}
                             alt=""
                             loading="lazy"
-                            className="size-8 shrink-0 rounded-sm object-cover"
+                            className="size-8 shrink-0 object-cover"
                           />
                         )}
                         <div className="min-w-0">
@@ -117,22 +117,19 @@ export function Worlds() {
             )}
           </Panel>
 
-          <Panel title="Visitors per day, busiest worlds" flush={data.visitorsPerDay.length === 0}>
-            {data.visitorsPerDay.length === 0 ? (
-              <EmptyRow>No data yet.</EmptyRow>
-            ) : (
-              <>
-                <Legend items={data.visitorsPerDay.map((s, i) => ({ label: worldLabel(data.worlds, s.worldId), slot: nextSlot(i) }))} />
-                <div className="mt-2">
-                  <DailyLine
-                    from={data.from}
-                    to={data.to}
-                    mode="zero"
-                    series={data.visitorsPerDay.map((s, i) => ({ key: s.worldId, label: worldLabel(data.worlds, s.worldId), points: s.points, slot: nextSlot(i) }))}
-                  />
-                </div>
-              </>
-            )}
+          <Panel title="Visitors per day, busiest worlds">
+            <DailyLine
+              from={data.from}
+              to={data.to}
+              mode="zero"
+              emptyText="No data yet."
+              legend={
+                data.visitorsPerDay.length > 1
+                  ? data.visitorsPerDay.map((s, i) => ({ label: worldLabel(data.worlds, s.worldId), slot: nextSlot(i) }))
+                  : undefined
+              }
+              series={data.visitorsPerDay.map((s, i) => ({ key: s.worldId, label: worldLabel(data.worlds, s.worldId), points: s.points, slot: nextSlot(i) }))}
+            />
           </Panel>
 
           <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />

@@ -525,6 +525,7 @@ function PublicAddressCard() {
           <Row label="Address" value={view ? (view.publicAddress ?? 'Not set') : '…'} mono={!!view?.publicAddress} />
           <Field
             label="Public address"
+            mono
             value={value}
             onChange={setValue}
             placeholder={suggestion ?? window.location.origin}

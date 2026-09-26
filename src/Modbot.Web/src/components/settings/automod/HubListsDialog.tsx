@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { EmptyRow } from '@/components/PanelGrid'
 import { failure, moderationApi, type HubListView } from '@/lib/autoMod'
 import { Outcome } from '../fields'
 
@@ -56,8 +57,13 @@ function HubLists({ onAdded }: { onAdded: () => void }) {
       className="max-w-[720px]"
       bodyClassName="flex max-h-[75vh] flex-col gap-3 overflow-y-auto"
     >
-      <Outcome tone="problem">{problem}</Outcome>
-      {!lists && !problem && <span className="text-muted-foreground">Loading…</span>}
+      {lists ? (
+        <Outcome tone="problem">{problem}</Outcome>
+      ) : (
+        <EmptyRow className="px-0" tone={problem ? 'danger' : undefined}>
+          {problem ?? 'Loading…'}
+        </EmptyRow>
+      )}
       <ul className="flex flex-col">
         {lists?.map((list) => (
           <li

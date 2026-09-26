@@ -236,6 +236,15 @@ public static class PlacesEndpoints
             (log, truncated) = await LogAsync(db, held, instance, ct);
         }
 
+        var headCounts = await db.InstanceHeadCounts.AsNoTracking()
+            .Where(h => h.InstanceId == id)
+            .OrderByDescending(h => h.CountedAt)
+            .Take(HeadCountPoint.Most)
+            .Select(h => new HeadCountPoint(h.CountedAt, h.HeadCount))
+            .ToListAsync(ct);
+
+        headCounts.Reverse();
+
         return new InstanceView(
             listed[0],
             Known: true,
@@ -251,7 +260,8 @@ public static class PlacesEndpoints
             people,
             log,
             truncated,
-            now);
+            now,
+            headCounts);
     }
 
     /// <summary>

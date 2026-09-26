@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Languages, Monitor, Smartphone, Sparkles, Square } from 'lucide-react'
+import { ChevronRight, Languages, Monitor, Smartphone, Sparkles, Square } from 'lucide-react'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { Badge } from '@/components/ui/badge'
 import { trustRank } from '@/lib/trustRank'
@@ -65,13 +65,13 @@ function TagPill({ badge }: { badge: TagBadge }) {
   switch (badge.kind) {
     case 'vrcplus':
       return (
-        <Pill className="border-gold/40 bg-gold/10 text-gold">
+        <Pill variant="gold">
           <Sparkles className="size-3" aria-hidden />
           VRC+
         </Pill>
       )
     case 'staff':
-      return <Pill className="border-info/40 bg-info/10 text-info">VRChat staff</Pill>
+      return <Pill variant="info">VRChat staff</Pill>
     case 'nuisance':
       return <Pill variant="warn">Nuisance</Pill>
     case 'early-adopter':
@@ -92,7 +92,7 @@ function Pill({
   title,
   children,
 }: {
-  variant?: 'outline' | 'warn'
+  variant?: 'outline' | 'warn' | 'info' | 'gold'
   className?: string
   title?: string
   children: React.ReactNode
@@ -120,9 +120,13 @@ export function OtherTags({ tags, className }: { tags: readonly string[] | null 
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="self-start text-muted-foreground hover:text-foreground hover:underline"
+        className="flex items-center gap-1 self-start rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         style={{ fontSize: 'var(--text-small)' }}
       >
+        <ChevronRight
+          className={cn('size-3.5 shrink-0 transition-transform motion-reduce:transition-none', open && 'rotate-90')}
+          aria-hidden
+        />
         {open ? 'Hide tags' : moreTagsLabel(rest.length)}
       </button>
 

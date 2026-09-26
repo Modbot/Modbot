@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardFooter, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { EntryDetail } from '@/components/audit/EntryDetail'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
@@ -20,6 +21,7 @@ import { useShortcuts } from '@/lib/shortcuts'
 import { openAccount, openDiscordPerson, openInstance, openPerson } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { cn } from '@/lib/utils'
+import { Empty } from '@/pages/Members'
 
 /** A burst of facts -- a sweep, six clients reporting one join -- is one read, not one each. */
 const SETTLE_MS = 400
@@ -283,13 +285,10 @@ export function AuditLog() {
     [filters],
   )
 
-  if (error) {
-    return (
-      <Card>
-        <EmptyRow>{error}</EmptyRow>
-      </Card>
-    )
-  }
+  if (error) return <Empty tone="danger">{error}</Empty>
+
+  // Nothing has been read yet. Later reads keep the page on screen until they land (see above).
+  if (pages.length === 0) return <Empty>Loading…</Empty>
 
   return (
     <div className="flex flex-col gap-3">
@@ -302,34 +301,35 @@ export function AuditLog() {
       </FilterBar>
 
       <Card>
-          <CardHeader>{coverage && <Coverage coverage={coverage} />}</CardHeader>
+          {coverage?.oldestFact && (
+            <CardHeader>
+              <Coverage coverage={coverage} />
+            </CardHeader>
+          )}
           {entries.length === 0 && !loading ? (
             <EmptyRow>No entries match these filters.</EmptyRow>
           ) : (
-            <div className="relative overflow-x-auto">
-              <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-                <thead className="bg-strip text-muted-foreground">
-                  <tr className="border-b-(length:--hairline)">
-                    <th className="w-6 px-2 py-2" />
-                    <th className="px-3 py-2 text-left font-normal">When</th>
-                    <th className="px-3 py-2 text-left font-normal">Source</th>
-                    <th className="px-3 py-2 text-left font-normal">What happened</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((entry, i) => (
-                    <Row
-                      key={entry.id}
-                      entry={entry}
-                      marked={String(entry.id) === factId}
-                      open={isOpen(entry)}
-                      onToggle={() => toggle(entry)}
-                      {...rowProps(i)}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table
+              head={
+                <>
+                  <Th className="w-0 pr-0" />
+                  <Th>When</Th>
+                  <Th>Source</Th>
+                  <Th>What happened</Th>
+                </>
+              }
+            >
+              {entries.map((entry, i) => (
+                <Row
+                  key={entry.id}
+                  entry={entry}
+                  marked={String(entry.id) === factId}
+                  open={isOpen(entry)}
+                  onToggle={() => toggle(entry)}
+                  {...rowProps(i)}
+                />
+              ))}
+            </Table>
           )}
 
           <CardFooter className="gap-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -383,7 +383,7 @@ function Row({
 
   return (
     <>
-      <tr
+      <Tr
         ref={row}
         {...rowAttributes}
         onClick={(e) => {
@@ -392,45 +392,43 @@ function Row({
           onToggle()
         }}
         aria-expanded={open}
-        className={cn(
-          'cursor-pointer border-b border-b-(length:--hairline) last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
-          marked && 'bg-accent',
-          open && 'border-b-0',
-        )}
+        className={cn('cursor-pointer hover:bg-muted/40 data-[selected]:bg-accent/60', marked && 'bg-accent')}
       >
-        <td className="px-2 align-top" style={{ height: 'var(--row-h)' }}>
+        <Td className="pr-0">
           <ChevronRight
-            className={cn('mt-2 size-3.5 text-muted-foreground transition-transform', open && 'rotate-90')}
+            className={cn('size-3.5 text-muted-foreground transition-transform', open && 'rotate-90')}
             aria-hidden
           />
-        </td>
-        <td className="whitespace-nowrap px-3 align-top">
-          <div className="flex items-baseline gap-2 py-1 font-mono leading-tight">
+        </Td>
+        <Td>
+          <div className="flex items-baseline gap-2 font-mono leading-tight">
             <FactTime entry={entry} />
             <span className="text-muted-foreground/70">{formatDay(entry.occurredAt)}</span>
           </div>
-        </td>
-        <td className="px-3 py-1 align-top">
+        </Td>
+        <Td>
           <SourceBadge source={entry.source} />
-        </td>
-        <td className="max-w-3xl min-w-[20rem] px-3 py-1.5 align-top" title={entry.type}>
+        </Td>
+        <Td className="max-w-3xl min-w-[20rem] whitespace-normal" title={entry.type}>
           {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
               markup. */}
           <FactSentence entry={entry} />
           {/* One decision, several facts. The row is the decision; opening it shows every fact. */}
           {entry.linked && entry.linked.length > 0 && (
             <Badge variant="secondary" className="ml-2 align-middle">
-              {entry.linked.length + 1} facts
+              <span className="font-mono">{entry.linked.length + 1}</span> facts
             </Badge>
           )}
           {/* Whose client saw it. On the row rather than behind the chevron, because a moderator
               scanning the log for what a colleague's client reported should not have to open every
               row to find out. */}
           <ReportedBy entry={entry} />
-        </td>
-      </tr>
+        </Td>
+      </Tr>
+      {/* No line of its own above: the detail belongs to the row over it. The next row's line
+          closes it off. */}
       {open && (
-        <tr className="border-b border-b-(length:--hairline) last:border-0">
+        <tr>
           <td colSpan={4} className="p-0">
             <EntryDetail entry={entry} />
           </td>

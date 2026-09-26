@@ -10895,7 +10895,7 @@
           "Live"
         ],
         "summary": "List live instances",
-        "description": "Read from Modbot's own tables; nothing here calls VRChat. Every open group instance is listed with its head count whether or not a moderator is in it. `people` is filled only while a moderator's client is watching; otherwise `lastSeen` holds who was there when watching last stopped, at `lastWatchedAt`.\n\nNeeds the `ViewLiveInstances` permission.",
+        "description": "Read from Modbot's own tables; nothing here calls VRChat. Every open group instance is listed with its head count whether or not a moderator is in it. `people` is filled only while a moderator's client is watching; otherwise `lastSeen` holds who was there when watching last stopped, at `lastWatchedAt`. `voice` lists the Discord server's voice channels with somebody in them.\n\nNeeds the `ViewLiveInstances` permission.",
         "operationId": "GetLiveInstances",
         "responses": {
           "200": {
@@ -24525,6 +24525,27 @@
           }
         }
       },
+      "HeadCountPoint": {
+        "required": [
+          "at",
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "HealthAlertUpdate": {
         "required": [
           "quietHours",
@@ -25606,6 +25627,24 @@
               "string"
             ],
             "format": "double"
+          },
+          "worldCapacity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "worldPlatforms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -25625,7 +25664,8 @@
           "people",
           "log",
           "logTruncated",
-          "now"
+          "now",
+          "headCounts"
         ],
         "type": "object",
         "properties": {
@@ -25699,6 +25739,12 @@
           "now": {
             "type": "string",
             "format": "date-time"
+          },
+          "headCounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HeadCountPoint"
+            }
           }
         }
       },
@@ -26545,6 +26591,24 @@
             "items": {
               "$ref": "#/components/schemas/LivePersonView"
             }
+          },
+          "worldCapacity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "worldPlatforms": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -26743,6 +26807,70 @@
           },
           "generatedAt": {
             "type": "string",
+            "format": "date-time"
+          },
+          "voice": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/LiveVoiceChannelView"
+            }
+          }
+        }
+      },
+      "LiveVoiceChannelView": {
+        "required": [
+          "channelId",
+          "name",
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "channelId": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LiveVoiceMemberView"
+            }
+          }
+        }
+      },
+      "LiveVoiceMemberView": {
+        "required": [
+          "userId",
+          "displayName",
+          "avatarUrl",
+          "since"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "since": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date-time"
           }
         }

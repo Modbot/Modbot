@@ -79,9 +79,24 @@ export function Block({ children, className }: { children: React.ReactNode; clas
   )
 }
 
-/** A one-line state of a popup section (loading, empty, failed), ruled off like a section. */
-export function Empty({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <EmptyRow className={cn('shrink-0 border-b border-b-(length:--hairline)', className)}>{children}</EmptyRow>
+/**
+ * A one-line state of a popup section (loading, empty, failed), ruled off like a section.
+ * `danger` for a read that failed, so it does not look like an empty section.
+ */
+export function Empty({
+  children,
+  className,
+  tone,
+}: {
+  children: React.ReactNode
+  className?: string
+  tone?: 'neutral' | 'danger'
+}) {
+  return (
+    <EmptyRow tone={tone} className={cn('shrink-0 border-b border-b-(length:--hairline)', className)}>
+      {children}
+    </EmptyRow>
+  )
 }
 
 /** The strip along the foot of a section's list: what the list shows, and how fresh it is. */

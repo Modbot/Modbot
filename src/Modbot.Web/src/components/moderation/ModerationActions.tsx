@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ReasonButtons } from '@/components/CaseFileForm'
 import { NotesBeforeActing } from '@/components/subject/PersonNotes'
+import { Outcome } from '@/components/settings/fields'
 import { Textarea } from '@/components/ui/textarea'
 import {
   api,
@@ -222,11 +223,7 @@ function ConfirmAction({
               </Button>
             </div>
 
-            {problem && (
-              <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-                {problem}
-              </p>
-            )}
+            <Outcome tone="problem">{problem}</Outcome>
           </>
         )}
 

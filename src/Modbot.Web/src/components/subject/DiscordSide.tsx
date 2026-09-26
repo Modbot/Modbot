@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Empty, FactList, Field, Footer, Note, Panel } from '@/components/subject/shared'
+import { Pager } from '@/components/Pager'
+import { Empty, FactList, Field, Note, Panel } from '@/components/subject/shared'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { api, type DiscordMember } from '@/lib/api'
 import type { DiscordMemberRead } from '@/lib/useDiscordMember'
 import { formatDay } from '@/lib/format'
+import { usePageState, type ListPage } from '@/lib/listPage'
 import { cn } from '@/lib/utils'
 import { useLoad } from '@/lib/useLoad'
 import { concernsPerson } from '@/lib/liveRules'
@@ -45,8 +46,8 @@ const HISTORY_TYPES = [
 export function DiscordIdentity({ read }: { read: DiscordMemberRead }) {
   const { data, error } = read
 
-  if (error) return <Note className="text-destructive">{error}</Note>
-  if (!data) return <Note>Loading…</Note>
+  if (error) return <Empty tone="danger">{error}</Empty>
+  if (!data) return <Empty>Loading…</Empty>
 
   const member = data.member
   if (!member) return <Note>Not seen in the server.</Note>
@@ -134,7 +135,7 @@ export function DiscordHistory({ id, read }: { id: string; read: DiscordMemberRe
       {read.data?.member && <DiscordDetails member={read.data.member} timedOut={read.data.timedOut} />}
 
       <Panel title="In the server" flush>
-        {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+        {error && <EmptyRow tone="danger">{error}</EmptyRow>}
         {!error && !data && <EmptyRow>Loading…</EmptyRow>}
         {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
       </Panel>
@@ -145,27 +146,34 @@ export function DiscordHistory({ id, read }: { id: string; read: DiscordMemberRe
 const MESSAGE_PAGE = 50
 
 export function DiscordMessages({ id, at }: { id: string; at?: string | null }) {
-  const [page, setPage] = useState(1)
+  const paging = usePageState()
 
   // The server works out which page holds the message asked for, so a link lands on it rather than
   // on the newest page. Paging by hand afterwards drops the anchor.
   const [anchored, setAnchored] = useState(Boolean(at))
   const load = useCallback(
-    () => api.discordMemberMessages(id, page, MESSAGE_PAGE, anchored ? at ?? undefined : undefined),
-    [id, page, at, anchored],
+    () => api.discordMemberMessages(id, paging.page, MESSAGE_PAGE, anchored ? at ?? undefined : undefined),
+    [id, paging.page, at, anchored],
   )
   const { data, error } = useLoad(load)
 
-  if (error) return <Panel title="Messages" flush><EmptyRow className="text-destructive">{error}</EmptyRow></Panel>
+  if (error) return <Panel title="Messages" flush><EmptyRow tone="danger">{error}</EmptyRow></Panel>
   if (!data) return <Panel title="Messages" flush><EmptyRow>Loading…</EmptyRow></Panel>
 
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize))
 
   // Turning a page by hand leaves the linked message behind, so the anchor goes with it. The page
   // turned from is the one the server answered with, which is where the linked message was found.
-  const turn = (to: number) => {
-    setAnchored(false)
-    setPage(to)
+  const shown: ListPage = {
+    page: data.page,
+    goTo: (to) => {
+      setAnchored(false)
+      paging.goTo(to)
+    },
+    restart: () => {
+      setAnchored(false)
+      paging.restart()
+    },
   }
 
   return (
@@ -212,7 +220,7 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
                   {m.attachments.map((a, i) => (
                     <li key={`${a.name}:${i}`}>
                       {a.url ? (
-                        <a href={a.url} target="_blank" rel="noreferrer noopener" className="underline">
+                        <a href={a.url} target="_blank" rel="noreferrer noopener" className="underline underline-offset-2">
                           {a.name}
                         </a>
                       ) : (
@@ -227,19 +235,7 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
         </ol>
       )}
 
-      {pages > 1 && (
-        <Footer>
-          <Button variant="outline" size="xs" disabled={data.page <= 1} onClick={() => turn(data.page - 1)}>
-            Previous
-          </Button>
-          <span className="text-muted-foreground">
-            Page <span className="font-mono">{data.page}</span> of <span className="font-mono">{pages}</span>
-          </span>
-          <Button variant="outline" size="xs" disabled={data.page >= pages} onClick={() => turn(data.page + 1)}>
-            Next
-          </Button>
-        </Footer>
-      )}
+      <Pager at={shown} pages={pages} />
     </div>
   )
 }
@@ -273,7 +269,7 @@ export function DiscordMetrics({ id }: { id: string }) {
   const load = useCallback(() => api.discordMemberMetrics(id), [id])
   const { data, error } = useLoad(load, live)
 
-  if (error) return <Panel title="Discord" flush><EmptyRow className="text-destructive">{error}</EmptyRow></Panel>
+  if (error) return <Panel title="Discord" flush><EmptyRow tone="danger">{error}</EmptyRow></Panel>
   if (!data) return <Panel title="Discord" flush><EmptyRow>Loading…</EmptyRow></Panel>
 
   const from = data.messagesPerDay[0]?.day ?? ''

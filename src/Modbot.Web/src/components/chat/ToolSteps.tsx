@@ -4,6 +4,7 @@ import { SourceChip } from '@/components/chat/Sources'
 import { uniqueSources } from '@/components/chat/sourceLinks'
 import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
+import { Row } from '@/components/ui/fact-row'
 import type { ChatMessage, ChatReference, ChatToolCall } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -177,17 +178,14 @@ function Value({ value }: { value: unknown }) {
   if (value !== null && typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
 
-    // Wraps rather than holding a column width: at phone width the value goes under its name
-    // instead of down a one-letter-wide channel.
+    // The same rows as every other list of facts: the name muted, the value in the text's colour,
+    // and the width keeps each value near its name.
     return (
-      <dl className="flex flex-col gap-0.5">
+      <div className="max-w-lg text-foreground">
         {entries.map(([key, item]) => (
-          <div key={key} className="flex flex-wrap gap-x-3">
-            <dt className="w-32 max-w-full shrink-0 text-muted-foreground">{words(key)}</dt>
-            <dd className="min-w-0 break-words">{short(item)}</dd>
-          </div>
+          <Row key={key} label={words(key)} value={short(item)} />
         ))}
-      </dl>
+      </div>
     )
   }
 

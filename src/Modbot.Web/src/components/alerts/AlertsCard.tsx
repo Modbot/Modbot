@@ -91,7 +91,7 @@ function Row({ alert, onDismiss }: { alert: Alert; onDismiss: () => void }) {
         <a
           href={alert.link}
           onClick={followLink(alert.link)}
-          className="shrink-0 underline underline-offset-2"
+          className="shrink-0 text-link underline-offset-2 hover:underline"
           style={{ fontSize: 'var(--text-small)' }}
         >
           Open

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Popover } from 'radix-ui'
 import { badgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { OtherTags } from '@/components/ProfileBadges'
 import { ProfileHeader } from '@/components/ProfileHeader'
-import { Field } from '@/components/subject/shared'
-import { Ago } from '@/components/Freshness'
+import { Empty, Field } from '@/components/subject/shared'
+import { Field as TextField } from '@/components/settings/fields'
+import { Ago, Unread } from '@/components/Freshness'
 import { ago, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
@@ -53,21 +53,9 @@ export function ProfileIdentity({
 }) {
   const { profile, error, refreshing, note, setProfile } = stored
 
-  if (error) {
-    return (
-      <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-        {error}
-      </p>
-    )
-  }
+  if (error) return <Empty tone="danger">{error}</Empty>
 
-  if (!profile) {
-    return (
-      <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        Loading profile…
-      </p>
-    )
-  }
+  if (!profile) return <Empty>Loading…</Empty>
 
   const fetched = profile.known && profile.lastRefreshedAt
 
@@ -143,17 +131,16 @@ function Freshness({
   refreshing: boolean
   note: string | null
 }) {
+  const refreshed = profile.lastRefreshedAt ? (
+    <>Last refreshed <Ago iso={profile.lastRefreshedAt} now={profile.now} /></>
+  ) : (
+    'Never refreshed'
+  )
+
   return (
     <div style={{ fontSize: 'var(--text-small)' }}>
       <div className="flex flex-wrap items-center gap-x-2">
-        {profile.stale && <span aria-hidden className="size-2 shrink-0 bg-warn" />}
-        <span className="font-medium">
-          {profile.lastRefreshedAt ? (
-            <>Last refreshed <Ago iso={profile.lastRefreshedAt} now={profile.now} /></>
-          ) : (
-            'Never refreshed'
-          )}
-        </span>
+        {profile.stale ? <Unread><span>{refreshed}</span></Unread> : <span className="font-medium">{refreshed}</span>}
         {profile.stale && profile.lastRefreshedAt && (
           <span className="text-warn">
             stale, older than {Math.round(profile.staleAfterSeconds / 3600)} hours
@@ -351,14 +338,7 @@ function AgeMark({
 
           {editing !== null && (
             <div className="flex flex-col gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="text-muted-foreground">Reason</span>
-                <Input
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  maxLength={500}
-                />
-              </label>
+              <TextField label="Reason" value={reason} maxLength={500} onChange={setReason} />
               <div className="flex gap-2">
                 <Button size="xs" onClick={submit} disabled={busy}>
                   {editing ? 'Mark 18+ verified' : 'Clear flag'}

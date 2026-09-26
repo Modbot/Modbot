@@ -6,6 +6,7 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 const changesOffenders = (event: Parameters<typeof changesBans>[0]) => changesBans(event) || changesMembers(event)
 import { Card, CardAction, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Ago } from '@/components/Freshness'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { SubjectLink } from '@/components/facts'
@@ -58,7 +59,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
   if (error) {
     return (
       <Card>
-        <EmptyRow>{error}</EmptyRow>
+        <EmptyRow tone="danger">{error}</EmptyRow>
       </Card>
     )
   }
@@ -75,7 +76,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
     <Card>
       <CardHeader>
         <CardTitle>
-          {list.total} {list.total === 1 ? 'person' : 'people'} acted on more than once
+          <span className="font-mono">{list.total}</span> {list.total === 1 ? 'person' : 'people'} acted on more than once
         </CardTitle>
         <CardAction>
           <SwitchBank
@@ -103,61 +104,56 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
       {list.people.length === 0 ? (
         <EmptyRow>Nobody yet</EmptyRow>
       ) : (
-        <div data-pin-first className="relative overflow-x-auto">
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="bg-strip text-muted-foreground">
-              <tr className="border-b-(length:--hairline)">
-                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
-                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Status</th>
-                <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Actions</th>
-                <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Last 30 days</th>
-                <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Kicks</th>
-                <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Warns</th>
-                <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Bans</th>
-                <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Removed</th>
-                <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Turned away</th>
-                <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Moderators</th>
-                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Last action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.people.map((p) => (
-                <tr
-                  key={`${p.who.platform}:${p.who.id}`}
-                  className="border-b border-b-(length:--hairline) last:border-0 hover:bg-muted/40"
-                >
-                  <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                    <SubjectLink id={p.who.id} name={p.who.name} onOpen={onOpenSubject} />
-                  </td>
-                  <td className="px-3">
-                    <StatusPill status={p.status} />
-                  </td>
-                  <Num n={p.actions} strong />
-                  <Num n={p.actionsLast30Days} />
-                  <Num n={p.instanceKicks} />
-                  <Num n={p.warns} />
-                  <Num n={p.bans} />
-                  <Num n={p.removals} />
-                  <Num n={p.rejections} />
-                  <Num n={p.moderators} />
-                  <td className="px-3 whitespace-nowrap text-muted-foreground">
-                    <div>
-                      {p.lastActionLabel}
-                      {p.lastBy && (
-                        <>
-                          {' '}by <SubjectLink id={p.lastBy.id} name={p.lastBy.name} onOpen={onOpenSubject} />
-                        </>
-                      )}
-                    </div>
-                    <div className="font-mono text-muted-foreground/70" title={formatDay(p.lastActionAt)}>
-                      {ago(p.lastActionAt, list.now)}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          pinFirst
+          head={
+            <>
+              <Th>Person</Th>
+              <Th>Status</Th>
+              <Th className="text-right">Actions</Th>
+              <Th className="text-right">Last 30 days</Th>
+              <Th className="text-right">Kicks</Th>
+              <Th className="text-right">Warns</Th>
+              <Th className="text-right">Bans</Th>
+              <Th className="text-right">Removed</Th>
+              <Th className="text-right">Turned away</Th>
+              <Th className="text-right">Moderators</Th>
+              <Th>Last action</Th>
+            </>
+          }
+        >
+          {list.people.map((p) => (
+            <Tr key={`${p.who.platform}:${p.who.id}`} className="hover:bg-muted/40">
+              <Td>
+                <SubjectLink id={p.who.id} name={p.who.name} onOpen={onOpenSubject} />
+              </Td>
+              <Td>
+                <StatusPill status={p.status} />
+              </Td>
+              <Num n={p.actions} strong />
+              <Num n={p.actionsLast30Days} />
+              <Num n={p.instanceKicks} />
+              <Num n={p.warns} />
+              <Num n={p.bans} />
+              <Num n={p.removals} />
+              <Num n={p.rejections} />
+              <Num n={p.moderators} />
+              <Td className="text-muted-foreground">
+                <div>
+                  {p.lastActionLabel}
+                  {p.lastBy && (
+                    <>
+                      {' '}by <SubjectLink id={p.lastBy.id} name={p.lastBy.name} onOpen={onOpenSubject} />
+                    </>
+                  )}
+                </div>
+                <div className="font-mono text-muted-foreground/70" title={formatDay(p.lastActionAt)}>
+                  {ago(p.lastActionAt, list.now)}
+                </div>
+              </Td>
+            </Tr>
+          ))}
+        </Table>
       )}
     </Card>
   )
@@ -165,8 +161,8 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
 
 function Num({ n, strong }: { n: number; strong?: boolean }) {
   return (
-    <td className={cn('px-3 text-right font-mono', strong ? 'font-medium' : 'text-muted-foreground')}>
+    <Td className={cn('text-right font-mono', strong ? 'font-medium' : 'text-muted-foreground')}>
       {n === 0 ? '·' : n.toLocaleString()}
-    </td>
+    </Td>
   )
 }

@@ -28,7 +28,7 @@ export function MyTeam({
   const load = useCallback((q: string) => api.teamAnalytics(q), [])
   const { data, error } = useAnalytics(load, range)
 
-  if (error) return <PageMessage>{error}</PageMessage>
+  if (error) return <PageMessage tone="danger">{error}</PageMessage>
 
   const shownGaps = (data?.coverageGaps ?? []).filter((g) => g.peopleWhenLastModeratorLeft >= Number(minPeople))
   const totalActions = data ? data.actionsPerDay.reduce((s, p) => s + p.value, 0) : 0
@@ -144,7 +144,7 @@ export function MyTeam({
                     <Td className="text-right font-mono font-medium">{compactNumber(m.total)}</Td>
                     {data.kinds.map((k) => (
                       <Td key={k.metric} className="text-right font-mono text-muted-foreground">
-                        {m.byKind[k.metric] ? compactNumber(m.byKind[k.metric]) : '·'}
+                        {m.byKind[k.metric] ? compactNumber(m.byKind[k.metric]) : '—'}
                       </Td>
                     ))}
                     <Td className="font-mono text-muted-foreground">{m.lastActiveDay ? longDay(m.lastActiveDay) : '—'}</Td>
@@ -202,7 +202,7 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
       <Td className="font-mono whitespace-nowrap">{dateTime(gap.startedAt)}</Td>
       <Td className="font-mono whitespace-nowrap">{lasted}</Td>
       <Td className="text-right font-mono font-medium">{gap.peopleWhenLastModeratorLeft}</Td>
-      <Td className="whitespace-normal">
+      <Td className="min-w-[12rem] whitespace-normal">
         {gap.lastModerator ? (
           onOpenSubject ? (
             <button type="button" className="hover:underline" onClick={() => onOpenSubject(gap.lastModerator!.id)}>
@@ -215,7 +215,7 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
           <span className="text-muted-foreground">a companion stopped reporting</span>
         )}
       </Td>
-      <Td className="whitespace-normal text-muted-foreground">{endedBecause}</Td>
+      <Td className="min-w-[12rem] whitespace-normal text-muted-foreground">{endedBecause}</Td>
       {/* Instance ids are user-controlled text (spec 5.3): rendered as text, never as markup. */}
       <Td className="text-muted-foreground" title={`${gap.worldId}:${gap.instanceId}`}>
         {/* The world opens its popup. The gap carries no world name, so the id is the label rather

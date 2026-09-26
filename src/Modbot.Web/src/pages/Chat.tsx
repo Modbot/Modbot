@@ -6,6 +6,7 @@ import { Conversations } from '@/components/chat/Conversations'
 import { Thread } from '@/components/chat/Thread'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Row } from '@/components/ui/fact-row'
 import {
   api,
   ApiError,
@@ -316,7 +317,7 @@ export function Chat({
     return () => window.clearTimeout(timer)
   }, [streamed])
 
-  if (error) return <PageMessage>{error}</PageMessage>
+  if (error) return <PageMessage tone="danger">{error}</PageMessage>
   if (available === null) return <PageMessage>Loading…</PageMessage>
   if (!available && conversations.length === 0) return <PageMessage>Chat is off.</PageMessage>
 
@@ -411,18 +412,17 @@ export function Chat({
           </div>
 
           {!pinned && (
-            <button
-              type="button"
+            <Button
+              variant="outline"
               onClick={() => {
                 setPinned(true)
                 bottom.current?.scrollIntoView({ block: 'end', behavior: 'smooth' })
               }}
-              className="absolute bottom-3 left-1/2 flex h-(--control-h) -translate-x-1/2 items-center gap-1.5 rounded-sm border border-(length:--hairline) border-input bg-card px-3 shadow-sm hover:bg-muted"
-              style={{ fontSize: 'var(--text-small)' }}
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm"
             >
               <ArrowDown className="size-3.5" />
               Jump to latest
-            </button>
+            </Button>
           )}
         </div>
 
@@ -490,16 +490,10 @@ function Spend({ conversationId }: { conversationId: string }) {
           style={{ fontSize: 'var(--text-small)' }}
         >
           {spent ? (
-            <dl className="flex flex-col gap-1">
-              <div className="flex justify-between gap-2">
-                <dt className="text-muted-foreground">Cost</dt>
-                <dd className="font-mono">{spentText(spent)}</dd>
-              </div>
-              <div className="flex justify-between gap-2" title={tokensTitle(spent)}>
-                <dt className="text-muted-foreground">Tokens</dt>
-                <dd className="font-mono">{tokensText(spent)}</dd>
-              </div>
-            </dl>
+            <>
+              <Row label="Cost" value={spentText(spent)} mono />
+              <Row label="Tokens" value={tokensText(spent)} title={tokensTitle(spent)} mono />
+            </>
           ) : (
             <span className="text-muted-foreground">Loading…</span>
           )}

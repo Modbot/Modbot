@@ -89,7 +89,9 @@ export function Sidebar({
           <button
             onClick={() => onNavigate(item.id)}
             className={cn(
-              'relative flex h-(--control-h) w-full items-center gap-2 pr-3 pl-4 text-left transition-colors',
+              'relative flex h-(--control-h) w-full items-center gap-2 pr-3 text-left transition-colors',
+              // A page that belongs to the one above it, like Worlds under VRChat, sits one step in.
+              'indent' in item && item.indent ? 'pl-8' : 'pl-4',
               page === item.id
                 ? 'bg-card font-medium text-foreground'
                 : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
@@ -163,7 +165,9 @@ function GroupHeading({ group }: { group: SidebarGroup }) {
         {group.iconUrl && (
           <img src={vrchatMedia(group.iconUrl)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-sm object-cover" />
         )}
-        <div className="truncate font-display text-[0.9375rem] leading-tight">{group.name}</div>
+        <div className="truncate font-display leading-tight" style={{ fontSize: 'calc(var(--text-base) + 2px)' }}>
+          {group.name}
+        </div>
       </div>
     </div>
   )

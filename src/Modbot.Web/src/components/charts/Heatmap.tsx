@@ -2,6 +2,9 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import { compactNumber } from './format'
 import { seriesColor, type SeriesSlot } from './theme'
 
+/** A cell is two thirds of a control high, so the grid grows with the density like the rows around it. */
+const cellHeight = 'calc(var(--control-h) * 2 / 3)'
+
 /**
  * A grid of values, shaded by size -- the hour-of-week chart, and anything else shaped like a
  * table where the eye should find the hot spots before reading the numbers.
@@ -40,7 +43,7 @@ export function Heatmap({
       </span>
       <div
         ref={gridRef}
-        className="grid gap-px"
+        className="grid gap-(--hairline)"
         style={{ gridTemplateColumns: `3.5rem repeat(${cols.length}, minmax(0, 1fr))` }}
         onMouseLeave={() => setHover(null)}
       >
@@ -52,7 +55,7 @@ export function Heatmap({
             <div
               key={c}
               className="overflow-hidden whitespace-nowrap text-muted-foreground"
-              style={{ minHeight: '1.25rem', gridColumn: `span ${Math.min(labelEvery, cols.length - i)}` }}
+              style={{ minHeight: cellHeight, gridColumn: `span ${Math.min(labelEvery, cols.length - i)}` }}
             >
               {c}
             </div>
@@ -104,7 +107,7 @@ function RowCells({
 }) {
   return (
     <>
-      <div className="truncate pr-2 text-right text-muted-foreground" style={{ lineHeight: '1.25rem' }}>
+      <div className="truncate pr-2 text-right text-muted-foreground" style={{ lineHeight: cellHeight }}>
         {label}
       </div>
       {cells.map((v, ci) => {
@@ -121,7 +124,7 @@ function RowCells({
             title={`${v}`}
             onMouseEnter={() => onHover({ r: ri, c: ci })}
             className="bg-secondary"
-            style={{ height: '1.25rem', outline: active ? `2px solid ${color}` : undefined, outlineOffset: -1 }}
+            style={{ height: cellHeight, outline: active ? `2px solid ${color}` : undefined, outlineOffset: -1 }}
           >
             <div className="h-full w-full" style={{ background: color, opacity }} />
           </div>

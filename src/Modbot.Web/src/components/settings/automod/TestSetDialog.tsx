@@ -106,7 +106,9 @@ function TestSet({
       bodyClassName="flex max-h-[75vh] flex-col gap-4 overflow-y-auto"
     >
       {!data ? (
-        <EmptyRow className="px-0">{problem ?? 'Loading…'}</EmptyRow>
+        <EmptyRow className="px-0" tone={problem ? 'danger' : 'neutral'}>
+          {problem ?? 'Loading…'}
+        </EmptyRow>
       ) : (
         <>
           <Samples samples={data.samples} busy={busy} onDelete={(id) => run(() => moderationApi.deleteSample(rule.kind, rule.id, id))} />
@@ -147,7 +149,10 @@ function TestSet({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
+              Close
+            </Button>
             <Button
               size="sm"
               disabled={busy || data.samples.length === 0}
@@ -155,11 +160,9 @@ function TestSet({
             >
               {busy ? 'Running…' : 'Run'}
             </Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
-              Close
-            </Button>
-            <Outcome tone="problem">{problem}</Outcome>
           </div>
+
+          <Outcome tone="problem">{problem}</Outcome>
 
           {latest && <Run run={latest} version={data.ruleVersion} />}
           {data.runs.length > 1 && <Earlier runs={data.runs.slice(1)} />}

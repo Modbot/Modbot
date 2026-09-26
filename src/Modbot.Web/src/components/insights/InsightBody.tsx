@@ -1,3 +1,5 @@
+import { ChevronRight } from 'lucide-react'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import type { Insight } from '@/lib/api'
 import { insightDays } from './days'
 
@@ -19,49 +21,57 @@ export function InsightBody({ insight }: { insight: Insight }) {
       </p>
 
       {figures && (
-        <details className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          <summary className="w-fit cursor-pointer select-none">Figures</summary>
-          <div className="relative mt-2 overflow-x-auto">
-            <table className="w-full">
-              <thead className="text-left">
-                <tr>
-                  <th className="py-1 font-normal" />
-                  <th className="py-1 text-right font-normal">{insightDays(figures)}</th>
-                  <th className="py-1 text-right font-normal">
+        <details className="group">
+          <summary
+            className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm text-muted-foreground select-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            <ChevronRight
+              className="size-3.5 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+              aria-hidden
+            />
+            Figures
+          </summary>
+          <div className="mt-2 flex flex-col gap-3">
+            <Table
+              head={
+                <>
+                  <Th />
+                  <Th className="text-right font-mono">{insightDays(figures)}</Th>
+                  <Th className="text-right font-mono">
                     {insightDays({ firstDay: figures.beforeFirstDay, lastDay: figures.beforeLastDay })}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="text-foreground">
-                {figures.figures.map((f) => (
-                  <tr key={f.name} className="border-t-(length:--hairline)">
-                    <td className="py-1 pr-3">{f.name}</td>
-                    <td className="py-1 text-right font-mono">{number(f.now)}</td>
-                    <td className="py-1 text-right font-mono">{number(f.before)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </Th>
+                </>
+              }
+            >
+              {figures.figures.map((f) => (
+                <Tr key={f.name}>
+                  <Td>{f.name}</Td>
+                  <Td className="text-right font-mono">{number(f.now)}</Td>
+                  <Td className="text-right font-mono">{number(f.before)}</Td>
+                </Tr>
+              ))}
+            </Table>
 
             {figures.lists
               .filter((l) => l.items.length > 0)
               .map((l) => (
-                <table key={l.name} className="mt-3 w-full">
-                  <thead className="text-left">
-                    <tr>
-                      <th className="py-1 font-normal">{l.name}</th>
-                      <th className="py-1" />
-                    </tr>
-                  </thead>
-                  <tbody className="text-foreground">
-                    {l.items.map((item, i) => (
-                      <tr key={`${i}-${item.name}`} className="border-t-(length:--hairline)">
-                        <td className="py-1 pr-3">{item.name}</td>
-                        <td className="py-1 text-right font-mono">{number(item.value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <Table
+                  key={l.name}
+                  head={
+                    <>
+                      <Th>{l.name}</Th>
+                      <Th />
+                    </>
+                  }
+                >
+                  {l.items.map((item, i) => (
+                    <Tr key={`${i}-${item.name}`}>
+                      <Td>{item.name}</Td>
+                      <Td className="text-right font-mono">{number(item.value)}</Td>
+                    </Tr>
+                  ))}
+                </Table>
               ))}
           </div>
         </details>

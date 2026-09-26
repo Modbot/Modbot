@@ -66,7 +66,12 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
     <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
       {item.destroyed ? (
         <EmptyRow className="bg-strip">
-          The file was destroyed{item.destroyedAt ? ` on ${formatDay(item.destroyedAt)}` : ''}
+          The file was destroyed
+          {item.destroyedAt && (
+            <>
+              {' '}on <span className="font-mono">{formatDay(item.destroyedAt)}</span>
+            </>
+          )}
           {item.destroyedBy ? ` by ${item.destroyedBy}` : ''}.{item.destroyedReason ? ` ${item.destroyedReason}` : ''}
         </EmptyRow>
       ) : item.contentType.startsWith('video/') ? (
@@ -80,7 +85,8 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
           {name}
         </span>
         <span className="text-muted-foreground">
-          {item.contentType} · {bytes(item.byteSize)} · {formatDay(item.firstStoredAt)}
+          {item.contentType} · <span className="font-mono">{bytes(item.byteSize)}</span> ·{' '}
+          <span className="font-mono">{formatDay(item.firstStoredAt)}</span>
           {item.uploaderId ? ` · by ${item.uploaderId}` : ''}
           {item.origin === 'Captured' ? ' · captured by Modbot' : ''}
         </span>

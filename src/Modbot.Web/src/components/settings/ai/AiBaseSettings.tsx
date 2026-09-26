@@ -219,12 +219,12 @@ function ConnectionCard({
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center gap-2">
-                <Button size="sm" disabled={busy !== null} onClick={confirm}>
-                  {busy === 'save' ? 'Saving…' : 'I understand'}
-                </Button>
+              <div className="flex justify-end gap-2">
                 <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => setConfirming(false)}>
                   Cancel
+                </Button>
+                <Button size="sm" disabled={busy !== null} onClick={confirm}>
+                  {busy === 'save' ? 'Saving…' : 'I understand'}
                 </Button>
               </div>
             </div>
@@ -250,12 +250,14 @@ function ConnectionCard({
       <div className="flex max-w-lg flex-col gap-3">
         <Field
           label="Endpoint"
+          mono
           value={endpoint}
           placeholder={presetEndpoint(provider) || 'http://localhost:11434/v1'}
           onChange={setEndpoint}
         />
         <PasswordField
           label={settings.apiKeyStored ? 'API key (stored)' : 'API key'}
+          mono
           value={apiKey}
           onChange={setApiKey}
         />

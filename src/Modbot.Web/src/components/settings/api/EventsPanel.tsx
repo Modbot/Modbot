@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { JsonView } from '@/components/JsonView'
@@ -129,9 +130,9 @@ export function EventsPanel() {
         }
       >
         <div className="flex max-w-lg flex-col gap-3">
-          <PasswordField label="API key" value={key} onChange={setKey} />
+          <PasswordField label="API key" mono value={key} onChange={setKey} />
           <Field label="Event types" value={types} placeholder="*" onChange={setTypes} />
-          <Field label="Cursor" value={cursor} placeholder="" onChange={setCursor} />
+          <Field label="Cursor" mono value={cursor} placeholder="" onChange={setCursor} />
         </div>
       </SettingsCard>
 
@@ -141,11 +142,24 @@ export function EventsPanel() {
         ) : (
           <div className="flex max-h-[32rem] flex-col overflow-auto" style={{ fontSize: 'var(--text-small)' }}>
             {received.map((r) => (
-              <details key={r.at} className="border-b border-b-(length:--hairline) last:border-0 px-(--panel-pad) py-1.5">
-                <summary className="cursor-pointer">
-                  <span className="font-medium">{r.kind}</span>
-                  {r.type && <span className="ml-2 font-mono">{r.type}</span>}
-                  {r.occurredAt && <span className="ml-2 font-mono text-muted-foreground">{when(r.occurredAt)}</span>}
+              <details
+                key={r.at}
+                className="group border-b border-b-(length:--hairline) last:border-0 px-(--panel-pad) py-1.5"
+              >
+                <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                  <ChevronRight
+                    className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                    aria-hidden
+                  />
+                  <span className="min-w-0">
+                    <span className="font-medium">{r.kind}</span>
+                    {r.type && <span className="ml-2 font-mono">{r.type}</span>}
+                    {r.occurredAt && (
+                      <span className="ml-2 inline-block font-mono whitespace-nowrap text-muted-foreground">
+                        {when(r.occurredAt)}
+                      </span>
+                    )}
+                  </span>
                 </summary>
                 <JsonView className="mt-1" title="Message" text={r.text} />
               </details>

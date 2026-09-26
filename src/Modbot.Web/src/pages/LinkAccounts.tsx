@@ -207,7 +207,10 @@ function Steps({
         {showCode ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <code className="rounded-sm border border-(length:--hairline) bg-strip px-3 py-2 font-mono text-[15px] font-semibold select-all">
+              <code
+                className="rounded-sm border border-(length:--hairline) bg-strip px-3 py-2 font-mono font-semibold select-all"
+                style={{ fontSize: 'var(--text-base)' }}
+              >
                 {pending.code}
               </code>
               <Button type="button" variant="outline" size="sm" onClick={() => onCopy(pending.code)}>
@@ -264,12 +267,12 @@ function Steps({
 
       {showCode && (
         <div className="flex items-center gap-2">
-          <Button type="button" onClick={onCheck} disabled={busy || !discord}>
+          <Button type="button" size="sm" onClick={onCheck} disabled={busy || !discord}>
             {busy ? 'Checking…' : 'Check'}
           </Button>
           {pending.checksLeft !== null && (
-            <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {pending.checksLeft} {pending.checksLeft === 1 ? 'check' : 'checks'} left
+            <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              <span className="font-mono">{pending.checksLeft}</span> {pending.checksLeft === 1 ? 'check' : 'checks'} left
             </span>
           )}
         </div>

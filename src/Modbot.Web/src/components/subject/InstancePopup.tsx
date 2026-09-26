@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { Tabs } from '@/components/ui/tabs'
-import { compactNumber, dateTime, minutes } from '@/components/charts'
+import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
+import { ChartFrame, chartHeight, compactNumber, dateTime, minutes, rechartsTooltip, seriesColor } from '@/components/charts'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +9,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { Block, Empty, FactList, Field, Footer, More, Panel, PopupFrame } from '@/components/subject/shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
+import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCountSeries'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type InstanceView } from '@/lib/api'
 import { concernsInstance } from '@/lib/liveRules'
@@ -64,7 +66,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       title={title}
       subtitle={instance ? <span title={instance.location}>{instance.closedAt ? 'Closed' : 'Open now'}</span> : undefined}
       lead={lead}
-      left={error ? <Empty className="text-destructive">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
+      left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
     >
       <Tabs
         value={tab}
@@ -193,6 +195,8 @@ function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => 
         <Stat label="Arrivals" value={compactNumber(view.counts.arrivals)} />
       </StatStrip>
 
+      <PeopleOverTime view={view} />
+
       {view.canSeeWhoWasThere ? (
         <>
           <Panel
@@ -224,6 +228,57 @@ function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => 
         <Empty>You do not have permission to see who was here.</Empty>
       )}
     </div>
+  )
+}
+
+/**
+ * How many were in the instance, from when it opened until now or until it closed.
+ *
+ * A staircase, not a curve: a head count is kept only when it changes, so between two readings the
+ * earlier one held. The last reading is carried to the end of the chart, because it held until then.
+ * Not about who was there, so it shows for everyone who may open the instance.
+ */
+function PeopleOverTime({ view }: { view: InstanceView }) {
+  const from = Date.parse(view.instance.openedAt)
+  const to = Date.parse(view.instance.closedAt ?? view.now)
+  const span = to - from
+
+  const rows = view.headCounts.map((p) => ({ at: Date.parse(p.at), people: p.people }))
+  if (rows.length > 0 && rows[rows.length - 1].at < to) rows.push({ at: to, people: rows[rows.length - 1].people })
+
+  return (
+    <Panel title="People over time">
+      <ChartFrame height={chartHeight.regular} empty={rows.length === 0} emptyText="No head counts yet.">
+        <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="at"
+            type="number"
+            domain={[from, to]}
+            ticks={timeTicks(from, to)}
+            tickFormatter={(v: number) => timeLabel(v, span)}
+            tickLine={false}
+            axisLine={false}
+            minTickGap={16}
+          />
+          <YAxis width="auto" domain={[0, 'auto']} allowDecimals={false} tickLine={false} axisLine={false} />
+          <Tooltip
+            content={rechartsTooltip((label) => readingTime(Number(label)), { people: 'people' })}
+            cursor={{ stroke: 'var(--chart-grid)' }}
+          />
+          <Line
+            type="stepAfter"
+            dataKey="people"
+            name="people"
+            stroke={seriesColor(1)}
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ChartFrame>
+    </Panel>
   )
 }
 

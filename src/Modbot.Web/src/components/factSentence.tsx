@@ -1,4 +1,5 @@
 import { AccountLink, PersonLink, InstanceLink, WorldLink } from '@/components/facts'
+import { ChevronRight } from 'lucide-react'
 import { JsonView } from '@/components/JsonView'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
@@ -1477,10 +1478,16 @@ function Unrecognised({ parts: p }: { parts: Parts }) {
       {p.hasActor ? <>{p.actor} did it to {p.subject}. </> : <>It is about {p.subject}. </>}
       {p.entry.description && <span className="text-muted-foreground">{p.entry.description} </span>}
 
-      <details className="mt-1">
-        <summary className="cursor-pointer text-muted-foreground">
-          VRChat called it{' '}
-          <span className="font-mono">{eventType ?? 'nothing at all'}</span>. Show what it sent
+      <details className="group mt-1">
+        <summary className="flex w-fit max-w-full cursor-pointer list-none items-center gap-1 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            className="size-3.5 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+            aria-hidden
+          />
+          <span className="min-w-0">
+            VRChat called it{' '}
+            {eventType ? <span className="font-mono">{eventType}</span> : 'nothing at all'}. Show what it sent
+          </span>
         </summary>
         <JsonView className="mt-1" title="Event" value={payload ?? {}} />
       </details>

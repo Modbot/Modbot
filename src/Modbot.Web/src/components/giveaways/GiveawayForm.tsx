@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
 import { RuleBuilder } from '@/components/giveaways/RuleBuilder'
-import { Checkbox, Field, LongField } from '@/components/settings/fields'
+import { Checkbox, Field, LongField, Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -274,22 +274,18 @@ export function GiveawayForm({
             )}
           </Section>
 
-          {error && (
-            <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-              {error}
-            </p>
-          )}
+          <Outcome tone="problem">{error}</Outcome>
 
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="ghost" disabled={busy} onClick={onClose}>
+            <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
               Close
             </Button>
             {isDraft && (
-              <Button variant="outline" disabled={busy} onClick={() => save(true)}>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => save(true)}>
                 Save draft
               </Button>
             )}
-            <Button disabled={busy} onClick={() => save(false)}>
+            <Button size="sm" disabled={busy} onClick={() => save(false)}>
               {isDraft ? 'Open' : 'Save'}
             </Button>
           </div>
