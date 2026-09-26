@@ -67,8 +67,18 @@ internal static class CompanionLog
 
         const string template = "{Timestamp:HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
 
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Is(level)
+        // The same floor the servers use, and it does nothing at the default: this client logs at
+        // Verbose so that a moderator sending in a log sends everything. Somebody who turns it
+        // down to Information is asking for the record rather than the detail, and four lines per
+        // call from the HttpClient factory -- the cloud backup, the update check, a model download
+        // -- is the detail.
+        var config = new LoggerConfiguration()
+            .MinimumLevel.Is(level);
+
+        if (level > LogEventLevel.Debug)
+            config.MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning);
+
+        Log.Logger = config
             .Enrich.FromLogContext()
             .Enrich.WithProperty(ModbotConsoleLog.ServiceProperty, "Modbot.Companion")
             .Enrich.WithProperty(ModbotConsoleLog.VersionProperty, ModbotVersion.Release)
