@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { AddInstance } from '@/components/AddInstance'
-import { InstanceList } from '@/components/InstanceList'
+import { AddServer } from '@/components/AddServer'
 import { Link } from '@/components/Link'
+import { ServerList } from '@/components/ServerList'
 import { Shell } from '@/components/Shell'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { normaliseInstanceUrl } from '@/lib/instanceUrl'
+import { normaliseServerUrl } from '@/lib/serverUrl'
 import { askServer, type GroupDetails } from '@/lib/serverDetails'
 import { recordUse } from '@/lib/storage'
-import { useKnownInstances } from '@/lib/useKnownInstances'
+import { useKnownServers } from '@/lib/useKnownServers'
 import { usePendingSends } from '@/lib/useOutbox'
 
 /**
@@ -20,9 +20,9 @@ import { usePendingSends } from '@/lib/useOutbox'
  * server-side before it saves anything.
  */
 export function Register({ url, hints }: { url: string | null; hints: GroupDetails }) {
-  // Saved in localStorage before the list below first reads it. App sends the server its copy.
+  // Saved in localStorage before the list below first reads it. App sends my.modbot.co its copy.
   const [origin] = useState(() => {
-    const normalised = normaliseInstanceUrl(url)
+    const normalised = normaliseServerUrl(url)
     if (normalised) recordUse(normalised, '/', 'register')
     return normalised
   })
@@ -44,7 +44,7 @@ export function Register({ url, hints }: { url: string | null; hints: GroupDetai
     return () => stop.abort()
   }, [origin])
 
-  const known = useKnownInstances()
+  const known = useKnownServers()
 
   // Shown once a send has failed, and until one succeeds. A send that just works shows nothing,
   // and the heading never says more than the browser has done for itself.
@@ -57,7 +57,7 @@ export function Register({ url, hints }: { url: string | null; hints: GroupDetai
           <h1 className="text-base font-display">Invalid link</h1>
           <div>
             <Button asChild variant="outline">
-              <Link href="/">Your instances</Link>
+              <Link href="/">Your servers</Link>
             </Button>
           </div>
         </Card>
@@ -77,7 +77,7 @@ export function Register({ url, hints }: { url: string | null; hints: GroupDetai
           />
         )}
         <div className="flex flex-col gap-4 px-6">
-          <h1 className="text-base font-display">Instance saved</h1>
+          <h1 className="text-base font-display">Server saved</h1>
           <div className="flex items-center gap-3">
             {group.iconUrl && (
               <img
@@ -99,20 +99,20 @@ export function Register({ url, hints }: { url: string | null; hints: GroupDetai
           )}
           <div>
             <Button asChild>
-              <a href={origin}>Back to instance</a>
+              <a href={origin}>Back to server</a>
             </Button>
           </div>
         </div>
       </Card>
 
       <Card className="gap-0 overflow-hidden py-0">
-        <h2 className="border-b px-6 py-4 text-base font-display">Your instances</h2>
-        <InstanceList
-          instances={known.instances}
+        <h2 className="border-b px-6 py-4 text-base font-display">Your servers</h2>
+        <ServerList
+          servers={known.servers}
           onOpen={(u) => recordUse(u, '/', 'open')}
           onRemove={known.remove}
         />
-        <AddInstance label="Add" onAdd={known.add} />
+        <AddServer label="Add" onAdd={known.add} />
       </Card>
     </Shell>
   )

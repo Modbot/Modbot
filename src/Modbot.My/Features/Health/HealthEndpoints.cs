@@ -5,7 +5,7 @@ namespace Modbot.My.Features.Health;
 /// </summary>
 /// <remarks>
 /// Both answer as long as the process is up. my.modbot.co has no database to check, and a Modbot
-/// Cloud that cannot be reached is a page with fewer instances on it — not a service that should be
+/// Cloud that cannot be reached is a page with fewer servers on it — not a service that should be
 /// taken out of rotation, which is what a failing readiness check would do.
 /// </remarks>
 public static class HealthEndpoints

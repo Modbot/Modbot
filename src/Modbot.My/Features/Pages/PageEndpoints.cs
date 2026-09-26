@@ -24,7 +24,7 @@ namespace Modbot.My.Features.Pages;
 /// admin area went with it, to <c>cloud.modbot.co/admin</c> (spec 4.4).
 /// </para>
 /// <para>
-/// <c>/</c>, <c>/register</c> and <c>/go</c> also note an instance address carried in <c>url</c> as
+/// <c>/</c>, <c>/register</c> and <c>/go</c> also note a server address carried in <c>url</c> as
 /// the page is served. The app notes it again once it renders, so a page the browser took from its
 /// cache is still recorded; Cloud counts the two as one visit. The page does not wait for that
 /// note: a Cloud that hangs would otherwise hold the page for as long as the call takes to give up,
@@ -76,7 +76,7 @@ public static class PageEndpoints
         HttpContext http,
         string file = AppPage.Home)
     {
-        if (InstanceUrl.TryNormalise(url, out var origin))
+        if (ServerUrl.TryNormalise(url, out var origin))
         {
             var address = ClientAddress.From(http)?.ToString();
 

@@ -8,7 +8,8 @@ namespace Modbot.My.Features.Visits;
 public sealed record LocalRegisterRequest(string? Url);
 
 /// <summary>
-/// The app's own save after it renders, and the instances Cloud has seen from the caller's address.
+/// The app's own save after it renders, and the Modbot servers Cloud has seen from the caller's
+/// address.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -34,7 +35,12 @@ public static class VisitEndpoints
         app.MapPost("/api/local-register", LocalRegisterAsync);
 
         // Open, and only ever about the address asking. Nothing in the request names another.
-        app.MapGet("/api/my-instances", MyInstancesAsync);
+        app.MapGet("/api/my-servers", MyServersAsync);
+
+        // Compatibility, added 2026-09-26: the route's name until "instance" became "server". A
+        // browser still running a page built before then calls this one. Remove once no browser can
+        // still be running a page built before that date.
+        app.MapGet("/api/my-instances", MyServersAsync);
 
         return app;
     }
@@ -49,7 +55,7 @@ public static class VisitEndpoints
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (!InstanceUrl.TryNormalise(request.Url, out var url))
+        if (!ServerUrl.TryNormalise(request.Url, out var url))
             return Results.BadRequest(new { error = "url must be an absolute https URL." });
 
         var address = ClientAddress.From(http)?.ToString();
@@ -68,7 +74,7 @@ public static class VisitEndpoints
         return noted ? Results.NoContent() : CloudUnavailable(http);
     }
 
-    internal static async Task<IResult> MyInstancesAsync(
+    internal static async Task<IResult> MyServersAsync(
         [FromServices] CloudClient cloud,
         [FromServices] SiteLimits limits,
         HttpContext http,
@@ -81,8 +87,8 @@ public static class VisitEndpoints
         if (limits.Reads.TryTake(address ?? "unknown") is { } wait)
             return TooMany(http, wait);
 
-        var instances = await cloud.KnownInstancesAsync(address, ct);
-        return instances is null ? CloudUnavailable(http) : Results.Ok(instances);
+        var servers = await cloud.KnownServersAsync(address, ct);
+        return servers is null ? CloudUnavailable(http) : Results.Ok(servers);
     }
 
     /// <summary>Roughly when Cloud might be back. The app backs off on its own; this is for anything else.</summary>

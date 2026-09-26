@@ -10,7 +10,7 @@ export function NotFound() {
         <h1 className="text-base font-display">Page not found</h1>
         <div>
           <Button asChild variant="outline">
-            <Link href="/">Your instances</Link>
+            <Link href="/">Your servers</Link>
           </Button>
         </div>
       </Card>

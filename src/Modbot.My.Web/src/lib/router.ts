@@ -3,8 +3,9 @@ import { useEffect, useMemo, useState } from 'react'
 /**
  * The whole router: the path and query string, and a way to change them.
  *
- * The app has five routes, and the server decides which paths serve it at all. A routing library
- * would be a dependency in exchange for these few lines. It follows src/Modbot.Web/src/lib/router.ts.
+ * The app has five routes, and my.modbot.co's backend decides which paths serve it at all. A
+ * routing library would be a dependency in exchange for these few lines. It follows
+ * src/Modbot.Web/src/lib/router.ts.
  */
 function current() {
   return window.location.pathname + window.location.search

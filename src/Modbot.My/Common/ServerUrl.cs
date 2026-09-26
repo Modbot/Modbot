@@ -3,10 +3,10 @@ using System.Diagnostics.CodeAnalysis;
 namespace Modbot.My.Common;
 
 /// <summary>
-/// The one rule for an instance URL, shared by the register API and the register page so the two
-/// tables hold URLs in the same shape and can be compared.
+/// The one rule for a Modbot server's address, shared by the register API and the register page so
+/// the two hold addresses in the same shape and can be compared.
 /// </summary>
-public static class InstanceUrl
+public static class ServerUrl
 {
     public const int MaxLength = 2048;
 
