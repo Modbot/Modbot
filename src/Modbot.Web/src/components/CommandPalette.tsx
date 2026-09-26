@@ -72,8 +72,11 @@ function Palette({
 
   // The answer is kept with the question it answered, so a stale answer is never shown against a
   // newer query and nothing has to be cleared when the query changes.
-  const [answered, setAnswered] = useState<{ query: string; results: SearchResults } | null>(null)
+  // A failed search is kept the same way, so "Nothing matches" is never said about a search that
+  // did not happen.
+  const [answered, setAnswered] = useState<{ query: string; results: SearchResults | null } | null>(null)
   const results = answered?.query === query ? answered.results : null
+  const searchFailed = query.length >= 2 && answered?.query === query && answered.results === null
 
   useEffect(() => {
     if (query.length < 2) return
@@ -86,7 +89,7 @@ function Palette({
           if (!cancelled) setAnswered({ query, results: next })
         })
         .catch(() => {
-          // Nothing found is what the list shows; a failed search reads the same.
+          if (!cancelled) setAnswered({ query, results: null })
         })
     }, 150)
 
@@ -229,7 +232,12 @@ function Palette({
         </div>
 
         <div ref={listRef} id="palette-list" role="listbox" className="min-h-0 flex-1 overflow-auto py-1">
-          {items.length === 0 && <EmptyRow className="px-3">Nothing matches</EmptyRow>}
+          {searchFailed && (
+            <EmptyRow tone="danger" className="px-3">
+              Could not search
+            </EmptyRow>
+          )}
+          {items.length === 0 && !searchFailed && <EmptyRow className="px-3">Nothing matches</EmptyRow>}
 
           {groups.map(({ group, items: rows }) => (
             <div key={group}>

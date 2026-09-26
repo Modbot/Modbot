@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { Panel } from '@/components/subject/shared'
 import { api, ApiError, type CurrentUser, type DiscordLinkView, type PersonSide } from '@/lib/api'
 import { formatDay } from '@/lib/format'
@@ -30,7 +31,7 @@ export function DiscordLinkCard({
 }) {
   const [link, setLink] = useState<DiscordLinkView | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   const linked = side.foundBy === 'link' && vrchatUserId !== null
 
@@ -50,15 +51,7 @@ export function DiscordLinkCard({
     void load()
   }, [load])
 
-  const unlink = () => {
-    if (!link) return
-    setBusy(true)
-    api
-      .unlinkDiscord(link.id)
-      .then(load)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not unlink.'))
-      .finally(() => setBusy(false))
-  }
+  const name = side.name ?? link?.discordUsername ?? side.id
 
   return (
     <Panel title="Discord">
@@ -98,7 +91,7 @@ export function DiscordLinkCard({
 
             {can(me, 'ManageDiscordLinks') && (
               <div>
-                <Button type="button" variant="outline" size="xs" onClick={unlink} disabled={busy}>
+                <Button type="button" variant="outline" size="xs" onClick={() => setConfirming(true)}>
                   Unlink
                 </Button>
               </div>
@@ -106,6 +99,24 @@ export function DiscordLinkCard({
           </>
         )}
       </div>
+
+      {/* It sits just above Membership and its Ban button, so a slip is easy; it is confirmed. */}
+      {link && (
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={`Unlink ${name}'s Discord account?`}
+          subtitle={
+            <span className="font-mono" title={side.id}>
+              {side.id}
+            </span>
+          }
+          action="Unlink"
+          failed="Could not unlink."
+          onConfirm={() => api.unlinkDiscord(link.id)}
+          onDone={() => void load()}
+        />
+      )}
     </Panel>
   )
 }

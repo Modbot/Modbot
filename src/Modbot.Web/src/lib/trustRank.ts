@@ -39,3 +39,13 @@ export function trustRankLabel(rank: TrustRank): string {
 export function trustRankColour(rank: TrustRank): string {
   return RANKS[rank].colour
 }
+
+/**
+ * How loud the rank's badge is. Nuisance is VRChat itself saying the account is trouble, and the
+ * spec draws that in `warn`; every other rank is a plain outline. The VRChat colour square stays
+ * on all of them -- on Nuisance it is a dark red that nearly vanishes on a dark card, so the
+ * square alone cannot carry it.
+ */
+export function trustRankVariant(rank: TrustRank): 'warn' | 'outline' {
+  return rank === 'Nuisance' ? 'warn' : 'outline'
+}

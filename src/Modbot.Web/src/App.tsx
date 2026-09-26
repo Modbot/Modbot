@@ -6,11 +6,13 @@ import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { WaitingAlertsBanner } from '@/components/WaitingAlertsBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
+import { moderationApi } from '@/lib/autoMod'
 import { DemoContext } from '@/lib/demo'
+import { changesFlags } from '@/lib/liveRules'
 import { REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
 import { setMyModbotOrigin, setServerGroup } from '@/lib/myModbot'
 import { setVRChatImagesProxied } from '@/lib/vrchatMedia'
-import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, mayOpen, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, mayOpen, titleWithCount, waitingTotal, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density } from '@/lib/preferences'
 import { go, useRoute } from '@/lib/router'
@@ -338,15 +340,51 @@ function Shell({
     refreshReviewCount()
   }, [refreshReviewCount, page])
 
-  // And whenever a review opens or closes anywhere, from the live stream.
+  // The number beside "Flags": open flags, the count the Flags page's own list already carries
+  // (so there is no second endpoint to keep in step with it). Read the same way as the reviews
+  // count, except on the Flags page itself, which reads the list anyway and hands its count up.
+  const seesFlags = mayOpen(me, 'flags')
+  const onFlagsPage = page === 'flags'
+  const [openFlags, setOpenFlags] = useState(0)
+  const refreshFlagCount = useCallback(() => {
+    if (!seesFlags || onFlagsPage) return
+    moderationApi.flags('open').then((r) => setOpenFlags(r.open)).catch(() => undefined)
+  }, [seesFlags, onFlagsPage])
+
+  useEffect(() => {
+    refreshFlagCount()
+  }, [refreshFlagCount, page])
+
+  // And whenever a review or a flag opens or closes anywhere, from the live stream.
   useLiveStream(
     useCallback(
       (event: LiveEvent) => {
         if (REVIEW_KINDS.has(event.kind)) refreshReviewCount()
+        if (changesFlags(event)) refreshFlagCount()
       },
-      [refreshReviewCount],
+      [refreshReviewCount, refreshFlagCount],
     ),
   )
+
+  // Join requests have no count yet: VRChat is the only place they are read, and whether that is
+  // worth a request on a timer is still open. When it is settled, the count goes in here beside
+  // the other two and the sidebar and the tab title pick it up with no other change.
+  const badges: Partial<Record<PageId, number>> = {
+    ...(canReview ? { reviews: openReviews } : {}),
+    ...(seesFlags ? { flags: openFlags } : {}),
+  }
+
+  // The tab's title says how much is waiting, `(3) Modbot`, so a moderator whose Modbot tab is in
+  // the background can see it from the tab strip. The cleanup puts the plain title back before the
+  // next count is applied, so the count is never added twice.
+  const waiting = waitingTotal(badges)
+  useEffect(() => {
+    const plain = document.title
+    document.title = titleWithCount(plain, waiting)
+    return () => {
+      document.title = plain
+    }
+  }, [waiting])
 
   // The keyboard (lib/shortcuts.ts): the palette, the sheet, and `g` then a letter for every page
   // this person may open. Pages register their own list and filter keys.
@@ -402,7 +440,7 @@ function Shell({
     // page already on screen when nothing but the hash changed.
     onOpenHealth: (section: StatusRowId) => go(`${PATHS.health}#${section}`),
     group: status.group,
-    badges: { reviews: openReviews },
+    badges,
   }
 
   return (
@@ -456,7 +494,7 @@ function Shell({
               onBack={() => navigate(PATHS.bans)}
             />
           )}
-          {page === 'flags' && <Flags me={me} onOpenSubject={setSubject} />}
+          {page === 'flags' && <Flags me={me} onOpenSubject={setSubject} onOpenCount={setOpenFlags} />}
           {page === 'audit' && <AuditLog />}
           {page === 'analytics-group' && <MyGroup />}
           {page === 'analytics-server' && <MyServer />}

@@ -4,10 +4,9 @@
 import type { CurrentUser } from './api.ts'
 import { can, canAny } from './permissions.ts'
 
-// No counts beside the labels yet. The prototype shows "14,208" next to Members, and it will
-// again -- but a hardcoded number in a running deployment is indistinguishable from a real one,
-// and a moderator has no way to tell they are looking at a screenshot. Counts return with the
-// member sync that produces them (M1).
+// A count beside a label is only ever one read from the server: open reviews and open flags
+// (App.tsx). The prototype showed a hardcoded "14,208" next to Members, and a made-up number in a
+// running deployment is indistinguishable from a real one.
 //
 // Each entry names the permission it needs. The sidebar hides what the person cannot open; the
 // server refuses the data regardless (accounts and access design §8). Permission names, never
@@ -137,4 +136,22 @@ export function mayOpen(me: CurrentUser, id: PageId): boolean {
   if ('needsAny' in item) return canAny(me, item.needsAny)
   if ('needs' in item) return can(me, item.needs)
   return true
+}
+
+/**
+ * The counts beside the sidebar's entries, added up: how much is waiting for somebody, which the
+ * browser tab's title carries so a tab in the background still says so. Only the counts this
+ * person is shown are passed in, so the total never includes a queue they cannot open.
+ */
+export function waitingTotal(badges: Partial<Record<PageId, number>>): number {
+  let total = 0
+  for (const count of Object.values(badges)) {
+    if (typeof count === 'number' && Number.isFinite(count) && count > 0) total += Math.floor(count)
+  }
+  return total
+}
+
+/** `(3) Modbot` while something is waiting, and the title as it was when nothing is. */
+export function titleWithCount(title: string, count: number): string {
+  return count > 0 ? `(${count}) ${title}` : title
 }

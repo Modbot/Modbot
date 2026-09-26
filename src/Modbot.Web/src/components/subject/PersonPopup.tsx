@@ -207,7 +207,12 @@ function Resolved({
         )}
         {tab === 'logs' && <Logs key={fresh} person={person} />}
         {tab === 'notes' && notesId && (
-          <PersonNotes key={`${notesId}-${live}`} subjectId={notesId} platform={notesPlatform} />
+          <PersonNotes
+            key={`${notesId}-${live}`}
+            subjectId={notesId}
+            name={person.vrChat?.name ?? person.discord?.name}
+            platform={notesPlatform}
+          />
         )}
         {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
         {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}

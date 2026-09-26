@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { trustRank, trustRankColour, trustRankLabel } from '../src/lib/trustRank.ts'
+import { trustRank, trustRankColour, trustRankLabel, trustRankVariant } from '../src/lib/trustRank.ts'
+
+// Nuisance is the one rank drawn loud; its VRChat colour is too dark to carry it alone.
+test('Nuisance is drawn as a warning and every other rank as an outline', () => {
+  assert.equal(trustRankVariant('Nuisance'), 'warn')
+  for (const rank of ['Visitor', 'NewUser', 'User', 'KnownUser', 'TrustedUser', 'Legend', 'VRChatTeam'] as const) {
+    assert.equal(trustRankVariant(rank), 'outline', rank)
+  }
+})
 
 // The rank arrives as the server enum's name. Anything else -- a number, a rank added after this
 // build, null for a person nobody has read -- is no rank, and the badge draws nothing.

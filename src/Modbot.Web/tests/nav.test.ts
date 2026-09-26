@@ -1,7 +1,24 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { CREDITS_PATH, GO_TO_KEYS, IAM_PATH, MOVED, NAV, mayOpen } from '../src/lib/nav.ts'
+import { CREDITS_PATH, GO_TO_KEYS, IAM_PATH, MOVED, NAV, mayOpen, titleWithCount, waitingTotal } from '../src/lib/nav.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
+
+test('the waiting total adds up the counts the sidebar shows', () => {
+  assert.equal(waitingTotal({}), 0)
+  assert.equal(waitingTotal({ reviews: 2 }), 2)
+  assert.equal(waitingTotal({ reviews: 2, flags: 5 }), 7)
+})
+
+test('a count that is not a real positive number adds nothing', () => {
+  assert.equal(waitingTotal({ reviews: 0, flags: 3 }), 3)
+  assert.equal(waitingTotal({ reviews: -4, flags: 3 }), 3)
+  assert.equal(waitingTotal({ reviews: Number.NaN, flags: Number.POSITIVE_INFINITY }), 0)
+})
+
+test('the tab title carries the total only while something is waiting', () => {
+  assert.equal(titleWithCount('Modbot', 3), '(3) Modbot')
+  assert.equal(titleWithCount('Modbot', 0), 'Modbot')
+})
 
 function person(...permissionNames: string[]): CurrentUser {
   return { permissionNames } as CurrentUser

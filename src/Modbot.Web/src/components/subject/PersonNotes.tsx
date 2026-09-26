@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { dateTime } from '@/components/charts'
 import { Block, Empty, Note as Muted } from '@/components/subject/shared'
 import { api, ApiError, type Note, type NoteList } from '@/lib/api'
@@ -27,9 +28,12 @@ import { useLoad } from '@/lib/useLoad'
  */
 export function PersonNotes({
   subjectId,
+  name,
   platform,
 }: {
   subjectId: string
+  /** The person's name, for the take-back confirmation. Falls back to the id. */
+  name?: string | null
   /** `VRChat` or `Discord`. Which of the person's accounts these notes are filed under. */
   platform?: string
 }) {
@@ -57,7 +61,7 @@ export function PersonNotes({
       {data && data.notes.length > 0 && (
         <ol className="flex shrink-0 flex-col border-b border-b-(length:--hairline)">
           {data.notes.map((note) => (
-            <NoteRow key={note.id} note={note} onTakenBack={again} />
+            <NoteRow key={note.id} note={note} about={name ?? subjectId} onTakenBack={again} />
           ))}
         </ol>
       )}
@@ -65,22 +69,8 @@ export function PersonNotes({
   )
 }
 
-function NoteRow({ note, onTakenBack }: { note: Note; onTakenBack: () => void }) {
-  const [busy, setBusy] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
-
-  const takeBack = () => {
-    setBusy(true)
-    setProblem(null)
-
-    api
-      .takeBackNote(note.id)
-      .then(onTakenBack)
-      .catch((e: unknown) =>
-        setProblem(e instanceof ApiError ? e.message : 'Could not take that note back.'),
-      )
-      .finally(() => setBusy(false))
-  }
+function NoteRow({ note, about, onTakenBack }: { note: Note; about: string; onTakenBack: () => void }) {
+  const [confirming, setConfirming] = useState(false)
 
   return (
     <li
@@ -94,7 +84,7 @@ function NoteRow({ note, onTakenBack }: { note: Note; onTakenBack: () => void })
         <span className="flex-1" />
         <span className="font-mono text-muted-foreground">{dateTime(note.writtenAt)}</span>
         {note.canTakeBack && (
-          <Button size="xs" variant="ghost" onClick={takeBack} disabled={busy}>
+          <Button size="xs" variant="ghost" onClick={() => setConfirming(true)}>
             Take back
           </Button>
         )}
@@ -110,7 +100,18 @@ function NoteRow({ note, onTakenBack }: { note: Note; onTakenBack: () => void })
         </Muted>
       )}
 
-      {problem && <Muted className="text-destructive">{problem}</Muted>}
+      {note.canTakeBack && (
+        <ConfirmDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={`Take back the note about ${about}?`}
+          subtitle={`${noteAuthor(note)} · ${dateTime(note.writtenAt)}`}
+          action="Take back"
+          failed="Could not take that note back."
+          onConfirm={() => api.takeBackNote(note.id)}
+          onDone={onTakenBack}
+        />
+      )}
     </li>
   )
 }
@@ -175,13 +176,32 @@ function WriteNote({
  * somebody are worth having, and the only moment at which showing them costs nothing. Read-only
  * and short — three at most — because this is a confirmation, not the notes tab.
  *
- * Draws nothing at all when there are none, when the caller may not read them, or when the read
- * fails. A confirmation must not grow a row that says "no notes": the question on the screen is
- * whether to ban somebody, and an absence is not evidence.
+ * Draws nothing at all when there are none or when the caller may not read them. A confirmation
+ * must not grow a row that says "no notes": the question on the screen is whether to ban somebody,
+ * and an absence is not evidence.
+ *
+ * A read that fails does say so. Otherwise "the notes did not load" and "there are no notes" look
+ * the same at the one moment the difference matters (UX review 2026-09-25, finding 14).
  */
 export function NotesBeforeActing({ userId }: { userId: string }) {
-  const load = useCallback(() => api.notes({ userId, limit: 20 }), [userId])
-  const { data } = useLoad<NoteList>(userId.length > 0 ? load : null)
+  // A refusal is "may not read them", which draws nothing, so it is not counted as a failure.
+  const load = useCallback(
+    () =>
+      api.notes({ userId, limit: 20 }).catch((e: unknown) => {
+        if (e instanceof ApiError && e.status === 403) return null
+        throw e
+      }),
+    [userId],
+  )
+  const { data, error } = useLoad<NoteList | null>(userId.length > 0 ? load : null)
+
+  if (error) {
+    return (
+      <p className="text-warn" style={{ fontSize: 'var(--text-small)' }}>
+        Could not read the notes
+      </p>
+    )
+  }
 
   const showing = notesBeforeActing(data?.notes ?? [])
 

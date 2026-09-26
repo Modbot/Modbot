@@ -5,6 +5,7 @@ import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { EmptyRow } from '@/components/PanelGrid'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import {
@@ -24,7 +25,16 @@ import { can } from '@/lib/permissions'
  * Review and Ask AI buttons need ReviewTickets, and a dismissal is permanent for that rule and
  * that person. The AI's opinion is advice: it sits beside the words and does nothing by itself.
  */
-export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (id: string) => void }) {
+export function Flags({
+  me,
+  onOpenSubject,
+  onOpenCount,
+}: {
+  me: CurrentUser
+  onOpenSubject: (id: string) => void
+  /** Every open flag, whatever the page is filtered to: the count beside Flags in the sidebar. */
+  onOpenCount?: (open: number) => void
+}) {
   const [state, setState] = useState<'open' | 'dismissed' | 'confirmed'>('open')
   const [language, setLanguage] = useState<string | null>(null)
   const [flags, setFlags] = useState<ModerationFlag[] | null>(null)
@@ -34,6 +44,7 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
+  const [dismissing, setDismissing] = useState<ModerationFlag | null>(null)
 
   const mayDismiss = can(me, 'ReviewTickets')
 
@@ -45,6 +56,7 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
         setLanguages(r.languages)
         setAiOpinionAvailable(r.aiOpinionAvailable)
         setOpen(r.open)
+        onOpenCount?.(r.open)
         setError(null)
       })
       .catch((e: unknown) =>
@@ -54,7 +66,7 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
             : 'Could not load the flags.',
         ),
       )
-  }, [state, language])
+  }, [state, language, onOpenCount])
 
   // And again when the live stream says a rule raised or settled a flag.
   const live = useLiveVersion(changesFlags)
@@ -264,9 +276,7 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
                       size="xs"
                       variant="outline"
                       disabled={busy !== null}
-                      onClick={() =>
-                        act(flag.id, () => moderationApi.dismissFlag(flag.id), 'Could not dismiss the flag.')
-                      }
+                      onClick={() => setDismissing(flag)}
                     >
                       Dismiss
                     </Button>
@@ -277,6 +287,18 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
           </ul>
         )}
       </Card>
+
+      {/* A dismissal is permanent for that rule and that person, so it is confirmed first. */}
+      <ConfirmDialog
+        open={dismissing !== null}
+        onOpenChange={(next) => !next && setDismissing(null)}
+        title={`Dismiss the flag on ${dismissing?.subjectName ?? dismissing?.subjectId ?? ''}?`}
+        subtitle={dismissing?.ruleName}
+        action="Dismiss"
+        failed="Could not dismiss the flag."
+        onConfirm={() => (dismissing ? moderationApi.dismissFlag(dismissing.id) : Promise.resolve())}
+        onDone={load}
+      />
     </div>
   )
 }
