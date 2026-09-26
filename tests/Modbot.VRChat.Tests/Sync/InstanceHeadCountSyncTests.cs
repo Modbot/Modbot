@@ -183,6 +183,72 @@ public class InstanceHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(
     }
 
     [Fact]
+    public async Task TheNameTheInstanceWasOpenedWith_IsKeptFromTheSameRead()
+    {
+        await ListedAsync();
+        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2, displayName: "6 killed 7");
+
+        await RunInstanceHeadCountsAsync();
+
+        // No request of its own: the name comes in the body the head count already reads.
+        Assert.Single(VRChat.Instances.Requests);
+        Assert.Equal("6 killed 7", (await InstanceAsync()).Name);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("68681")]
+    public async Task ABlankName_OrJustTheNumber_IsNoName(string? displayName)
+    {
+        await ListedAsync();
+        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2, displayName: displayName);
+
+        await RunInstanceHeadCountsAsync();
+
+        var instance = await InstanceAsync();
+        Assert.Null(instance.Name);
+        Assert.Equal(3, instance.HeadCount);
+    }
+
+    [Fact]
+    public async Task ARenamedInstance_ShowsItsLatestName_AndAClearedOneGoesBackToNone()
+    {
+        await ListedAsync();
+        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2, displayName: "6 killed 7");
+        await RunInstanceHeadCountsAsync();
+
+        Clock.Advance(InstanceHeadCountSync.ReadEvery);
+        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2, displayName: "  8 killed 9 ");
+        await RunInstanceHeadCountsAsync();
+        Assert.Equal("8 killed 9", (await InstanceAsync()).Name);
+
+        Clock.Advance(InstanceHeadCountSync.ReadEvery);
+        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2);
+        await RunInstanceHeadCountsAsync();
+        Assert.Null((await InstanceAsync()).Name);
+    }
+
+    [Fact]
+    public async Task AFailedOrInactiveRead_LeavesTheNameAlone()
+    {
+        await ListedAsync();
+        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2, displayName: "6 killed 7");
+        await RunInstanceHeadCountsAsync();
+
+        Clock.Advance(InstanceHeadCountSync.ReadEvery);
+        VRChat.Instances.Status(Instance, HttpStatusCode.InternalServerError);
+        await RunInstanceHeadCountsAsync();
+
+        Clock.Advance(InstanceHeadCountSync.ReadEvery);
+        VRChat.Instances.Page(Instance, nUsers: 0, userCount: 0, active: false);
+        await RunInstanceHeadCountsAsync();
+
+        Assert.Equal("6 killed 7", (await InstanceAsync()).Name);
+    }
+
+    [Fact]
     public async Task OnlyInstancesTheGroupsListCarriesNowAreRead()
     {
         await using (var db = Database.NewContext())

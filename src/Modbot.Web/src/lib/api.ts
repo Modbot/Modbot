@@ -714,6 +714,8 @@ export type AuditEntry = {
   instanceId: string | null
   /** Modbot's own id for the instance this happened in, where one matched. Opens the instance popup. */
   modbotInstanceId: string | null
+  /** The name the matched instance was opened with, shown in place of `instanceId`. Null when it has none. */
+  instanceName: string | null
   description: string | null
   data: Record<string, unknown> | null
   /**
@@ -1449,6 +1451,8 @@ export type InstanceRow = {
   worldName: string | null
   worldThumbnailImageUrl: string | null
   vrChatInstanceId: string | null
+  /** The name the instance was opened with, shown in place of the number. Null when it has none. */
+  instanceName: string | null
   groupAccessType: string | null
   region: string | null
   openedAt: string
@@ -1494,6 +1498,8 @@ export type LiveInstance = {
   worldName: string | null
   worldImageUrl: string | null
   vrChatInstanceId: string | null
+  /** The name the instance was opened with, shown in place of the number. Null when it has none. */
+  instanceName: string | null
   groupAccessType: string | null
   region: string | null
   openedAt: string

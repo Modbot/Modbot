@@ -3,6 +3,7 @@ import { PlatformBadges, RegionBadge } from '@/components/InstanceBadges'
 import { cn } from '@/lib/utils'
 import { openInstance } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { instanceNumber } from '@/lib/instanceName'
 
 /**
  * Open instances as the game's own instance list shows them: the world's picture, and over its
@@ -19,6 +20,8 @@ export function InstanceCards({ instances }: { instances: InstanceRow[] }) {
           key={r.id}
           instanceId={r.id}
           worldName={r.worldName}
+          instanceName={r.instanceName}
+          number={r.vrChatInstanceId}
           imageUrl={r.worldThumbnailImageUrl}
           people={r.peopleNow}
           capacity={r.worldCapacity}
@@ -43,11 +46,14 @@ const ACCESS_IN_GAME: Record<string, string> = {
  * on a dark band across the foot, the region's flag in one top corner and the world's platforms in
  * the other. Shared by every screen that lists
  * open instances, so they all look like the game and like each other. Opens the instance, whose
- * popup has its number.
+ * popup has its number. An instance opened with a name shows it in quotes under the world's, with
+ * the number in the tooltip.
  */
 export function InstanceTile({
   instanceId,
   worldName,
+  instanceName,
+  number,
   imageUrl,
   people,
   capacity,
@@ -58,6 +64,8 @@ export function InstanceTile({
 }: {
   instanceId: string
   worldName: string | null
+  instanceName?: string | null
+  number?: string | null
   imageUrl: string | null
   people: number | null
   capacity: number | null
@@ -70,12 +78,14 @@ export function InstanceTile({
   const count = capacity ? `${here}/${capacity}` : `${here}`
   const access = groupAccessType ? (ACCESS_IN_GAME[groupAccessType] ?? groupAccessType) : null
   const name = worldName ?? 'Unknown world'
+  const named = instanceName?.trim() ? instanceNumber(number, instanceName) : null
 
   return (
     <button
       type="button"
       onClick={() => openInstance(instanceId)}
-      aria-label={`${name}, ${count}${access ? `, ${access}` : ''}${region ? `, ${region.toUpperCase()}` : ''}`}
+      title={named && number ? instanceNumber(number) : undefined}
+      aria-label={`${name}${named ? ` ${named}` : ''}, ${count}${access ? `, ${access}` : ''}${region ? `, ${region.toUpperCase()}` : ''}`}
       className={cn(
         'group relative block aspect-[4/3] w-full overflow-hidden rounded-md bg-muted text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
         className,
@@ -103,6 +113,7 @@ export function InstanceTile({
       {/* Over a picture, so white on a dark band whatever the theme: the game's own look. */}
       <span className="absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1.5 text-center leading-tight text-white">
         <span className="block truncate font-semibold">{name}</span>
+        {named && <span className="block truncate">{named}</span>}
         <span className="block" style={{ fontSize: 'var(--text-small)' }}>
           {count}
           {access ? ` - ${access}` : null}

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.AI.Chat;
 using Modbot.Api.Features.Analytics.Instances;
+using Modbot.Api.Features.Places;
 using Modbot.Core.Data.Entities;
 
 namespace Modbot.Api.Features.Chat.Tools;
@@ -87,7 +88,7 @@ internal abstract class ReadTool : IChatTool
         yield return new ChatReference(
             ChatReference.Instance,
             instance.Id.ToString(),
-            instance.VRChatInstanceId is { } number ? $"{instance.WorldName ?? instance.WorldId} #{number}" : instance.WorldName ?? instance.WorldId);
+            InstanceRows.Label(instance.WorldName, instance.WorldId, instance.VRChatInstanceId, instance.InstanceName));
     }
 
     /// <summary>An instance, as the model is shown it: no pictures, the id it can pass to <c>get_instance</c>.</summary>
@@ -97,6 +98,7 @@ internal abstract class ReadTool : IChatTool
         instance.WorldId,
         instance.WorldName,
         number = instance.VRChatInstanceId,
+        name = instance.InstanceName,
         instance.GroupAccessType,
         instance.Region,
         instance.OpenedAt,

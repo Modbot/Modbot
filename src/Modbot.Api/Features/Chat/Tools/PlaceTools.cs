@@ -38,7 +38,7 @@ internal sealed class ListLiveInstancesTool : ReadTool
             references.Add(new ChatReference(
                 ChatReference.Instance,
                 instance.Id.ToString(),
-                instance.VRChatInstanceId is { } n ? $"{instance.WorldName ?? instance.WorldId} #{n}" : instance.WorldName ?? instance.WorldId));
+                InstanceRows.Label(instance.WorldName, instance.WorldId, instance.VRChatInstanceId, instance.InstanceName)));
             references.AddRange(instance.People.Concat(instance.LastSeen).Select(p => Person(p.UserId, p.DisplayName)));
         }
 
@@ -52,6 +52,7 @@ internal sealed class ListLiveInstancesTool : ReadTool
                     r.WorldId,
                     r.WorldName,
                     number = r.VRChatInstanceId,
+                    name = r.InstanceName,
                     r.GroupAccessType,
                     r.Region,
                     r.OpenedAt,

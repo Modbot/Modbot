@@ -237,24 +237,31 @@ export function InstanceLink({
   worldId,
   worldName,
   number,
+  name,
   className,
 }: {
   modbotInstanceId?: string | null
   worldId?: string | null
   worldName?: string | null
   number?: string | null
+  /** The name the instance was opened with. Shown in place of the number, which moves to the tooltip. */
+  name?: string | null
   className?: string
 }) {
+  // With a name on screen, the number is what a moderator still needs to find the instance in game.
+  const named = !!name?.trim()
+  const title = [worldId, named && number ? instanceNumber(number) : null].filter(Boolean).join(' ') || undefined
+
   if (modbotInstanceId) {
     return (
       <button
         type="button"
         onClick={() => openInstance(modbotInstanceId)}
-        title={worldId ?? undefined}
+        title={title}
         className={cn(linkClass, className)}
         style={{ display: 'inline' }}
       >
-        {instanceName(worldName, worldId, number)}
+        {instanceName(worldName, worldId, number, name)}
       </button>
     )
   }
@@ -263,10 +270,15 @@ export function InstanceLink({
     return (
       <span className={className}>
         <WorldLink id={worldId} name={worldName} unnamed="id" />
-        {number ? <span className="text-muted-foreground"> {instanceNumber(number)}</span> : null}
+        {number || named ? (
+          <span className="text-muted-foreground" title={named && number ? instanceNumber(number) : undefined}>
+            {' '}
+            {instanceNumber(number, name)}
+          </span>
+        ) : null}
       </span>
     )
   }
 
-  return <span className={cn('text-muted-foreground', className)}>{instanceName(null, null, number)}</span>
+  return <span className={cn('text-muted-foreground', className)}>{instanceName(null, null, number, name)}</span>
 }

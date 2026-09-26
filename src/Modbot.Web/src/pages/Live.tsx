@@ -197,6 +197,8 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
           <InstanceTile
             instanceId={instance.id}
             worldName={instance.worldName}
+            instanceName={instance.instanceName}
+            number={instance.vrChatInstanceId}
             imageUrl={instance.worldImageUrl}
             people={instance.headCount}
             capacity={instance.worldCapacity}

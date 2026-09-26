@@ -113,6 +113,7 @@ function parts(entry: AuditEntry): Parts {
       worldId={entry.worldId}
       worldName={entry.worldName}
       number={entry.instanceId}
+      name={entry.instanceName}
     />
   ) : null
 
@@ -159,6 +160,7 @@ function Subject({ entry }: { entry: AuditEntry }) {
         worldId={entry.worldId}
         worldName={entry.worldName}
         number={entry.instanceId}
+        name={entry.instanceName}
       />
     ) : (
       <Id value={entry.subjectId} />

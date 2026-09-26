@@ -81,6 +81,57 @@ public class AuditNamingTests
     }
 
     /// <summary>
+    /// An instance opened with a name is shown by that name rather than its number, so the row
+    /// carries the name of the instance it matched -- and only that one: the same number on another
+    /// evening, with another name, must not lend it.
+    /// </summary>
+    [Fact]
+    public async Task AnInstanceWithAName_CarriesIt_FromTheInstanceItMatched()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var monday = host.Clock.UtcNow.AddDays(-7);
+        var tonight = host.Clock.UtcNow.AddHours(-2);
+
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "Murder 4", monday, ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "16354", monday, monday.AddHours(1), monday.AddHours(1), ct, name: "Monday murders");
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "16354", tonight, tonight.AddMinutes(30), null, ct, name: "6 killed 7");
+
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_a", tonight.AddMinutes(10), "wrld_a", "16354"), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+        var page = await host.GetJsonAsync<AuditPage>("/api/audit?limit=10", cookie, ct);
+
+        var entry = Assert.Single(page.Entries);
+        Assert.Equal("6 killed 7", entry.InstanceName);
+        Assert.Equal("16354", entry.InstanceId);
+    }
+
+    [Fact]
+    public async Task AnInstanceWithNoName_OrNoMatch_CarriesNoName()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var tonight = host.Clock.UtcNow.AddHours(-2);
+
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "Murder 4", tonight, ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "16354", tonight, tonight.AddMinutes(30), null, ct);
+
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_a", tonight.AddMinutes(5), "wrld_a", "16354"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_b", tonight.AddMinutes(6), "wrld_a", "99999"), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+        var page = await host.GetJsonAsync<AuditPage>("/api/audit?limit=10", cookie, ct);
+
+        Assert.Equal(2, page.Entries.Count);
+        Assert.All(page.Entries, e => Assert.Null(e.InstanceName));
+    }
+
+    /// <summary>
     /// A Modbot account that acted is named from the accounts, even when the fact kept no name for
     /// it. Its id is an account id, so looking it up among VRChat's people found nobody.
     /// </summary>

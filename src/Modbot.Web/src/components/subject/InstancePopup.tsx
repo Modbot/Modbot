@@ -59,7 +59,9 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
   }
 
   const instance = data?.instance
-  const title = instance ? instanceName(instance.worldName, instance.worldId, instance.vrChatInstanceId) : 'Instance'
+  const title = instance
+    ? instanceName(instance.worldName, instance.worldId, instance.vrChatInstanceId, instance.instanceName)
+    : 'Instance'
 
   return (
     <PopupFrame

@@ -833,6 +833,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Type).HasMaxLength(32);
             entity.Property(e => e.GroupAccessType).HasMaxLength(32);
             entity.Property(e => e.Region).HasMaxLength(32);
+            entity.Property(e => e.Name).HasColumnType("text");
             entity.Property(e => e.ClosedBy).HasMaxLength(16);
             entity.Property(e => e.HeadCountSource).HasMaxLength(8);
 

@@ -21,3 +21,21 @@ test('the number on its own is written with a hash, where the world is already n
   assert.equal(instanceNumber('19453'), '#19453')
   assert.equal(instanceNumber(null), 'this instance')
 })
+
+test('an instance opened with a name is called by it, in quotes, in place of the number', () => {
+  assert.equal(instanceName('Murder 4', 'wrld_4b34', '16354', '6 killed 7'), 'Murder 4 “6 killed 7”')
+  assert.equal(instanceName(null, 'wrld_4b34', '16354', '6 killed 7'), 'wrld_4b34 “6 killed 7”')
+  assert.equal(instanceName(null, null, '16354', '6 killed 7'), 'instance “6 killed 7”')
+  assert.equal(instanceNumber('16354', '6 killed 7'), '“6 killed 7”')
+})
+
+test('an instance with no name, or a blank one, keeps its number', () => {
+  assert.equal(instanceName('Murder 4', 'wrld_4b34', '16354', null), 'Murder 4 #16354')
+  assert.equal(instanceName('Murder 4', 'wrld_4b34', '16354', ''), 'Murder 4 #16354')
+  assert.equal(instanceName('Murder 4', 'wrld_4b34', '16354', '   '), 'Murder 4 #16354')
+  assert.equal(instanceNumber('16354', '  '), '#16354')
+})
+
+test('a name is shown without the spaces around it', () => {
+  assert.equal(instanceName('Murder 4', 'wrld_4b34', '16354', '  6 killed 7 '), 'Murder 4 “6 killed 7”')
+})

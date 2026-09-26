@@ -17723,6 +17723,7 @@
           "worldName",
           "instanceId",
           "modbotInstanceId",
+          "instanceName",
           "description",
           "data"
         ],
@@ -17826,6 +17827,12 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "instanceName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "description": {
             "type": [
@@ -25570,6 +25577,7 @@
           "worldName",
           "worldThumbnailImageUrl",
           "vrChatInstanceId",
+          "instanceName",
           "groupAccessType",
           "region",
           "openedAt",
@@ -25604,6 +25612,12 @@
             ]
           },
           "vrChatInstanceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instanceName": {
             "type": [
               "null",
               "string"
@@ -26542,6 +26556,7 @@
           "worldName",
           "worldImageUrl",
           "vrChatInstanceId",
+          "instanceName",
           "groupAccessType",
           "region",
           "openedAt",
@@ -26573,6 +26588,12 @@
             ]
           },
           "vrChatInstanceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instanceName": {
             "type": [
               "null",
               "string"

@@ -44,6 +44,7 @@ public static class InstanceRows
                 i.Location,
                 i.WorldId,
                 i.VRChatInstanceId,
+                i.Name,
                 i.GroupAccessType,
                 i.Region,
                 i.OpenedAt,
@@ -83,6 +84,7 @@ public static class InstanceRows
                     world?.Name,
                     world?.ThumbnailImageUrl,
                     r.VRChatInstanceId,
+                    r.Name,
                     r.GroupAccessType,
                     r.Region,
                     r.OpenedAt,
@@ -95,6 +97,21 @@ public static class InstanceRows
                     PlatformsOf(world?.Platforms));
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// An instance in words: the world and the instance's name in quotes -- <c>Murder 4 “6 killed 7”</c>
+    /// -- or the world and VRChat's number when it has no name, <c>Murder 4 #16354</c>. The same
+    /// rule the web app's <c>instanceName</c> follows.
+    /// </summary>
+    public static string Label(string? worldName, string worldId, string? number, string? name)
+    {
+        var world = worldName ?? worldId;
+
+        if (!string.IsNullOrWhiteSpace(name))
+            return $"{world} “{name}”";
+
+        return number is { } n ? $"{world} #{n}" : world;
     }
 
     /// <summary>A world's stored platform list, or null when it has none or it cannot be read.</summary>

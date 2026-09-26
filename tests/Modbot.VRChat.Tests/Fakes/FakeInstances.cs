@@ -25,10 +25,10 @@ public sealed class FakeInstances
     /// <summary>What creating an instance answers. 200 makes one; anything else refuses.</summary>
     public HttpStatusCode CreateStatus { get; set; } = HttpStatusCode.OK;
 
-    /// <summary>What a live instance's page says.</summary>
-    public FakeInstances Page(string location, int nUsers, int userCount, bool active = true)
+    /// <summary>What a live instance's page says, and the name it was opened with, if any.</summary>
+    public FakeInstances Page(string location, int nUsers, int userCount, bool active = true, string? displayName = null)
     {
-        _pages[location] = (HttpStatusCode.OK, Body(active, nUsers, userCount));
+        _pages[location] = (HttpStatusCode.OK, Body(active, nUsers, userCount, displayName));
         return this;
     }
 
@@ -43,12 +43,13 @@ public sealed class FakeInstances
     /// An instance body with only the fields the head count reads. Built without its constructor,
     /// which demands every one of the fifty-odd required fields a real response carries.
     /// </summary>
-    public static Instance Body(bool active, int nUsers, int userCount)
+    public static Instance Body(bool active, int nUsers, int userCount, string? displayName = null)
     {
         var instance = (Instance)RuntimeHelpers.GetUninitializedObject(typeof(Instance));
         instance.Active = active;
         instance.NUsers = nUsers;
         instance.UserCount = userCount;
+        instance.DisplayName = displayName!;
         return instance;
     }
 

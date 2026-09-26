@@ -5,6 +5,7 @@ import type { InstanceRow } from '@/lib/api'
 import { access } from '@/lib/format'
 import { instanceNumber } from '@/lib/instanceName'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { cn } from '@/lib/utils'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 
 /**
@@ -16,7 +17,8 @@ import { Table, Td, Th, Tr } from '@/components/ui/data-table'
  * The world's name leads and its id sits underneath rather than replacing it — a moderator
  * matching a row against what they see in game needs the number, and a world Modbot has not read
  * yet has nothing but the id to show. Both the world and the instance open their own popup, which is
- * the point: a row that only displayed ids was a dead end.
+ * the point: a row that only displayed ids was a dead end. An instance opened with a name shows the
+ * name, and its number moves to the tooltip.
  */
 export function InstanceTable({
   instances,
@@ -71,9 +73,13 @@ export function InstanceTable({
             <button
               type="button"
               onClick={() => openInstance(r.id)}
-              className="rounded-sm font-mono font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+              title={r.instanceName?.trim() && r.vrChatInstanceId ? instanceNumber(r.vrChatInstanceId) : undefined}
+              className={cn(
+                'rounded-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring',
+                !r.instanceName?.trim() && 'font-mono',
+              )}
             >
-              {instanceNumber(r.vrChatInstanceId)}
+              {instanceNumber(r.vrChatInstanceId, r.instanceName)}
             </button>
             {/* "Group members · EU" over three lines makes every row in the table three lines
                 tall on a phone. The table already scrolls; the row need not also be a stack. */}

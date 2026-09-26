@@ -50,19 +50,25 @@ public static class AuditNaming
         var reporters = await ReportersAsync(db, entries, ct);
 
         return entries
-            .Select(e => e with
+            .Select(e =>
             {
-                ReportedBy = reporters.GetValueOrDefault(e.Id),
-                SubjectName = NameOf(e, people.Names, discord, accounts),
-                ActorName = e.ActorName ?? ActorNameOf(e, people.Names, discord, accounts),
-                SubjectTrustRank = e.SubjectKind == SubjectKind.Person && !IsDiscord(e.SubjectPlatform)
-                    ? people.Ranks.GetValueOrDefault(e.SubjectId)
-                    : null,
-                ActorTrustRank = e.ActorId is { } ranked && !IsDiscord(e.ActorPlatform)
-                    ? people.Ranks.GetValueOrDefault(ranked)
-                    : null,
-                WorldName = e.WorldId is { } world ? worlds.GetValueOrDefault(world) : null,
-                ModbotInstanceId = InstanceOf(e, instances),
+                var instance = InstanceOf(e, instances);
+
+                return e with
+                {
+                    ReportedBy = reporters.GetValueOrDefault(e.Id),
+                    SubjectName = NameOf(e, people.Names, discord, accounts),
+                    ActorName = e.ActorName ?? ActorNameOf(e, people.Names, discord, accounts),
+                    SubjectTrustRank = e.SubjectKind == SubjectKind.Person && !IsDiscord(e.SubjectPlatform)
+                        ? people.Ranks.GetValueOrDefault(e.SubjectId)
+                        : null,
+                    ActorTrustRank = e.ActorId is { } ranked && !IsDiscord(e.ActorPlatform)
+                        ? people.Ranks.GetValueOrDefault(ranked)
+                        : null,
+                    WorldName = e.WorldId is { } world ? worlds.GetValueOrDefault(world) : null,
+                    ModbotInstanceId = instance?.Id,
+                    InstanceName = instance?.Name,
+                };
             })
             .ToList();
     }
@@ -332,7 +338,7 @@ public static class AuditNaming
                 && i.VRChatInstanceId != null
                 && numbers.Contains(i.VRChatInstanceId))
             .Select(i => new InstanceWindow(
-                i.Id, i.WorldId, i.VRChatInstanceId!, i.OpenedAt, i.ClosedAt, i.LastSeenAt))
+                i.Id, i.WorldId, i.VRChatInstanceId!, i.Name, i.OpenedAt, i.ClosedAt, i.LastSeenAt))
             .ToListAsync(ct);
     }
 
@@ -345,7 +351,7 @@ public static class AuditNaming
     /// no instance rather than the nearest guess — an id that opens the wrong evening is worse than no
     /// link at all.
     /// </remarks>
-    private static Guid? InstanceOf(AuditEntry entry, IReadOnlyList<InstanceWindow> instances)
+    private static InstanceWindow? InstanceOf(AuditEntry entry, IReadOnlyList<InstanceWindow> instances)
     {
         if (entry.WorldId is null || entry.InstanceId is null || instances.Count == 0)
             return null;
@@ -361,7 +367,7 @@ public static class AuditNaming
             var endsAt = instance.ClosedAt ?? instance.LastSeenAt;
 
             if (entry.OccurredAt >= instance.OpenedAt && entry.OccurredAt <= endsAt)
-                return instance.Id;
+                return instance;
         }
 
         return null;
@@ -373,6 +379,7 @@ public static class AuditNaming
         Guid Id,
         string WorldId,
         string Number,
+        string? Name,
         DateTimeOffset OpenedAt,
         DateTimeOffset? ClosedAt,
         DateTimeOffset LastSeenAt);
