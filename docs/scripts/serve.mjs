@@ -21,6 +21,9 @@ const port = Number.parseInt(process.env.PORT ?? '', 10) || 8080;
  */
 const moved = new Map([
   ['/self-hosting/open-rooms', '/self-hosting/open-instances/'],
+  // The app's analytics pages were renamed: My Server became Discord.
+  ['/discord/messages-and-my-server', '/discord/messages-and-analytics/'],
+  ['/screenshots/my-team.png', '/screenshots/team.png'],
 ]);
 
 const types = {

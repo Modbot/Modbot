@@ -64,7 +64,7 @@ public static class AnalyticsEndpoints
             .WithName("GetGroupAnalytics")
             .WithSummary("Get group analytics")
             .WithDescription(
-                "My Group: is the community growing or shrinking, and what changed? "
+                "The VRChat analytics page: is the community growing or shrinking, and what changed? "
                 + "Member count over time, joins and leaves per day, net change, roles, how long "
                 + "current members have been members, and whether invites turn into joins. Daily "
                 + "series come from modbot_daily_total, which is never aged out; the headcount, "
@@ -123,7 +123,7 @@ public static class AnalyticsEndpoints
             .WithName("GetServerAnalytics")
             .WithSummary("Get server analytics")
             .WithDescription(
-                "My Server: is the Discord server healthy, and who keeps it going? "
+                "The Discord analytics page: is the Discord server healthy, and who keeps it going? "
                 + "Discord's member count, joins and leaves, messages and voice minutes per day, people "
                 + "active each day and over the week and thirty days before it, the busiest channels and "
                 + "hours (UTC), moderation actions, the people who sent the most, new members who "
@@ -152,7 +152,7 @@ public static class AnalyticsEndpoints
             .WithName("GetTeamAnalytics")
             .WithSummary("Get team analytics")
             .WithDescription(
-                "My Team: who is doing the moderation work, and when is nobody covering? "
+                "The Team analytics page: who is doing the moderation work, and when is nobody covering? "
                 + "Actions per moderator broken down by kind and over time, from daily totals; and "
                 + "coverage gaps -- stretches when people were in a group instance and no moderator "
                 + "was, computed from the companion's presence reports. A moderator is present "

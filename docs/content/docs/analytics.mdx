@@ -1,22 +1,22 @@
 ---
 title: Analytics
-description: The five Analytics pages (My Group, My Server, My Team, Worlds and Instances), what each one shows, and where its numbers come from.
+description: The five Analytics pages (Team, VRChat, Worlds, Instances and Discord), what each one shows, and where its numbers come from.
 ---
 
 Analytics is a set of five pages, each answering one question about your community. They are in the
-sidebar under **Analytics**:
+sidebar under **Analytics**, with **Worlds** and **Instances** under **VRChat**:
 
 | Page | The question it answers |
 |---|---|
-| [**My Group**](#my-group) | Is the VRChat group growing or shrinking, and what changed? |
-| [**My Server**](#my-server) | Is the Discord server healthy, and who keeps it going? |
-| [**My Team**](#my-team) | Who is doing the moderation work, and when is nobody covering? |
+| [**VRChat**](#vrchat) | Is the VRChat group growing or shrinking, and what changed? |
+| [**Discord**](#discord) | Is the Discord server healthy, and who keeps it going? |
+| [**Team**](#team) | Who is doing the moderation work, and when is nobody covering? |
 | [**Worlds**](#worlds) | Which of our worlds actually get used? |
 | [**Instances**](#instances) | When is the community actually active? |
 
 All five need the **See analytics** permission
 ([roles and permissions](/accounts/roles-and-permissions#see-analytics)). The built-in **Moderator**
-and **Viewer** roles have it. Without it, the pages are hidden from the sidebar and the server refuses
+and **Viewer** roles have it. Without it, the pages are hidden from the sidebar and Modbot refuses
 their data.
 
 ## Date ranges
@@ -103,7 +103,7 @@ Head counts start when Modbot starts reading an instance, so they can still be i
 
 The Instances page measures exactly this and says so — see [Coverage](#coverage) below.
 
-## My Group
+## VRChat
 
 **Is the community growing or shrinking, and what changed?**
 
@@ -152,15 +152,15 @@ deleted if one is set.
 counts members whose join Modbot recorded, and says how many that is. Members who joined before
 Modbot started recording are not counted here.
 
-## My Server
+## Discord
 
 **Is the Discord server healthy, and who keeps it going?**
 
-My Server needs the Discord bot. The stats along the top are **Members**, **Messages** in the range,
-**Active in 30 days** (with the share of members) and **Time in voice** in the range. The page then
-shows the member count, joins and leaves, messages and voice minutes per day, active members (per
-day, 7 days or 30 days), the busiest channels and hours, moderation actions per day, new members
-who stayed, member health and top contributors. Names open that person's popup.
+The Discord page needs the Discord bot. The stats along the top are **Members**, **Messages** in the
+range, **Active in 30 days** (with the share of members) and **Time in voice** in the range. The page
+then shows the member count, joins and leaves, messages and voice minutes per day, active members
+(per day, 7 days or 30 days), the busiest channels and hours, moderation actions per day, new
+members who stayed, member health and top contributors. Names open that person's popup.
 
 "Active" means the person sent a message or spent time in voice. Bots are never counted.
 
@@ -168,9 +168,9 @@ Most of it comes from daily totals. **New members still here** pairs joins with 
 covers what the fact log still holds. **Member health** is about now and ignores the range.
 
 For every panel in detail, and how messages are stored, see
-[Messages and My Server](/discord/messages-and-my-server).
+[Discord messages and analytics](/discord/messages-and-analytics).
 
-## My Team
+## Team
 
 **Who is doing the moderation work, and when is nobody covering?**
 
