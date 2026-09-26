@@ -12,6 +12,7 @@ import { JsonView } from '@/components/JsonView'
 import { EmptyRow } from '@/components/PanelGrid'
 import { VersionCard } from '@/components/subject/ProfileVersions'
 import { api, type AuditEntry } from '@/lib/api'
+import { needsYear } from '@/lib/format'
 import { fieldName } from '@/lib/profileFields'
 import { openPersonVersion } from '@/lib/subject'
 import { useLoad } from '@/lib/useLoad'
@@ -54,8 +55,8 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
               label="When"
               value={
                 <>
-                  Between <span className="font-mono">{dateTime(entry.occurredAt)}</span> and{' '}
-                  <span className="font-mono">{dateTime(entry.occurredBefore)}</span>
+                  Between <span className="font-mono">{dateTime(entry.occurredAt, needsYear(entry.occurredAt, entry.occurredBefore))}</span> and{' '}
+                  <span className="font-mono">{dateTime(entry.occurredBefore, needsYear(entry.occurredAt, entry.occurredBefore))}</span>
                 </>
               }
             />

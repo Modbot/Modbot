@@ -29,12 +29,45 @@ const SOURCE_LABEL: Record<string, string> = {
  */
 export const sourceLabel = (source: string): string => SOURCE_LABEL[source] ?? source
 
-export function formatDay(iso: string): string {
+/**
+ * Whether a date needs its year written: only when it is not in the viewer's current year.
+ *
+ * "Sep 26, 2026" on every row of a table in 2026 is a column of the same four digits, and it
+ * pushes the part that differs off a phone. A date from another year still says so, because
+ * "Mar 3" read in September means this March. Several dates shown as one thing -- a range, a
+ * "between this and that" -- are passed together and all get the year if any needs it, so a range
+ * over New Year reads "Dec 15, 2025 – Jan 10, 2026" rather than dropping the one it shares with now.
+ *
+ * The browser's clock, unlike `ago`: which year the viewer is in is a question about their own
+ * calendar, and a wrong clock costs no more than a year printed or left out.
+ */
+export function needsYear(...isos: string[]): boolean {
+  const thisYear = new Date().getFullYear()
+  return isos.some((iso) => new Date(iso).getFullYear() !== thisYear)
+}
+
+/** A day, "Sep 26", with the year only when it is not this year ({@link needsYear}). */
+export function formatDay(iso: string, withYear: boolean = needsYear(iso)): string {
   return new Date(iso).toLocaleDateString(undefined, {
-    year: 'numeric',
+    year: withYear ? 'numeric' : undefined,
     month: 'short',
     day: 'numeric',
   })
+}
+
+/** Two days as one range, "Aug 28 – Sep 26": both with the year, or neither. */
+export function formatDayRange(from: string, to: string): string {
+  const withYear = needsYear(from, to)
+  return `${formatDay(from, withYear)} – ${formatDay(to, withYear)}`
+}
+
+/**
+ * The noun that goes with a count: `plural(1, 'action')` is "action", `plural(2, 'action')` is
+ * "actions". `many` for a word that does not just take an s -- `plural(n, 'person', 'people')`.
+ * Only exactly one is singular; "0 actions" and "1.5 hours" are plural, as they are said.
+ */
+export function plural(n: number, one: string, many: string = `${one}s`): string {
+  return n === 1 ? one : many
 }
 
 /**
@@ -84,11 +117,36 @@ export function howLong(iso: string | null, now: string): string {
   return `${Math.round(seconds / 86_400)}d`
 }
 
-/** A duration in seconds, said the way a person would say it. */
+/**
+ * A length of time given in minutes, in whole units: "16 min", "3 h 6 min", "2 d 4 h".
+ *
+ * Never a decimal. "3.1 h" makes the reader work out that .1 of an hour is six minutes, and most
+ * do not. Two units at most, the larger first, and the smaller left out when it is zero ("3 h"):
+ * past a day the minutes are noise. Rounded to the minute, or to the hour past a day, before the
+ * unit is chosen, so 59.7 minutes reads "1 h" and not "60 min".
+ */
+export function lengthOfTime(totalMinutes: number): string {
+  const wholeMinutes = Math.round(totalMinutes)
+
+  if (wholeMinutes < 60) return `${wholeMinutes} min`
+
+  if (wholeMinutes < 24 * 60) {
+    const hours = Math.floor(wholeMinutes / 60)
+    const rest = wholeMinutes % 60
+    return rest ? `${hours} h ${rest} min` : `${hours} h`
+  }
+
+  const wholeHours = Math.round(totalMinutes / 60)
+  const days = Math.floor(wholeHours / 24)
+  const rest = wholeHours % 24
+  return rest ? `${days} d ${rest} h` : `${days} d`
+}
+
+/** A duration in seconds: "45 seconds" under a minute, and {@link lengthOfTime} from there. */
 export function duration(seconds: number): string {
-  if (seconds < 60) return `${Math.round(seconds)} seconds`
-  if (seconds < 3600) return `${Math.round(seconds / 60)} minutes`
-  return `${(seconds / 3600).toFixed(1)} hours`
+  const wholeSeconds = Math.round(seconds)
+  if (wholeSeconds < 60) return `${wholeSeconds} ${plural(wholeSeconds, 'second')}`
+  return lengthOfTime(seconds / 60)
 }
 
 export const compact = (n: number): string =>

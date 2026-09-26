@@ -283,7 +283,7 @@ function Metrics({ world }: { world: WorldView }) {
             <DailyBars
               from={from}
               to={to}
-              series={[{ key: 'visitors', label: 'visitors', points: world.visitorsPerDay, slot: 1 }]}
+              series={[{ key: 'visitors', label: 'visitors', one: 'visitor', points: world.visitorsPerDay, slot: 1 }]}
               emptyText="No visitors yet."
             />
           </Panel>
@@ -291,7 +291,7 @@ function Metrics({ world }: { world: WorldView }) {
             <DailyBars
               from={from}
               to={to}
-              series={[{ key: 'instances', label: 'instances opened', points: world.instancesPerDay, slot: 4 }]}
+              series={[{ key: 'instances', label: 'instances opened', one: 'instance opened', points: world.instancesPerDay, slot: 4 }]}
               emptyText="No instances yet."
             />
           </Panel>

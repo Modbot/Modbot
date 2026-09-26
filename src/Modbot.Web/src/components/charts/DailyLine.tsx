@@ -41,6 +41,7 @@ export function DailyLine({
   const rows = mergeDays(from, to, series, mode)
   const days = rows.map((r) => String(r.day))
   const names = Object.fromEntries(series.map((s) => [s.key, s.label]))
+  const ones = Object.fromEntries(series.flatMap((s) => (s.one ? [[s.key, s.one]] : [])))
   const empty = series.every((s) => s.points.length === 0)
 
   return (
@@ -55,7 +56,7 @@ export function DailyLine({
           tickLine={false}
           axisLine={false}
         />
-        <Tooltip content={rechartsTooltip(longDay, names, format)} cursor={{ stroke: 'var(--chart-grid)' }} />
+        <Tooltip content={rechartsTooltip(longDay, names, format, ones)} cursor={{ stroke: 'var(--chart-grid)' }} />
         {series.map((s) => (
           <Line
             key={s.key}

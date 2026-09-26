@@ -20207,6 +20207,9 @@
         "required": [
           "worldId",
           "instanceId",
+          "worldName",
+          "modbotInstanceId",
+          "instanceName",
           "startedAt",
           "endedAt",
           "endedBy",
@@ -20220,6 +20223,25 @@
           },
           "instanceId": {
             "type": "string"
+          },
+          "worldName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "modbotInstanceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "instanceName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "startedAt": {
             "type": "string",

@@ -6,6 +6,7 @@ import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
+import { plural } from '@/lib/format'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const HOURS = Array.from({ length: 24 }, (_, h) => `${h}:00`)
@@ -63,7 +64,7 @@ export function MyServer() {
               to={data.to}
               mode="carry"
               zeroBased={false}
-              series={[{ key: 'members', label: 'members', points: data.memberCount, slot: 1 }]}
+              series={[{ key: 'members', label: 'members', one: 'member', points: data.memberCount, slot: 1 }]}
             />
           </Panel>
 
@@ -84,7 +85,7 @@ export function MyServer() {
               <DailyBars
                 from={data.from}
                 to={data.to}
-                series={[{ key: 'messages', label: 'messages', points: data.messages, slot: 1 }]}
+                series={[{ key: 'messages', label: 'messages', one: 'message', points: data.messages, slot: 1 }]}
               />
             </Panel>
           </PanelGrid>
@@ -132,7 +133,7 @@ export function MyServer() {
               <DailyBars
                 from={data.from}
                 to={data.to}
-                series={[{ key: 'voice', label: 'minutes', points: data.voiceMinutes, slot: 5 }]}
+                series={[{ key: 'voice', label: 'minutes', one: 'minute', points: data.voiceMinutes, slot: 5 }]}
               />
             </Panel>
           </PanelGrid>
@@ -162,6 +163,7 @@ export function MyServer() {
                   cols={HOURS}
                   values={toLocalGrid(data.hourOfWeek.messages)}
                   valueLabel="messages"
+                  valueLabelOne="message"
                   slot={1}
                 />
               )}
@@ -180,10 +182,10 @@ export function MyServer() {
                 { label: 'Messages removed', slot: 5 },
               ]}
               series={[
-                { key: 'bans', label: 'bans', points: data.bans, slot: 2 },
-                { key: 'kicks', label: 'kicks', points: data.kicks, slot: 3 },
-                { key: 'timeouts', label: 'timeouts', points: data.timeouts, slot: 4 },
-                { key: 'removed', label: 'messages removed', points: data.messagesRemoved, slot: 5 },
+                { key: 'bans', label: 'bans', one: 'ban', points: data.bans, slot: 2 },
+                { key: 'kicks', label: 'kicks', one: 'kick', points: data.kicks, slot: 3 },
+                { key: 'timeouts', label: 'timeouts', one: 'timeout', points: data.timeouts, slot: 4 },
+                { key: 'removed', label: 'messages removed', one: 'message removed', points: data.messagesRemoved, slot: 5 },
               ]}
             />
           </Panel>
@@ -201,7 +203,7 @@ export function MyServer() {
             >
               {data.newMembers.map((n) => (
                 <Tr key={n.days}>
-                  <Td>{n.days} days</Td>
+                  <Td>{n.days} {plural(n.days, 'day')}</Td>
                   <Td className="text-right font-mono">{compactNumber(n.joined)}</Td>
                   <Td className="text-right font-mono">
                     {compactNumber(n.stillHere)} <span className="text-muted-foreground">{percent(n.stillHere, n.joined)}</span>

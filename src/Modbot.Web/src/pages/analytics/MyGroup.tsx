@@ -10,6 +10,7 @@ import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
+import { plural } from '@/lib/format'
 
 /**
  * My Group -- is the community growing or shrinking, and what changed? (spec 10.1)
@@ -100,7 +101,7 @@ export function MyGroup() {
                 note={
                   <>
                     <span className="font-mono">{compactNumber(data.invites.joinedAfterInvite)}</span> joined within{' '}
-                    <span className="font-mono">{data.invites.followUpDays} days</span>
+                    <span className="font-mono">{data.invites.followUpDays} {plural(data.invites.followUpDays, 'day')}</span>
                   </>
                 }
               />
@@ -117,8 +118,8 @@ export function MyGroup() {
                 to={data.to}
                 legend={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]}
                 series={[
-                  { key: 'invites', label: 'invites sent', points: data.invitesSent, slot: 1 },
-                  { key: 'requests', label: 'join requests', points: data.requestsReceived, slot: 5 },
+                  { key: 'invites', label: 'invites sent', one: 'invite sent', points: data.invitesSent, slot: 1 },
+                  { key: 'requests', label: 'join requests', one: 'join request', points: data.requestsReceived, slot: 5 },
                 ]}
               />
             </div>
@@ -230,7 +231,7 @@ function PeaksCoverage({ peaks }: { peaks: MemberCountPeaks }) {
     return (
       <PageMessage>
         Readings on <span className="font-mono">{coverage.daysWithReadings}</span> of{' '}
-        <span className="font-mono">{coverage.windowDays}</span> days in this range.
+        <span className="font-mono">{coverage.windowDays}</span> {plural(coverage.windowDays, 'day')} in this range.
       </PageMessage>
     )
   }

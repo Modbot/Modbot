@@ -1,6 +1,8 @@
 import { compactNumber } from './format'
+import { plural } from '../../lib/format.ts'
 
-export type TooltipRow = { name: string; value: number | string; color?: string }
+/** `one` is the name for a value of exactly one -- "1 action" beside "2 actions". */
+export type TooltipRow = { name: string; one?: string; value: number | string; color?: string }
 
 /**
  * The one tooltip every chart uses, drawn in the popover tokens so it matches the rest of the
@@ -30,7 +32,9 @@ export function ChartTooltip({
           <div key={row.name} className="flex items-center gap-1.5">
             {row.color && <span className="size-2 shrink-0 rounded-full" style={{ background: row.color }} />}
             <span className="font-mono font-medium">{typeof row.value === 'number' ? format(row.value) : row.value}</span>
-            <span className="text-muted-foreground">{row.name}</span>
+            <span className="text-muted-foreground">
+              {typeof row.value === 'number' && row.one ? plural(row.value, row.one, row.name) : row.name}
+            </span>
           </div>
         ))}
       </div>

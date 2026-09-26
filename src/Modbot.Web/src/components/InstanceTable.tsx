@@ -14,11 +14,11 @@ import { Table, Td, Th, Tr } from '@/components/ui/data-table'
  * One copy, shared by the Instances page's two lists, the instances in a world, and the instances one
  * person was seen in. They differ only in which rows they hold.
  *
- * The world's name leads and its id sits underneath rather than replacing it — a moderator
- * matching a row against what they see in game needs the number, and a world Modbot has not read
- * yet has nothing but the id to show. Both the world and the instance open their own popup, which is
- * the point: a row that only displayed ids was a dead end. An instance opened with a name shows the
- * name, and its number moves to the tooltip.
+ * The world is its name alone. Its id is in the tooltip and the world's popup, and printed under
+ * every name it was a column of noise nobody read; a world Modbot has not read yet shows the id in
+ * place of the name, because that is all there is. Both the world and the instance open their own
+ * popup, which is the point: a row that only displayed ids was a dead end. An instance opened with
+ * a name shows the name, and its number moves to the tooltip.
  */
 export function InstanceTable({
   instances,
@@ -55,16 +55,8 @@ export function InstanceTable({
                     className="size-8 shrink-0 object-cover"
                   />
                 )}
-                <div className="min-w-0">
-                  <div className="truncate">
-                    <WorldLink id={r.worldId} name={r.worldName} />
-                  </div>
-                  <div
-                    className="truncate font-mono text-muted-foreground"
-                    style={{ fontSize: 'var(--text-tiny)' }}
-                  >
-                    {r.worldId}
-                  </div>
+                <div className="min-w-0 truncate">
+                  <WorldLink id={r.worldId} name={r.worldName} unnamed="id" />
                 </div>
               </div>
             </Td>

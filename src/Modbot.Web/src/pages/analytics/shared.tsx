@@ -1,9 +1,10 @@
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
-import { longDay } from '@/components/charts'
+import { dayRange, longDay } from '@/components/charts'
 import { Ago } from '@/components/Freshness'
 import { Row } from '@/components/ui/fact-row'
 import type { AnalyticsCoverage } from '@/lib/api'
+import { needsYear, plural } from '@/lib/format'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { cn } from '@/lib/utils'
 import { RANGES, type Range } from './useAnalytics'
@@ -39,7 +40,7 @@ export function RangePicker({
       <span className="flex-1" />
       {from && to && (
         <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {longDay(from)} – {longDay(to)}
+          {dayRange(from, to)}
         </span>
       )}
     </div>
@@ -188,8 +189,19 @@ export function Toggle<T extends string>({
  * of round numbers does nothing to reveal.
  */
 export function CoverageNote({ coverage, generatedAt }: { coverage: AnalyticsCoverage; generatedAt: string }) {
-  const day = (d: string | null) => (d ? <span className="font-mono">{longDay(d)}</span> : 'nothing recorded')
-  const kept = (days: number) => (days > 0 ? <span className="font-mono">{days} days</span> : 'forever')
+  // Both ends of a span carry the year, or neither does.
+  const span = (from: string | null, to: string | null) => {
+    const withYear = needsYear(...[from, to].filter((d): d is string => d !== null).map((d) => `${d}T12:00:00Z`))
+    const day = (d: string | null) =>
+      d ? <span className="font-mono">{longDay(d, withYear)}</span> : 'nothing recorded'
+    return (
+      <>
+        {day(from)} – {day(to)}
+      </>
+    )
+  }
+  const kept = (days: number) =>
+    days > 0 ? <span className="font-mono">{days} {plural(days, 'day')}</span> : 'forever'
 
   return (
     <Card>
@@ -202,18 +214,14 @@ export function CoverageNote({ coverage, generatedAt }: { coverage: AnalyticsCov
             label="Daily totals cover"
             value={
               <>
-                {day(coverage.dailyTotalsFirstDay)} – {day(coverage.dailyTotalsLastDay)} · last updated{' '}
+                {span(coverage.dailyTotalsFirstDay, coverage.dailyTotalsLastDay)} · last updated{' '}
                 <Ago iso={coverage.dailyTotalsUpdatedAt} now={generatedAt} />
               </>
             }
           />
           <Row
             label="The fact log covers"
-            value={
-              <>
-                {day(coverage.factFirstDay)} – {day(coverage.factLastDay)}
-              </>
-            }
+            value={span(coverage.factFirstDay, coverage.factLastDay)}
           />
           <Row
             label="Facts kept for"

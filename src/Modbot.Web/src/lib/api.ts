@@ -1392,6 +1392,11 @@ export type KindSeries = { metric: string; label: string; total: number; points:
 export type CoverageGap = {
   worldId: string
   instanceId: string
+  /** Null while Modbot has only seen the world's id. */
+  worldName: string | null
+  /** Null when no instance Modbot has a row for was open under that number at the time. */
+  modbotInstanceId: string | null
+  instanceName: string | null
   startedAt: string
   endedAt: string | null
   endedBy: 'moderator-arrived' | 'instance-closed' | 'unknown'

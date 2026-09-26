@@ -46,6 +46,10 @@ test('an axis label is the time of day across a day, the day across a month, the
   assert.equal(timeLabel(at, 3 * 365 * DAY, utc), 'Jun 2026')
 })
 
-test('the tooltip writes the whole reading time', () => {
-  assert.equal(readingTime(at, utc), '16 Jun 2026, 14:05')
+test('the tooltip writes the whole reading time, with the year when it is not this year', () => {
+  assert.equal(readingTime(at, { ...utc, now: Date.UTC(2027, 0, 5) }), '16 Jun 2026, 14:05')
+})
+
+test('the tooltip leaves the year out in the current year', () => {
+  assert.equal(readingTime(at, { ...utc, now: Date.UTC(2026, 8, 26) }), '16 Jun, 14:05')
 })

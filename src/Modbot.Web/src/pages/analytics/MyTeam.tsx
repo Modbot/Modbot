@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { DailyBars, RankedList, compactNumber, dateTime, longDay, minutes } from '@/components/charts'
-import { WorldLink } from '@/components/facts'
+import { InstanceLink } from '@/components/facts'
 import { api, type CoverageGap } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
@@ -159,7 +159,7 @@ export function MyTeam({
               <DailyBars
                 from={data.from}
                 to={data.to}
-                series={[{ key: 'actions', label: 'actions', points: data.actionsPerDay, slot: 1 }]}
+                series={[{ key: 'actions', label: 'actions', one: 'action', points: data.actionsPerDay, slot: 1 }]}
               />
             </Panel>
 
@@ -216,12 +216,18 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
         )}
       </Td>
       <Td className="min-w-[12rem] whitespace-normal text-muted-foreground">{endedBecause}</Td>
-      {/* Instance ids are user-controlled text (spec 5.3): rendered as text, never as markup. */}
-      <Td className="text-muted-foreground" title={`${gap.worldId}:${gap.instanceId}`}>
-        {/* The world opens its popup. The gap carries no world name, so the id is the label rather
-            than a "not read yet" nobody checked. */}
+      {/* Instance ids are user-controlled text (spec 5.3): rendered as text, never as markup. The
+          same link every other screen uses, so it opens the instance when Modbot has a row for it
+          and the world when it does not. A world Modbot has not read yet is named by its id. */}
+      <Td>
         <span className="inline-block max-w-56 truncate align-bottom">
-          <WorldLink id={gap.worldId} unnamed="id" /> <span className="font-mono">#{gap.instanceId}</span>
+          <InstanceLink
+            modbotInstanceId={gap.modbotInstanceId}
+            worldId={gap.worldId}
+            worldName={gap.worldName}
+            number={gap.instanceId}
+            name={gap.instanceName}
+          />
         </span>
       </Td>
     </Tr>

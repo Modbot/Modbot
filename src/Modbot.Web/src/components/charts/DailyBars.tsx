@@ -4,7 +4,8 @@ import { rechartsTooltip } from './rechartsTooltip'
 import { compactNumber, longDay, mergeDays, shortDay, tickDays, type DayPoint } from './format'
 import { chartHeight, seriesColor, type SeriesSlot } from './theme'
 
-export type DaySeries = { key: string; label: string; points: DayPoint[]; slot: SeriesSlot }
+/** `one` is the label for a value of exactly one, when `label` is a plural noun: "action" for "actions". */
+export type DaySeries = { key: string; label: string; one?: string; points: DayPoint[]; slot: SeriesSlot }
 
 /**
  * Daily counts as columns, one column per day, several series side by side or stacked.
@@ -37,6 +38,7 @@ export function DailyBars({
   const rows = mergeDays(from, to, series, 'zero')
   const days = rows.map((r) => String(r.day))
   const names = Object.fromEntries(series.map((s) => [s.key, s.label]))
+  const ones = Object.fromEntries(series.flatMap((s) => (s.one ? [[s.key, s.one]] : [])))
   const empty = series.every((s) => s.points.every((p) => p.value === 0))
 
   return (
@@ -51,7 +53,7 @@ export function DailyBars({
           tickLine={false}
           axisLine={false}
         />
-        <Tooltip content={rechartsTooltip(longDay, names, format)} cursor={{ fill: 'var(--accent)', fillOpacity: 0.4 }} />
+        <Tooltip content={rechartsTooltip(longDay, names, format, ones)} cursor={{ fill: 'var(--accent)', fillOpacity: 0.4 }} />
         {series.map((s) => (
           <Bar
             key={s.key}

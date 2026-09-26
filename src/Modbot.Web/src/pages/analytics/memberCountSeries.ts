@@ -36,7 +36,8 @@ export function timeTicks(from: number, to: number, want = 6): number[] {
 const DAY = 86_400_000
 
 /** Locale and zone, so a test can pin them; the page leaves both to the viewer's browser. */
-export type TimeFormat = { locale?: string; timeZone?: string }
+/** `now` is the instant "this year" is taken from, for the tests; the browser's clock when left out. */
+export type TimeFormat = { locale?: string; timeZone?: string; now?: number }
 
 /**
  * An axis label for an instant, in the viewer's own clock.
@@ -63,10 +64,17 @@ export function timeLabel(ms: number, spanMs: number, format: TimeFormat = {}): 
   return d.toLocaleDateString(format.locale, { year: 'numeric', month: 'short', timeZone: format.timeZone })
 }
 
-/** The full time of one reading, for the tooltip. */
+/**
+ * The full time of one reading, for the tooltip. The year only when it is not this year, the rule
+ * every date in the app follows (`needsYear` in lib/format): here the year is read in the caller's
+ * time zone, so the tests can pin it.
+ */
 export function readingTime(ms: number, format: TimeFormat = {}): string {
+  const year = (t: number) => new Date(t).toLocaleString('en-US', { year: 'numeric', timeZone: format.timeZone })
+  const withYear = year(ms) !== year(format.now ?? Date.now())
+
   return new Date(ms).toLocaleString(format.locale, {
-    year: 'numeric',
+    year: withYear ? 'numeric' : undefined,
     month: 'short',
     day: 'numeric',
     hour: '2-digit',

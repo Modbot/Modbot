@@ -116,7 +116,7 @@ export function InstanceActivityChart() {
               tick={{ style: { fill: chartTheme.ok } }}
             />
             <Tooltip
-              content={rechartsTooltip((label) => readingTime(Number(label)), names)}
+              content={rechartsTooltip((label) => readingTime(Number(label)), names, undefined, { people: 'person', instances: 'instance' })}
               cursor={{ stroke: 'var(--chart-grid)' }}
             />
             <Line

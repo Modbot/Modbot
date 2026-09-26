@@ -105,6 +105,7 @@ export function Instances() {
                 cols={HOURS}
                 values={toLocalGrid(data.hourOfWeek[layer])}
                 valueLabel={layer === 'arrivals' ? 'arrivals' : 'instances opened'}
+                valueLabelOne={layer === 'arrivals' ? 'arrival' : 'instance opened'}
                 slot={layer === 'arrivals' ? 1 : 4}
               />
             )}
@@ -137,7 +138,7 @@ export function Instances() {
               <DailyBars
                 from={data.from}
                 to={data.to}
-                series={[{ key: 'people', label: 'people', points: data.peaks.mostPeopleAtOncePerDay, slot: 3 }]}
+                series={[{ key: 'people', label: 'people', one: 'person', points: data.peaks.mostPeopleAtOncePerDay, slot: 3 }]}
               />
             </Panel>
 
@@ -150,7 +151,7 @@ export function Instances() {
               <DailyLine
                 from={data.from}
                 to={data.to}
-                series={[{ key: 'busy', label: 'people-hours', points: toHours(data.peaks.peopleMinutesPerDay), slot: 1 }]}
+                series={[{ key: 'busy', label: 'people-hours', one: 'person-hour', points: toHours(data.peaks.peopleMinutesPerDay), slot: 1 }]}
                 format={(v) => `${compactNumber(v)} h`}
               />
             </Panel>
@@ -173,7 +174,7 @@ export function Instances() {
                 <DailyBars
                   from={data.from}
                   to={data.to}
-                  series={[{ key: 'people', label: 'people', points: data.mostPeopleInOne, slot: 2 }]}
+                  series={[{ key: 'people', label: 'people', one: 'person', points: data.mostPeopleInOne, slot: 2 }]}
                 />
               )}
             </Panel>

@@ -8,7 +8,7 @@ import { JsonView } from '@/components/JsonView'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Panel } from '@/components/subject/shared'
 import { api, type ProfileFields, type ProfileVersion } from '@/lib/api'
-import { formatDay } from '@/lib/format'
+import { formatDay, needsYear } from '@/lib/format'
 import { fieldName } from '@/lib/profileFields'
 import { useLoad } from '@/lib/useLoad'
 import { cn } from '@/lib/utils'
@@ -96,8 +96,8 @@ export function VersionCard({ version }: { version: ProfileVersion }) {
         <SourceBadge source={version.source} />
         {version.before ? (
           <span className="text-muted-foreground">
-            Between <span className="font-mono">{dateTime(version.at)}</span> and{' '}
-            <span className="font-mono">{dateTime(version.before)}</span>
+            Between <span className="font-mono">{dateTime(version.at, needsYear(version.at, version.before))}</span> and{' '}
+            <span className="font-mono">{dateTime(version.before, needsYear(version.at, version.before))}</span>
           </span>
         ) : (
           <span className="font-mono text-muted-foreground">{dateTime(version.at)}</span>

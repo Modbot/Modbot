@@ -17,6 +17,12 @@ public sealed record KindSeries(string Metric, string Label, decimal Total, IRea
 /// <summary>
 /// A stretch when people were in a group instance and no moderator was.
 /// </summary>
+/// <param name="WorldName">The world's name now, or null while Modbot has only seen its id.</param>
+/// <param name="ModbotInstanceId">
+/// Modbot's own id for the instance the gap happened in, which is what opens its popup. Null when
+/// no instance Modbot has a row for was open under that number at the time.
+/// </param>
+/// <param name="InstanceName">The name the instance was opened with, when it has one.</param>
 /// <param name="StartedAt">When the last moderator's presence ended.</param>
 /// <param name="EndedAt">
 /// When a moderator's presence resumed or the instance closed; null when neither was seen, in
@@ -31,6 +37,9 @@ public sealed record KindSeries(string Metric, string Label, decimal Total, IRea
 public sealed record CoverageGap(
     string WorldId,
     string InstanceId,
+    string? WorldName,
+    Guid? ModbotInstanceId,
+    string? InstanceName,
     DateTimeOffset StartedAt,
     DateTimeOffset? EndedAt,
     string EndedBy,

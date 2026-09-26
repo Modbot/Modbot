@@ -24,6 +24,7 @@ export { chartHeight, chartTheme, nextSlot, seriesColor, type SeriesSlot } from 
 export {
   compactNumber,
   dateTime,
+  dayRange,
   denseDays,
   longDay,
   mergeDays,

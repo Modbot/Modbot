@@ -265,7 +265,7 @@ function PeopleOverTime({ view }: { view: InstanceView }) {
           />
           <YAxis width="auto" domain={[0, 'auto']} allowDecimals={false} tickLine={false} axisLine={false} />
           <Tooltip
-            content={rechartsTooltip((label) => readingTime(Number(label)), { people: 'people' })}
+            content={rechartsTooltip((label) => readingTime(Number(label)), { people: 'people' }, undefined, { people: 'person' })}
             cursor={{ stroke: 'var(--chart-grid)' }}
           />
           <Line
