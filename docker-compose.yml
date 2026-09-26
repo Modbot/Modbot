@@ -42,7 +42,7 @@ services:
       # their own Cloud settings.
       MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}
       MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
-      # Where the instance selector is, for the "Add to my.modbot.co" links. Only ever a link.
+      # Where the server selector is, for the "Add to my.modbot.co" links. Only ever a link.
       MODBOT_MY_URL: ${MODBOT_MY_URL:-}
       # 1 fills a fresh database with made-up data and opens the app with no sign-in, so everyone
       # who can reach it is an administrator. Ignored once this Modbot has been set up for real.

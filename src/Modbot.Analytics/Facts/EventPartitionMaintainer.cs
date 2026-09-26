@@ -39,7 +39,7 @@ public sealed partial class EventPartitionMaintainer
 
     /// <summary>
     /// Serialises concurrent maintenance runs. <c>CREATE TABLE IF NOT EXISTS</c> still races two
-    /// instances into a duplicate-table error, and a Modbot that crash-loops on startup because
+    /// copies of Modbot into a duplicate-table error, and a Modbot that crash-loops on startup because
     /// two replicas booted together would be a miserable thing to debug.
     /// </summary>
     private const long MaintenanceLockKey = 0x4D4F44_50415254; // "MOD" "PART"
@@ -116,7 +116,7 @@ public sealed partial class EventPartitionMaintainer
             await _db.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT pg_advisory_xact_lock({MaintenanceLockKey})", ct);
 
-            // Re-check under the lock: another instance may have created it while we waited.
+            // Re-check under the lock: another copy of Modbot may have created it while we waited.
             if (await ExistsAsync(name, ct))
             {
                 if (transaction is not null)
@@ -146,7 +146,7 @@ public sealed partial class EventPartitionMaintainer
         }
         catch (PostgresException e) when (e.SqlState == PostgresErrorCodes.DuplicateTable)
         {
-            // Lost the race to an instance that is not taking our lock -- an older deployment,
+            // Lost the race to a copy of Modbot that is not taking our lock -- an older deployment,
             // or a human at psql. The partition exists, which is all anyone wanted.
             return false;
         }

@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Cloud.Features.Accounts;
-using Modbot.Cloud.Features.InstanceAlerts;
+using Modbot.Cloud.Features.ServerAlerts;
 using Modbot.Cloud.Features.Mail;
 using Modbot.Cloud.Features.Registry;
 
@@ -14,7 +14,7 @@ namespace Modbot.Cloud.Tests;
 /// Cloud watching a Modbot deployment from outside: silence, errors, and saying it once.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class InstanceAlertTests(PostgresFixture db)
+public class ServerAlertTests(PostgresFixture db)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -51,11 +51,11 @@ public class InstanceAlertTests(PostgresFixture db)
         return (id, bearer);
     }
 
-    private static async Task<InstanceAlertRun> CheckAsync(CloudTestHost host, StubMailer mailer)
+    private static async Task<ServerAlertRun> CheckAsync(CloudTestHost host, StubMailer mailer)
     {
         using var scope = host.Services.CreateScope();
 
-        var checker = new InstanceAlertChecker(
+        var checker = new ServerAlertChecker(
             scope.ServiceProvider.GetRequiredService<Modbot.Cloud.Data.CloudContext>(),
             scope.ServiceProvider.GetRequiredService<Modbot.Cloud.Engine.EngineContext>(),
             mailer,
@@ -209,7 +209,7 @@ public class InstanceAlertTests(PostgresFixture db)
         await CheckAsync(host, mailer);
 
         await using var cloud = db.NewCloudContext();
-        var alert = await cloud.InstanceAlerts.SingleAsync(a => a.ServerId == id, Ct);
+        var alert = await cloud.ServerAlerts.SingleAsync(a => a.ServerId == id, Ct);
 
         Assert.True(alert.Problem);
         Assert.Null(alert.LastSentAt);

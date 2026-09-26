@@ -70,7 +70,7 @@ easy to mistake for a promise that Modbot never wants a volume at all. It is not
 ### If you need real encryption at rest
 
 Encrypt the database. That is the layer where the control belongs, and every managed PostgreSQL
-provider offers it. Full-disk or volume encryption on a self-hosted instance does the same job.
+provider offers it. Full-disk or volume encryption on a self-hosted server does the same job.
 Modbot's column encryption is a second, weaker layer on top; it was never meant to substitute for
 the first.
 

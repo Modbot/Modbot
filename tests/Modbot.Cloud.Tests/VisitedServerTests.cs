@@ -162,7 +162,7 @@ public sealed class VisitedServerTests(PostgresFixture db)
         // A later answer with nothing in it leaves what is stored alone.
         await LearnAsync(host, new { url = Address, groupBannerUrl = "https://api.vrchat.cloud/banner.png" });
 
-        var addresses = await AdminAsync(host, "/api/admin/page-instances");
+        var addresses = await AdminAsync(host, "/api/admin/page-servers");
         var row = addresses.GetProperty("items").EnumerateArray().Single();
 
         Assert.Equal("VRChat Kings", row.GetProperty("groupName").GetString());
@@ -183,7 +183,7 @@ public sealed class VisitedServerTests(PostgresFixture db)
             ownerEmail = "owner@example.com",
         });
 
-        var addresses = await AdminAsync(host, "/api/admin/page-instances");
+        var addresses = await AdminAsync(host, "/api/admin/page-servers");
         var row = addresses.GetProperty("items").EnumerateArray().Single();
 
         Assert.Equal("grp_1", row.GetProperty("groupId").GetString());
@@ -225,11 +225,38 @@ public sealed class VisitedServerTests(PostgresFixture db)
             groupIconUrl = "http://modbot.example/icon.png",
         });
 
-        var addresses = await AdminAsync(host, "/api/admin/page-instances");
+        var addresses = await AdminAsync(host, "/api/admin/page-servers");
         var row = addresses.GetProperty("items").EnumerateArray().Single();
 
         Assert.Equal("VRChat Kings", row.GetProperty("groupName").GetString());
         Assert.Null(row.GetProperty("groupIconUrl").GetString());
+    }
+
+    [Fact]
+    public async Task The_old_page_instances_paths_and_names_still_answer()
+    {
+        await using var host = await CloudTestHost.StartAsync(db);
+
+        await SaveVisitAsync(host, Address);
+
+        var addresses = await AdminAsync(host, "/api/admin/page-instances");
+        var row = addresses.GetProperty("items").EnumerateArray().Single();
+
+        Assert.Equal(Address, row.GetProperty("serverUrl").GetString());
+        Assert.Equal(Address, row.GetProperty("instanceUrl").GetString());
+
+        var stats = await AdminAsync(host, "/api/admin/registry-stats");
+        Assert.Equal(1, stats.GetProperty("pageServers").GetInt32());
+        Assert.Equal(1, stats.GetProperty("pageInstances").GetInt32());
+
+        using var deleted = await host.SendAsync(
+            HttpMethod.Delete,
+            $"/api/admin/page-instances?url={Uri.EscapeDataString(Address)}",
+            bearer: CloudTestHost.RootKey);
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+
+        var after = await AdminAsync(host, "/api/admin/page-servers");
+        Assert.Empty(after.GetProperty("items").EnumerateArray());
     }
 
     private static async Task LearnAsync(CloudTestHost host, object body)

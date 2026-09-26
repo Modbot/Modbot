@@ -1,6 +1,6 @@
 using Modbot.Cloud.Common;
 
-namespace Modbot.Cloud.Features.InstanceLogs;
+namespace Modbot.Cloud.Features.ServerLogs;
 
 /// <summary>
 /// Cloud's limits on log batches.
@@ -13,7 +13,7 @@ namespace Modbot.Cloud.Features.InstanceLogs;
 /// </para>
 /// <para>Held in memory, per Cloud process; a restart forgets them.</para>
 /// </remarks>
-public sealed class InstanceLogLimits(TimeProvider time)
+public sealed class ServerLogLimits(TimeProvider time)
 {
     public const int MaxLinesPerBatch = 1_000;
 

@@ -4,10 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Cloud.Engine;
 using Npgsql;
 
-namespace Modbot.Cloud.Features.InstanceLogs;
+namespace Modbot.Cloud.Features.ServerLogs;
 
 /// <summary>
-/// Makes the monthly partitions <c>instance_log</c> writes into, ahead of Cloud's own clock.
+/// Makes the monthly partitions <c>server_log</c> writes into, ahead of Cloud's own clock.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -22,7 +22,7 @@ namespace Modbot.Cloud.Features.InstanceLogs;
 /// </remarks>
 public sealed partial class LogPartitionMaintainer(EngineContext engine, TimeProvider time)
 {
-    public const string Table = "instance_log";
+    public const string Table = "server_log";
 
     public const int MonthsAhead = 2;
     public const int MonthsBehind = 1;
@@ -113,6 +113,6 @@ public sealed partial class LogPartitionMaintainer(EngineContext engine, TimePro
         return new DateTimeOffset(utc.Year, utc.Month, 1, 0, 0, 0, TimeSpan.Zero);
     }
 
-    [GeneratedRegex(@"^instance_log_\d{4}_\d{2}$")]
+    [GeneratedRegex(@"^server_log_\d{4}_\d{2}$")]
     private static partial Regex SafeName();
 }

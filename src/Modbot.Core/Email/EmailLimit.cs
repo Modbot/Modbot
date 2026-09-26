@@ -75,15 +75,15 @@ public static class EmailLimit
 
         foreach (var next in ahead.Append(kind))
         {
-            var instance = RoomFor(next, limit);
-            if (instance <= 0)
+            var room = RoomFor(next, limit);
+            if (room <= 0)
                 return (true, null);
 
             // Everything in the list is at or before `at`, so the count in the window at `at` is
-            // the number after at − 24h, and the send that has to age out is the instance-th newest.
+            // the number after at − 24h, and the send that has to age out is the `room`-th newest.
             var inWindow = times.Count(t => t > at - Window);
-            if (inWindow >= instance)
-                at = times[times.Count - instance] + Window;
+            if (inWindow >= room)
+                at = times[times.Count - room] + Window;
 
             times.Add(at);
         }

@@ -10,8 +10,8 @@ using Modbot.Cloud.Features.AdminInstalls;
 using Modbot.Cloud.Features.AdminRegistry;
 using Modbot.Cloud.Features.EventBackup;
 using Modbot.Cloud.Features.Health;
-using Modbot.Cloud.Features.InstanceAlerts;
-using Modbot.Cloud.Features.InstanceLogs;
+using Modbot.Cloud.Features.ServerAlerts;
+using Modbot.Cloud.Features.ServerLogs;
 using Modbot.Cloud.Features.Installs;
 using Modbot.Cloud.Features.Mail;
 using Modbot.Cloud.Features.Pages;
@@ -43,7 +43,7 @@ public static class CloudApp
     /// </param>
     /// <param name="mail">Where Cloud's mail goes out through. Without a key it sends nothing.</param>
     /// <param name="runDailyUpkeep">False in tests, which run retention themselves against a fake clock.</param>
-    /// <param name="watchInstances">False in tests, which run the instance checks themselves.</param>
+    /// <param name="watchServers">False in tests, which run the server checks themselves.</param>
     /// <param name="refreshUpdates">False in tests, which refresh the release news themselves.</param>
     public static void AddServices(
         IServiceCollection services,
@@ -54,7 +54,7 @@ public static class CloudApp
         string? proxyApiKey = null,
         MailSettings? mail = null,
         bool runDailyUpkeep = true,
-        bool watchInstances = true,
+        bool watchServers = true,
         string? gitHubToken = null,
         string? gitHubRepository = null,
         bool refreshUpdates = true,
@@ -81,7 +81,7 @@ public static class CloudApp
         services.AddSingleton<RegistrationLimit>();
         services.AddSingleton<EventBackupLimits>();
         services.AddSingleton<PublicInstancesLimit>();
-        services.AddSingleton<InstanceLogLimits>();
+        services.AddSingleton<ServerLogLimits>();
 
         // Accounts. The hasher is Identity's, standalone: Cloud wants the hash function and none of
         // the rest of Identity, the same way a Modbot server uses it for its own staff accounts.
@@ -113,10 +113,10 @@ public static class CloudApp
         // Watching those deployments from outside: the one thing a Modbot cannot do for itself is
         // notice that it is not running. It sends through the same mailer the accounts use, so
         // there is one Resend key and one place that talks to it.
-        services.AddScoped<InstanceAlertChecker>();
+        services.AddScoped<ServerAlertChecker>();
 
-        if (watchInstances)
-            services.AddHostedService<InstanceAlertService>();
+        if (watchServers)
+            services.AddHostedService<ServerAlertService>();
 
         // The contributors on every Modbot's Credits page. One object, cached, so however many
         // Modbots ask, GitHub is asked a few times a day.
@@ -194,9 +194,9 @@ public static class CloudApp
         app.MapInstalls();
         app.MapEventBackup();
         app.MapPublicInstances();
-        app.MapInstanceLogs();
+        app.MapServerLogs();
         app.MapAdminLogs();
-        app.MapAdminInstanceAlerts();
+        app.MapAdminServerAlerts();
         app.MapShowcase();
         app.MapAdminShowcase();
         app.MapAccounts();

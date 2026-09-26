@@ -21,7 +21,7 @@ Three surfaces, sharing one backend:
 2. **Discord bot** — a second surface for groups that live in Discord.
 3. **Windows client + SteamVR overlay** — in-instance monitoring (M3, separate spec cycle).
 
-Plus `my.modbot.co`: a static page that stores a list of Modbot instance URLs in `localStorage`
+Plus `my.modbot.co`: a static page that stores a list of Modbot server addresses in `localStorage`
 and redirects to the one you pick, in the manner of Home Assistant. It holds no data and has no backend.
 
 ---
@@ -754,7 +754,7 @@ pretending otherwise would be the kind of claim somebody later discovers by read
 #### 4.2.2 Scheduling must not be wall-clock aligned
 
 If Modbot scheduled from a fixed clock — every 2 seconds on the even second — then **every Modbot
-instance in the world would hit VRChat simultaneously**, producing synchronised spikes that are far
+server in the world would hit VRChat simultaneously**, producing synchronised spikes that are far
 worse for VRChat than the same total volume spread evenly. It would also make Modbot's aggregate
 traffic look exactly like a coordinated botnet, which is not an impression this project can afford.
 
@@ -770,9 +770,9 @@ So scheduling is relative and randomised:
 
 - **Offsets are generated at process start**, not persisted. A fleet restarting together — a Railway
   platform event, say — re-randomises and re-spreads rather than marching in lockstep.
-- **Per-type offsets**, so one instance's six sync types do not fire as a burst either.
+- **Per-type offsets**, so one server's six sync types do not fire as a burst either.
 - **Per-tick jitter** on top, so the pattern does not settle into a regular comb that re-aligns with
-  other instances over time.
+  other servers over time.
 - Intervals are measured from a **monotonic source**, so an NTP correction or VM migration cannot
   compress or stretch the schedule. `IModbotClock` (§4.4) remains the authority for *timestamps*;
   elapsed-time scheduling is a separate concern and must not be driven by wall-clock arithmetic.
@@ -1020,7 +1020,7 @@ to turn off, and Modbot says so rather than leaving people to notice.
 
 ##### Local and shared lists
 
-A group can write its own lists in the same schema, and **share them by instance URL** — another
+A group can write its own lists in the same schema, and **share them by server address** — another
 deployment imports from `https://their-modbot/api/termlists/<id>`. Imported lists record their
 `source`, and that attribution survives so an operator can always see where a rule came from.
 
@@ -2635,7 +2635,7 @@ Meilisearch, Redis, AutoMapper, Clerk, Svix.
 |---|---|
 | `IVRChatGate` | Unit tests with a faked `IVRChat`: 401 re-login, WAF classification from `ErrorText`, priority preemption, serialisation under concurrency, proxy vs. direct egress. |
 | **Rate limiting** (§4.3) | Against a fake VRChat that models the *punitive* limiter — a 429 while penalised extends the penalty. Assert: **at most one probe per waiting period**; no request is issued during a cold stop; budget halves on 429 and recovers only additively; the token bucket never exceeds the configured fraction of the ceiling. A test that passes against a *non*-punitive fake proves nothing, so the fake's penalty-extension behaviour is itself asserted. |
-| **Restart safety** (§4.3.2) | Trip the limit, destroy and recreate the host, assert the new instance resumes the cold wait from persisted state and issues nothing. Then simulate a crash-loop and assert total probes stay bounded — the regression guard against a restart loop escalating a rate limit. |
+| **Restart safety** (§4.3.2) | Trip the limit, destroy and recreate the host, assert the new copy of Modbot resumes the cold wait from persisted state and issues nothing. Then simulate a crash-loop and assert total probes stay bounded — the regression guard against a restart loop escalating a rate limit. |
 | Sync jobs | Fed recorded VRChat payloads; assert both the current-state tables **and** emitted facts, including `occurred_before` windows on inferred events. |
 | **Ingest deduplication** | Replay the same instance event as reported by six independent clients with jittered timestamps; assert **exactly one** fact is written and time-spent totals match a single-client replay. Must include the **boundary case** that killed the bucketed design (reports at `14:00:04.9` / `14:00:05.1`) and the **floor case** (a genuine rejoin 15 s later yields *two* facts, not one). |
 | **Time provider** (§4.4) | SNTP offset estimation under asymmetric latency; outlier round-trips discarded; a client whose clock is minutes off still produces correctly-ordered facts; a client `occurred_at` beyond plausible transport delay is clamped **and flagged**, not silently accepted or dropped. |
@@ -2797,7 +2797,7 @@ Recorded so they are visible rather than buried, and so they are not relitigated
     and calls `...WithHttpInfoAsync` everywhere. A plain convenience-overload call anywhere in the
     codebase is a review failure.
 21. **Scheduling is never wall-clock aligned** (§4.2.2). Fixed-clock scheduling would make every
-    Modbot instance worldwide hit VRChat on the same second -- synchronised spikes that are worse
+    Modbot server worldwide hit VRChat on the same second -- synchronised spikes that are worse
     for VRChat than the same volume spread out, and traffic indistinguishable from a coordinated
     botnet. Offsets are per-process, per-type, regenerated at start, with per-tick jitter, measured
     from a monotonic source.

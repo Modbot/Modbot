@@ -3,10 +3,10 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Cloud.Data;
 using Modbot.Cloud.Engine;
 
-namespace Modbot.Cloud.Features.InstanceLogs;
+namespace Modbot.Cloud.Features.ServerLogs;
 
 /// <summary>
-/// Drops whole months of <c>instance_log</c> once every line in them is past the window.
+/// Drops whole months of <c>server_log</c> once every line in them is past the window.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -50,7 +50,7 @@ public sealed class LogRetention(EngineContext engine, CloudContext cloud, TimeP
         return dropped;
     }
 
-    /// <summary>Every partition of <c>instance_log</c>, read from the catalogue.</summary>
+    /// <summary>Every partition of <c>server_log</c>, read from the catalogue.</summary>
     private Task<List<string>> PartitionsAsync(CancellationToken ct) =>
         engine.Database
             .SqlQuery<string>($"""
@@ -62,10 +62,20 @@ public sealed class LogRetention(EngineContext engine, CloudContext cloud, TimeP
                 """)
             .ToListAsync(ct);
 
+    /// <summary>
+    /// The table's name before 2026-09-26, when "instance" became "server". The migration that
+    /// renamed the table renamed every month with it, but a month still under the old name is still
+    /// ours and is still dropped when due, rather than kept forever.
+    /// </summary>
+    public const string OldTable = "instance_log";
+
     /// <summary>The month a partition name stands for, or null when the name is not one of ours.</summary>
     private static DateTimeOffset? Month(string name)
     {
         var prefix = LogPartitionMaintainer.Table + "_";
+
+        if (!name.StartsWith(prefix, StringComparison.Ordinal))
+            prefix = OldTable + "_";
 
         if (!name.StartsWith(prefix, StringComparison.Ordinal))
             return null;

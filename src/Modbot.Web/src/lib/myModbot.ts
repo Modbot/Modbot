@@ -1,5 +1,5 @@
 /**
- * my.modbot.co, the project's instance selector (central services spec §2, §4.1).
+ * my.modbot.co, the project's server selector (central services spec §2, §4.1).
  *
  * The address comes from the server, which reads `MODBOT_MY_URL`, so a group running its own
  * selector points every link at it with one variable. Until the first status has loaded — which is
@@ -47,8 +47,8 @@ export function setServerGroup(next: ServerGroup | null | undefined): void {
  * it has talked to the server at all — and can still show it if the server is behind something
  * the browser cannot reach.
  */
-export function registerLink(instanceUrl: string = window.location.origin): string {
-  const parameters = [`url=${encodeURIComponent(instanceUrl)}`]
+export function registerLink(serverUrl: string = window.location.origin): string {
+  const parameters = [`url=${encodeURIComponent(serverUrl)}`]
 
   if (group?.id) parameters.push(`groupId=${encodeURIComponent(group.id)}`)
   if (group?.name) parameters.push(`name=${encodeURIComponent(group.name)}`)

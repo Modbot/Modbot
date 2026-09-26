@@ -39,16 +39,25 @@ public sealed record RecordServerRequest(
 /// The group: what a registered server reported, or failing that what a register visit learned by
 /// asking the address. Null when neither knows.
 /// </param>
-public sealed record VisitedInstance(
-    [property: JsonPropertyName("instanceUrl")] string InstanceUrl,
+public sealed record SeenServer(
+    [property: JsonPropertyName("serverUrl")] string ServerUrl,
     [property: JsonPropertyName("firstSeenAt")] DateTimeOffset FirstSeenAt,
     [property: JsonPropertyName("lastSeenAt")] DateTimeOffset LastSeenAt,
     [property: JsonPropertyName("visits")] int Visits,
     [property: JsonPropertyName("groupName")] string? GroupName,
-    [property: JsonPropertyName("groupIconUrl")] string? GroupIconUrl);
+    [property: JsonPropertyName("groupIconUrl")] string? GroupIconUrl)
+{
+    /// <summary>
+    /// The same address under its old name. Added 2026-09-26, when "instance" became "server":
+    /// my.modbot.co is deployed on its own and read <c>instanceUrl</c> until then. Drop this once
+    /// the deployed my.modbot.co reads <c>serverUrl</c>.
+    /// </summary>
+    [JsonPropertyName("instanceUrl")]
+    public string OldServerUrl => ServerUrl;
+}
 
-public sealed record VisitedInstances(
-    [property: JsonPropertyName("items")] IReadOnlyList<VisitedInstance> Items);
+public sealed record SeenServers(
+    [property: JsonPropertyName("items")] IReadOnlyList<SeenServer> Items);
 
 /// <param name="Registered">Modbot servers that registered themselves.</param>
 /// <param name="ActiveLast30Days">Of those, seen in the last 30 days.</param>
@@ -92,10 +101,10 @@ public static class SiteEndpoints
         [FromServices] TimeProvider time,
         CancellationToken ct)
     {
-        if (!InstanceUrl.TryNormalise(request?.Url, out var url))
+        if (!ServerUrl.TryNormalise(request?.Url, out var url))
             return Results.BadRequest(new { error = "url must be an absolute https URL." });
 
-        await InstanceVisits.RecordAsync(db, Address(request?.Address), url, time.GetUtcNow(), ct);
+        await ServerVisits.RecordAsync(db, Address(request?.Address), url, time.GetUtcNow(), ct);
         return Results.NoContent();
     }
 
@@ -106,38 +115,38 @@ public static class SiteEndpoints
         CancellationToken ct)
     {
         if (Address(address) is not { } ip)
-            return Results.Ok(new VisitedInstances([]));
+            return Results.Ok(new SeenServers([]));
 
-        var since = time.GetUtcNow() - InstanceVisits.HistoryReach;
+        var since = time.GetUtcNow() - ServerVisits.HistoryReach;
 
-        var rows = await db.VisitorInstances
+        var rows = await db.VisitorServers
             .AsNoTracking()
             .Where(v => v.IpAddress == ip && v.LastSeenAt >= since)
             .OrderByDescending(v => v.LastSeenAt)
-            .ThenBy(v => v.InstanceUrl)
-            .Take(InstanceVisits.HistoryLimit)
+            .ThenBy(v => v.ServerUrl)
+            .Take(ServerVisits.HistoryLimit)
             .Select(v => new
             {
-                v.InstanceUrl,
+                v.ServerUrl,
                 v.FirstSeenAt,
                 v.LastSeenAt,
                 v.Visits,
                 ReportedName = db.RegisteredServers
-                    .Where(s => s.PublicAddress == v.InstanceUrl)
+                    .Where(s => s.PublicAddress == v.ServerUrl)
                     .OrderByDescending(s => s.LastSeenAt)
                     .Select(s => s.GroupName)
                     .FirstOrDefault(),
                 ReportedIcon = db.RegisteredServers
-                    .Where(s => s.PublicAddress == v.InstanceUrl)
+                    .Where(s => s.PublicAddress == v.ServerUrl)
                     .OrderByDescending(s => s.LastSeenAt)
                     .Select(s => s.GroupIconUrl)
                     .FirstOrDefault(),
                 VisitedName = db.VisitedServers
-                    .Where(s => s.InstanceUrl == v.InstanceUrl)
+                    .Where(s => s.ServerUrl == v.ServerUrl)
                     .Select(s => s.GroupName)
                     .FirstOrDefault(),
                 VisitedIcon = db.VisitedServers
-                    .Where(s => s.InstanceUrl == v.InstanceUrl)
+                    .Where(s => s.ServerUrl == v.ServerUrl)
                     .Select(s => s.GroupIconUrl)
                     .FirstOrDefault(),
             })
@@ -147,8 +156,8 @@ public static class SiteEndpoints
         // with its secret, and what a visit learned came from asking an address a link named
         // (register details spec 3.2). Nothing here carries the owner's address.
         var items = rows
-            .Select(r => new VisitedInstance(
-                r.InstanceUrl,
+            .Select(r => new SeenServer(
+                r.ServerUrl,
                 r.FirstSeenAt,
                 r.LastSeenAt,
                 r.Visits,
@@ -156,7 +165,7 @@ public static class SiteEndpoints
                 r.ReportedIcon ?? r.VisitedIcon))
             .ToList();
 
-        return Results.Ok(new VisitedInstances(items));
+        return Results.Ok(new SeenServers(items));
     }
 
     /// <summary>
@@ -174,15 +183,15 @@ public static class SiteEndpoints
         [FromServices] TimeProvider time,
         CancellationToken ct)
     {
-        if (!InstanceUrl.TryNormalise(request?.Url, out var url))
+        if (!ServerUrl.TryNormalise(request?.Url, out var url))
             return Results.BadRequest(new { error = "url must be an absolute https URL." });
 
         var now = time.GetUtcNow();
-        var row = await db.VisitedServers.FirstOrDefaultAsync(s => s.InstanceUrl == url, ct);
+        var row = await db.VisitedServers.FirstOrDefaultAsync(s => s.ServerUrl == url, ct);
 
         if (row is null)
         {
-            row = new VisitedServer { InstanceUrl = url, FirstSeenAt = now };
+            row = new VisitedServer { ServerUrl = url, FirstSeenAt = now };
             db.VisitedServers.Add(row);
         }
 

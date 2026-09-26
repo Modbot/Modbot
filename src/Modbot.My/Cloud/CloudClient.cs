@@ -7,16 +7,46 @@ using Modbot.My.Configuration;
 namespace Modbot.My.Cloud;
 
 /// <param name="GroupName">The group, when a registered Modbot reports this address.</param>
-public sealed record KnownInstance(
-    [property: JsonPropertyName("instanceUrl")] string InstanceUrl,
+public sealed record KnownServer(
+    [property: JsonPropertyName("serverUrl")] string ServerUrl,
+    [property: JsonPropertyName("firstSeenAt")] DateTimeOffset FirstSeenAt,
+    [property: JsonPropertyName("lastSeenAt")] DateTimeOffset LastSeenAt,
+    [property: JsonPropertyName("visits")] int Visits,
+    [property: JsonPropertyName("groupName")] string? GroupName,
+    [property: JsonPropertyName("groupIconUrl")] string? GroupIconUrl)
+{
+    /// <summary>
+    /// The same address under the name it had until 2026-09-26, when "instance" became "server".
+    /// A browser still running a page built before then reads only this field.
+    /// </summary>
+    /// <remarks>
+    /// Compatibility, added 2026-09-26. Remove once no browser can still be running a page built
+    /// before that date.
+    /// </remarks>
+    [JsonPropertyName("instanceUrl")]
+    public string InstanceUrl => ServerUrl;
+}
+
+public sealed record KnownServers(
+    [property: JsonPropertyName("items")] IReadOnlyList<KnownServer> Items);
+
+/// <summary>One entry of Cloud's <c>GET /api/v1/site/visits</c>, as Cloud sends it.</summary>
+/// <param name="InstanceUrl">
+/// Compatibility, added 2026-09-26: Cloud named the address <c>instanceUrl</c> until then, and Cloud
+/// and my.modbot.co are deployed separately, so either may go first. Remove once every Cloud
+/// deployment sends <c>serverUrl</c>.
+/// </param>
+internal sealed record CloudVisit(
+    [property: JsonPropertyName("serverUrl")] string? ServerUrl,
+    [property: JsonPropertyName("instanceUrl")] string? InstanceUrl,
     [property: JsonPropertyName("firstSeenAt")] DateTimeOffset FirstSeenAt,
     [property: JsonPropertyName("lastSeenAt")] DateTimeOffset LastSeenAt,
     [property: JsonPropertyName("visits")] int Visits,
     [property: JsonPropertyName("groupName")] string? GroupName,
     [property: JsonPropertyName("groupIconUrl")] string? GroupIconUrl);
 
-public sealed record KnownInstances(
-    [property: JsonPropertyName("items")] IReadOnlyList<KnownInstance> Items);
+internal sealed record CloudVisits(
+    [property: JsonPropertyName("items")] IReadOnlyList<CloudVisit>? Items);
 
 /// <summary>
 /// Everything my.modbot.co reads from and writes to Modbot Cloud.
@@ -35,7 +65,7 @@ public sealed record KnownInstances(
 /// answers null when Cloud did not take part. The endpoints turn that into a 503, so the browser
 /// keeps what it has and tries again, rather than being told an empty list is the truth or a save
 /// went through when it did not. The page itself is never refused: a Cloud that is slow or
-/// unreachable means a page showing the instances the browser saved for itself, which is what the
+/// unreachable means a page showing the servers the browser saved for itself, which is what the
 /// page did before any of this existed.
 /// </para>
 /// </remarks>
@@ -109,13 +139,13 @@ public sealed class CloudClient(CloudAddress cloud, IHttpClientFactory factory, 
     }
 
     /// <summary>
-    /// The instances Cloud has seen from one address. Null when Cloud could not be asked or did not
-    /// answer properly; an empty list only when Cloud said there are none.
+    /// The Modbot servers Cloud has seen from one address. Null when Cloud could not be asked or did
+    /// not answer properly; an empty list only when Cloud said there are none.
     /// </summary>
-    public async Task<KnownInstances?> KnownInstancesAsync(string? address, CancellationToken ct)
+    public async Task<KnownServers?> KnownServersAsync(string? address, CancellationToken ct)
     {
         if (address is null)
-            return new KnownInstances([]);
+            return new KnownServers([]);
 
         using var response = await SendAsync(
             HttpMethod.Get, $"api/v1/site/visits?address={Uri.EscapeDataString(address)}", null, ct);
@@ -123,15 +153,35 @@ public sealed class CloudClient(CloudAddress cloud, IHttpClientFactory factory, 
         if (response is null || !Ok(response))
             return null;
 
+        CloudVisits? answer;
         try
         {
-            return await response.Content.ReadFromJsonAsync<KnownInstances>(Json, ct).ConfigureAwait(false);
+            answer = await response.Content.ReadFromJsonAsync<CloudVisits>(Json, ct).ConfigureAwait(false);
         }
         catch (Exception e) when (e is JsonException or NotSupportedException)
+        {
+            answer = null;
+        }
+
+        if (answer?.Items is null)
         {
             log.LogWarning("Modbot Cloud answered with something this page could not read.");
             return null;
         }
+
+        var servers = new List<KnownServer>(answer.Items.Count);
+        foreach (var visit in answer.Items)
+        {
+            // serverUrl first, and instanceUrl from a Cloud older than 2026-09-26 (see CloudVisit).
+            var url = visit.ServerUrl ?? visit.InstanceUrl;
+            if (url is null)
+                continue;
+
+            servers.Add(new KnownServer(
+                url, visit.FirstSeenAt, visit.LastSeenAt, visit.Visits, visit.GroupName, visit.GroupIconUrl));
+        }
+
+        return new KnownServers(servers);
     }
 
     private async Task<HttpResponseMessage?> SendAsync(

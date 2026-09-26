@@ -1,15 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Cloud.Data;
 using Modbot.Cloud.Engine;
-using Modbot.Cloud.Features.InstanceLogs;
+using Modbot.Cloud.Features.ServerLogs;
 using Modbot.Cloud.Features.Mail;
 
-namespace Modbot.Cloud.Features.InstanceAlerts;
+namespace Modbot.Cloud.Features.ServerAlerts;
 
 /// <param name="Problems">Deployments that went wrong and were emailed about.</param>
 /// <param name="Recoveries">Deployments that came back and were emailed about.</param>
 /// <param name="Sent">Emails that went.</param>
-public sealed record InstanceAlertRun(
+public sealed record ServerAlertRun(
     IReadOnlyList<Guid> Problems,
     IReadOnlyList<Guid> Recoveries,
     int Sent);
@@ -43,7 +43,7 @@ public sealed record InstanceAlertRun(
 /// deliberately turned it on for, and the email says what Cloud saw rather than what it concluded.
 /// </para>
 /// </remarks>
-public sealed class InstanceAlertChecker(
+public sealed class ServerAlertChecker(
     CloudContext cloud,
     EngineContext engine,
     ICloudMailer mailer,
@@ -52,18 +52,18 @@ public sealed class InstanceAlertChecker(
     /// <summary>How often the checks run.</summary>
     public static readonly TimeSpan CheckEvery = TimeSpan.FromMinutes(5);
 
-    public async Task<InstanceAlertRun> RunOnceAsync(CancellationToken ct = default)
+    public async Task<ServerAlertRun> RunOnceAsync(CancellationToken ct = default)
     {
-        var alerts = await cloud.InstanceAlerts.Where(a => a.On).ToListAsync(ct);
+        var alerts = await cloud.ServerAlerts.Where(a => a.On).ToListAsync(ct);
 
         if (alerts.Count == 0)
-            return new InstanceAlertRun([], [], 0);
+            return new ServerAlertRun([], [], 0);
 
         var addresses = await AddressesAsync(alerts, ct);
         var now = time.GetUtcNow();
         var problems = new List<Guid>();
         var recoveries = new List<Guid>();
-        var sending = new List<(InstanceAlert Alert, string To, string Subject, string Body)>();
+        var sending = new List<(ServerAlert Alert, string To, string Subject, string Body)>();
 
         foreach (var alert in alerts)
         {
@@ -145,7 +145,7 @@ public sealed class InstanceAlertChecker(
 
         await cloud.SaveChangesAsync(ct);
 
-        return new InstanceAlertRun(problems, recoveries, sent);
+        return new ServerAlertRun(problems, recoveries, sent);
     }
 
     /// <summary>
@@ -157,7 +157,7 @@ public sealed class InstanceAlertChecker(
     /// address, and an address that follows the account cannot go stale when they change it.
     /// </remarks>
     private async Task<Dictionary<Guid, string?>> AddressesAsync(
-        List<InstanceAlert> alerts, CancellationToken ct)
+        List<ServerAlert> alerts, CancellationToken ct)
     {
         var ids = alerts.Select(a => a.ServerId).ToList();
 
@@ -172,9 +172,9 @@ public sealed class InstanceAlertChecker(
     }
 
     private async Task<(bool Problem, string Detail)> LookAsync(
-        InstanceAlert alert, DateTimeOffset now, CancellationToken ct)
+        ServerAlert alert, DateTimeOffset now, CancellationToken ct)
     {
-        var lastHeard = await engine.InstanceLogs.AsNoTracking()
+        var lastHeard = await engine.ServerLogs.AsNoTracking()
             .Where(l => l.ServerId == alert.ServerId)
             .MaxAsync(l => (DateTimeOffset?)l.ReceivedAt, ct);
 
@@ -194,7 +194,7 @@ public sealed class InstanceAlertChecker(
         {
             var since = now.AddHours(-1);
 
-            var errors = await engine.InstanceLogs.AsNoTracking()
+            var errors = await engine.ServerLogs.AsNoTracking()
                 .Where(l => l.ServerId == alert.ServerId
                             && l.ReceivedAt >= since
                             && (l.Level == LogLevelNames.Error || l.Level == LogLevelNames.Fatal))

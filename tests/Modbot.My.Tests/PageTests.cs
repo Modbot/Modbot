@@ -34,10 +34,14 @@ public class PageTests
     }
 
     /// <summary>
-    /// /go replaced /pair and /instanceredirect; one route redirects to an instance, not three. A
+    /// /go replaced /pair and /instanceredirect; one route redirects to a server, not three. A
     /// fallback that served the app for any path would bring both back as pages. /admin is gone with
     /// the registry, which moved to Modbot Cloud (central services spec 4.4).
     /// </summary>
+    /// <remarks>
+    /// The "instance" in these paths is the old word for a Modbot server. They are kept as they were
+    /// on purpose: they are addresses that once worked and must stay dead.
+    /// </remarks>
     [Theory]
     [InlineData("/pair")]
     [InlineData("/pair?code=123456")]
@@ -61,6 +65,10 @@ public class PageTests
         Assert.NotEqual("text/html", response.Content.Headers.ContentType?.MediaType);
     }
 
+    /// <remarks>
+    /// <c>/api/instances</c> is a retired address from when a Modbot server was called an instance,
+    /// and must stay dead. (<c>/api/my-instances</c> is different: it still answers, for now.)
+    /// </remarks>
     [Theory]
     [InlineData("GET", "/api/nothing")]
     [InlineData("GET", "/api/instances")]
@@ -111,7 +119,7 @@ public class PageTests
     }
 
     /// <summary>
-    /// Readiness does not depend on Cloud. A Cloud that is down is a page with fewer instances on
+    /// Readiness does not depend on Cloud. A Cloud that is down is a page with fewer servers on
     /// it, not a service that should be taken out of rotation.
     /// </summary>
     [Fact]

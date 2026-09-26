@@ -5,7 +5,7 @@ them. The web app lives in `src/Modbot.My.Web` and is built into this project's 
 is built by `src/Modbot.My/Dockerfile` from the repository root.
 
 **It has no database.** Everything it shows comes from Modbot Cloud, which it reads with a key that
-stays on the server. `/admin` and the instance registry moved to `cloud.modbot.co` on 2026-09-16, and
+stays on the server. `/admin` and the server registry moved to `cloud.modbot.co` on 2026-09-16, and
 `DATABASE_URL` and `ROOT_API_KEY` are no longer read.
 
 ## Environment variables
@@ -25,11 +25,12 @@ stays on the server. `/admin` and the instance registry moved to `cloud.modbot.c
 |---|---|
 | `/`, `/register`, `/go` | The app. A `url` on any of them is noted through Cloud, and the address is asked what group it moderates. |
 | `POST /api/local-register` | The app's own save once it has rendered. Passed to Cloud. `204` once Cloud has it; `503` when Cloud did not take it, and the app keeps the address to send again later. |
-| `GET /api/my-instances` | The servers Cloud has seen from this address. `503` when Cloud could not be asked, so the app keeps the list it last had instead of showing nothing. |
+| `GET /api/my-servers` | The servers Cloud has seen from this address. `503` when Cloud could not be asked, so the app keeps the list it last had instead of showing nothing. Each entry carries the address as `serverUrl`, and again as `instanceUrl` for a page built before 2026-09-26. |
+| `GET /api/my-instances` | The same, under the name it had until 2026-09-26, for a browser still running a page built before then. To be removed once none can be. |
 | `/termlists/…` | Permanent redirects to Cloud, where the term lists now live. |
 | `/health/live`, `/health/ready` | Both answer while the process is up. |
 
-`/api/local-register` and `/api/my-instances` are limited per IP address — 30 saves and 60 reads an
+`/api/local-register` and `/api/my-servers` (with its old name) are limited per IP address — 30 saves and 60 reads an
 hour — so that one address cannot make this service hammer Cloud. Serving a page is never refused for
 being over the limit; the visit simply is not counted.
 

@@ -48,12 +48,12 @@ public sealed class DailyUpkeepService(
             if (result.EventsRemoved > 0 || result.ClocksRemoved > 0)
                 log.LogInformation("Retention removed {Events} events and {Clocks} clock rows", result.EventsRemoved, result.ClocksRemoved);
 
-            // The months instance_log writes into, made ahead of Cloud's clock, before the months
+            // The months server_log writes into, made ahead of Cloud's clock, before the months
             // past the window are dropped. Making first means a boundary crossed between two runs
             // never leaves a batch with nowhere to go.
-            await scope.ServiceProvider.GetRequiredService<InstanceLogs.LogPartitionMaintainer>().EnsureAsync(ct);
+            await scope.ServiceProvider.GetRequiredService<ServerLogs.LogPartitionMaintainer>().EnsureAsync(ct);
 
-            var months = await scope.ServiceProvider.GetRequiredService<InstanceLogs.LogRetention>().RunAsync(ct);
+            var months = await scope.ServiceProvider.GetRequiredService<ServerLogs.LogRetention>().RunAsync(ct);
             if (months.Count > 0)
                 log.LogInformation("Retention dropped log months {Months}", months);
 

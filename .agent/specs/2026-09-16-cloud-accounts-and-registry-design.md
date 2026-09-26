@@ -28,12 +28,12 @@ all moved from `my.modbot.co`:
 
 The maintainer's words:
 
-> "Move termlists and instance registration into Modbot Cloud, and support downloading termlists
-> from cloud and it should report full instance details to modbot cloud like usage analytics, group
+> "Move termlists and [server] registration into Modbot Cloud, and support downloading termlists
+> from cloud and it should report full [server] details to modbot cloud like usage analytics, group
 > info, group image icon url, group ID. No # of users, No # of group members, No # users in
 > instance, basic analytics that regularly report but mostly anonymous except group ID. We need
 > group ID and name and info so we can show in my.modbot.co which just proxies to Modbot Cloud to
-> get instance registration data."
+> get [server] registration data."
 
 The reversals this causes in the central services spec are written down there: §1.1 (no central
 authentication — narrowed), §2.1.1 (my.modbot.co's database — removed), §4.6 (the registry holds
@@ -208,10 +208,10 @@ service and must not also open `/admin`. It is the same value `my.modbot.co` set
 
 Exactly what the page needs, and nothing else:
 
-- `POST /api/v1/site/visits` — record that an instance URL was opened from a visitor's address.
+- `POST /api/v1/site/visits` — record that a server address was opened from a visitor's address.
   The address is in the body, because `my.modbot.co` is the caller and its own address is not the
   visitor's.
-- `GET /api/v1/site/visits?address=` — the instances seen from one address: 90 days, 50 at most,
+- `GET /api/v1/site/visits?address=` — the servers seen from one address: 90 days, 50 at most,
   most recent first, each with the group name and icon URL when a registered server reports that
   address.
 - `GET /api/v1/site/counts` — how many servers are registered and how many were seen in the last 30

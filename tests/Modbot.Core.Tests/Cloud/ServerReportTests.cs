@@ -98,7 +98,7 @@ public class ServerReportTests
 }
 
 /// <summary>
-/// MODBOT_MY_URL: where this server points people for the instance selector.
+/// MODBOT_MY_URL: where this server points people for the server selector.
 /// </summary>
 public class MyUrlTests
 {

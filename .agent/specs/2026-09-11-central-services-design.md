@@ -2,9 +2,27 @@
 
 - **Date:** 2026-09-11
 - **Status:** Draft, awaiting review
-- **Covers:** the two services the Modbot project itself operates — the instance selector and the client release feed
+- **Covers:** the two services the Modbot project itself operates — the server selector and the client release feed
 - **Depends on:** nothing. **Depended on by:** M3 (client updates) — the release host blocks M3 shipping
 - **Related:** foundation §1 (`my.modbot.co`), M3 §9 (updates)
+
+> **Renamed 2026-09-26 — "instance" is now "server".** A Modbot deployment is a *server* everywhere
+> in this spec and in the code: the server selector, the server registry, server alerts and server
+> logs. "Instance" is VRChat's word, and CLAUDE.md asks for one word for one thing; moderators
+> pairing the companion from inside a VRChat instance were being asked to "Choose an instance".
+> What changed on the wire and in storage: on my.modbot.co, the `localStorage` keys
+> `modbot.instances` → `modbot.servers` and `modbot.server-instances` → `modbot.seen-servers` (both
+> moved on first load), the route `/api/my-instances` → `/api/my-servers`, and the JSON field
+> `instanceUrl` → `serverUrl`; on Cloud, the tables `page_instance` → `page_server`,
+> `visitor_instance` → `visitor_server`, `instance_alert` → `server_alert` and `instance_log` →
+> `server_log` (monthly partitions `server_log_YYYY_MM`), the column `instance_url` → `server_url`
+> (on `visited_server` too), the admin route `/api/admin/page-instances` → `/api/admin/page-servers`,
+> and `pageInstances` → `pageServers` in `/api/admin/registry-stats`. Kept for compatibility:
+> `/api/my-instances`, `instanceUrl` beside `serverUrl` in site visits and in my.modbot.co's answers,
+> `/api/admin/page-instances` and `pageInstances`. They can be removed once every deployed Cloud,
+> my.modbot.co and browser bundle has the new version. Names from earlier revisions that no longer
+> exist anywhere (`registered_instance`, `/instanceredirect`, `POST /api/instances/register` and the
+> like) are left as they were.
 
 ---
 
@@ -21,21 +39,21 @@ constraint rather than a current state:
 
 | Service | What it does | If it vanishes |
 |---|---|---|
-| `my.modbot.co` | Remembers which Modbot instances you use, and switches between them | Bookmark your instance's URL. Nothing is lost but convenience. |
+| `my.modbot.co` | Remembers which Modbot servers you use, and switches between them | Bookmark your server's address. Nothing is lost but convenience. |
 | Release host | Serves signed client updates | Download releases from GitHub and install manually, or point the client at a mirror. |
 
 Both are in the main repository and both are self-hostable by anyone who wants to run their own.
 
 ### 1.1 What the project does and does not centrally operate
 
-**Revised 2026-09-12.** An earlier draft of this section forbade any instance registry and any
+**Revised 2026-09-12.** An earlier draft of this section forbade any server registry and any
 telemetry outright. That was a constraint this document invented rather than one the project asked
 for, and it is reversed here. Knowing which versions are live and how many deployments exist is
 ordinary, useful, and how a maintainer decides what to support.
 
 **Modbot Hub and the registry do operate centrally:**
 
-- **An instance registry** (§4). Deployments register themselves; the project can enumerate them.
+- **A server registry** (§4). Deployments register themselves; the project can enumerate them.
 - **Usage analytics** (§5). Opt-out, default on, disclosed at onboarding.
 - **Term list distribution** — Modbot Hub (foundation §4.2.7).
 - **Client releases** (§3).
@@ -148,14 +166,14 @@ deployment, it is a non-functional one. The skip path is justified by consent, n
 
 ### 2.1 What it is
 
-A single static page, modelled on Home Assistant's approach. It holds a list of Modbot instance URLs
+A single static page, modelled on Home Assistant's approach. It holds a list of Modbot server addresses
 in the browser's `localStorage` and lets you pick one.
 
 **No backend. No database. No accounts. No server-side state of any kind.** It is HTML, CSS and
 JavaScript on a CDN.
 
-> **Revised 2026-09-14.** The page is still static and still keeps each person's instance list in
-> their own browser, but the service that serves it now has a PostgreSQL database for the instance
+> **Revised 2026-09-14.** The page is still static and still keeps each person's server list in
+> their own browser, but the service that serves it now has a PostgreSQL database for the server
 > registry (§4). It is built as `src/Modbot.My`, one folder per feature under `Features/`, and needs
 > `DATABASE_URL`. See §6.
 
@@ -163,7 +181,7 @@ JavaScript on a CDN.
 > theme tokens), built from `src/Modbot.My.Web` into `src/Modbot.My/wwwroot`. The server serves it
 > only on the app's real routes — `/`, `/register`, `/go`, and `/admin` with its sub-paths — and
 > every other path is a 404, so the retired `/pair` and `/instanceredirect` cannot come back as
-> pages that happen to render. An unknown `/api/…` path is a JSON 404. The instance list is no
+> pages that happen to render. An unknown `/api/…` path is a JSON 404. The server list is no
 > longer only in the browser either; see §2.3.1.
 
 ### 2.1.1 No database — reversed back, 2026-09-16
@@ -194,7 +212,7 @@ accounts, so it is the one that can say *whose* server a row is. Keeping a secon
 30 saves and 60 reads an hour. Held in memory, so a restart forgets them. They exist so that one
 address cannot make `my.modbot.co` hammer Cloud, not for accounting.
 
-**The governing rule is unaffected.** A Cloud that is down means the page shows the instances the
+**The governing rule is unaffected.** A Cloud that is down means the page shows the servers the
 browser saved in `localStorage`, which is what it did before any of this existed.
 
 > **Revised 2026-09-16 — working while Cloud is down.** Three things changed so that a Cloud that
@@ -204,11 +222,11 @@ browser saved in `localStorage`, which is what it did before any of this existed
 >   the page is served; a Cloud that hangs used to hold every page load for the ten seconds the
 >   call takes to give up.
 > - **The proxy says when Cloud did not take part.** `POST /api/local-register` answers `503`
->   unless Cloud took the save, and `GET /api/my-instances` answers `503` unless Cloud answered —
+>   unless Cloud took the save, and `GET /api/my-servers` answers `503` unless Cloud answered —
 >   an empty list is only ever Cloud's own answer. Both used to answer as if all was well, which
 >   left the browser no way to tell "nothing to show" from "could not ask".
 > - **The browser keeps its own copies.** The server's last list is kept in `localStorage`
->   (`modbot.server-instances`) and shown until a fresh one arrives. An address the server could
+>   (`modbot.seen-servers`) and shown until a fresh one arrives. An address the server could
 >   not take waits in `modbot.outbox` and is sent again after 5 s, 10 s, 20 s and so on up to five
 >   minutes while the tab is open, at once when the browser comes back online, and on the next
 >   page load, until the server takes it or answers that it never will. `/register` shows *Saved on
@@ -223,40 +241,40 @@ A deployment that does not know who you are sends you here to be remembered:
   modbot-vrckings.up.railway.app
         │  first visit, unknown browser
         ▼
-  my.modbot.co/register#instance=modbot-vrckings.up.railway.app
+  my.modbot.co/register#server=modbot-vrckings.up.railway.app
         │  page JS reads the fragment, stores it in localStorage
         ▼
   back to modbot-vrckings.up.railway.app
 ```
 
-Afterwards, `my.modbot.co` shows your saved instances and you pick one.
+Afterwards, `my.modbot.co` shows your saved servers and you pick one.
 
-**Going to a page on your instance** is `my.modbot.co/go?redir=<path>`. The page lists the saved
-instances and sends the browser to that path on the one the person picks. It always shows the list,
-even when only one instance is known. `redir` must be a plain path on the instance; anything that
+**Going to a page on your server** is `my.modbot.co/go?redir=<path>`. The page lists the saved
+servers and sends the browser to that path on the one the person picks. It always shows the list,
+even when only one server is known. `redir` must be a plain path on the server; anything that
 could send the browser elsewhere is refused.
 
 It is the only redirect route. The companion's "Pair with a server" opens
 `my.modbot.co/go?redir=/pair` (client protocol §3.1), and documentation links use the same route for
-any other page. `my.modbot.co` never sees a pairing code; the instance issues it.
+any other page. `my.modbot.co` never sees a pairing code; the Modbot server issues it.
 
 > **Revised 2026-09-14.** `/go?redir=` replaced `/instanceredirect?path=` and a separate `/pair`
 > route, and `/register` takes `url` rather than `modbotInstanceUrl`.
 
-> **Revised again 2026-09-14.** `/`, `/register` and `/go` all show one list: the instances saved in
-> this browser and the instances the server has seen from this browser's IP address (§2.3.1), one
+> **Revised again 2026-09-14.** `/`, `/register` and `/go` all show one list: the servers saved in
+> this browser and the servers my.modbot.co has seen from this browser's IP address (§2.3.1), one
 > entry per URL, most recently used first. Every `/go` use is added to a history kept in the browser
-> (`modbot.history`, beside the saved list in `modbot.instances`).
+> (`modbot.history`, beside the saved list in `modbot.servers`).
 >
-> **Revised 2026-09-15.** `/go` no longer goes straight to the only instance it knows; it always
-> shows the list. On a shared address, the only instance known may be one somebody else opened, and
+> **Revised 2026-09-15.** `/go` no longer goes straight to the only server it knows; it always
+> shows the list. On a shared address, the only server known may be one somebody else opened, and
 > sending a person there without asking let a stranger choose where they landed.
 
 ### 2.3 Fragment vs query string — and why registration uses a query string
 
 This is the one detail that matters, and it is easy to get wrong.
 
-A query string (`?instance=…`) is **sent to the server** and lands in access logs, CDN logs and any
+A query string (`?server=…`) is **sent to the server** and lands in access logs, CDN logs and any
 analytics. Even with no application code reading it, the project would end up holding a de facto
 registry of Modbot deployments as a side effect of hosting a static page — precisely the thing §1.1
 forbids.
@@ -266,17 +284,17 @@ forbids.
 (§4). The fragment technique above is recorded because it remains the right answer for any future
 parameter the project should not receive, and because the reasoning is easy to lose.
 
-The selector still stores the instance list in `localStorage`, so **which instances a given person
+The selector still stores the server list in `localStorage`, so **which servers a given person
 uses** stays in their browser. The registry learns that a deployment exists; it does not learn who
 opens it.
 
-> **Reversed 2026-09-14.** Which instances a person uses no longer stays only in their browser. The
-> server now keeps the instance URLs opened from each visitor IP address, and gives each address
+> **Reversed 2026-09-14.** Which servers a person uses no longer stays only in their browser. The
+> service now keeps the server addresses opened from each visitor IP address, and gives each address
 > its own list back (§2.3.1). The maintainer asked for this, and for the addresses to be stored: a
 > first-time visitor, a new browser or a new device otherwise sees an empty page, which is why
-> `/go` looked broken to everyone who had never saved an instance.
+> `/go` looked broken to everyone who had never saved a server.
 
-#### 2.3.1 Instance history by IP address
+#### 2.3.1 Server history by IP address
 
 > **Revised 2026-09-16.** Everything in this section still happens, but Cloud stores it and
 > `my.modbot.co` proxies to Cloud (§2.1.1). The tables have the same shape and the same rules —
@@ -284,14 +302,14 @@ opens it.
 > real-address rule are unchanged, and the real-address rule still decides which address a Cloud
 > request is about, since `my.modbot.co` passes the visitor's address on rather than its own.
 
-**What is stored.** `visitor_instance`: the visitor's IP address, the instance URL (its origin, by
+**What is stored.** `visitor_server`: the visitor's IP address, the server address (its origin, by
 the same rule as §4.1), when it was first and last seen, when the last counted visit began, and a
 visit count.
 
 **When it is saved — twice, on purpose.**
 
-1. As the page is served. When `/`, `/register` or `/go` is requested with an `https` instance URL
-   in `url`, the server records it in `register_page_instance` and `visitor_instance` before it
+1. As the page is served. When `/`, `/register` or `/go` is requested with an `https` server address
+   in `url`, the service records it as a register-page visit (§4.1) and in `visitor_server` before it
    sends the page.
 2. After the app renders. The app calls `POST /api/local-register` with the same URL, and on
    `/register` also writes it to `localStorage`. This covers a page the browser took from its cache
@@ -303,7 +321,7 @@ five minutes run from the counted visit, not from the latest save, so someone wh
 minutes is still counted again once they pass. The two saves of one page view are serialised on the
 row, so arriving together still counts once.
 
-**Reading it.** `GET /api/my-instances` needs no key and returns the instances seen from the
+**Reading it.** `GET /api/my-servers` needs no key and returns the servers seen from the
 requesting address only — the last 90 days, at most 50, most recent first. Nothing in the request
 can name a different address.
 
@@ -322,17 +340,17 @@ Cloudflare changes them. A missing range makes that edge's visitors look like th
 never a way to spoof an address. The same rule gives the addresses in §4.5 and the admin sign-in
 limit.
 
-**Removing.** Removing an instance on the page removes it from `localStorage` and hides the server's
+**Removing.** Removing a server on the page removes it from `localStorage` and hides my.modbot.co's
 entry for it in that browser. Saving it again un-hides it. An admin deleting a register-page entry
 (§4.4) deletes its IP history too.
 
 **Known limits.**
 
-- **People sharing one address see each other's instances**: a school, a workplace, a VPN, a phone
+- **People sharing one address see each other's servers**: a school, a workplace, a VPN, a phone
   network that puts many people behind one address. That is the cost of the feature, not a bug in
   it.
 - An address later handed to someone else carries its list with it for up to 90 days.
-- A person on a shared address can see an instance URL someone else on that address opened, listed
+- A person on a shared address can see a server address someone else on that address opened, listed
   beside their own. `/go` always asks which one to open (§2.2), so nobody is sent to it without
   choosing it.
 - The rule trusts Railway's edge to write the right-most `X-Forwarded-For` entry. Put anything else
@@ -340,33 +358,33 @@ entry for it in that browser. Saving it again un-hides it. An admin deleting a r
 
 ### 2.4 Behaviour
 
-- Multiple saved instances, user-named ("Main group", "Test"), reorderable.
+- Multiple saved servers, user-named ("Main group", "Test"), reorderable.
 - Remembers the last used one and offers it first.
-- Removing an instance removes it from `localStorage`; that is the whole of deletion.
-- Warns when adding a non-HTTPS instance, and refuses to auto-redirect to one.
-- Works offline for instances already saved, since there is nothing to fetch.
+- Removing a server removes it from `localStorage`; that is the whole of deletion.
+- Warns when adding a non-HTTPS server, and refuses to auto-redirect to one.
+- Works offline for servers already saved, since there is nothing to fetch.
 - No cookies, no analytics, no third-party requests, no fonts loaded from elsewhere.
 
 > **Revised 2026-09-14.** Names and reordering are not built; the list is most recently used first.
-> Removing an instance removes it from `localStorage` and also hides the server's entry for it in
+> Removing a server removes it from `localStorage` and also hides my.modbot.co's entry for it in
 > that browser (§2.3.1). An `http` URL is refused outright rather than warned about, and one with a
 > username or password is refused too. The public pages still set no cookies; only `/admin` does
 > (§4.4). The fonts are bundled with the app, so nothing is loaded from elsewhere.
 
 ### 2.5 Validation without trust
 
-`my.modbot.co` cannot verify that a URL is really a Modbot instance without contacting it, and
-contacting it from the page would leak the instance to nothing useful but would still be a request
+`my.modbot.co` cannot verify that a URL is really a Modbot server without contacting it, and
+contacting it from the page would leak the server to nothing useful but would still be a request
 the user did not ask for.
 
 So: it does not validate. It stores what it is given and navigates there. The user typed or was
-redirected from the instance in question; the page is a bookmark manager, not an authority. It does
+redirected from the server in question; the page is a bookmark manager, not an authority. It does
 check that the URL is well-formed and uses HTTPS before offering to go there.
 
 ### 2.6 Self-hosting it
 
 Shipped in the repository and deployable as static files anywhere. A group that would rather not use
-a project-run domain can host their own selector, and a group with one instance can ignore it
+a project-run domain can host their own selector, and a group with one server can ignore it
 entirely.
 
 ---
@@ -481,7 +499,7 @@ releases are still exactly where anyone would look for them.
 
 ---
 
-## 4. The instance registry
+## 4. The server registry
 
 Deployments register themselves with `my.modbot.co` so the project knows how many exist, what
 versions are live, and roughly how they are configured.
@@ -517,24 +535,24 @@ The page saves that URL into the browser's `localStorage` and confirms. That is 
 
 **This is for the operator, not for the project.** It is what makes `my.modbot.co` a usable jumping-off
 point — someone who runs Modbot for two groups, or who arrives from the documentation site, picks
-their instance from a list instead of hunting for a Railway URL.
+their server from a list instead of hunting for a Railway URL.
 
 A **new tab rather than a redirect-and-return**: the deployment never depends on the round trip
 completing, so a slow or unreachable `my.modbot.co` cannot stall onboarding. The wizard continues
 behind it.
 
-The instance list lives in that browser and nowhere else — **which instances a given person uses**
+The server list lives in that browser and nowhere else — **which servers a given person uses**
 stays local, and the selector has no backend for it.
 
 > **Reversed 2026-09-14.** The list is also kept by visitor IP address on the server; see §2.3.1 for
 > what is stored, how one page view is saved twice but counted once, and the known limits.
 
-**The instance URL itself is recorded server-side**, as a backup registry. A deployment whose
+**The server address itself is recorded server-side**, as a backup registry. A deployment whose
 operator turned analytics off, or who never got as far as self-registering, is still counted. The
 page visit contributes the URL and nothing else: no analytics, no group, no version, no operator.
 
 **Revised 2026-09-14.** Page visits are kept in a table of their own, `register_page_instance` —
-the instance's origin, when it was first and last seen, and how many visits — apart from
+the server's origin, when it was first and last seen, and how many visits — apart from
 `registered_instance`, which holds what deployments sent about themselves. A page visit therefore
 cannot overwrite a self-registered row, and the two can still be compared by URL: both store only the
 origin of an absolute `https` address, and a URL carrying a username or password is refused.
@@ -598,9 +616,9 @@ may not.
 > - **Too many tries.** Five wrong keys from one address (§2.3.1's rule) within 15 minutes block that
 >   address until the 15 minutes are up, even with the right key. The count is kept in memory, so a
 >   restart clears it.
-> - **Pages.** Stats; registered instances, searchable, each with its usage fields, IP history
->   (§4.5) and a delete; register-page instances with visits and first and last seen, each with a
->   delete. Deleting a registered instance deletes its IP history. Deleting a register-page entry
+> - **Pages.** Stats; registered servers, searchable, each with its usage fields, IP history
+>   (§4.5) and a delete; register-page servers with visits and first and last seen, each with a
+>   delete. Deleting a registered server deletes its IP history. Deleting a register-page entry
 >   deletes that URL's visitor IP history too.
 > - **New endpoints.** `GET /api/admin/session`, `GET /api/instances/{instanceId}/ip-history`,
 >   `DELETE /api/instances/{instanceId}`, `DELETE /api/register-page-instances?url=`, and `search`
@@ -760,12 +778,12 @@ rather than a threat.
 - Domains are the real single point of failure — not the hosting. Losing `modbot.co` breaks the
   selector's saved links and the default update feed. The mitigations are the ones already in the
   design: manual bookmarks, GitHub Releases, and a configurable feed URL.
-- Neither service is in the critical path of any deployment's operation. A Modbot instance never
+- Neither service is in the critical path of any deployment's operation. A Modbot server never
   contacts either one; only browsers and clients do.
 - `my.modbot.co` needs `MODBOT_CLOUD_API_KEY` and refuses to start without it.
   `MODBOT_CLOUD_PROXY_URL` says which Cloud to read from and defaults to `https://cloud.modbot.co`.
   `/health/ready` answers as long as the process is up: a Cloud that is unreachable is a page with
-  fewer instances on it, not a service that should be taken out of rotation.
+  fewer servers on it, not a service that should be taken out of rotation.
 
   > **Revised 2026-09-16.** It used to need `DATABASE_URL` and a `ROOT_API_KEY`, and apply
   > migrations before serving. It has no database now (§2.1.1).
@@ -787,11 +805,11 @@ rather than a threat.
 ## 7. Non-goals
 
 - Any dynamic behaviour on `my.modbot.co`. If it needs a backend, the feature is wrong.
-- Server-side storage of instance URLs, including "sync your instance list across devices." That is
-  an account system, an instance registry, and a breach waiting to happen, in exchange for saving
+- Server-side storage of server addresses, including "sync your server list across devices." That is
+  an account system, a server registry, and a breach waiting to happen, in exchange for saving
   someone one paste.
 
-  > **Reversed 2026-09-14.** Instance URLs are now stored against the IP address they were opened
+  > **Reversed 2026-09-14.** Server addresses are now stored against the IP address they were opened
   > from (§2.3.1), and handed back to that address. It is still not an account system and does not
   > follow a person to a different network.
   >
@@ -807,7 +825,7 @@ rather than a threat.
 
 ## 8. Open questions
 
-1. **Whether `my.modbot.co` should offer an export/import of the saved instance list**, so a user can
+1. **Whether `my.modbot.co` should offer an export/import of the saved server list**, so a user can
    move it between browsers without anything server-side. A downloadable JSON file is probably the
    whole answer.
 2. **Manifest signing in addition to payload signing.** Payload signatures already prevent malicious

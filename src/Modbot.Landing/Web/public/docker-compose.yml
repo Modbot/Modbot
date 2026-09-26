@@ -37,7 +37,7 @@ services:
       # instances listed on modbot.co. Companions keep their own Cloud settings either way.
       MODBOT_CLOUD_ENDPOINT: ${MODBOT_CLOUD_ENDPOINT:-}
       MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
-      # Where the instance selector is, for the "Add to my.modbot.co" links. Only ever a link.
+      # Where the server selector is, for the "Add to my.modbot.co" links. Only ever a link.
       MODBOT_MY_URL: ${MODBOT_MY_URL:-}
     ports:
       - "${MODBOT_PORT:-8080}:8080"

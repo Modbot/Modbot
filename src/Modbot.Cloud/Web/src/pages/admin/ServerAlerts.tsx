@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { ApiError, api, type InstanceAlertView } from '@/lib/api'
+import { ApiError, api, type ServerAlertView } from '@/lib/api'
 import { when } from '@/lib/format'
 
 /**
@@ -11,8 +11,8 @@ import { when } from '@/lib/format'
  * The one thing a Modbot cannot report about itself is that it is not running. Cloud sees it,
  * because the logs stop arriving.
  */
-export function InstanceAlerts({ serverId }: { serverId: string }) {
-  const [view, setView] = useState<InstanceAlertView | null>(null)
+export function ServerAlerts({ serverId }: { serverId: string }) {
+  const [view, setView] = useState<ServerAlertView | null>(null)
   const [on, setOn] = useState(false)
   const [email, setEmail] = useState('')
   const [silentAfter, setSilentAfter] = useState('60')
@@ -26,7 +26,7 @@ export function InstanceAlerts({ serverId }: { serverId: string }) {
     let cancelled = false
 
     api
-      .instanceAlerts(serverId)
+      .serverAlerts(serverId)
       .then((next) => {
         if (cancelled) return
         setView(next)
@@ -52,7 +52,7 @@ export function InstanceAlerts({ serverId }: { serverId: string }) {
     setFailure(null)
 
     try {
-      const saved = await api.saveInstanceAlerts(serverId, {
+      const saved = await api.saveServerAlerts(serverId, {
         on,
         email,
         silentAfterMinutes: Number(silentAfter) || 0,

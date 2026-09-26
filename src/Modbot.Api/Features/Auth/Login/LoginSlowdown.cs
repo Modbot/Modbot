@@ -16,7 +16,7 @@ namespace Modbot.Api.Features.Auth.Login;
 /// seconds. A lockout would hand them exactly the lever this refuses to provide.
 /// </para>
 /// <para>
-/// In memory, per process. Modbot is a single-instance appliance (foundation §2.4) and the count
+/// In memory, per process. Modbot runs as a single process (foundation §2.4) and the count
 /// is a nuisance to an attacker rather than a record; the record is the <c>LoginFailed</c> fact.
 /// </para>
 /// <para>

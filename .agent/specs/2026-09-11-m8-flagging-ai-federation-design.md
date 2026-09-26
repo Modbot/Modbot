@@ -220,7 +220,7 @@ otherwise.
 
 ### 5.6 Technically
 
-Signed, authenticated instance-to-instance HTTP. Each deployment has a keypair; signals are signed by
+Signed, authenticated server-to-server HTTP. Each deployment has a keypair; signals are signed by
 the issuer so attribution cannot be forged by an intermediary. Pull-based with cursors — a peer going
 offline degrades to stale data, never to a stuck queue. Volume is low enough that this needs no
 special infrastructure.
@@ -244,7 +244,7 @@ special infrastructure.
 
 1. **Peer discovery without a registry.** Manual URL exchange is safe and clunky. Signed importable
    peer lists are probably the answer; worth confirming before building.
-2. **Whether a group's own instance identity should be pseudonymous** to peers it has not explicitly
+2. **Whether a group's own server identity should be pseudonymous** to peers it has not explicitly
    trusted, to limit fingerprinting of small communities.
 3. **Signal expiry.** A ban from four years ago is weaker evidence than one from last week. Time decay
    in display is probably right; an actual expiry is a policy choice that likely belongs to the

@@ -106,7 +106,7 @@ public class CloudProxyTests
     {
         await using var host = await MyTestHost.StartAsync();
 
-        using var response = await host.GetAsync("/api/my-instances", Visitor);
+        using var response = await host.GetAsync("/api/my-servers", Visitor);
         var body = await response.Content.ReadAsStringAsync(Ct);
 
         Assert.Equal($"Bearer {MyTestHost.ApiKey}", host.Cloud.Last.Authorization);
@@ -119,18 +119,77 @@ public class CloudProxyTests
     {
         await using var host = await MyTestHost.StartAsync();
         host.Cloud.Body = """
-            {"items":[{"instanceUrl":"https://modbot.example","firstSeenAt":"2026-09-01T00:00:00+00:00",
+            {"items":[{"serverUrl":"https://modbot.example","firstSeenAt":"2026-09-01T00:00:00+00:00",
             "lastSeenAt":"2026-09-16T00:00:00+00:00","visits":3,"groupName":"VRChat Kings",
             "groupIconUrl":"https://api.vrchat.cloud/icon.png"}]}
             """;
 
-        using var response = await host.GetAsync("/api/my-instances", Visitor);
+        using var response = await host.GetAsync("/api/my-servers", Visitor);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
         var items = body.GetProperty("items").EnumerateArray().ToList();
 
         Assert.Single(items);
-        Assert.Equal("https://modbot.example", items[0].GetProperty("instanceUrl").GetString());
+        Assert.Equal("https://modbot.example", items[0].GetProperty("serverUrl").GetString());
+        Assert.Equal(3, items[0].GetProperty("visits").GetInt32());
         Assert.Equal("VRChat Kings", items[0].GetProperty("groupName").GetString());
+    }
+
+    /// <summary>
+    /// Compatibility, added 2026-09-26, when "instance" became "server". Cloud named the address
+    /// <c>instanceUrl</c> until then and is deployed on its own, so an older Cloud must still be read.
+    /// Remove with the fallback in <c>CloudClient</c> once every Cloud sends <c>serverUrl</c>.
+    /// </summary>
+    [Fact]
+    public async Task A_list_from_a_cloud_that_still_says_instanceUrl_is_read()
+    {
+        await using var host = await MyTestHost.StartAsync();
+        host.Cloud.Body = """
+            {"items":[{"instanceUrl":"https://old.example","firstSeenAt":"2026-09-01T00:00:00+00:00",
+            "lastSeenAt":"2026-09-16T00:00:00+00:00","visits":2},
+            {"serverUrl":"https://new.example","instanceUrl":"https://new.example",
+            "firstSeenAt":"2026-09-01T00:00:00+00:00","lastSeenAt":"2026-09-16T00:00:00+00:00","visits":1}]}
+            """;
+
+        using var response = await host.GetAsync("/api/my-servers", Visitor);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
+
+        Assert.Equal(
+            new string?[] { "https://old.example", "https://new.example" },
+            body.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("serverUrl").GetString()));
+    }
+
+    /// <summary>
+    /// Compatibility, added 2026-09-26. A browser still running a page built before then calls the
+    /// old route and reads <c>instanceUrl</c>. Remove with the old route and the old field once no
+    /// browser can still be running such a page.
+    /// </summary>
+    [Fact]
+    public async Task The_old_route_and_the_old_field_still_answer()
+    {
+        await using var host = await MyTestHost.StartAsync();
+        host.Cloud.Body = """
+            {"items":[{"serverUrl":"https://modbot.example","firstSeenAt":"2026-09-01T00:00:00+00:00",
+            "lastSeenAt":"2026-09-16T00:00:00+00:00","visits":3}]}
+            """;
+
+        using var response = await host.GetAsync("/api/my-instances", Visitor);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var item = Assert.Single(
+            (await response.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("items").EnumerateArray());
+        Assert.Equal("https://modbot.example", item.GetProperty("instanceUrl").GetString());
+        Assert.Equal("https://modbot.example", item.GetProperty("serverUrl").GetString());
+    }
+
+    [Fact]
+    public async Task A_list_with_no_items_in_it_is_a_503()
+    {
+        await using var host = await MyTestHost.StartAsync();
+        host.Cloud.Body = "{}";
+
+        using var response = await host.GetAsync("/api/my-servers", Visitor);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
 
     /// <summary>
@@ -143,7 +202,7 @@ public class CloudProxyTests
         await using var host = await MyTestHost.StartAsync();
         host.Cloud.Unreachable = true;
 
-        using var response = await host.GetAsync("/api/my-instances", Visitor);
+        using var response = await host.GetAsync("/api/my-servers", Visitor);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         Assert.NotNull(response.Headers.RetryAfter);
@@ -159,11 +218,11 @@ public class CloudProxyTests
         await using var host = await MyTestHost.StartAsync();
 
         host.Cloud.Status = HttpStatusCode.BadGateway;
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await host.GetAsync("/api/my-instances", Visitor)).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await host.GetAsync("/api/my-servers", Visitor)).StatusCode);
 
         host.Cloud.Status = HttpStatusCode.OK;
         host.Cloud.Body = "not json";
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await host.GetAsync("/api/my-instances", Visitor)).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await host.GetAsync("/api/my-servers", Visitor)).StatusCode);
     }
 
     [Fact]
@@ -221,11 +280,11 @@ public class CloudProxyTests
 
         for (var i = 0; i < SiteLimits.ReadsPerHour; i++)
         {
-            using var accepted = await host.GetAsync("/api/my-instances", Visitor);
+            using var accepted = await host.GetAsync("/api/my-servers", Visitor);
             Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         }
 
-        using var refused = await host.GetAsync("/api/my-instances", Visitor);
+        using var refused = await host.GetAsync("/api/my-servers", Visitor);
         Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
     }
 
@@ -235,13 +294,13 @@ public class CloudProxyTests
         await using var host = await MyTestHost.StartAsync();
 
         for (var i = 0; i < SiteLimits.ReadsPerHour; i++)
-            (await host.GetAsync("/api/my-instances", Visitor)).Dispose();
+            (await host.GetAsync("/api/my-servers", Visitor)).Dispose();
 
-        Assert.Equal(HttpStatusCode.TooManyRequests, (await host.GetAsync("/api/my-instances", Visitor)).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await host.GetAsync("/api/my-servers", Visitor)).StatusCode);
 
         host.Time.Advance(TimeSpan.FromHours(1) + TimeSpan.FromMinutes(1));
 
-        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync("/api/my-instances", Visitor)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.GetAsync("/api/my-servers", Visitor)).StatusCode);
     }
 
     [Fact]
@@ -249,7 +308,7 @@ public class CloudProxyTests
     {
         await using var host = await MyTestHost.StartAsync(apiKey: null);
 
-        using var response = await host.GetAsync("/api/my-instances", Visitor);
+        using var response = await host.GetAsync("/api/my-servers", Visitor);
 
         // Cloud was not asked, so there is no list to give; the page's own copy stands.
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);

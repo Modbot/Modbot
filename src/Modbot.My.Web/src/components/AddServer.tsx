@@ -1,15 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { normaliseInstanceUrl } from '@/lib/instanceUrl'
+import { normaliseServerUrl } from '@/lib/serverUrl'
 
-export function AddInstance({ label, onAdd }: { label: string; onAdd: (url: string) => void }) {
+export function AddServer({ label, onAdd }: { label: string; onAdd: (url: string) => void }) {
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    const url = normaliseInstanceUrl(value)
+    const url = normaliseServerUrl(value)
     if (!url) {
       setError('Not an https address.')
       return
@@ -25,7 +25,7 @@ export function AddInstance({ label, onAdd }: { label: string; onAdd: (url: stri
         <Input
           type="text"
           inputMode="url"
-          aria-label="Instance URL"
+          aria-label="Server address"
           placeholder="https://"
           value={value}
           aria-invalid={error ? true : undefined}

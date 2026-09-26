@@ -6,7 +6,7 @@ import { api, type LogLevel, type LogLinePage, type LogLineView, type LogSenderV
 import { when } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useAdminLoad } from '@/lib/useLoad'
-import { InstanceAlerts } from './InstanceAlerts'
+import { ServerAlerts } from './ServerAlerts'
 
 const PAGE = 100
 
@@ -98,7 +98,7 @@ export function Logs() {
     <>
       <h1 className="font-display text-lg">Logs</h1>
 
-      {serverId && <InstanceAlerts key={serverId} serverId={serverId} />}
+      {serverId && <ServerAlerts key={serverId} serverId={serverId} />}
 
       <Card className="gap-0 py-0">
         <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">

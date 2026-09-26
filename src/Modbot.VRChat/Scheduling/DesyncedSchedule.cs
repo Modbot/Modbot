@@ -6,7 +6,7 @@ namespace Modbot.VRChat.Scheduling;
 /// <remarks>
 /// <para>
 /// Spec 4.2.2. If Modbot scheduled from a fixed clock — every two seconds on the even second —
-/// then every Modbot instance in the world would hit VRChat simultaneously. The total volume
+/// then every Modbot server in the world would hit VRChat simultaneously. The total volume
 /// would be unchanged and the shape would be far worse: synchronised spikes, from many hosts, on
 /// a schedule. That also happens to be exactly what a coordinated botnet looks like, which is not
 /// an impression this project can afford.
@@ -17,9 +17,9 @@ namespace Modbot.VRChat.Scheduling;
 /// <list type="bullet">
 /// <item>the offset is drawn per process, so a fleet restarting together — a platform event, say
 /// — re-randomises instead of marching in lockstep;</item>
-/// <item>it is drawn per sync type, so one instance's own six types do not fire as a burst;</item>
+/// <item>it is drawn per sync type, so one server's own six types do not fire as a burst;</item>
 /// <item>per-tick jitter keeps the pattern from settling into a regular comb that would slowly
-/// re-align with other instances.</item>
+/// re-align with other servers.</item>
 /// </list>
 /// <para>
 /// Nothing here reads a clock of any kind. Time comes from <see cref="IMonotonicClock"/>, and the
@@ -61,7 +61,7 @@ public sealed class DesyncedSchedule
         Interval = interval;
 
         // Uniform in [0, interval): the whole interval is a valid starting phase, and anything
-        // narrower would leave the instances clustered.
+        // narrower would leave the servers clustered.
         Offset = interval * _random.NextDouble();
 
         // A schedule built part-way through a process's life -- which is what re-reading a

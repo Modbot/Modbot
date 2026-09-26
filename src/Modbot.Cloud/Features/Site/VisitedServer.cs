@@ -12,7 +12,7 @@ namespace Modbot.Cloud.Features.Site;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Kept apart from <see cref="RegisteredServer"/> for the same reason <see cref="PageInstance"/> is
+/// Kept apart from <see cref="RegisteredServer"/> for the same reason <see cref="PageServer"/> is
 /// (central services spec 4.1): a visit can never overwrite what a server reported about itself.
 /// A report arrives over a connection the server opened carrying its own secret; this arrives
 /// because somebody opened a link, and my.modbot.co asked the address whatever answered there.
@@ -32,7 +32,7 @@ namespace Modbot.Cloud.Features.Site;
 public sealed class VisitedServer
 {
     /// <summary>The Modbot's origin, such as <c>https://modbot.example</c>.</summary>
-    public string InstanceUrl { get; set; } = string.Empty;
+    public string ServerUrl { get; set; } = string.Empty;
 
     public string? GroupId { get; set; }
 
@@ -55,8 +55,8 @@ internal sealed class VisitedServerConfiguration : IEntityTypeConfiguration<Visi
     public void Configure(EntityTypeBuilder<VisitedServer> entity)
     {
         entity.ToTable("visited_server");
-        entity.HasKey(s => s.InstanceUrl);
-        entity.Property(s => s.InstanceUrl).HasMaxLength(InstanceUrl.MaxLength);
+        entity.HasKey(s => s.ServerUrl);
+        entity.Property(s => s.ServerUrl).HasMaxLength(ServerUrl.MaxLength);
         entity.Property(s => s.GroupId).HasMaxLength(RegisteredServer.MaxGroupIdLength);
         entity.Property(s => s.GroupName).HasMaxLength(RegisteredServer.MaxGroupNameLength);
         entity.Property(s => s.GroupIconUrl).HasMaxLength(RegisteredServer.MaxUrlLength);

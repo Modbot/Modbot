@@ -1,20 +1,38 @@
-import { normaliseInstanceUrl } from './instanceUrl.ts'
-import type { SavedInstance, ServerInstance } from './merge.ts'
+import type { SavedServer, SeenServer } from './merge.ts'
+import { normaliseServerUrl } from './serverUrl.ts'
 
-/** Saved instances. The key and shape the old hand-written page used, so an old list still loads. */
-export const SAVED_KEY = 'modbot.instances'
+/** Servers saved in this browser, in the shape the old hand-written page used. */
+export const SAVED_KEY = 'modbot.servers'
+
+/**
+ * Where the saved list lived until 2026-09-26, when "instance" became "server".
+ *
+ * Compatibility: the list is moved from here to `SAVED_KEY` the first time it is read. Remove once
+ * every browser that saved a server before that date has been back since.
+ */
+export const OLD_SAVED_KEY = 'modbot.instances'
 
 /** What was opened from here, and when. Newest first. */
 export const HISTORY_KEY = 'modbot.history'
 
-/** URLs removed in this browser that the server may still list for this IP address. */
+/** URLs removed in this browser that my.modbot.co may still list for this IP address. */
 export const HIDDEN_KEY = 'modbot.hidden'
 
-/** Instance addresses this browser still has to send to the server. Oldest first. */
+/** Server addresses this browser still has to send to my.modbot.co. Oldest first. */
 export const OUTBOX_KEY = 'modbot.outbox'
 
-/** The server's last answer for this IP address, shown while a fresh one cannot be had. */
-export const SERVER_LIST_KEY = 'modbot.server-instances'
+/**
+ * my.modbot.co's last list of servers seen from this IP address, shown while a fresh one cannot be
+ * had.
+ */
+export const SEEN_KEY = 'modbot.seen-servers'
+
+/**
+ * Where that list lived until 2026-09-26.
+ *
+ * Compatibility: moved to `SEEN_KEY` the first time it is read. Remove along with `OLD_SAVED_KEY`.
+ */
+export const OLD_SEEN_KEY = 'modbot.server-instances'
 
 const HISTORY_LIMIT = 200
 
@@ -54,20 +72,41 @@ function write(key: string, value: unknown): void {
   }
 }
 
+/**
+ * Moves a value from its old key to its new one, when only the old one has it. Nothing happens once
+ * the new key holds something, so a list saved since is never overwritten.
+ *
+ * Compatibility, added 2026-09-26 for the keys renamed from "instance" to "server". Remove with
+ * `OLD_SAVED_KEY` and `OLD_SEEN_KEY`.
+ */
+function moveOldKey(from: string, to: string): void {
+  try {
+    if (localStorage.getItem(to) !== null) return
+    const old = localStorage.getItem(from)
+    if (old === null) return
+    localStorage.setItem(to, old)
+    localStorage.removeItem(from)
+  } catch {
+    // See read().
+  }
+}
+
 function text(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null
 }
 
-export function loadSaved(): SavedInstance[] {
+export function loadSaved(): SavedServer[] {
+  moveOldKey(OLD_SAVED_KEY, SAVED_KEY)
+
   const raw = read(SAVED_KEY)
   if (!Array.isArray(raw)) return []
 
-  const list: SavedInstance[] = []
+  const list: SavedServer[] = []
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue
     const entry = item as Record<string, unknown>
 
-    const url = normaliseInstanceUrl(text(entry.url))
+    const url = normaliseServerUrl(text(entry.url))
     if (!url || list.some((i) => i.url === url)) continue
 
     list.push({
@@ -100,7 +139,7 @@ export function loadOutbox(): OutboxEntry[] {
     if (!item || typeof item !== 'object') continue
     const entry = item as Record<string, unknown>
 
-    const url = normaliseInstanceUrl(text(entry.url))
+    const url = normaliseServerUrl(text(entry.url))
     if (!url || list.some((e) => e.url === url)) continue
 
     const tries = typeof entry.tries === 'number' && entry.tries >= 0 ? Math.floor(entry.tries) : 0
@@ -115,22 +154,26 @@ export function saveOutbox(entries: readonly OutboxEntry[]): void {
   write(OUTBOX_KEY, entries.slice(-OUTBOX_LIMIT))
 }
 
-export function loadServerList(): ServerInstance[] {
-  const raw = read(SERVER_LIST_KEY)
-  const items = raw && typeof raw === 'object' ? (raw as { items?: unknown }).items : null
+/**
+ * The seen servers in a list my.modbot.co sent or this browser kept. An entry missing what matters is
+ * skipped rather than trusted.
+ */
+export function seenServersFrom(items: unknown): SeenServer[] {
   if (!Array.isArray(items)) return []
 
-  const list: ServerInstance[] = []
+  const list: SeenServer[] = []
   for (const item of items) {
     if (!item || typeof item !== 'object') continue
     const entry = item as Record<string, unknown>
 
-    const instanceUrl = text(entry.instanceUrl)
+    // Compatibility, added 2026-09-26: `instanceUrl` is the field's name before then, in a list
+    // this browser kept or from a my.modbot.co not yet updated. Remove once neither can be.
+    const serverUrl = text(entry.serverUrl) ?? text(entry.instanceUrl)
     const lastSeenAt = text(entry.lastSeenAt)
-    if (!instanceUrl || !lastSeenAt) continue
+    if (!serverUrl || !lastSeenAt) continue
 
     list.push({
-      instanceUrl,
+      serverUrl,
       firstSeenAt: text(entry.firstSeenAt) ?? lastSeenAt,
       lastSeenAt,
       visits: typeof entry.visits === 'number' ? entry.visits : 0,
@@ -140,12 +183,19 @@ export function loadServerList(): ServerInstance[] {
   return list
 }
 
-export function saveServerList(items: readonly ServerInstance[]): void {
-  write(SERVER_LIST_KEY, { items, savedAt: new Date().toISOString() })
+export function loadSeenServers(): SeenServer[] {
+  moveOldKey(OLD_SEEN_KEY, SEEN_KEY)
+
+  const raw = read(SEEN_KEY)
+  return seenServersFrom(raw && typeof raw === 'object' ? (raw as { items?: unknown }).items : null)
 }
 
-/** Saves the instance, or marks a saved one as just used. */
-export function saveInstance(url: string): void {
+export function saveSeenServers(items: readonly SeenServer[]): void {
+  write(SEEN_KEY, { items, savedAt: new Date().toISOString() })
+}
+
+/** Saves the server, or marks a saved one as just used. */
+export function saveServer(url: string): void {
   const now = new Date().toISOString()
   const list = loadSaved()
 
@@ -157,17 +207,17 @@ export function saveInstance(url: string): void {
   write(HIDDEN_KEY, loadHidden().filter((u) => u !== url))
 }
 
-/** Removes the instance from this browser, including from the server's list as shown here. */
-export function removeInstance(url: string): void {
+/** Removes the server from this browser, including from the seen list as shown here. */
+export function removeServer(url: string): void {
   write(SAVED_KEY, loadSaved().filter((i) => i.url !== url))
 
   const hidden = loadHidden()
   if (!hidden.includes(url)) write(HIDDEN_KEY, [...hidden, url])
 }
 
-/** Saves the instance and adds what was opened to the history. */
+/** Saves the server and adds what was opened to the history. */
 export function recordUse(url: string, path: string, action: HistoryAction): void {
-  saveInstance(url)
+  saveServer(url)
 
   const entry: HistoryEntry = { url, path, action, at: new Date().toISOString() }
   write(HISTORY_KEY, [entry, ...loadHistory()].slice(0, HISTORY_LIMIT))

@@ -28,7 +28,7 @@ Anything else is the built not-found page.
 | `PORT` | No | `8080` | Port to listen on. A missing or invalid value falls back to 8080. |
 | `MODBOT_CLOUD_PROXY_URL` | No | none | The Modbot Cloud `/instances` reads from, as a full `http` or `https` address. Anything else is ignored. |
 | `MODBOT_CLOUD_API_KEY` | No | none | The key sent to that Cloud, its `INSTANCES_API_KEY`. Read on the server only; never written into a page. |
-| `MODBOT_MY_URL` | No | `https://my.modbot.co` | Where the instance selector is. Every link on the page that points at it is rewritten to this address as the page is served. |
+| `MODBOT_MY_URL` | No | `https://my.modbot.co` | Where the server selector is. Every link on the page that points at it is rewritten to this address as the page is served. |
 | `MODBOT_DISCORD_URL` | No | none | Where `/discord` sends people. Without it, `/discord` says there is no invite yet and points at GitHub. |
 | `MODBOT_GITHUB_URL` | No | `https://github.com/Modbot/Modbot` | Where `/github` sends people. |
 | `SEQ_URL` | No | none | A [Seq](https://datalust.co/seq) server to send logs to. Unset means no Seq. |

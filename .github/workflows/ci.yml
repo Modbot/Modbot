@@ -95,7 +95,7 @@ jobs:
       - run: npm test
 
   # my.modbot.co's web app. `npm run build` type-checks before bundling; `npm test` runs the
-  # /go path-safety and instance-list tests on Node's own test runner.
+  # /go path-safety and server-list tests on Node's own test runner.
   my-web:
     runs-on: ubuntu-latest
     defaults:

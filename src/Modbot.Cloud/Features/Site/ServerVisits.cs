@@ -4,8 +4,8 @@ using Modbot.Cloud.Data;
 namespace Modbot.Cloud.Features.Site;
 
 /// <summary>
-/// Records that a Modbot address was opened: in <c>page_instance</c>, and against the visitor's IP
-/// address in <c>visitor_instance</c>.
+/// Records that a Modbot address was opened: in <c>page_server</c>, and against the visitor's IP
+/// address in <c>visitor_server</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,7 +20,7 @@ namespace Modbot.Cloud.Features.Site;
 /// few minutes is counted again once it has passed.
 /// </para>
 /// </remarks>
-public static class InstanceVisits
+public static class ServerVisits
 {
     public static readonly TimeSpan RepeatWindow = TimeSpan.FromMinutes(5);
 
@@ -43,11 +43,11 @@ public static class InstanceVisits
 
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"""
-            INSERT INTO page_instance (instance_url, first_seen_at, last_seen_at, visits)
+            INSERT INTO page_server (server_url, first_seen_at, last_seen_at, visits)
             VALUES ({url}, {now}, {now}, 1)
-            ON CONFLICT (instance_url) DO UPDATE
-            SET last_seen_at = GREATEST(page_instance.last_seen_at, EXCLUDED.last_seen_at),
-                visits = page_instance.visits + {added}
+            ON CONFLICT (server_url) DO UPDATE
+            SET last_seen_at = GREATEST(page_server.last_seen_at, EXCLUDED.last_seen_at),
+                visits = page_server.visits + {added}
             """,
             ct);
 
@@ -62,9 +62,9 @@ public static class InstanceVisits
         // inserts nothing, so the pair is inserted and counted once.
         var inserted = await db.Database.ExecuteSqlInterpolatedAsync(
             $"""
-            INSERT INTO visitor_instance (ip_address, instance_url, first_seen_at, last_seen_at, last_visit_at, visits)
+            INSERT INTO visitor_server (ip_address, server_url, first_seen_at, last_seen_at, last_visit_at, visits)
             VALUES ({ip}, {url}, {now}, {now}, {now}, 1)
-            ON CONFLICT (ip_address, instance_url) DO NOTHING
+            ON CONFLICT (ip_address, server_url) DO NOTHING
             """,
             ct);
 
@@ -76,8 +76,8 @@ public static class InstanceVisits
         var lastVisit = await db.Database
             .SqlQuery<DateTimeOffset>(
                 $"""
-                SELECT last_visit_at AS "Value" FROM visitor_instance
-                WHERE ip_address = {ip} AND instance_url = {url}
+                SELECT last_visit_at AS "Value" FROM visitor_server
+                WHERE ip_address = {ip} AND server_url = {url}
                 FOR UPDATE
                 """)
             .ToListAsync(ct);
@@ -87,11 +87,11 @@ public static class InstanceVisits
 
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"""
-            UPDATE visitor_instance
+            UPDATE visitor_server
             SET last_seen_at = GREATEST(last_seen_at, {now}),
                 visits = visits + {added},
                 last_visit_at = CASE WHEN {counted} THEN {now} ELSE last_visit_at END
-            WHERE ip_address = {ip} AND instance_url = {url}
+            WHERE ip_address = {ip} AND server_url = {url}
             """,
             ct);
 

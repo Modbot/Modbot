@@ -13,13 +13,13 @@ export type Outbox = {
 }
 
 /**
- * The addresses this browser still owes the server.
+ * The addresses this browser still owes my.modbot.co.
  *
  * `POST /api/local-register` is how a page view reaches Modbot Cloud (central services spec 2.3.1).
  * When it cannot be delivered — my.modbot.co unreachable, or up but unable to reach Cloud — the
  * address waits in localStorage and is sent in the background: again after 5 s, 10 s, 20 s and so
  * on up to five minutes while the tab is open, at once when the browser comes back online, and on
- * the next page load. It leaves the queue only when the server said it took it, or answered that
+ * the next page load. It leaves the queue only when my.modbot.co said it took it, or answered that
  * it never will (a 4xx other than "try later"), so the page never claims a send it did not get.
  */
 export function createOutbox(send: (url: string) => Promise<void>, timers: Timers = browserTimers): Outbox {

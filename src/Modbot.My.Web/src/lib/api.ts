@@ -1,4 +1,5 @@
-import type { ServerInstance } from './merge.ts'
+import type { SeenServer } from './merge.ts'
+import { seenServersFrom } from './storage.ts'
 
 export class ApiError extends Error {
   readonly status: number
@@ -10,8 +11,8 @@ export class ApiError extends Error {
 }
 
 /**
- * Longer than the server's own wait on Modbot Cloud (ten seconds), so a server that is up and
- * waiting on Cloud gets to answer, and a server that is not answering at all is given up on.
+ * Longer than my.modbot.co's own wait on Modbot Cloud (ten seconds), so a my.modbot.co that is up
+ * and waiting on Cloud gets to answer, and one that is not answering at all is given up on.
  */
 const REQUEST_TIMEOUT_MS = 15_000
 
@@ -48,9 +49,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 /**
  * The two calls the page makes. Both go to my.modbot.co, which passes them to Modbot Cloud with a
- * key that stays on the server (central services spec 2.1.1).
+ * key that never reaches the browser (central services spec 2.1.1).
  */
 export const api = {
-  myInstances: () => request<{ items: ServerInstance[] }>('GET', '/api/my-instances'),
+  myServers: async (): Promise<{ items: SeenServer[] }> => {
+    const answer = await request<{ items?: unknown } | null>('GET', '/api/my-servers')
+    // A list that is not one is a failed answer, not an empty list: the page keeps the one it had.
+    if (!answer || !Array.isArray(answer.items)) throw new ApiError(502, 'Not a list of servers.')
+    return { items: seenServersFrom(answer.items) }
+  },
   localRegister: (url: string) => request<void>('POST', '/api/local-register', { url }),
 }

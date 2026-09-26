@@ -3,7 +3,7 @@ using Modbot.Cloud.Engine;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace Modbot.Cloud.Features.InstanceLogs;
+namespace Modbot.Cloud.Features.ServerLogs;
 
 /// <param name="Stored">Lines written.</param>
 public sealed record LogBatchResponse(int Stored);
@@ -29,7 +29,7 @@ public sealed record LogBatchResponse(int Stored);
 public sealed class LogBatchWriter(EngineContext engine, LogPartitionMaintainer partitions)
 {
     private const string Copy = """
-        COPY instance_log (received_at, server_id, at, level, message, template, source, area, service,
+        COPY server_log (received_at, server_id, at, level, message, template, source, area, service,
                            version, exception, properties)
         FROM STDIN (FORMAT BINARY)
         """;
