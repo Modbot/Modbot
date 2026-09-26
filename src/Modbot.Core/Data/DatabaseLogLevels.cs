@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace Modbot.Core.Data;
 
 /// <summary>
-/// The four Entity Framework events Modbot writes at a different level than Entity Framework
+/// The five Entity Framework events Modbot writes at a different level than Entity Framework
 /// chose, and the reason for each.
 /// </summary>
 /// <remarks>
@@ -47,6 +47,15 @@ public static class DatabaseLogLevels
     /// for every context created — which, with a context per request, is a line per request saying
     /// nothing. It only stopped being invisible when the blanket floor came off.
     /// </para>
+    /// <para>
+    /// <see cref="CoreEventId.SaveChangesFailed"/> is an Error for every save that throws,
+    /// including the ones Modbot throws on purpose. Five places in the app claim a row by writing
+    /// it and letting the unique index decide — that is how two clicks arriving at once are told
+    /// apart without a read-then-write — so the second click is an ordinary outcome that EF
+    /// narrates as a failure. Like the two above it, a save that really did fail is reported a
+    /// line later by whoever was waiting on it, in Modbot's own words; this line is the same news
+    /// in Entity Framework's, before anyone has decided whether it was news at all.
+    /// </para>
     /// </remarks>
     public static DbContextOptionsBuilder LogQueriesAtDebug(this DbContextOptionsBuilder options)
     {
@@ -57,6 +66,7 @@ public static class DatabaseLogLevels
                 (RelationalEventId.CommandExecuted, LogLevel.Debug),
                 (RelationalEventId.CommandError, LogLevel.Debug),
                 (RelationalEventId.ConnectionError, LogLevel.Debug),
-                (CoreEventId.ContextInitialized, LogLevel.Debug)));
+                (CoreEventId.ContextInitialized, LogLevel.Debug),
+                (CoreEventId.SaveChangesFailed, LogLevel.Debug)));
     }
 }
