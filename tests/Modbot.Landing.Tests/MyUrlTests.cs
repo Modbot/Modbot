@@ -3,7 +3,7 @@ using Modbot.Landing.Configuration;
 namespace Modbot.Landing.Tests;
 
 /// <summary>
-/// MODBOT_MY_URL: a group running its own instance selector points every link on the page at it
+/// MODBOT_MY_URL: a group running its own server selector points every link on the page at it
 /// with one variable (central services spec 6).
 /// </summary>
 public class MyUrlTests

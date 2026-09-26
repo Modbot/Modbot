@@ -118,7 +118,7 @@ endpoint, behind the same `PROXY_API_KEY`, with rules of its own.
 The table is `visited_server`: the server address (the key), group id, group name, icon URL, banner
 URL, owner email, first seen and last seen.
 
-It is **kept apart from `registered_server`**, for the same reason `page_instance` is (central
+It is **kept apart from `registered_server`**, for the same reason `page_server` (`page_instance` before 2026-09-26) is (central
 services §4.1): a report arrives over a connection the server opened carrying its own secret, and
 this arrives because somebody opened a link and my.modbot.co asked whatever answered at that
 address.
@@ -139,9 +139,9 @@ an earlier visit learned.
 
 ### 3.3 Where it shows up
 
-- `GET /api/v1/site/visits` — the instance list on `my.modbot.co` falls back to the visit-learned
+- `GET /api/v1/site/visits` — the server list on `my.modbot.co` falls back to the visit-learned
   group name and icon where the registry has none. Its shape does not change.
-- `/admin` — the address list (`GET /api/admin/page-instances`) carries the group and the owner
+- `/admin` — the address list (`GET /api/admin/page-servers`; `/api/admin/page-instances` before 2026-09-26) carries the group and the owner
   email, and the server list (`GET /api/admin/servers`) carries the owner email for the matching
   address.
 
@@ -151,7 +151,7 @@ Stored for one reason: so that the maintainer can reach whoever runs a deploymen
 
 **It is never returned by any endpoint that a visitor, a page or another service can reach.** Not by
 anything under `/api/v1/site`, not by `ServerView` — which a signed-in account reads about its own
-servers — and not by the register page. It is on `AdminServerView` and `AdminPageInstanceView`, both
+servers — and not by the register page. It is on `AdminServerView` and `AdminPageServerView`, both
 of which need the admin cookie or `ROOT_API_KEY`. It is not written to a log line: a failure to ask
 an address logs the address and never the answer.
 

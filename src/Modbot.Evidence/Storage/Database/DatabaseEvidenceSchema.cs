@@ -17,7 +17,7 @@ namespace Modbot.Evidence.Storage.Database;
 /// </para>
 /// <para>
 /// The advisory lock matters for the same reason it does there: <c>CREATE TABLE IF NOT EXISTS</c>
-/// still races two instances into a duplicate-table error, and a Modbot that crash-loops on
+/// still races two copies of Modbot into a duplicate-table error, and a Modbot that crash-loops on
 /// startup because two replicas booted together is a miserable thing to debug.
 /// </para>
 /// </remarks>

@@ -20,7 +20,7 @@
 The first version of this spec sent **every raw VRChat log line** to Cloud. That misread the request.
 The maintainer's words:
 
-> "Modbot deployed instances feed structured JSON logs to Modbot Cloud for remote support and backups,
+> "Modbot deployed [servers] feed structured JSON logs to Modbot Cloud for remote support and backups,
 > and Modbot Companions also send their parsed events to Modbot Cloud as a backup instead of just Modbot,
 > but it has all instances logged instead of just that group's instances."
 
@@ -163,7 +163,7 @@ nothing about the backup is tied to a paired server.
 
 | Variable | Database | Holds |
 |---|---|---|
-| `DATABASE_URL` | Cloud's main database (`CloudContext`) | installs and secret hashes, admin sessions, settings. Later: accounts, instance registry, term lists, showcases. |
+| `DATABASE_URL` | Cloud's main database (`CloudContext`) | installs and secret hashes, admin sessions, settings. Later: accounts, server registry, term lists, showcases. |
 | `DATABASE_ENGINE_URL` | The event storage (`EngineContext`) | backed-up events, per-install clocks, daily and hourly totals, and the server log feed (§0). |
 
 Both are required; Cloud refuses to start and names whichever is missing. Each has its own migrations
@@ -352,6 +352,6 @@ size. Measure from the first week of data.
 
 ## 13. Not built here
 
-The server log feed (§0), accounts, instance registration, term lists, showcases, and any public analytics.
+The server log feed (§0), accounts, server registration, term lists, showcases, and any public analytics.
 What a Modbot server itself will use Cloud for, and the server's own `MODBOT_CLOUD_ENDPOINT` and
 `MODBOT_CLOUD_DISABLED`, are planned in central services §1.1.

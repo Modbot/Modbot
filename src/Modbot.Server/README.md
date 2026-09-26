@@ -19,7 +19,7 @@ deployment switches.
 | `MODBOT_DEBUG_LOGGING` | No | off | `1`, `true`, `yes` or `on` turns on the Debug log streams while the console stays at Information. `LOG_LEVEL` wins over it. |
 | `MODBOT_CLOUD_ENDPOINT` | No | `https://cloud.modbot.co` | The Modbot Cloud this server talks to for its own use: the term lists, a report every six hours, the instances its group has open, and its own log. A value that is not a full `http` or `https` address means the default. Companions are not told it. |
 | `MODBOT_CLOUD_DISABLED` | No | off | `1`, `true`, `yes` or `on`: this server does not talk to Modbot Cloud at all — no report, no term list downloads, no registration, no instances listed and no log sent. This is how usage reporting is turned off; there is no toggle in the setup wizard or in Settings. It does not change what companions send. |
-| `MODBOT_MY_URL` | No | `https://my.modbot.co` | Where the instance selector is, for the **Add to my.modbot.co** links. A value that is not a full `http` or `https` address means the default. Modbot never calls it. |
+| `MODBOT_MY_URL` | No | `https://my.modbot.co` | Where the server selector is, for the **Add to my.modbot.co** links. A value that is not a full `http` or `https` address means the default. Modbot never calls it. |
 | `MODBOT_DEMO` | No | off | `1`, `true`, `yes` or `on` starts this server as a public demo: made-up data, no sign-in, every visitor an administrator. Ignored, with nothing seeded or removed, once a staff account exists or the setup wizard has been finished. |
 | `MODBOT_DEMO_RESET_HOURS` | No | `24` | Hours between automatic resets of the demo's data. `0` never resets. Anything but a whole number from 0 to 8760 means 24. Only read while `MODBOT_DEMO` is on. |
 

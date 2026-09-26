@@ -20,7 +20,7 @@
 | **Analytics** | My Group, My Server, My Team, Worlds and Instances. Daily totals. The fact log with linked facts. Tiered retention that prunes by dropping partitions. |
 | **Accounts and access** | Roles as named permissions. Staff accounts, invite links, reset links, required VRChat linking. Sessions with keep me signed in, and sign out everywhere. An email queue under a daily limit. |
 | **Companion and overlay** | Log tailing, instance sessions, presence reporting with offline buffering and clock sync. Pairing by link. Multi-server routing with no cross-group leakage. The sent journal. Spoken announcements. A real SteamVR and OpenXR overlay with grab-and-place, curve, opacity and size. |
-| **Cloud and the central site** | my.modbot.co (register, go, known instances). Modbot Cloud (accounts, server registry, claiming, event backup, instance logs and alerts, showcase, subscribers, update feed, Hub term lists). The landing page. Update checking on both server and companion. |
+| **Cloud and the central site** | my.modbot.co (register, go, known servers). Modbot Cloud (accounts, server registry, claiming, event backup, server logs and alerts, showcase, subscribers, update feed, Hub term lists). The landing page. Update checking on both server and companion. |
 | **Giveaways** | Rules and the builder, a preview that is honest about precision, weighting, Discord reaction entry, frozen entrant snapshots, seed promise-and-reveal, and re-draws. |
 | **The API** | 195 published endpoints. API keys. Outgoing webhooks with a delivery log. Live events over WebSocket and long polling. Cursor paging. The VRChat proxy. Demo mode. |
 
@@ -163,7 +163,7 @@ Ranked within each group by what a person using Modbot would actually feel.
 - **Stopping an AI reply part-way when it crosses a spend limit** — the check is pre-call only.
 - **Copying Hub AI topics into local topics**, **notifications for flags**, **checking every stored
   profile on demand**.
-- **Trends over the stored instance logs.**
+- **Trends over the stored server logs.**
 
 ---
 

@@ -18,7 +18,7 @@
 > "Another feature of modbot cloud and modbot should be able to see and filter structured logs
 > **inside the app** if you don't have Seq or filesystem access, with a 180 day default retention
 > that can be changed. Logs can be sent to Modbot Cloud by default (can be turned off, for remote
-> debugging and support services) and view them in Modbot Cloud for admins and instance owners with
+> debugging and support services) and view them in Modbot Cloud for admins and [server] owners with
 > healthchecks that notify people by email when something is wrong (configurable in Modbot or Modbot
 > Cloud). … Modbot Cloud should have an api endpoint that pulls Contributors from Github and a
 > database table with API endpoints for Sponsors and Early Adopters so we can showcase them in
@@ -253,7 +253,7 @@ The **engine** database (`DATABASE_ENGINE_URL`), beside the client events, as cl
 
 ### 4.2 Partitioned by month, unlike the events beside them
 
-| | `companion_event` | `instance_log` |
+| | `companion_event` | `server_log` (`instance_log` before 2026-09-26) |
 |---|---|---|
 | Volume | a few dozen an hour per client | hundreds of times that |
 | Key | `(install_id, companion_event_id)` — the client's own id, for exact retries | `(id, received_at)` — a sequence |
@@ -461,7 +461,7 @@ log going to Cloud, and stops the Credits page asking for the showcase.
 
 ## 9. What is not built
 
-- **Trends over the stored logs.** Nothing reads `instance_log` but the viewer and retention.
+- **Trends over the stored logs.** Nothing reads `server_log` but the viewer and retention.
 - **Anything on the companion.** Its log stays on the moderator's PC (M3 §10); this feature is
   about servers. *(The companion gained a Credits page of its own on 2026-09-17. Its log still
   stays on the PC; only the showcase is read.)*

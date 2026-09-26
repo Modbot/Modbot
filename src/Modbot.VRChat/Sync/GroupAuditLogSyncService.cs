@@ -64,7 +64,7 @@ public sealed class GroupAuditLogSyncService : BackgroundService
     {
         // The first pass waits, rather than firing the instant the process is up. Spec 4.2.2's
         // whole argument is that a fleet restarting together must re-spread instead of marching
-        // in lockstep, and a platform redeploy restarts every instance at once.
+        // in lockstep, and a platform redeploy restarts every server at once.
         _diagnostics.RecordPollRate(_pollRate.Current);
 
         while (!stoppingToken.IsCancellationRequested)

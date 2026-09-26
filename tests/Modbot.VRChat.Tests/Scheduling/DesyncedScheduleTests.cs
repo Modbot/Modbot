@@ -42,7 +42,7 @@ public class DesyncedScheduleTests
         var bans = new DesyncedSchedule(Interval, clock, random);
         var auditLog = new DesyncedSchedule(TimeSpan.FromSeconds(8), clock, random);
 
-        // Otherwise one instance's own sync types fire together as a burst.
+        // Otherwise one server's own sync types fire together as a burst.
         Assert.NotEqual(members.Offset, bans.Offset);
         Assert.NotEqual(bans.Offset, auditLog.Offset);
     }
@@ -70,7 +70,7 @@ public class DesyncedScheduleTests
         Assert.All(gaps, gap => Assert.InRange(gap, Interval * 0.8, Interval * 1.2));
 
         // Jitter is doing something: a schedule that settled into an exact comb would slowly
-        // re-align with other instances, which is the point of having it at all.
+        // re-align with other servers, which is the point of having it at all.
         Assert.True(gaps.Distinct().Count() > 40);
     }
 

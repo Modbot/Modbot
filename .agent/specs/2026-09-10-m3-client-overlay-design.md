@@ -931,12 +931,12 @@ developer's own machine has trusted the binary since the first local build.
 ### 9.1 Central update host
 
 Update manifests and payloads are served by a **central host operated by the Modbot project** — not
-by the operator's self-hosted instance. Self-hosters do not build, sign or publish clients, so the
+by the operator's self-hosted server. Self-hosters do not build, sign or publish clients, so the
 release feed is necessarily central.
 
 The client therefore talks to **two** servers, and they are trusted for different things:
 
-| | The operator's Modbot instance | The central update host |
+| | The operator's Modbot server | The central update host |
 |---|---|---|
 | Purpose | Receives presence facts | Serves signed releases |
 | Chosen by | The moderator, during pairing | The project, by default |
