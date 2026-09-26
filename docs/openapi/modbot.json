@@ -24385,6 +24385,7 @@
         "required": [
           "from",
           "to",
+          "today",
           "memberCount",
           "joined",
           "left",
@@ -24397,6 +24398,7 @@
           "membersWithKnownTenure",
           "invites",
           "peaks",
+          "daysWithoutAuditLog",
           "coverage",
           "generatedAt"
         ],
@@ -24408,6 +24410,13 @@
           },
           "to": {
             "type": "string",
+            "format": "date"
+          },
+          "today": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date"
           },
           "memberCount": {
@@ -24479,6 +24488,13 @@
           "peaks": {
             "$ref": "#/components/schemas/MemberCountPeaks"
           },
+          "daysWithoutAuditLog": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
           "coverage": {
             "$ref": "#/components/schemas/AnalyticsCoverage"
           },
@@ -24540,7 +24556,8 @@
           "to",
           "stepSeconds",
           "points",
-          "generatedAt"
+          "generatedAt",
+          "daysWithoutReadings"
         ],
         "type": "object",
         "properties": {
@@ -24572,6 +24589,13 @@
           "generatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "daysWithoutReadings": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
           }
         }
       },
@@ -25412,7 +25436,8 @@
           "to",
           "stepSeconds",
           "points",
-          "generatedAt"
+          "generatedAt",
+          "daysWithoutHeadCounts"
         ],
         "type": "object",
         "properties": {
@@ -25444,6 +25469,13 @@
           "generatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "daysWithoutHeadCounts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
           }
         }
       },
@@ -25824,6 +25856,7 @@
         "required": [
           "from",
           "to",
+          "today",
           "opened",
           "closed",
           "mostOpenAtOnce",
@@ -25837,6 +25870,9 @@
           "hourOfWeek",
           "peaks",
           "presenceReports",
+          "daysWithoutAuditLog",
+          "daysWithoutHeadCounts",
+          "daysWithoutPresenceReports",
           "coverage",
           "generatedAt"
         ],
@@ -25848,6 +25884,13 @@
           },
           "to": {
             "type": "string",
+            "format": "date"
+          },
+          "today": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date"
           },
           "opened": {
@@ -25930,6 +25973,27 @@
               "string"
             ],
             "format": "int64"
+          },
+          "daysWithoutAuditLog": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "daysWithoutHeadCounts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "daysWithoutPresenceReports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
           },
           "coverage": {
             "$ref": "#/components/schemas/AnalyticsCoverage"
@@ -27598,6 +27662,10 @@
               "string"
             ],
             "format": "int32"
+          },
+          "carried": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -30928,6 +30996,7 @@
         "required": [
           "from",
           "to",
+          "today",
           "memberCount",
           "joined",
           "left",
@@ -30943,6 +31012,8 @@
           "messagesRemoved",
           "topContributors",
           "health",
+          "daysWithoutBot",
+          "daysWithoutMessages",
           "coverage",
           "generatedAt"
         ],
@@ -30954,6 +31025,13 @@
           },
           "to": {
             "type": "string",
+            "format": "date"
+          },
+          "today": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date"
           },
           "memberCount": {
@@ -31039,6 +31117,20 @@
           },
           "health": {
             "$ref": "#/components/schemas/MemberHealth"
+          },
+          "daysWithoutBot": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "daysWithoutMessages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
           },
           "coverage": {
             "$ref": "#/components/schemas/AnalyticsCoverage"
@@ -31650,6 +31742,7 @@
         "required": [
           "from",
           "to",
+          "today",
           "kinds",
           "moderators",
           "actionsPerDay",
@@ -31658,6 +31751,7 @@
           "moderatorsRecognised",
           "instancesWatched",
           "instancesOpenedWithoutAnyWatch",
+          "daysWithoutAuditLog",
           "coverage",
           "generatedAt"
         ],
@@ -31669,6 +31763,13 @@
           },
           "to": {
             "type": "string",
+            "format": "date"
+          },
+          "today": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date"
           },
           "kinds": {
@@ -31724,6 +31825,13 @@
               "string"
             ],
             "format": "int32"
+          },
+          "daysWithoutAuditLog": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
           },
           "coverage": {
             "$ref": "#/components/schemas/AnalyticsCoverage"
@@ -34038,9 +34146,11 @@
         "required": [
           "from",
           "to",
+          "today",
           "worlds",
           "visitorsPerDay",
           "presenceReports",
+          "daysWithoutPresenceReports",
           "coverage",
           "generatedAt"
         ],
@@ -34052,6 +34162,13 @@
           },
           "to": {
             "type": "string",
+            "format": "date"
+          },
+          "today": {
+            "type": [
+              "null",
+              "string"
+            ],
             "format": "date"
           },
           "worlds": {
@@ -34073,6 +34190,13 @@
               "string"
             ],
             "format": "int64"
+          },
+          "daysWithoutPresenceReports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
           },
           "coverage": {
             "$ref": "#/components/schemas/AnalyticsCoverage"

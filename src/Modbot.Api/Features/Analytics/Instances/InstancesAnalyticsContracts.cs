@@ -127,13 +127,18 @@ public sealed record ActivityPoint(DateTimeOffset At, int People, int Instances)
 /// The window was cut into steps this long and the last reading in each kept, so the series is never
 /// more than about five hundred points.
 /// </param>
+/// <param name="DaysWithoutHeadCounts">
+/// UTC days the window touches on which a group instance was open and Modbot had no head count for
+/// any of that time. A day nothing was open is quiet, not missing, and is not in here.
+/// </param>
 public sealed record InstanceActivitySeries(
     string Range,
     DateTimeOffset From,
     DateTimeOffset To,
     int StepSeconds,
     IReadOnlyList<ActivityPoint> Points,
-    DateTimeOffset GeneratedAt);
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<DateOnly> DaysWithoutHeadCounts);
 
 /// <param name="Opened">Instances opened per day (daily totals).</param>
 /// <param name="Closed">Instances closed per day (daily totals).</param>
@@ -156,9 +161,17 @@ public sealed record InstanceActivitySeries(
 /// How many presence facts the window holds. The heatmap and <paramref name="MostPeopleInOne"/> rest
 /// on these, so the page marks them thin below a handful — the same test the Worlds page applies.
 /// </param>
+/// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>
+/// <param name="DaysWithoutAuditLog">
+/// Days before Modbot began reading the group's audit log, which openings, closings and how long
+/// instances stayed open come from.
+/// </param>
+/// <param name="DaysWithoutHeadCounts">Days an instance was open and never counted (see <see cref="InstanceActivitySeries"/>).</param>
+/// <param name="DaysWithoutPresenceReports">Days an instance was open and no companion reported from any.</param>
 public sealed record InstancesAnalytics(
     DateOnly From,
     DateOnly To,
+    DateOnly? Today,
     IReadOnlyList<DayValue> Opened,
     IReadOnlyList<DayValue> Closed,
     IReadOnlyList<DayValue> MostOpenAtOnce,
@@ -172,5 +185,8 @@ public sealed record InstancesAnalytics(
     HourOfWeek HourOfWeek,
     InstancePeaks Peaks,
     long PresenceReports,
+    IReadOnlyList<DateOnly> DaysWithoutAuditLog,
+    IReadOnlyList<DateOnly> DaysWithoutHeadCounts,
+    IReadOnlyList<DateOnly> DaysWithoutPresenceReports,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);

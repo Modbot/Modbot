@@ -91,6 +91,7 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
         return new TeamAnalytics(
             from,
             to,
+            MissingDays.Today(to, now),
             Kinds,
             moderators,
             totals.SummedPerDay(KindMetrics),
@@ -99,6 +100,7 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
             roster.Count,
             watched,
             unwatched,
+            await new MissingDaysQuery(db).AuditLogAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }

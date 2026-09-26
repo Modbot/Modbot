@@ -7,7 +7,8 @@
  *
  * - Series colours are a fixed order (`SeriesSlot`), never cycled by rank. A filter that removes
  *   a series must not repaint the survivors.
- * - Marks are thin, grid lines are hairline and recessive, and nothing is dashed.
+ * - Marks are thin and grid lines are hairline and recessive. A dash means one thing: a value
+ *   carried over rather than measured, or a day not over yet. Stripes mean a day with no data.
  * - Identity is never colour alone: every multi-series chart has a legend, and values are
  *   labelled in text.
  * - One axis, always. Two measures of different scale are two charts.
@@ -18,6 +19,9 @@ export { ChartTooltip, type TooltipRow } from './ChartTooltip'
 export { rechartsTooltip } from './rechartsTooltip'
 export { DailyBars, type DaySeries } from './DailyBars'
 export { DailyLine } from './DailyLine'
+export { carriedKey, timeBands, breakAtBands, type DayMark, type DayMarks } from './coverage'
+export { HollowDot, MissingBands, Stripes } from './marks'
+export { useStripeId } from './useStripeId'
 export { Heatmap } from './Heatmap'
 export { RankedList, Legend } from './RankedList'
 export { chartHeight, chartTheme, nextSlot, seriesColor, type SeriesSlot } from './theme'

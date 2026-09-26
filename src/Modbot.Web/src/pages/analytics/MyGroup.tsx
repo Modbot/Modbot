@@ -74,6 +74,8 @@ export function MyGroup() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 legend={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]}
                 series={[
                   { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
@@ -86,6 +88,8 @@ export function MyGroup() {
               <DailyLine
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 mode="carry"
                 series={[{ key: 'net', label: 'net', points: data.netChange, slot: 4 }]}
               />
@@ -116,6 +120,8 @@ export function MyGroup() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 legend={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]}
                 series={[
                   { key: 'invites', label: 'invites sent', one: 'invite sent', points: data.invitesSent, slot: 1 },

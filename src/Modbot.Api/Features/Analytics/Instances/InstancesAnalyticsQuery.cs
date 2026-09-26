@@ -65,9 +65,12 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
 
         decimal? typical = withBothEnds.Count == 0 ? null : Median(withBothEnds);
 
+        var missing = new MissingDaysQuery(db);
+
         return new InstancesAnalytics(
             from,
             to,
+            MissingDays.Today(to, now),
             totals.Series(DailyTotalMetrics.InstancesOpened),
             totals.Series(DailyTotalMetrics.InstancesClosed),
             MostOpenAtOnce(lives, from, to),
@@ -81,6 +84,9 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
             await HourOfWeekAsync(from, to, ct),
             await new InstancePeaksQuery(db).RunAsync(from, to, ct),
             await new PresenceCounts(db).ReportsAsync(from, to, ct),
+            await missing.AuditLogAsync(from, to, ct),
+            await missing.HeadCountsAsync(from, to, ct),
+            await missing.PresenceReportsAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }

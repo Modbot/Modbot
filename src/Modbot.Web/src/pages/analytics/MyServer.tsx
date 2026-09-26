@@ -62,6 +62,8 @@ export function MyServer() {
             <DailyLine
               from={data.from}
               to={data.to}
+              missing={data.daysWithoutBot}
+              today={data.today}
               mode="carry"
               zeroBased={false}
               series={[{ key: 'members', label: 'members', one: 'member', points: data.memberCount, slot: 1 }]}
@@ -73,6 +75,8 @@ export function MyServer() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutBot}
+                today={data.today}
                 legend={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]}
                 series={[
                   { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
@@ -85,6 +89,8 @@ export function MyServer() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutMessages}
+                today={data.today}
                 series={[{ key: 'messages', label: 'messages', one: 'message', points: data.messages, slot: 1 }]}
               />
             </Panel>
@@ -110,6 +116,8 @@ export function MyServer() {
                 <DailyLine
                   from={data.from}
                   to={data.to}
+                  missing={data.daysWithoutMessages}
+                  today={data.today}
                   series={[
                     {
                       key: 'active',
@@ -133,6 +141,8 @@ export function MyServer() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutBot}
+                today={data.today}
                 series={[{ key: 'voice', label: 'minutes', one: 'minute', points: data.voiceMinutes, slot: 5 }]}
               />
             </Panel>
@@ -174,6 +184,8 @@ export function MyServer() {
             <DailyBars
               from={data.from}
               to={data.to}
+              missing={data.daysWithoutBot}
+              today={data.today}
               stacked
               legend={[
                 { label: 'Bans', slot: 2 },

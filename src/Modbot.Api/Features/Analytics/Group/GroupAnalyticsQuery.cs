@@ -74,6 +74,7 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
         return new GroupAnalytics(
             from,
             to,
+            MissingDays.Today(to, now),
             await MemberCountAsync(from, to, ct),
             totals.Series(DailyTotalMetrics.MembersJoined),
             totals.Series(DailyTotalMetrics.MembersLeft),
@@ -86,6 +87,7 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
             withKnownTenure,
             invites,
             await PeaksAsync(from, to, ct),
+            await new MissingDaysQuery(db).AuditLogAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }

@@ -23,7 +23,10 @@ namespace Modbot.Api.Features.Analytics.Group;
 /// fact per change -- and a retention window can also delete old readings while the facts
 /// (moderation class) stay. For the time before the earliest reading, the facts are read the way
 /// the daily chart always read them: the last observation of each UTC day, each count carried
-/// forward from the last fact that stated it. Those points go through the same thinning.
+/// forward from the last fact that stated it. Those points go through the same thinning, and come
+/// back marked <c>carried</c>: a fact is written only when a count changes, so the line between
+/// two of them is carried over rather than read, and the chart draws it dashed where readings are
+/// solid. Splicing the two into one unmarked line made a month of carried days look measured.
 /// </para>
 /// </remarks>
 public sealed class GroupMemberCountQuery(ModbotContext db)
@@ -68,9 +71,11 @@ public sealed class GroupMemberCountQuery(ModbotContext db)
         var firstReading = await db.GroupMemberCounts.AsNoTracking()
             .MinAsync(r => (DateTimeOffset?)r.CountedAt, ct);
 
+        var firstKnown = await FirstKnownAsync(firstReading, ct);
+
         var from = SpanOf(range!) is { } span
             ? to - span
-            : await FirstKnownAsync(firstReading, ct) ?? to;
+            : firstKnown ?? to;
 
         if (from > to)
             from = to;
@@ -80,7 +85,36 @@ public sealed class GroupMemberCountQuery(ModbotContext db)
             ? await PointsAsync(from, to, firstReading ?? to, step, ct)
             : [];
 
-        return new GroupMemberCountSeries(range!, from, to, step, points, now);
+        var missing = MissingDays.WithoutReadings(
+            AnalyticsSql.DayOf(from),
+            AnalyticsSql.DayOf(to),
+            firstKnown is { } known ? AnalyticsSql.DayOf(known) : null,
+            firstReading is { } reading ? AnalyticsSql.DayOf(reading) : null,
+            await DaysWithReadingsAsync(from, to, ct));
+
+        return new GroupMemberCountSeries(range!, from, to, step, points, now, missing);
+    }
+
+    /// <summary>
+    /// The UTC days the window touches that carry at least one reading. Whole days, so a window
+    /// that starts a minute before midnight does not call its first day empty.
+    /// </summary>
+    private async Task<IReadOnlySet<DateOnly>> DaysWithReadingsAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
+    {
+        const string Sql = """
+            SELECT DISTINCT (c.counted_at AT TIME ZONE 'UTC')::date
+            FROM group_member_count c
+            WHERE c.counted_at >= @from AND c.counted_at < @to
+            """;
+
+        var days = await _sql.ReadAsync(
+            Sql,
+            r => AnalyticsSql.DayOf(r, 0),
+            ct,
+            ("from", AnalyticsSql.DayStart(AnalyticsSql.DayOf(from))),
+            ("to", AnalyticsSql.DayEnd(AnalyticsSql.DayOf(to))));
+
+        return days.ToHashSet();
     }
 
     /// <summary>The earliest time anything is known from: the first reading or the first fact that carried a count.</summary>
@@ -127,16 +161,16 @@ public sealed class GroupMemberCountQuery(ModbotContext db)
         CancellationToken ct)
     {
         const string Sql = """
-            SELECT p.at, p.members, p.online
+            SELECT p.at, p.members, p.online, p.carried
             FROM (
                 SELECT DISTINCT ON (floor(extract(epoch FROM q.at - @from) / @step))
-                       q.at, q.members, q.online
+                       q.at, q.members, q.online, q.carried
                 FROM (
-                    SELECT c.counted_at AS at, c.member_count AS members, c.online_member_count AS online
+                    SELECT c.counted_at AS at, c.member_count AS members, c.online_member_count AS online, false AS carried
                     FROM group_member_count c
                     WHERE c.counted_at >= @from AND c.counted_at < @to
                     UNION ALL
-                    SELECT d.at, d.members, d.online
+                    SELECT d.at, d.members, d.online, true AS carried
                     FROM (
                         SELECT DISTINCT ON ((k.at AT TIME ZONE 'UTC')::date) k.at, k.members, COALESCE(k.online, 0) AS online
                         FROM (
@@ -170,7 +204,7 @@ public sealed class GroupMemberCountQuery(ModbotContext db)
 
         return await _sql.ReadAsync(
             Sql,
-            r => new MemberCountPoint(AnalyticsSql.InstantOf(r, 0), r.GetInt32(1), r.GetInt32(2)),
+            r => new MemberCountPoint(AnalyticsSql.InstantOf(r, 0), r.GetInt32(1), r.GetInt32(2), r.GetBoolean(3)),
             ct,
             ("step", step),
             ("from", from),

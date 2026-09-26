@@ -96,9 +96,11 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
         return new WorldsAnalytics(
             from,
             to,
+            MissingDays.Today(to, now),
             worlds,
             charted,
             await counts.ReportsAsync(from, to, ct),
+            await new MissingDaysQuery(db).PresenceReportsAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }

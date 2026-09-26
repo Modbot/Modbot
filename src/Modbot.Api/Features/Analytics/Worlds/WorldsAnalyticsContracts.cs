@@ -37,11 +37,18 @@ public sealed record WorldSeries(string WorldId, IReadOnlyList<DayValue> Points)
 /// <param name="Worlds">Every world with anything recorded in the window, most time first.</param>
 /// <param name="VisitorsPerDay">Distinct people per day for the busiest worlds, from daily totals.</param>
 /// <param name="PresenceReports">How many presence facts the window holds — the page says "thin" below a handful.</param>
+/// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>
+/// <param name="DaysWithoutPresenceReports">
+/// Days a group instance was open and no companion reported from any of them, so who was there is
+/// not known. A day nothing was open is not in here.
+/// </param>
 public sealed record WorldsAnalytics(
     DateOnly From,
     DateOnly To,
+    DateOnly? Today,
     IReadOnlyList<WorldSummary> Worlds,
     IReadOnlyList<WorldSeries> VisitorsPerDay,
     long PresenceReports,
+    IReadOnlyList<DateOnly> DaysWithoutPresenceReports,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);

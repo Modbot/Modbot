@@ -2,7 +2,8 @@
   Recharts draws SVG with presentation attributes, and a font size or a fill given as an
   attribute cannot be a CSS variable. These rules reach past the attributes so every chart
   follows the theme and density tokens in index.css: axis text at the small size, in the muted
-  colour, grid lines in the recessive grid colour, and nothing dashed.
+  colour, and grid lines in the recessive grid colour. Dashes and stripes are drawn by the
+  charts themselves, and only for data that was carried over or is missing (coverage.ts).
 */
 .modbot-chart .recharts-cartesian-axis-tick-value,
 .modbot-chart .recharts-text {

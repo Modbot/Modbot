@@ -116,6 +116,8 @@ export function Instances() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 legend={[{ label: 'Opened', slot: 1 }, { label: 'Closed', slot: 2 }]}
                 series={[
                   { key: 'opened', label: 'opened', points: data.opened, slot: 1 },
@@ -128,6 +130,8 @@ export function Instances() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 series={[{ key: 'open', label: 'open at once', points: data.mostOpenAtOnce, slot: 4 }]}
               />
             </Panel>
@@ -138,6 +142,8 @@ export function Instances() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutHeadCounts}
+                today={data.today}
                 series={[{ key: 'people', label: 'people', one: 'person', points: data.peaks.mostPeopleAtOncePerDay, slot: 3 }]}
               />
             </Panel>
@@ -151,6 +157,8 @@ export function Instances() {
               <DailyLine
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutHeadCounts}
+                today={data.today}
                 series={[{ key: 'busy', label: 'people-hours', one: 'person-hour', points: toHours(data.peaks.peopleMinutesPerDay), slot: 1 }]}
                 format={(v) => `${compactNumber(v)} h`}
               />
@@ -162,6 +170,8 @@ export function Instances() {
               <DailyLine
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 series={[{ key: 'open', label: 'typical time open', points: data.typicalMinutesOpenPerDay, slot: 4 }]}
                 format={minutes}
               />
@@ -174,6 +184,8 @@ export function Instances() {
                 <DailyBars
                   from={data.from}
                   to={data.to}
+                  missing={data.daysWithoutPresenceReports}
+                  today={data.today}
                   series={[{ key: 'people', label: 'people', one: 'person', points: data.mostPeopleInOne, slot: 2 }]}
                 />
               )}

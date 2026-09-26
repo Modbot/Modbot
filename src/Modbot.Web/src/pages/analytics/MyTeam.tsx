@@ -159,6 +159,8 @@ export function MyTeam({
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 series={[{ key: 'actions', label: 'actions', one: 'action', points: data.actionsPerDay, slot: 1 }]}
               />
             </Panel>

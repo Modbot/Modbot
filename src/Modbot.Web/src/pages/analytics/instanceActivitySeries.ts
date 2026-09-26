@@ -1,4 +1,5 @@
 import type { InstanceActivitySeries } from '@/lib/api'
+import { breakAtBands, timeBands } from '../../components/charts/coverage.ts'
 
 /**
  * The instance activity chart's plain functions. No components, so a test can run them under node
@@ -27,4 +28,20 @@ export function toActivityRows(series: InstanceActivitySeries): ActivityRow[] {
   if (last && Number.isFinite(end) && end > last.at) rows.push({ ...last, at: end })
 
   return rows
+}
+
+/** A chart row that may be a break in the line: nulls where nothing was counted. */
+export type ActivityChartRow = { at: number; people: number | null; instances: number | null }
+
+/**
+ * The rows the chart draws and its missing-day bands. The staircase breaks across every day an
+ * instance was open and never counted, rather than holding the last count straight across it, and
+ * a striped band sits behind those days.
+ */
+export function activityChartRows(
+  series: InstanceActivitySeries,
+): { rows: ActivityChartRow[]; bands: { x1: number; x2: number }[] } {
+  const bands = timeBands(series.daysWithoutHeadCounts ?? [], Date.parse(series.from), Date.parse(series.to))
+  const rows: ActivityChartRow[] = toActivityRows(series)
+  return { rows: breakAtBands(rows, bands, { people: null, instances: null }), bands }
 }

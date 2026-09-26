@@ -1,10 +1,20 @@
 import { useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
-import { ChartFrame, chartHeight, chartTheme, compactNumber, rechartsTooltip, seriesColor } from '@/components/charts'
+import {
+  ChartFrame,
+  MissingBands,
+  Stripes,
+  chartHeight,
+  chartTheme,
+  compactNumber,
+  rechartsTooltip,
+  seriesColor,
+  useStripeId,
+} from '@/components/charts'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ApiError, api, type GroupMemberCountSeries, type MemberCountRange } from '@/lib/api'
 import { recallLines, rememberLines, switchLine, type MemberCountLines } from './memberCountLines'
-import { MEMBER_COUNT_RANGES, readingTime, timeLabel, timeTicks, toRows } from './memberCountSeries'
+import { MEMBER_COUNT_RANGES, memberCountRows, readingTime, timeLabel, timeTicks } from './memberCountSeries'
 import { Nothing, Panel, Toggle } from './shared'
 
 /**
@@ -24,6 +34,10 @@ import { Nothing, Panel, Toggle } from './shared'
  * count is a few dozen moving under a membership of thousands, and on its own it shows the shape
  * of an evening the shared chart flattens. The tick boxes are the legend too. At least one line
  * stays on, and the choice is remembered in this browser (`memberCountLines`).
+ *
+ * Readings are drawn solid, and the stretch carried from group-info facts before the first reading
+ * is drawn dashed, because nothing was read there. Days with neither break the line and sit in a
+ * striped band. Where the readings are few enough to tell apart, each one is a small dot.
  */
 export function MemberCountChart() {
   const [range, setRange] = useState<MemberCountRange>('week')
@@ -62,11 +76,15 @@ export function MemberCountChart() {
     }
   }, [range])
 
-  const rows = data ? toRows(data.points) : []
+  const stripeId = useStripeId()
+  const chart = data ? memberCountRows(data) : { rows: [], bands: [], readings: 0 }
+  const rows = chart.rows
+  const readingDot = (color: string) => (chart.readings <= DOTS_UP_TO ? { r: 2, fill: color, strokeWidth: 0 } : false)
   const from = data ? Date.parse(data.from) : 0
   const to = data ? Date.parse(data.to) : 0
   const span = to - from
-  const names = { members: 'members', online: 'online' }
+  const names = { members: 'members', online: 'online', membersCarried: 'members', onlineCarried: 'online' }
+  const ones = { members: 'member', membersCarried: 'member' }
   const onlyOne = !(lines.members && lines.online)
 
   return (
@@ -96,8 +114,9 @@ export function MemberCountChart() {
               </Checkbox>
             </div>
           )}
-          <ChartFrame height={chartHeight.tall} empty={rows.length === 0}>
+          <ChartFrame height={chartHeight.tall} empty={data.points.length === 0}>
             <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+              <Stripes id={stripeId} />
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="at"
@@ -131,8 +150,9 @@ export function MemberCountChart() {
                   tick={{ style: { fill: chartTheme.ok } }}
                 />
               )}
+              <MissingBands stripeId={stripeId} bands={chart.bands} yAxisId={lines.members ? 'members' : 'online'} />
               <Tooltip
-                content={rechartsTooltip((label) => readingTime(Number(label)), names, undefined, { members: 'member' })}
+                content={rechartsTooltip((label) => readingTime(Number(label)), names, undefined, ones)}
                 cursor={{ stroke: 'var(--chart-grid)' }}
               />
               {lines.members && (
@@ -143,8 +163,23 @@ export function MemberCountChart() {
                   name="members"
                   stroke={seriesColor(1)}
                   strokeWidth={2}
-                  dot={false}
+                  dot={readingDot(seriesColor(1))}
                   activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
+                  isAnimationActive={false}
+                />
+              )}
+              {lines.members && (
+                <Line
+                  yAxisId="members"
+                  type="monotone"
+                  dataKey="membersCarried"
+                  name="members"
+                  stroke={seriesColor(1)}
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  dot={false}
+                  activeDot={false}
+                  legendType="none"
                   isAnimationActive={false}
                 />
               )}
@@ -156,8 +191,23 @@ export function MemberCountChart() {
                   name="online"
                   stroke={chartTheme.ok}
                   strokeWidth={2}
-                  dot={false}
+                  dot={readingDot(chartTheme.ok)}
                   activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
+                  isAnimationActive={false}
+                />
+              )}
+              {lines.online && (
+                <Line
+                  yAxisId="online"
+                  type="monotone"
+                  dataKey="onlineCarried"
+                  name="online"
+                  stroke={chartTheme.ok}
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  dot={false}
+                  activeDot={false}
+                  legendType="none"
                   isAnimationActive={false}
                 />
               )}
@@ -178,3 +228,6 @@ function LineName({ color, children }: { color: string; children: React.ReactNod
     </span>
   )
 }
+
+/** Readings up to this many get a dot each; more than that and the dots are a smear, so none. */
+const DOTS_UP_TO = 60

@@ -52,7 +52,11 @@ public sealed class InstanceActivityQuery(ModbotContext db)
             ? []
             : await PointsAsync(group!, from, to, step, ct);
 
-        return new InstanceActivitySeries(range!, from, to, step, points, now);
+        var missing = from < to
+            ? await new MissingDaysQuery(db).HeadCountsAsync(AnalyticsSql.DayOf(from), AnalyticsSql.DayOf(to), ct)
+            : [];
+
+        return new InstanceActivitySeries(range!, from, to, step, points, now, missing);
     }
 
     /// <summary>

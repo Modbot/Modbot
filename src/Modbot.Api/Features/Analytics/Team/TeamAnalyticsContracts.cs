@@ -52,9 +52,12 @@ public sealed record CoverageGap(
 /// Instances the audit log saw opened in the window that no client ever reported from. Nothing is
 /// known about who was in them, which is itself the finding.
 /// </param>
+/// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>
+/// <param name="DaysWithoutAuditLog">Days before Modbot began reading the group's audit log, which every action count comes from.</param>
 public sealed record TeamAnalytics(
     DateOnly From,
     DateOnly To,
+    DateOnly? Today,
     IReadOnlyList<ActionKind> Kinds,
     IReadOnlyList<ModeratorSummary> Moderators,
     IReadOnlyList<DayValue> ActionsPerDay,
@@ -63,5 +66,6 @@ public sealed record TeamAnalytics(
     int ModeratorsRecognised,
     int InstancesWatched,
     int InstancesOpenedWithoutAnyWatch,
+    IReadOnlyList<DateOnly> DaysWithoutAuditLog,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);
