@@ -27,9 +27,9 @@ import { canAny } from '@/lib/permissions'
  * permission evidence storage design §14 already gives it.
  */
 const TABS = [
-  { value: 'data', label: 'Host & Database', needs: ['ManageSettings'] },
-  { value: 'iam', label: 'IAM', needs: ['ManageUsers', 'ManageRoles'] },
-  { value: 'vrchat', label: 'VRChat Service Account', needs: ['ManageSettings'] },
+  { value: 'data', label: 'Server', needs: ['ManageSettings'] },
+  { value: 'iam', label: 'People and roles', needs: ['ManageUsers', 'ManageRoles'] },
+  { value: 'vrchat', label: "Modbot's VRChat login", needs: ['ManageSettings'] },
   { value: 'integrations', label: 'Integrations', needs: ['ManageSettings'] },
   { value: 'discord', label: 'Discord', needs: ['ManageSettings'] },
   { value: 'moderation', label: 'Moderation', needs: ['ManageSettings'] },
@@ -38,7 +38,7 @@ const TABS = [
   { value: 'sync', label: 'Sync', needs: ['ManageSettings'] },
   { value: 'ai', label: 'AI', needs: ['ManageSettings'] },
   { value: 'api', label: 'API', needs: ['ManageSettings'] },
-  { value: 'proxy', label: 'VRChat Proxy', needs: ['ManageSettings'] },
+  { value: 'proxy', label: 'VRChat proxy', needs: ['ManageSettings'] },
   { value: 'auto-invites', label: 'Auto-invites', needs: ['ManageAutoInvites'] },
   { value: 'purge', label: 'Purge a person', needs: ['Administrator'] },
 ] as const

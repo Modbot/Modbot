@@ -28,7 +28,7 @@ type Tab = (typeof TABS)[number]
  * One instance: which world, which number, who can join and whether it is open on the left; where
  * and when it ran, how busy it got, who was in it and what happened there on the right.
  *
- * An instance's history is its log: the facts recorded there while it was open, which the Logs tab
+ * An instance's history is its log: the facts recorded there while it was open, which the Activity tab
  * already is. Opened by Modbot's own id for the instance, never VRChat's number, which VRChat hands
  * out again once an instance closes. The world is a link, so a moderator can go from "what happened
  * in here" to "what else runs in this world" without closing anything.
@@ -74,13 +74,13 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
         tabs={[
           { value: 'overview', label: 'Overview' },
           { value: 'people', label: 'People', badge: data?.people.length },
-          { value: 'logs', label: 'Logs', badge: data?.log.length },
+          { value: 'logs', label: 'Activity', badge: data?.log.length },
           { value: 'json', label: 'JSON' },
         ]}
       >
         {data && tab === 'overview' && <Overview view={data} onMore={setTab} />}
         {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
-          <Panel title={tab === 'people' ? 'People' : 'Logs'} flush>
+          <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
             <EmptyRow>You do not have permission to see this.</EmptyRow>
           </Panel>
         )}
@@ -220,7 +220,7 @@ function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => 
             )}
           </Panel>
 
-          <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All logs</More>} flush>
+          <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
             <FactList entries={view.log.slice(0, 8)} empty="Nothing recorded yet." />
           </Panel>
         </>

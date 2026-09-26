@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ago, howLong } from '../src/lib/format.ts'
+import { ago, clockTime, howLong } from '../src/lib/format.ts'
 
 const NOW = '2026-09-18T12:00:00Z'
 
@@ -19,4 +19,18 @@ test('somebody Modbot has no record of has not been known for any time at all', 
 
 test('a clock that ran backwards does not produce a negative age', () => {
   assert.equal(howLong('2026-09-18T12:00:30Z', NOW), '0s')
+})
+
+// Written without naming a locale or a time zone, because clockTime uses the viewer's: the tests
+// hold on any machine they run on.
+test('a clock time has no seconds: two instants in the same minute read the same', () => {
+  assert.equal(clockTime('2026-09-18T15:41:07Z'), clockTime('2026-09-18T15:41:52Z'))
+})
+
+test('a clock time still tells one minute from the next', () => {
+  assert.notEqual(clockTime('2026-09-18T15:41:07Z'), clockTime('2026-09-18T15:42:07Z'))
+})
+
+test('a clock time is the time alone, with no date in it', () => {
+  assert.equal(clockTime('2026-09-18T15:41:00Z'), clockTime('2026-09-19T15:41:00Z'))
 })

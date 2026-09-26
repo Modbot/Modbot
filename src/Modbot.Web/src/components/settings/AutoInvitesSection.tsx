@@ -6,6 +6,7 @@ import type { GiveawayBuilder, GiveawayRule } from '@/lib/giveaways'
 import { EmptyRow } from '@/components/PanelGrid'
 import { NumberField, Outcome, Row, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
+import { dateTime } from '@/components/charts/format'
 
 /**
  * Settings → Auto-invites (auto-invites design §10).
@@ -124,7 +125,7 @@ export function AutoInvitesSection() {
               <Row label="Invites sent" value={String(loaded?.invitesSent ?? 0)} mono />
               <Row
                 label="Last invite"
-                value={loaded?.lastInviteAt ? new Date(loaded.lastInviteAt).toLocaleString() : '—'}
+                value={loaded?.lastInviteAt ? dateTime(loaded.lastInviteAt) : '—'}
                 mono={!!loaded?.lastInviteAt}
               />
             </div>

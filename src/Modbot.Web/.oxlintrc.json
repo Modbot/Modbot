@@ -3,6 +3,23 @@
   "plugins": ["react", "typescript", "oxc"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+    "no-restricted-properties": [
+      "error",
+      {
+        "property": "toLocaleTimeString",
+        "message": "Write times with clockTime or dateTime, so every screen writes them the same way (console look spec 17.3)."
+      },
+      {
+        "property": "toLocaleDateString",
+        "message": "Write days with formatDay, longDay or shortDay, so every screen writes them the same way (console look spec 17.3)."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/lib/format.ts", "src/components/charts/format.ts"],
+      "rules": { "no-restricted-properties": "off" }
+    }
+  ]
 }

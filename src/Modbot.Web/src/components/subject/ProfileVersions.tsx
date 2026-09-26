@@ -19,7 +19,7 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
  * chosen shown in full.
  *
  * Opened from the audit log at the version one fact recorded (`?version=`), or from the popup's
- * History tab at the newest. The versions come from the server, which walks the profile-changed
+ * Profile changes tab at the newest. The versions come from the server, which walks the profile-changed
  * facts backwards from the row (see `VRChatUserHistory`); nothing here guesses.
  */
 export function ProfileVersions({ id, openAt }: { id: string; openAt: number | null }) {
@@ -27,11 +27,11 @@ export function ProfileVersions({ id, openAt }: { id: string; openAt: number | n
   const { data, error } = useLoad(load)
   const [chosen, setChosen] = useState<number | null>(openAt)
 
-  if (error) return <Panel title="History" flush><EmptyRow tone="danger">{error}</EmptyRow></Panel>
-  if (!data) return <Panel title="History" flush><EmptyRow>Loading…</EmptyRow></Panel>
+  if (error) return <Panel title="Profile changes" flush><EmptyRow tone="danger">{error}</EmptyRow></Panel>
+  if (!data) return <Panel title="Profile changes" flush><EmptyRow>Loading…</EmptyRow></Panel>
 
   if (!data.known || data.versions.length === 0)
-    return <Panel title="History" flush><EmptyRow>No profile recorded yet.</EmptyRow></Panel>
+    return <Panel title="Profile changes" flush><EmptyRow>No profile recorded yet.</EmptyRow></Panel>
 
   const version = data.versions.find((v) => v.factId === chosen) ?? data.versions[0]
 

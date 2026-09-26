@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, ApiError, type LivePerson, type LiveInstance, type LiveView, type LiveVoiceChannel } from '@/lib/api'
 import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
+import { clockTime } from '@/lib/format'
 import { DOT, type Tone } from '@/lib/status'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
@@ -172,7 +173,7 @@ function VoiceCard({ channel }: { channel: LiveVoiceChannel }) {
             </span>
             {p.since && (
               <span className="shrink-0 whitespace-nowrap text-muted-foreground">
-                since <span className="font-mono">{time(p.since)}</span>
+                since <span className="font-mono">{clockTime(p.since)}</span>
               </span>
             )}
           </li>
@@ -210,7 +211,7 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
           {watched && <People title="Here now" people={instance.people} reporting={reporting} />}
 
           {!watched && instance.lastWatchedAt && instance.lastSeen.length > 0 && (
-            <People title={`Last seen ${time(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
+            <People title={`Last seen ${clockTime(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
           )}
         </div>
       </div>
@@ -268,11 +269,11 @@ function People({
               <span className="shrink-0 whitespace-nowrap text-muted-foreground">
                 {p.arrivedAt ? (
                   <>
-                    arrived <span className="font-mono">{time(p.arrivedAt)}</span>
+                    arrived <span className="font-mono">{clockTime(p.arrivedAt)}</span>
                   </>
                 ) : p.hereBefore ? (
                   <>
-                    here before <span className="font-mono">{time(p.hereBefore)}</span>
+                    here before <span className="font-mono">{clockTime(p.hereBefore)}</span>
                   </>
                 ) : (
                   ''
@@ -288,8 +289,4 @@ function People({
 
 function Standing({ standing }: { standing: string }) {
   return <Badge variant={standing === 'Flagged' ? 'destructive' : 'secondary'}>{standing}</Badge>
-}
-
-function time(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }

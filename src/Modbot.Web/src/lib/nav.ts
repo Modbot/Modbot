@@ -35,6 +35,11 @@ export const NAV = [
   // What AI moderation rules flagged. A flag is a note about a person, so it needs ViewProfile;
   // dismissing one needs ReviewTickets, which the page checks for itself.
   { id: 'flags', label: 'Flags', needs: 'ViewProfile' },
+  // Reviews of a moderator's pattern (spec 5.8.5), beside Flags because both are things somebody
+  // has to look at and decide. Gated on ReviewTickets because the people being reviewed should
+  // not be closing them. It used to sit under a "Team" heading of its own, which named a different
+  // thing from the Analytics page called Team.
+  { id: 'reviews', label: 'Reviews', needs: 'ReviewTickets' },
   { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'] },
   // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
   // feature (spec 10.3) and has no entry until it exists. Named by what each is about: the team,
@@ -46,13 +51,13 @@ export const NAV = [
   { id: 'analytics-instances', label: 'Instances', indent: true, needs: 'ViewAnalytics' },
   // The Discord server, beside the group: its own members, messages and voice (M5 spec §6).
   { id: 'analytics-server', label: 'Discord', needs: 'ViewAnalytics' },
-  // Reviews of a moderator's pattern (spec 5.8.5). Under Team because they are about the team,
-  // and gated on ReviewTickets because the people being reviewed should not be closing them.
-  { id: 'reviews', label: 'Reviews', group: 'Team', needs: 'ReviewTickets' },
   // Not in the page list: the status rows at the foot of the sidebar say what it says, and each
   // one opens it at the part it names. The page, its address and every link to it are unchanged.
-  { id: 'health', label: 'Sync health', needs: 'ViewOperationalLog', hidden: true },
-  { id: 'logs', label: 'Logs', group: 'System', needs: 'ViewOperationalLog' },
+  // Called "Sync health" until 2026-09-26; it covers far more than syncing.
+  { id: 'health', label: 'Health', needs: 'ViewOperationalLog', hidden: true },
+  // Modbot's own program log. "Logs" alone collided with the person popup's tab and with the
+  // audit log; the id and address stay `logs`.
+  { id: 'logs', label: "Modbot's log", group: 'System', needs: 'ViewOperationalLog' },
   // Users and Roles are tabs inside Settings (the IAM tab), so somebody who may manage either but
   // not the settings themselves still needs the page to open. Which tabs they see is the page's
   // own check.

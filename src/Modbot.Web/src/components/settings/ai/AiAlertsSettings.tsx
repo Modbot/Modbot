@@ -11,6 +11,7 @@ import {
 } from '@/lib/api'
 import { Outcome, Placeholder } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { dateTime } from '@/components/charts/format'
 
 /**
  * Settings → AI → Alerts: what Modbot watches for unusual activity, how sensitive each watcher
@@ -178,7 +179,7 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
               </Select>
               {w.last && (
                 <span className="text-muted-foreground">
-                  Last <span className="font-mono">{new Date(w.last.at).toLocaleString()}</span>
+                  Last <span className="font-mono">{dateTime(w.last.at)}</span>
                 </span>
               )}
             </label>

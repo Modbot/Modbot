@@ -147,7 +147,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
                     </>
                   )}
                 </div>
-                <div className="font-mono text-muted-foreground/70" title={formatDay(p.lastActionAt)}>
+                <div className="font-mono text-muted-foreground" title={formatDay(p.lastActionAt)}>
                   {ago(p.lastActionAt, list.now)}
                 </div>
               </Td>

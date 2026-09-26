@@ -217,7 +217,7 @@ function Header({
         <CardTitle className="flex min-w-0 flex-1 items-baseline gap-x-2">
           <SubjectLink id={view.userId} name={view.displayName} onOpen={onOpenSubject} />
           {view.displayName && (
-            <span className="min-w-0 flex-1 truncate font-mono font-normal text-muted-foreground/70" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="min-w-0 flex-1 truncate font-mono font-normal text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {view.userId}
             </span>
           )}

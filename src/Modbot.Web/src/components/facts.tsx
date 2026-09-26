@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { sourceLabel } from '@/lib/format'
+import { clockTime, formatDay, sourceLabel } from '@/lib/format'
 import { instanceName, instanceNumber } from '@/lib/instanceName'
 import { reporterNames } from '@/lib/reporters'
 import { openAccount, openDiscordPerson, openInstance, openPerson, openWorld } from '@/lib/subject'
@@ -66,10 +66,8 @@ export function ReportedBy({
   )
 }
 
-const time = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-
-const dateTime = (iso: string) => new Date(iso).toLocaleString()
+/** The whole instant for a `title`: the row shows only the time, and the day is one hover away. */
+const wholeInstant = (iso: string) => `${formatDay(iso)}, ${clockTime(iso)}`
 
 /**
  * When a fact happened — as an instant when that is known, and as a range when it is not.
@@ -82,8 +80,8 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString()
 export function FactTime({ entry }: { entry: Pick<AuditEntry, 'occurredAt' | 'occurredBefore'> }) {
   if (!entry.occurredBefore) {
     return (
-      <span className="font-mono text-muted-foreground" title={dateTime(entry.occurredAt)}>
-        {time(entry.occurredAt)}
+      <span className="font-mono text-muted-foreground" title={wholeInstant(entry.occurredAt)}>
+        {clockTime(entry.occurredAt)}
       </span>
     )
   }
@@ -91,9 +89,9 @@ export function FactTime({ entry }: { entry: Pick<AuditEntry, 'occurredAt' | 'oc
   return (
     <span
       className="font-mono text-muted-foreground"
-      title={`Between ${dateTime(entry.occurredAt)} and ${dateTime(entry.occurredBefore)}`}
+      title={`Between ${wholeInstant(entry.occurredAt)} and ${wholeInstant(entry.occurredBefore)}`}
     >
-      ~{time(entry.occurredAt)}–{time(entry.occurredBefore)}
+      ~{clockTime(entry.occurredAt)}–{clockTime(entry.occurredBefore)}
     </span>
   )
 }

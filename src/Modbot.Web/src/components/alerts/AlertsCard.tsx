@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
+import { dateTime } from '@/components/charts/format'
 import { api, type Alert } from '@/lib/api'
+import { clockTime, formatDay } from '@/lib/format'
 import { type LiveEvent } from '@/lib/liveStream'
 import { followLink } from '@/lib/router'
 import { useLiveStream } from '@/lib/useLiveStream'
@@ -72,7 +74,7 @@ function Row({ alert, onDismiss }: { alert: Alert; onDismiss: () => void }) {
             </span>
           )}
           <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {new Date(alert.at).toLocaleString()}
+            {dateTime(alert.at)}
           </span>
         </div>
 
@@ -116,11 +118,9 @@ function number(value: number): string {
 }
 
 function stretch(alert: Alert): string {
-  const from = new Date(alert.windowStart)
-  const to = new Date(alert.windowEnd)
-  const days = (to.getTime() - from.getTime()) / 86_400_000
+  const days = (Date.parse(alert.windowEnd) - Date.parse(alert.windowStart)) / 86_400_000
 
   return days >= 1
-    ? `${from.toLocaleDateString()} – ${to.toLocaleDateString()}`
-    : `${from.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${to.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    ? `${formatDay(alert.windowStart)} – ${formatDay(alert.windowEnd)}`
+    : `${clockTime(alert.windowStart)} – ${clockTime(alert.windowEnd)}`
 }

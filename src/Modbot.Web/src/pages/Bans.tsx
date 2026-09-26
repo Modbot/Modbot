@@ -228,7 +228,7 @@ function GroupBans({
                       </div>
                     )}
                     {ban.displayName && (
-                      <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
+                      <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                         {ban.userId}
                       </div>
                     )}

@@ -38,7 +38,7 @@ test('the old credits address still leads to the page', () => {
   assert.equal(MOVED['/credits'], CREDITS_PATH)
 })
 
-test('sync health is off the page list and its permission is unchanged', () => {
+test('Health is off the page list and its permission is unchanged', () => {
   const health = NAV.find((n) => n.id === 'health')
 
   assert.ok(health && 'hidden' in health && health.hidden)
@@ -86,6 +86,24 @@ test('every page with a go-to chord has its own letter', () => {
 
   assert.ok(letters.every((l) => /^[a-z]$/.test(l)))
   assert.equal(new Set(letters).size, letters.length)
+})
+
+test('no heading in the sidebar shares a name with a page in it', () => {
+  const labels = new Set<string>(NAV.map((n) => n.label))
+  const groups = NAV.flatMap((n) => ('group' in n ? [n.group as string] : []))
+
+  assert.ok(!groups.some((g) => labels.has(g)), 'a heading repeats a page name')
+})
+
+test('Reviews sits beside Flags, with no heading of its own', () => {
+  const at = (id: string) => NAV.findIndex((n) => n.id === id)
+
+  assert.equal(at('reviews'), at('flags') + 1)
+  assert.ok(!('group' in NAV[at('reviews')]))
+})
+
+test("Modbot's own log is not called just Logs, which the audit log and the popup also were", () => {
+  assert.equal(NAV.find((n) => n.id === 'logs')?.label, "Modbot's log")
 })
 
 test('every page in the sidebar has a go-to chord', () => {

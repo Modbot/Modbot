@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api'
+import { dateTime } from '@/components/charts/format'
 
 /** The sentence to show for a failed call on the API tabs. */
 export function failure(e: unknown, fallback: string): string {
@@ -8,6 +9,4 @@ export function failure(e: unknown, fallback: string): string {
 }
 
 /** A date and time, in the reader's own format. */
-export function when(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-}
+export const when = dateTime

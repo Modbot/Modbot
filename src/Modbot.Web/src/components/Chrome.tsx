@@ -115,7 +115,7 @@ export function Sidebar({
             {GO_TO_KEYS[item.id] && (
               <span
                 aria-hidden
-                className="hidden shrink-0 font-mono text-muted-foreground/60 lg:inline"
+                className="hidden shrink-0 font-mono text-muted-foreground lg:inline"
                 style={{ fontSize: 'var(--text-tiny)' }}
               >
                 {keyNames(`g ${GO_TO_KEYS[item.id]}`, IS_MAC).join(' ')}
@@ -209,7 +209,7 @@ export function Topbar({
             is the ordinary way out rather than the emergency one -- but a moderator handing back a
             shared machine still needs it. */}
         {onSignOut && (
-          <Button variant="ghost" size="sm" onClick={onSignOut} title="Sign out">
+          <Button variant="ghost" size="sm" onClick={onSignOut} title="Sign out" aria-label="Sign out">
             <LogOut className="size-4" />
           </Button>
         )}
@@ -233,7 +233,7 @@ function AppearanceControls({
         onChange={setDensity}
         options={[
           { value: 'dense', label: 'Dense', icon: <Rows3 className="size-3.5" /> },
-          { value: 'comfortable', label: 'Comfy', icon: <Rows2 className="size-3.5" /> },
+          { value: 'comfortable', label: 'Comfortable', icon: <Rows2 className="size-3.5" /> },
           { value: 'vr', label: 'VR', icon: <Headset className="size-3.5" /> },
         ]}
       />

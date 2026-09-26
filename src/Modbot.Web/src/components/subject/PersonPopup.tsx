@@ -47,8 +47,8 @@ type Tab = (typeof TABS)[number]
  * account that ties to nothing still opens, showing what is known and saying plainly what is not
  * (one view per person design §3).
  *
- * **Tabs by account, plus one merged Logs.** *What happened to this person* wants the merge, so
- * **Logs** is every fact about or by any of their accounts, each row naming the account it was
+ * **Tabs by account, plus one merged Activity.** *What happened to this person* wants the merge, so
+ * **Activity** is every fact about or by any of their accounts, each row naming the account it was
  * found under. *What did this moderator do* and *what did they write in Discord* want neither
  * merged nor interleaved, so **Account**, **Discord** and **Messages** stay whole (design §4).
  *
@@ -143,9 +143,9 @@ function Resolved({
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
-    { value: 'logs', label: 'Logs' },
+    { value: 'logs', label: 'Activity' },
     ...(notesId && readsNotes ? [{ value: 'notes' as const, label: 'Notes' }] : []),
-    ...(vrchatId && seesProfile ? [{ value: 'history' as const, label: 'History' }] : []),
+    ...(vrchatId && seesProfile ? [{ value: 'history' as const, label: 'Profile changes' }] : []),
     ...(vrchatId && seesProfile ? [{ value: 'cases' as const, label: 'Cases' }] : []),
     ...(discordId && seesMembers ? [{ value: 'discord' as const, label: 'Discord' }] : []),
     ...(discordId && readsMessages ? [{ value: 'messages' as const, label: 'Messages' }] : []),
@@ -329,7 +329,7 @@ function Overview({
         </StatStrip>
       )}
 
-      <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All logs</More>} flush>
+      <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
         {facts.error && <EmptyRow tone="danger">{facts.error}</EmptyRow>}
         {!facts.error && !facts.data && <EmptyRow>Loading…</EmptyRow>}
         {facts.data && (

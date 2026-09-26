@@ -11,8 +11,12 @@ const badgeVariants = cva(
         default: "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
         secondary:
           "border-border bg-strip text-foreground [a&]:hover:bg-muted",
+        // Solid, not a tint: red words on a pale red tint fell below the contrast small text needs
+        // (4.1:1 in light), and "Banned" is the badge that most has to be read. White on the light
+        // theme's red is 4.8:1; the dark theme's red is lighter, so its fill is darkened a step to
+        // keep white text at 5:1 there too.
         destructive:
-          "border-destructive/40 bg-destructive/10 text-destructive [a&]:hover:bg-destructive/15",
+          "border-transparent bg-destructive text-destructive-foreground dark:bg-[color-mix(in_srgb,var(--destructive)_80%,black)] [a&]:hover:bg-destructive/90",
         ok: "border-ok/40 bg-ok/10 text-ok [a&]:hover:bg-ok/15",
         warn: "border-warn/40 bg-warn/10 text-warn [a&]:hover:bg-warn/15",
         info: "border-info/40 bg-info/10 text-info [a&]:hover:bg-info/15",

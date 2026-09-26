@@ -546,7 +546,7 @@ const SENTENCES: Record<string, Sentence> = {
   'vrchat.group.calendar-event.series.delete': (p) => <>{p.actor} deleted a repeating calendar entry.</>,
 
   // ── VRChat: profiles ────────────────────────────────────────────────────────────────────────
-  // "VRChat profile" opens the person on their History tab at this very version: the fact is
+  // "VRChat profile" opens the person on their Profile changes tab at this very version: the fact is
   // the snapshot, replayed by the server from the facts around it.
   'vrchat.user.profile.first-seen': (p) => (
     <>
@@ -1542,7 +1542,10 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
 
-/** A moment from a payload, in the reader's own time: "Fri 25 Sep, 1:00 PM". */
+/**
+ * A moment from a payload, in the reader's own time: "Fri 25 Sep, 01:00 PM". The weekday is why
+ * this is not `dateTime`; the hour is written the way `clockTime` writes it.
+ */
 function when(iso: string | null): string | null {
   if (!iso) return null
   const date = new Date(iso)
@@ -1552,7 +1555,7 @@ function when(iso: string | null): string | null {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
   })
 }

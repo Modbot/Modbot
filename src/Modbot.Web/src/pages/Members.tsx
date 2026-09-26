@@ -9,6 +9,7 @@ import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
+import { dateTime } from '@/components/charts/format'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { Pager } from '@/components/Pager'
@@ -16,7 +17,7 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { useDemo } from '@/lib/demo'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
-import { ago, formatDay } from '@/lib/format'
+import { ago, clockTime, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type MemberList, type MemberQuery } from '@/lib/api'
 import { useListPage } from '@/lib/listPage'
 import { useListSelection } from '@/lib/listSelection'
@@ -213,7 +214,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
               restart()
             }}
           >
-            {`Joined ${new Date(joined.from).toLocaleString()} – ${new Date(joined.to).toLocaleTimeString()} ×`}
+            {`Joined ${dateTime(joined.from)} – ${clockTime(joined.to)} ×`}
           </Button>
         )}
 
@@ -305,7 +306,7 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                         </div>
                       )}
                       {m.displayName && (
-                        <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
+                        <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                           {m.userId}
                         </div>
                       )}

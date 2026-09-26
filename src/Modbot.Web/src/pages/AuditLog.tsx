@@ -403,7 +403,7 @@ function Row({
         <Td>
           <div className="flex items-baseline gap-2 font-mono leading-tight">
             <FactTime entry={entry} />
-            <span className="text-muted-foreground/70">{formatDay(entry.occurredAt)}</span>
+            <span className="text-muted-foreground">{formatDay(entry.occurredAt)}</span>
           </div>
         </Td>
         <Td>

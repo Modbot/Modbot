@@ -27,6 +27,8 @@ import {
 import { useLocation } from '@/lib/router'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
+import { dateTime } from '@/components/charts/format'
+import { formatDay } from '@/lib/format'
 
 type Filter = 'all' | GiveawayState
 
@@ -147,11 +149,7 @@ function GiveawayRow({ giveaway, onOpen }: { giveaway: Giveaway; onOpen: () => v
         className="w-40 shrink-0 font-mono text-muted-foreground"
         style={{ fontSize: 'var(--text-small)' }}
       >
-        {new Date(giveaway.closesAt).toLocaleDateString(undefined, {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        })}
+        {formatDay(giveaway.closesAt)}
       </span>
 
       <button type="button" className="font-medium hover:underline" onClick={onOpen}>
@@ -232,11 +230,11 @@ function GiveawayDialog({
           {giveaway.prize && <p className="whitespace-pre-wrap">{giveaway.prize}</p>}
 
           <div className="max-w-lg text-foreground">
-            <Row label="Opens" value={new Date(giveaway.opensAt).toLocaleString()} mono />
-            <Row label="Closes" value={new Date(giveaway.closesAt).toLocaleString()} mono />
+            <Row label="Opens" value={dateTime(giveaway.opensAt)} mono />
+            <Row label="Closes" value={dateTime(giveaway.closesAt)} mono />
             <Row
               label="Draw"
-              value={giveaway.drawAt ? new Date(giveaway.drawAt).toLocaleString() : 'By hand'}
+              value={giveaway.drawAt ? dateTime(giveaway.drawAt) : 'By hand'}
               mono={giveaway.drawAt !== null}
             />
             {giveaway.entryWay === 'react' && <Row label="Entries" value={giveaway.entryCount} mono />}
@@ -350,7 +348,7 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
           label="Drawn"
           value={
             <>
-              <span className="font-mono">{new Date(draw.drawnAt).toLocaleString()}</span>
+              <span className="font-mono">{dateTime(draw.drawnAt)}</span>
               {draw.drawnBy && ` by ${draw.drawnBy}`}
             </>
           }

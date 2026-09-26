@@ -24,6 +24,7 @@ import { useLocation } from '@/lib/router'
 import { openInstance } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
+import { clockTime } from '@/lib/format'
 
 type Mode = 'month' | 'agenda'
 
@@ -144,6 +145,8 @@ export function Calendar() {
               <ChevronLeft />
             </Button>
             <span className="min-w-36 text-center font-medium">
+              {/* The month being shown, which no shared date helper writes. */}
+              {/* oxlint-disable-next-line no-restricted-properties */}
               {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
             </span>
             <Button variant="ghost" size="icon-sm" aria-label="Next month" onClick={() => setMonth(addMonths(month, 1))}>
@@ -314,6 +317,8 @@ function Agenda({ entries, now, onOpen }: { entries: Entry[]; now: string; onOpe
             className="flex min-h-(--row-h) flex-wrap items-center gap-x-3 gap-y-1 px-(--panel-pad) py-1.5"
           >
             <span className="w-52 shrink-0 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              {/* A calendar row names the weekday, which no shared date helper writes. */}
+              {/* oxlint-disable-next-line no-restricted-properties */}
               {entry.startsAt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
               {time(entry.startsAt)}–{time(entry.endsAt)}
             </span>
@@ -376,7 +381,7 @@ function EventDialog({
       <DialogContent title={event.title} subtitle={<StateBadge event={event} />} className="max-w-[560px]">
         <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
           <div className="font-mono">
-            {start.toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })}
+            {start.toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
             {' – '}
             {time(end)}
           </div>
@@ -521,7 +526,7 @@ function PlaceBadge({ place, state }: { place: CalendarEvent['places'][number]['
 }
 
 function time(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  return clockTime(date.toISOString())
 }
 
 function startOfMonth(date: Date): Date {

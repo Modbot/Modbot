@@ -213,7 +213,7 @@ function SameDecision({ entry }: { entry: AuditEntry }) {
  * What a snapshot fact stands for.
  *
  * A profile fact is one version of the person, so the version is shown here as the popup's
- * History tab would show it, with a way to open it there. A list snapshot is a headcount with a
+ * Profile changes tab would show it, with a way to open it there. A list snapshot is a headcount with a
  * date on it, which is all the fact recorded.
  */
 function Snapshot({ entry }: { entry: AuditEntry }) {
