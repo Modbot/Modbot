@@ -38,6 +38,17 @@ export function formatDay(iso: string): string {
 }
 
 /**
+ * A time of day, "03:41 PM" or "15:41" as the viewer's locale writes it, in their own clock.
+ *
+ * Hours and minutes, never seconds: nothing on a screen is acted on to the second, and the same
+ * instant written with seconds on one page and without on the next reads as two different times.
+ * Two digits for the hour, like `dateTime` and `FactTime`, so a column of times lines up.
+ */
+export function clockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
+/**
  * How long ago, measured against the server's clock rather than the browser's.
  *
  * The browser's clock is not the authority for anything here and is routinely wrong on a machine

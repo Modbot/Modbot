@@ -149,6 +149,11 @@ public sealed class InstanceHeadCountSync
             // probe, not a confirmed fact, so userCount is kept beside it rather than thrown away.
             row.PageReadAt = at;
             row.PageUserCount = instance.UserCount;
+
+            // The name the instance was opened with comes in the same body, so it is kept at no cost.
+            // Every good read overwrites it, so a rename shows and a cleared name goes back to the
+            // number.
+            row.Name = VRChatInstance.NameFrom(instance.DisplayName, row.VRChatInstanceId);
             HeadCounts.Record(_db, row, instance.NUsers, HeadCounts.FromPage, at, instance.UserCount);
             read++;
         }

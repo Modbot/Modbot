@@ -150,7 +150,7 @@ public static class GateHealthReader
             VRChatSessionState.WafBlocked => new GateHealth(
                 state.ToString(),
                 GateStatus.NeedsOperator,
-                "Cloudflare is blocking this host. An egress proxy is needed.",
+                "Cloudflare is blocking this host. Modbot needs a proxy to reach VRChat.",
                 stopped,
                 coldStopEndsAt,
                 alerting),

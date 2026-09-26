@@ -409,6 +409,7 @@ public sealed class AuditQuery(ModbotContext db)
             WorldName: null,
             e.InstanceId,
             ModbotInstanceId: null,
+            InstanceName: null,
             AuditJson.Text(data, "description"),
             data);
     }

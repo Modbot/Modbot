@@ -12,7 +12,7 @@ export function Kbd({ keys, className }: { keys: string; className?: string }) {
     <span className={cn('hidden items-center gap-1 lg:inline-flex', className)} style={{ fontSize: 'var(--text-tiny)' }}>
       {keyNames(keys, IS_MAC).map((name, i) => (
         <span key={i} className="contents">
-          {i > 0 && <span className="text-muted-foreground/70">then</span>}
+          {i > 0 && <span className="text-muted-foreground">then</span>}
           <kbd className="inline-flex min-w-[1.5em] items-center justify-center rounded-sm border-(length:--hairline) bg-card px-1 font-mono leading-normal text-muted-foreground">
             {name}
           </kbd>

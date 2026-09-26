@@ -36,6 +36,7 @@ public sealed record LivePersonView(
     IReadOnlyList<string> Flags,
     TrustRank? TrustRank = null);
 
+/// <param name="InstanceName">The name the instance was opened with, or null when it has none. Shown in place of the number.</param>
 /// <param name="HeadCount">How many people are in the instance, whether or not anybody is watching it.</param>
 /// <param name="People">Everyone present now. Empty whenever nobody is watching.</param>
 /// <param name="LastWatchedAt">When the last moderator stopped watching. Null while somebody is.</param>
@@ -51,6 +52,7 @@ public sealed record LiveInstanceView(
     string? WorldName,
     string? WorldImageUrl,
     string? VRChatInstanceId,
+    string? InstanceName,
     string? GroupAccessType,
     string? Region,
     DateTimeOffset OpenedAt,
@@ -212,6 +214,7 @@ public static class LiveEndpoints
                 world?.Name,
                 world?.ThumbnailImageUrl ?? world?.ImageUrl,
                 instance.VRChatInstanceId,
+                instance.Name,
                 instance.GroupAccessType,
                 instance.Region,
                 instance.OpenedAt,

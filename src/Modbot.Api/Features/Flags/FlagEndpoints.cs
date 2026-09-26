@@ -94,6 +94,9 @@ public sealed record FlagList(
 /// <param name="Language">The ISO 639-3 code, or null for flags whose language could not be told.</param>
 public sealed record FlagLanguageCount(string? Language, string Label, int Flags);
 
+/// <param name="Open">Every open flag, in any language. The same number as <see cref="FlagList.Open"/>.</param>
+public sealed record OpenFlagCount(int Open);
+
 /// <summary>
 /// What AutoMod rules flagged, dismissing a flag, and asking the AI what it thinks (AI moderation
 /// design §5; AutoMod design §6.3).
@@ -171,6 +174,22 @@ public static class FlagEndpoints
             .Produces<FlagList>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ViewProfile);
+
+        // The number beside Flags in the sidebar. The list above carries it too, but the sidebar
+        // asks on every page change and live flag event, and reading up to a page of flags with
+        // their rule text and context each time to use one number from it is waste. Same count,
+        // same permission.
+        group.MapGet("/open-count", async (
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+                Results.Ok(new OpenFlagCount(
+                    await db.ModerationFlags.AsNoTracking().CountAsync(f => f.State == ModerationFlagState.Open, ct))))
+            .RequiresFlag(ModbotPermissions.ViewProfile)
+            .WithName("CountOpenModerationFlags")
+            .WithSummary("Count open flags")
+            .WithDescription("How many flags are open, in any language -- the number on the nav badge.")
+            .Produces<OpenFlagCount>()
+            .Produces(StatusCodes.Status403Forbidden);
 
         group.MapPost("/{id:guid}/dismiss", async (
                 HttpContext http,

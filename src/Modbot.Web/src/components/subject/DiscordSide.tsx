@@ -8,7 +8,7 @@ import { Empty, FactList, Field, Note, Panel } from '@/components/subject/shared
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { api, type DiscordMember } from '@/lib/api'
 import type { DiscordMemberRead } from '@/lib/useDiscordMember'
-import { formatDay } from '@/lib/format'
+import { clockTime, formatDay } from '@/lib/format'
 import { usePageState, type ListPage } from '@/lib/listPage'
 import { cn } from '@/lib/utils'
 import { useLoad } from '@/lib/useLoad'
@@ -204,7 +204,7 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
                   </Badge>
                 )}
                 <span className="flex-1" />
-                <span className="font-mono text-muted-foreground" title={new Date(m.sentAt).toLocaleString()}>
+                <span className="font-mono text-muted-foreground" title={`${formatDay(m.sentAt)}, ${clockTime(m.sentAt)}`}>
                   {dateTime(m.sentAt)}
                 </span>
               </div>

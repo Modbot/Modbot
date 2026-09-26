@@ -5,6 +5,7 @@ import { api, ApiError, type ConnectionDiagnosis, type OnboardingStatus } from '
 import { refreshGateHealth } from '@/lib/useGateHealth'
 import { Fact, Field, Hint, Outcome, PasswordField, Placeholder, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
+import { dateTime } from '@/components/charts/format'
 
 /**
  * The VRChat account and the egress proxy — spec 7.1 steps 2 and 3, re-run.
@@ -25,7 +26,7 @@ export function VRChatSection({
   refresh: () => Promise<void>
 }) {
   return (
-    <SettingsSection id="vrchat" title="VRChat Service Account">
+    <SettingsSection id="vrchat" title="Modbot's VRChat login">
       {/* The cards mount only once the status is in hand, so their fields can be initialised
           from it directly instead of being written into by an effect one render later -- which
           is the version that flickers and, worse, clobbers whatever was typed in between. */}
@@ -44,21 +45,21 @@ export function VRChatSection({
 
 function AccountCard({ status }: { status: OnboardingStatus }) {
   return (
-    <SettingsCard span={12} title="Service Account">
+    <SettingsCard span={12} title="Signed in as">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Fact label="Username" value={status.vrChat.username ?? 'Not configured'} />
         <Fact label="Display name" value={status.vrChat.displayName ?? 'Unknown'} />
         <Fact
           label="Last accepted by VRChat"
           value={
-            status.vrChat.verifiedAt ? new Date(status.vrChat.verifiedAt).toLocaleString() : 'Never'
+            status.vrChat.verifiedAt ? dateTime(status.vrChat.verifiedAt) : 'Never'
           }
           mono={!!status.vrChat.verifiedAt}
         />
         <Fact
           label="Last signed in"
           value={
-            status.vrChat.lastSignedInAt ? new Date(status.vrChat.lastSignedInAt).toLocaleString() : 'Never'
+            status.vrChat.lastSignedInAt ? dateTime(status.vrChat.lastSignedInAt) : 'Never'
           }
           mono={!!status.vrChat.lastSignedInAt}
         />
@@ -109,7 +110,7 @@ function CredentialsCard({
 
   return (
     <SettingsCard
-      title="Update Service Account"
+      title="Change the login"
       footer={
         <>
           <Button
@@ -131,7 +132,7 @@ function CredentialsCard({
         <div className="flex max-w-lg flex-col gap-3">
           <Field label="Email or username" value={username} onChange={setUsername} placeholder="" />
           <PasswordField label="Password" value={password} onChange={setPassword} />
-          <PasswordField label="TOTP secret (optional)" mono value={totpSecret} onChange={setTotpSecret} />
+          <PasswordField label="Two-factor secret (optional)" mono value={totpSecret} onChange={setTotpSecret} />
         </div>
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
@@ -187,7 +188,7 @@ function ProxyCard({
 
   return (
     <SettingsCard
-      title="Egress proxy"
+      title="Outgoing address"
       footer={
         <>
           <Button size="xs" variant="outline" disabled={testing} onClick={test}>
@@ -196,7 +197,7 @@ function ProxyCard({
           <Hint>
             {status.connection.checkedAt ? (
               <>
-                Last passed <span className="font-mono">{new Date(status.connection.checkedAt).toLocaleString()}</span>
+                Last passed <span className="font-mono">{dateTime(status.connection.checkedAt)}</span>
               </>
             ) : (
               'Never passed'
@@ -207,7 +208,7 @@ function ProxyCard({
       }
     >
       <Switch checked={useProxy} onChange={setUseProxy}>
-        Enable egress SOCKS5 proxy
+        Use a SOCKS5 proxy
       </Switch>
 
       {useProxy && (

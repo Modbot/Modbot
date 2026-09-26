@@ -360,7 +360,7 @@ public sealed class HealthAlertChecker
         var body = $"{label} needs looking at on your Modbot.\n\n"
                    + $"{watch.Detail}\n\n"
                    + $"Since: {watch.Since ?? now:u}\n\n"
-                   + "Open Sync health in Modbot for the whole picture.";
+                   + "Open Health in Modbot for the whole picture.";
 
         return new Notification(
             NotificationKinds.HealthProblem,

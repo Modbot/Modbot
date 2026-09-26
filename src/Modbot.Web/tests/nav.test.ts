@@ -1,7 +1,24 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { CREDITS_PATH, GO_TO_KEYS, IAM_PATH, MOVED, NAV, mayOpen } from '../src/lib/nav.ts'
+import { CREDITS_PATH, GO_TO_KEYS, IAM_PATH, MOVED, NAV, mayOpen, titleWithCount, waitingTotal } from '../src/lib/nav.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
+
+test('the waiting total adds up the counts the sidebar shows', () => {
+  assert.equal(waitingTotal({}), 0)
+  assert.equal(waitingTotal({ reviews: 2 }), 2)
+  assert.equal(waitingTotal({ reviews: 2, flags: 5 }), 7)
+})
+
+test('a count that is not a real positive number adds nothing', () => {
+  assert.equal(waitingTotal({ reviews: 0, flags: 3 }), 3)
+  assert.equal(waitingTotal({ reviews: -4, flags: 3 }), 3)
+  assert.equal(waitingTotal({ reviews: Number.NaN, flags: Number.POSITIVE_INFINITY }), 0)
+})
+
+test('the tab title carries the total only while something is waiting', () => {
+  assert.equal(titleWithCount('Modbot', 3), '(3) Modbot')
+  assert.equal(titleWithCount('Modbot', 0), 'Modbot')
+})
 
 function person(...permissionNames: string[]): CurrentUser {
   return { permissionNames } as CurrentUser
@@ -21,7 +38,7 @@ test('the old credits address still leads to the page', () => {
   assert.equal(MOVED['/credits'], CREDITS_PATH)
 })
 
-test('sync health is off the page list and its permission is unchanged', () => {
+test('Health is off the page list and its permission is unchanged', () => {
   const health = NAV.find((n) => n.id === 'health')
 
   assert.ok(health && 'hidden' in health && health.hidden)
@@ -69,6 +86,24 @@ test('every page with a go-to chord has its own letter', () => {
 
   assert.ok(letters.every((l) => /^[a-z]$/.test(l)))
   assert.equal(new Set(letters).size, letters.length)
+})
+
+test('no heading in the sidebar shares a name with a page in it', () => {
+  const labels = new Set<string>(NAV.map((n) => n.label))
+  const groups = NAV.flatMap((n) => ('group' in n ? [n.group as string] : []))
+
+  assert.ok(!groups.some((g) => labels.has(g)), 'a heading repeats a page name')
+})
+
+test('Reviews sits beside Flags, with no heading of its own', () => {
+  const at = (id: string) => NAV.findIndex((n) => n.id === id)
+
+  assert.equal(at('reviews'), at('flags') + 1)
+  assert.ok(!('group' in NAV[at('reviews')]))
+})
+
+test("Modbot's own log is not called just Logs, which the audit log and the popup also were", () => {
+  assert.equal(NAV.find((n) => n.id === 'logs')?.label, "Modbot's log")
 })
 
 test('every page in the sidebar has a go-to chord', () => {

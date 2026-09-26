@@ -5917,6 +5917,42 @@
         ]
       }
     },
+    "/api/moderation-flags/open-count": {
+      "get": {
+        "tags": [
+          "Moderation"
+        ],
+        "summary": "Count open flags",
+        "description": "How many flags are open, in any language -- the number on the nav badge.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "CountOpenModerationFlags",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenFlagCount"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/moderation-flags/{id}/dismiss": {
       "post": {
         "tags": [
@@ -8685,7 +8721,7 @@
           "Analytics"
         ],
         "summary": "Get group analytics",
-        "description": "My Group: is the community growing or shrinking, and what changed? Member count over time, joins and leaves per day, net change, roles, how long current members have been members, and whether invites turn into joins. Daily series come from modbot_daily_total, which is never aged out; the headcount, role changes, tenure and invite follow-up come from the fact log, which a retention window can shorten. `coverage` reports both ranges.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The VRChat analytics page: is the community growing or shrinking, and what changed? Member count over time, joins and leaves per day, net change, roles, how long current members have been members, and whether invites turn into joins. Daily series come from modbot_daily_total, which is never aged out; the headcount, role changes, tenure and invite follow-up come from the fact log, which a retention window can shorten. `coverage` reports both ranges.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetGroupAnalytics",
         "parameters": [
           {
@@ -8823,7 +8859,7 @@
           "Analytics"
         ],
         "summary": "Get server analytics",
-        "description": "My Server: is the Discord server healthy, and who keeps it going? Discord's member count, joins and leaves, messages and voice minutes per day, people active each day and over the week and thirty days before it, the busiest channels and hours (UTC), moderation actions, the people who sent the most, new members who stayed after 7 and 30 days, and member health now: how many members were active in the last thirty days and who went quiet. Active means sent a message or spent time in voice; bots are left out. Series come from daily totals.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The Discord analytics page: is the Discord server healthy, and who keeps it going? Discord's member count, joins and leaves, messages and voice minutes per day, people active each day and over the week and thirty days before it, the busiest channels and hours (UTC), moderation actions, the people who sent the most, new members who stayed after 7 and 30 days, and member health now: how many members were active in the last thirty days and who went quiet. Active means sent a message or spent time in voice; bots are left out. Series come from daily totals.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetServerAnalytics",
         "parameters": [
           {
@@ -8906,7 +8942,7 @@
           "Analytics"
         ],
         "summary": "Get team analytics",
-        "description": "My Team: who is doing the moderation work, and when is nobody covering? Actions per moderator broken down by kind and over time, from daily totals; and coverage gaps -- stretches when people were in a group instance and no moderator was, computed from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The Team analytics page: who is doing the moderation work, and when is nobody covering? Actions per moderator broken down by kind and over time, from daily totals; and coverage gaps -- stretches when people were in a group instance and no moderator was, computed from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetTeamAnalytics",
         "parameters": [
           {
@@ -17687,6 +17723,7 @@
           "worldName",
           "instanceId",
           "modbotInstanceId",
+          "instanceName",
           "description",
           "data"
         ],
@@ -17790,6 +17827,12 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "instanceName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "description": {
             "type": [
@@ -25534,6 +25577,7 @@
           "worldName",
           "worldThumbnailImageUrl",
           "vrChatInstanceId",
+          "instanceName",
           "groupAccessType",
           "region",
           "openedAt",
@@ -25568,6 +25612,12 @@
             ]
           },
           "vrChatInstanceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instanceName": {
             "type": [
               "null",
               "string"
@@ -26506,6 +26556,7 @@
           "worldName",
           "worldImageUrl",
           "vrChatInstanceId",
+          "instanceName",
           "groupAccessType",
           "region",
           "openedAt",
@@ -26537,6 +26588,12 @@
             ]
           },
           "vrChatInstanceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instanceName": {
             "type": [
               "null",
               "string"
@@ -28349,6 +28406,22 @@
             "items": {
               "$ref": "#/components/schemas/NotificationView"
             }
+          }
+        }
+      },
+      "OpenFlagCount": {
+        "required": [
+          "open"
+        ],
+        "type": "object",
+        "properties": {
+          "open": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

@@ -18,6 +18,7 @@ import {
 import { count, money } from '@/lib/aiSpend'
 import { Outcome } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { dateTime } from '@/components/charts/format'
 
 /** `#ai/calls/<id>` opens that call, which is where a flag's "AI call" link goes. */
 function callFromHash(): string | null {
@@ -189,7 +190,7 @@ export function AiCallLogSettings() {
           >
             {rows.map((c) => (
               <Tr key={c.id}>
-                <Td className="font-mono">{new Date(c.at).toLocaleString()}</Td>
+                <Td className="font-mono">{dateTime(c.at)}</Td>
                 <Td>{c.featureLabel}</Td>
                 <Td className="max-w-[18rem] whitespace-normal font-mono">
                   {c.modelAnswered ?? c.modelAsked}
@@ -273,7 +274,7 @@ function CallDialog({ id }: { id: string }) {
             <span>{detail.call.featureLabel}</span>
             <span className="font-mono">{detail.call.modelAnswered ?? detail.call.modelAsked}</span>
             <span className={tone(detail.call.outcome)}>{detail.call.outcomeLabel}</span>
-            <span className="font-mono text-muted-foreground">{new Date(detail.call.at).toLocaleString()}</span>
+            <span className="font-mono text-muted-foreground">{dateTime(detail.call.at)}</span>
           </div>
 
           <Block title="Sent" text={detail.prompt} />

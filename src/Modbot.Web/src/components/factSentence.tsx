@@ -6,6 +6,7 @@ import type { AuditEntry } from '@/lib/api'
 import { openPersonVersion } from '@/lib/subject'
 import { avatarWorn, timeInInstance } from '@/lib/factDetails'
 import { duration } from '@/lib/format'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * Every fact, as a sentence naming who did what to whom and where.
@@ -113,6 +114,7 @@ function parts(entry: AuditEntry): Parts {
       worldId={entry.worldId}
       worldName={entry.worldName}
       number={entry.instanceId}
+      name={entry.instanceName}
     />
   ) : null
 
@@ -159,6 +161,7 @@ function Subject({ entry }: { entry: AuditEntry }) {
         worldId={entry.worldId}
         worldName={entry.worldName}
         number={entry.instanceId}
+        name={entry.instanceName}
       />
     ) : (
       <Id value={entry.subjectId} />
@@ -227,12 +230,111 @@ function changedFields(entry: AuditEntry): [string, { old?: unknown; new?: unkno
  * listed then, and the whole diff is a click away in the row's details.
  */
 function Changed({ changed }: { changed: Parts['changed'] }) {
-  const single = changed.filter(([, pair]) => !isListChange(pair))
-  if (single.length === 0) return null
+  const single = changed.filter(([key, pair]) => !isListChange(pair) && !(key in PICTURE_FIELDS))
+  const pictures = pictureChanges(changed)
+  const phrases = [
+    ...single.map(([key, pair]) => changePhrase(key, pair)),
+    ...pictures.map((p) => picturePhrase(p)),
+  ]
+  if (phrases.length === 0) return null
 
-  if (single.length > 4) return <>: {list(single.map(([key]) => fieldName(key)))} changed</>
+  if (phrases.length > 4)
+    return <>: {list([...single.map(([key]) => fieldName(key)), ...pictures.map((p) => p.word)])} changed</>
 
-  return <>: {single.map(([key, pair]) => changePhrase(key, pair)).join('; ')}</>
+  return <>: {phrases.join('; ')}</>
+}
+
+/**
+ * Fields holding a picture's address, by what a person calls the picture. An address says nothing
+ * to a moderator, so these are said as "new icon" and drawn under the sentence instead.
+ *
+ * VRChat changes an avatar's full picture and its thumbnail together; both are "the avatar
+ * picture", said once, and the thumbnail is the one drawn because it is the smaller file.
+ */
+const PICTURE_FIELDS: Record<string, { word: string; wide?: boolean; rank: number }> = {
+  profilePicOverride: { word: 'profile picture', rank: 0 },
+  profilePicOverrideThumbnail: { word: 'profile picture', rank: 1 },
+  currentAvatarThumbnailImageUrl: { word: 'avatar picture', rank: 0 },
+  currentAvatarImageUrl: { word: 'avatar picture', rank: 1 },
+  iconUrl: { word: 'icon', rank: 0 },
+  bannerUrl: { word: 'banner', wide: true, rank: 0 },
+  thumbnailImageUrl: { word: 'picture', rank: 0 },
+  imageUrl: { word: 'picture', rank: 1 },
+}
+
+type PictureChange = { word: string; wide: boolean; old: string | null; new: string | null }
+
+/** One entry per picture that changed, however many of its fields did. */
+function pictureChanges(changed: Parts['changed']): PictureChange[] {
+  const byWord = new Map<string, PictureChange & { rank: number }>()
+
+  for (const [key, pair] of changed) {
+    const field = PICTURE_FIELDS[key]
+    if (!field) continue
+
+    const seen = byWord.get(field.word)
+    if (seen && seen.rank <= field.rank) continue
+
+    byWord.set(field.word, {
+      word: field.word,
+      wide: field.wide ?? false,
+      rank: field.rank,
+      old: typeof pair.old === 'string' && pair.old ? pair.old : null,
+      new: typeof pair.new === 'string' && pair.new ? pair.new : null,
+    })
+  }
+
+  return [...byWord.values()]
+}
+
+function picturePhrase(p: PictureChange): string {
+  if (!p.new) return `${p.word} removed`
+  if (!p.old) return `${p.word} added`
+  return `new ${p.word}`
+}
+
+/** The pictures that changed, before and after, each on a line of its own under the sentence. */
+function ChangedPictures({ changed }: { changed: Parts['changed'] }) {
+  const pictures = pictureChanges(changed)
+  if (pictures.length === 0) return null
+
+  return (
+    <>
+      {pictures.map((p) => (
+        <span key={p.word} className="mt-1 flex items-center gap-2">
+          <Picture url={p.old} wide={p.wide} />
+          <span aria-hidden className="text-muted-foreground">
+            →
+          </span>
+          <Picture url={p.new} wide={p.wide} />
+        </span>
+      ))}
+    </>
+  )
+}
+
+/**
+ * One side of a picture change. A picture VRChat no longer serves -- an old one usually is not --
+ * is drawn as an empty box rather than a broken image.
+ */
+function Picture({ url, wide }: { url: string | null; wide: boolean }) {
+  const size = wide ? 'h-10 w-[7.5rem]' : 'size-10'
+  const src = vrchatMedia(url)
+
+  if (!src) return <span className={`${size} inline-block shrink-0 bg-muted`} />
+
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      className={`${size} shrink-0 bg-muted object-cover`}
+      onError={(e) => {
+        e.currentTarget.style.visibility = 'hidden'
+      }}
+    />
+  )
 }
 
 /** A field whose value is a list, like a role's permissions or a person's tags. */
@@ -251,6 +353,7 @@ function isListChange(pair: { old?: unknown; new?: unknown }): boolean {
 function ChangedLists({ changed }: { changed: Parts['changed'] }) {
   return (
     <>
+      <ChangedPictures changed={changed} />
       {changed
         .filter(([, pair]) => isListChange(pair))
         .map(([key, pair]) => {
@@ -307,10 +410,39 @@ function Bullets({ heading, items }: { heading: string; items: string[] }) {
  * One field's change, for a field holding a single value.
  */
 function changePhrase(key: string, pair: { old?: unknown; new?: unknown }): string {
-  const say = (value: unknown) =>
-    typeof value === 'string' && value && NAMING_FIELD.test(key) ? `“${clipped(value)}”` : clipped(shown(value))
+  const field = fieldName(key)
+  const was = nameOf(pair.old)
+  const now = nameOf(pair.new)
 
-  return `${fieldName(key)} from ${say(pair.old)} to ${say(pair.new)}`
+  // Too long to say whole, and cut short the two sides of a bio edit usually read the same. Said
+  // as what happened instead; the row's details hold both in full.
+  if ((typeof was === 'string' && was.length > 60) || (typeof now === 'string' && now.length > 60)) {
+    if (empty(now)) return `${field} removed`
+    if (empty(was)) return `${field} added`
+    return `new ${field}`
+  }
+
+  const say = (side: unknown) => {
+    const value = nameOf(side)
+    return typeof value === 'string' && value && (NAMING_FIELD.test(key) || isNamedObject(side))
+      ? `“${clipped(value)}”`
+      : clipped(shown(value))
+  }
+
+  return `${field} from ${say(pair.old)} to ${say(pair.new)}`
+}
+
+/** A value that stands for something with a name -- a represented group, say -- as that name. */
+function nameOf(value: unknown): unknown {
+  return isNamedObject(value) ? value.name : value
+}
+
+function isNamedObject(value: unknown): value is { name: string } {
+  return typeof value === 'object' && value !== null && typeof (value as { name?: unknown }).name === 'string'
+}
+
+function empty(value: unknown): boolean {
+  return value === null || value === undefined || value === ''
 }
 
 /** Fields whose value is somebody's own words, quoted so they cannot run into the sentence. */
@@ -546,7 +678,7 @@ const SENTENCES: Record<string, Sentence> = {
   'vrchat.group.calendar-event.series.delete': (p) => <>{p.actor} deleted a repeating calendar entry.</>,
 
   // ── VRChat: profiles ────────────────────────────────────────────────────────────────────────
-  // "VRChat profile" opens the person on their History tab at this very version: the fact is
+  // "VRChat profile" opens the person on their Profile changes tab at this very version: the fact is
   // the snapshot, replayed by the server from the facts around it.
   'vrchat.user.profile.first-seen': (p) => (
     <>
@@ -1542,7 +1674,10 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
 
-/** A moment from a payload, in the reader's own time: "Fri 25 Sep, 1:00 PM". */
+/**
+ * A moment from a payload, in the reader's own time: "Fri 25 Sep, 01:00 PM". The weekday is why
+ * this is not `dateTime`; the hour is written the way `clockTime` writes it.
+ */
 function when(iso: string | null): string | null {
   if (!iso) return null
   const date = new Date(iso)
@@ -1552,7 +1687,7 @@ function when(iso: string | null): string | null {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    hour: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
   })
 }

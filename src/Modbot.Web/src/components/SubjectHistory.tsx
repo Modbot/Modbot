@@ -7,7 +7,7 @@ import { formatDay } from '@/lib/format'
 import { api, ApiError, type RepeatOffenderView, type SubjectHistory as History } from '@/lib/api'
 
 /**
- * The "History" block on a person's pane: how many times they have been acted on, by how many
+ * The "Past actions" block on a person's pane: how many times they have been acted on, by how many
  * moderators, and when last (spec 5.8.4).
  *
  * Read from the repeat-offender counts, which the detection run rebuilds from the fact log on the
@@ -31,8 +31,8 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
         if (cancelled) return
         setError(
           e instanceof ApiError && e.status === 403
-            ? 'You do not have permission to see this history.'
-            : 'Could not load this person’s history.',
+            ? 'You do not have permission to see these past actions.'
+            : 'Could not load this person’s past actions.',
         )
       })
 
@@ -42,7 +42,7 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
   }, [subjectId])
 
   return (
-    <Panel title="History" flush>
+    <Panel title="Past actions" flush>
       {error && <EmptyRow tone="danger">{error}</EmptyRow>}
 
       {!error && !history && <EmptyRow>Loading…</EmptyRow>}

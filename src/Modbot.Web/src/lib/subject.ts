@@ -217,7 +217,7 @@ export function openPerson(id: string): void {
   openSubject({ kind: 'person', id })
 }
 
-/** A person, on their History tab, at the version one fact recorded. */
+/** A person, on their Profile changes tab, at the version one fact recorded. */
 export function openPersonVersion(id: string, factId: number): void {
   openSubject({ kind: 'person', id }, { tab: 'history', version: factId })
 }

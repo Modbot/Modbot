@@ -107,7 +107,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
                   <span className="block min-w-0 flex-1 leading-tight">
                     <span className="block truncate font-medium">{group.name}</span>
                     <span
-                      className="block truncate font-mono text-muted-foreground/70"
+                      className="block truncate font-mono text-muted-foreground"
                       style={{ fontSize: 'var(--text-tiny)' }}
                     >
                       {group.id}
@@ -148,7 +148,7 @@ export function GroupStep({ eyebrow, status, run, refresh, busy }: StepProps) {
         )}
 
         {candidates && filteredOut > 0 && candidates.groups.length > 0 && (
-          <p className="m-0 text-muted-foreground/70" style={{ fontSize: 'var(--text-small)' }}>
+          <p className="m-0 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {filteredOut} other group{filteredOut === 1 ? '' : 's'} hidden: no moderator permissions
           </p>
         )}

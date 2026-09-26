@@ -40,7 +40,9 @@ a moderation rule flag.
 ## Reading the page
 
 There are three tabs: **Open**, with the number waiting, **Dismissed**, and **Confirmed**. Each
-shows the newest 200 flags.
+shows the newest 200 flags. The same number of open flags is beside **Flags** in the sidebar, and
+while any are open the browser tab's title starts with it, as **(3) Modbot** (added to the open
+reviews, if you can see those).
 
 When the flags are in more than one language, a row of buttons above the list filters by language,
 with the number of flags in each.
@@ -64,11 +66,13 @@ Each flag shows:
 - **AI call**, on a flag an AI topic raised: a link to that call in the
   [call log](/ai/call-log), where you can read exactly what the model was sent and what it answered.
 
-The page does not refresh by itself. Switch tabs or reload to see new flags.
+The list and the count redraw by themselves when a rule raises or settles a flag.
 
 ## Dismissing a flag
 
-Press **Dismiss** beside an open flag. It moves to the **Dismissed** tab.
+Press **Dismiss** beside an open flag. A confirmation names the person and the rule; press
+**Dismiss** again to confirm, or **Cancel**. The flag moves to the **Dismissed** tab. If Modbot
+cannot dismiss it, the confirmation stays open and says why.
 
 <Callout type="warn" title="Dismissing is permanent for that person">
 Once dismissed, **that rule and that term** (for an AI topic, **that topic**) never flags that

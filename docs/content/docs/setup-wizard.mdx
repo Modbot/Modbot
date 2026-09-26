@@ -43,7 +43,7 @@ Have these ready:
 | Field | Notes |
 |---|---|
 | **Username** | One of the two things you can sign in with. Up to 64 characters. Not case-sensitive. |
-| **Email** | The other. Required, and no two accounts can share one. Modbot includes this first account's address in how it identifies itself to VRChat on every request, so VRChat has someone to contact; it is also shown as this server's owner, which you can turn off under **Settings**, **Host & Database**, **Public address**. Password reset links for this account go here. |
+| **Email** | The other. Required, and no two accounts can share one. Modbot includes this first account's address in how it identifies itself to VRChat on every request, so VRChat has someone to contact; it is also shown as this server's owner, which you can turn off under **Settings**, **Server**, **Public address**. Password reset links for this account go here. |
 | **Password** | At least 12 characters. There are no other rules, so a long phrase is best. |
 | **Confirm password** | Must match. |
 | **Receive emails from Modbot about new features and updates** | Optional, off unless you tick it. Ticking it sends your address to Modbot Cloud, which sends the mail. Not shown if this Modbot has Modbot Cloud switched off. |
@@ -114,7 +114,7 @@ Modbot supports one proxy. The message for a Cloudflare block names iproyal.com 
 work.
 
 You can come back to this later: if your host gets blocked after Modbot has been working, change the
-proxy under **Settings**, **VRChat Service Account**, **Egress proxy**.
+proxy under **Settings**, **Modbot's VRChat login**, **Outgoing address**.
 
 ## 4. Link your VRChat account
 
@@ -191,7 +191,7 @@ bot and the settings that come after.
 | **From address** | The address emails are sent from. |
 
 Nothing on this step is tested when you save. Modbot uses TLS for email unless told otherwise. You
-can check it later with **Send a test email** under **Settings**, **Integrations**, **Email (SMTP)**.
+can check it later with **Send a test email** under **Settings**, **Integrations**, **Email sending**.
 
 ## Finishing
 
@@ -221,11 +221,11 @@ Each step can be run again. There are two ways.
 
 | Step | In Settings |
 |---|---|
-| VRChat account | **VRChat Service Account**, **Update Service Account** |
-| Connection check and proxy | **VRChat Service Account**, **Egress proxy** |
-| Public address | **Host & Database**, **Public address** |
+| VRChat account | **Modbot's VRChat login**, **Change the login** |
+| Connection check and proxy | **Modbot's VRChat login**, **Outgoing address** |
+| Public address | **Server**, **Public address** |
 | Discord bot | **Discord**, **Bot** |
-| Email | **Integrations**, **Email (SMTP)** |
+| Email | **Integrations**, **Email sending** |
 
 **The wizard itself**, by opening `/setup` on your Modbot's address. This is the place to choose a
 different group. On a Modbot that is already set up, it opens at the last step; use **Back** to reach

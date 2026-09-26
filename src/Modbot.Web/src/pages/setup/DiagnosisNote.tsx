@@ -30,7 +30,7 @@ export function DiagnosisNote({ diagnosis }: { diagnosis: ConnectionDiagnosis })
       {diagnosis.wafCode ? (
         <>
           <br />
-          <span className="font-mono text-muted-foreground/70">
+          <span className="font-mono text-muted-foreground">
             Cloudflare error {diagnosis.wafCode}
           </span>
         </>

@@ -40,7 +40,15 @@ export function SubjectCaseFiles({ subjectId }: { subjectId: string }) {
     }
   }, [subjectId])
 
-  if (error) return null
+  // A failure says so: a missing section would read as "no case files", which is the one thing a
+  // moderator must not be told by mistake.
+  if (error) {
+    return (
+      <Panel title="Case files" flush>
+        <EmptyRow tone="danger">{error}</EmptyRow>
+      </Panel>
+    )
+  }
   if (!list) return null
 
   return (

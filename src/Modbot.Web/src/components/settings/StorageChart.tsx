@@ -25,6 +25,7 @@ import {
 } from './storageChartTheme'
 import type { DataSettings } from '@/lib/api'
 import { DAY_MS, GB, bytes, gigabytes, hasPlentyOfStorage } from './units'
+import { formatDay } from '@/lib/format'
 
 /**
  * Storage over time: the past year as recorded, today as measured, and the year ahead as an
@@ -249,7 +250,9 @@ export function StorageChart({
     const x = k * DAYS_PER_MONTH
     if (x >= -pastDays - 0.5) ticks.push(x)
   }
+  // An axis tick names a month and a year, which no shared date helper writes.
   const dateOf = (x: number, options: Intl.DateTimeFormatOptions) =>
+    // oxlint-disable-next-line no-restricted-properties
     new Date(measuredMs + x * DAY_MS).toLocaleDateString(undefined, options)
   const tickLabel = (x: number) =>
     x === 0 ? 'Today' : dateOf(x, { month: 'short', year: 'numeric' })
@@ -540,11 +543,7 @@ function Caption({ storage, capacityBytes }: { storage: Storage; capacityBytes: 
                 <span className={plenty ? undefined : 'text-destructive'}>
                   {' '}
                   At the current rate, it fills around{' '}
-                  {new Date(storage.capacityExhausted).toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
+                  {formatDay(storage.capacityExhausted)}
                   .
                 </span>
               )}

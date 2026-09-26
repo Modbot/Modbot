@@ -102,7 +102,7 @@ export function Field({
         style={{ fontSize: 'var(--text-small)' }}
       >
         {label}
-        {hint && <span className="text-muted-foreground/70"> · {hint}</span>}
+        {hint && <span className="text-muted-foreground"> · {hint}</span>}
       </label>
       {children}
     </div>

@@ -8,7 +8,7 @@ import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { EntryDetail } from '@/components/audit/EntryDetail'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
-import { FactTime, ReportedBy, SourceBadge } from '@/components/facts'
+import { FactTime, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
 import { useFilters, type FilterProperty } from '@/lib/filters'
 import { useListSelection } from '@/lib/listSelection'
@@ -403,7 +403,7 @@ function Row({
         <Td>
           <div className="flex items-baseline gap-2 font-mono leading-tight">
             <FactTime entry={entry} />
-            <span className="text-muted-foreground/70">{formatDay(entry.occurredAt)}</span>
+            <span className="text-muted-foreground">{formatDay(entry.occurredAt)}</span>
           </div>
         </Td>
         <Td>
@@ -419,10 +419,6 @@ function Row({
               <span className="font-mono">{entry.linked.length + 1}</span> facts
             </Badge>
           )}
-          {/* Whose client saw it. On the row rather than behind the chevron, because a moderator
-              scanning the log for what a colleague's client reported should not have to open every
-              row to find out. */}
-          <ReportedBy entry={entry} />
         </Td>
       </Tr>
       {/* No line of its own above: the detail belongs to the row over it. The next row's line

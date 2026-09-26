@@ -48,12 +48,18 @@ export type TimeFormat = { locale?: string; timeZone?: string }
 export function timeLabel(ms: number, spanMs: number, format: TimeFormat = {}): string {
   const d = new Date(ms)
 
+  // The lint rule against hand-written dates is off for these three: an axis label changes its
+  // grain with the axis's length, and takes the locale and time zone from its caller so the tests
+  // can pin both. No shared helper does either.
   if (spanMs <= 2 * DAY)
+    // oxlint-disable-next-line no-restricted-properties
     return d.toLocaleTimeString(format.locale, { hour: '2-digit', minute: '2-digit', timeZone: format.timeZone })
 
   if (spanMs <= 400 * DAY)
+    // oxlint-disable-next-line no-restricted-properties
     return d.toLocaleDateString(format.locale, { month: 'short', day: 'numeric', timeZone: format.timeZone })
 
+  // oxlint-disable-next-line no-restricted-properties
   return d.toLocaleDateString(format.locale, { year: 'numeric', month: 'short', timeZone: format.timeZone })
 }
 

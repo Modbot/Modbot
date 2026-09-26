@@ -95,6 +95,10 @@ public sealed record AuditReporter(Guid AccountId, string? Name, DateTimeOffset 
 /// instance on the world and VRChat's number, which is handed out again after an instance closes, so the
 /// match is made on the fact's time falling inside an instance's own open and close times.
 /// </param>
+/// <param name="InstanceName">
+/// The name the matched instance was opened with, when it has one -- shown in place of
+/// <c>instanceId</c>, VRChat's number. Null when no instance was matched or it has no name.
+/// </param>
 /// <param name="Data">
 /// The fact's own payload, verbatim. Secrets are never in it by construction (spec 5.9.3).
 /// </param>
@@ -138,6 +142,7 @@ public sealed record AuditEntry(
     string? WorldName,
     string? InstanceId,
     Guid? ModbotInstanceId,
+    string? InstanceName,
     string? Description,
     JsonNode? Data,
     TrustRank? SubjectTrustRank = null,

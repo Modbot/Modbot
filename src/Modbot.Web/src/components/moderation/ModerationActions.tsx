@@ -22,6 +22,7 @@ import {
   resultText,
   type PersonStanding,
 } from '@/lib/moderationActions'
+import { go } from '@/lib/router'
 
 const SEND: Record<ModerationActionName, (body: Parameters<typeof api.kickPerson>[0]) => Promise<ModerationActionResult>> = {
   kick: api.kickPerson,
@@ -231,7 +232,22 @@ function ConfirmAction({
           <>
             <p className={result.done ? '' : 'text-destructive'}>{resultText(action, result)}</p>
 
-            <div className="flex justify-end">
+            <div className="flex flex-wrap justify-end gap-2">
+              {/* A ban writes a case file and the server hands back its id. Offered here, so the
+                  screenshot can be attached without searching for the person all over again. */}
+              {result.done && result.caseId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const caseId = result.caseId!
+                    onClose()
+                    go(`/cases/${encodeURIComponent(caseId)}`)
+                  }}
+                >
+                  Open the case file
+                </Button>
+              )}
               <Button size="sm" onClick={onClose}>
                 Close
               </Button>

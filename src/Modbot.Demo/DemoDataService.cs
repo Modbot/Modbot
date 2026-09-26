@@ -7,6 +7,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 using Modbot.Evidence.Health;
+using Modbot.Evidence.Options;
 using Modbot.Evidence.Storage;
 using Modbot.Evidence.Upload;
 
@@ -187,14 +188,17 @@ public sealed class DemoDataService : BackgroundService
         // Evidence only when a store is wired up. A host that maps the demo without the evidence
         // stack still gets every case file, just with nothing attached.
         if (services.GetService<IEvidenceStore>() is { } store
-            && services.GetService<IEvidenceMetadata>() is { } metadata)
+            && services.GetService<IEvidenceMetadata>() is { } metadata
+            && services.GetService<EvidenceOptions>() is { } options)
         {
             _state.Begin("Attaching the evidence");
-            await new DemoEvidence(db, store, metadata).WriteAsync(plan, ct);
+            await new DemoEvidence(db, store, metadata, options).WriteAsync(plan, ct);
 
-            // The store marker was written a moment ago, and the verdict this process is holding
-            // was taken at startup, before there was one. Without this re-read every piece of
-            // evidence stays behind the lost-store lock until the next restart.
+            // The store id and the store marker were both only just written -- DemoSeeder leaves
+            // the id unset precisely so the startup probe never has one without the other. The
+            // verdict this process is holding was taken at startup, before either existed. Without
+            // this re-check every piece of evidence stays behind "not configured" until the next
+            // restart.
             if (services.GetService<EvidenceStoreMonitor>() is { } monitor)
                 await monitor.CheckAsync(ct);
         }

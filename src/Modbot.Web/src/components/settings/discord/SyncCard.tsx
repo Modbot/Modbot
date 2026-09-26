@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { api, ApiError, type DiscordSyncSettings, type PlannedChange, type RolePair, type SyncPreview } from '@/lib/api'
 import { Fact, Outcome, Switch } from '../fields'
 import { SettingsCard } from '../SettingsCard'
+import { dateTime } from '@/components/charts/format'
 
 const DECIDES = [
   { id: 'vrchat', label: 'VRChat' },
@@ -353,5 +354,5 @@ function permissions(settings: DiscordSyncSettings): string {
 }
 
 function when(at: string | null): string {
-  return at ? new Date(at).toLocaleString() : 'Never'
+  return at ? dateTime(at) : 'Never'
 }

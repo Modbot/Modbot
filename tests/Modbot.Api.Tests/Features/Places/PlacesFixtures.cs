@@ -49,7 +49,8 @@ internal static class PlacesFixtures
         DateTimeOffset openedAt,
         DateTimeOffset lastSeenAt,
         DateTimeOffset? closedAt,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? name = null)
     {
         var instance = new VRChatInstance
         {
@@ -57,6 +58,7 @@ internal static class PlacesFixtures
             Location = $"{worldId}:{number}",
             WorldId = worldId,
             VRChatInstanceId = number,
+            Name = name,
             GroupId = "grp_1",
             Type = "group",
             GroupAccessType = "plus",

@@ -7,7 +7,8 @@ import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { statusOf } from '@/lib/gate'
 import { discordState, DOT, TONE, type Tone } from '@/lib/status'
-import { duration, formatDay } from '@/lib/format'
+import { clockTime, duration, formatDay } from '@/lib/format'
+import { dateTime } from '@/components/charts/format'
 import { amountText, share } from '@/lib/aiSpend'
 import {
   api,
@@ -33,6 +34,9 @@ import { Empty } from './Members'
  * The screen is ordered by how much somebody has to care, not by subsystem: whether VRChat is
  * reachable, then whether the producers are running, then the budgets, then the event types
  * Modbot has seen and not understood.
+ *
+ * The code keeps the spec's words (gate, producer, bucket, cold stop); the screen says them the
+ * way an owner would: what Modbot reads, VRChat request limits, stopped, check.
  */
 
 export function Health() {
@@ -61,8 +65,8 @@ export function Health() {
           if (cancelled) return
           setError(
             e instanceof ApiError && e.status === 403
-              ? 'You do not have permission to read sync health.'
-              : 'Could not load sync health.',
+              ? "You do not have permission to see Modbot's health."
+              : "Could not load Modbot's health.",
           )
         })
     }
@@ -115,18 +119,14 @@ export function Health() {
       <Part
         id="vrchat"
         title="VRChat"
+        // No line for the gate's own state name: the headline under it says the same in a sentence.
         state={<State tone={status.tone}>{status.label}</State>}
-        aside={
-          <>
-            gate state: <span className="font-mono">{health.gate.state}</span>
-          </>
-        }
       >
         <p className="max-w-3xl">{health.gate.headline}</p>
         {health.gate.coldStopEndsAt && (
           <p>
-            Next probe no earlier than{' '}
-            <span className="font-mono">{new Date(health.gate.coldStopEndsAt).toLocaleTimeString()}</span>
+            Next check no earlier than{' '}
+            <span className="font-mono">{clockTime(health.gate.coldStopEndsAt)}</span>
           </p>
         )}
         {/* Row's value takes its colour from around it and its label stays muted, so the wrapper
@@ -134,13 +134,13 @@ export function Health() {
         <div className="mt-1 max-w-lg text-foreground">
           <Row
             label="Last signed in"
-            value={health.gate.lastSignedInAt ? new Date(health.gate.lastSignedInAt).toLocaleString() : 'Never'}
+            value={health.gate.lastSignedInAt ? dateTime(health.gate.lastSignedInAt) : 'Never'}
             mono={!!health.gate.lastSignedInAt}
           />
           <Row label="Sign-ins this hour" value={`${health.gate.signInsInLastHour} of ${health.gate.signInLimit}`} mono />
           {health.gate.signInWait && (
             <div className="text-destructive">
-              <Row label="Next sign-in" value={new Date(health.gate.signInWait.retryAt).toLocaleTimeString()} mono />
+              <Row label="Next sign-in" value={clockTime(health.gate.signInWait.retryAt)} mono />
             </div>
           )}
         </div>
@@ -185,7 +185,7 @@ export function Health() {
         {/* The warning sits on the producers' own strip, since theirs are the passes not being
             made here. */}
         <CardHeader className={cn(!health.syncRunningInThisProcess && 'bg-warn/10')}>
-          <CardTitle>Producers</CardTitle>
+          <CardTitle>What Modbot reads</CardTitle>
           {!health.syncRunningInThisProcess && (
             <CardAction className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
               <span aria-hidden className="size-2 shrink-0 bg-warn" />
@@ -277,7 +277,7 @@ export function Health() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Rate-limit budgets</CardTitle>
+          <CardTitle>VRChat request limits</CardTitle>
         </CardHeader>
 
         {health.buckets.length === 0 ? (
@@ -287,10 +287,10 @@ export function Health() {
             pinFirst
             head={
               <>
-                <Th>Bucket</Th>
-                <Th className="text-right">Rate (req/s)</Th>
-                <Th className="text-right">Budget</Th>
-                <Th className="text-right">429s</Th>
+                <Th>Limit</Th>
+                <Th className="text-right">Requests a second</Th>
+                <Th className="text-right">Speed</Th>
+                <Th className="text-right">Times refused</Th>
                 <Th>State</Th>
               </>
             }
@@ -308,11 +308,11 @@ export function Health() {
                     <State tone="bad">given up, needs you</State>
                   ) : bucket.isColdStopped ? (
                     <State tone="warn">
-                      cold-stopped
+                      stopped
                       {bucket.stoppedUntil && (
                         <>
                           {' until '}
-                          <span className="font-mono">{new Date(bucket.stoppedUntil).toLocaleTimeString()}</span>
+                          <span className="font-mono">{clockTime(bucket.stoppedUntil)}</span>
                         </>
                       )}
                     </State>
@@ -328,7 +328,7 @@ export function Health() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Audit-log event types Modbot does not understand</CardTitle>
+          <CardTitle>Kinds of audit log entry Modbot does not know</CardTitle>
         </CardHeader>
 
         {health.unmappedAuditEvents.length === 0 ? (
@@ -337,7 +337,7 @@ export function Health() {
           <Table
             head={
               <>
-                <Th>Event type</Th>
+                <Th>Kind</Th>
                 <Th className="text-right">Count</Th>
                 <Th>Sample</Th>
               </>
@@ -430,10 +430,10 @@ function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'membe
 
   const phase =
     sweep.coldStopped ? (
-      'Cold-stopped'
+      'Stopped'
     ) : sweep.phase === 'sweeping' ? (
       <>
-        Sweeping · {pages(sweep.pagesWalked)} read · offset <span className="font-mono">{sweep.offset.toLocaleString()}</span>
+        Sweeping · {pages(sweep.pagesWalked)} read · at row <span className="font-mono">{sweep.offset.toLocaleString()}</span>
       </>
     ) : sweep.phase === 'resting'
           ? 'Resting'
@@ -890,7 +890,7 @@ function EmailQueue({ email }: { email: EmailHealth }) {
         {email.nextSendAt && (
           <>
             {' · next at '}
-            <span className="font-mono whitespace-nowrap">{new Date(email.nextSendAt).toLocaleString()}</span>
+            <span className="font-mono whitespace-nowrap">{dateTime(email.nextSendAt)}</span>
           </>
         )}
         {email.failed > 0 && (
@@ -912,7 +912,7 @@ function Logs({ logs }: { logs: LogHealth }) {
     'Off'
   ) : logs.cloudSentAt ? (
     <>
-      Last sent <span className="font-mono whitespace-nowrap">{new Date(logs.cloudSentAt).toLocaleString()}</span>
+      Last sent <span className="font-mono whitespace-nowrap">{dateTime(logs.cloudSentAt)}</span>
     </>
   ) : logs.cloudRegistered ? (
     'Nothing sent yet'
@@ -921,7 +921,7 @@ function Logs({ logs }: { logs: LogHealth }) {
   )
 
   return (
-    <Part title="Logs">
+    <Part title="Modbot's log">
       {/* As on the VRChat part, each value takes its tone from a wrapper and its label stays muted. */}
       <div className="max-w-lg">
         <div className={storeProblem ? 'text-warn' : 'text-foreground'}>

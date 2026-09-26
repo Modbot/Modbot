@@ -8,6 +8,7 @@ import { Checkbox, Fact, Field, Outcome, PasswordField, Placeholder } from './fi
 import { HealthAlertsCard } from './HealthAlertsCard'
 import { PublicInstancesCard } from './PublicInstancesCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
+import { dateTime } from '@/components/charts/format'
 
 /**
  * Email — spec 7.1 step 5, re-run. The public address moved to Host & Database.
@@ -147,7 +148,7 @@ function IntegrationsForm({
   // their own.
   return (
     <SettingsCard
-      title="Email (SMTP)"
+      title="Email sending"
       flush
       footer={
         <>
@@ -162,7 +163,7 @@ function IntegrationsForm({
       <form id="integrations-form" onSubmit={save} className="contents">
         <div className="flex flex-col gap-3 p-(--panel-pad)">
           <Fact
-            label="Relay"
+            label="Mail server"
             value={
               status.integrations.smtpConfigured
                 ? (status.integrations.smtpHost ?? 'Configured')
@@ -232,7 +233,7 @@ function IntegrationsForm({
   )
 }
 
-const when = (iso: string) => new Date(iso).toLocaleString()
+const when = dateTime
 
 const queuedText = (sendsAt: string | null) =>
   sendsAt ? (

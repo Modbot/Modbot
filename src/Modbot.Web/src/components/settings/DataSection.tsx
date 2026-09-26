@@ -19,6 +19,7 @@ import { MachineUsageCard } from './MachineUsageCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
 import { GB, bytes, hasPlentyOfStorage, remember, remembered } from './units'
+import { dateTime } from '@/components/charts/format'
 
 /**
  * Data: what Modbot is keeping, what it costs, and for how long (spec 5.5).
@@ -52,7 +53,7 @@ export function DataSection() {
   useEffect(() => load(), [load])
 
   return (
-    <SettingsSection id="data" title="Host & Database">
+    <SettingsSection id="data" title="Server">
       {error ? (
         <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (
@@ -229,7 +230,7 @@ function UpdatesCard() {
         )}
         <Row
           label="Last checked"
-          value={view?.checkedAt ? new Date(view.checkedAt).toLocaleString() : '—'}
+          value={view?.checkedAt ? dateTime(view.checkedAt) : '—'}
           mono={!!view?.checkedAt}
         />
       </div>
@@ -426,7 +427,7 @@ function CloudCard() {
     : status.lastReportAt === null
       ? 'Not sent yet'
       : status.lastReportOk
-        ? new Date(status.lastReportAt).toLocaleString()
+        ? dateTime(status.lastReportAt)
         : (status.lastReportProblem ?? 'Failed')
 
   return (

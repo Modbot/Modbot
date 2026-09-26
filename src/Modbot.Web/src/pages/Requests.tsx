@@ -152,11 +152,6 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
                           {row.plainName}
                         </div>
                       )}
-                      {row.displayName && (
-                        <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
-                          {row.userId}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </Td>

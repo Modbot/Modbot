@@ -16,7 +16,7 @@ operators running it. It is not repeated here, so there is only ever one version
 yourself sends anywhere the project operates. The facts about your members — bans, joins, messages,
 case files, evidence — never leave your own database.
 
-1. **What is sent is the log, unchanged.** The same lines you can read on the **Logs** page:
+1. **What is sent is the log, unchanged.** The same lines you can read on the **Modbot's log** page:
    Information level and above, with the message, the time, which part of Modbot wrote it, the
    exception if there was one, and the values the line carried. Not warnings only, and not
    anonymised. If you set `LOG_LEVEL` lower, the extra detail is sent too — the lines for every
@@ -30,7 +30,7 @@ case files, evidence — never leave your own database.
    whose name looks like a password, a secret, a token, an API key, an authorisation header or a
    cookie is replaced, and a bearer token or a connection-string password written into a message is
    removed from the text.
-5. **You can turn it off**, in **Settings**, **Host & Database**, **Logs**, or by setting
+5. **You can turn it off**, in **Settings**, **Server**, **Logs**, or by setting
    `MODBOT_CLOUD_DISABLED` on the server. Nothing is sent after that, and nothing else about Modbot
    changes.
 6. **Your deployment is identified by a random id**, made the first time it sends. It is not your

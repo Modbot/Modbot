@@ -27,6 +27,10 @@ public sealed record HourOfWeek(IReadOnlyList<decimal> Arrivals, IReadOnlyList<d
 /// </remarks>
 /// <param name="Id">Modbot's own id for the instance, which is what makes it one instance.</param>
 /// <param name="VRChatInstanceId">VRChat's number for it -- what a moderator sees in game.</param>
+/// <param name="InstanceName">
+/// The name the instance was opened with, when it was given one. Screens show it in place of the
+/// number. Null for an instance with no name.
+/// </param>
 /// <param name="PeopleNow">How many were in it when Modbot last counted.</param>
 /// <param name="PeakPeople">The most in it at once over its whole life.</param>
 /// <param name="MinutesOpen">How long it ran, or has been running.</param>
@@ -50,6 +54,7 @@ public sealed record InstanceRow(
     string? WorldName,
     string? WorldThumbnailImageUrl,
     string? VRChatInstanceId,
+    string? InstanceName,
     string? GroupAccessType,
     string? Region,
     DateTimeOffset OpenedAt,

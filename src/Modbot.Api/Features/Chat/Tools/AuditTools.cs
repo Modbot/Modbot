@@ -78,6 +78,7 @@ internal static class AuditSearch
         e.WorldId,
         e.WorldName,
         number = e.InstanceId,
+        instanceName = e.InstanceName,
         instanceId = e.ModbotInstanceId,
         e.Description,
         e.Data,
@@ -111,7 +112,7 @@ internal static class AuditSearch
             if (e.ModbotInstanceId is { } instance)
             {
                 yield return new ChatReference(
-                    ChatReference.Instance, instance.ToString(), e.InstanceId is { } n ? $"{e.WorldName ?? e.WorldId} #{n}" : e.WorldName ?? e.WorldId);
+                    ChatReference.Instance, instance.ToString(), Places.InstanceRows.Label(e.WorldName, e.WorldId!, e.InstanceId, e.InstanceName));
             }
         }
     }

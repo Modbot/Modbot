@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import type { ChatMessage, ChatReference } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { dateTime } from '@/components/charts/format'
 
 /** A question, or the reply written after it: what one row of the conversation shows. */
 type Block =
@@ -354,6 +355,4 @@ function referencesOf(messages: ChatMessage[]): ChatReference[] {
   return messages.flatMap((m) => m.references)
 }
 
-function when(iso: string): string {
-  return new Date(iso).toLocaleString()
-}
+const when = dateTime

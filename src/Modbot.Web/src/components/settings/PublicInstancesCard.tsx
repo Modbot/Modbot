@@ -4,6 +4,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { Row } from '@/components/ui/fact-row'
 import { Outcome, Switch } from './fields'
 import { SettingsCard } from './SettingsCard'
+import { dateTime } from '@/components/charts/format'
 
 /**
  * Modbot Cloud: whether this group's instances that anyone can join are listed on modbot.co.
@@ -59,7 +60,7 @@ export function PublicInstancesCard({ span = 6 }: { span?: 6 | 12 }) {
             {view.cloudDisabled && <Row label="Modbot Cloud" value="Off (MODBOT_CLOUD_DISABLED)" />}
             <Row
               label="Last sent"
-              value={view.lastSentAt ? new Date(view.lastSentAt).toLocaleString() : '—'}
+              value={view.lastSentAt ? dateTime(view.lastSentAt) : '—'}
               mono={!!view.lastSentAt}
             />
           </div>

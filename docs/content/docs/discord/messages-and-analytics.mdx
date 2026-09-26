@@ -1,12 +1,12 @@
 ---
-title: Messages and My Server
-description: What the bot keeps from your Discord server, who can read stored messages, and the My Server charts built from it.
+title: Messages and analytics
+description: What the bot keeps from your Discord server, who can read stored messages, and the Discord analytics page built from it.
 ---
 
 Once the bot is connected, Modbot keeps a record of your Discord server: its messages, who joins
 and leaves, moderation in the server, and time spent in voice. That record feeds the
 [Discord members](/discord/members) list, the person popup, [AutoMod](/moderation/automod),
-and the **My Server** charts described below.
+and the charts on the **Discord** analytics page, described below.
 
 ## What the bot stores
 
@@ -37,7 +37,7 @@ server finishes in minutes; a very large one can take hours.
 It stops reading a channel when it reaches the first message, or when it finds three pages in a
 row it already has. If Modbot restarts part way through, it carries on where it stopped.
 
-The **Discord bot** card on the **Sync health** page shows progress, for example
+The **Discord bot** card on the **Health** page shows progress, for example
 **Message history read back: 12 of 40 channels and threads · 85,000 messages stored**, and how
 many channels it has no access to.
 
@@ -71,7 +71,7 @@ Time in voice is counted from these voice events.
 
 ### How long messages are kept
 
-Set how long messages are kept under **Settings → Host & Database**, on the **Retention** card, in
+Set how long messages are kept under **Settings → Server**, on the **Retention** card, in
 **Discord messages (days)**. `0` keeps them forever. Older messages, with their earlier edited
 versions, are removed by Modbot's retention job, and a message older than the setting is not stored
 in the first place. See [Data and retention](/self-hosting/data-retention).
@@ -96,13 +96,14 @@ newest first, 50 to a page:
 
 The app shows the current text of an edited message, not its earlier versions.
 
-Nothing else in Modbot shows a person's messages. **My Server** and the popup's **Metrics** tab only
-count them, and a [flag](/moderation/flags) quotes only the message a rule matched.
+Nothing else in Modbot shows a person's messages. The **Discord** analytics page and the popup's
+**Metrics** tab only count them, and a [flag](/moderation/flags) quotes only the message a rule
+matched.
 
-## My Server
+## Discord analytics
 
-**My Server** is under **Analytics** in the sidebar. It needs **See analytics**. It answers "is our
-Discord server healthy, and who keeps it going?"
+The **Discord** page is under **Analytics** in the sidebar. It needs **See analytics**. It answers
+"is our Discord server healthy, and who keeps it going?"
 
 Pick a range at the top: **7 days**, **30 days**, **90 days** or **All time**.
 

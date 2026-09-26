@@ -45,7 +45,7 @@ export function VRChatProxySection() {
   }, [load])
 
   return (
-    <SettingsSection id="proxy" title="VRChat Proxy">
+    <SettingsSection id="proxy" title="VRChat proxy">
       {error ? (
         <Placeholder tone="danger">{error}</Placeholder>
       ) : !data ? (

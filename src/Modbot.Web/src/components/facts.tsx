@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { sourceLabel } from '@/lib/format'
+import { clockTime, formatDay, sourceLabel } from '@/lib/format'
 import { instanceName, instanceNumber } from '@/lib/instanceName'
 import { reporterNames } from '@/lib/reporters'
 import { openAccount, openDiscordPerson, openInstance, openPerson, openWorld } from '@/lib/subject'
@@ -66,10 +66,8 @@ export function ReportedBy({
   )
 }
 
-const time = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-
-const dateTime = (iso: string) => new Date(iso).toLocaleString()
+/** The whole instant for a `title`: the row shows only the time, and the day is one hover away. */
+const wholeInstant = (iso: string) => `${formatDay(iso)}, ${clockTime(iso)}`
 
 /**
  * When a fact happened — as an instant when that is known, and as a range when it is not.
@@ -82,8 +80,8 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString()
 export function FactTime({ entry }: { entry: Pick<AuditEntry, 'occurredAt' | 'occurredBefore'> }) {
   if (!entry.occurredBefore) {
     return (
-      <span className="font-mono text-muted-foreground" title={dateTime(entry.occurredAt)}>
-        {time(entry.occurredAt)}
+      <span className="font-mono text-muted-foreground" title={wholeInstant(entry.occurredAt)}>
+        {clockTime(entry.occurredAt)}
       </span>
     )
   }
@@ -91,9 +89,9 @@ export function FactTime({ entry }: { entry: Pick<AuditEntry, 'occurredAt' | 'oc
   return (
     <span
       className="font-mono text-muted-foreground"
-      title={`Between ${dateTime(entry.occurredAt)} and ${dateTime(entry.occurredBefore)}`}
+      title={`Between ${wholeInstant(entry.occurredAt)} and ${wholeInstant(entry.occurredBefore)}`}
     >
-      ~{time(entry.occurredAt)}–{time(entry.occurredBefore)}
+      ~{clockTime(entry.occurredAt)}–{clockTime(entry.occurredBefore)}
     </span>
   )
 }
@@ -239,24 +237,31 @@ export function InstanceLink({
   worldId,
   worldName,
   number,
+  name,
   className,
 }: {
   modbotInstanceId?: string | null
   worldId?: string | null
   worldName?: string | null
   number?: string | null
+  /** The name the instance was opened with. Shown in place of the number, which moves to the tooltip. */
+  name?: string | null
   className?: string
 }) {
+  // With a name on screen, the number is what a moderator still needs to find the instance in game.
+  const named = !!name?.trim()
+  const title = [worldId, named && number ? instanceNumber(number) : null].filter(Boolean).join(' ') || undefined
+
   if (modbotInstanceId) {
     return (
       <button
         type="button"
         onClick={() => openInstance(modbotInstanceId)}
-        title={worldId ?? undefined}
+        title={title}
         className={cn(linkClass, className)}
         style={{ display: 'inline' }}
       >
-        {instanceName(worldName, worldId, number)}
+        {instanceName(worldName, worldId, number, name)}
       </button>
     )
   }
@@ -265,10 +270,15 @@ export function InstanceLink({
     return (
       <span className={className}>
         <WorldLink id={worldId} name={worldName} unnamed="id" />
-        {number ? <span className="text-muted-foreground"> {instanceNumber(number)}</span> : null}
+        {number || named ? (
+          <span className="text-muted-foreground" title={named && number ? instanceNumber(number) : undefined}>
+            {' '}
+            {instanceNumber(number, name)}
+          </span>
+        ) : null}
       </span>
     )
   }
 
-  return <span className={cn('text-muted-foreground', className)}>{instanceName(null, null, number)}</span>
+  return <span className={cn('text-muted-foreground', className)}>{instanceName(null, null, number, name)}</span>
 }

@@ -97,6 +97,31 @@ public class VRChatInstance
     /// <summary>Which region VRChat put the instance in, when it said.</summary>
     public string? Region { get; set; }
 
+    /// <summary>
+    /// The name the instance was given when it was opened -- "6 killed 7" -- or null when it has
+    /// none. Screens show it in place of <see cref="VRChatInstanceId"/> when it is set.
+    /// </summary>
+    /// <remarks>
+    /// Taken from <c>displayName</c> on the instance's own page, which Modbot already reads for the
+    /// head count, so it costs no request of its own. The latest read wins, so a renamed instance
+    /// shows its new name. Blank counts as none (<see cref="NameFrom"/>).
+    /// </remarks>
+    public string? Name { get; set; }
+
+    /// <summary>
+    /// What VRChat's <c>displayName</c> means as a name: the text as sent, or null when it is
+    /// missing, empty or only spaces. VRChat's own number is never a name, so a name that is just
+    /// the number is treated as none too.
+    /// </summary>
+    public static string? NameFrom(string? displayName, string? number)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+            return null;
+
+        var name = displayName.Trim();
+        return string.Equals(name, number, StringComparison.Ordinal) ? null : name;
+    }
+
     // ── How long it was open, and how busy ────────────────────────────────────────────────
 
     /// <summary>

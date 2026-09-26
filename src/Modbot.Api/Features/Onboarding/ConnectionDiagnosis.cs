@@ -142,7 +142,7 @@ public sealed record ConnectionDiagnosis(
             "This host's IP range cannot reach the VRChat API at all — the request never got as "
             + "far as VRChat. This is common on VPS and datacentre hosting. It is not a problem "
             + "with your VRChat account, and it is not something you did.",
-            "Modbot supports one egress proxy. Enter its URL below and test again — "
+            "Modbot can use one proxy. Enter its address below and test again — "
             + $"{SuggestedProxyProvider} is a known working option."),
 
         ConnectionOutcome.DnsFailure => (

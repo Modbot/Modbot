@@ -96,7 +96,7 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
           </a>
         )}
       </div>
-      <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }} title={item.hash}>
+      <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }} title={item.hash}>
         sha256 {item.hash}
       </div>
     </div>

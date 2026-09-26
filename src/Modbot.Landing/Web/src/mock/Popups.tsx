@@ -267,7 +267,7 @@ function PersonBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen:
 
       <Tabs
         tabs={[
-          { value: 'logs', label: 'Logs' },
+          { value: 'logs', label: 'Activity' },
           { value: 'cases', label: 'Cases' },
           { value: 'metrics', label: 'Metrics' },
         ]}
@@ -425,7 +425,7 @@ function InstanceBody({ id, live, onOpen }: { id: string; live: LiveState; onOpe
       <Tabs
         tabs={[
           { value: 'people', label: 'People', badge: watched ? instance.people.length : undefined },
-          { value: 'logs', label: 'Logs', badge: instanceFacts(instance.id).length },
+          { value: 'logs', label: 'Activity', badge: instanceFacts(instance.id).length },
         ]}
       >
         {(tab) =>
