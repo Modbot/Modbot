@@ -40,6 +40,11 @@ public sealed record LivePersonView(
 /// <param name="People">Everyone present now. Empty whenever nobody is watching.</param>
 /// <param name="LastWatchedAt">When the last moderator stopped watching. Null while somebody is.</param>
 /// <param name="LastSeen">Who was there at <paramref name="LastWatchedAt"/>. Not "here now".</param>
+/// <param name="WorldCapacity">
+/// How many the world holds, as its page says, for "25/40" the way the game shows it. Null until
+/// Modbot has read the world. Never a limit: exemptions raise real capacity above it.
+/// </param>
+/// <param name="WorldPlatforms">The platforms the world has a build for, for the game's PC, Android and iOS badges.</param>
 public sealed record LiveInstanceView(
     Guid Id,
     string WorldId,
@@ -53,9 +58,26 @@ public sealed record LiveInstanceView(
     IReadOnlyList<LiveWatcherView> Watching,
     IReadOnlyList<LivePersonView> People,
     DateTimeOffset? LastWatchedAt,
-    IReadOnlyList<LivePersonView> LastSeen);
+    IReadOnlyList<LivePersonView> LastSeen,
+    int? WorldCapacity = null,
+    IReadOnlyList<string>? WorldPlatforms = null);
 
-public sealed record LiveView(IReadOnlyList<LiveInstanceView> Instances, DateTimeOffset GeneratedAt);
+/// <param name="Voice">
+/// The Discord server's voice channels with somebody in them, in the server's own order. Empty when
+/// no Discord server is set or nobody is talking.
+/// </param>
+public sealed record LiveView(
+    IReadOnlyList<LiveInstanceView> Instances,
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<LiveVoiceChannelView>? Voice = null);
+
+/// <summary>A Discord voice channel with people in it right now.</summary>
+/// <param name="Name">The channel's name, or null when the server index has not seen it.</param>
+public sealed record LiveVoiceChannelView(string ChannelId, string? Name, IReadOnlyList<LiveVoiceMemberView> People);
+
+/// <summary>Somebody in a Discord voice channel.</summary>
+/// <param name="Since">When they joined it, as the bot saw it. Null when it was already so when the bot came online.</param>
+public sealed record LiveVoiceMemberView(string UserId, string DisplayName, string? AvatarUrl, DateTimeOffset? Since);
 
 /// <summary>
 /// The Live page: the group's open instances right now, and who is in each.
@@ -100,7 +122,8 @@ public static class LiveEndpoints
                 "Read from Modbot's own tables; nothing here calls VRChat. Every open group "
                 + "instance is listed with its head count whether or not a moderator is in it. "
                 + "`people` is filled only while a moderator's client is watching; otherwise "
-                + "`lastSeen` holds who was there when watching last stopped, at `lastWatchedAt`.")
+                + "`lastSeen` holds who was there when watching last stopped, at `lastWatchedAt`. "
+                + "`voice` lists the Discord server's voice channels with somebody in them.")
             .Produces<LiveView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -116,7 +139,7 @@ public static class LiveEndpoints
             .FirstOrDefaultAsync(ct);
 
         if (groupId is not { Length: > 0 })
-            return new LiveView([], now);
+            return new LiveView([], now, await VoiceAsync(db, ct));
 
         var instances = await db.VRChatInstances.AsNoTracking()
             .Where(i => i.GroupId == groupId && i.SeenInGroupList && i.ClosedAt == null)
@@ -124,12 +147,12 @@ public static class LiveEndpoints
             .ToListAsync(ct);
 
         if (instances.Count == 0)
-            return new LiveView([], now);
+            return new LiveView([], now, await VoiceAsync(db, ct));
 
         var worldIds = instances.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
         var worlds = await db.VRChatWorlds.AsNoTracking()
             .Where(w => worldIds.Contains(w.WorldId))
-            .Select(w => new { w.WorldId, w.Name, w.ImageUrl, w.ThumbnailImageUrl })
+            .Select(w => new { w.WorldId, w.Name, w.ImageUrl, w.ThumbnailImageUrl, w.Capacity, w.Platforms })
             .ToDictionaryAsync(w => w.WorldId, StringComparer.Ordinal, ct);
 
         var people = await new InstancePeopleReader(db).ForInstancesAsync(instances, ct);
@@ -198,9 +221,54 @@ public static class LiveEndpoints
                     .ToList(),
                 inInstance.Here.Select(Person).ToList(),
                 inInstance.LastWatchedAt,
-                inInstance.LastSeen.Select(Person).ToList());
+                inInstance.LastSeen.Select(Person).ToList(),
+                world?.Capacity,
+                Places.InstanceRows.PlatformsOf(world?.Platforms));
         }).ToList();
 
-        return new LiveView(views, now);
+        return new LiveView(views, now, await VoiceAsync(db, ct));
+    }
+
+    /// <summary>
+    /// Who is in which Discord voice channel, from the member rows the bot keeps: it sets a member's
+    /// channel as they join, move and leave, and puts it right again whenever it reconnects. Nothing
+    /// here asks Discord.
+    /// </summary>
+    internal static async Task<IReadOnlyList<LiveVoiceChannelView>> VoiceAsync(ModbotContext db, CancellationToken ct)
+    {
+        var guildId = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.DiscordGuildId)
+            .FirstOrDefaultAsync(ct);
+
+        if (guildId is not { Length: > 0 })
+            return [];
+
+        var talking = await db.DiscordMembers.AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.VoiceChannelId != null && m.LeftAt == null)
+            .Select(m => new { m.UserId, m.DisplayName, m.AvatarUrl, m.VoiceChannelId, m.VoiceSince })
+            .ToListAsync(ct);
+
+        if (talking.Count == 0)
+            return [];
+
+        var channelIds = talking.Select(m => m.VoiceChannelId!).Distinct(StringComparer.Ordinal).ToList();
+        var channels = await db.DiscordChannels.AsNoTracking()
+            .Where(c => c.GuildId == guildId && channelIds.Contains(c.ChannelId))
+            .Select(c => new { c.ChannelId, c.Name, c.Position })
+            .ToDictionaryAsync(c => c.ChannelId, StringComparer.Ordinal, ct);
+
+        return talking
+            .GroupBy(m => m.VoiceChannelId!, StringComparer.Ordinal)
+            .OrderBy(g => channels.GetValueOrDefault(g.Key)?.Position ?? int.MaxValue)
+            .ThenBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => new LiveVoiceChannelView(
+                g.Key,
+                channels.GetValueOrDefault(g.Key)?.Name,
+                g.OrderBy(m => m.VoiceSince ?? DateTimeOffset.MinValue)
+                    .ThenBy(m => m.DisplayName, StringComparer.OrdinalIgnoreCase)
+                    .Select(m => new LiveVoiceMemberView(m.UserId, m.DisplayName, m.AvatarUrl, m.VoiceSince))
+                    .ToList()))
+            .ToList();
     }
 }

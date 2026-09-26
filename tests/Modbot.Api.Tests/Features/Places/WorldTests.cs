@@ -1,6 +1,9 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Tests.Features.Audit;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using static Modbot.Api.Tests.Features.Analytics.AnalyticsFacts;
@@ -77,6 +80,45 @@ public class WorldTests
         // The world's name travels onto every instance row, so the popup and the Instances page
         // cannot disagree about what the place is called.
         Assert.All(world.Instances, r => Assert.Equal("The Black Cat", r.WorldName));
+    }
+
+    /// <summary>
+    /// How many are in an instance is the instance page's head count. The group list's number counts
+    /// group members only, so an instance with a friend in it read one short. The list's number
+    /// stands in only before the page has been read. The world's capacity rides along for "25/40".
+    /// </summary>
+    [Fact]
+    public async Task AnInstanceRow_CountsEveryoneInIt_NotOnlyGroupMembers()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var t = host.Clock.UtcNow.AddHours(-1);
+
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
+        var counted = await PlacesFixtures.InstanceAsync(host, "wrld_a", "1", t, t.AddMinutes(30), null, ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "2", t.AddMinutes(5), t.AddMinutes(30), null, ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            await db.VRChatInstances.Where(i => i.Id == counted.Id)
+                .ExecuteUpdateAsync(u => u.SetProperty(i => i.HeadCount, 5), ct);
+            await db.VRChatWorlds.Where(w => w.WorldId == "wrld_a")
+                .ExecuteUpdateAsync(u => u
+                    .SetProperty(w => w.Capacity, 40)
+                    .SetProperty(w => w.Platforms, """["android","standalonewindows"]"""), ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var world = await host.GetJsonAsync<WorldView>("/api/worlds?id=wrld_a", cookie, ct);
+
+        // The fixture's group list says 3 for both; only the first has had its page read.
+        Assert.Equal(5, world.Instances.Single(r => r.VRChatInstanceId == "1").PeopleNow);
+        Assert.Equal(3, world.Instances.Single(r => r.VRChatInstanceId == "2").PeopleNow);
+        Assert.All(world.Instances, r => Assert.Equal(40, r.WorldCapacity));
+        Assert.All(world.Instances, r => Assert.Equal(["android", "standalonewindows"], r.WorldPlatforms!));
     }
 
     /// <summary>

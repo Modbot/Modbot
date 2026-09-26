@@ -136,6 +136,11 @@ public sealed record WorldView(
 /// </param>
 /// <param name="Counts">What presence reports say about this instance.</param>
 /// <param name="LogTruncated">True when more facts happened here than the list carries.</param>
+/// <param name="HeadCounts">
+/// How many people were in it, each time the count changed, oldest first: the popup's "people over
+/// time". The most recent <see cref="HeadCountPoint.Most"/> changes when there were more. Not
+/// about who was there, so it is shown to everyone who may open the instance.
+/// </param>
 public sealed record InstanceView(
     InstanceRow Instance,
     bool Known,
@@ -151,7 +156,17 @@ public sealed record InstanceView(
     IReadOnlyList<PersonSeen> People,
     IReadOnlyList<AuditEntry> Log,
     bool LogTruncated,
-    DateTimeOffset Now);
+    DateTimeOffset Now,
+    IReadOnlyList<HeadCountPoint> HeadCounts);
+
+/// <summary>An instance's head count from one moment until it next changed.</summary>
+/// <param name="At">When the count was read.</param>
+/// <param name="People">How many were in it: the instance page's count, or the group list's before that was read.</param>
+public sealed record HeadCountPoint(DateTimeOffset At, int People)
+{
+    /// <summary>How many changes one popup carries. A day's busy instance changes about this often.</summary>
+    public const int Most = 2000;
+}
 
 /// <summary>One person's presence figures, for the Metrics tab of their popup.</summary>
 /// <param name="Known">False when no presence report has ever mentioned them.</param>

@@ -136,6 +136,7 @@ public class LiveTests
         Assert.Equal("The Black Cat", listed.WorldName);
         Assert.Equal("39047", listed.VRChatInstanceId);
         Assert.Equal(14, listed.HeadCount);
+        Assert.Equal(32, listed.WorldCapacity);
         Assert.Empty(listed.Watching);
         Assert.Empty(listed.People);
         Assert.Null(listed.LastWatchedAt);
@@ -154,6 +155,67 @@ public class LiveTests
         var live = await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct);
 
         Assert.Equal(3, Assert.Single(live.Instances).HeadCount);
+    }
+
+    /// <summary>
+    /// Discord voice sits beside the instances: each channel with somebody in it, in the server's own
+    /// order, and who is there. Somebody out of voice, or gone from the server, is not listed.
+    /// </summary>
+    [Fact]
+    public async Task DiscordVoiceChannels_ListWhoIsInThem_InTheServersOrder()
+    {
+        await using var host = await ReadyAsync(_db);
+        var t = host.Clock.UtcNow;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            (await context.GetSettingsAsync(Ct)).DiscordGuildId = "g1";
+
+            context.DiscordChannels.AddRange(
+                Channel("v-lounge", "Lounge", 2),
+                Channel("v-games", "Games", 1));
+
+            context.DiscordMembers.AddRange(
+                Member("1", "Ada", "v-lounge", t.AddMinutes(-30)),
+                Member("2", "Bo", "v-games", t.AddMinutes(-5)),
+                Member("3", "Cy", "v-lounge", t.AddMinutes(-10)),
+                Member("4", "Di", null, null),
+                Member("5", "Ed", "v-games", t.AddMinutes(-1), left: t.AddDays(-1)));
+
+            await context.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+        var live = await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct);
+
+        Assert.Equal(["Games", "Lounge"], live.Voice!.Select(v => v.Name));
+        Assert.Equal(["Bo"], live.Voice![0].People.Select(p => p.DisplayName));
+        Assert.Equal(["Ada", "Cy"], live.Voice![1].People.Select(p => p.DisplayName));
+
+        DiscordChannel Channel(string id, string name, int position) => new()
+        {
+            ChannelId = id,
+            GuildId = "g1",
+            Name = name,
+            Type = DiscordChannelTypes.Voice,
+            Position = position,
+            FirstSeenAt = t,
+            UpdatedAt = t,
+        };
+
+        DiscordMember Member(string id, string name, string? channel, DateTimeOffset? since, DateTimeOffset? left = null) => new()
+        {
+            GuildId = "g1",
+            UserId = id,
+            Username = name.ToLowerInvariant(),
+            DisplayName = name,
+            VoiceChannelId = channel,
+            VoiceSince = since,
+            LeftAt = left,
+            FirstSeenAt = t.AddDays(-7),
+            UpdatedAt = t,
+        };
     }
 
     [Fact]

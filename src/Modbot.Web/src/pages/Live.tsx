@@ -1,20 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { SubjectLink, WorldLink } from '@/components/facts'
+import { DiscordPersonLink, SourceBadge, SubjectLink } from '@/components/facts'
+import { Avatar } from '@/components/discord/DiscordMemberParts'
+import { InstanceTile } from '@/components/InstanceCards'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { api, ApiError, type LivePerson, type LiveInstance, type LiveView } from '@/lib/api'
-import { access } from '@/lib/format'
-import { instanceNumber } from '@/lib/instanceName'
+import { api, ApiError, type LivePerson, type LiveInstance, type LiveView, type LiveVoiceChannel } from '@/lib/api'
 import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
 import { DOT, type Tone } from '@/lib/status'
-import { openInstance, openWorld } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
-import { PageMessage, Stat } from '@/pages/analytics/shared'
+import { PageMessage } from '@/pages/analytics/shared'
 import { Marks } from '@/pages/Members'
 import { cn } from '@/lib/utils'
-import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * How often the page asks again on its own while it is on screen. The head counts come from
@@ -115,87 +113,129 @@ export function Live() {
         </p>
       )}
 
-      {data.instances.length === 0 ? (
-        <PageMessage>No open instances.</PageMessage>
-      ) : (
-        <PanelGrid className="xl:grid-cols-2">
-          {data.instances.map((instance) => (
-            <InstanceCard key={instance.id} instance={instance} />
-          ))}
-        </PanelGrid>
-      )}
+      <Section title="VRChat">
+        {data.instances.length === 0 ? (
+          <PageMessage>No open instances.</PageMessage>
+        ) : (
+          <PanelGrid className="xl:grid-cols-2">
+            {data.instances.map((instance) => (
+              <InstanceCard key={instance.id} instance={instance} />
+            ))}
+          </PanelGrid>
+        )}
+      </Section>
+
+      <Section title="Discord voice">
+        {!data.voice || data.voice.length === 0 ? (
+          <PageMessage>Nobody in voice.</PageMessage>
+        ) : (
+          <PanelGrid className="md:grid-cols-2 xl:grid-cols-3">
+            {data.voice.map((channel) => (
+              <VoiceCard key={channel.channelId} channel={channel} />
+            ))}
+          </PanelGrid>
+        )}
+      </Section>
     </div>
   )
 }
 
-function InstanceCard({ instance }: { instance: LiveInstance }) {
-  const where = [access(instance.groupAccessType), instance.region?.toUpperCase()].filter(Boolean).join(' · ')
-  const watched = instance.watching.length > 0
+/** A heading for one platform's half of the page. */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h2 className="flex items-center gap-2 font-label text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        {title}
+        <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
+      </h2>
+      {children}
+    </section>
+  )
+}
 
+/** A voice channel with people in it: its name, how many, and who, longest there first. */
+function VoiceCard({ channel }: { channel: LiveVoiceChannel }) {
   return (
     <Card>
-      <PanelGrid className="m-0 grid-cols-[minmax(0,1fr)_auto]">
-        <div className="flex min-w-0 items-start gap-3 p-(--panel-pad)">
-          {instance.worldImageUrl ? (
-            <button
-              type="button"
-              onClick={() => openWorld(instance.worldId)}
-              className="shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              <img src={vrchatMedia(instance.worldImageUrl)} alt="" loading="lazy" className="aspect-[4/3] w-24 rounded-sm object-cover" />
-            </button>
-          ) : null}
-
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-medium">
-              <WorldLink id={instance.worldId} name={instance.worldName} unnamed="id" />
-            </div>
-            <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              <button
-                type="button"
-                onClick={() => openInstance(instance.id)}
-                className="rounded-sm font-mono font-medium text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
-              >
-                {instanceNumber(instance.vrChatInstanceId)}
-              </button>
-              {where && <span>{where}</span>}
-            </div>
-          </div>
-        </div>
-
-        <Stat
-          label={instance.headCount === 1 ? 'Person' : 'People'}
-          value={String(instance.headCount ?? '—')}
-        />
-      </PanelGrid>
-
-      <div className="flex flex-wrap items-baseline gap-x-2 p-(--panel-pad)" style={{ fontSize: 'var(--text-small)' }}>
-        <span className="text-muted-foreground">Watching</span>
-        {watched ? (
-          instance.watching.map((w, i) => (
-            <span key={w.userId}>
-              <SubjectLink id={w.userId} name={w.displayName} />
-              {i < instance.watching.length - 1 ? ',' : ''}
+      <CardHeader>
+        <CardTitle className="truncate">{channel.name ?? channel.channelId}</CardTitle>
+        <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {channel.people.length}
+        </span>
+      </CardHeader>
+      <ul className="divide-y-(length:--hairline) divide-border" style={{ fontSize: 'var(--text-small)' }}>
+        {channel.people.map((p) => (
+          <li key={p.userId} className="flex min-h-(--row-h) items-center gap-2 px-(--panel-pad) py-1">
+            <Avatar url={p.avatarUrl} className="size-6" />
+            <span className="min-w-0 flex-1 truncate">
+              <DiscordPersonLink id={p.userId} name={p.displayName} />
             </span>
-          ))
-        ) : (
-          <span>Nobody watching</span>
-        )}
-      </div>
-
-      {watched && <People title="Here now" people={instance.people} />}
-
-      {!watched && instance.lastWatchedAt && instance.lastSeen.length > 0 && (
-        <People title={`Last seen ${time(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
-      )}
+            {p.since && (
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground">
+                since <span className="font-mono">{time(p.since)}</span>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
     </Card>
   )
 }
 
-/** Who is or was in the instance: a strip naming the list, then one row a person, to the panel's edges. */
-function People({ title, people, muted = false }: { title: string; people: LivePerson[]; muted?: boolean }) {
+function InstanceCard({ instance }: { instance: LiveInstance }) {
+  const watched = instance.watching.length > 0
+  const reporting = new Set(instance.watching.map((w) => w.userId))
+
   return (
-    <section className="flex flex-col border-t border-t-(length:--hairline)">
+    <Card>
+      {/* The instance as the game draws it, and beside it who is there: known only while a
+          moderator's Companion App is in the instance, whose row says so. Its number is in the
+          instance's popup. */}
+      <div className="flex flex-col sm:flex-row">
+        <div className="shrink-0 p-(--panel-pad)">
+          <InstanceTile
+            instanceId={instance.id}
+            worldName={instance.worldName}
+            imageUrl={instance.worldImageUrl}
+            people={instance.headCount}
+            capacity={instance.worldCapacity}
+            groupAccessType={instance.groupAccessType}
+            region={instance.region}
+            platforms={instance.worldPlatforms}
+            className="sm:w-56"
+          />
+        </div>
+
+        <div className="min-w-0 flex-1 sm:border-l sm:border-l-(length:--hairline)">
+          {watched && <People title="Here now" people={instance.people} reporting={reporting} />}
+
+          {!watched && instance.lastWatchedAt && instance.lastSeen.length > 0 && (
+            <People title={`Last seen ${time(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
+          )}
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * Who is or was in the instance: a strip naming the list, then one row a person. The moderators
+ * whose Companion App is reporting the list carry the audit log's own "Companion App" tag.
+ */
+function People({
+  title,
+  people,
+  muted = false,
+  reporting,
+}: {
+  title: string
+  people: LivePerson[]
+  muted?: boolean
+  /** VRChat ids of the moderators whose Companion App is in the instance. */
+  reporting?: Set<string>
+}) {
+  return (
+    <section className="flex flex-col max-sm:border-t max-sm:border-t-(length:--hairline)">
       <CardHeader className={cn(people.length === 0 && 'border-b-0')}>
         <CardTitle>{title}</CardTitle>
         <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -215,6 +255,7 @@ function People({ title, people, muted = false }: { title: string; people: LiveP
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 max-md:flex-nowrap">
                 <SubjectLink id={p.userId} name={p.displayName} className="max-md:max-w-full max-md:shrink-0" />
                 <Marks>
+                  {reporting?.has(p.userId) && <SourceBadge source="Companion" />}
                   <TrustRankBadge rank={p.trustRank} />
                   {p.standing !== 'Ordinary' && <Standing standing={p.standing} />}
                   {p.flags.map((flag) => (

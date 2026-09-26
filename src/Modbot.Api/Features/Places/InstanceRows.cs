@@ -49,7 +49,9 @@ public static class InstanceRows
                 i.OpenedAt,
                 i.ClosedAt,
                 i.ClosedBy,
-                i.LastUserCount,
+                // The instance page's head count, not the group list's number, which counts group
+                // members only (HeadCounts). Before the page has been read, the list's number.
+                PeopleNow = i.HeadCount ?? i.LastUserCount,
                 i.PeakUserCount,
                 i.LastSeenAt,
             })
@@ -60,7 +62,7 @@ public static class InstanceRows
         var named = await db.VRChatWorlds
             .AsNoTracking()
             .Where(w => worldIds.Contains(w.WorldId))
-            .Select(w => new { w.WorldId, w.Name, w.ThumbnailImageUrl })
+            .Select(w => new { w.WorldId, w.Name, w.ThumbnailImageUrl, w.Capacity, w.Platforms })
             .ToDictionaryAsync(w => w.WorldId, w => w, StringComparer.Ordinal, ct);
 
         return page
@@ -86,10 +88,28 @@ public static class InstanceRows
                     r.OpenedAt,
                     r.ClosedAt,
                     r.ClosedBy,
-                    r.LastUserCount,
+                    r.PeopleNow,
                     r.PeakUserCount,
-                    Math.Round(minutes, 1));
+                    Math.Round(minutes, 1),
+                    world?.Capacity,
+                    PlatformsOf(world?.Platforms));
             })
             .ToList();
+    }
+
+    /// <summary>A world's stored platform list, or null when it has none or it cannot be read.</summary>
+    internal static IReadOnlyList<string>? PlatformsOf(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 }

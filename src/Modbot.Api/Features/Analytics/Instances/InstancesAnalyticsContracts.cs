@@ -30,6 +30,14 @@ public sealed record HourOfWeek(IReadOnlyList<decimal> Arrivals, IReadOnlyList<d
 /// <param name="PeopleNow">How many were in it when Modbot last counted.</param>
 /// <param name="PeakPeople">The most in it at once over its whole life.</param>
 /// <param name="MinutesOpen">How long it ran, or has been running.</param>
+/// <param name="WorldCapacity">
+/// How many people the world holds, as its page says, for "25/40" the way the game shows it. Null
+/// until Modbot has read the world. Never a limit: exemptions raise real capacity above it.
+/// </param>
+/// <param name="WorldPlatforms">
+/// The platforms the world has a build for, in VRChat's words, for the game's PC, Android and iOS
+/// badges. Null until Modbot has read the world's builds.
+/// </param>
 /// <param name="ClosedBy">
 /// <c>list</c> when the group's live list stopped carrying it -- exact -- or <c>time</c> when it
 /// simply went quiet for long enough. Null while it is still open. The two are not equally
@@ -49,7 +57,9 @@ public sealed record InstanceRow(
     string? ClosedBy,
     int? PeopleNow,
     int? PeakPeople,
-    decimal MinutesOpen);
+    decimal MinutesOpen,
+    int? WorldCapacity = null,
+    IReadOnlyList<string>? WorldPlatforms = null);
 
 /// <summary>
 /// The instance that held the most people at one moment inside the window.

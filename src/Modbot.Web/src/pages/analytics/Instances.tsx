@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { DailyBars, DailyLine, Heatmap, compactNumber, dateTime, longDay, minutes, percent } from '@/components/charts'
+import { InstanceCards } from '@/components/InstanceCards'
 import { InstanceTable } from '@/components/InstanceTable'
 import { api, type HourOfWeek, type InstancePeaks } from '@/lib/api'
 import { InstanceActivityChart } from './InstanceActivityChart'
@@ -64,7 +65,7 @@ export function Instances() {
           */}
           {data.openNow.length > 0 && (
             <Panel title="Open right now" flush>
-              <InstanceTable instances={data.openNow} />
+              <InstanceCards instances={data.openNow} />
             </Panel>
           )}
 

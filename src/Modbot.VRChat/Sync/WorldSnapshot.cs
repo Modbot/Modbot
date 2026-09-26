@@ -16,6 +16,12 @@ namespace Modbot.VRChat.Sync;
 /// that quietly went stale months ago.
 /// </para>
 /// <para>
+/// One thing is taken from the Unity package list: which platforms have a build. The game's own
+/// instance card shows them as PC, Android and iOS badges, and a moderator matching an instance to
+/// the game looks for them. Unlike the counts, they change only when the creator uploads, so they
+/// do not go stale the way the rest would (2026-09-26).
+/// </para>
+/// <para>
 /// Capacity is kept and is <strong>never</strong> treated as a limit Modbot enforces: exemptions
 /// raise real capacity above what the page says (foundation section 3.1).
 /// </para>
@@ -31,6 +37,7 @@ public sealed record WorldSnapshot(
     int? Capacity,
     int? RecommendedCapacity,
     string? Tags,
+    string? Platforms,
     string? ReleaseStatus,
     DateTimeOffset? PublishedAt,
     DateTimeOffset? UpdatedAt)
@@ -50,6 +57,7 @@ public sealed record WorldSnapshot(
             world.Capacity,
             world.RecommendedCapacity,
             world.Tags is { Count: > 0 } tags ? JsonSerializer.Serialize(tags) : null,
+            PlatformsOf(world),
             world.ReleaseStatus.ToString(),
             AsInstant(world.PublicationDate),
             world.UpdatedAt);
@@ -80,12 +88,29 @@ public sealed record WorldSnapshot(
         row.Capacity = Capacity ?? row.Capacity;
         row.RecommendedCapacity = RecommendedCapacity ?? row.RecommendedCapacity;
         row.Tags = Tags ?? row.Tags;
+        row.Platforms = Platforms ?? row.Platforms;
         row.ReleaseStatus = ReleaseStatus ?? row.ReleaseStatus;
         row.PublishedAt = PublishedAt ?? row.PublishedAt;
         row.UpdatedAt = UpdatedAt ?? row.UpdatedAt;
 
         row.LastRefreshedAt = readAt;
         row.RefreshError = null;
+    }
+
+    /// <summary>
+    /// The platforms with a build, once each, in a steady order. Null when the read carried no
+    /// builds at all, which is not the same as a world with none.
+    /// </summary>
+    private static string? PlatformsOf(World world)
+    {
+        var platforms = (world.UnityPackages ?? [])
+            .Select(p => p.Platform)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        return platforms.Count > 0 ? JsonSerializer.Serialize(platforms) : null;
     }
 
     /// <summary>
