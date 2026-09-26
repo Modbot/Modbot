@@ -250,6 +250,33 @@
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+   Stat tiles on a phone.
+
+   Two tall tiles across meant a strip of six filled the whole first screen of
+   an analytics page before any chart. Three across, with the name and number
+   smaller and the padding tighter, makes six tiles two short rows. The width
+   the tables use for a phone; not in VR, which keeps its own sizes. The tile
+   reads these properties with its desktop sizes as fallbacks (Stat, in
+   pages/analytics/shared.tsx), and the column count wins over the strip's
+   grid-cols classes because this rule is not in a layer.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 47.9375rem) {
+  :root:not([data-density="vr"]) [data-slot="panel-grid"]:has(> [data-slot="stat"]) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  :root:not([data-density="vr"]) [data-slot="stat"] {
+    --stat-label: 0.6875rem;  /* 11px */
+    --stat-value: 1rem;       /* 16px */
+    --stat-note: 0.6875rem;
+    --stat-gap: 0.375rem;
+    --stat-note-gap: 0.25rem;
+    --stat-min-h: 0;
+    padding: 0.375rem 0.5rem 0.5rem;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
    Tables on a narrow screen.
 
    A members row is a name, a Discord account, roles, two dates and the

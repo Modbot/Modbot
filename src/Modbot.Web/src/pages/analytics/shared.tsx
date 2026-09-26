@@ -48,11 +48,14 @@ export function RangePicker({
 }
 
 /**
- * One reading, laid out like a gauge on a panel: its name in the top-left corner, the number in
- * the bottom-right, and any note beside the number on the left, so the numbers of a row share
- * one baseline whether or not they carry a note. A note with no room beside the number goes on
- * its own line above it rather than losing its end, because the end is often the time. On its
- * own it draws its own edge; inside a StatStrip it shares its edges with the others.
+ * One reading: its name, then the number large under it, then any note small under that. The
+ * number comes straight after the name, so the numbers of a row line up whether or not they carry
+ * a note, and the eye lands on the number before the date beside it -- which, set on one line with
+ * the number, it used to read first. On its own it draws its own edge; inside a StatStrip it
+ * shares its edges with the others.
+ *
+ * The sizes and the padding are custom properties with the desktop values as fallbacks, so the
+ * phone rule in index.css can make a strip of them compact without a second layout.
  *
  * `noteMono` for a note that is a machine value (a day, a time, a share), as on `Row`; a note
  * that is a sentence stays in the body face, with any time in it set in mono by the caller.
@@ -72,32 +75,34 @@ export function Stat({
     <div
       data-slot="stat"
       className="flex min-w-0 flex-col border border-(length:--hairline) bg-card px-(--panel-pad) pt-2 pb-2.5"
-      style={{ minHeight: 'calc(var(--row-h) * 2)' }}
+      style={{ minHeight: 'var(--stat-min-h, calc(var(--row-h) * 2))' }}
     >
-      <div className="break-words text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      <div className="break-words text-muted-foreground" style={{ fontSize: 'var(--stat-label, var(--text-small))' }}>
         {label}
       </div>
-      <div className="mt-auto flex flex-wrap items-end gap-x-2 gap-y-1 pt-3">
-        {note && (
-          <div
-            className={cn('min-w-0 break-words text-muted-foreground', noteMono && 'font-mono')}
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            {note}
-          </div>
-        )}
-        <div
-          className="ml-auto shrink-0 font-mono leading-none font-medium tracking-tight"
-          style={{ fontSize: 'calc(var(--text-base) * 1.75)' }}
-        >
-          {value}
-        </div>
+      <div
+        className="break-words font-mono leading-none font-medium tracking-tight"
+        style={{ fontSize: 'var(--stat-value, calc(var(--text-base) * 1.75))', paddingTop: 'var(--stat-gap, 0.625rem)' }}
+      >
+        {value}
       </div>
+      {note && (
+        <div
+          className={cn('min-w-0 break-words text-muted-foreground', noteMono && 'font-mono')}
+          style={{ fontSize: 'var(--stat-note, var(--text-small))', paddingTop: 'var(--stat-note-gap, 0.375rem)' }}
+        >
+          {note}
+        </div>
+      )}
     </div>
   )
 }
 
-/** A row of Stats sharing one hairline grid. Two across on a phone, the caller's count when wider. */
+/**
+ * A row of Stats sharing one hairline grid. Two across on a narrow screen and the caller's count
+ * when wider; on a phone, three compact ones across (index.css), so a strip of six is two short
+ * rows and the first chart is on the first screen.
+ */
 export function StatStrip({ className, children }: { className?: string; children: React.ReactNode }) {
   return <PanelGrid className={cn('grid-cols-2 xl:grid-cols-4', className)}>{children}</PanelGrid>
 }
