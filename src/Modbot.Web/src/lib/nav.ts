@@ -38,13 +38,15 @@ export const NAV = [
   { id: 'flags', label: 'Flags', needs: 'ViewProfile' },
   { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'] },
   // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
-  // feature (spec 10.3) and has no entry until it exists.
-  { id: 'analytics-group', label: 'My Group', group: 'Analytics', needs: 'ViewAnalytics' },
+  // feature (spec 10.3) and has no entry until it exists. Named by what each is about: the team,
+  // then each platform. Worlds and Instances are VRChat's, so they sit indented under it; the ids
+  // and addresses keep their old names, so links and bookmarks still open the same pages.
+  { id: 'analytics-team', label: 'Team', group: 'Analytics', needs: 'ViewAnalytics' },
+  { id: 'analytics-group', label: 'VRChat', needs: 'ViewAnalytics' },
+  { id: 'analytics-worlds', label: 'Worlds', indent: true, needs: 'ViewAnalytics' },
+  { id: 'analytics-instances', label: 'Instances', indent: true, needs: 'ViewAnalytics' },
   // The Discord server, beside the group: its own members, messages and voice (M5 spec §6).
-  { id: 'analytics-server', label: 'My Server', needs: 'ViewAnalytics' },
-  { id: 'analytics-team', label: 'My Team', needs: 'ViewAnalytics' },
-  { id: 'analytics-worlds', label: 'Worlds', needs: 'ViewAnalytics' },
-  { id: 'analytics-instances', label: 'Instances', needs: 'ViewAnalytics' },
+  { id: 'analytics-server', label: 'Discord', needs: 'ViewAnalytics' },
   // Reviews of a moderator's pattern (spec 5.8.5). Under Team because they are about the team,
   // and gated on ReviewTickets because the people being reviewed should not be closing them.
   { id: 'reviews', label: 'Reviews', group: 'Team', needs: 'ReviewTickets' },

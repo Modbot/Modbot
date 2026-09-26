@@ -89,7 +89,9 @@ export function Sidebar({
           <button
             onClick={() => onNavigate(item.id)}
             className={cn(
-              'relative flex h-(--control-h) w-full items-center gap-2 pr-3 pl-4 text-left transition-colors',
+              'relative flex h-(--control-h) w-full items-center gap-2 pr-3 text-left transition-colors',
+              // A page that belongs to the one above it, like Worlds under VRChat, sits one step in.
+              'indent' in item && item.indent ? 'pl-8' : 'pl-4',
               page === item.id
                 ? 'bg-card font-medium text-foreground'
                 : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
