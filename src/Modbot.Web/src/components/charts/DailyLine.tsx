@@ -82,6 +82,7 @@ export function DailyLine({
         <YAxis
           width="auto"
           domain={zeroBased ? [0, 'auto'] : ['auto', 'auto']}
+          allowDecimals={format !== undefined}
           tickFormatter={format ?? compactNumber}
           tickLine={false}
           axisLine={false}
