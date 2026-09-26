@@ -5917,6 +5917,42 @@
         ]
       }
     },
+    "/api/moderation-flags/open-count": {
+      "get": {
+        "tags": [
+          "Moderation"
+        ],
+        "summary": "Count open flags",
+        "description": "How many flags are open, in any language -- the number on the nav badge.\n\nNeeds the `ViewProfile` permission.",
+        "operationId": "CountOpenModerationFlags",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenFlagCount"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/moderation-flags/{id}/dismiss": {
       "post": {
         "tags": [
@@ -28349,6 +28385,22 @@
             "items": {
               "$ref": "#/components/schemas/NotificationView"
             }
+          }
+        }
+      },
+      "OpenFlagCount": {
+        "required": [
+          "open"
+        ],
+        "type": "object",
+        "properties": {
+          "open": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

@@ -413,6 +413,9 @@ export const moderationApi = {
       `/api/moderation-flags?state=${state}${language ? `&language=${encodeURIComponent(language)}` : ''}`,
     ),
 
+  /** Every open flag, in any language: the number beside Flags in the sidebar. Needs ViewProfile. */
+  openFlagCount: () => http.request<{ open: number }>('/api/moderation-flags/open-count'),
+
   dismissFlag: (id: string) => http.post<ModerationFlag>(`/api/moderation-flags/${id}/dismiss`),
 
   openFlagReview: (id: string) => http.post<ModerationFlag>(`/api/moderation-flags/${id}/review`),

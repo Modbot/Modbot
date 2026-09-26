@@ -340,15 +340,15 @@ function Shell({
     refreshReviewCount()
   }, [refreshReviewCount, page])
 
-  // The number beside "Flags": open flags, the count the Flags page's own list already carries
-  // (so there is no second endpoint to keep in step with it). Read the same way as the reviews
-  // count, except on the Flags page itself, which reads the list anyway and hands its count up.
+  // The number beside "Flags": how many are open. Read the same way as the reviews count, from a
+  // count-only endpoint, except on the Flags page itself, which reads the list anyway and hands
+  // the same number up.
   const seesFlags = mayOpen(me, 'flags')
   const onFlagsPage = page === 'flags'
   const [openFlags, setOpenFlags] = useState(0)
   const refreshFlagCount = useCallback(() => {
     if (!seesFlags || onFlagsPage) return
-    moderationApi.flags('open').then((r) => setOpenFlags(r.open)).catch(() => undefined)
+    moderationApi.openFlagCount().then((c) => setOpenFlags(c.open)).catch(() => undefined)
   }, [seesFlags, onFlagsPage])
 
   useEffect(() => {

@@ -51,6 +51,40 @@ public class AutoModTests
     }
 
     [Fact]
+    public async Task TheOpenFlagCount_NeedsViewProfile_AndMatchesTheList()
+    {
+        await using var host = await StartAsync();
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, reviewer) = await host.SignedInAsync(ModbotPermissions.ViewProfile | ModbotPermissions.ReviewTickets, Ct);
+
+        // The same permission as the list: somebody who may manage rules but not see people gets no count.
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.SendJsonAsync(HttpMethod.Get, "/api/moderation-flags/open-count", null, admin, Ct)).StatusCode);
+
+        var empty = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, "/api/moderation-flags/open-count", null, reviewer, Ct));
+        Assert.Equal(0, empty.GetProperty("open").GetInt32());
+
+        await SwitchOnAsync(host, admin);
+        await ActingListAsync(host, admin, "Words", [Term("word", "scunthorpe")], delete: false);
+        await CheckAsync(host, Message("m1", "local-1", "I live in Scunthorpe"));
+        await CheckAsync(host, Message("m2", "local-2", "Scunthorpe too"));
+
+        var list = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, "/api/moderation-flags", null, reviewer, Ct));
+        var count = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, "/api/moderation-flags/open-count", null, reviewer, Ct));
+        Assert.Equal(2, count.GetProperty("open").GetInt32());
+        Assert.Equal(list.GetProperty("open").GetInt32(), count.GetProperty("open").GetInt32());
+
+        // A dismissed flag is no longer counted.
+        var flagId = list.GetProperty("flags")[0].GetProperty("id").GetGuid();
+        var dismissed = await host.SendJsonAsync(HttpMethod.Post, $"/api/moderation-flags/{flagId}/dismiss", null, reviewer, Ct);
+        Assert.Equal(HttpStatusCode.OK, dismissed.StatusCode);
+
+        var after = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, "/api/moderation-flags/open-count", null, reviewer, Ct));
+        Assert.Equal(1, after.GetProperty("open").GetInt32());
+    }
+
+    [Fact]
     public async Task ANewDeploymentHasModerationOffWithNoRules()
     {
         await using var host = await StartAsync();
