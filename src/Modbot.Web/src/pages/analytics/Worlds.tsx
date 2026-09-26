@@ -121,6 +121,8 @@ export function Worlds() {
             <DailyLine
               from={data.from}
               to={data.to}
+              missing={data.daysWithoutPresenceReports}
+              today={data.today}
               mode="zero"
               emptyText="No data yet."
               legend={

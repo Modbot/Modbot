@@ -33,9 +33,19 @@ public sealed record MessageHours(IReadOnlyList<decimal> Messages);
 /// </summary>
 /// <param name="MemberCount">Discord's own member count, the last reading of each day it was read.</param>
 /// <param name="MessagesRemoved">Times a moderator removed messages, one or many at once.</param>
+/// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>
+/// <param name="DaysWithoutBot">
+/// Days before the bot first read the server. Member counts, joins, leaves, voice and moderation
+/// have no record for them. Stretches the bot was disconnected are not recorded, so not in here.
+/// </param>
+/// <param name="DaysWithoutMessages">
+/// Days before both the first stored message and the bot's first day. The bot reads history back
+/// when it signs in, so messages can start earlier than everything else.
+/// </param>
 public sealed record ServerAnalytics(
     DateOnly From,
     DateOnly To,
+    DateOnly? Today,
     IReadOnlyList<DayValue> MemberCount,
     IReadOnlyList<DayValue> Joined,
     IReadOnlyList<DayValue> Left,
@@ -51,5 +61,7 @@ public sealed record ServerAnalytics(
     IReadOnlyList<DayValue> MessagesRemoved,
     IReadOnlyList<Contributor> TopContributors,
     MemberHealth Health,
+    IReadOnlyList<DateOnly> DaysWithoutBot,
+    IReadOnlyList<DateOnly> DaysWithoutMessages,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);

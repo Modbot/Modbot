@@ -7,7 +7,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { Textarea } from '@/components/ui/textarea'
 import { SubjectLink } from '@/components/facts'
-import { ago, formatDay } from '@/lib/format'
+import { ago, formatDay, needsYear } from '@/lib/format'
 import { api, ApiError, type Person, type ReviewEvidence, type ReviewList, type ReviewView } from '@/lib/api'
 import { PROPOSED_ACTION_LABELS, type ProposedAction } from '@/lib/autoMod'
 import { Row } from '@/components/ui/fact-row'
@@ -215,11 +215,11 @@ function ReviewCard({
 
             <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               <span>
-                Covers <span className="font-mono">{formatDay(review.windowStart)}</span>
+                Covers <span className="font-mono">{formatDay(review.windowStart, needsYear(review.windowStart, review.windowEnd))}</span>
                 {formatDay(review.windowStart) !== formatDay(review.windowEnd) && (
                   <>
                     {' – '}
-                    <span className="font-mono">{formatDay(review.windowEnd)}</span>
+                    <span className="font-mono">{formatDay(review.windowEnd, needsYear(review.windowStart, review.windowEnd))}</span>
                   </>
                 )}
               </span>

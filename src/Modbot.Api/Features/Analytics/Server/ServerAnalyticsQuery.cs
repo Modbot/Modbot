@@ -64,9 +64,14 @@ public sealed class ServerAnalyticsQuery(ModbotContext db)
 
         var today = AnalyticsSql.DayOf(now);
 
+        var missing = new MissingDaysQuery(db);
+        var botStart = await missing.DiscordBotStartAsync(guildId, ct);
+        var messagesStart = MissingDays.Earliest(await missing.DiscordMessagesStartAsync(ct), botStart);
+
         return new ServerAnalytics(
             from,
             to,
+            MissingDays.Today(to, now),
             totals.Series(DailyTotalMetrics.DiscordMembersCount),
             totals.Series(DailyTotalMetrics.DiscordMembersJoined),
             totals.Series(DailyTotalMetrics.DiscordMembersLeft),
@@ -82,6 +87,8 @@ public sealed class ServerAnalyticsQuery(ModbotContext db)
             totals.Series(DailyTotalMetrics.DiscordMessagesRemoved),
             await ContributorsAsync(totals, guildId, ct),
             await HealthAsync(guildId, today, ct),
+            MissingDays.Before(from, to, botStart),
+            MissingDays.Before(from, to, messagesStart),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }

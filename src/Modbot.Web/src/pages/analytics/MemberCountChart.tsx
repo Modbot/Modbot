@@ -1,8 +1,20 @@
 import { useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
-import { ChartFrame, chartHeight, chartTheme, compactNumber, rechartsTooltip, seriesColor } from '@/components/charts'
+import {
+  ChartFrame,
+  MissingBands,
+  Stripes,
+  chartHeight,
+  chartTheme,
+  compactNumber,
+  rechartsTooltip,
+  seriesColor,
+  useStripeId,
+} from '@/components/charts'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ApiError, api, type GroupMemberCountSeries, type MemberCountRange } from '@/lib/api'
-import { MEMBER_COUNT_RANGES, readingTime, timeLabel, timeTicks, toRows } from './memberCountSeries'
+import { recallLines, rememberLines, switchLine, type MemberCountLines } from './memberCountLines'
+import { MEMBER_COUNT_RANGES, memberCountRows, readingTime, timeLabel, timeTicks } from './memberCountSeries'
 import { Nothing, Panel, Toggle } from './shared'
 
 /**
@@ -13,15 +25,34 @@ import { Nothing, Panel, Toggle } from './shared'
  * already two thousand points. The server thins a long range to about 500 points, each a real
  * reading (see `GroupMemberCountQuery`), so the chart never decides which readings to drop.
  *
+ * Both scales start at 0 and count whole people. Fitted to the readings, a group going from 4
+ * members to 5 filled the whole height and read like a surge, with ticks at 4.25 people.
+ *
  * Two axes on one chart, against the charts' one-axis rule, because the two lines are one thing
  * -- the same people, in the group and online now -- at two magnitudes, and the question the
  * overlay answers is how the second moves against the first. The online axis is on the right, in
  * the online line's colour, so a value can only be read against the axis it belongs to.
+ *
+ * Each line can be hidden, with its axis, so the other line's scale fills the chart: the online
+ * count is a few dozen moving under a membership of thousands, and on its own it shows the shape
+ * of an evening the shared chart flattens. The tick boxes are the legend too. At least one line
+ * stays on, and the choice is remembered in this browser (`memberCountLines`).
+ *
+ * Readings are drawn solid, and the stretch carried from group-info facts before the first reading
+ * is drawn dashed, because nothing was read there. Days with neither break the line and sit in a
+ * striped band. Where the readings are few enough to tell apart, each one is a small dot.
  */
 export function MemberCountChart() {
   const [range, setRange] = useState<MemberCountRange>('week')
   const [data, setData] = useState<GroupMemberCountSeries | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [lines, setLines] = useState<MemberCountLines>(recallLines)
+
+  const show = (line: keyof MemberCountLines, on: boolean) => {
+    const next = switchLine(lines, line, on)
+    setLines(next)
+    rememberLines(next)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -48,11 +79,16 @@ export function MemberCountChart() {
     }
   }, [range])
 
-  const rows = data ? toRows(data.points) : []
+  const stripeId = useStripeId()
+  const chart = data ? memberCountRows(data) : { rows: [], bands: [], readings: 0 }
+  const rows = chart.rows
+  const readingDot = (color: string) => (chart.readings <= DOTS_UP_TO ? { r: 2, fill: color, strokeWidth: 0 } : false)
   const from = data ? Date.parse(data.from) : 0
   const to = data ? Date.parse(data.to) : 0
   const span = to - from
-  const names = { members: 'members', online: 'online' }
+  const names = { members: 'members', online: 'online', membersCarried: 'members', onlineCarried: 'online' }
+  const ones = { members: 'member', membersCarried: 'member' }
+  const onlyOne = !(lines.members && lines.online)
 
   return (
     <Panel
@@ -70,73 +106,133 @@ export function MemberCountChart() {
       ) : !data ? (
         <Nothing height={chartHeight.tall}>Loading…</Nothing>
       ) : (
-        <ChartFrame
-          height={chartHeight.tall}
-          empty={rows.length === 0}
-          legend={[
-            { label: 'Members', slot: 1 },
-            { label: 'Online', color: chartTheme.ok },
-          ]}
-        >
-          <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="at"
-              type="number"
-              domain={[from, to]}
-              ticks={timeTicks(from, to)}
-              tickFormatter={(v: number) => timeLabel(v, span)}
-              tickLine={false}
-              axisLine={false}
-              minTickGap={16}
-            />
-            <YAxis
-              yAxisId="members"
-              width="auto"
-              domain={['auto', 'auto']}
-              tickFormatter={compactNumber}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              yAxisId="online"
-              orientation="right"
-              width="auto"
-              domain={[0, 'auto']}
-              tickFormatter={compactNumber}
-              tickLine={false}
-              axisLine={false}
-              tick={{ style: { fill: chartTheme.ok } }}
-            />
-            <Tooltip
-              content={rechartsTooltip((label) => readingTime(Number(label)), names)}
-              cursor={{ stroke: 'var(--chart-grid)' }}
-            />
-            <Line
-              yAxisId="members"
-              type="monotone"
-              dataKey="members"
-              name="members"
-              stroke={seriesColor(1)}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
-              isAnimationActive={false}
-            />
-            <Line
-              yAxisId="online"
-              type="monotone"
-              dataKey="online"
-              name="online"
-              stroke={chartTheme.ok}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ChartFrame>
+        <div className="flex flex-col gap-2">
+          {rows.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <Checkbox checked={lines.members} disabled={onlyOne && lines.members} onChange={(on) => show('members', on)}>
+                <LineName color={seriesColor(1)}>Members</LineName>
+              </Checkbox>
+              <Checkbox checked={lines.online} disabled={onlyOne && lines.online} onChange={(on) => show('online', on)}>
+                <LineName color={chartTheme.ok}>Online</LineName>
+              </Checkbox>
+            </div>
+          )}
+          <ChartFrame height={chartHeight.tall} empty={data.points.length === 0}>
+            <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+              <Stripes id={stripeId} />
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="at"
+                type="number"
+                domain={[from, to]}
+                ticks={timeTicks(from, to)}
+                tickFormatter={(v: number) => timeLabel(v, span)}
+                tickLine={false}
+                axisLine={false}
+                minTickGap={16}
+              />
+              {lines.members && (
+                <YAxis
+                  yAxisId="members"
+                  width="auto"
+                  domain={[0, 'auto']}
+                  allowDecimals={false}
+                  tickFormatter={compactNumber}
+                  tickLine={false}
+                  axisLine={false}
+                />
+              )}
+              {lines.online && (
+                <YAxis
+                  yAxisId="online"
+                  orientation={lines.members ? 'right' : 'left'}
+                  width="auto"
+                  domain={[0, 'auto']}
+                  allowDecimals={false}
+                  tickFormatter={compactNumber}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ style: { fill: chartTheme.ok } }}
+                />
+              )}
+              <MissingBands stripeId={stripeId} bands={chart.bands} yAxisId={lines.members ? 'members' : 'online'} />
+              <Tooltip
+                content={rechartsTooltip((label) => readingTime(Number(label)), names, undefined, ones)}
+                cursor={{ stroke: 'var(--chart-grid)' }}
+              />
+              {lines.members && (
+                <Line
+                  yAxisId="members"
+                  type="monotone"
+                  dataKey="members"
+                  name="members"
+                  stroke={seriesColor(1)}
+                  strokeWidth={2}
+                  dot={readingDot(seriesColor(1))}
+                  activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
+                  isAnimationActive={false}
+                />
+              )}
+              {lines.members && (
+                <Line
+                  yAxisId="members"
+                  type="monotone"
+                  dataKey="membersCarried"
+                  name="members"
+                  stroke={seriesColor(1)}
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  dot={false}
+                  activeDot={false}
+                  legendType="none"
+                  isAnimationActive={false}
+                />
+              )}
+              {lines.online && (
+                <Line
+                  yAxisId="online"
+                  type="monotone"
+                  dataKey="online"
+                  name="online"
+                  stroke={chartTheme.ok}
+                  strokeWidth={2}
+                  dot={readingDot(chartTheme.ok)}
+                  activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
+                  isAnimationActive={false}
+                />
+              )}
+              {lines.online && (
+                <Line
+                  yAxisId="online"
+                  type="monotone"
+                  dataKey="onlineCarried"
+                  name="online"
+                  stroke={chartTheme.ok}
+                  strokeWidth={2}
+                  strokeDasharray="5 4"
+                  dot={false}
+                  activeDot={false}
+                  legendType="none"
+                  isAnimationActive={false}
+                />
+              )}
+            </LineChart>
+          </ChartFrame>
+        </div>
       )}
     </Panel>
   )
 }
+
+/** A line's name beside its tick box, with the line's colour, as the legend drew it. */
+function LineName({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+      <span className="size-2.5 shrink-0 rounded-full" style={{ background: color }} />
+      {children}
+    </span>
+  )
+}
+
+/** Readings up to this many get a dot each; more than that and the dots are a smear, so none. */
+const DOTS_UP_TO = 60

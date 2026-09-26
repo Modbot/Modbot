@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { User } from 'lucide-react'
 import { DailyBars, DailyLine, Heatmap, compactNumber, dateTime, longDay, minutes, percent } from '@/components/charts'
 import { InstanceCards } from '@/components/InstanceCards'
 import { InstanceTable } from '@/components/InstanceTable'
@@ -105,6 +106,7 @@ export function Instances() {
                 cols={HOURS}
                 values={toLocalGrid(data.hourOfWeek[layer])}
                 valueLabel={layer === 'arrivals' ? 'arrivals' : 'instances opened'}
+                valueLabelOne={layer === 'arrivals' ? 'arrival' : 'instance opened'}
                 slot={layer === 'arrivals' ? 1 : 4}
               />
             )}
@@ -115,6 +117,8 @@ export function Instances() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 legend={[{ label: 'Opened', slot: 1 }, { label: 'Closed', slot: 2 }]}
                 series={[
                   { key: 'opened', label: 'opened', points: data.opened, slot: 1 },
@@ -127,6 +131,8 @@ export function Instances() {
               <DailyBars
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 series={[{ key: 'open', label: 'open at once', points: data.mostOpenAtOnce, slot: 4 }]}
               />
             </Panel>
@@ -137,7 +143,9 @@ export function Instances() {
               <DailyBars
                 from={data.from}
                 to={data.to}
-                series={[{ key: 'people', label: 'people', points: data.peaks.mostPeopleAtOncePerDay, slot: 3 }]}
+                missing={data.daysWithoutHeadCounts}
+                today={data.today}
+                series={[{ key: 'people', label: 'people', one: 'person', points: data.peaks.mostPeopleAtOncePerDay, slot: 3 }]}
               />
             </Panel>
 
@@ -150,7 +158,9 @@ export function Instances() {
               <DailyLine
                 from={data.from}
                 to={data.to}
-                series={[{ key: 'busy', label: 'people-hours', points: toHours(data.peaks.peopleMinutesPerDay), slot: 1 }]}
+                missing={data.daysWithoutHeadCounts}
+                today={data.today}
+                series={[{ key: 'busy', label: 'people-hours', one: 'person-hour', points: toHours(data.peaks.peopleMinutesPerDay), slot: 1 }]}
                 format={(v) => `${compactNumber(v)} h`}
               />
             </Panel>
@@ -161,6 +171,8 @@ export function Instances() {
               <DailyLine
                 from={data.from}
                 to={data.to}
+                missing={data.daysWithoutAuditLog}
+                today={data.today}
                 series={[{ key: 'open', label: 'typical time open', points: data.typicalMinutesOpenPerDay, slot: 4 }]}
                 format={minutes}
               />
@@ -173,7 +185,9 @@ export function Instances() {
                 <DailyBars
                   from={data.from}
                   to={data.to}
-                  series={[{ key: 'people', label: 'people', points: data.mostPeopleInOne, slot: 2 }]}
+                  missing={data.daysWithoutPresenceReports}
+                  today={data.today}
+                  series={[{ key: 'people', label: 'people', one: 'person', points: data.mostPeopleInOne, slot: 2 }]}
                 />
               )}
             </Panel>
@@ -202,6 +216,9 @@ const toHours = (points: { day: string; value: number }[]) =>
  */
 function Peaks({ peaks }: { peaks: InstancePeaks }) {
   const { coverage } = peaks
+  const busiestDayPeak = peaks.busiestDay
+    ? (peaks.mostPeopleAtOncePerDay.find((p) => p.day === peaks.busiestDay?.day)?.value ?? null)
+    : null
 
   return (
     <>
@@ -234,15 +251,31 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
             ) : undefined
           }
         />
+        {/*
+          Both are picked by people-time -- everyone's minutes in the group's instances added up --
+          and neither shows it. Printed as a length of time, "4 h 22 min" read as how long
+          something lasted, and divided back into people it gave 1.4 of a person. The hour shows
+          its average in whole people, the exact figure on hover; the day shows the most at once
+          that day, because a day's average is always nearly nobody.
+        */}
         <Stat
           label="Busiest day"
-          value={peaks.busiestDay ? minutes(peaks.busiestDay.peopleMinutes) : '—'}
+          value={busiestDayPeak === null ? '—' : <People count={busiestDayPeak} />}
           note={peaks.busiestDay ? longDay(peaks.busiestDay.day) : undefined}
           noteMono
         />
         <Stat
           label="Busiest hour"
-          value={peaks.busiestHour ? minutes(peaks.busiestHour.peopleMinutes) : '—'}
+          value={
+            peaks.busiestHour ? (
+              <People
+                count={Math.round(peaks.busiestHour.peopleMinutes / 60)}
+                title={`${(peaks.busiestHour.peopleMinutes / 60).toFixed(1)} on average`}
+              />
+            ) : (
+              '—'
+            )
+          }
           note={peaks.busiestHour ? dateTime(peaks.busiestHour.startedAt) : undefined}
           noteMono
         />
@@ -276,4 +309,15 @@ function zoneLabel(): string {
   const h = Math.floor(Math.abs(offset) / 60)
   const m = Math.abs(offset) % 60
   return `UTC${sign}${h}${m ? `:${String(m).padStart(2, '0')}` : ''}`
+}
+
+/** A number of people, drawn with a person beside it. */
+function People({ count, title }: { count: number; title?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5" title={title}>
+      <User aria-hidden className="size-[0.8em] shrink-0" strokeWidth={2.25} />
+      {compactNumber(count)}
+      <span className="sr-only">{count === 1 ? ' person' : ' people'}</span>
+    </span>
+  )
 }

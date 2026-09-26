@@ -1,6 +1,8 @@
 import { compactNumber } from './format'
+import { plural } from '../../lib/format.ts'
 
-export type TooltipRow = { name: string; value: number | string; color?: string }
+/** `one` is the name for a value of exactly one -- "1 action" beside "2 actions". */
+export type TooltipRow = { name: string; one?: string; value: number | string; color?: string }
 
 /**
  * The one tooltip every chart uses, drawn in the popover tokens so it matches the rest of the
@@ -14,23 +16,35 @@ export function ChartTooltip({
   title,
   rows,
   format = compactNumber,
+  note,
+  message,
 }: {
   title: string
   rows: TooltipRow[]
   format?: (value: number) => string
+  /** A word after the title: "so far" on a day that is not over yet. */
+  note?: string
+  /** Said in place of the rows: "No data" on a day nothing was recorded. */
+  message?: string
 }) {
   return (
     <div
       className="overflow-hidden rounded-sm border border-(length:--hairline) bg-popover text-popover-foreground shadow-sm"
       style={{ fontSize: 'var(--text-small)' }}
     >
-      <div className="border-b border-b-(length:--hairline) bg-strip px-2 py-1 font-mono text-muted-foreground">{title}</div>
+      <div className="border-b border-b-(length:--hairline) bg-strip px-2 py-1 font-mono text-muted-foreground">
+        {title}
+        {note && <span className="font-sans"> {note}</span>}
+      </div>
       <div className="px-2 py-1">
-        {rows.map((row) => (
+        {message && <div className="text-muted-foreground">{message}</div>}
+        {!message && rows.map((row) => (
           <div key={row.name} className="flex items-center gap-1.5">
             {row.color && <span className="size-2 shrink-0 rounded-full" style={{ background: row.color }} />}
             <span className="font-mono font-medium">{typeof row.value === 'number' ? format(row.value) : row.value}</span>
-            <span className="text-muted-foreground">{row.name}</span>
+            <span className="text-muted-foreground">
+              {typeof row.value === 'number' && row.one ? plural(row.value, row.one, row.name) : row.name}
+            </span>
           </div>
         ))}
       </div>

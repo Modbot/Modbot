@@ -8,7 +8,7 @@ import { Empty, FactList, Field, Note, Panel } from '@/components/subject/shared
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { api, type DiscordMember } from '@/lib/api'
 import type { DiscordMemberRead } from '@/lib/useDiscordMember'
-import { clockTime, formatDay } from '@/lib/format'
+import { clockTime, formatDay, needsYear } from '@/lib/format'
 import { usePageState, type ListPage } from '@/lib/listPage'
 import { cn } from '@/lib/utils'
 import { useLoad } from '@/lib/useLoad'
@@ -292,7 +292,7 @@ export function DiscordMetrics({ id }: { id: string }) {
         <DailyBars
           from={from}
           to={to}
-          series={[{ key: 'messages', label: 'Messages', points: data.messagesPerDay, slot: 1 }]}
+          series={[{ key: 'messages', label: 'Messages', one: 'Message', points: data.messagesPerDay, slot: 1 }]}
         />
       </Panel>
 
@@ -300,7 +300,7 @@ export function DiscordMetrics({ id }: { id: string }) {
         <DailyBars
           from={from}
           to={to}
-          series={[{ key: 'voice', label: 'Minutes', points: data.voiceMinutesPerDay, slot: 2 }]}
+          series={[{ key: 'voice', label: 'Minutes', one: 'Minute', points: data.voiceMinutesPerDay, slot: 2 }]}
         />
       </Panel>
 
@@ -313,7 +313,9 @@ export function DiscordMetrics({ id }: { id: string }) {
               <li key={`${h.at}:${i}`} className="flex gap-2">
                 <span className="w-14 font-medium">{h.change === 'joined' ? 'Joined' : 'Left'}</span>
                 <span className="font-mono text-muted-foreground">
-                  {h.before ? `${dateTime(h.at)} – ${dateTime(h.before)}` : dateTime(h.at)}
+                  {h.before
+                    ? `${dateTime(h.at, needsYear(h.at, h.before))} – ${dateTime(h.before, needsYear(h.at, h.before))}`
+                    : dateTime(h.at)}
                 </span>
               </li>
             ))}

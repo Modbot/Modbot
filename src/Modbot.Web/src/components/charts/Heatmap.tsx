@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { compactNumber } from './format'
+import { plural } from '../../lib/format.ts'
 import { seriesColor, type SeriesSlot } from './theme'
 
 /** A cell is two thirds of a control high, so the grid grows with the density like the rows around it. */
@@ -19,6 +20,7 @@ export function Heatmap({
   cols,
   values,
   valueLabel,
+  valueLabelOne,
   slot = 1,
   colLabelEvery = 3,
 }: {
@@ -27,6 +29,8 @@ export function Heatmap({
   /** `values[row][col]`. */
   values: number[][]
   valueLabel: string
+  /** `valueLabel` for a value of exactly one, when it is a plural noun: "message" for "messages". */
+  valueLabelOne?: string
   slot?: SeriesSlot
   /** Show every nth column label, so 24 hours do not become an unreadable strip. */
   colLabelEvery?: number
@@ -81,7 +85,8 @@ export function Heatmap({
           <span className="font-mono font-medium text-foreground">
             {compactNumber(values[hover.r]?.[hover.c] ?? 0)}
           </span>{' '}
-          {valueLabel} · {rows[hover.r]} {cols[hover.c]}
+          {valueLabelOne ? plural(values[hover.r]?.[hover.c] ?? 0, valueLabelOne, valueLabel) : valueLabel} ·{' '}
+          {rows[hover.r]} {cols[hover.c]}
         </div>
       )}
     </div>

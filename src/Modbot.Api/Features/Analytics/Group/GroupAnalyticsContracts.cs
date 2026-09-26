@@ -58,7 +58,12 @@ public sealed record InviteFunnel(
 /// <summary>One reading of the group's counts, as VRChat reported them at <paramref name="At"/>.</summary>
 /// <param name="Members">VRChat's <c>memberCount</c>.</param>
 /// <param name="Online">VRChat's <c>onlineMemberCount</c>: members online in VRChat, anywhere.</param>
-public sealed record MemberCountPoint(DateTimeOffset At, int Members, int Online);
+/// <param name="Carried">
+/// True when the point is not a reading but a day's last group-info fact, from before the first
+/// stored reading. Facts are written only when a count changes, so the value between two of them
+/// is carried over rather than measured, and the chart draws that stretch dashed.
+/// </param>
+public sealed record MemberCountPoint(DateTimeOffset At, int Members, int Online, bool Carried = false);
 
 /// <summary>
 /// The member count chart: readings from <paramref name="From"/> to <paramref name="To"/>, at
@@ -70,13 +75,19 @@ public sealed record MemberCountPoint(DateTimeOffset At, int Members, int Online
 /// never more than about 500 points. A day's steps are shorter than the poll rate, so a day is
 /// every reading.
 /// </param>
+/// <param name="DaysWithoutReadings">
+/// UTC days the window touches with nothing behind them: before the first thing known, or, from
+/// the first reading on, a day the sync took no reading at all. Days carried from facts are not
+/// in here; their points say <c>carried</c>.
+/// </param>
 public sealed record GroupMemberCountSeries(
     string Range,
     DateTimeOffset From,
     DateTimeOffset To,
     int StepSeconds,
     IReadOnlyList<MemberCountPoint> Points,
-    DateTimeOffset GeneratedAt);
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<DateOnly> DaysWithoutReadings);
 
 /// <param name="MemberCount">
 /// Observed headcounts, from the group-info sync. Real numbers VRChat reported, not a running total
@@ -93,9 +104,18 @@ public sealed record GroupMemberCountSeries(
 /// have a join date; members from before recording began are not in any bucket.
 /// </param>
 /// <param name="Peaks">The highest the two counts reached inside the window, and when.</param>
+/// <param name="Today">
+/// <paramref name="To"/> when it is today by the server's clock, so the day is not over yet; null
+/// when the window ends on a finished day.
+/// </param>
+/// <param name="DaysWithoutAuditLog">
+/// Days before Modbot began reading the group's audit log. Joins, leaves, invites and requests
+/// have no record for them, which is not the same as none happening.
+/// </param>
 public sealed record GroupAnalytics(
     DateOnly From,
     DateOnly To,
+    DateOnly? Today,
     IReadOnlyList<DayValue> MemberCount,
     IReadOnlyList<DayValue> Joined,
     IReadOnlyList<DayValue> Left,
@@ -108,5 +128,6 @@ public sealed record GroupAnalytics(
     int MembersWithKnownTenure,
     InviteFunnel Invites,
     MemberCountPeaks Peaks,
+    IReadOnlyList<DateOnly> DaysWithoutAuditLog,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);

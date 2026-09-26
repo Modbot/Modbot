@@ -1344,6 +1344,8 @@ export type MemberCountPeaks = {
 export type GroupAnalytics = {
   from: string
   to: string
+  /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
+  today: string | null
   memberCount: DayValue[]
   joined: DayValue[]
   left: DayValue[]
@@ -1356,6 +1358,8 @@ export type GroupAnalytics = {
   membersWithKnownTenure: number
   invites: InviteFunnel
   peaks: MemberCountPeaks
+  /** Days before Modbot began reading the group's audit log. */
+  daysWithoutAuditLog: string[]
   coverage: AnalyticsCoverage
   generatedAt: string
 }
@@ -1363,7 +1367,13 @@ export type GroupAnalytics = {
 export type MemberCountRange = 'day' | 'week' | 'month' | 'all'
 
 /** One reading of the group's counts, as VRChat reported them at `at`. */
-export type MemberCountPoint = { at: string; members: number; online: number }
+export type MemberCountPoint = {
+  at: string
+  members: number
+  online: number
+  /** A day's last group-info fact from before the first reading, carried over rather than read. */
+  carried: boolean
+}
 
 /**
  * The member count chart: readings from `from` to `to`, at most one per `stepSeconds`, so never
@@ -1376,6 +1386,8 @@ export type GroupMemberCountSeries = {
   stepSeconds: number
   points: MemberCountPoint[]
   generatedAt: string
+  /** UTC days the window touches with nothing behind them. Carried days are not in here. */
+  daysWithoutReadings: string[]
 }
 
 export type ActionKind = { metric: string; label: string }
@@ -1392,6 +1404,11 @@ export type KindSeries = { metric: string; label: string; total: number; points:
 export type CoverageGap = {
   worldId: string
   instanceId: string
+  /** Null while Modbot has only seen the world's id. */
+  worldName: string | null
+  /** Null when no instance Modbot has a row for was open under that number at the time. */
+  modbotInstanceId: string | null
+  instanceName: string | null
   startedAt: string
   endedAt: string | null
   endedBy: 'moderator-arrived' | 'instance-closed' | 'unknown'
@@ -1402,6 +1419,8 @@ export type CoverageGap = {
 export type TeamAnalytics = {
   from: string
   to: string
+  /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
+  today: string | null
   kinds: ActionKind[]
   moderators: ModeratorSummary[]
   actionsPerDay: DayValue[]
@@ -1410,6 +1429,7 @@ export type TeamAnalytics = {
   moderatorsRecognised: number
   instancesWatched: number
   instancesOpenedWithoutAnyWatch: number
+  daysWithoutAuditLog: string[]
   coverage: AnalyticsCoverage
   generatedAt: string
 }
@@ -1433,9 +1453,13 @@ export type WorldSeries = { worldId: string; points: DayValue[] }
 export type WorldsAnalytics = {
   from: string
   to: string
+  /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
+  today: string | null
   worlds: WorldSummary[]
   visitorsPerDay: WorldSeries[]
   presenceReports: number
+  /** Days an instance was open and no companion reported from any. */
+  daysWithoutPresenceReports: string[]
   coverage: AnalyticsCoverage
   generatedAt: string
 }
@@ -1541,6 +1565,8 @@ export type NewMembersStayed = { days: number; joined: number; stillHere: number
 export type ServerAnalytics = {
   from: string
   to: string
+  /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
+  today: string | null
   memberCount: DayValue[]
   joined: DayValue[]
   left: DayValue[]
@@ -1557,6 +1583,10 @@ export type ServerAnalytics = {
   messagesRemoved: DayValue[]
   topContributors: ServerContributor[]
   health: { members: number; activeLast30Days: number; wentQuiet: number; quiet: ServerContributor[] }
+  /** Days before the bot first read the server. */
+  daysWithoutBot: string[]
+  /** Days before both the first stored message and the bot's first day. */
+  daysWithoutMessages: string[]
   coverage: AnalyticsCoverage
   generatedAt: string
 }
@@ -1614,11 +1644,15 @@ export type InstanceActivitySeries = {
   stepSeconds: number
   points: ActivityPoint[]
   generatedAt: string
+  /** UTC days an instance was open and never counted. */
+  daysWithoutHeadCounts: string[]
 }
 
 export type InstancesAnalytics = {
   from: string
   to: string
+  /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
+  today: string | null
   opened: DayValue[]
   closed: DayValue[]
   mostOpenAtOnce: DayValue[]
@@ -1632,6 +1666,9 @@ export type InstancesAnalytics = {
   hourOfWeek: HourOfWeek
   peaks: InstancePeaks
   presenceReports: number
+  daysWithoutAuditLog: string[]
+  daysWithoutHeadCounts: string[]
+  daysWithoutPresenceReports: string[]
   coverage: AnalyticsCoverage
   generatedAt: string
 }

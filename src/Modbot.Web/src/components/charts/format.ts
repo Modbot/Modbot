@@ -3,6 +3,8 @@
  * exports these keeps its fast-refresh boundary.
  */
 
+import { lengthOfTime, needsYear } from '../../lib/format.ts'
+
 export type DayPoint = { day: string; value: number }
 
 /** "Jun 16" -- a day label short enough for an axis. Days are UTC, like the data. */
@@ -14,19 +16,34 @@ export function shortDay(day: string): string {
   })
 }
 
-/** "16 Jun 2026" -- a day label for a tooltip or a caption. */
-export function longDay(day: string): string {
+/**
+ * "Jun 16" -- a day label for a tooltip or a caption, with the year only when the day is not in
+ * this year ("Jun 16, 2025"), the same rule as `formatDay`. Noon rather than midnight for the
+ * year test, so a UTC day is in the same year wherever the viewer is.
+ */
+export function longDay(day: string, withYear: boolean = needsYear(`${day}T12:00:00Z`)): string {
   return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
-    year: 'numeric',
+    year: withYear ? 'numeric' : undefined,
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',
   })
 }
 
-/** An instant, in the viewer's own clock, because that is the clock they will act in. */
-export function dateTime(iso: string): string {
+/** Two days as one range, "Aug 28 – Sep 26": both with the year, or neither. */
+export function dayRange(from: string, to: string): string {
+  const withYear = needsYear(`${from}T12:00:00Z`, `${to}T12:00:00Z`)
+  return `${longDay(from, withYear)} – ${longDay(to, withYear)}`
+}
+
+/**
+ * An instant, in the viewer's own clock, because that is the clock they will act in. The year is
+ * left out in the current year and written otherwise (`needsYear`); pass `withYear` for two
+ * instants shown as one span, so both carry it or neither does.
+ */
+export function dateTime(iso: string, withYear: boolean = needsYear(iso)): string {
   return new Date(iso).toLocaleString(undefined, {
+    year: withYear ? 'numeric' : undefined,
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -42,13 +59,11 @@ export const compactNumber = (n: number): string =>
       ? n.toLocaleString()
       : n.toFixed(1)
 
-/** Minutes, said the way a person would say them. */
+/** Minutes, said the way a person would say them: "16 min", "3 h 6 min", "2 d 4 h" (`lengthOfTime`). */
 export function minutes(total: number): string {
   if (!Number.isFinite(total) || total < 0) return '—'
   if (total < 1) return 'under a minute'
-  if (total < 60) return `${Math.round(total)} min`
-  if (total < 60 * 48) return `${(total / 60).toFixed(total % 60 === 0 ? 0 : 1)} h`
-  return `${(total / 1440).toFixed(1)} days`
+  return lengthOfTime(total)
 }
 
 /** A whole-number percentage, or a dash when the denominator is zero. */

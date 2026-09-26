@@ -125,6 +125,14 @@ public static class GroupAuditLogEvents
     public static IReadOnlyCollection<string> Known => Types.Keys;
 
     /// <summary>
+    /// Every fact type an audit-log entry can become, including the one an entry Modbot has no
+    /// name for is stored under. Analytics asks the fact log for the first of these to learn when
+    /// Modbot began reading the audit log.
+    /// </summary>
+    public static IReadOnlyCollection<string> FactTypes { get; } =
+        Types.Values.Append(FactType.Unrecognised).Distinct(StringComparer.Ordinal).ToArray();
+
+    /// <summary>
     /// Maps one event type onto a fact type, or reports that Modbot has never heard of it.
     /// </summary>
     public static bool TryMap(string? eventType, out string type)

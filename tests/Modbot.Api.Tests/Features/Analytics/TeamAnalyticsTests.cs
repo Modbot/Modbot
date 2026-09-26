@@ -1,6 +1,7 @@
 using Modbot.Analytics.DailyTotals;
 using Modbot.Api.Features.Analytics.Team;
 using Modbot.Api.Tests.Features.Audit;
+using Modbot.Api.Tests.Features.Places;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using static Modbot.Api.Tests.Features.Analytics.AnalyticsFacts;
@@ -92,6 +93,50 @@ public class TeamAnalyticsTests
 
         Assert.Equal(1, page.InstancesWatched);
         Assert.Equal(1, page.ModeratorsRecognised);
+    }
+
+    /// <summary>
+    /// A gap names its world and the instance it happened in, so the page can show "The Black Cat
+    /// #12345" and open the instance rather than print a world id. The number was used before by
+    /// an instance that had closed; the gap belongs to the one that was open at the time.
+    /// </summary>
+    [Fact]
+    public async Task CoverageGap_CarriesTheWorldName_AndTheInstanceItHappenedIn()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var t = host.Clock.UtcNow.AddHours(-6);
+
+        await PlacesFixtures.WorldAsync(host, World, "The Black Cat", t.AddDays(-3), ct);
+        await PlacesFixtures.InstanceAsync(host, World, Instance, t.AddDays(-2), t.AddDays(-2).AddHours(1), t.AddDays(-2).AddHours(1), ct, name: "Last week");
+        var tonight = await PlacesFixtures.InstanceAsync(host, World, Instance, t.AddMinutes(-5), host.Clock.UtcNow, null, ct, name: "Movie night");
+
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_someone", t.AddDays(-10), actor: "usr_mod"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_mod", t, World, Instance), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_p1", t.AddMinutes(1), World, Instance), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_mod", t.AddMinutes(30), World, Instance), ct);
+
+        // A second world Modbot has only seen as an id, with no instance row: nothing to name.
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_mod", t.AddHours(2), "wrld_unread", "7"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_p2", t.AddHours(2).AddMinutes(1), "wrld_unread", "7"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_mod", t.AddHours(2).AddMinutes(10), "wrld_unread", "7"), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<TeamAnalytics>("/api/analytics/team?days=30", cookie, ct);
+
+        Assert.Equal(2, page.CoverageGaps.Count);
+
+        var named = page.CoverageGaps.Single(g => g.WorldId == World);
+        Assert.Equal("The Black Cat", named.WorldName);
+        Assert.Equal(tonight.Id, named.ModbotInstanceId);
+        Assert.Equal("Movie night", named.InstanceName);
+
+        var unnamed = page.CoverageGaps.Single(g => g.WorldId == "wrld_unread");
+        Assert.Null(unnamed.WorldName);
+        Assert.Null(unnamed.ModbotInstanceId);
+        Assert.Null(unnamed.InstanceName);
     }
 
     [Fact]

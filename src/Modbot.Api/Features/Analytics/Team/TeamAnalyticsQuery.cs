@@ -91,6 +91,7 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
         return new TeamAnalytics(
             from,
             to,
+            MissingDays.Today(to, now),
             Kinds,
             moderators,
             totals.SummedPerDay(KindMetrics),
@@ -99,6 +100,7 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
             roster.Count,
             watched,
             unwatched,
+            await new MissingDaysQuery(db).AuditLogAsync(from, to, ct),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }
@@ -334,9 +336,30 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
         var closes = await InstanceClosesAsync(from, to, ct);
         var names = await _sql.NamesAsync(rows.Where(r => r.Leaver is not null).Select(r => r.Leaver!).ToList(), ct);
 
+        var worldIds = rows.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
+        var numbers = rows.Select(r => r.InstanceId).Distinct(StringComparer.Ordinal).ToList();
+
+        var worldNames = await db.VRChatWorlds.AsNoTracking()
+            .Where(w => worldIds.Contains(w.WorldId) && w.Name != null)
+            .Select(w => new { w.WorldId, w.Name })
+            .ToDictionaryAsync(w => w.WorldId, w => w.Name!, StringComparer.Ordinal, ct);
+
+        // Every instance that ever carried one of these numbers; which one a gap was in is decided
+        // by time below, because VRChat hands a number out again once its instance has closed.
+        var instances = await db.VRChatInstances.AsNoTracking()
+            .Where(i => worldIds.Contains(i.WorldId) && i.VRChatInstanceId != null && numbers.Contains(i.VRChatInstanceId))
+            .Select(i => new { i.Id, i.WorldId, Number = i.VRChatInstanceId!, i.Name, i.OpenedAt, i.ClosedAt, i.LastSeenAt })
+            .ToListAsync(ct);
+
         return rows
             .Select(r =>
             {
+                var instance = instances.FirstOrDefault(i =>
+                    string.Equals(i.WorldId, r.WorldId, StringComparison.Ordinal)
+                    && string.Equals(i.Number, r.InstanceId, StringComparison.Ordinal)
+                    && r.StartedAt >= i.OpenedAt
+                    && r.StartedAt <= (i.ClosedAt ?? i.LastSeenAt));
+
                 var closedAt = closes.GetValueOrDefault((r.WorldId, r.InstanceId));
                 var closed = closedAt is { } c && c >= r.StartedAt ? c : (DateTimeOffset?)null;
 
@@ -353,6 +376,9 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
                 return new CoverageGap(
                     r.WorldId,
                     r.InstanceId,
+                    worldNames.GetValueOrDefault(r.WorldId),
+                    instance?.Id,
+                    instance?.Name,
                     r.StartedAt,
                     endedAt,
                     endedBy,

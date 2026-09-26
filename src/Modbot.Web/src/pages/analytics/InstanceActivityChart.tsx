@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
-import { ChartFrame, chartHeight, chartTheme, compactNumber, rechartsTooltip, seriesColor } from '@/components/charts'
+import {
+  ChartFrame,
+  MissingBands,
+  Stripes,
+  chartHeight,
+  chartTheme,
+  compactNumber,
+  rechartsTooltip,
+  seriesColor,
+  useStripeId,
+} from '@/components/charts'
 import { ApiError, api, type InstanceActivitySeries, type MemberCountRange } from '@/lib/api'
-import { toActivityRows } from './instanceActivitySeries'
+import { activityChartRows } from './instanceActivitySeries'
 import { MEMBER_COUNT_RANGES, readingTime, timeLabel, timeTicks } from './memberCountSeries'
 import { Nothing, Panel, Toggle } from './shared'
 
@@ -21,7 +31,8 @@ import { Nothing, Panel, Toggle } from './shared'
  * value can only be read against the axis it belongs to.
  *
  * `step` is a staircase and not a curve, because a head count is kept only when it changes and the
- * value between two readings is the earlier one's, right up to the next.
+ * value between two readings is the earlier one's, right up to the next. A day an instance was open
+ * and never counted breaks the staircase and sits in a striped band.
  */
 export function InstanceActivityChart() {
   const [range, setRange] = useState<MemberCountRange>('week')
@@ -53,7 +64,9 @@ export function InstanceActivityChart() {
     }
   }, [range])
 
-  const rows = data ? toActivityRows(data) : []
+  const stripeId = useStripeId()
+  const chart = data ? activityChartRows(data) : { rows: [], bands: [] }
+  const rows = chart.rows
   const from = data ? Date.parse(data.from) : 0
   const to = data ? Date.parse(data.to) : 0
   const span = to - from
@@ -77,7 +90,7 @@ export function InstanceActivityChart() {
       ) : (
         <ChartFrame
           height={chartHeight.tall}
-          empty={rows.length === 0}
+          empty={!data || data.points.length === 0}
           emptyText="No head counts in this range."
           legend={[
             { label: 'People', slot: 1 },
@@ -85,6 +98,7 @@ export function InstanceActivityChart() {
           ]}
         >
           <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <Stripes id={stripeId} />
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="at"
@@ -115,8 +129,9 @@ export function InstanceActivityChart() {
               axisLine={false}
               tick={{ style: { fill: chartTheme.ok } }}
             />
+            <MissingBands stripeId={stripeId} bands={chart.bands} yAxisId="people" />
             <Tooltip
-              content={rechartsTooltip((label) => readingTime(Number(label)), names)}
+              content={rechartsTooltip((label) => readingTime(Number(label)), names, undefined, { people: 'person', instances: 'instance' })}
               cursor={{ stroke: 'var(--chart-grid)' }}
             />
             <Line
