@@ -243,8 +243,17 @@ public sealed class DemoSeeder
         settings.DiscordMessageRetentionDays = 0;
 
         // Evidence lives in the database, so a demo needs no bucket and no disk (§4.6).
+        //
+        // The store id is deliberately left alone here. Minting one this early would give the
+        // startup probe (EvidenceRegistration.LoadEvidenceSettingsAsync, run moments after this
+        // method returns) an id to expect before DemoEvidence has written the matching store
+        // marker -- which is exactly what a real lost store looks like, and raises the same
+        // critical, every-channel alarm (evidence storage design §8.4). A demo has no sign-in for
+        // that alarm to reach, so it would sit "waiting" forever (foundation §4.5.3) with nothing
+        // to clear it. Leaving the id unset makes the probe read "not configured yet" instead --
+        // quiet, and correct -- until DemoEvidence sets the id itself, right when it writes the
+        // marker to go with it.
         settings.EvidenceBackend = 3;
-        settings.EvidenceStoreId ??= Guid.CreateVersion7();
 
         await _db.SaveChangesAsync(ct);
     }
