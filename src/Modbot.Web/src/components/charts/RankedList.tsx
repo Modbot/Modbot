@@ -56,14 +56,52 @@ export function RankedList({
   )
 }
 
+/**
+ * How a legend item draws its key. `dot` names a series by its colour; the others copy the mark
+ * the chart draws, for a chart whose lines differ by how they are drawn as well as by colour: a
+ * solid `line`, a `dashed` one, a shaded `band` and a `hairline` like a reference line.
+ */
+export type LegendSample = 'dot' | 'line' | 'dashed' | 'band' | 'hairline'
+
+/**
+ * One key in a legend. The colour is a series slot, or `color` for a mark drawn in another
+ * token (`chartTheme.ok` for a line that means "online"). `value` is a reading set beside the
+ * name in mono, for a chart that says each line's latest value in its key.
+ */
+export type LegendItem = {
+  label: string
+  value?: React.ReactNode
+  sample?: LegendSample
+} & ({ slot: SeriesSlot; color?: never } | { color: string; slot?: never })
+
+function Sample({ sample = 'dot', color }: { sample?: LegendSample; color: string }) {
+  switch (sample) {
+    case 'line':
+      return <span className="h-0.5 w-4 shrink-0 rounded-full" style={{ background: color }} />
+    case 'dashed':
+      return <span className="w-4 shrink-0 border-t-2 border-dashed" style={{ borderColor: color }} />
+    case 'band':
+      return <span className="h-2.5 w-4 shrink-0 rounded-sm" style={{ background: color, opacity: 0.25 }} />
+    case 'hairline':
+      return <span className="w-4 shrink-0 border-t border-t-(length:--hairline)" style={{ borderColor: color }} />
+    default:
+      return <span className="size-2.5 shrink-0 rounded-full" style={{ background: color }} />
+  }
+}
+
 /** Identity never rides on colour alone, so every multi-series view carries one of these. */
-export function Legend({ items }: { items: { label: string; slot: SeriesSlot }[] }) {
+export function Legend({ items }: { items: LegendItem[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
       {items.map((item) => (
         <span key={item.label} className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="size-2.5 shrink-0 rounded-full" style={{ background: seriesColor(item.slot) }} />
+          <Sample sample={item.sample} color={item.color ?? seriesColor(item.slot!)} />
           {item.label}
+          {item.value !== undefined && (
+            <span className="font-mono font-medium text-foreground" style={{ fontSize: 'var(--text-base)' }}>
+              {item.value}
+            </span>
+          )}
         </span>
       ))}
     </div>

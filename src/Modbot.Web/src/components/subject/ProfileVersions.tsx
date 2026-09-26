@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Row } from '@/components/ui/fact-row'
 import { dateTime } from '@/components/charts'
 import { SourceBadge } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
@@ -25,7 +27,7 @@ export function ProfileVersions({ id, openAt }: { id: string; openAt: number | n
   const { data, error } = useLoad(load)
   const [chosen, setChosen] = useState<number | null>(openAt)
 
-  if (error) return <Panel title="History" flush><EmptyRow className="text-destructive">{error}</EmptyRow></Panel>
+  if (error) return <Panel title="History" flush><EmptyRow tone="danger">{error}</EmptyRow></Panel>
   if (!data) return <Panel title="History" flush><EmptyRow>Loading…</EmptyRow></Panel>
 
   if (!data.known || data.versions.length === 0)
@@ -92,9 +94,14 @@ export function VersionCard({ version }: { version: ProfileVersion }) {
     <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
       <div className="flex flex-wrap items-center gap-2">
         <SourceBadge source={version.source} />
-        <span className="tabular-nums text-muted-foreground">
-          {version.before ? `Between ${dateTime(version.at)} and ${dateTime(version.before)}` : dateTime(version.at)}
-        </span>
+        {version.before ? (
+          <span className="text-muted-foreground">
+            Between <span className="font-mono">{dateTime(version.at)}</span> and{' '}
+            <span className="font-mono">{dateTime(version.before)}</span>
+          </span>
+        ) : (
+          <span className="font-mono text-muted-foreground">{dateTime(version.at)}</span>
+        )}
         {version.current && <Badge variant="secondary">As stored now</Badge>}
         {version.baseline && <Badge variant="outline">First seen</Badge>}
       </div>
@@ -117,8 +124,9 @@ export function VersionCard({ version }: { version: ProfileVersion }) {
           type="button"
           onClick={() => setShowJson((s) => !s)}
           aria-expanded={showJson}
-          className="self-start text-muted-foreground hover:text-foreground hover:underline"
+          className="flex items-center gap-1 self-start text-muted-foreground hover:text-foreground hover:underline"
         >
+          <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', showJson && 'rotate-90')} />
           {showJson ? 'Hide JSON' : 'JSON'}
         </button>
         {showJson && <JsonView title="Profile" value={p} />}
@@ -143,65 +151,94 @@ export function Fields({ fields: p, highlight }: { fields: ProfileFields; highli
         <div className="size-20 shrink-0 rounded-full bg-muted" />
       )}
 
-      <div className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-        <Row label="Name" mark={marked('displayName')}>{p.displayName ?? '—'}</Row>
-        <Row label="Banner" mark={marked('bannerUrl')}>
-          {banner ? (
-            <img src={banner} alt="" className="aspect-[3/1] w-full max-w-xs bg-muted object-cover" referrerPolicy="no-referrer" />
-          ) : '—'}
-        </Row>
-        <Row label="Icon" mark={marked('iconUrl')}>
-          {icon ? (
-            <img src={icon} alt="" className="size-8 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
-          ) : '—'}
-        </Row>
-        <Row label="Represented group" mark={marked('representedGroup')}>
-          {p.representedGroup ? (
-            <span className="inline-flex items-center gap-1.5" title={p.representedGroup.groupId}>
-              {groupIcon ? (
-                <img src={groupIcon} alt="" className="size-5 shrink-0 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="size-5 shrink-0 rounded-full bg-muted" />
-              )}
-              {p.representedGroup.name}
-            </span>
-          ) : '—'}
-        </Row>
-        <Row label="Pronouns" mark={marked('pronouns')}>{p.pronouns ?? '—'}</Row>
-        <Row label="Status line" mark={marked('statusDescription')}>{p.statusDescription ?? '—'}</Row>
-        <Row label="Bio" mark={marked('bio')}>
-          <span className="whitespace-pre-wrap break-words">{p.bio ?? '—'}</span>
-        </Row>
-        <Row label="Age" mark={marked('ageVerificationStatus') || marked('ageVerified')}>
-          {p.ageVerificationStatus ?? (p.ageVerified === null ? '—' : p.ageVerified ? 'verified' : 'not verified')}
-        </Row>
-        <Row label="Joined VRChat" mark={marked('dateJoined')}>{p.dateJoined ?? '—'}</Row>
-        <Row label="Tags" mark={marked('tags')}>
-          {p.tags.length === 0 ? '—' : (
-            <span className="flex flex-wrap gap-1">
-              {p.tags.map((t) => (
-                <Badge key={t} variant="outline" className="font-mono">{t}</Badge>
-              ))}
-            </span>
-          )}
-        </Row>
-        <Row label="Avatar picture" mark={marked('currentAvatarImageUrl')}>
-          {p.avatarImageUrl ? (
-            <a href={p.avatarImageUrl} target="_blank" rel="noreferrer noopener" className="break-all underline">
-              {p.avatarImageUrl}
-            </a>
-          ) : '—'}
-        </Row>
+      <div className="flex min-w-0 max-w-lg flex-1 flex-col">
+        <div className={cn('px-1', marked('displayName'))}>
+          <Row label="Name" value={p.displayName ?? '—'} />
+        </div>
+        <div className={cn('px-1', marked('bannerUrl'))}>
+          <Row
+            label="Banner"
+            value={
+              banner ? (
+                <img src={banner} alt="" className="aspect-[3/1] w-full max-w-xs bg-muted object-cover" referrerPolicy="no-referrer" />
+              ) : '—'
+            }
+          />
+        </div>
+        <div className={cn('px-1', marked('iconUrl'))}>
+          <Row
+            label="Icon"
+            value={
+              icon ? (
+                <img src={icon} alt="" className="size-8 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
+              ) : '—'
+            }
+          />
+        </div>
+        <div className={cn('px-1', marked('representedGroup'))}>
+          <Row
+            label="Represented group"
+            title={p.representedGroup?.groupId}
+            value={
+              p.representedGroup ? (
+                <span className="inline-flex items-center gap-1.5">
+                  {groupIcon ? (
+                    <img src={groupIcon} alt="" className="size-5 shrink-0 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <span className="size-5 shrink-0 rounded-full bg-muted" />
+                  )}
+                  {p.representedGroup.name}
+                </span>
+              ) : '—'
+            }
+          />
+        </div>
+        <div className={cn('px-1', marked('pronouns'))}>
+          <Row label="Pronouns" value={p.pronouns ?? '—'} />
+        </div>
+        <div className={cn('px-1', marked('statusDescription'))}>
+          <Row label="Status line" value={p.statusDescription ?? '—'} />
+        </div>
+        <div className={cn('px-1', marked('bio'))}>
+          <Row label="Bio" value={<span className="whitespace-pre-wrap break-words">{p.bio ?? '—'}</span>} />
+        </div>
+        <div className={cn('px-1', marked('ageVerificationStatus') || marked('ageVerified'))}>
+          <Row
+            label="Age"
+            value={p.ageVerificationStatus ?? (p.ageVerified === null ? '—' : p.ageVerified ? 'verified' : 'not verified')}
+          />
+        </div>
+        <div className={cn('px-1', marked('dateJoined'))}>
+          <Row label="Joined VRChat" value={p.dateJoined ?? '—'} mono />
+        </div>
+        <div className={cn('px-1', marked('tags'))}>
+          <Row
+            label="Tags"
+            value={
+              p.tags.length === 0 ? '—' : (
+                <span className="flex flex-wrap justify-end gap-1">
+                  {p.tags.map((t) => (
+                    <Badge key={t} variant="outline" className="font-mono">{t}</Badge>
+                  ))}
+                </span>
+              )
+            }
+          />
+        </div>
+        <div className={cn('px-1', marked('currentAvatarImageUrl'))}>
+          <Row
+            label="Avatar picture"
+            mono
+            value={
+              p.avatarImageUrl ? (
+                <a href={p.avatarImageUrl} target="_blank" rel="noreferrer noopener" className="break-all underline underline-offset-2">
+                  {p.avatarImageUrl}
+                </a>
+              ) : '—'
+            }
+          />
+        </div>
       </div>
     </div>
-  )
-}
-
-function Row({ label, mark, children }: { label: string; mark: string; children: React.ReactNode }) {
-  return (
-    <>
-      <span className="text-muted-foreground">{label}</span>
-      <span className={cn('min-w-0 break-words px-1', mark)}>{children}</span>
-    </>
   )
 }

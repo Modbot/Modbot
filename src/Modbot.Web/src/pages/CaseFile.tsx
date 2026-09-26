@@ -8,6 +8,7 @@ import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { EvidenceGallery } from '@/components/EvidenceGallery'
+import { Ago } from '@/components/Freshness'
 import { Markdown } from '@/components/Markdown'
 import { ReasonButtons, WrittenReasonBox } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
@@ -21,7 +22,7 @@ import {
   type ProfileAtBan,
 } from '@/lib/api'
 import { textList } from '@/lib/caseSnapshot'
-import { ago, formatDay } from '@/lib/format'
+import { formatDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /**
@@ -89,7 +90,7 @@ export function CaseFile({
   if (error) {
     return (
       <Card>
-        <EmptyRow>{error}</EmptyRow>
+        <EmptyRow tone="danger">{error}</EmptyRow>
         <CardFooter>
           <Button variant="outline" size="xs" onClick={onBack}>
             Back to bans
@@ -122,7 +123,13 @@ export function CaseFile({
             </CardHeader>
             <CardContent className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {view.withdrawnByUsername ?? 'Somebody'} withdrew it
-              {view.withdrawnAt ? ` on ${formatDay(view.withdrawnAt)}` : ''}: {view.withdrawnNote}
+              {view.withdrawnAt && (
+                <>
+                  {' on '}
+                  <span className="font-mono">{formatDay(view.withdrawnAt)}</span>
+                </>
+              )}
+              : {view.withdrawnNote}
             </CardContent>
           </Card>
         )}
@@ -161,9 +168,9 @@ export function CaseFile({
               )}
 
               <p className="mt-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                Written by {view.authorUsername} on {formatDay(view.createdAt)}
+                Written by {view.authorUsername} on <span className="font-mono">{formatDay(view.createdAt)}</span>
                 {view.updatedByUsername && view.updatedAt !== view.createdAt && (
-                  <> · last edited by {view.updatedByUsername} {ago(view.updatedAt, view.now)}</>
+                  <> · last edited by {view.updatedByUsername} <Ago iso={view.updatedAt} now={view.now} /></>
                 )}
                 .
               </p>
@@ -182,7 +189,7 @@ export function CaseFile({
               onImageReady={noteImage}
             />
           ) : (
-            <EmptyRow>You do not have permission to view evidence.</EmptyRow>
+            <EmptyRow tone="danger">You do not have permission to view evidence.</EmptyRow>
           )}
         </Section>
 
@@ -222,7 +229,7 @@ function Header({
         </CardAction>
       </CardHeader>
       <CardContent className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {view.bannedAt ? <>Banned {formatDay(view.bannedAt)}</> : <>No ban time recorded</>}
+        {view.bannedAt ? <>Banned <span className="font-mono">{formatDay(view.bannedAt)}</span></> : <>No ban time recorded</>}
         {view.bannedBy && (
           <>
             {' '}by{' '}
@@ -381,8 +388,19 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
         {snapshot.banListEntry && (
           <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             On the group's ban list
-            {snapshot.banListEntry.bannedAt ? ` since ${formatDay(snapshot.banListEntry.bannedAt)}` : ''}
-            {snapshot.banListEntry.liftedAt ? `; lifted by ${formatDay(snapshot.banListEntry.liftedAt)}` : ''}.
+            {snapshot.banListEntry.bannedAt && (
+              <>
+                {' since '}
+                <span className="font-mono">{formatDay(snapshot.banListEntry.bannedAt)}</span>
+              </>
+            )}
+            {snapshot.banListEntry.liftedAt && (
+              <>
+                {'; lifted by '}
+                <span className="font-mono">{formatDay(snapshot.banListEntry.liftedAt)}</span>
+              </>
+            )}
+            .
           </p>
         )}
 
@@ -398,7 +416,12 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
           <div className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
             <p className="text-muted-foreground">
               {snapshot.membership.isMember ? 'A member' : 'No longer a member'}
-              {snapshot.membership.joinedAt ? `, joined ${formatDay(snapshot.membership.joinedAt)}` : ''}
+              {snapshot.membership.joinedAt && (
+                <>
+                  {', joined '}
+                  <span className="font-mono">{formatDay(snapshot.membership.joinedAt)}</span>
+                </>
+              )}
               {snapshot.membership.membershipStatus ? ` · ${snapshot.membership.membershipStatus}` : ''}.
             </p>
             {roleIds.length > 0 && (

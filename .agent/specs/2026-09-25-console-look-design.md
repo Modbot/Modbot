@@ -2,7 +2,7 @@
 
 - **Date:** 2026-09-25
 - **Status:** Built in the moderator web app (`src/Modbot.Web`). §22 lists the places that do not
-  follow it yet, found by searching the code on this date.
+  follow it yet, found by searching the code on 2026-09-26.
 - **Covers:** how the moderator app draws its panels, strips, tables, toolbars, controls, forms,
   charts, shell and messages, and which shared part draws each of them
 - **Builds on:** the brand design (`2026-09-16-brand-design.md`). Its colours, logo and faces are
@@ -71,10 +71,10 @@ Every screen is built from these. Paths are under `src/Modbot.Web/src`.
 | `Checkbox` | `components/ui/checkbox.tsx` | A tick box and its label. |
 | `Textarea`, `Input`, `Select` | `components/ui/textarea.tsx`, `input.tsx`, `select.tsx` | Fields and the app's dropdown. |
 | `Badge`, `Button`, `Tabs`, `DialogContent`, `Tooltip`, `Kbd` | `components/ui/` | The rest of the controls. |
-| `Freshness`, `Unread` | `components/Freshness.tsx` | The age of a swept list on its strip; a list that cannot be trusted yet. |
+| `Freshness`, `Unread`, `Ago` | `components/Freshness.tsx` | The age of a swept list on its strip; a list that cannot be trusted yet; an age inside a sentence (§17.2). |
 | `FilterBar` | `components/filters/FilterBar.tsx` | A list's filters, with the page's own search and sort at its right end. |
 | `Pager` | `components/Pager.tsx` | The page numbers along a list's foot. |
-| `ChartFrame`, `DailyBars`, `DailyLine`, `Legend`, `Heatmap` | `components/charts/` | Charts. |
+| `ChartFrame`, `DailyBars`, `DailyLine`, `Legend`, `Heatmap` | `components/charts/` | Charts. `Legend` lives in `RankedList.tsx`. |
 | `ProfileHeader` | `components/ProfileHeader.tsx` | A VRChat person's banner, picture, name and badges. |
 | `Sidebar`, `Topbar`, `NavSheet`, `BottomBar`, `Footer` | `components/Chrome.tsx` | The shell (§4). |
 | `WizardHeader`, `WizardBody`, `WizardFooter`, `Field`, `Tickbox`, `ErrorText`, `Brand` | `pages/setup/WizardChrome.tsx` | The sign-in and setup cards (§13.5). |
@@ -95,9 +95,9 @@ Some parts share a name. None of them delegates to the other.
   `ProfileVersions`, `DiscordSide`, `AccountSide`, `DiscordLinkCard`).
 - **A page-level message.** `Empty` in `pages/Members.tsx` is a `Card` holding an `EmptyRow`, and
   takes `tone`; the list pages, Health, Logs, Roles and Users import it. `PageMessage` in
-  `pages/analytics/shared.tsx` is the same thing without `tone`; the analytics pages, Chat,
+  `pages/analytics/shared.tsx` is the same thing, `tone` included; the analytics pages, Chat,
   Calendar, Live and Giveaways import it. `Empty` in `components/subject/shared.tsx` is an
-  `EmptyRow` ruled off like a popup section, for a popup.
+  `EmptyRow` ruled off like a popup section, for a popup, and takes `tone` as well.
 - **`Footer`.** `Footer` in `components/Chrome.tsx` is the foot of every page (Docs and Credits).
   `Footer` in `components/subject/shared.tsx` is the strip along the foot of a popup section.
 - **A label over a value.** `Fact` (`ui/fact-row.tsx`) sets the value in `font-medium` and wraps
@@ -148,11 +148,11 @@ Controls that act on the whole page sit in one row above the panels,
 `flex flex-wrap items-center gap-2` (Calendar and Giveaways use `gap-3`). What changes the view
 comes first, on the left: a `SwitchBank` of views (Month and Agenda, a giveaway filter, Waiting
 and Closed), then the month stepper. A `flex-1` spacer follows, and the page's one action sits at
-the right end: New event, New giveaway, Add someone, New role, Refresh. A row that holds only the
-action is `flex justify-end`. An action that makes something is the `default` variant; one that
-reads the page again (Refresh) is `outline`. Status about the page as a whole, such as Reviews'
-"Detection last ran `10m ago`" or Live's stream state, sits at the right end of the same row in
-muted small text.
+the right end: New event, New giveaway, Add someone, New role, Refresh. It is the default size, a
+control high. A row that holds only the action is `flex justify-end`. An action that makes
+something is the `default` variant; one that reads the page again (Refresh) is `outline`. Status
+about the page as a whole, such as Reviews' "Detection last ran `10m ago`" or Live's stream state,
+sits at the right end of the same row in muted small text.
 
 An action on the page that fails says so in one line of `text-destructive` small text under that
 row (Calendar, Giveaways, Flags).
@@ -341,12 +341,17 @@ The row of controls above a list decides what the list shows. It is one of two t
    "`3` new"), the search box, then the sort or status `Select`. From `md` up the group sits at the
    right end of the bar's line; below `md` it takes a line of its own, so a phone reads the bar as
    two rows, the filters and then the search, and the search box gives up its width to fill what
-   the sort leaves. A bar with nothing at its right end has no second row.
+   the sort leaves. A bar with nothing at its right end has no second row. A chip is one control
+   high and one line: its property and its operator words never shrink or wrap, and only the
+   value is cut short, with an ellipsis, because a chip that breaks onto two lines inside a box one
+   control high reads as broken.
 2. **Plain controls**, on a list with no filter properties. The row is
    `flex flex-wrap items-center gap-2 md:justify-end` and holds the same things in the same order
-   as the filter bar's right end (Bans: search, then status). Below `md` the search box gives up
-   its fixed width the same way (`max-md:[&>[data-slot=input]]:flex-[1_1_10rem]`), so a phone
-   keeps the search and the status on one line.
+   as the filter bar's right end (Bans: search, then status). A list whose filters are dropdowns
+   and days of its own (Logs: level, source, area, from and to) puts them first, then the search,
+   then the page's Refresh. Below `md` the search box gives up its fixed width the same way
+   (`max-md:[&>[data-slot=input]]:flex-[1_1_10rem]`, or `max-md:flex-[1_1_10rem]` on the box
+   itself), so a phone keeps the search and what follows it on one line.
 
 In both, the search box is `Input className="w-56"` with a placeholder that says what it
 searches ("Search by name or id") and an `aria-label`, and `/` selects it. A control that changes
@@ -401,8 +406,13 @@ that is loading is a `bg-muted` block that pulses (evidence, `h-40`).
 A page-level message is a `Card` holding an `EmptyRow`. When it says a list could not be read,
 the row is `tone="danger"`: the square fills in the destructive colour and the words are plain
 foreground text, so a failure never reads as an empty list. On a list page that is
-`Empty tone="danger"` (`pages/Members.tsx`), in settings `Placeholder tone="danger"`, and inside
-a panel `EmptyRow tone="danger"`. §22.2 lists the places that still show a failure the old way.
+`Empty tone="danger"` (`pages/Members.tsx`), on an analytics page or Chat, Calendar, Live and
+Giveaways `PageMessage tone="danger"`, in settings `Placeholder tone="danger"`, in a popup
+`Empty tone="danger"` (`components/subject/shared.tsx`), for a chart `Nothing tone="danger"`, and
+inside a panel `EmptyRow tone="danger"`. Never a `text-destructive` class on the row instead: that
+turns the hollow square red and leaves it hollow. A section that waits for something another part
+reads (Settings' three tabs that wait for the onboarding status) is handed the error with the
+thing, so it can tell a failed read from one still loading.
 
 The result of an action (a Save, a test) is not a page message. In settings it is `Outcome` beside
 the button: "Saved." in `text-ok`, or the problem in `text-destructive`, at small size. On the
@@ -451,7 +461,8 @@ badge, in the source's series colour or VRChat's rank colour.
    `rounded-full`.
 2. `secondary` (roles, labels) is `bg-strip` with a border edge. `outline` is the edge alone in
    muted text. `destructive`, `ok` and `warn` are tinted, not solid: `border-X/40 bg-X/10
-   text-X`. `ok` is the 18+ mark; `warn` is Nuisance.
+   text-X`, and so are `info` and `gold`. `ok` is the 18+ mark; `warn` is Nuisance; `info` is
+   VRChat staff; `gold` is VRC+.
 3. Each variant sets its own edge colour (`default`, `ghost` and `link` set `border-transparent`)
    and the shared base sets none, because a bare `badgeVariants()` call is not merged and two edge
    colours would leave the tone's edge to CSS order.
@@ -476,6 +487,13 @@ muted with `hover:bg-muted`. Never a grey track with a white chip, and never a h
 not tabs. A count inside a segment is mono. When the values do not fit on one line the bank wraps
 inside its own box: the hairlines stay one line wide and each row's segments stretch to the box's
 width. Never a sideways scroll, and never a switch to `Chip`s because the bank got long.
+
+`disabled` on the bank greys it out and locks every segment (the automod rule's earlier messages
+while there is no chat); `disabled` on one option locks that one. `layout="list"` stacks the values
+as full-width rows, for a choice between records that each carry a picture and a second line
+(setup's group list): each row is at least `--row-h` high, inset by `--panel-pad`, left-aligned,
+its content in its own faces and the foreground colour, with the picked row `bg-accent` like a
+picked segment. It is still one bordered box with a hairline between the rows.
 
 ### 11.5 Tabs
 
@@ -538,7 +556,9 @@ Four shapes are in use, and each matches how much the action takes away:
 2. A field for more than one line is `Textarea`, drawn like `Input`. Never a hand-written textarea
    class string. The chat composer is the one exception: its bordered wrapper is the field, and the
    textarea inside it has no edge.
-3. A value a moderator types that is an id, an address or a key is `font-mono` in its field.
+3. A value a moderator types that is an id, an address or a key is `font-mono` in its field. In
+   settings that is `mono` on `Field` or `PasswordField`; elsewhere it is `font-mono` on the
+   `Input`. A name, a word or a number field stays in the body face.
 4. On a phone every field is 16px text, because Safari zooms the page into a field with smaller
    text and never zooms back out (`index.css`).
 
@@ -567,8 +587,7 @@ sets the searchable one apart, not the trigger.
 3. On a phone, `index.css` sets every tick box to `1.125rem` and gives the label it sits in a
    control's height, with box and label centred in it together. Measured, the box is 15px dense,
    18px on a phone and 24px in VR.
-4. One of several values is a `SwitchBank` (§11.4). §22.4 lists the four radio groups that are
-   still the browser's own.
+4. One of several values is a `SwitchBank` (§11.4), never the browser's own radio buttons.
 
 ### 13.4 Day fields
 
@@ -577,8 +596,10 @@ A day field is `Input type="date"` in `font-mono`, as wide as the whole date at 
 unfocused, its `mm/dd/yyyy` is `text-muted-foreground`, the colour of a placeholder. The browser's
 calendar button stays, since in Chromium it is the only way to open the calendar with the mouse,
 but it is drawn like a dropdown's chevron: `size-3.5`, `opacity-60`, `ms-1.5` before it. The
-highlight on the part being typed is the browser's own and takes no author styles. The Logs
-toolbar's `dayBox` is the one written so far.
+highlight on the part being typed is the browser's own and takes no author styles. `Input` does
+all of this itself whenever `type="date"`, so a day field is `<Input type="date" ...>` with no
+classes of its own: no copy of these, and no width cap, since the field is already as wide as its
+date.
 
 ### 13.5 Laying out a form
 
@@ -590,15 +611,17 @@ toolbar's `dayBox` is the one written so far.
    the sign-in and setup cards the body is `space-y-4`.
 3. **Fields side by side** are `grid items-end gap-3 sm:grid-cols-2` (or `sm:grid-cols-3`), one
    column on a phone. `items-end` lines the fields up on their bottom edge, so a label that wraps
-   to two lines at VR grows upward and the inputs stay on one line.
+   to two lines at VR grows upward and the inputs stay on one line. A field beside read-only
+   `Fact`s lines them up on the top edge instead (`items-start`), so every label sits on one line
+   and each value directly under its label: a `Fact` is shorter than a field, and on the bottom
+   edge its label would sit below the field's.
 4. **Widths.** A field fills its column (`Input` is `w-full`). The caller caps a field only when
    its value is short: a number `w-24` or `w-28`, a list's search `w-56`, a day field as in §13.4.
 5. **The footer.** In settings, the card's `footer` strip holds Save first on the left, `xs`,
    `default` variant, then `Outcome`; a second action there (Test, Send, Add) is `outline` `xs`.
    A form inside a panel (Roles, a case file, a Discord route) puts its primary action first,
    `sm`, then a `ghost` Cancel, then the problem, all on the left. A dialog that confirms one
-   action puts an `outline` Cancel and then the action at the right end (§12.1). §22.6 names the
-   dialogs that do it the other way round.
+   action puts an `outline` Cancel and then the action at the right end (§12.1).
 6. **Save** is always the `default` variant, and it is disabled until there is something to save
    where the form can tell.
 
@@ -696,12 +719,24 @@ conversation list from the left (`17rem`), and the Users page's account details 
 5. **A legend** is drawn only when a chart has more than one series, and only when there is a
    plot. It is the chart's `legend` prop, which `ChartFrame` draws above the plot, `gap-2` apart:
    never a `Legend` the page draws above the chart, so the legend goes when the plot goes. A legend
-   swatch is a `size-2.5` circle, and a tooltip's a `size-2` circle.
+   swatch is a `size-2.5` circle, and a tooltip's a `size-2` circle. Each item names its series in
+   `label` and gives its colour as either a series `slot` or a `color` token (a line drawn in
+   `--ok`, such as Online, keeps that colour in its key). A chart that says each line's latest
+   reading in its key passes `value`, set beside the name in mono, `font-medium`, in the foreground
+   colour at `--text-base` (the machine usage disk chart). A chart whose lines differ by how
+   they are drawn, not only by colour, passes `sample` so the key copies the mark: `line` (solid),
+   `dashed`, `band` (a shaded spread) or `hairline` (a reference line), with `dot`, the circle, as
+   the default (the storage chart).
 6. **An empty chart** is its empty row alone, with no plot height held open and no legend. The
    row counts the panel's inset in its height, so an empty chart panel is as high as any other
    empty panel. The empty text is a short statement ("Nothing recorded in this range.").
 7. A chart that is loading or failed keeps its height with `Nothing` (§10.2).
 8. A choice between two views of one chart is the analytics `Toggle` on the panel's strip.
+9. **A heatmap** (the hour-of-week chart) is `Heatmap`, drawn with plain elements because
+   Recharts has none. Its cells are two thirds of `--control-h` high and one hairline apart
+   (`gap-(--hairline)`), so the grid grows with the density like the rows around it, and each cell
+   is one series colour at an opacity that follows its value, on `bg-secondary`. The number is in
+   the cell's `title` and in the line under the grid while the pointer is on it.
 
 ---
 
@@ -792,8 +827,8 @@ values' (the labels stay muted), and a value that needs a tone takes it from a w
    circle of the same size is drawn, so the names in a column still line up.
 4. A group's icon is round beside the group a person represents and in setup's group list, and
    `rounded-sm` in the sidebar's heading, where it sits beside the group's banner.
-5. A world's thumbnail in a table row is `size-8`, `object-cover`, and drawn only when there is
-   one.
+5. A world's thumbnail in a table row is `size-8`, `object-cover`, square, and drawn only when
+   there is one (`InstanceTable`, the Worlds page).
 6. Evidence is shown whole (`object-contain`, at most `max-h-80`) and opens full size in a new tab.
 
 ---
@@ -939,121 +974,79 @@ For anyone reading an old screenshot or an old branch:
 
 ## 22. What does not follow yet
 
-Found by searching `src/Modbot.Web/src` on 2026-09-25. Each is a place where the code does
+Found by searching `src/Modbot.Web/src` on 2026-09-26. Each is a place where the code does
 something this spec says it does not; the fix is to make the code follow the rule, not the other
 way round.
 
-### 22.1 Hand-written tables
+### 22.1 Ages against the browser's clock
 
-Nineteen `<table>`s in fourteen files draw their own column names and rows instead of using `Table`,
-`Th`, `Tr` and `Td` (§7.1). Most copy the classes exactly; some keep their own local
-`headClass` and `cellClass`:
+§17.3 says an age is worked out against the `now` the server sent. Three places work it out against
+the browser's clock instead, because the answer they show carries no `now`:
 
-- `pages/Members.tsx`, `People.tsx`, `Bans.tsx`, `DiscordMembers.tsx`, `Requests.tsx`,
-  `RepeatOffenders.tsx`, `AuditLog.tsx`, `Giveaways.tsx`, `Health.tsx` (two)
-- `components/audit/EntryDetail.tsx`, `components/insights/InsightBody.tsx` (two)
-- `components/settings/IntegrationsSection.tsx`, `settings/ai/AiMcpSettings.tsx`,
-  `settings/ai/AiLimitsSettings.tsx` (four)
+- `pages/Flags.tsx`, the ages of the flags.
+- `components/settings/automod/TestSetDialog.tsx`, in `Run` and `Earlier`: the ages of a rule's
+  test runs.
+- `components/settings/automod/AutoModSection.tsx`, a Modbot Hub list's "Fetched" age.
 
-`components/Markdown.tsx`'s table draws a table inside a chat answer and is not a list.
+Each needs the server to send `now` with the answer first (for the tests, `RuleTestsResponse` and
+`TestRunView` in `Modbot.Api/Features/Settings/AutoModContracts.cs`, read from `IModbotClock`), with
+`docs/openapi/modbot.json` made again and the type in `lib/` given the field. The page then passes
+that `now` to `ago`.
 
-Of those, these also break the heights in §7:
+All three also set the age in the body face, where §17.2 makes it mono: the line under each flag
+(`Flags.tsx:218-222`), the spans in `TestSetDialog.tsx:225` and `:270`, and the `Fetched ...`
+detail in `AutoModSection.tsx:401`. Once they have `now`, each age goes through `Ago`.
 
-- `AuditLog.tsx`: the cells are `align-top` with `py-1` and `py-1.5`, so its rows are 39 to 51px
-  at dense instead of growing only for their content.
-- `Giveaways.tsx` (the draw's entrants): the column names are `h-(--strip-h)` and the cells `px-2`.
-- `EntryDetail.tsx` and `InsightBody.tsx`: `py-1` rows with no `--row-h`; `InsightBody`'s column
-  names have no strip and no side padding.
+### 22.2 Ids, addresses and keys typed in the body face
 
-Two more reach their panel's edges with negative `--panel-pad` margins instead of `flush` (§7.1):
-`IntegrationsSection.tsx`'s table and `BanReasonsCard.tsx`'s list.
+§13.1.3 makes a typed id, address or key mono, and the settings `Field` and `PasswordField` take
+`mono` for it, but no caller passes it. So Guild id, Public address and every other such field in
+settings shows in the body face, while setup's Proxy URL and Address (`ConnectionStep.tsx:193`,
+`OptionalStep.tsx:80`), Purge's Id (`PurgeSection.tsx:122`) and the VRChat proxy's Base URL are
+mono. The fields, under `components/settings/`:
 
-### 22.2 Failures that read as empty
+- `discord/DiscordSection.tsx:105-106` (Bot token, Guild id) and `discord/LinkingCard.tsx:112-113`
+  (OAuth client id and secret).
+- `VRChatSection.tsx:134` (TOTP secret) and `:211` (Proxy URL).
+- `DataSection.tsx:526` (Public address) and `IntegrationsSection.tsx:174` (Host).
+- `ai/AiBaseSettings.tsx:251` (Endpoint) and its API key `PasswordField` (`:257`).
+- `EvidenceSection.tsx:244` (Endpoint) and `:249` (Access key id).
+- `api/WebhooksPanel.tsx:318` (Address) and `api/EventsPanel.tsx:133` and `:135` (API key,
+  Cursor).
 
-§10.3 says a failed load is a filled destructive square. These still use the hollow square:
+Bucket, Region, Key prefix, Directory and From address are values of the same kind and can take
+`mono` too. Names and number fields stay as they are.
 
-- `Placeholder` with no `tone` in thirteen settings sections: `AiAlertsSettings`,
-  `AiBaseSettings`, `AiChatSettings`, `AiInsightsSettings`, `AiLimitsSettings`,
-  `AiMcpSettings`, `AutoModSection`, `WebhooksPanel`, `ApiKeysPanel`, `EvidenceSection`,
-  `DataSection`, `SyncSection`, `VRChatProxySection`.
-- An `EmptyRow` with no `tone` showing an error: `pages/AuditLog.tsx`, `Flags.tsx`,
-  `CaseFile.tsx`, `RepeatOffenders.tsx`, `Empty` in `Logs.tsx`, and in settings
-  `BanReasonsCard`, `PublicInstancesCard`, `discord/LinkingCard`, `discord/SyncCard`,
-  `automod/TestSetDialog`.
-- `PageMessage` has no `tone` at all, so every analytics page, Chat, Calendar, Live and Giveaways
-  show a failed load the same as "Loading…"; `Nothing` has none either (`MemberCountChart`,
-  `InstanceActivityChart`).
-- A third way, in the popups: `EmptyRow className="text-destructive"` or `Empty
-  className="text-destructive"`, which turns the words and the hollow square red.
-  `SubjectHistory`, `subject/WorldPopup` (two), `subject/InstancePopup`, `subject/PersonPopup`
-  (five), `subject/PersonNotes`, `subject/AccountSide`, `subject/ProfileVersions`,
-  `subject/DiscordSide` (three).
+### 22.3 A filter chip that wraps
 
-### 22.3 Legends the page draws
+§8.1 keeps a chip on one line. In `filters/FilterBar.tsx` the property span (`:127`) and both
+forms of the operator (the button at `:131`, the span at `:140`) can shrink and wrap, so on a
+390px phone the audit log's default Source chip breaks "is any of" onto two lines while the value
+is cut short. They need `shrink-0 whitespace-nowrap`; the value already has `truncate`.
 
-§16.5 says the legend is the chart's `legend` prop. `pages/analytics/Instances.tsx` ("Opened and
-closed per day") and `components/settings/ai/AiLimitsSettings.tsx` ("Daily spend") draw a
-`Legend` above the chart themselves, so it stays when the chart is empty. `analytics/Worlds.tsx`
-("Visitors per day, busiest worlds") does the same behind its own empty check.
+### 22.4 Machine values in body text
 
-Three more draw their legend by hand, as `size-2.5 rounded-full` spans, instead of `Legend`:
-`pages/analytics/MemberCountChart.tsx`, `pages/analytics/InstanceActivityChart.tsx` and
-`components/settings/MachineUsageCard.tsx`.
+§17.2 sets only the machine part of a phrase in mono. These get it wrong:
 
-### 22.4 Browser controls
+- `settings/VRChatSection.tsx:198`: "Last passed ..." under the egress proxy sets the whole
+  timestamp in the body face, though the Service Account panel above it shows the same instant in
+  mono. `settings/IntegrationsSection.tsx:236`'s `queuedText` ("Queued, sends at ...") does the
+  same. Only the time should be mono.
+- `EvidenceGallery.tsx:83`: the caption under a piece of evidence sets its size and its day in the
+  body face, and so does the "destroyed on ..." line at `:69`. The sha256 under it, and every other
+  day on the case file, are mono. The content type, the separators and "by" stay as they are.
+- `settings/SyncSection.tsx`: the Jitter rows (`:50-51`, `:86-87`, `:108`) pass `mono`, which sets
+  "up to" in mono as well as the share, and the Catch-up row (`:58-61`) sets its page count in the
+  body face. Only `±10%` (or `+10%`) and the count are mono.
 
-- Four groups of radio buttons are the browser's own (`<input type="radio">`), where §13.3 says
-  one of several values is a `SwitchBank`: `pages/setup/GroupStep.tsx` (with
-  `accent-[var(--primary)]`), `settings/automod/RuleFields.tsx`, `automod/TopicDialog.tsx`,
-  `automod/RuleScopeFields.tsx`.
-- Five `<details>` are not drawn as §11.6 says. Four still show the browser's triangle:
-  `components/factSentence.tsx`, `insights/InsightBody.tsx`, `settings/api/EventsPanel.tsx`,
-  `pages/setup/ConnectionStep.tsx`. `components/audit/EntryDetail.tsx`'s "Same decision" rows show
-  neither the triangle nor the chevron.
-- Three day fields are the browser's default box (§13.4): the filter bar's date editor
-  (`filters/FilterBar.tsx`), `calendar/CalendarEventForm.tsx` and
-  `settings/api/ApiKeysPanel.tsx`. The classes belong in one place (`Input` for `type="date"`)
-  rather than a copy of `dayBox` in each.
+### 22.5 A lowercase label
 
-### 22.5 Lists of facts
+§3.5 makes every label sentence case. The `Stat` on each instance card in `pages/Live.tsx:167` is
+labelled "person" or "people".
 
-A list of facts is `Row`s (§17.6), never a `<dl>` grid. One still is:
-`components/audit/EntryDetail.tsx` (`grid grid-cols-[auto_1fr]`).
+### 22.6 A field beside facts, lined up on the bottom
 
-### 22.6 Buttons and actions
-
-- The page's one action is `sm` on Users (Add someone), Roles (New role) and Requests (Refresh),
-  and the default size on Calendar (New event), Giveaways (New giveaway) and Logs (Refresh).
-- Dialog footers put their buttons in two orders. `Requests`, `ModerationActions` and
-  `chat/Conversations` put an outline Cancel first and the action last, at the right end.
-  `automod/TopicDialog`, `automod/TermListDialog` and `AiBaseSettings`' confirmation put the action
-  first and an outline Cancel after it, on the left.
-- Roles' "Delete role" is a `ghost` button with `text-destructive`; every other destructive action
-  is `variant="destructive"` (§12.1).
-
-### 22.7 Toolbars
-
-The Logs toolbar is plain controls on the left, with its search box `w-64`, where §8 puts a
-`w-56` search box at the right end of the row from `md` up.
-
-### 22.8 Sizes and faces
-
-- Fixed text sizes: `subject/WorldPopup.tsx` (`font-display text-lg`), `pages/setup/GroupStep.tsx`
-  (`text-[0.625rem]`), `chat/Answer.tsx` (`text-[0.95rem]`), `chat/Composer.tsx`
-  (`md:text-sm`). The wordmark's `text-[0.9375rem]` in `Chrome.tsx` and `WizardChrome.tsx` is the
-  brand's and stays.
-- `charts/Heatmap.tsx` draws its cells `1.25rem` high a fixed `1px` apart, instead of following the
-  density and the hairline.
-- The count on the Members and Bans strips sets its noun in mono too ("`1,204 people`"), where
-  only the number is the machine part.
-
-### 22.9 Pictures and badges
-
-- A world's thumbnail is `rounded-sm` in `analytics/Worlds.tsx` and square in
-  `components/InstanceTable.tsx`.
-- "VRChat staff" in `ProfileBadges.tsx` is a `Badge` given the `info` tint by class, because
-  `Badge` has no `info` variant.
-
-### 22.10 Counts in a switch bank
-
-Reviews writes its count in brackets ("Waiting `(3)`") and Flags without ("Open `3`").
+§13.5.3 lines a field up with `Fact`s on the top edge. The Email (SMTP) row in
+`settings/IntegrationsSection.tsx:205` is `grid items-end gap-3 sm:grid-cols-4`, so the three
+`Fact` labels sit below the "Email limit per 24 hours" label and their values line up with
+nothing.

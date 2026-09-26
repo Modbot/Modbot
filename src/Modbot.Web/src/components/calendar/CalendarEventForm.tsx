@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChannelPicker } from '@/components/discord/ChannelPicker'
-import { Checkbox, Field, LongField } from '@/components/settings/fields'
+import { Checkbox, Field, LongField, Outcome } from '@/components/settings/fields'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -139,7 +139,6 @@ export function CalendarEventForm({
               <Labelled label="Last date">
                 <Input
                   type="date"
-                  className="max-w-48"
                   value={input.repeatUntil ?? ''}
                   onChange={(e) => set('repeatUntil', e.target.value || null)}
                 />
@@ -151,7 +150,6 @@ export function CalendarEventForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <Labelled label="World">
                 <Select
-                 
                   aria-label="World"
                   value={worldChoice}
                   onChange={(v) => {
@@ -268,7 +266,7 @@ export function CalendarEventForm({
                   type="number"
                   min={0}
                   max={120}
-                  className="max-w-28"
+                  className="w-28"
                   value={input.openMinutesBefore}
                   onChange={(e) => set('openMinutesBefore', Number(e.target.value))}
                 />
@@ -276,22 +274,18 @@ export function CalendarEventForm({
             )}
           </Section>
 
-          {error && (
-            <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-              {error}
-            </p>
-          )}
+          <Outcome tone="problem">{error}</Outcome>
 
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="ghost" disabled={busy} onClick={onClose}>
-              Close
+            <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
+              Cancel
             </Button>
             {isDraft && (
-              <Button variant="outline" disabled={busy} onClick={() => save(true)}>
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => save(true)}>
                 Save draft
               </Button>
             )}
-            <Button disabled={busy} onClick={() => save(false)}>
+            <Button size="sm" disabled={busy} onClick={() => save(false)}>
               {isDraft ? 'Schedule' : 'Save'}
             </Button>
           </div>

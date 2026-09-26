@@ -63,7 +63,7 @@ export function PersonPopup({ subject, me, lead }: { subject: Subject; me: Curre
 
   if (error)
     return (
-      <PopupFrame title="Person" lead={lead} left={<Empty className="text-destructive">{error}</Empty>}>
+      <PopupFrame title="Person" lead={lead} left={<Empty tone="danger">{error}</Empty>}>
         <div />
       </PopupFrame>
     )
@@ -164,13 +164,25 @@ function Resolved({
       left={
         <>
           {vrchatId ? (
-            <Block>
-              <ProfileIdentity stored={stored} me={me} />
-            </Block>
+            stored.error ? (
+              <Empty tone="danger">{stored.error}</Empty>
+            ) : !stored.profile ? (
+              <Empty>Loading…</Empty>
+            ) : (
+              <Block>
+                <ProfileIdentity stored={stored} me={me} />
+              </Block>
+            )
           ) : discordId && seesMembers ? (
-            <Block>
-              <DiscordIdentity read={member} />
-            </Block>
+            member.error ? (
+              <Empty tone="danger">{member.error}</Empty>
+            ) : !member.data ? (
+              <Empty>Loading…</Empty>
+            ) : (
+              <Block>
+                <DiscordIdentity read={member} />
+              </Block>
+            )
           ) : null}
 
           {vrchatId === null && <Empty>No VRChat account.</Empty>}
@@ -313,7 +325,7 @@ function Overview({
       )}
 
       <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All logs</More>} flush>
-        {facts.error && <EmptyRow className="text-destructive">{facts.error}</EmptyRow>}
+        {facts.error && <EmptyRow tone="danger">{facts.error}</EmptyRow>}
         {!facts.error && !facts.data && <EmptyRow>Loading…</EmptyRow>}
         {facts.data && (
           <FactList
@@ -332,7 +344,7 @@ function Logs({ person }: { person: PersonView }) {
 
   return (
     <Panel title="Everything recorded about this person" flush>
-      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
       {!error && !data && <EmptyRow>Loading…</EmptyRow>}
       {data && (
         <FactList entries={data.entries} empty="Nothing recorded yet." from={(entry) => data.from.get(entry.id)} />
@@ -410,7 +422,7 @@ function Metrics({ person }: { person: PersonView }) {
     <div className="flex min-h-0 flex-col">
       {vrchatId && (
         <Panel title="Time in world" flush>
-          {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+          {error && <EmptyRow tone="danger">{error}</EmptyRow>}
           {!error && !data && <EmptyRow>Loading…</EmptyRow>}
           {data && !data.known && <EmptyRow>Not seen in an instance yet.</EmptyRow>}
           {data?.known && <TimeInWorld data={data} />}
@@ -486,7 +498,7 @@ function MembershipCard({
       warn={unread}
       right={unread ? <Unread>Member list not read yet.</Unread> : undefined}
     >
-      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
       {!error && !view && <EmptyRow>Loading…</EmptyRow>}
 
       {view && (

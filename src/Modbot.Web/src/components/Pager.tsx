@@ -12,7 +12,8 @@ import { GAP, pageNumbers, type ListPage } from '@/lib/listPage'
  * A long list shows the ends and the page being read with its neighbours, with gaps for the rest
  * (`lib/listPage.ts`): a hundred numbers in a row is a wall, not a control.
  *
- * @param at Where the list is, from `useListPage()`.
+ * @param at Where the list is: `useListPage()` for a page's own list, whose page is in the address,
+ *   or `usePageState()` for a list inside a popup or a panel, which keeps its page to itself.
  * @param pages How many pages there are, from the total and the page size.
  */
 export function Pager({ at, pages }: { at: ListPage; pages: number }) {

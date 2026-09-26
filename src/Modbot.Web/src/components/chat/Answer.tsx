@@ -67,7 +67,7 @@ export function Answer({ text, references }: { text: string; references: readonl
               <button
                 type="button"
                 onClick={() => openSubject({ kind: kind as SubjectKind, id })}
-                className="rounded-sm font-medium text-link underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:outline-2 focus-visible:outline-ring"
+                className="rounded-sm font-medium hover:underline focus-visible:outline-2 focus-visible:outline-ring"
               >
                 {children}
               </button>
@@ -85,7 +85,7 @@ export function Answer({ text, references }: { text: string; references: readonl
           )
         },
       }}
-      className="text-[0.95rem] leading-relaxed"
+      className="text-(length:--text-base) leading-relaxed"
     />
   )
 }

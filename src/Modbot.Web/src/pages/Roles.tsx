@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { ApiError, api, type CurrentUser, type PermissionInfo, type RoleView } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/pages/Members'
-import { ErrorText } from '@/pages/setup/WizardChrome'
+import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
 
 /**
@@ -47,7 +47,7 @@ export function Roles({ me }: { me: CurrentUser }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => setCreating(true)} disabled={creating}>
+        <Button onClick={() => setCreating(true)} disabled={creating}>
           New role
         </Button>
       </div>
@@ -185,11 +185,8 @@ function RoleEditor({
               <Notice>Allows everything. Cannot be changed.</Notice>
             ) : (
               <>
-                <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">
-                  <div>
-                    <label className="mb-1 block text-muted-foreground" htmlFor={`role-name-${role?.id ?? 'new'}`}>
-                      Name
-                    </label>
+                <div className="grid items-end gap-3 sm:grid-cols-[1fr_2fr]">
+                  <Field label="Name" htmlFor={`role-name-${role?.id ?? 'new'}`}>
                     <Input
                       id={`role-name-${role?.id ?? 'new'}`}
                       value={name}
@@ -197,17 +194,14 @@ function RoleEditor({
                       title={role?.isBuiltIn ? 'Built-in roles keep their names.' : undefined}
                       onChange={(e) => setName(e.target.value)}
                     />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-muted-foreground" htmlFor={`role-desc-${role?.id ?? 'new'}`}>
-                      One line about it
-                    </label>
+                  </Field>
+                  <Field label="One line about it" htmlFor={`role-desc-${role?.id ?? 'new'}`}>
                     <Input
                       id={`role-desc-${role?.id ?? 'new'}`}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                     />
-                  </div>
+                  </Field>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -254,8 +248,7 @@ function RoleEditor({
                   {role && !role.isBuiltIn && (
                     <Button
                       size="sm"
-                      variant="ghost"
-                      className="text-destructive"
+                      variant="destructive"
                       onClick={remove}
                       disabled={busy || role.userCount > 0}
                       title={role.userCount > 0 ? 'Move the people who hold it to another role first.' : undefined}

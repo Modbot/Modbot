@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ConnectionDiagnosis } from '@/lib/api'
@@ -100,9 +101,13 @@ export function ConnectionStep({ eyebrow, status, run, refresh, busy }: StepProp
         {!useProxy ? (
           <details className="group" open={false}>
             <summary
-              className="cursor-pointer text-muted-foreground marker:text-muted-foreground/50"
+              className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
               style={{ fontSize: 'var(--text-small)' }}
             >
+              <ChevronRight
+                className="size-3.5 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                aria-hidden
+              />
               Use a proxy
             </summary>
             <div className="pt-3">

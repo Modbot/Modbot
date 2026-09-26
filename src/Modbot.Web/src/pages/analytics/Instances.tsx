@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { DailyBars, DailyLine, Heatmap, Legend, compactNumber, dateTime, longDay, minutes, percent } from '@/components/charts'
+import { DailyBars, DailyLine, Heatmap, compactNumber, dateTime, longDay, minutes, percent } from '@/components/charts'
 import { InstanceTable } from '@/components/InstanceTable'
 import { api, type HourOfWeek, type InstancePeaks } from '@/lib/api'
 import { InstanceActivityChart } from './InstanceActivityChart'
@@ -32,7 +32,7 @@ export function Instances() {
   const load = useCallback((q: string) => api.instancesAnalytics(q), [])
   const { data, error } = useAnalytics(load, range)
 
-  if (error) return <PageMessage>{error}</PageMessage>
+  if (error) return <PageMessage tone="danger">{error}</PageMessage>
 
   const sum = (points: { value: number }[]) => points.reduce((s, p) => s + p.value, 0)
   const max = (points: { value: number }[]) => points.reduce((m, p) => Math.max(m, p.value), 0)
@@ -111,17 +111,15 @@ export function Instances() {
 
           <PanelGrid className="lg:grid-cols-2">
             <Panel title="Opened and closed per day">
-              <Legend items={[{ label: 'Opened', slot: 1 }, { label: 'Closed', slot: 2 }]} />
-              <div className="mt-2">
-                <DailyBars
-                  from={data.from}
-                  to={data.to}
-                  series={[
-                    { key: 'opened', label: 'opened', points: data.opened, slot: 1 },
-                    { key: 'closed', label: 'closed', points: data.closed, slot: 2 },
-                  ]}
-                />
-              </div>
+              <DailyBars
+                from={data.from}
+                to={data.to}
+                legend={[{ label: 'Opened', slot: 1 }, { label: 'Closed', slot: 2 }]}
+                series={[
+                  { key: 'opened', label: 'opened', points: data.opened, slot: 1 },
+                  { key: 'closed', label: 'closed', points: data.closed, slot: 2 },
+                ]}
+              />
             </Panel>
 
             <Panel title="Most open at once, per day">

@@ -73,6 +73,7 @@ export function BanReasonsCard() {
     <SettingsCard
       span={12}
       title="Ban reasons"
+      flush
       footer={
         canEdit ? (
           <>
@@ -85,13 +86,12 @@ export function BanReasonsCard() {
       }
     >
       {error ? (
-        <EmptyRow className="px-0">{error}</EmptyRow>
+        <EmptyRow tone="danger">{error}</EmptyRow>
       ) : !reasons ? (
-        <EmptyRow className="px-0">Loading…</EmptyRow>
+        <EmptyRow>Loading…</EmptyRow>
       ) : (
         <>
-          {/* Run to the panel's edges like any list; down to the footer too while nothing is being added. */}
-          <ul className={cn('-mx-(--panel-pad) -mt-(--panel-pad) flex flex-col', !(adding && canEdit) && '-mb-(--panel-pad)')}>
+          <ul className="flex flex-col">
             {reasons.map((reason, index) => (
               <li
                 key={reason.id}
@@ -162,7 +162,7 @@ export function BanReasonsCard() {
           </ul>
 
           {adding && canEdit && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 p-(--panel-pad)">
               <div className="grid gap-2 sm:grid-cols-[12rem_minmax(0,1fr)]">
                 <Input value={label} placeholder="Doxxing" onChange={(e) => setLabel(e.target.value)} maxLength={64} />
                 <Input

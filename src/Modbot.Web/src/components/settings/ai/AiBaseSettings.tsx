@@ -219,12 +219,12 @@ function ConnectionCard({
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center gap-2">
-                <Button size="sm" disabled={busy !== null} onClick={confirm}>
-                  {busy === 'save' ? 'Saving…' : 'I understand'}
-                </Button>
+              <div className="flex justify-end gap-2">
                 <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => setConfirming(false)}>
                   Cancel
+                </Button>
+                <Button size="sm" disabled={busy !== null} onClick={confirm}>
+                  {busy === 'save' ? 'Saving…' : 'I understand'}
                 </Button>
               </div>
             </div>

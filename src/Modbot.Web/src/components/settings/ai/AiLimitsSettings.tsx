@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useState } from 'react'
-import { DailyBars, Legend, nextSlot, type DaySeries } from '@/components/charts'
+import { DailyBars, nextSlot, type DaySeries } from '@/components/charts'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { amountText, count, money, share, spentText, tokensText, tokensTitle } from '@/lib/aiSpend'
@@ -32,10 +33,6 @@ const failure = (e: unknown) =>
     : e instanceof ApiError
       ? e.message
       : 'Could not reach the Modbot server.'
-
-const cellClass = 'px-(--panel-pad) py-1.5 align-top'
-const headClass = 'h-(--row-h) px-(--panel-pad) font-normal whitespace-nowrap'
-const rowClass = 'border-b border-b-(length:--hairline) last:border-0'
 
 /**
  * Settings → AI → Limits: what AI has cost by feature, the month-end estimate, the spend limits for
@@ -106,42 +103,39 @@ function SpendCard({ data }: { data: AiLimits }) {
 
   return (
     <SettingsCard title="Spend by feature" span={12} flush>
-      <div className="relative overflow-x-auto">
-        <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-          <thead className="bg-strip text-left text-muted-foreground">
-            <tr className="border-b border-b-(length:--hairline)">
-              <th className={headClass}>Feature</th>
-              <th className={cn(headClass, 'text-right')}>Today</th>
-              <th className={cn(headClass, 'text-right')}>This week</th>
-              <th className={cn(headClass, 'text-right')}>This month</th>
-              <th className={cn(headClass, 'text-right')}>Last month</th>
-              <th className={cn(headClass, 'text-right')}>Month-end estimate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.feature} className={cn(rowClass, r === data.total && 'font-medium')}>
-                <td className={cn(cellClass, 'whitespace-nowrap')}>{r.label}</td>
-                <td className={cn(cellClass, 'text-right')}>
-                  <Spent spent={r.today} />
-                </td>
-                <td className={cn(cellClass, 'text-right')}>
-                  <Spent spent={r.week} />
-                </td>
-                <td className={cn(cellClass, 'text-right')}>
-                  <Spent spent={r.month} />
-                </td>
-                <td className={cn(cellClass, 'text-right')}>
-                  <Spent spent={r.lastMonth} />
-                </td>
-                <td className={cn(cellClass, 'text-right')}>
-                  <Spent spent={r.estimate} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Table
+        head={
+          <>
+            <Th>Feature</Th>
+            <Th className="text-right">Today</Th>
+            <Th className="text-right">This week</Th>
+            <Th className="text-right">This month</Th>
+            <Th className="text-right">Last month</Th>
+            <Th className="text-right">Month-end estimate</Th>
+          </>
+        }
+      >
+        {rows.map((r) => (
+          <Tr key={r.feature} className={cn(r === data.total && 'font-medium')}>
+            <Td>{r.label}</Td>
+            <Td className="text-right">
+              <Spent spent={r.today} />
+            </Td>
+            <Td className="text-right">
+              <Spent spent={r.week} />
+            </Td>
+            <Td className="text-right">
+              <Spent spent={r.month} />
+            </Td>
+            <Td className="text-right">
+              <Spent spent={r.lastMonth} />
+            </Td>
+            <Td className="text-right">
+              <Spent spent={r.estimate} />
+            </Td>
+          </Tr>
+        ))}
+      </Table>
     </SettingsCard>
   )
 }
@@ -171,8 +165,15 @@ function DailyCard({ data }: { data: AiLimits }) {
         ) : undefined
       }
     >
-      <Legend items={series.map((s) => ({ label: s.label, slot: s.slot }))} />
-      <DailyBars from={data.firstDay} to={data.lastDay} series={series} stacked format={money} emptyText="No AI spend." />
+      <DailyBars
+        from={data.firstDay}
+        to={data.lastDay}
+        series={series}
+        stacked
+        format={money}
+        emptyText="No AI spend."
+        legend={series.length > 1 ? series.map((s) => ({ label: s.label, slot: s.slot })) : undefined}
+      />
     </SettingsCard>
   )
 }
@@ -307,74 +308,71 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
       }
     >
       {(rows.length > 0 || tokenRows.length > 0) && (
-        <div className="relative overflow-x-auto">
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="bg-strip text-left text-muted-foreground">
-              <tr className="border-b border-b-(length:--hairline)">
-                <th className={headClass}>Applies to</th>
-                <th className={headClass}>Per day (USD)</th>
-                <th className={headClass}>Per month (USD)</th>
-                <th className={cn(headClass, 'text-right')}>Spent today</th>
-                <th className={cn(headClass, 'text-right')}>Spent this month</th>
-                <th className={cn(headClass, 'text-right')}>Month-end estimate</th>
-                <th className={headClass} />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => {
-                const perDay = amount(r.perDay)
-                const perMonth = amount(r.perMonth)
-                const eachMember = r.appliesTo === 'role'
+        <Table
+          head={
+            <>
+              <Th>Applies to</Th>
+              <Th>Per day (USD)</Th>
+              <Th>Per month (USD)</Th>
+              <Th className="text-right">Spent today</Th>
+              <Th className="text-right">Spent this month</Th>
+              <Th className="text-right">Month-end estimate</Th>
+              <Th />
+            </>
+          }
+        >
+          {rows.map((r, i) => {
+            const perDay = amount(r.perDay)
+            const perMonth = amount(r.perMonth)
+            const eachMember = r.appliesTo === 'role'
 
-                return (
-                  <tr key={rowKey(r)} className={rowClass}>
-                    <td className={cn(cellClass, 'whitespace-nowrap')}>{label(r)}</td>
-                    <td className={cellClass}>
-                      <Money label={`${label(r)} per day`} value={r.perDay} onChange={(v) => set(i, { perDay: v })} />
-                    </td>
-                    <td className={cellClass}>
-                      <Money label={`${label(r)} per month`} value={r.perMonth} onChange={(v) => set(i, { perMonth: v })} />
-                    </td>
-                    <td className={cn(cellClass, 'text-right')}>
-                      {eachMember ? 'Each member' : <Spent spent={r.today} of={r.today ? share(r.today.cost, perDay) : ''} />}
-                    </td>
-                    <td className={cn(cellClass, 'text-right')}>
-                      {eachMember ? 'Each member' : <Spent spent={r.month} of={r.month ? share(r.month.cost, perMonth) : ''} />}
-                    </td>
-                    <td className={cn(cellClass, 'text-right')}>
-                      {r.estimate ? <Spent spent={r.estimate} of={share(r.estimate.cost, perMonth)} /> : <span className="text-muted-foreground">—</span>}
-                    </td>
-                    <td className={cn(cellClass, 'text-right')}>
-                      <Button size="sm" variant="ghost" onClick={() => setRows((all) => all.filter((_, j) => j !== i))}>
-                        Remove
-                      </Button>
-                    </td>
-                  </tr>
-                )
-              })}
-              {tokenRows.map((t, i) => (
-                <tr key={`tokens:${t.feature}`} className={rowClass}>
-                  <td className={cn(cellClass, 'whitespace-nowrap')}>{featureLabel(t.feature)} · tokens</td>
-                  <td className={cn(cellClass, 'text-muted-foreground')}>—</td>
-                  <td className={cn(cellClass, 'whitespace-nowrap font-mono')}>{amountText(t.monthlyTokens, 'tokens')}</td>
-                  <td className={cn(cellClass, 'text-right text-muted-foreground')}>—</td>
-                  <td className={cn(cellClass, 'text-right font-mono whitespace-nowrap')}>
-                    {t.month && `${tokensText(t.month)} · ${share(t.month.inputTokens + t.month.outputTokens, t.monthlyTokens)}`}
-                  </td>
-                  <td className={cn(cellClass, 'text-right font-mono whitespace-nowrap')}>
-                    {t.estimate &&
-                      `${tokensText(t.estimate)} · ${share(t.estimate.inputTokens + t.estimate.outputTokens, t.monthlyTokens)}`}
-                  </td>
-                  <td className={cn(cellClass, 'text-right')}>
-                    <Button size="sm" variant="ghost" onClick={() => setTokenRows((all) => all.filter((_, j) => j !== i))}>
-                      Remove
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            return (
+              <Tr key={rowKey(r)}>
+                <Td>{label(r)}</Td>
+                <Td>
+                  <Money label={`${label(r)} per day`} value={r.perDay} onChange={(v) => set(i, { perDay: v })} />
+                </Td>
+                <Td>
+                  <Money label={`${label(r)} per month`} value={r.perMonth} onChange={(v) => set(i, { perMonth: v })} />
+                </Td>
+                <Td className="text-right">
+                  {eachMember ? 'Each member' : <Spent spent={r.today} of={r.today ? share(r.today.cost, perDay) : ''} />}
+                </Td>
+                <Td className="text-right">
+                  {eachMember ? 'Each member' : <Spent spent={r.month} of={r.month ? share(r.month.cost, perMonth) : ''} />}
+                </Td>
+                <Td className="text-right">
+                  {r.estimate ? <Spent spent={r.estimate} of={share(r.estimate.cost, perMonth)} /> : <span className="text-muted-foreground">—</span>}
+                </Td>
+                <Td className="text-right">
+                  <Button size="sm" variant="ghost" onClick={() => setRows((all) => all.filter((_, j) => j !== i))}>
+                    Remove
+                  </Button>
+                </Td>
+              </Tr>
+            )
+          })}
+          {tokenRows.map((t, i) => (
+            <Tr key={`tokens:${t.feature}`}>
+              <Td>{featureLabel(t.feature)} · tokens</Td>
+              <Td className="text-muted-foreground">—</Td>
+              <Td className="font-mono">{amountText(t.monthlyTokens, 'tokens')}</Td>
+              <Td className="text-right text-muted-foreground">—</Td>
+              <Td className="text-right font-mono">
+                {t.month && `${tokensText(t.month)} · ${share(t.month.inputTokens + t.month.outputTokens, t.monthlyTokens)}`}
+              </Td>
+              <Td className="text-right font-mono">
+                {t.estimate &&
+                  `${tokensText(t.estimate)} · ${share(t.estimate.inputTokens + t.estimate.outputTokens, t.monthlyTokens)}`}
+              </Td>
+              <Td className="text-right">
+                <Button size="sm" variant="ghost" onClick={() => setTokenRows((all) => all.filter((_, j) => j !== i))}>
+                  Remove
+                </Button>
+              </Td>
+            </Tr>
+          ))}
+        </Table>
       )}
 
       <div
@@ -428,30 +426,25 @@ function TopUsersCard({ data }: { data: AiLimits }) {
       {data.topChatUsers.length === 0 ? (
         <EmptyRow>None.</EmptyRow>
       ) : (
-        <div className="relative overflow-x-auto">
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="bg-strip text-left text-muted-foreground">
-              <tr className="border-b border-b-(length:--hairline)">
-                <th className={headClass}>User</th>
-                <th className={cn(headClass, 'text-right')}>Spent</th>
-                <th className={cn(headClass, 'text-right')}>Tokens</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.topChatUsers.map((u) => (
-                <tr key={u.userId} className={rowClass}>
-                  <td className={cn(cellClass, 'whitespace-nowrap')}>{u.username ?? u.userId}</td>
-                  <td className={cn(cellClass, 'text-right font-mono whitespace-nowrap')} title={tokensTitle(u.month)}>
-                    {spentText(u.month)}
-                  </td>
-                  <td className={cn(cellClass, 'text-right font-mono whitespace-nowrap')}>
-                    {count(u.month.inputTokens + u.month.outputTokens)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          head={
+            <>
+              <Th>User</Th>
+              <Th className="text-right">Spent</Th>
+              <Th className="text-right">Tokens</Th>
+            </>
+          }
+        >
+          {data.topChatUsers.map((u) => (
+            <Tr key={u.userId}>
+              <Td>{u.username ?? u.userId}</Td>
+              <Td className="text-right font-mono" title={tokensTitle(u.month)}>
+                {spentText(u.month)}
+              </Td>
+              <Td className="text-right font-mono">{count(u.month.inputTokens + u.month.outputTokens)}</Td>
+            </Tr>
+          ))}
+        </Table>
       )}
     </SettingsCard>
   )
@@ -562,67 +555,56 @@ function PricesCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
       }
     >
       {rows.length > 0 && (
-        <div className="relative overflow-x-auto">
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="bg-strip text-left text-muted-foreground">
-              <tr className="border-b border-b-(length:--hairline)">
-                <th className={headClass}>Model</th>
-                <th className={headClass}>Input (USD)</th>
-                <th className={headClass}>Cached input (USD)</th>
-                <th className={headClass}>Output (USD)</th>
-                <th className={headClass}>Price from</th>
-                <th className={headClass} />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.model} className={rowClass}>
-                  <td className={cn(cellClass, 'font-mono whitespace-nowrap')}>{r.model}</td>
-                  <td className={cellClass}>
-                    <Money
-                      label={`${r.model} input`}
-                      value={r.input}
-                      placeholder={text(r.fetched?.inputPerMillion)}
-                      onChange={(v) => set(i, { input: v })}
-                    />
-                  </td>
-                  <td className={cellClass}>
-                    <Money
-                      label={`${r.model} cached input`}
-                      value={r.cached}
-                      placeholder={text(r.fetched?.cachedInputPerMillion)}
-                      onChange={(v) => set(i, { cached: v })}
-                    />
-                  </td>
-                  <td className={cellClass}>
-                    <Money
-                      label={`${r.model} output`}
-                      value={r.output}
-                      placeholder={text(r.fetched?.outputPerMillion)}
-                      onChange={(v) => set(i, { output: v })}
-                    />
-                  </td>
-                  <td
-                    className={cn(
-                      cellClass,
-                      'whitespace-nowrap',
-                      !entered(r) && !r.fetched ? 'text-warn' : 'text-muted-foreground',
-                    )}
-                  >
-                    {source(r)}
-                  </td>
-                  <td className={cn(cellClass, 'text-right')}>
-                    {entered(r) && (
-                      <Button size="sm" variant="ghost" onClick={() => set(i, { input: '', cached: '', output: '' })}>
-                        Clear
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          head={
+            <>
+              <Th>Model</Th>
+              <Th>Input (USD)</Th>
+              <Th>Cached input (USD)</Th>
+              <Th>Output (USD)</Th>
+              <Th>Price from</Th>
+              <Th />
+            </>
+          }
+        >
+          {rows.map((r, i) => (
+            <Tr key={r.model}>
+              <Td className="font-mono">{r.model}</Td>
+              <Td>
+                <Money
+                  label={`${r.model} input`}
+                  value={r.input}
+                  placeholder={text(r.fetched?.inputPerMillion)}
+                  onChange={(v) => set(i, { input: v })}
+                />
+              </Td>
+              <Td>
+                <Money
+                  label={`${r.model} cached input`}
+                  value={r.cached}
+                  placeholder={text(r.fetched?.cachedInputPerMillion)}
+                  onChange={(v) => set(i, { cached: v })}
+                />
+              </Td>
+              <Td>
+                <Money
+                  label={`${r.model} output`}
+                  value={r.output}
+                  placeholder={text(r.fetched?.outputPerMillion)}
+                  onChange={(v) => set(i, { output: v })}
+                />
+              </Td>
+              <Td className={!entered(r) && !r.fetched ? 'text-warn' : 'text-muted-foreground'}>{source(r)}</Td>
+              <Td className="text-right">
+                {entered(r) && (
+                  <Button size="sm" variant="ghost" onClick={() => set(i, { input: '', cached: '', output: '' })}>
+                    Clear
+                  </Button>
+                )}
+              </Td>
+            </Tr>
+          ))}
+        </Table>
       )}
 
       <div

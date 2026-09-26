@@ -5,6 +5,7 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { Tabs } from '@/components/ui/tabs'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Select } from '@/components/ui/select'
 import { CaseFileCell } from '@/components/CaseFileCell'
 import { Pager } from '@/components/Pager'
@@ -175,102 +176,98 @@ function GroupBans({
       <Card>
         <CardHeader className={cn(!list.coverage.firstSweepComplete && !demo && 'bg-warn/10')}>
           <Freshness coverage={list.coverage} count={list.coverage.banCount} list="ban list" noun="ban" demo={demo} />
-          <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {list.total.toLocaleString()} {list.total === 1 ? 'person' : 'people'}
+          <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="font-mono">{list.total.toLocaleString()}</span> {list.total === 1 ? 'person' : 'people'}
           </span>
         </CardHeader>
 
       {list.bans.length === 0 ? (
         <EmptyRow>{search ? 'Nobody matches' : 'No bans listed'}</EmptyRow>
       ) : (
-        <div data-pin-first className="relative overflow-x-auto">
-          <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-            <thead className="bg-strip text-muted-foreground">
-              <tr className="border-b-(length:--hairline)">
-                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
-                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Banned on</th>
-                <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Modbot first saw it</th>
-                {status !== 'current' && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Lifted</th>}
-                {showCases && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Case file</th>}
-                {canAct && <th className="px-3 py-2 text-left font-normal whitespace-nowrap"><span className="sr-only">Actions</span></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {list.bans.map((ban) => (
-                <tr
-                  key={ban.userId}
-                  className={cn(
-                    'border-b border-b-(length:--hairline) last:border-0 hover:bg-muted/40',
-                    ban.liftedAt && 'text-muted-foreground',
+        <Table
+          pinFirst
+          head={
+            <>
+              <Th>Person</Th>
+              <Th>Banned on</Th>
+              <Th>Modbot first saw it</Th>
+              {status !== 'current' && <Th>Lifted</Th>}
+              {showCases && <Th>Case file</Th>}
+              {canAct && (
+                <Th>
+                  <span className="sr-only">Actions</span>
+                </Th>
+              )}
+            </>
+          }
+        >
+          {list.bans.map((ban) => (
+            <Tr key={ban.userId} className={cn('hover:bg-muted/40', ban.liftedAt && 'text-muted-foreground')}>
+              <Td>
+                <div className="flex items-center gap-2">
+                  {ban.avatarThumbnailUrl ? (
+                    <img
+                      src={vrchatMedia(ban.avatarThumbnailUrl)}
+                      alt=""
+                      className="size-7 shrink-0 rounded-full bg-muted object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="size-7 shrink-0 rounded-full bg-muted" />
                   )}
-                >
-                  <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                    <div className="flex items-center gap-2">
-                      {ban.avatarThumbnailUrl ? (
-                        <img
-                          src={vrchatMedia(ban.avatarThumbnailUrl)}
-                          alt=""
-                          className="size-7 shrink-0 rounded-full bg-muted object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="size-7 shrink-0 rounded-full bg-muted" />
-                      )}
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
-                          <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} className="max-md:max-w-full max-md:shrink-0" />
-                          <Marks>
-                            <TrustRankBadge rank={ban.trustRank} />
-                          </Marks>
-                        </div>
-                        {ban.plainName && (
-                          <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                            {ban.plainName}
-                          </div>
-                        )}
-                        {ban.displayName && (
-                          <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
-                            {ban.userId}
-                          </div>
-                        )}
-                      </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
+                      <SubjectLink id={ban.userId} name={ban.displayName} onOpen={onOpenSubject} className="max-md:max-w-full max-md:shrink-0" />
+                      <Marks>
+                        <TrustRankBadge rank={ban.trustRank} />
+                      </Marks>
                     </div>
-                  </td>
-                  <td className="px-3 whitespace-nowrap font-mono">
-                    {ban.bannedAt ? formatDay(ban.bannedAt) : <span className="text-muted-foreground">—</span>}
-                  </td>
-                  <td className="px-3 whitespace-nowrap font-mono text-muted-foreground">{formatDay(ban.firstSeenAt)}</td>
-                  {status !== 'current' && (
-                    <td className="px-3 whitespace-nowrap font-mono">{ban.liftedAt ? formatDay(ban.liftedAt) : ''}</td>
-                  )}
-                  {showCases && (
-                    <td className="px-3">
-                      <CaseFileCell
-                        userId={ban.userId}
-                        displayName={ban.displayName}
-                        bannedAt={ban.bannedAt}
-                        lookup={cases.get(ban.userId)}
-                        canWrite={can(me, 'Ban')}
-                        onOpenCase={onOpenCase}
-                      />
-                    </td>
-                  )}
-                  {canAct && (
-                    <td className="px-3 text-right">
-                      <ModerationActions
-                        me={me}
-                        person={{ userId: ban.userId, banned: !ban.liftedAt }}
-                        name={ban.displayName ?? ban.userId}
-                        onDone={() => setLifted((n) => n + 1)}
-                        size="xs"
-                      />
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {ban.plainName && (
+                      <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                        {ban.plainName}
+                      </div>
+                    )}
+                    {ban.displayName && (
+                      <div className="truncate font-mono text-muted-foreground/70" style={{ fontSize: 'var(--text-tiny)' }}>
+                        {ban.userId}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Td>
+              <Td className="font-mono">
+                {ban.bannedAt ? formatDay(ban.bannedAt) : <span className="text-muted-foreground">—</span>}
+              </Td>
+              <Td className="font-mono text-muted-foreground">{formatDay(ban.firstSeenAt)}</Td>
+              {status !== 'current' && (
+                <Td className="font-mono">{ban.liftedAt ? formatDay(ban.liftedAt) : ''}</Td>
+              )}
+              {showCases && (
+                <Td>
+                  <CaseFileCell
+                    userId={ban.userId}
+                    displayName={ban.displayName}
+                    bannedAt={ban.bannedAt}
+                    lookup={cases.get(ban.userId)}
+                    canWrite={can(me, 'Ban')}
+                    onOpenCase={onOpenCase}
+                  />
+                </Td>
+              )}
+              {canAct && (
+                <Td className="text-right">
+                  <ModerationActions
+                    me={me}
+                    person={{ userId: ban.userId, banned: !ban.liftedAt }}
+                    name={ban.displayName ?? ban.userId}
+                    onDone={() => setLifted((n) => n + 1)}
+                    size="xs"
+                  />
+                </Td>
+              )}
+            </Tr>
+          ))}
+        </Table>
       )}
 
       <Pager at={at} pages={pages} />

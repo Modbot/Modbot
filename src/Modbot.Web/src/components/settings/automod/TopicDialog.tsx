@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
+import { SwitchBank } from '@/components/ui/switch-bank'
 import {
   failure,
   moderationApi,
@@ -10,7 +10,7 @@ import {
   type Sensitivity,
   type TopicView,
 } from '@/lib/autoMod'
-import { LongField, Outcome } from '../fields'
+import { Field, LongField, Outcome } from '../fields'
 import { Group, RuleActionFields } from './RuleFields'
 
 const SENSITIVITIES: { value: Sensitivity; label: string }[] = [
@@ -105,10 +105,7 @@ function TopicForm({
       className="max-w-[640px]"
       bodyClassName="flex max-h-[75vh] flex-col gap-4 overflow-y-auto"
     >
-      <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-        <span className="text-muted-foreground">Name</span>
-        <Input value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
-      </label>
+      <Field label="Name" value={name} maxLength={100} onChange={setName} />
 
       <LongField
         label="What to catch"
@@ -119,19 +116,7 @@ function TopicForm({
       />
 
       <Group label="Sensitivity">
-        <div role="radiogroup" aria-label="Sensitivity" className="flex gap-4">
-          {SENSITIVITIES.map((s) => (
-            <label key={s.value} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="sensitivity"
-                checked={sensitivity === s.value}
-                onChange={() => setSensitivity(s.value)}
-              />
-              {s.label}
-            </label>
-          ))}
-        </div>
+        <SwitchBank label="Sensitivity" value={sensitivity} onChange={setSensitivity} options={SENSITIVITIES} />
       </Group>
 
       <RuleActionFields
@@ -141,15 +126,16 @@ function TopicForm({
         picturesAvailable={picturesAvailable}
       />
 
-      <div className="flex items-center gap-2">
-        <Button size="sm" disabled={busy} onClick={save}>
-          {busy ? 'Saving…' : 'Save'}
-        </Button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <Button size="sm" variant="outline" disabled={busy} onClick={onClose}>
           Cancel
         </Button>
-        <Outcome tone="problem">{problem}</Outcome>
+        <Button size="sm" disabled={busy} onClick={save}>
+          {busy ? 'Saving…' : 'Save'}
+        </Button>
       </div>
+
+      <Outcome tone="problem">{problem}</Outcome>
     </DialogContent>
   )
 }

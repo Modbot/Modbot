@@ -100,7 +100,7 @@ export function Live() {
     }
   }, [load])
 
-  if (!data) return <PageMessage>{error ?? 'Loading…'}</PageMessage>
+  if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
 
   return (
     <div className="flex flex-col gap-3">

@@ -14,21 +14,6 @@ import { Empty } from './Members'
 const PAGE_SIZE = 100
 
 /**
- * A day box. The date is set in mono like every other time on the page, and an empty box reads its
- * `mm/dd/yyyy` in the muted colour of the search box's placeholder. The browser's calendar button
- * is drawn at the size and weight of the dropdown chevrons beside it; it stays, because in Chromium
- * it is the only way to open the calendar with the mouse. The width is in `ch` so the whole date
- * fits at every density.
- */
-function dayBox(value: string) {
-  return cn(
-    'w-[calc(10ch+3.5rem)] font-mono',
-    '[&::-webkit-calendar-picker-indicator]:ms-1.5 [&::-webkit-calendar-picker-indicator]:size-3.5 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60',
-    !value && 'text-muted-foreground focus:text-foreground',
-  )
-}
-
-/**
  * The colour each level is written in, as a ramp from quiet to loud: grey, blue, plain, amber,
  * red, and red filled in. Every level looks different from every other one, and the two that
  * matter — a warning and an error — carry a hue nothing else on the row uses.
@@ -156,22 +141,14 @@ export function Logs() {
       .finally(() => setLoading(false))
   }, [pages, query])
 
-  if (error) return <Empty>{error}</Empty>
+  if (error) return <Empty tone="danger">{error}</Empty>
 
   const lines = pages.flatMap((p) => p.lines)
   const next = pages[pages.length - 1]?.next ?? null
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder="Search the text"
-          className="w-64"
-          aria-label="Search the log"
-        />
-
+      <div className="flex flex-wrap items-center gap-2 md:justify-end">
         <Select value={level} onChange={(v) => setLevel(v as LogLevel | '')} aria-label="Level">
           <option value="">Any level</option>
           {(filters?.levels ?? []).map((l) => (
@@ -201,8 +178,16 @@ export function Logs() {
           </Select>
         )}
 
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={dayBox(from)} aria-label="From" />
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={dayBox(to)} aria-label="To" />
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From" />
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To" />
+
+        <Input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Search the text"
+          className="w-56 max-md:flex-[1_1_10rem]"
+          aria-label="Search the log"
+        />
 
         <Button variant="outline" onClick={() => setReloads((n) => n + 1)}>
           Refresh

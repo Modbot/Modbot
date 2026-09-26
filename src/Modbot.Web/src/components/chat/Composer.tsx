@@ -69,7 +69,7 @@ export function Composer({
               onSend()
             }
           }}
-          className="max-h-[200px] min-h-(--control-h) flex-1 resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-muted-foreground md:text-sm"
+          className="max-h-[200px] min-h-(--control-h) flex-1 resize-none bg-transparent px-2 py-1.5 text-base outline-none placeholder:text-muted-foreground md:text-(length:--text-base)"
         />
 
         {busy ? (

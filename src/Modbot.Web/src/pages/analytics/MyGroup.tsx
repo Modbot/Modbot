@@ -30,7 +30,7 @@ export function MyGroup() {
   const load = useCallback((q: string) => api.groupAnalytics(q), [])
   const { data, error } = useAnalytics(load, range)
 
-  if (error) return <PageMessage>{error}</PageMessage>
+  if (error) return <PageMessage tone="danger">{error}</PageMessage>
 
   const sum = (points: { value: number }[]) => points.reduce((s, p) => s + p.value, 0)
   const latestCount = data?.memberCount[data.memberCount.length - 1]

@@ -163,7 +163,9 @@ function GroupHeading({ group }: { group: SidebarGroup }) {
         {group.iconUrl && (
           <img src={vrchatMedia(group.iconUrl)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-sm object-cover" />
         )}
-        <div className="truncate font-display text-[0.9375rem] leading-tight">{group.name}</div>
+        <div className="truncate font-display leading-tight" style={{ fontSize: 'calc(var(--text-base) + 2px)' }}>
+          {group.name}
+        </div>
       </div>
     </div>
   )

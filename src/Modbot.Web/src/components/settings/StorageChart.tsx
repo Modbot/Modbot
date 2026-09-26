@@ -9,6 +9,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { ChartFrame, chartHeight } from '@/components/charts'
+import type { LegendItem } from '@/components/charts/RankedList'
 import { ChartTooltipFrame, ChartTooltipRow } from './StorageTooltip'
 import {
   AXIS,
@@ -49,7 +51,7 @@ const SPREAD: Record<Storage['confidence'], [number, number] | null> = {
   Insufficient: [0.5, 2],
 }
 
-const HEIGHT = 224
+const HEIGHT = chartHeight.tall
 const SIZE = seriesColor(1)
 const COST = seriesColor(2)
 
@@ -252,313 +254,258 @@ export function StorageChart({
   const tickLabel = (x: number) =>
     x === 0 ? 'Today' : dateOf(x, { month: 'short', year: 'numeric' })
 
+  // The key copies each mark, because solid, dashed and shaded lines here share one colour.
+  const legend: LegendItem[] = [
+    ...(past.length > 0 ? [{ label: 'Recorded', color: SIZE, sample: 'line' } as const] : []),
+    { label: 'Estimate', color: SIZE, sample: 'dashed' },
+    ...(spread ? [{ label: 'Slower or faster than measured', color: SIZE, sample: 'band' } as const] : []),
+    ...(costScale ? [{ label: 'Cost per month', color: COST, sample: 'dashed' } as const] : []),
+    ...(capacityInView ? [{ label: 'Disk size', color: MUTED_TEXT, sample: 'hairline' } as const] : []),
+  ]
+
   return (
     <div className="flex flex-col gap-2">
-      <Legend
-        measured={past.length > 0}
-        spread={spread !== null}
-        disk={capacityInView}
-        cost={costScale !== null}
-      />
-
-      <ComposedChart
-        responsive
-        data={points}
-        // Without a cost axis, the right margin fits half of the last date label, which is
-        // centred on the plot edge and would otherwise be cut off.
-        margin={{ top: 18, right: costScale ? 8 : 28, bottom: 0, left: 0 }}
-        style={{ width: '100%', height: HEIGHT }}
-        role="img"
-        aria-label={
-          past.length > 0
-            ? `Database size over the past ${pastDays} days, and estimated over the next year`
-            : 'Estimated database size over the next year'
-        }
-      >
-        <CartesianGrid
-          yAxisId="size"
-          vertical={false}
-          stroke={GRID_COLOR}
-          strokeWidth={tokens.hairline}
-        />
-        <XAxis
-          {...AXIS}
-          dataKey="x"
-          type="number"
-          domain={[-pastDays, YEAR_DAYS]}
-          ticks={ticks}
-          interval="preserveStartEnd"
-          minTickGap={16}
-          tickFormatter={tickLabel}
-          tick={axisTick(tokens)}
-        />
-        <YAxis
-          {...AXIS}
-          yAxisId="size"
-          domain={[0, scale.hi]}
-          ticks={scale.values}
-          tickFormatter={scale.label}
-          tick={axisTick(tokens)}
-          width="auto"
-        />
-        {costScale && (
+      <ChartFrame height={HEIGHT} legend={legend.length > 1 ? legend : undefined}>
+        <ComposedChart
+          data={points}
+          // Without a cost axis, the right margin fits half of the last date label, which is
+          // centred on the plot edge and would otherwise be cut off.
+          margin={{ top: 18, right: costScale ? 8 : 28, bottom: 0, left: 0 }}
+          role="img"
+          aria-label={
+            past.length > 0
+              ? `Database size over the past ${pastDays} days, and estimated over the next year`
+              : 'Estimated database size over the next year'
+          }
+        >
+          <CartesianGrid
+            yAxisId="size"
+            vertical={false}
+            stroke={GRID_COLOR}
+            strokeWidth={tokens.hairline}
+          />
+          <XAxis
+            {...AXIS}
+            dataKey="x"
+            type="number"
+            domain={[-pastDays, YEAR_DAYS]}
+            ticks={ticks}
+            interval="preserveStartEnd"
+            minTickGap={16}
+            tickFormatter={tickLabel}
+            tick={axisTick(tokens)}
+          />
           <YAxis
             {...AXIS}
-            yAxisId="cost"
-            orientation="right"
-            domain={[0, costScale.hi]}
-            ticks={costScale.values}
-            tickFormatter={costScale.label}
+            yAxisId="size"
+            domain={[0, scale.hi]}
+            ticks={scale.values}
+            tickFormatter={scale.label}
             tick={axisTick(tokens)}
             width="auto"
           />
-        )}
+          {costScale && (
+            <YAxis
+              {...AXIS}
+              yAxisId="cost"
+              orientation="right"
+              domain={[0, costScale.hi]}
+              ticks={costScale.values}
+              tickFormatter={costScale.label}
+              tick={axisTick(tokens)}
+              width="auto"
+            />
+          )}
 
-        {/* The wedge: the same straight line at a slower and a faster rate. */}
-        {spread && (
+          {/* The wedge: the same straight line at a slower and a faster rate. */}
+          {spread && (
+            <Area
+              yAxisId="size"
+              dataKey="range"
+              stroke="none"
+              fill={SIZE}
+              fillOpacity={0.14}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          )}
+
+          {/* The wash runs to zero: the distance from zero is the message. */}
           <Area
             yAxisId="size"
-            dataKey="range"
+            dataKey="measured"
             stroke="none"
             fill={SIZE}
-            fillOpacity={0.14}
+            fillOpacity={0.08}
             activeDot={false}
             isAnimationActive={false}
           />
-        )}
-
-        {/* The wash runs to zero: the distance from zero is the message. */}
-        <Area
-          yAxisId="size"
-          dataKey="measured"
-          stroke="none"
-          fill={SIZE}
-          fillOpacity={0.08}
-          activeDot={false}
-          isAnimationActive={false}
-        />
-        <Area
-          yAxisId="size"
-          dataKey="estimate"
-          stroke="none"
-          fill={SIZE}
-          fillOpacity={0.08}
-          activeDot={false}
-          isAnimationActive={false}
-        />
-        <Line
-          yAxisId="size"
-          dataKey="measured"
-          stroke={SIZE}
-          strokeWidth={tokens.stroke}
-          strokeLinecap="round"
-          dot={false}
-          activeDot={{ r: 4, fill: SIZE, stroke: SURFACE, strokeWidth: 2 }}
-          isAnimationActive={false}
-        />
-        <Line
-          yAxisId="size"
-          dataKey="estimate"
-          stroke={SIZE}
-          strokeWidth={tokens.stroke}
-          strokeDasharray={dash}
-          strokeLinecap="round"
-          dot={false}
-          activeDot={{ r: 4, fill: SIZE, stroke: SURFACE, strokeWidth: 2 }}
-          isAnimationActive={false}
-        />
-        {costScale && (
+          <Area
+            yAxisId="size"
+            dataKey="estimate"
+            stroke="none"
+            fill={SIZE}
+            fillOpacity={0.08}
+            activeDot={false}
+            isAnimationActive={false}
+          />
           <Line
-            yAxisId="cost"
-            dataKey="cost"
-            stroke={COST}
+            yAxisId="size"
+            dataKey="measured"
+            stroke={SIZE}
+            strokeWidth={tokens.stroke}
+            strokeLinecap="round"
+            dot={false}
+            activeDot={{ r: 4, fill: SIZE, stroke: SURFACE, strokeWidth: 2 }}
+            isAnimationActive={false}
+          />
+          <Line
+            yAxisId="size"
+            dataKey="estimate"
+            stroke={SIZE}
             strokeWidth={tokens.stroke}
             strokeDasharray={dash}
             strokeLinecap="round"
             dot={false}
-            activeDot={{ r: 4, fill: COST, stroke: SURFACE, strokeWidth: 2 }}
+            activeDot={{ r: 4, fill: SIZE, stroke: SURFACE, strokeWidth: 2 }}
             isAnimationActive={false}
           />
-        )}
+          {costScale && (
+            <Line
+              yAxisId="cost"
+              dataKey="cost"
+              stroke={COST}
+              strokeWidth={tokens.stroke}
+              strokeDasharray={dash}
+              strokeLinecap="round"
+              dot={false}
+              activeDot={{ r: 4, fill: COST, stroke: SURFACE, strokeWidth: 2 }}
+              isAnimationActive={false}
+            />
+          )}
 
-        {/* Where recorded history ends and the estimate begins. */}
-        {past.length > 0 && (
-          <ReferenceLine
+          {/* Where recorded history ends and the estimate begins. */}
+          {past.length > 0 && (
+            <ReferenceLine
+              yAxisId="size"
+              x={0}
+              stroke={GRID_COLOR}
+              strokeWidth={tokens.hairline}
+            />
+          )}
+
+          {capacityInView && (
+            <ReferenceLine
+              yAxisId="size"
+              y={capacityBytes}
+              stroke={MUTED_TEXT}
+              strokeWidth={tokens.hairline}
+              // A line hugging the axis has no room for a label above it that clears the tick
+              // labels; the legend names the line.
+              label={
+                diskNearFloor
+                  ? undefined
+                  : {
+                      value: `Disk · ${bytes(capacityBytes)}`,
+                      position: diskLabelRight ? 'insideTopRight' : 'insideTopLeft',
+                      ...plotLabel(tokens),
+                    }
+              }
+            />
+          )}
+
+          {/* Where the line meets the disk, if it does inside the window. */}
+          {crossing !== null && crossing <= YEAR_DAYS && capacityBytes !== null && (
+            <ReferenceDot
+              yAxisId="size"
+              x={crossing}
+              y={capacityBytes}
+              r={4.5}
+              fill="var(--destructive)"
+              stroke={SURFACE}
+              strokeWidth={2}
+              label={dotLabel(
+                'Full',
+                diskNearFloor
+                  ? 'above-right'
+                  : crossing > YEAR_DAYS * 0.85
+                    ? 'below-left'
+                    : 'below-right',
+                'var(--destructive)',
+                tokens.fontSize,
+              )}
+            />
+          )}
+
+          {/* Today: the one live measurement, with a surface ring so it reads over the line. */}
+          <ReferenceDot
             yAxisId="size"
             x={0}
-            stroke={GRID_COLOR}
-            strokeWidth={tokens.hairline}
-          />
-        )}
-
-        {capacityInView && (
-          <ReferenceLine
-            yAxisId="size"
-            y={capacityBytes}
-            stroke={MUTED_TEXT}
-            strokeWidth={tokens.hairline}
-            // A line hugging the axis has no room for a label above it that clears the tick
-            // labels; the legend names the line.
-            label={
-              diskNearFloor
-                ? undefined
-                : {
-                    value: `Disk · ${bytes(capacityBytes)}`,
-                    position: diskLabelRight ? 'insideTopRight' : 'insideTopLeft',
-                    ...plotLabel(tokens),
-                  }
-            }
-          />
-        )}
-
-        {/* Where the line meets the disk, if it does inside the window. */}
-        {crossing !== null && crossing <= YEAR_DAYS && capacityBytes !== null && (
-          <ReferenceDot
-            yAxisId="size"
-            x={crossing}
-            y={capacityBytes}
+            y={anchor}
             r={4.5}
-            fill="var(--destructive)"
+            fill={SIZE}
             stroke={SURFACE}
             strokeWidth={2}
-            label={dotLabel(
-              'Full',
-              diskNearFloor
-                ? 'above-right'
-                : crossing > YEAR_DAYS * 0.85
-                  ? 'below-left'
-                  : 'below-right',
-              'var(--destructive)',
-              tokens.fontSize,
-            )}
+            // Dropped when the disk line runs through the same spot; the size is in the facts
+            // beside the chart anyway.
+            label={
+              diskNearToday
+                ? undefined
+                : dotLabel(`${bytes(anchor)} today`, 'above-right', TEXT, tokens.fontSize)
+            }
           />
-        )}
 
-        {/* Today: the one live measurement, with a surface ring so it reads over the line. */}
-        <ReferenceDot
-          yAxisId="size"
-          x={0}
-          y={anchor}
-          r={4.5}
-          fill={SIZE}
-          stroke={SURFACE}
-          strokeWidth={2}
-          // Dropped when the disk line runs through the same spot; the size is in the facts
-          // beside the chart anyway.
-          label={
-            diskNearToday
-              ? undefined
-              : dotLabel(`${bytes(anchor)} today`, 'above-right', TEXT, tokens.fontSize)
-          }
-        />
+          {/* The end value, labelled directly rather than every point. */}
+          {growing && (
+            <ReferenceDot
+              yAxisId="size"
+              x={YEAR_DAYS}
+              y={at(YEAR_DAYS)}
+              r={3}
+              fill={SIZE}
+              stroke="none"
+              label={dotLabel(bytes(at(YEAR_DAYS)), 'above-left', TEXT, tokens.fontSize)}
+            />
+          )}
 
-        {/* The end value, labelled directly rather than every point. */}
-        {growing && (
-          <ReferenceDot
-            yAxisId="size"
-            x={YEAR_DAYS}
-            y={at(YEAR_DAYS)}
-            r={3}
-            fill={SIZE}
-            stroke="none"
-            label={dotLabel(bytes(at(YEAR_DAYS)), 'above-left', TEXT, tokens.fontSize)}
+          <Tooltip
+            cursor={{ stroke: GRID_COLOR, strokeWidth: tokens.hairline }}
+            isAnimationActive={false}
+            content={({ active, payload }) => {
+              const point = payload?.[0]?.payload as Point | undefined
+              if (!active || !point) return null
+              const size = point.measured ?? point.estimate
+              if (size === undefined) return null
+              return (
+                <ChartTooltipFrame
+                  title={
+                    point.x === 0
+                      ? 'Today'
+                      : point.x < 0
+                        ? dateOf(point.x, { month: 'short', day: 'numeric', year: 'numeric' })
+                        : inMonths(point.x)
+                  }
+                >
+                  <ChartTooltipRow
+                    series={costScale ? SIZE : undefined}
+                    value={`${point.measured === undefined ? '~' : ''}${bytes(size)}`}
+                  />
+                  {point.cost !== undefined && (
+                    <ChartTooltipRow series={COST} value={`$${point.cost.toFixed(2)}/mo`} />
+                  )}
+                  {point.range && point.x > 0 && (
+                    <div className="font-mono text-muted-foreground tabular-nums">
+                      {bytes(point.range[0])} – {bytes(point.range[1])}
+                    </div>
+                  )}
+                </ChartTooltipFrame>
+              )
+            }}
           />
-        )}
-
-        <Tooltip
-          cursor={{ stroke: GRID_COLOR, strokeWidth: tokens.hairline }}
-          isAnimationActive={false}
-          content={({ active, payload }) => {
-            const point = payload?.[0]?.payload as Point | undefined
-            if (!active || !point) return null
-            const size = point.measured ?? point.estimate
-            if (size === undefined) return null
-            return (
-              <ChartTooltipFrame
-                title={
-                  point.x === 0
-                    ? 'Today'
-                    : point.x < 0
-                      ? dateOf(point.x, { month: 'short', day: 'numeric', year: 'numeric' })
-                      : inMonths(point.x)
-                }
-              >
-                <ChartTooltipRow
-                  series={costScale ? SIZE : undefined}
-                  value={`${point.measured === undefined ? '~' : ''}${bytes(size)}`}
-                />
-                {point.cost !== undefined && (
-                  <ChartTooltipRow series={COST} value={`$${point.cost.toFixed(2)}/mo`} />
-                )}
-                {point.range && point.x > 0 && (
-                  <div className="font-mono text-muted-foreground tabular-nums">
-                    {bytes(point.range[0])} – {bytes(point.range[1])}
-                  </div>
-                )}
-              </ChartTooltipFrame>
-            )
-          }}
-        />
-      </ComposedChart>
+        </ComposedChart>
+      </ChartFrame>
 
       <Caption storage={storage} capacityBytes={capacityBytes} />
-    </div>
-  )
-}
-
-function Legend({
-  measured,
-  spread,
-  disk,
-  cost,
-}: {
-  measured: boolean
-  spread: boolean
-  disk: boolean
-  cost: boolean
-}) {
-  return (
-    <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground"
-      style={{ fontSize: 'var(--text-small)' }}
-    >
-      {measured && (
-        <span className="flex items-center gap-1.5">
-          <span className="h-0.5 w-4 shrink-0 rounded-full" style={{ background: SIZE }} />
-          Recorded
-        </span>
-      )}
-      <span className="flex items-center gap-1.5">
-        <span
-          className="w-4 shrink-0 border-t-2 border-dashed"
-          style={{ borderColor: SIZE }}
-        />
-        Estimate
-      </span>
-      {spread && (
-        <span className="flex items-center gap-1.5">
-          <span
-            className="h-2.5 w-4 shrink-0 rounded-sm"
-            style={{ background: SIZE, opacity: 0.25 }}
-          />
-          Slower or faster than measured
-        </span>
-      )}
-      {cost && (
-        <span className="flex items-center gap-1.5">
-          <span
-            className="w-4 shrink-0 border-t-2 border-dashed"
-            style={{ borderColor: COST }}
-          />
-          Cost per month
-        </span>
-      )}
-      {disk && (
-        <span className="flex items-center gap-1.5">
-          <span className="h-px w-4 shrink-0" style={{ background: MUTED_TEXT }} />
-          Disk size
-        </span>
-      )}
     </div>
   )
 }

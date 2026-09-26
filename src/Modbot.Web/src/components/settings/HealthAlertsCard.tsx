@@ -72,18 +72,20 @@ export function HealthAlertsCard() {
     <SettingsCard
       title="Health alerts"
       span={12}
+      flush={!view}
       footer={
         <>
           <Button size="xs" disabled={!view || saving} onClick={save}>
             {saving ? 'Saving…' : 'Save alerts'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
-          <Outcome tone="problem">{problem}</Outcome>
+          {/* A failed load is said in the card's body; this is only the Save's result. */}
+          <Outcome tone="problem">{view ? problem : null}</Outcome>
         </>
       }
     >
       {!view ? (
-        <EmptyRow className="px-0">Loading…</EmptyRow>
+        problem ? <EmptyRow tone="danger">{problem}</EmptyRow> : <EmptyRow>Loading…</EmptyRow>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="flex flex-col gap-2">

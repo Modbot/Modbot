@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { api, ApiError, type AiChatSettings as Settings } from '@/lib/api'
-import { LongField, Outcome, Placeholder, Switch } from '../fields'
+import { LongField, NumberField, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { ModelField } from './ModelField'
 
@@ -148,26 +147,5 @@ function ChatForm({ settings, onSaved }: { settings: Settings; onSaved: (next: S
         </ul>
       </SettingsCard>
     </>
-  )
-}
-
-function NumberField({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string
-  value: string
-  min: number
-  max: number
-  onChange: (v: string) => void
-}) {
-  return (
-    <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-      <span className="text-muted-foreground">{label}</span>
-      <Input type="number" inputMode="numeric" min={min} max={max} value={value} onChange={(e) => onChange(e.target.value)} />
-    </label>
   )
 }

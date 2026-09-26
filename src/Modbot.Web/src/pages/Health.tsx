@@ -4,6 +4,7 @@ import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Ago } from '@/components/Freshness'
 import { Row } from '@/components/ui/fact-row'
 import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { statusOf } from '@/lib/gate'
 import { discordState, DOT, TONE, type Tone } from '@/lib/status'
 import { duration, formatDay } from '@/lib/format'
@@ -282,50 +283,46 @@ export function Health() {
         {health.buckets.length === 0 ? (
           <EmptyRow>None used yet.</EmptyRow>
         ) : (
-          <div data-pin-first className="relative overflow-x-auto">
-            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-              <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b-(length:--hairline)">
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Bucket</th>
-                  <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Rate (req/s)</th>
-                  <th className="px-3 py-2 text-right font-normal whitespace-nowrap">Budget</th>
-                  <th className="px-3 py-2 text-right font-normal whitespace-nowrap">429s</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">State</th>
-                </tr>
-              </thead>
-              <tbody>
-                {health.buckets.map((bucket) => (
-                  <tr key={bucket.name} className="border-b border-b-(length:--hairline) last:border-b-0">
-                    <td className="px-3 font-mono" style={{ height: 'var(--row-h)' }}>
-                      {bucket.name}
-                    </td>
-                    <td className="px-3 text-right font-mono">{bucket.effectiveRatePerSecond.toFixed(3)}</td>
-                    <td className={cn('px-3 text-right font-mono', bucket.budgetMultiplier < 1 && 'text-warn')}>
-                      {bucket.budgetMultiplier.toFixed(2)}×
-                    </td>
-                    <td className="px-3 text-right font-mono">{bucket.rateLimitHits}</td>
-                    <td className="px-3 whitespace-nowrap">
-                      {bucket.alerting ? (
-                        <State tone="bad">given up, needs you</State>
-                      ) : bucket.isColdStopped ? (
-                        <State tone="warn">
-                          cold-stopped
-                          {bucket.stoppedUntil && (
-                            <>
-                              {' until '}
-                              <span className="font-mono">{new Date(bucket.stoppedUntil).toLocaleTimeString()}</span>
-                            </>
-                          )}
-                        </State>
-                      ) : (
-                        <State tone="muted">running</State>
+          <Table
+            pinFirst
+            head={
+              <>
+                <Th>Bucket</Th>
+                <Th className="text-right">Rate (req/s)</Th>
+                <Th className="text-right">Budget</Th>
+                <Th className="text-right">429s</Th>
+                <Th>State</Th>
+              </>
+            }
+          >
+            {health.buckets.map((bucket) => (
+              <Tr key={bucket.name}>
+                <Td className="font-mono">{bucket.name}</Td>
+                <Td className="text-right font-mono">{bucket.effectiveRatePerSecond.toFixed(3)}</Td>
+                <Td className={cn('text-right font-mono', bucket.budgetMultiplier < 1 && 'text-warn')}>
+                  {bucket.budgetMultiplier.toFixed(2)}×
+                </Td>
+                <Td className="text-right font-mono">{bucket.rateLimitHits}</Td>
+                <Td>
+                  {bucket.alerting ? (
+                    <State tone="bad">given up, needs you</State>
+                  ) : bucket.isColdStopped ? (
+                    <State tone="warn">
+                      cold-stopped
+                      {bucket.stoppedUntil && (
+                        <>
+                          {' until '}
+                          <span className="font-mono">{new Date(bucket.stoppedUntil).toLocaleTimeString()}</span>
+                        </>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </State>
+                  ) : (
+                    <State tone="muted">running</State>
+                  )}
+                </Td>
+              </Tr>
+            ))}
+          </Table>
         )}
       </Card>
 
@@ -337,21 +334,26 @@ export function Health() {
         {health.unmappedAuditEvents.length === 0 ? (
           <EmptyRow>None seen.</EmptyRow>
         ) : (
-          <div className="relative overflow-x-auto">
-            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-              <tbody>
-                {health.unmappedAuditEvents.map((e) => (
-                  <tr key={e.eventType} className="border-b border-b-(length:--hairline) last:border-b-0">
-                    <td className="px-3 font-mono whitespace-nowrap" style={{ height: 'var(--row-h)' }}>
-                      {e.eventType}
-                    </td>
-                    <td className="px-3 text-right font-mono text-muted-foreground">{e.count}×</td>
-                    <td className="w-full px-3 text-muted-foreground">{e.sampleDescription ?? e.sampleEntryId ?? ''}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table
+            head={
+              <>
+                <Th>Event type</Th>
+                <Th className="text-right">Count</Th>
+                <Th>Sample</Th>
+              </>
+            }
+          >
+            {health.unmappedAuditEvents.map((e) => (
+              <Tr key={e.eventType}>
+                <Td className="font-mono">{e.eventType}</Td>
+                <Td className="text-right font-mono text-muted-foreground">{e.count}×</Td>
+                <Td className="w-full min-w-[20rem] whitespace-normal text-muted-foreground">
+                  {e.sampleDescription ??
+                    (e.sampleEntryId ? <span className="font-mono">{e.sampleEntryId}</span> : '')}
+                </Td>
+              </Tr>
+            ))}
+          </Table>
         )}
       </Card>
     </PanelGrid>

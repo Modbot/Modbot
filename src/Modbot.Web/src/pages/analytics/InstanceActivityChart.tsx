@@ -70,85 +70,80 @@ export function InstanceActivityChart() {
         />
       }
     >
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="size-2.5 shrink-0 rounded-full" style={{ background: seriesColor(1) }} />
-          People
-        </span>
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <span className="size-2.5 shrink-0 rounded-full" style={{ background: chartTheme.ok }} />
-          Instances
-        </span>
-      </div>
-
-      <div className="mt-2">
-        {error ? (
-          <Nothing height={chartHeight.tall}>{error}</Nothing>
-        ) : !data ? (
-          <Nothing height={chartHeight.tall}>Loading…</Nothing>
-        ) : (
-          <ChartFrame height={chartHeight.tall} empty={rows.length === 0} emptyText="No head counts in this range.">
-            <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="at"
-                type="number"
-                domain={[from, to]}
-                ticks={timeTicks(from, to)}
-                tickFormatter={(v: number) => timeLabel(v, span)}
-                tickLine={false}
-                axisLine={false}
-                minTickGap={16}
-              />
-              <YAxis
-                yAxisId="people"
-                width="auto"
-                domain={[0, 'auto']}
-                tickFormatter={compactNumber}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                yAxisId="instances"
-                orientation="right"
-                width="auto"
-                domain={[0, 'auto']}
-                allowDecimals={false}
-                tickFormatter={compactNumber}
-                tickLine={false}
-                axisLine={false}
-                tick={{ style: { fill: chartTheme.ok } }}
-              />
-              <Tooltip
-                content={rechartsTooltip((label) => readingTime(Number(label)), names)}
-                cursor={{ stroke: 'var(--chart-grid)' }}
-              />
-              <Line
-                yAxisId="people"
-                type="stepAfter"
-                dataKey="people"
-                name="people"
-                stroke={seriesColor(1)}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
-                isAnimationActive={false}
-              />
-              <Line
-                yAxisId="instances"
-                type="stepAfter"
-                dataKey="instances"
-                name="instances"
-                stroke={chartTheme.ok}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ChartFrame>
-        )}
-      </div>
+      {error ? (
+        <Nothing height={chartHeight.tall} tone="danger">{error}</Nothing>
+      ) : !data ? (
+        <Nothing height={chartHeight.tall}>Loading…</Nothing>
+      ) : (
+        <ChartFrame
+          height={chartHeight.tall}
+          empty={rows.length === 0}
+          emptyText="No head counts in this range."
+          legend={[
+            { label: 'People', slot: 1 },
+            { label: 'Instances', color: chartTheme.ok },
+          ]}
+        >
+          <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="at"
+              type="number"
+              domain={[from, to]}
+              ticks={timeTicks(from, to)}
+              tickFormatter={(v: number) => timeLabel(v, span)}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={16}
+            />
+            <YAxis
+              yAxisId="people"
+              width="auto"
+              domain={[0, 'auto']}
+              tickFormatter={compactNumber}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis
+              yAxisId="instances"
+              orientation="right"
+              width="auto"
+              domain={[0, 'auto']}
+              allowDecimals={false}
+              tickFormatter={compactNumber}
+              tickLine={false}
+              axisLine={false}
+              tick={{ style: { fill: chartTheme.ok } }}
+            />
+            <Tooltip
+              content={rechartsTooltip((label) => readingTime(Number(label)), names)}
+              cursor={{ stroke: 'var(--chart-grid)' }}
+            />
+            <Line
+              yAxisId="people"
+              type="stepAfter"
+              dataKey="people"
+              name="people"
+              stroke={seriesColor(1)}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
+              isAnimationActive={false}
+            />
+            <Line
+              yAxisId="instances"
+              type="stepAfter"
+              dataKey="instances"
+              name="instances"
+              stroke={chartTheme.ok}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ChartFrame>
+      )}
     </Panel>
   )
 }

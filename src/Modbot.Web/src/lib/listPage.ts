@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useLocation } from './router.ts'
 
 /**
@@ -118,5 +118,18 @@ export function useListPage(): ListPage {
     navigate(pageHref(window.location.search, window.location.pathname, 1), { replace: true })
   }, [navigate])
 
+  return { page, goTo, restart }
+}
+
+/**
+ * A page kept in state rather than in the address, for a list that is not the page's own (a
+ * person's Discord messages in their popup): turning it leaves the address and Back alone.
+ * `goTo` is also how the list jumps to a page of its own choosing, such as the one holding a
+ * message it was asked to show.
+ */
+export function usePageState(start = 1): ListPage {
+  const [page, setPage] = useState(start)
+  const goTo = useCallback((next: number) => setPage(next), [])
+  const restart = useCallback(() => setPage(1), [])
   return { page, goTo, restart }
 }

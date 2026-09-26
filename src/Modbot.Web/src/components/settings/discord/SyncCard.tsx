@@ -40,7 +40,7 @@ export function SyncCard() {
   if (error || !data) {
     return (
       <SettingsCard title="Role and ban sync">
-        <EmptyRow className="px-0">{error ?? 'Loading…'}</EmptyRow>
+        <EmptyRow className="px-0" tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</EmptyRow>
       </SettingsCard>
     )
   }

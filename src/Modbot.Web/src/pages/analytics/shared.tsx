@@ -135,19 +135,33 @@ export function Panel({
  * Where a chart will be, while it loads or after it failed: as tall as the chart, so the panel
  * does not jump when the data arrives. A panel with nothing to show at all is `flush` and holds
  * an `EmptyRow`.
+ *
+ * `danger` when the chart could not be read, so a failure does not look like a chart still loading.
  */
-export function Nothing({ children, height }: { children: React.ReactNode; height: number }) {
+export function Nothing({
+  children,
+  height,
+  tone,
+}: {
+  children: React.ReactNode
+  height: number
+  tone?: 'neutral' | 'danger'
+}) {
   return (
-    <EmptyRow className="px-0" minHeight={height}>
+    <EmptyRow className="px-0" minHeight={height} tone={tone}>
       {children}
     </EmptyRow>
   )
 }
 
-export function PageMessage({ children }: { children: React.ReactNode }) {
+/**
+ * What a page shows in place of its panels: while it loads, when there is nothing to show, or
+ * when it could not be read. `danger` for the last, the same as `Empty` on the list pages.
+ */
+export function PageMessage({ children, tone }: { children: React.ReactNode; tone?: 'neutral' | 'danger' }) {
   return (
     <Card>
-      <EmptyRow>{children}</EmptyRow>
+      <EmptyRow tone={tone}>{children}</EmptyRow>
     </Card>
   )
 }

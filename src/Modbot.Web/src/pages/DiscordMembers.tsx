@@ -5,9 +5,10 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
+import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { dateTime } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
-import { SubjectLink } from '@/components/facts'
+import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { Ago, Unread } from '@/components/Freshness'
 import { Pager } from '@/components/Pager'
@@ -21,7 +22,7 @@ import { can } from '@/lib/permissions'
 import { useShortcuts } from '@/lib/shortcuts'
 import { openDiscordPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
-import { Empty } from '@/pages/Members'
+import { Empty, Marks } from '@/pages/Members'
 
 /**
  * The Discord server's members, as the bot keeps them.
@@ -206,99 +207,91 @@ export function DiscordMembers({ me }: { me: CurrentUser }) {
         {list.members.length === 0 ? (
           <EmptyRow>{search || chips.length > 0 ? 'Nobody matches' : 'Nobody listed yet'}</EmptyRow>
         ) : (
-          <div data-pin-first className="relative overflow-x-auto">
-            <table className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-              <thead className="bg-strip text-muted-foreground">
-                <tr className="border-b-(length:--hairline)">
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Person</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Username</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Roles</th>
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Joined</th>
-                  {showLeft && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Left</th>}
-                  <th className="px-3 py-2 text-left font-normal whitespace-nowrap">Timed out until</th>
-                  {seesLinks && <th className="px-3 py-2 text-left font-normal whitespace-nowrap">VRChat</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {list.members.map((m, i) => {
-                  const timedOut = m.timedOutUntil !== null && Date.parse(m.timedOutUntil) > now
+          <Table
+            pinFirst
+            head={
+              <>
+                <Th>Person</Th>
+                <Th>Username</Th>
+                <Th>Roles</Th>
+                <Th>Joined</Th>
+                {showLeft && <Th>Left</Th>}
+                <Th>Timed out until</Th>
+                {seesLinks && <Th>VRChat</Th>}
+              </>
+            }
+          >
+            {list.members.map((m, i) => {
+              const timedOut = m.timedOutUntil !== null && Date.parse(m.timedOutUntil) > now
 
-                  return (
-                    <tr
-                      key={m.userId}
-                      {...rowProps(i)}
-                      onClick={() => openDiscordPerson(m.userId)}
-                      className={cn(
-                        'cursor-pointer border-b-(length:--hairline) last:border-0 hover:bg-muted/40 data-[selected]:bg-accent/60',
-                        m.leftAt && 'text-muted-foreground',
-                      )}
-                    >
-                      <td className="px-3" style={{ height: 'var(--row-h)' }}>
-                        <div className="flex items-center gap-2">
-                          <Avatar url={m.avatarUrl} />
-                          <div className="min-w-0">
-                            <button
-                              type="button"
-                              className="max-w-[18rem] truncate text-left font-medium hover:underline"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openDiscordPerson(m.userId)
-                              }}
-                              title={m.userId}
-                            >
-                              {m.displayName}
-                            </button>
+              return (
+                <Tr
+                  key={m.userId}
+                  {...rowProps(i)}
+                  onClick={() => openDiscordPerson(m.userId)}
+                  className={cn(
+                    'cursor-pointer hover:bg-muted/40 data-[selected]:bg-accent/60',
+                    m.leftAt && 'text-muted-foreground',
+                  )}
+                >
+                  <Td>
+                    <div className="flex items-center gap-2">
+                      <Avatar url={m.avatarUrl} />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5 max-md:flex-nowrap">
+                          <DiscordPersonLink id={m.userId} name={m.displayName} className="max-md:max-w-full max-md:shrink-0" />
+                          <Marks>
                             {m.isBot && (
-                              <span className="ml-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
+                              <span className="text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                                 bot
                               </span>
                             )}
-                            {m.plainName && (
-                              <div className="max-w-[18rem] truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                                {m.plainName}
-                              </div>
-                            )}
+                          </Marks>
+                        </div>
+                        {m.plainName && (
+                          <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                            {m.plainName}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-3 text-muted-foreground">{m.username}</td>
-                      <td className="px-3">
-                        <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
-                          {m.roles.map((r) => (
-                            <RoleChip key={r.id} id={r.id} name={r.name} color={r.color} />
-                          ))}
-                          {m.roles.length === 0 && <span className="text-muted-foreground">—</span>}
-                        </div>
-                      </td>
-                      <td className="px-3 whitespace-nowrap font-mono">
-                        {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      {showLeft && <td className="px-3 whitespace-nowrap font-mono">{m.leftAt ? formatDay(m.leftAt) : ''}</td>}
-                      <td className="px-3 whitespace-nowrap font-mono">
-                        {timedOut && m.timedOutUntil ? (
-                          <span className="text-destructive">{dateTime(m.timedOutUntil)}</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
                         )}
-                      </td>
-                      {seesLinks && (
-                        <td className="px-3" onClick={(e) => e.stopPropagation()}>
-                          {m.linkedVRChat ? (
-                            <div className="flex items-center gap-2">
-                              <Avatar url={m.linkedVRChat.avatarUrl} className="size-6" />
-                              <SubjectLink id={m.linkedVRChat.userId} name={m.linkedVRChat.displayName} />
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
+                      </div>
+                    </div>
+                  </Td>
+                  <Td className="text-muted-foreground">{m.username}</Td>
+                  <Td>
+                    <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
+                      {m.roles.map((r) => (
+                        <RoleChip key={r.id} id={r.id} name={r.name} color={r.color} />
+                      ))}
+                      {m.roles.length === 0 && <span className="text-muted-foreground">—</span>}
+                    </div>
+                  </Td>
+                  <Td className="font-mono">
+                    {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
+                  </Td>
+                  {showLeft && <Td className="font-mono">{m.leftAt ? formatDay(m.leftAt) : ''}</Td>}
+                  <Td className="font-mono">
+                    {timedOut && m.timedOutUntil ? (
+                      <span className="text-destructive">{dateTime(m.timedOutUntil)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </Td>
+                  {seesLinks && (
+                    <Td onClick={(e) => e.stopPropagation()}>
+                      {m.linkedVRChat ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar url={m.linkedVRChat.avatarUrl} className="size-6" />
+                          <SubjectLink id={m.linkedVRChat.userId} name={m.linkedVRChat.displayName} />
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                    </Td>
+                  )}
+                </Tr>
+              )
+            })}
+          </Table>
         )}
 
         <Pager at={at} pages={pages} />

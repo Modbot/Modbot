@@ -72,7 +72,7 @@ export function People() {
             <ul className="flex flex-wrap gap-2">
               {showcase.contributors.map((person) => (
                 <li key={person.login}>
-                  <Badge asChild variant="outline" className={cn('gap-2 py-0.5 text-foreground', person.avatarUrl && 'pl-1')}>
+                  <Badge asChild variant="outline" className={cn('gap-2 py-0.5', person.avatarUrl && 'pl-1')}>
                     <a href={person.url} target="_blank" rel="noreferrer">
                       {person.avatarUrl && (
                         <img

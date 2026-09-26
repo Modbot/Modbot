@@ -75,7 +75,7 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
   if (error) {
     return (
       <Card>
-        <EmptyRow>{error}</EmptyRow>
+        <EmptyRow tone="danger">{error}</EmptyRow>
       </Card>
     )
   }
@@ -127,11 +127,11 @@ export function Flags({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (
         ) : flags.length === 0 ? (
           <EmptyRow>No flags</EmptyRow>
         ) : (
-          <ul className="flex flex-col">
+          <ul className="flex flex-col divide-y-(--hairline) divide-border">
             {flags.map((flag) => (
               <li
                 key={flag.id}
-                className="flex flex-wrap items-start gap-x-4 gap-y-1 border-b border-b-(length:--hairline) px-(--panel-pad) py-2 last:border-0"
+                className="flex flex-wrap items-start gap-x-4 gap-y-1 px-(--panel-pad) py-2"
                 style={{ fontSize: 'var(--text-small)' }}
               >
                 <div className="min-w-64 flex-1">

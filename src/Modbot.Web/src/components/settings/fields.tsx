@@ -9,22 +9,29 @@ import { cn } from '@/lib/utils'
 export { Checkbox } from '@/components/ui/checkbox'
 export { Fact, Row } from '@/components/ui/fact-row'
 
+/** A labelled one-line field. `mono` is for a value that is an id, an address or a key. */
 export function Field({
   label,
   value,
   placeholder,
+  maxLength,
+  mono,
   onChange,
 }: {
   label: string
   value: string
-  placeholder: string
+  placeholder?: string
+  maxLength?: number
+  mono?: boolean
   onChange: (v: string) => void
 }) {
   return (
     <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
       <span className="text-muted-foreground">{label}</span>
       <Input
+        className={cn(mono && 'font-mono')}
         placeholder={placeholder}
+        maxLength={maxLength}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -88,13 +95,16 @@ export function LongField({
   )
 }
 
+/** A field whose value is hidden as it is typed. `mono` as on `Field`. */
 export function PasswordField({
   label,
   value,
+  mono,
   onChange,
 }: {
   label: string
   value: string
+  mono?: boolean
   onChange: (v: string) => void
 }) {
   return (
@@ -102,6 +112,7 @@ export function PasswordField({
       <span className="text-muted-foreground">{label}</span>
       <Input
         type="password"
+        className={cn(mono && 'font-mono')}
         autoComplete="new-password"
         value={value}
         onChange={(e) => onChange(e.target.value)}

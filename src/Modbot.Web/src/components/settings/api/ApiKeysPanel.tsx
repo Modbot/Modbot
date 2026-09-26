@@ -107,7 +107,7 @@ function KeyList({ keys, onChanged }: { keys: ApiKeyView[]; onChanged: () => voi
               </div>
             </Td>
             <Td className="font-mono">{k.start}…</Td>
-            <Td>{k.ownerName ?? '—'}</Td>
+            <Td className={cn(!k.ownerName && 'text-muted-foreground')}>{k.ownerName ?? '—'}</Td>
             <Td>{k.permissionNames.join(', ')}</Td>
             <Td className="font-mono">{when(k.createdAt)}</Td>
             <Td className={cn(k.lastUsedAt && 'font-mono')}>{k.lastUsedAt ? when(k.lastUsedAt) : 'Never'}</Td>
@@ -193,7 +193,7 @@ function CreateKey({ grantable, onDone }: { grantable: PermissionInfo[]; onDone:
       <div className="flex flex-col gap-3">
         {groups.map(([group, permissions]) => (
           <fieldset key={group} className="flex flex-col gap-1">
-            <legend className="mb-1 font-medium" style={{ fontSize: 'var(--text-small)' }}>
+            <legend className="mb-1 font-label text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {group}
             </legend>
             {permissions.map((p) => (

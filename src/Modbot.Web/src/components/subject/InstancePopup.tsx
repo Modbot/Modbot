@@ -64,7 +64,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       title={title}
       subtitle={instance ? <span title={instance.location}>{instance.closedAt ? 'Closed' : 'Open now'}</span> : undefined}
       lead={lead}
-      left={error ? <Empty className="text-destructive">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
+      left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
     >
       <Tabs
         value={tab}

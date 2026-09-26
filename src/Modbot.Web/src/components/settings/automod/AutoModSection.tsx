@@ -312,6 +312,7 @@ function TermListsCard({
   const [editing, setEditing] = useState<{ id: string | null } | null>(null)
   const [testing, setTesting] = useState<{ kind: RuleKind; id: string; name: string } | null>(null)
   const [hubOpen, setHubOpen] = useState(false)
+  const [confirming, setConfirming] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -440,17 +441,28 @@ function TermListsCard({
               >
                 Edit
               </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={busy !== null}
-                onClick={() => {
-                  if (window.confirm(`Delete ${list.name}?`))
-                    run(list.id, () => moderationApi.deleteList(list.id))
-                }}
-              >
-                Delete
-              </Button>
+              {confirming === list.id ? (
+                <>
+                  <Button
+                    size="xs"
+                    variant="destructive"
+                    disabled={busy !== null}
+                    onClick={() => {
+                      setConfirming(null)
+                      run(list.id, () => moderationApi.deleteList(list.id))
+                    }}
+                  >
+                    Delete
+                  </Button>
+                  <Button size="xs" variant="ghost" onClick={() => setConfirming(null)}>
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button size="xs" variant="ghost" disabled={busy !== null} onClick={() => setConfirming(list.id)}>
+                  Delete
+                </Button>
+              )}
             </RuleRow>
           ))}
         </ul>
@@ -482,6 +494,7 @@ function TopicsCard({
 }) {
   const [editing, setEditing] = useState<{ topic: TopicView | null } | null>(null)
   const [testing, setTesting] = useState<{ kind: RuleKind; id: string; name: string } | null>(null)
+  const [confirming, setConfirming] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -551,16 +564,28 @@ function TopicsCard({
               <Button size="xs" variant="ghost" disabled={busy} onClick={() => setEditing({ topic })}>
                 Edit
               </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => {
-                  if (window.confirm(`Delete ${topic.name}?`)) run(() => moderationApi.deleteTopic(topic.id))
-                }}
-              >
-                Delete
-              </Button>
+              {confirming === topic.id ? (
+                <>
+                  <Button
+                    size="xs"
+                    variant="destructive"
+                    disabled={busy}
+                    onClick={() => {
+                      setConfirming(null)
+                      run(() => moderationApi.deleteTopic(topic.id))
+                    }}
+                  >
+                    Delete
+                  </Button>
+                  <Button size="xs" variant="ghost" onClick={() => setConfirming(null)}>
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button size="xs" variant="ghost" disabled={busy} onClick={() => setConfirming(topic.id)}>
+                  Delete
+                </Button>
+              )}
             </RuleRow>
           ))}
         </ul>

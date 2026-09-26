@@ -43,7 +43,7 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
 
   return (
     <Panel title="History" flush>
-      {error && <EmptyRow className="text-destructive">{error}</EmptyRow>}
+      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
 
       {!error && !history && <EmptyRow>Loading…</EmptyRow>}
 
@@ -54,28 +54,32 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
       {history?.counts && <Counts counts={history.counts} rule={history.rule} now={history.now} />}
 
       {history?.lastRunAt && (
-        <Footer>Counts rebuilt <Ago iso={history.lastRunAt} now={history.now} />.</Footer>
+        <Footer>
+          <span>
+            Counts rebuilt <Ago iso={history.lastRunAt} now={history.now} />.
+          </span>
+        </Footer>
       )}
     </Panel>
   )
 }
 
 function Counts({ counts, rule, now }: { counts: RepeatOffenderView; rule: string; now: string }) {
-  const times = counts.actions === 1 ? 'once' : `${counts.actions} times`
+  const times = counts.actions === 1 ? 'once' : <><span className="font-mono">{counts.actions}</span> times</>
   const by =
     counts.moderators === 0
       ? 'with no moderator named'
       : counts.moderators === 1
         ? 'by one moderator'
-        : `by ${counts.moderators} different moderators`
+        : <>by <span className="font-mono">{counts.moderators}</span> different moderators</>
 
   return (
     <div className="flex flex-col gap-1.5 p-(--panel-pad)" style={{ fontSize: 'var(--text-small)' }}>
       <p>
-        Acted on <span className="font-medium">{times}</span> {by}
+        Acted on {times} {by}
         {counts.actionsLast30Days > 0 && (
           <>
-            , <span className="font-medium">{counts.actionsLast30Days}</span> in the last 30 days
+            , <span className="font-mono">{counts.actionsLast30Days}</span> in the last 30 days
           </>
         )}
         .
@@ -88,7 +92,7 @@ function Counts({ counts, rule, now }: { counts: RepeatOffenderView; rule: strin
             {' '}by {counts.lastBy.name ?? <span className="font-mono">{counts.lastBy.id}</span>}
           </>
         )}
-        . First: {formatDay(counts.firstActionAt)}.
+        . First: <span className="font-mono">{formatDay(counts.firstActionAt)}</span>.
       </p>
 
       <div className="flex flex-wrap gap-1">

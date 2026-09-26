@@ -1,4 +1,5 @@
 import { Input } from '@/components/ui/input'
+import { SwitchBank } from '@/components/ui/switch-bank'
 import { CONTEXT_CHOICES, TARGETS, type RuleAction } from '@/lib/autoMod'
 import { Checkbox, Switch } from '../fields'
 import { RuleScopeFields } from './RuleScopeFields'
@@ -72,20 +73,23 @@ export function RuleActionFields({
       </Group>
 
       <Group label="Earlier messages">
-        <div role="radiogroup" aria-label="Earlier messages" className="flex flex-wrap gap-4">
-          {CONTEXT_CHOICES.map((n) => (
-            <label key={n} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="contextMessages"
-                checked={value.contextMessages === n}
-                disabled={!chat}
-                onChange={() => onChange({ ...value, contextMessages: n })}
-              />
-              {n === 0 ? 'None' : `${n} messages`}
-            </label>
-          ))}
-        </div>
+        <SwitchBank
+          label="Earlier messages"
+          value={String(value.contextMessages)}
+          disabled={!chat}
+          onChange={(n) => onChange({ ...value, contextMessages: Number(n) })}
+          options={CONTEXT_CHOICES.map((n) => ({
+            value: String(n),
+            label:
+              n === 0 ? (
+                'None'
+              ) : (
+                <>
+                  <span className="font-mono">{n}</span> messages
+                </>
+              ),
+          }))}
+        />
       </Group>
 
       <Group label="Pictures">

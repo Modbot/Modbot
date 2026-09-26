@@ -16,9 +16,12 @@ import { SettingsCard, SettingsSection } from './SettingsCard'
  */
 export function VRChatSection({
   status,
+  statusError,
   refresh,
 }: {
   status: OnboardingStatus | null
+  /** Why `status` could not be read, while it is null because the read failed. */
+  statusError?: string | null
   refresh: () => Promise<void>
 }) {
   return (
@@ -33,7 +36,7 @@ export function VRChatSection({
           <ProxyCard status={status} refresh={refresh} />
         </>
       ) : (
-        <Placeholder>Loading…</Placeholder>
+        <Placeholder tone={statusError ? 'danger' : undefined}>{statusError ?? 'Loading…'}</Placeholder>
       )}
     </SettingsSection>
   )

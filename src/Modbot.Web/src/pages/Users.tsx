@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -63,7 +63,7 @@ export function Users({ me }: { me: CurrentUser }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex justify-end">
-        <Button size="sm" onClick={() => setAdding(true)}>
+        <Button onClick={() => setAdding(true)}>
           Add someone
         </Button>
       </div>
@@ -263,7 +263,7 @@ function AddSomeone({
             <Field label="Email" htmlFor="new-email">
               <Input id="new-email" type="email" required autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid items-end gap-3 sm:grid-cols-2">
               <Field label="Temporary password" hint="at least 12 characters" htmlFor="new-password">
                 <Input id="new-password" type="password" required minLength={12} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
               </Field>
@@ -365,29 +365,40 @@ function UserDrawer({
   const rolesChanged =
     roleIds.length !== user.roles.length || roleIds.some((id) => !user.roles.some((r) => r.id === id))
 
+  const contactChanged = email !== (user.email ?? '') || discord !== (user.discordUserId ?? '')
+
   return (
     <aside
       className="fixed inset-y-0 right-0 z-30 flex w-[26rem] max-w-full flex-col overflow-auto border-l-(length:--hairline) bg-card shadow-sm"
       aria-label={`Account: ${user.username}`}
     >
-      <div
-        className="flex items-center gap-2 border-b-(length:--hairline) bg-strip px-(--panel-pad) py-1.5"
-        style={{ minHeight: 'var(--strip-h)' }}
-      >
+      {/* The sheet scrolls as one column, so the strip must not be squeezed to its minimum. */}
+      <CardHeader className="shrink-0 flex-nowrap">
         <div className="min-w-0">
-          <div className="font-label">{user.username}</div>
+          <CardTitle>{user.username}</CardTitle>
           <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {user.vrChatLinked
-              ? `VRChat: ${user.vrChatDisplayName ?? ''} ${user.vrChatUserId ?? ''}`.trim()
-              : 'Has not linked a VRChat account yet'}
+            {user.vrChatLinked ? (
+              <>
+                VRChat:{user.vrChatDisplayName && ` ${user.vrChatDisplayName}`}
+                {user.vrChatUserId && (
+                  <>
+                    {' '}
+                    <span className="font-mono">{user.vrChatUserId}</span>
+                  </>
+                )}
+              </>
+            ) : (
+              'Has not linked a VRChat account yet'
+            )}
           </div>
         </div>
-        <div className="flex-1" />
-        {user.isDisabled && <Badge variant="destructive">Disabled</Badge>}
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          Close
-        </Button>
-      </div>
+        <CardAction>
+          {user.isDisabled && <Badge variant="destructive">Disabled</Badge>}
+          <Button variant="ghost" size="xs" onClick={onClose}>
+            Close
+          </Button>
+        </CardAction>
+      </CardHeader>
 
       <div className="flex flex-col gap-5 p-(--panel-pad)" style={{ fontSize: 'var(--text-small)' }}>
         <section className="space-y-2">
@@ -411,8 +422,7 @@ function UserDrawer({
           </Field>
           <Button
             size="sm"
-            variant="outline"
-            disabled={busy !== null}
+            disabled={!contactChanged || busy !== null}
             onClick={() => run('contact', () => api.setUserContact(user.id, { email, discordUserId: discord }))}
           >
             {busy === 'contact' ? 'Saving…' : 'Save contact details'}

@@ -12,7 +12,8 @@ import { SettingsCard } from './SettingsCard'
  * else on the card to save with it. Instances limited to members, or to members and their friends, are
  * never sent whatever this says — see PublicInstancesReportBuilder.
  */
-export function PublicInstancesCard() {
+/** `span` is 12 when the card has no partner beside it on the tab. */
+export function PublicInstancesCard({ span = 6 }: { span?: 6 | 12 }) {
   const [view, setView] = useState<PublicInstancesView | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +47,7 @@ export function PublicInstancesCard() {
   }
 
   return (
-    <SettingsCard title="Modbot Cloud">
+    <SettingsCard title="Modbot Cloud" span={span}>
       {!view ? (
         <EmptyRow className="px-0" tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</EmptyRow>
       ) : (
