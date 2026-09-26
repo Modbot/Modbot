@@ -42,7 +42,7 @@ own tables every time it starts. See [PostgreSQL](/self-hosting/postgres).
 | **The Discord bot** | Posting events to Discord, instance announcements, account linking, and reading your Discord server. | The setup wizard, or **Settings**, **Discord** tab. See [Setting up the bot](/discord/bot-setup). |
 | **Email (SMTP)** | Sending email, such as password reset links. | The setup wizard, or **Settings**, **Integrations** tab. |
 | **An AI provider** | AI moderation rules, insights and chat. | **Settings**, **AI** tab. See [AI settings](/ai/settings). |
-| **A proxy** | Reaching VRChat from a host whose network VRChat's Cloudflare protection blocks. Common on VPS and datacentre hosting. | The setup wizard's connection check, or **Settings**, **VRChat Service Account** tab. |
+| **A proxy** | Reaching VRChat from a host whose network VRChat's Cloudflare protection blocks. Common on VPS and datacentre hosting. | The setup wizard's connection check, or **Settings**, **Modbot's VRChat login** tab. |
 | **Seq** | Sending logs to a [Seq](https://datalust.co/seq) server, so you keep them when the container's disk does not survive. | The `SEQ_URL` environment variable. |
 
 A Modbot with none of these is complete and working: it syncs your group, and your staff can use
@@ -135,7 +135,7 @@ Set `MODBOT_CLOUD_DISABLED=1` and none of it happens.
 One thing it does not stop: **checking for a newer Modbot release**. That question sends nothing
 about your deployment — no id, no group, no version — and everyone gets the same answer, so it is
 not one of the things that variable is protecting you from. The **Check for updates** switch under
-**Settings**, **Host & Database** is what turns it off, and it is on by default. Modbot never
+**Settings**, **Server** is what turns it off, and it is on by default. Modbot never
 updates itself. See [Updating](/self-hosting/updating#how-you-find-out-there-is-one).
 
 **Settings → Data → Modbot Cloud** shows when the last report went and gives you a link code, which

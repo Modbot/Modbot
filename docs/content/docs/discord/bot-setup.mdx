@@ -89,7 +89,7 @@ The token is stored encrypted and is never shown again. Once one is saved, the *
 the card says **Token stored**. When you change something else later, leave **Bot token** empty:
 an empty field keeps the token you already have.
 
-Also set a **Public address** under **Settings → Host & Database**. Modbot builds every link it
+Also set a **Public address** under **Settings → Server**. Modbot builds every link it
 sends to Discord from that address and nothing else. Without it, event posts have no link back to
 Modbot, and account linking cannot work.
 
@@ -119,7 +119,7 @@ Discord refuses the whole connection when a bot asks for a privileged intent tha
 without saying which one. Modbot works out which ones are off, then connects again **without
 them**, so posting events and the slash commands keep working.
 
-While that is happening, the **Discord bot** card on the **Sync health** page shows
+While that is happening, the **Discord bot** card on the **Health** page shows
 **Intents off in the Developer Portal:** followed by the switches to turn on.
 
 What you lose without each one:
@@ -159,7 +159,7 @@ the bot, so they are empty until it has connected once.
 
 ## Checking that it is connected
 
-Open **Sync health** from the **Discord** row at the bottom of the sidebar. It needs
+Open **Health** from the **Discord** row at the bottom of the sidebar. It needs
 **See the operational log**. The
 **Discord bot** card shows one of these:
 
@@ -210,7 +210,7 @@ seconds. Your channels and other Discord settings are kept for when you turn it 
 
 ## If something is wrong
 
-Start with the **Discord bot** card on **Sync health**.
+Start with the **Discord bot** card on **Health**.
 
 | You see | What to do |
 |---|---|

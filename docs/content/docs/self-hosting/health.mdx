@@ -1,14 +1,14 @@
 ---
 title: Checking a deployment
-description: The two health check addresses, the Sync health page, the Deployment card, log files and Seq.
+description: The two health check addresses, the Health page, the Deployment card, log files and Seq.
 ---
 
 There are four places to look when you want to know whether your Modbot is working:
 
 - two **health check addresses** your hosting platform can call,
-- the **Sync health** page in the web app,
+- the **Health** page in the web app,
 - the **Deployment** card in **Settings**,
-- the **logs**, which you can read in the app on the [Logs](/self-hosting/logs) page.
+- the **logs**, which you can read in the app on the [Modbot's log](/self-hosting/logs) page.
 
 Modbot can also email you when something goes wrong, rather than waiting for you to look. See
 [Alerts by email](/self-hosting/alerts).
@@ -53,9 +53,9 @@ this one, with a 300 second timeout. See [Railway](/self-hosting/railway).
   answers. On a first deploy this can take a little while. See [PostgreSQL](/self-hosting/postgres).
 </Callout>
 
-## The Sync health page
+## The Health page
 
-**Sync health** opens from the status rows at the bottom of the sidebar. You need the
+**Health** opens from the status rows at the bottom of the sidebar. You need the
 [**See the operational log**](/accounts/roles-and-permissions) permission, which is also what makes
 those rows appear.
 
@@ -64,8 +64,8 @@ Each row is a part of Modbot and one word for how it is doing: **VRChat**, **Dis
 at that part's card.
 
 The page refreshes itself every 20 seconds. It is a stack of cards. Five are always there —
-**VRChat**, **Database**, **Producers**, **Rate-limit budgets** and **Audit-log event types Modbot
-does not understand**. The rest appear only when they have something to say, so a Modbot with
+**VRChat**, **Database**, **What Modbot reads**, **VRChat request limits** and **Kinds of audit log
+entry Modbot does not know**. The rest appear only when they have something to say, so a Modbot with
 nothing wrong shows a short page. From top to bottom:
 
 ### Demo data
@@ -91,7 +91,7 @@ Whether Modbot is reaching VRChat, as one of:
 Under it: **Last signed in**, **Sign-ins this hour** (out of the limit Modbot allows itself), and
 **Next sign-in** when Modbot is waiting before it may sign in again.
 
-To change the VRChat account or the proxy, go to **Settings**, **VRChat Service Account**.
+To change the VRChat account or the proxy, go to **Settings**, **Modbot's VRChat login**.
 
 ### Database
 
@@ -116,7 +116,7 @@ there were, how many failed, how many timed out, how many used the
 Shown when any email is queued or has failed: how many are waiting, when the next one goes, and how
 many failed. See [The email limit](/accounts/staff-accounts#the-email-limit).
 
-### Logs
+### Modbot's log
 
 **Stored** says whether log lines are being written to the database, how many have been written, and
 how many were dropped. **To Modbot Cloud** says **Off**, or when the last batch was sent, how many
@@ -133,14 +133,14 @@ sending it what it needs. See [Setting up the bot](/discord/bot-setup).
 
 Shown only when a planned event failed to reach VRChat's calendar or Discord, or its instance did
 not open. A **Missing Manage Events** line in the **Discord bot** card means an event wants a
-Discord event and the bot cannot make one. See [Calendar](/moderation/calendar#on-sync-health).
+Discord event and the bot cannot make one. See [Calendar](/moderation/calendar#on-health).
 
 ### Paused moderation rules
 
 One row for each AutoMod rule that has stopped itself, with the reason and how long ago. See
 [If a rule runs away](/moderation/automod#if-a-rule-runs-away).
 
-### Producers
+### What Modbot reads
 
 The jobs that read from VRChat: **Group audit log**, **Group info**, **User profiles**,
 **User details**, **Member list** and **Ban list**. Each says when it last completed a pass and how
@@ -152,20 +152,21 @@ A line underneath says whether the audit log catch-up has finished, and how far 
 Whether this Modbot's report reached Modbot Cloud: **Sent**, **Failed** or **Not sent yet**, with
 when it went, the address it used, and the reason if it failed.
 
-### Rate-limit budgets
+### VRChat request limits
 
-One row per kind of VRChat request, with its current rate, its budget, how many times VRChat has
-said "too many requests", and its state: **running**, **cold-stopped** (paused until the time shown)
-or **given up — needs you**.
+One row per kind of VRChat request: **Limit** names it, **Requests a second** is its current rate,
+**Speed** is its pace as a multiple of the normal one (below **1.00×** when Modbot has slowed it
+down), **Times refused** is how many times VRChat has said "too many requests", and **State** is
+**running**, **stopped** (paused until the time shown) or **given up, needs you**.
 
-### Audit-log event types Modbot does not understand
+### Kinds of audit log entry Modbot does not know
 
-Event types from your group's audit log that Modbot has no meaning for yet, with how many it has
+Kinds of entry from your group's audit log that Modbot has no meaning for yet, with how many it has
 seen. **None seen.** is the normal answer.
 
 ## The Deployment card
 
-**Settings**, **Host & Database**, **Deployment** describes what is running. The **Host & Database**
+**Settings**, **Server**, **Deployment** describes what is running. The **Server**
 tab needs the **Change settings** permission.
 
 | Row | What it shows |
@@ -233,5 +234,5 @@ See [Environment variables](/self-hosting/environment-variables).
 
 ### The database
 
-Modbot also keeps the same lines in its own database, and the **Logs** page in the app reads them,
+Modbot also keeps the same lines in its own database, and the **Modbot's log** page in the app reads them,
 so a deployment with no Seq and no disk can still search its log. See [Logs](/self-hosting/logs).

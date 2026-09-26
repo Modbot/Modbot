@@ -79,10 +79,10 @@ said either way.
 
 | Tab | What it shows |
 |---|---|
-| **Overview** | **Profile**: their status line, bio, **Joined VRChat**, **Last seen by Modbot**, and the tags that have no badge behind a control that counts them (**12 more tags** / **Hide tags**). Then the **History** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#history-on-a-persons-popup)), the main time-in-world figures, and the newest 8 audit log entries about them. |
-| **Logs** | **Everything recorded about this person**: the newest 50 audit log entries about any of their accounts or done by them, newest first. Each row says which account it was found under, so a Discord ban is never mistaken for a group one. |
+| **Overview** | **Profile**: their status line, bio, **Joined VRChat**, **Last seen by Modbot**, and the tags that have no badge behind a control that counts them (**12 more tags** / **Hide tags**). Then the **Past actions** block (how many times the person has been acted on, by how many moderators, and their status; see [Reviews and repeat offenders](/moderation/reviews#past-actions-on-a-persons-popup)), the main time-in-world figures, and the newest 8 audit log entries about them, with **All activity** to open the **Activity** tab. |
+| **Activity** | **Everything recorded about this person**: the newest 50 audit log entries about any of their accounts or done by them, newest first. Each row says which account it was found under, so a Discord ban is never mistaken for a group one. |
 | **Notes** | What moderators have written down about them, newest first, and a box to add another. Notes that were taken back are still listed and marked. See [Notes](/moderation/notes). |
-| **History** | Their VRChat profile as it stood after each change Modbot recorded, newest first. Pick a version on the left to see it in full, pictures, banner and represented group included; the fields that change carried are marked. **JSON** under a version shows that version's record as stored; **Hide JSON** puts it away. **Now** is the profile as stored; **First seen** is where the record begins. See [Profile history](#profile-history). |
+| **Profile changes** | Their VRChat profile as it stood after each change Modbot recorded, newest first. Pick a version on the left to see it in full, pictures, banner and represented group included; the fields that change carried are marked. **JSON** under a version shows that version's record as stored; **Hide JSON** puts it away. **Now** is the profile as stored; **First seen** is where the record begins. See [Profile changes](#profile-changes). |
 | **Cases** | Their case files, withdrawn ones included and marked as such. Click one to open it. See [Bans and case files](/moderation/case-files). |
 | **Discord** | Their Discord details and their own comings and goings in the server. See [Discord members](/discord/members). |
 | **Messages** | Everything they wrote in Discord that Modbot has stored. Needs **Read Discord messages**. |
@@ -92,10 +92,10 @@ said either way.
 
 A tab is only there when there is an account behind it and you hold its permission.
 
-#### Profile history
+#### Profile changes
 
 Modbot keeps no separate copies of a profile. When a refresh finds a field changed, it writes an
-audit log entry with the old and new values, and the History tab replays those entries backwards
+audit log entry with the old and new values, and the Profile changes tab replays those entries backwards
 from the profile as stored now. A version's time is the window between the two reads that noticed
 the change. Clicking **VRChat profile** in a *profile changed* entry on the audit log opens the
 person on this tab at that version.
@@ -161,10 +161,11 @@ hearing nothing for a long time) or **Open now** with when it was last seen.
 - **Overview**: **Details** (**Region**, **Opened**, **People now** for an open instance, and
   **Seen by a moderator's client**: how many people a client saw and for how long in total), then
   the four figures (**Ran for** or **Open for**, **Most at once**, **People seen**, **Arrivals**),
-  the six people seen longest, and the newest 8 entries.
+  the six people seen longest, and the newest 8 entries, with **All activity** to open the
+  **Activity** tab.
 - **People**: **Who was seen in this instance**, with **Time seen**, **Arrivals**, **First seen**
   and **Last seen** for each person.
-- **Logs**: **What happened in this instance**, the newest 100 entries.
+- **Activity**: **What happened in this instance**, the newest 100 entries.
 - **JSON**: the instance's stored record as the API answers it, with a copy button.
 
 ## Size and address
@@ -177,17 +178,17 @@ for a person the version too (`?version=`); switching tabs by hand does not chan
 
 | Part | Permission |
 |---|---|
-| Person popup: profile, **Discord** card, **Cases** and **Metrics** tabs, **History** block | **See profiles** |
+| Person popup: profile, **Discord** card, **Cases**, **Profile changes** and **Metrics** tabs, **Past actions** block | **See profiles** |
 | Person popup: **Membership** card, **Discord** tab | **See members** |
 | Person popup: **Unlink** button | **Manage Discord links** |
 | Person popup: **Messages** tab | **Read Discord messages** |
 | Person popup: **Modbot account** card — knowing who holds which account | **See the operational log** or **Manage staff accounts** |
 | Person popup: **Account** tab | **See the audit log** for what they did as a moderator, **See the operational log** for their sign-ins and role changes |
-| Person popup: entries in **Logs** | **See the audit log** (and **See the operational log** for Modbot's own entries such as sign-ins) |
+| Person popup: entries in **Activity** | **See the audit log** (and **See the operational log** for Modbot's own entries such as sign-ins) |
 | Person popup: **Notes** tab | **See the audit log** to read them, **Write notes** to add one |
 | World popup | **See analytics** |
 | Instance popup | **See analytics** |
-| Instance popup: **People**, **Logs** and **Seen by a moderator's client** | **See analytics** and **See the audit log** |
+| Instance popup: **People**, **Activity** and **Seen by a moderator's client** | **See analytics** and **See the audit log** |
 
 When you lack a permission, the popup still opens and says **You do not have permission to see
 this.** (or a similar line) in the part you cannot see. See

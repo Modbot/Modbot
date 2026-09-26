@@ -34,7 +34,7 @@ curl https://modbot.example.com/api/server
 | `bannerUrl` | The group's banner. |
 | `ownerEmail` | The address of the person who runs this Modbot. See below. |
 | `version` | The Modbot release this server is running. |
-| `publicAddress` | The address saved under **Settings**, **Host & Database**, **Public address**. |
+| `publicAddress` | The address saved under **Settings**, **Server**, **Public address**. |
 
 **Any field can be null**, and on a Modbot that has not finished its
 [setup wizard](/setup-wizard) all of them are. The answer is still `200`, not `404`: "a Modbot that
@@ -51,7 +51,7 @@ It is the same address Modbot gives VRChat as its contact on every request. See
 
 ### Turning it off
 
-Open **Settings**, **Host & Database**, **Public address** and turn off **Show the owner's email
+Open **Settings**, **Server**, **Public address** and turn off **Show the owner's email
 address**. `ownerEmail` is then `null`. Nothing else on this page changes. You need the
 **Change settings** permission, and the change is recorded in the [audit log](/moderation/audit-log).
 

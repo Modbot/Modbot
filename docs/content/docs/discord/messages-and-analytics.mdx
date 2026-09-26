@@ -37,7 +37,7 @@ server finishes in minutes; a very large one can take hours.
 It stops reading a channel when it reaches the first message, or when it finds three pages in a
 row it already has. If Modbot restarts part way through, it carries on where it stopped.
 
-The **Discord bot** card on the **Sync health** page shows progress, for example
+The **Discord bot** card on the **Health** page shows progress, for example
 **Message history read back: 12 of 40 channels and threads · 85,000 messages stored**, and how
 many channels it has no access to.
 
@@ -71,7 +71,7 @@ Time in voice is counted from these voice events.
 
 ### How long messages are kept
 
-Set how long messages are kept under **Settings → Host & Database**, on the **Retention** card, in
+Set how long messages are kept under **Settings → Server**, on the **Retention** card, in
 **Discord messages (days)**. `0` keeps them forever. Older messages, with their earlier edited
 versions, are removed by Modbot's retention job, and a message older than the setting is not stored
 in the first place. See [Data and retention](/self-hosting/data-retention).

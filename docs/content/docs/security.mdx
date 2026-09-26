@@ -87,7 +87,7 @@ Modbot say which person did something, not just which username. See
   database contains no working links.
 - Invite links last 72 hours and reset links 24 hours. Both work once.
 - A reset link that Modbot sends by email or Discord is built **only** from the **Public address**
-  saved under **Settings**, **Host & Database**. It is never built from the address a request came
+  saved under **Settings**, **Server**. It is never built from the address a request came
   in on, or from forwarding headers. Anybody can ask for a reset link for somebody else's username;
   if Modbot built the link from that request, an attacker could make a genuine reset message point
   at their own server. Until a public address is saved, nothing is sent.
@@ -243,7 +243,7 @@ Two more headers name the Modbot project itself (its contact email and
 `https://github.com/Modbot/Modbot`), so VRChat can reach somebody who can explain the traffic even if
 your address stops working.
 
-If you set up a proxy for VRChat traffic in **Settings**, **VRChat Service Account**, those requests
+If you set up a proxy for VRChat traffic in **Settings**, **Modbot's VRChat login**, **Outgoing address**, those requests
 go through it.
 
 ## Logs

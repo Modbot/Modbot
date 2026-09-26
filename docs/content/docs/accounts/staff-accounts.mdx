@@ -14,7 +14,7 @@ What a person may do once they are in is decided by their roles. See
 
 ## The Users page
 
-Open **Settings**, then the **IAM** tab, then **Users**. You need the **Manage users** permission
+Open **Settings**, then the **People and roles** tab, then **Users**. You need the **Manage users** permission
 to see it, and that permission alone is enough to open Settings — you do not also need **Change
 settings**, and you will see only the tabs you may open.
 
@@ -252,7 +252,7 @@ There are two ways. You only need one.
 The sign-in page has **Forgot password?**. The person types their **Username** and presses
 **Send me a link**. Modbot sends a reset link:
 
-1. **by email**, if email is set up under **Settings**, **Integrations**, **Email (SMTP)**, and the
+1. **by email**, if email is set up under **Settings**, **Integrations**, **Email sending**, and the
    account has an email address,
 2. otherwise **by Discord direct message**, if a **Bot token** is saved under **Settings**,
    **Discord**, and the account has a Discord user id.
@@ -261,7 +261,7 @@ The message names the account and says nothing has changed if they did not ask. 
 **24 hours**.
 
 For this to work, an administrator must have saved the **Public address** of your Modbot under
-**Settings**, **Host & Database**. That is the address people type to reach it, and it is the only
+**Settings**, **Server**. That is the address people type to reach it, and it is the only
 thing a sent link is ever built from. If no public address is saved, or neither email nor Discord
 is set up, the forgot-password page says so and sends nothing. Use the second way instead.
 
@@ -311,14 +311,14 @@ the mail server refuses is retried 5 times with a growing wait before it is mark
 
 ### Where to see it and change it
 
-**Settings**, **Integrations**, **Email (SMTP)** shows **Sent in the last 24 hours** against the
+**Settings**, **Integrations**, **Email sending** shows **Sent in the last 24 hours** against the
 limit, how many are **Queued** and **Failed**, when the next queued email goes, and a table of
 everything still waiting with its address, kind, state and, for a failure, what the mail server
 said.
 
 **Email limit per 24 hours** on the same card changes the number. The lowest you can set is 20, and
 changing it is recorded in the audit log. Queued and failed email also raises the **Email** card on
-[Sync health](/self-hosting/health) and can be alerted on.
+[Health](/self-hosting/health) and can be alerted on.
 
 ## Your own account
 

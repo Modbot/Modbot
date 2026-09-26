@@ -28,7 +28,7 @@ and to VRChat when they first sign in (see [Staff accounts](/accounts/staff-acco
 
 You need the **Change settings** permission. The bot should be set up first
 ([Setting up the bot](/discord/bot-setup)), and a **Public address** must be saved under
-**Settings → Host & Database**.
+**Settings → Server**.
 
 <Steps>
 
@@ -159,7 +159,7 @@ and joins again, Discord removes their roles, and Modbot gives them back when it
 Seeing people join needs the **Server Members Intent**. Without it, the member can get their roles
 back by unlinking and linking again on the link page.
 
-If Discord refuses a role change, the **Discord bot** card on **Sync health** shows
+If Discord refuses a role change, the **Discord bot** card on **Health** shows
 "Could not change a linked member's role", with Discord's reason, and Modbot tries again a minute
 later.
 
@@ -184,7 +184,8 @@ Each attempt is recorded as **Asked to link on Discord**, with how it went.
 **A member** can unlink on the link page: they sign in with Discord and press **Unlink**.
 
 **A moderator** can unlink from the person's popup, on the **Discord** card. The popup is the
-same one whichever of their accounts you opened it by.
+same one whichever of their accounts you opened it by. **Unlink** opens a confirmation naming the
+person and their Discord id; press **Unlink** again to confirm, or **Cancel**.
 
 Seeing these cards needs **See profiles**. The **Unlink** button needs **Manage Discord links**.
 Of the built-in roles, only **Administrator** has Manage Discord links; give it to other roles on
@@ -215,5 +216,5 @@ These events appear in the audit log and can be sent to [event channels](/discor
 |---|---|
 | Sign in with Discord fails every time | Check that the **Redirect URL** in the Developer Portal matches the one on the **Account linking** card exactly, and that the client secret is current. |
 | **Linking** says **Not set up** | Save the client id, the client secret, and a public address. |
-| Members link but get no role | Give the bot **Manage Roles** and move its role above the linked and 18+ roles. Check **Sync health** for the reason. |
+| Members link but get no role | Give the bot **Manage Roles** and move its role above the linked and 18+ roles. Check **Health** for the reason. |
 | New joiners are not messaged | Check that **Prompt new joiners to link their VRChat account** is on and the **Server Members Intent** is switched on. |

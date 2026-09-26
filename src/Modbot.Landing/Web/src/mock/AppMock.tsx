@@ -14,15 +14,15 @@ const NAV: { label: string; group?: string }[] = [
   { label: 'Chat' },
   { label: 'Bans' },
   { label: 'Flags' },
+  { label: 'Reviews' },
   { label: 'Audit log' },
   { label: 'My Group', group: 'Analytics' },
   { label: 'My Team' },
   { label: 'Worlds' },
   { label: 'Instances' },
-  { label: 'Reviews', group: 'Team' },
   { label: 'Users' },
   { label: 'Roles' },
-  { label: 'Sync health', group: 'Setup' },
+  { label: "Modbot's log", group: 'System' },
   { label: 'Settings' },
 ]
 
@@ -176,7 +176,7 @@ export function AppMock({
               {(
                 [
                   { value: 'dense', label: 'Dense', icon: Rows3 },
-                  { value: 'comfortable', label: 'Comfy', icon: Rows2 },
+                  { value: 'comfortable', label: 'Comfortable', icon: Rows2 },
                   { value: 'vr', label: 'VR', icon: Headset },
                 ] as const
               ).map((o) => (

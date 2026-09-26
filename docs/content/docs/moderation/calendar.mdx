@@ -22,7 +22,7 @@ Each of these is a tick box on the event. Leave any of them off and Modbot does 
 | See the **Calendar** page, every event, where each one is published and any errors | [**See calendar**](/accounts/roles-and-permissions#see-calendar) |
 | Plan, edit, cancel and delete events | [**Manage calendar**](/accounts/roles-and-permissions#manage-calendar) and **See calendar** |
 | See, copy or replace the calendar feed link | **Manage calendar** and **See calendar** |
-| See calendar problems on **Sync health** | [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
+| See calendar problems on **Health** | [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
 
 Without **See calendar**, **Calendar** does not appear in the sidebar. **Manage calendar** on its own
 is not enough to open the page. Without **Manage calendar**, the page is read-only: there is no
@@ -190,7 +190,7 @@ The form shows what is wrong, for example:
 ## VRChat's group calendar
 
 When **Publish to VRChat calendar** is ticked, Modbot adds the event to the calendar of the group
-chosen as **Managed group** (**Settings**, **VRChat Service Account**). With no managed group chosen,
+chosen as **Managed group** (**Settings**, **Modbot's VRChat login**). With no managed group chosen,
 nothing is sent.
 
 - **A repeating event is one entry on VRChat**, using VRChat's own repeat, in the event's time zone,
@@ -222,7 +222,7 @@ What Modbot does next depends on why it failed:
 
 - **VRChat said "too many requests".** Modbot never retries straight away. It pauses all VRChat
   calendar changes for a while and the place shows **Waiting**, not **Failed**. It carries on by
-  itself. You can see the pause under **Rate-limit budgets** on [Sync health](/self-hosting/health#rate-limit-budgets).
+  itself. You can see the pause under **VRChat request limits** on [Health](/self-hosting/health#vrchat-request-limits).
 - **VRChat refused the event** (for example, a field it does not accept). Modbot does not send the
   same thing again. Fix the event in Modbot, and the changed version is sent. Saving it with nothing
   changed does not send it again.
@@ -246,7 +246,7 @@ When **Discord event** is ticked, Modbot makes an event in the server set as **G
 - **Before the instance opens**, its location is the world's name.
 - **When the event opens**, Modbot starts the Discord event and puts the join link in it. Discord only
   allows 100 characters for a location, and VRChat's join links are longer. So:
-  - if your **Public address** is set (**Settings**, **Host & Database**), the location is a short
+  - if your **Public address** is set (**Settings**, **Server**), the location is a short
     Modbot address that sends people on to the instance;
   - otherwise the location stays the world's name, and the join link goes at the top of the
     description.
@@ -317,7 +317,7 @@ Once the instance is open, its join link goes onto the Discord event and the cha
 event shows it under **Instance**. When the instance closes, the link is taken off.
 
 **If VRChat refuses, Modbot does not try again** for that time. The error shows on the event under
-**Instance** and on [Sync health](#on-sync-health). The next time the event happens gets its own
+**Instance** and on [Health](#on-health). The next time the event happens gets its own
 attempt. If you need the instance now, open it yourself in VRChat.
 
 Modbot opens at most one instance every 5 seconds, which is well within what an event needs.
@@ -341,7 +341,7 @@ The link looks like this:
 https://modbot.example.com/api/calendar/feed/<secret>.ics
 ```
 
-It starts with your **Public address** (**Settings**, **Host & Database**). If that is not set, the
+It starts with your **Public address** (**Settings**, **Server**). If that is not set, the
 page uses the address you have open in your browser instead, which only works for others if they
 can reach that address too.
 
@@ -404,9 +404,9 @@ deleted **Finished** event is also removed from VRChat's calendar.
 There is no "are you sure?" step, and there is no way to bring a deleted event back from the page.
 Its history stays in the [audit log](#in-the-audit-log).
 
-## On Sync health
+## On Health
 
-The [Sync health](/self-hosting/health) page (**See the operational log**) shows calendar problems
+The [Health](/self-hosting/health) page (**See the operational log**) shows calendar problems
 for events that are **Scheduled** or **Open**:
 
 - **A Calendar card** appears when something failed. Each line reads: the event's title, the place
@@ -416,7 +416,7 @@ for events that are **Scheduled** or **Open**:
   ticked and the bot does not have Manage Events in your server.
 
 A place that is only **Waiting** because of a VRChat rate limit is not a problem and is not listed
-here. Look at **Rate-limit budgets** on the same page instead.
+here. Look at **VRChat request limits** on the same page instead.
 
 ## In the audit log
 
@@ -440,10 +440,10 @@ entries (you need **See the operational log** to see them):
 
 **The VRChat calendar place stays on Waiting.** Modbot sends at most one VRChat calendar change a
 minute, and waits 20 seconds after your last edit. With several events queued, give it a few minutes.
-If it still waits, VRChat may have asked Modbot to slow down; check **Rate-limit budgets** on
-[Sync health](/self-hosting/health#rate-limit-budgets). Also check that a **Managed group** is chosen.
+If it still waits, VRChat may have asked Modbot to slow down; check **VRChat request limits** on
+[Health](/self-hosting/health#vrchat-request-limits). Also check that a **Managed group** is chosen.
 
-**Nothing happens in Discord.** Check that the bot is connected on [Sync health](/self-hosting/health),
+**Nothing happens in Discord.** Check that the bot is connected on [Health](/self-hosting/health),
 that **Guild id** is set, and, for the Discord event, that the bot has **Manage Events**. After fixing
 a permission, change something about the event, such as its description, and save, so Modbot tries
 again.
