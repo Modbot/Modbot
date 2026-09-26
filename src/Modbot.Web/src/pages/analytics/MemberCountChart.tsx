@@ -25,6 +25,9 @@ import { Nothing, Panel, Toggle } from './shared'
  * already two thousand points. The server thins a long range to about 500 points, each a real
  * reading (see `GroupMemberCountQuery`), so the chart never decides which readings to drop.
  *
+ * Both scales start at 0 and count whole people. Fitted to the readings, a group going from 4
+ * members to 5 filled the whole height and read like a surge, with ticks at 4.25 people.
+ *
  * Two axes on one chart, against the charts' one-axis rule, because the two lines are one thing
  * -- the same people, in the group and online now -- at two magnitudes, and the question the
  * overlay answers is how the second moves against the first. The online axis is on the right, in
@@ -132,7 +135,8 @@ export function MemberCountChart() {
                 <YAxis
                   yAxisId="members"
                   width="auto"
-                  domain={['auto', 'auto']}
+                  domain={[0, 'auto']}
+                  allowDecimals={false}
                   tickFormatter={compactNumber}
                   tickLine={false}
                   axisLine={false}
@@ -144,6 +148,7 @@ export function MemberCountChart() {
                   orientation={lines.members ? 'right' : 'left'}
                   width="auto"
                   domain={[0, 'auto']}
+                  allowDecimals={false}
                   tickFormatter={compactNumber}
                   tickLine={false}
                   axisLine={false}
