@@ -126,8 +126,8 @@ public sealed class CloudTestHost : IAsyncDisposable
             proxyApiKey,
             new MailSettings(canSendMail ? "test-key" : null, "Modbot <noreply@modbot.test>", PublicAddress),
             runDailyUpkeep: false,
-            // The tests run the instance checks themselves, against the fake clock.
-            watchInstances: false,
+            // The tests run the server checks themselves, against the fake clock.
+            watchServers: false,
             // Same: a test refreshes the release news itself, and no test reaches GitHub.
             refreshUpdates: false);
 

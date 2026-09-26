@@ -23,8 +23,8 @@ public sealed record AdminAccountView(
 /// Who runs it, when the address said so on a register visit. <strong>Admin only</strong> — it is
 /// stored so the maintainer can reach an operator, and appears nowhere else (register details spec 3.4).
 /// </param>
-public sealed record AdminPageInstanceView(
-    [property: JsonPropertyName("instanceUrl")] string InstanceUrl,
+public sealed record AdminPageServerView(
+    [property: JsonPropertyName("serverUrl")] string ServerUrl,
     [property: JsonPropertyName("firstSeenAt")] DateTimeOffset FirstSeenAt,
     [property: JsonPropertyName("lastSeenAt")] DateTimeOffset LastSeenAt,
     [property: JsonPropertyName("visits")] int Visits,
@@ -33,7 +33,15 @@ public sealed record AdminPageInstanceView(
     [property: JsonPropertyName("groupName")] string? GroupName,
     [property: JsonPropertyName("groupIconUrl")] string? GroupIconUrl,
     [property: JsonPropertyName("groupBannerUrl")] string? GroupBannerUrl,
-    [property: JsonPropertyName("ownerEmail")] string? OwnerEmail);
+    [property: JsonPropertyName("ownerEmail")] string? OwnerEmail)
+{
+    /// <summary>
+    /// The same address under its old name, added 2026-09-26 when "instance" became "server".
+    /// Drop it with the <c>/page-instances</c> routes.
+    /// </summary>
+    [JsonPropertyName("instanceUrl")]
+    public string OldServerUrl => ServerUrl;
+}
 
 /// <param name="Registered">Servers that registered themselves.</param>
 /// <param name="ActiveLast30Days">Of those, seen in the last 30 days.</param>
@@ -46,8 +54,16 @@ public sealed record RegistryStats(
     [property: JsonPropertyName("activeLast30Days")] int ActiveLast30Days,
     [property: JsonPropertyName("claimed")] int Claimed,
     [property: JsonPropertyName("byVersion")] IReadOnlyDictionary<string, int> ByVersion,
-    [property: JsonPropertyName("pageInstances")] int PageInstances,
-    [property: JsonPropertyName("pageOnly")] int PageOnly);
+    [property: JsonPropertyName("pageServers")] int PageServers,
+    [property: JsonPropertyName("pageOnly")] int PageOnly)
+{
+    /// <summary>
+    /// The same count under its old name, added 2026-09-26 when "instance" became "server".
+    /// Drop it with the <c>/page-instances</c> routes.
+    /// </summary>
+    [JsonPropertyName("pageInstances")]
+    public int OldPageServers => PageServers;
+}
 
 /// <summary>
 /// Cloud admin: every account, every registered server, what each reported, and the addresses noted
@@ -69,8 +85,13 @@ public static class AdminRegistryEndpoints
         admin.MapGet("/servers/{serverId:guid}", ServerAsync);
         admin.MapGet("/servers/{serverId:guid}/reports", ReportsAsync);
         admin.MapDelete("/servers/{serverId:guid}", DeleteServerAsync);
-        admin.MapGet("/page-instances", PageInstancesAsync);
-        admin.MapDelete("/page-instances", DeletePageInstanceAsync);
+        admin.MapGet("/page-servers", PageServersAsync);
+        admin.MapDelete("/page-servers", DeletePageServerAsync);
+
+        // The old paths, kept 2026-09-26 when "instance" became "server" so a caller of the old
+        // name keeps working. Drop them, and the old JSON names above, once nothing calls them.
+        admin.MapGet("/page-instances", PageServersAsync);
+        admin.MapDelete("/page-instances", DeletePageServerAsync);
         admin.MapGet("/registry-stats", StatsAsync);
 
         return app;
@@ -136,7 +157,7 @@ public static class AdminRegistryEndpoints
                 Server = s,
                 Email = db.Accounts.Where(a => a.Id == s.AccountId).Select(a => a.Email).FirstOrDefault(),
                 OwnerEmail = db.VisitedServers
-                    .Where(v => v.InstanceUrl == s.PublicAddress)
+                    .Where(v => v.ServerUrl == s.PublicAddress)
                     .Select(v => v.OwnerEmail)
                     .FirstOrDefault(),
             })
@@ -167,7 +188,7 @@ public static class AdminRegistryEndpoints
 
         var ownerEmail = row.PublicAddress is { } address
             ? await db.VisitedServers
-                .Where(v => v.InstanceUrl == address)
+                .Where(v => v.ServerUrl == address)
                 .Select(v => v.OwnerEmail)
                 .FirstOrDefaultAsync(ct)
             : null;
@@ -221,7 +242,7 @@ public static class AdminRegistryEndpoints
             : Results.NoContent();
     }
 
-    internal static async Task<IResult> PageInstancesAsync(
+    internal static async Task<IResult> PageServersAsync(
         [FromQuery] string? search,
         [FromQuery] int? offset,
         [FromQuery] int? limit,
@@ -229,31 +250,31 @@ public static class AdminRegistryEndpoints
         CancellationToken ct)
     {
         var (skip, take) = Paging.Clamp(offset, limit);
-        var query = db.PageInstances.AsNoTracking();
+        var query = db.PageServers.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(i => EF.Functions.ILike(i.InstanceUrl, Search.Contains(search)));
+            query = query.Where(i => EF.Functions.ILike(i.ServerUrl, Search.Contains(search)));
 
         var total = await query.CountAsync(ct);
         var rows = await query
             .OrderByDescending(i => i.LastSeenAt)
-            .ThenBy(i => i.InstanceUrl)
+            .ThenBy(i => i.ServerUrl)
             .Skip(skip)
             .Take(take)
             .Select(i => new
             {
-                Instance = i,
-                AlsoRegistered = db.RegisteredServers.Any(s => s.PublicAddress == i.InstanceUrl),
-                Learned = db.VisitedServers.FirstOrDefault(s => s.InstanceUrl == i.InstanceUrl),
+                Server = i,
+                AlsoRegistered = db.RegisteredServers.Any(s => s.PublicAddress == i.ServerUrl),
+                Learned = db.VisitedServers.FirstOrDefault(s => s.ServerUrl == i.ServerUrl),
             })
             .ToListAsync(ct);
 
         var items = rows
-            .Select(r => new AdminPageInstanceView(
-                r.Instance.InstanceUrl,
-                r.Instance.FirstSeenAt,
-                r.Instance.LastSeenAt,
-                r.Instance.Visits,
+            .Select(r => new AdminPageServerView(
+                r.Server.ServerUrl,
+                r.Server.FirstSeenAt,
+                r.Server.LastSeenAt,
+                r.Server.Visits,
                 r.AlsoRegistered,
                 r.Learned?.GroupId,
                 r.Learned?.GroupName,
@@ -262,14 +283,14 @@ public static class AdminRegistryEndpoints
                 r.Learned?.OwnerEmail))
             .ToList();
 
-        return Results.Ok(new Page<AdminPageInstanceView>(total, skip, take, items));
+        return Results.Ok(new Page<AdminPageServerView>(total, skip, take, items));
     }
 
     /// <summary>
     /// Forgets a noted address: its row, and the visitor lists that would otherwise keep offering it
     /// to the people who opened it.
     /// </summary>
-    internal static async Task<IResult> DeletePageInstanceAsync(
+    internal static async Task<IResult> DeletePageServerAsync(
         [FromQuery] string? url,
         [FromServices] CloudContext db,
         CancellationToken ct)
@@ -279,8 +300,8 @@ public static class AdminRegistryEndpoints
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        var deleted = await db.PageInstances.Where(i => i.InstanceUrl == url).ExecuteDeleteAsync(ct);
-        await db.VisitorInstances.Where(v => v.InstanceUrl == url).ExecuteDeleteAsync(ct);
+        var deleted = await db.PageServers.Where(i => i.ServerUrl == url).ExecuteDeleteAsync(ct);
+        await db.VisitorServers.Where(v => v.ServerUrl == url).ExecuteDeleteAsync(ct);
 
         await transaction.CommitAsync(ct);
 
@@ -308,7 +329,7 @@ public static class AdminRegistryEndpoints
             await db.RegisteredServers.CountAsync(s => s.LastSeenAt >= since, ct),
             await db.RegisteredServers.CountAsync(s => s.AccountId != null, ct),
             byVersion,
-            await db.PageInstances.CountAsync(ct),
-            await db.PageInstances.CountAsync(i => !db.RegisteredServers.Any(s => s.PublicAddress == i.InstanceUrl), ct)));
+            await db.PageServers.CountAsync(ct),
+            await db.PageServers.CountAsync(i => !db.RegisteredServers.Any(s => s.PublicAddress == i.ServerUrl), ct)));
     }
 }

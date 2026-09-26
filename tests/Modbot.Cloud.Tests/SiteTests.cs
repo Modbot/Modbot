@@ -44,6 +44,9 @@ public sealed class SiteTests(PostgresFixture db)
         var items = await VisitsAsync(host, Visitor);
 
         Assert.Single(items);
+        Assert.Equal("https://modbot.example", items[0].GetProperty("serverUrl").GetString());
+
+        // Still sent under the old name until the deployed my.modbot.co reads the new one.
         Assert.Equal("https://modbot.example", items[0].GetProperty("instanceUrl").GetString());
     }
 
@@ -59,7 +62,7 @@ public sealed class SiteTests(PostgresFixture db)
         Assert.Equal(1, items[0].GetProperty("visits").GetInt32());
 
         // Past the five minutes, it is a new visit.
-        host.Time.Advance(InstanceVisits.RepeatWindow + TimeSpan.FromMinutes(1));
+        host.Time.Advance(ServerVisits.RepeatWindow + TimeSpan.FromMinutes(1));
         await SaveAsync(host, "https://modbot.example");
 
         items = await VisitsAsync(host, Visitor);
@@ -82,7 +85,7 @@ public sealed class SiteTests(PostgresFixture db)
         await using var host = await CloudTestHost.StartAsync(db);
 
         await SaveAsync(host, "https://modbot.example");
-        host.Time.Advance(InstanceVisits.HistoryReach + TimeSpan.FromDays(1));
+        host.Time.Advance(ServerVisits.HistoryReach + TimeSpan.FromDays(1));
 
         Assert.Empty(await VisitsAsync(host, Visitor));
     }

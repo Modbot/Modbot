@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace Modbot.Cloud.Engine;
 
 /// <summary>
-/// One log line a Modbot deployment sent Cloud. The table is <c>instance_log</c>.
+/// One log line a Modbot deployment sent Cloud. The table is <c>server_log</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -35,7 +35,7 @@ namespace Modbot.Cloud.Engine;
 /// logs, which is the whole point of Cloud holding them.
 /// </para>
 /// </remarks>
-public sealed class InstanceLogLine
+public sealed class ServerLogLine
 {
     public const int MaxLevelLength = 16;
     public const int MaxSourceLength = 256;
@@ -89,35 +89,35 @@ public sealed class InstanceLogLine
     public string Properties { get; set; } = "{}";
 }
 
-internal sealed class InstanceLogLineConfiguration : IEntityTypeConfiguration<InstanceLogLine>
+internal sealed class ServerLogLineConfiguration : IEntityTypeConfiguration<ServerLogLine>
 {
-    public void Configure(EntityTypeBuilder<InstanceLogLine> entity)
+    public void Configure(EntityTypeBuilder<ServerLogLine> entity)
     {
-        entity.ToTable("instance_log");
+        entity.ToTable("server_log");
 
         // PostgreSQL requires the partition key in every unique constraint on a partitioned table,
         // so the key is (id, received_at) rather than id alone -- the same shape modbot_event uses.
-        entity.HasKey(e => new { e.Id, e.ReceivedAt }).HasName("pk_instance_log");
+        entity.HasKey(e => new { e.Id, e.ReceivedAt }).HasName("pk_server_log");
 
         // A plain sequence default rather than an identity column: identity is not accepted on a
         // partitioned parent in PostgreSQL 16, which is the floor this targets.
         entity.Property(e => e.Id).UseSerialColumn();
 
-        entity.Property(e => e.Level).HasMaxLength(InstanceLogLine.MaxLevelLength);
-        entity.Property(e => e.Source).HasMaxLength(InstanceLogLine.MaxSourceLength);
-        entity.Property(e => e.Area).HasMaxLength(InstanceLogLine.MaxAreaLength);
-        entity.Property(e => e.Service).HasMaxLength(InstanceLogLine.MaxServiceLength);
-        entity.Property(e => e.Version).HasMaxLength(InstanceLogLine.MaxVersionLength);
+        entity.Property(e => e.Level).HasMaxLength(ServerLogLine.MaxLevelLength);
+        entity.Property(e => e.Source).HasMaxLength(ServerLogLine.MaxSourceLength);
+        entity.Property(e => e.Area).HasMaxLength(ServerLogLine.MaxAreaLength);
+        entity.Property(e => e.Service).HasMaxLength(ServerLogLine.MaxServiceLength);
+        entity.Property(e => e.Version).HasMaxLength(ServerLogLine.MaxVersionLength);
         entity.Property(e => e.Properties).HasColumnType("jsonb");
 
         // One deployment's recent lines: the viewer's default question.
         entity.HasIndex(e => new { e.ServerId, e.ReceivedAt })
-            .HasDatabaseName("ix_instance_log_server_received_at")
+            .HasDatabaseName("ix_server_log_server_received_at")
             .IsDescending(false, true);
 
         // "Show me the errors across every deployment", which is the other one.
         entity.HasIndex(e => new { e.Level, e.ReceivedAt })
-            .HasDatabaseName("ix_instance_log_level_received_at")
+            .HasDatabaseName("ix_server_log_level_received_at")
             .IsDescending(false, true);
     }
 }

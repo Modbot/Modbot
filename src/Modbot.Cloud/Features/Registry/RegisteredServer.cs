@@ -102,7 +102,7 @@ internal sealed class RegisteredServerConfiguration : IEntityTypeConfiguration<R
         entity.HasKey(s => s.Id);
         entity.Property(s => s.Id).ValueGeneratedNever();
         entity.Property(s => s.SecretHash).HasMaxLength(64);
-        entity.Property(s => s.PublicAddress).HasMaxLength(InstanceUrl.MaxLength);
+        entity.Property(s => s.PublicAddress).HasMaxLength(ServerUrl.MaxLength);
         entity.Property(s => s.Version).HasMaxLength(RegisteredServer.MaxVersionLength);
         entity.Property(s => s.HostPlatform).HasMaxLength(RegisteredServer.MaxPlatformLength);
         entity.Property(s => s.GroupId).HasMaxLength(RegisteredServer.MaxGroupIdLength);

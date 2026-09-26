@@ -2,13 +2,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Modbot.Cloud.Features.InstanceAlerts;
+namespace Modbot.Cloud.Features.ServerAlerts;
 
 /// <summary>Checks the watched deployments every few minutes.</summary>
-public sealed class InstanceAlertService(
+public sealed class ServerAlertService(
     IServiceScopeFactory scopes,
     TimeProvider time,
-    ILogger<InstanceAlertService> log) : BackgroundService
+    ILogger<ServerAlertService> log) : BackgroundService
 {
     private static readonly TimeSpan FirstRun = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMinutes(15);
@@ -28,7 +28,7 @@ public sealed class InstanceAlertService(
                 return;
             }
 
-            wait = await RunOnceAsync(stoppingToken) ? InstanceAlertChecker.CheckEvery : RetryDelay;
+            wait = await RunOnceAsync(stoppingToken) ? ServerAlertChecker.CheckEvery : RetryDelay;
         }
     }
 
@@ -37,14 +37,14 @@ public sealed class InstanceAlertService(
         try
         {
             await using var scope = scopes.CreateAsyncScope();
-            var checker = scope.ServiceProvider.GetRequiredService<InstanceAlertChecker>();
+            var checker = scope.ServiceProvider.GetRequiredService<ServerAlertChecker>();
 
             var run = await checker.RunOnceAsync(ct);
 
             if (run.Problems.Count > 0 || run.Recoveries.Count > 0)
             {
                 log.LogInformation(
-                    "Instance alerts: {Problems} went quiet or wrong, {Recoveries} came back, {Sent} email(s) sent",
+                    "Server alerts: {Problems} went quiet or wrong, {Recoveries} came back, {Sent} email(s) sent",
                     run.Problems,
                     run.Recoveries,
                     run.Sent);

@@ -6,7 +6,7 @@ using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
 using Modbot.Cloud.Features.Mail;
 
-namespace Modbot.Cloud.Features.InstanceAlerts;
+namespace Modbot.Cloud.Features.ServerAlerts;
 
 /// <param name="On">Whether Cloud emails about this deployment.</param>
 /// <param name="Email">Where the emails go. Empty means the account that claimed this server.</param>
@@ -20,7 +20,7 @@ namespace Modbot.Cloud.Features.InstanceAlerts;
 /// <param name="LastError">Why the last email could not be sent.</param>
 /// <param name="MailConfigured">Whether Cloud can send email at all.</param>
 /// <param name="SendsTo">The address the next email would actually go to. Null when there is none.</param>
-public sealed record InstanceAlertView(
+public sealed record ServerAlertView(
     bool On,
     string Email,
     int SilentAfterMinutes,
@@ -39,7 +39,7 @@ public sealed record InstanceAlertView(
 /// <param name="SilentAfterMinutes">5 to 10080.</param>
 /// <param name="ErrorsAnHour">0 to 1000000. 0 turns the error check off.</param>
 /// <param name="QuietHours">0 to 168.</param>
-public sealed record InstanceAlertUpdate(
+public sealed record ServerAlertUpdate(
     bool On,
     string? Email,
     int SilentAfterMinutes,
@@ -54,9 +54,9 @@ public sealed record InstanceAlertUpdate(
 /// uses, decided in the same way. An owner never has to type their own address: leaving it empty
 /// sends to the account's.
 /// </remarks>
-public static class AdminInstanceAlertEndpoints
+public static class AdminServerAlertEndpoints
 {
-    public static IEndpointRouteBuilder MapAdminInstanceAlerts(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapAdminServerAlerts(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -91,15 +91,15 @@ public static class AdminInstanceAlertEndpoints
         if (!await MayEditAsync(http, serverId))
             return Refused(http);
 
-        var alert = await cloud.InstanceAlerts.AsNoTracking().SingleOrDefaultAsync(a => a.ServerId == serverId, ct)
-                    ?? new InstanceAlert { ServerId = serverId };
+        var alert = await cloud.ServerAlerts.AsNoTracking().SingleOrDefaultAsync(a => a.ServerId == serverId, ct)
+                    ?? new ServerAlert { ServerId = serverId };
 
         return Results.Ok(View(alert, mailer, await OwnerAddressAsync(cloud, serverId, ct)));
     }
 
     internal static async Task<IResult> SaveAsync(
         [FromRoute] Guid serverId,
-        [FromBody] InstanceAlertUpdate? request,
+        [FromBody] ServerAlertUpdate? request,
         [FromServices] CloudContext cloud,
         [FromServices] ICloudMailer mailer,
         HttpContext http,
@@ -120,7 +120,7 @@ public static class AdminInstanceAlertEndpoints
         if (request.QuietHours is < 0 or > 168)
             return Results.Json(new { error = "Quiet time is 0 to 168 hours." }, statusCode: StatusCodes.Status400BadRequest);
 
-        var email = ClientText.Clean(request.Email, InstanceAlert.MaxEmailLength) ?? "";
+        var email = ClientText.Clean(request.Email, ServerAlert.MaxEmailLength) ?? "";
 
         if (email.Length > 0 && !email.Contains('@', StringComparison.Ordinal))
             return Results.Json(new { error = "That is not an address." }, statusCode: StatusCodes.Status400BadRequest);
@@ -139,12 +139,12 @@ public static class AdminInstanceAlertEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        var alert = await cloud.InstanceAlerts.SingleOrDefaultAsync(a => a.ServerId == serverId, ct);
+        var alert = await cloud.ServerAlerts.SingleOrDefaultAsync(a => a.ServerId == serverId, ct);
 
         if (alert is null)
         {
-            alert = new InstanceAlert { ServerId = serverId };
-            cloud.InstanceAlerts.Add(alert);
+            alert = new ServerAlert { ServerId = serverId };
+            cloud.ServerAlerts.Add(alert);
         }
 
         // Turning it off clears what it was saying, so turning it back on later does not open with
@@ -182,7 +182,7 @@ public static class AdminInstanceAlertEndpoints
         return Results.Json(new { error = "Not signed in." }, statusCode: StatusCodes.Status401Unauthorized);
     }
 
-    private static InstanceAlertView View(InstanceAlert alert, ICloudMailer mailer, string? owner) => new(
+    private static ServerAlertView View(ServerAlert alert, ICloudMailer mailer, string? owner) => new(
         alert.On,
         alert.Email,
         alert.SilentAfterMinutes,

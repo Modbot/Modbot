@@ -94,7 +94,7 @@ export type ShowcaseUpdate = {
   sortOrder: number
 }
 
-export type InstanceAlertView = {
+export type ServerAlertView = {
   on: boolean
   email: string
   silentAfterMinutes: number
@@ -110,7 +110,7 @@ export type InstanceAlertView = {
   sendsTo: string | null
 }
 
-export type InstanceAlertUpdate = {
+export type ServerAlertUpdate = {
   on: boolean
   email: string
   silentAfterMinutes: number
@@ -237,10 +237,10 @@ export const api = {
   removeShowcase: (id: string) =>
     request<void>('DELETE', `/api/admin/showcase/${encodeURIComponent(id)}`),
 
-  instanceAlerts: (id: string) =>
-    request<InstanceAlertView>('GET', `/api/admin/servers/${encodeURIComponent(id)}/alerts`),
-  saveInstanceAlerts: (id: string, body: InstanceAlertUpdate) =>
-    request<InstanceAlertView>('PUT', `/api/admin/servers/${encodeURIComponent(id)}/alerts`, body),
+  serverAlerts: (id: string) =>
+    request<ServerAlertView>('GET', `/api/admin/servers/${encodeURIComponent(id)}/alerts`),
+  saveServerAlerts: (id: string, body: ServerAlertUpdate) =>
+    request<ServerAlertView>('PUT', `/api/admin/servers/${encodeURIComponent(id)}/alerts`, body),
   settings: () => request<Settings>('GET', '/api/admin/settings'),
   saveSettings: (settings: Settings) => request<Settings>('PUT', '/api/admin/settings', settings),
 

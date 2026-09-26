@@ -4,7 +4,7 @@ using Modbot.Cloud.Data;
 using Modbot.Cloud.Features.EventBackup;
 using Modbot.Cloud.Features.Registry;
 
-namespace Modbot.Cloud.Features.InstanceLogs;
+namespace Modbot.Cloud.Features.ServerLogs;
 
 /// <summary>
 /// <c>POST /api/v1/logs</c>: a registered Modbot deployment's batch of its own log lines.
@@ -29,9 +29,9 @@ namespace Modbot.Cloud.Features.InstanceLogs;
 /// place-marker past them.
 /// </para>
 /// </remarks>
-public static class InstanceLogEndpoints
+public static class ServerLogEndpoints
 {
-    public static IEndpointRouteBuilder MapInstanceLogs(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapServerLogs(this IEndpointRouteBuilder app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -42,7 +42,7 @@ public static class InstanceLogEndpoints
     internal static async Task<IResult> ReceiveAsync(
         [FromServices] CloudContext cloud,
         [FromServices] LogBatchWriter writer,
-        [FromServices] InstanceLogLimits limits,
+        [FromServices] ServerLogLimits limits,
         [FromServices] TimeProvider time,
         HttpContext http,
         CancellationToken ct)
@@ -74,7 +74,7 @@ public static class InstanceLogEndpoints
             return problem == "too_many"
                 ? CloudError.Result(
                     StatusCodes.Status413PayloadTooLarge, "batch_too_large",
-                    $"A batch may carry {InstanceLogLimits.MaxLinesPerBatch} lines.")
+                    $"A batch may carry {ServerLogLimits.MaxLinesPerBatch} lines.")
                 : CloudError.Result(StatusCodes.Status400BadRequest, "malformed_batch", problem ?? "The batch is not usable.");
         }
 

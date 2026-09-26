@@ -51,7 +51,7 @@ internal sealed class ServerReportConfiguration : IEntityTypeConfiguration<Serve
     {
         entity.ToTable("server_report");
         entity.HasKey(r => r.Id);
-        entity.Property(r => r.PublicAddress).HasMaxLength(InstanceUrl.MaxLength);
+        entity.Property(r => r.PublicAddress).HasMaxLength(ServerUrl.MaxLength);
         entity.Property(r => r.Version).HasMaxLength(RegisteredServer.MaxVersionLength);
         entity.Property(r => r.HostPlatform).HasMaxLength(RegisteredServer.MaxPlatformLength);
         entity.Property(r => r.GroupId).HasMaxLength(RegisteredServer.MaxGroupIdLength);

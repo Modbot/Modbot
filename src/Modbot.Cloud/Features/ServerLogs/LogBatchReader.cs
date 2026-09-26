@@ -2,7 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using Modbot.Cloud.Features.EventBackup;
 
-namespace Modbot.Cloud.Features.InstanceLogs;
+namespace Modbot.Cloud.Features.ServerLogs;
 
 /// <summary>
 /// Reads a log batch body, gzipped or not, without letting it grow past the limits.
@@ -10,8 +10,8 @@ namespace Modbot.Cloud.Features.InstanceLogs;
 /// <remarks>
 /// The same shape as <see cref="EventBatchReader"/> and for the same reason: both caps are enforced
 /// <em>while</em> reading, so a body is never held beyond
-/// <see cref="InstanceLogLimits.MaxCompressedBytes"/> as sent or
-/// <see cref="InstanceLogLimits.MaxDecompressedBytes"/> once expanded, whatever the request claims.
+/// <see cref="ServerLogLimits.MaxCompressedBytes"/> as sent or
+/// <see cref="ServerLogLimits.MaxDecompressedBytes"/> once expanded, whatever the request claims.
 /// Log batches have their own, larger decompressed cap: text compresses far better than the event
 /// documents do, so the same megabyte on the wire carries several times as much.
 /// </remarks>
@@ -24,10 +24,10 @@ public static class LogBatchReader
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.ContentLength > InstanceLogLimits.MaxCompressedBytes)
+        if (request.ContentLength > ServerLogLimits.MaxCompressedBytes)
             return (BatchReadOutcome.TooLarge, null);
 
-        var raw = await ReadCappedAsync(request.Body, InstanceLogLimits.MaxCompressedBytes, ct);
+        var raw = await ReadCappedAsync(request.Body, ServerLogLimits.MaxCompressedBytes, ct);
         if (raw is null)
             return (BatchReadOutcome.TooLarge, null);
 
@@ -39,7 +39,7 @@ public static class LogBatchReader
             try
             {
                 await using var gzip = new GZipStream(raw, CompressionMode.Decompress);
-                body = await ReadCappedAsync(gzip, InstanceLogLimits.MaxDecompressedBytes, ct);
+                body = await ReadCappedAsync(gzip, ServerLogLimits.MaxDecompressedBytes, ct);
             }
             catch (InvalidDataException)
             {

@@ -5,7 +5,7 @@ using Modbot.Cloud.Engine;
 using Modbot.Cloud.Features.Accounts;
 using Modbot.Cloud.Features.Admin;
 
-namespace Modbot.Cloud.Features.InstanceLogs;
+namespace Modbot.Cloud.Features.ServerLogs;
 
 /// <summary>One stored log line, as the viewer shows it.</summary>
 /// <param name="Id">Row id. Also the paging cursor: ask for lines <c>before</c> this one.</param>
@@ -114,7 +114,7 @@ public static class AdminLogEndpoints
         var take = Math.Clamp(limit ?? DefaultPageSize, 1, MaxPageSize);
         var levels = LogLevelNames.AtLeast(level);
 
-        var query = engine.InstanceLogs.AsNoTracking().Where(l => levels.Contains(l.Level));
+        var query = engine.ServerLogs.AsNoTracking().Where(l => levels.Contains(l.Level));
 
         if (serverId is { } id)
             query = query.Where(l => l.ServerId == id);

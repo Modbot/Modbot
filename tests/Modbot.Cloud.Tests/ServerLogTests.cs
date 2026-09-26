@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Cloud.Engine;
 using Modbot.Cloud.Features.Accounts;
-using Modbot.Cloud.Features.InstanceLogs;
+using Modbot.Cloud.Features.ServerLogs;
 using Modbot.Cloud.Features.Registry;
 
 namespace Modbot.Cloud.Tests;
@@ -14,7 +14,7 @@ namespace Modbot.Cloud.Tests;
 /// The server log feed: a Modbot deployment sending Cloud its own log.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
-public class InstanceLogTests(PostgresFixture db)
+public class ServerLogTests(PostgresFixture db)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -33,7 +33,7 @@ public class InstanceLogTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         await using var engine = db.NewEngineContext();
-        var stored = await engine.InstanceLogs.OrderBy(l => l.At).ToListAsync(Ct);
+        var stored = await engine.ServerLogs.OrderBy(l => l.At).ToListAsync(Ct);
 
         Assert.Equal(2, stored.Count);
         Assert.Equal(id, stored[0].ServerId);
@@ -68,7 +68,7 @@ public class InstanceLogTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.Unauthorized, unknownId.StatusCode);
 
         await using var engine = db.NewEngineContext();
-        Assert.Equal(0, await engine.InstanceLogs.CountAsync(Ct));
+        Assert.Equal(0, await engine.ServerLogs.CountAsync(Ct));
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class InstanceLogTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         await using var engine = db.NewEngineContext();
-        Assert.Equal("Information", (await engine.InstanceLogs.SingleAsync(Ct)).Level);
+        Assert.Equal("Information", (await engine.ServerLogs.SingleAsync(Ct)).Level);
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class InstanceLogTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         await using var engine = db.NewEngineContext();
-        Assert.Equal("{}", (await engine.InstanceLogs.SingleAsync(Ct)).Properties);
+        Assert.Equal("{}", (await engine.ServerLogs.SingleAsync(Ct)).Properties);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public class InstanceLogTests(PostgresFixture db)
         await using var host = await CloudTestHost.StartAsync(db);
         var (_, bearer) = await host.RegisterServerAsync();
 
-        var lines = Enumerable.Range(0, InstanceLogLimits.MaxLinesPerBatch + 1)
+        var lines = Enumerable.Range(0, ServerLogLimits.MaxLinesPerBatch + 1)
             .Select(i => CloudTestHost.LogLine(Written.AddSeconds(i), $"line {i}"))
             .ToArray<object>();
 
@@ -126,7 +126,7 @@ public class InstanceLogTests(PostgresFixture db)
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
 
         await using var engine = db.NewEngineContext();
-        Assert.Equal(0, await engine.InstanceLogs.CountAsync(Ct));
+        Assert.Equal(0, await engine.ServerLogs.CountAsync(Ct));
     }
 
     [Fact]
@@ -265,10 +265,46 @@ public class InstanceLogTests(PostgresFixture db)
         var retention = scope.ServiceProvider.GetRequiredService<LogRetention>();
         var dropped = await retention.RunAsync(Ct);
 
-        Assert.Contains("instance_log_2026_09", dropped);
+        Assert.Contains("server_log_2026_09", dropped);
 
         await using var engine = db.NewEngineContext();
-        Assert.Equal(0, await engine.InstanceLogs.CountAsync(Ct));
+        Assert.Equal(0, await engine.ServerLogs.CountAsync(Ct));
+    }
+
+    [Fact]
+    public async Task RetentionStillDropsAMonthLeftUnderTheOldName()
+    {
+        await using var host = await CloudTestHost.StartAsync(db);
+
+        // A month the rename missed: still called instance_log_…, but a partition of server_log.
+        // May is outside the months the maintainer makes, so it does not clash with them.
+        await using (var engine = db.NewEngineContext())
+        {
+            await engine.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS instance_log_2026_05", Ct);
+            await engine.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE instance_log_2026_05 PARTITION OF server_log
+                    FOR VALUES FROM ('2026-05-01 00:00:00+00') TO ('2026-06-01 00:00:00+00')
+                """,
+                Ct);
+        }
+
+        using (var saved = await host.SendAsync(
+            HttpMethod.Put, "/api/admin/settings", new { eventKeepDays = 365, logKeepDays = 30 }, bearer: CloudTestHost.RootKey))
+        {
+            Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        }
+
+        using var scope = host.Services.CreateScope();
+        var dropped = await scope.ServiceProvider.GetRequiredService<LogRetention>().RunAsync(Ct);
+
+        Assert.Contains("instance_log_2026_05", dropped);
+
+        await using var after = db.NewEngineContext();
+        var left = await after.Database
+            .SqlQuery<bool>($"SELECT to_regclass('instance_log_2026_05') IS NOT NULL AS \"Value\"")
+            .SingleAsync(Ct);
+        Assert.False(left);
     }
 
     [Fact]
@@ -296,7 +332,7 @@ public class InstanceLogTests(PostgresFixture db)
         Assert.Empty(dropped);
 
         await using var engine = db.NewEngineContext();
-        Assert.Equal(1, await engine.InstanceLogs.CountAsync(Ct));
+        Assert.Equal(1, await engine.ServerLogs.CountAsync(Ct));
     }
 
     /// <summary>Signs up, verifies and signs in, and returns the session cookie.</summary>

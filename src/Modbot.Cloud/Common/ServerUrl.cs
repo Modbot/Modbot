@@ -6,7 +6,7 @@ namespace Modbot.Cloud.Common;
 /// The one rule for a Modbot server's address, shared by the registry and the selector's saves so
 /// that both hold addresses in the same shape and can be compared.
 /// </summary>
-public static class InstanceUrl
+public static class ServerUrl
 {
     public const int MaxLength = 2048;
 

@@ -15,7 +15,7 @@ namespace Modbot.Cloud.Data;
 /// <remarks>
 /// <para>
 /// Small, and meant to stay small: installs, admin sessions and settings today, and accounts,
-/// the instance registry, term lists and showcases later. The events clients back up live in the
+/// the server registry, term lists and showcases later. The events clients back up live in the
 /// other database (<see cref="Engine.EngineContext"/>), so this one can be backed up, restored
 /// and migrated without touching the event storage.
 /// </para>
@@ -44,10 +44,10 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
     public DbSet<ServerReport> ServerReports => Set<ServerReport>();
 
     /// <summary>Modbot addresses noted by a my.modbot.co page visit.</summary>
-    public DbSet<PageInstance> PageInstances => Set<PageInstance>();
+    public DbSet<PageServer> PageServers => Set<PageServer>();
 
     /// <summary>Modbot addresses opened from each visitor's IP address.</summary>
-    public DbSet<VisitorInstance> VisitorInstances => Set<VisitorInstance>();
+    public DbSet<VisitorServer> VisitorServers => Set<VisitorServer>();
 
     /// <summary>What a my.modbot.co register visit learned by asking a Modbot address itself.</summary>
     public DbSet<VisitedServer> VisitedServers => Set<VisitedServer>();
@@ -68,8 +68,8 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
     public DbSet<CloudSettings> Settings => Set<CloudSettings>();
 
     /// <summary>Which deployments Cloud watches from outside, and who it emails about them.</summary>
-    public DbSet<Features.InstanceAlerts.InstanceAlert> InstanceAlerts =>
-        Set<Features.InstanceAlerts.InstanceAlert>();
+    public DbSet<Features.ServerAlerts.ServerAlert> ServerAlerts =>
+        Set<Features.ServerAlerts.ServerAlert>();
 
     /// <summary>The sponsors and early adopters every Modbot shows on its Credits page.</summary>
     public DbSet<Features.Showcase.ShowcaseEntry> ShowcaseEntries => Set<Features.Showcase.ShowcaseEntry>();
@@ -94,7 +94,7 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new InstallConfiguration());
         modelBuilder.ApplyConfiguration(new AdminSessionConfiguration());
         modelBuilder.ApplyConfiguration(new CloudSettingsConfiguration());
-        modelBuilder.ApplyConfiguration(new Features.InstanceAlerts.InstanceAlertConfiguration());
+        modelBuilder.ApplyConfiguration(new Features.ServerAlerts.ServerAlertConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Showcase.ShowcaseEntryConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Showcase.ShowcasePictureConfiguration());
         modelBuilder.ApplyConfiguration(new InstancesServerConfiguration());
@@ -104,8 +104,8 @@ public sealed class CloudContext(DbContextOptions<CloudContext> options) : DbCon
         modelBuilder.ApplyConfiguration(new AccountTokenConfiguration());
         modelBuilder.ApplyConfiguration(new RegisteredServerConfiguration());
         modelBuilder.ApplyConfiguration(new ServerReportConfiguration());
-        modelBuilder.ApplyConfiguration(new PageInstanceConfiguration());
-        modelBuilder.ApplyConfiguration(new VisitorInstanceConfiguration());
+        modelBuilder.ApplyConfiguration(new PageServerConfiguration());
+        modelBuilder.ApplyConfiguration(new VisitorServerConfiguration());
         modelBuilder.ApplyConfiguration(new VisitedServerConfiguration());
         modelBuilder.ApplyConfiguration(new Features.Subscribers.SubscriberConfiguration());
     }

@@ -36,7 +36,7 @@ public sealed class EngineContext(DbContextOptions<EngineContext> options) : DbC
     public DbSet<EventHourTotal> EventHourTotals => Set<EventHourTotal>();
 
     /// <summary>The log lines Modbot deployments send. Partitioned by month on <c>received_at</c>.</summary>
-    public DbSet<InstanceLogLine> InstanceLogs => Set<InstanceLogLine>();
+    public DbSet<ServerLogLine> ServerLogs => Set<ServerLogLine>();
 
     /// <summary>
     /// The one way this context is pointed at a database, so the app, the design-time factory and
@@ -66,6 +66,6 @@ public sealed class EngineContext(DbContextOptions<EngineContext> options) : DbC
         modelBuilder.ApplyConfiguration(new InstallClockConfiguration());
         modelBuilder.ApplyConfiguration(new EventDayTotalConfiguration());
         modelBuilder.ApplyConfiguration(new EventHourTotalConfiguration());
-        modelBuilder.ApplyConfiguration(new InstanceLogLineConfiguration());
+        modelBuilder.ApplyConfiguration(new ServerLogLineConfiguration());
     }
 }

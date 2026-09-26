@@ -60,7 +60,7 @@ public static class RegistryEndpoints
         {
             Id = Guid.NewGuid(),
             SecretHash = ServerSecrets.Hash(secret),
-            PublicAddress = InstanceUrl.TryNormalise(request?.PublicAddress, out var origin) ? origin : null,
+            PublicAddress = ServerUrl.TryNormalise(request?.PublicAddress, out var origin) ? origin : null,
             Version = ClientText.Clean(request?.Version, RegisteredServer.MaxVersionLength),
             HostPlatform = ClientText.Clean(request?.HostPlatform, RegisteredServer.MaxPlatformLength),
             RegisteredAt = now,
@@ -88,7 +88,7 @@ public static class RegistryEndpoints
 
         // Null leaves what is stored alone: a server that has not finished setting up has no group
         // yet, and a later report that does have one must not be able to blank it out by omission.
-        if (InstanceUrl.TryNormalise(request?.PublicAddress, out var origin))
+        if (ServerUrl.TryNormalise(request?.PublicAddress, out var origin))
             server.PublicAddress = origin;
 
         server.Version = Clean(request?.Version, RegisteredServer.MaxVersionLength) ?? server.Version;

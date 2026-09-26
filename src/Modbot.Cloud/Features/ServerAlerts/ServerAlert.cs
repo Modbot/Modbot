@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Modbot.Cloud.Features.InstanceAlerts;
+namespace Modbot.Cloud.Features.ServerAlerts;
 
 /// <summary>
 /// Cloud watching one Modbot deployment from outside, and who to email when it goes wrong.
@@ -25,7 +25,7 @@ namespace Modbot.Cloud.Features.InstanceAlerts;
 /// type. A Cloud administrator can put another address in for a server nobody has claimed yet.
 /// </para>
 /// </remarks>
-public sealed class InstanceAlert
+public sealed class ServerAlert
 {
     public const int MaxEmailLength = 320;
     public const int MaxDetailLength = 512;
@@ -76,11 +76,11 @@ public sealed class InstanceAlert
     public string? LastError { get; set; }
 }
 
-internal sealed class InstanceAlertConfiguration : IEntityTypeConfiguration<InstanceAlert>
+internal sealed class ServerAlertConfiguration : IEntityTypeConfiguration<ServerAlert>
 {
-    public void Configure(EntityTypeBuilder<InstanceAlert> entity)
+    public void Configure(EntityTypeBuilder<ServerAlert> entity)
     {
-        entity.ToTable("instance_alert");
+        entity.ToTable("server_alert");
 
         entity.HasKey(a => a.ServerId);
         entity.Property(a => a.ServerId).ValueGeneratedNever();
@@ -89,11 +89,11 @@ internal sealed class InstanceAlertConfiguration : IEntityTypeConfiguration<Inst
         // it and it works; hand-written SQL against this table would not.
         entity.Property(a => a.On).HasColumnName("watched");
 
-        entity.Property(a => a.Email).HasMaxLength(InstanceAlert.MaxEmailLength);
-        entity.Property(a => a.Detail).HasMaxLength(InstanceAlert.MaxDetailLength);
-        entity.Property(a => a.LastError).HasMaxLength(InstanceAlert.MaxDetailLength);
+        entity.Property(a => a.Email).HasMaxLength(ServerAlert.MaxEmailLength);
+        entity.Property(a => a.Detail).HasMaxLength(ServerAlert.MaxDetailLength);
+        entity.Property(a => a.LastError).HasMaxLength(ServerAlert.MaxDetailLength);
 
         // The checker reads only the ones that are on, and there are as many rows as deployments.
-        entity.HasIndex(a => a.On).HasDatabaseName("ix_instance_alert_watched");
+        entity.HasIndex(a => a.On).HasDatabaseName("ix_server_alert_watched");
     }
 }
