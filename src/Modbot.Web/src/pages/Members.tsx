@@ -305,11 +305,6 @@ export function Members({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject:
                           {m.plainName}
                         </div>
                       )}
-                      {m.displayName && (
-                        <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
-                          {m.userId}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </Td>
