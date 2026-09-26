@@ -127,6 +127,17 @@ public static class ModbotConsoleLog
     /// what stands in for it the rest of the time.
     /// </para>
     /// <para>
+    /// <strong>Outbound HTTP is held the same way, and for the same reason.</strong> The factory
+    /// that makes every <c>HttpClient</c> narrates four Information lines per call of its own —
+    /// start processing, sending, headers received, end processing — under
+    /// <c>System.Net.Http.HttpClient</c>. Modbot is a program whose job is calling other people's
+    /// APIs: the VRChat gate alone paces itself at about one and a half calls a second, all day,
+    /// before Discord or a file fetch. That is six lines a second saying a request happened,
+    /// against the one line Modbot writes saying what it was for and what came back. Like ASP.NET
+    /// Core, the level is chosen by the framework and cannot be moved one event at a time, so the
+    /// floor is the instrument. And like ASP.NET Core, asking for Debug brings all of it back.
+    /// </para>
+    /// <para>
     /// <strong>Entity Framework is not held here, and used to be (2026-09-18).</strong> EF does
     /// have the instrument ASP.NET Core lacks: a level can be set for one event where the context
     /// is configured, so the line per statement can be filed under Debug instead of being thrown
@@ -147,7 +158,10 @@ public static class ModbotConsoleLog
             .Enrich.WithProperty(VersionProperty, ModbotVersion.Release);
 
         if (level > LogEventLevel.Debug)
+        {
             config.MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning);
+            config.MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning);
+        }
 
         return config;
     }
