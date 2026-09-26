@@ -67,7 +67,7 @@ export function Stat({
   noteMono = false,
 }: {
   label: string
-  value: string
+  value: React.ReactNode
   note?: React.ReactNode
   noteMono?: boolean
 }) {
