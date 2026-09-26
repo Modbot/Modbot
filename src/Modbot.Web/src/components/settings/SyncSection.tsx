@@ -48,8 +48,7 @@ export function SyncSection() {
               <Row label="Back-off per quiet poll" value={`${settings.auditLog.quietBackoff}×`} mono />
               <Row
                 label="Jitter"
-                value={`up to +${Math.round(settings.auditLog.jitterFraction * 100)}%`}
-                mono
+                value={<>up to <span className="font-mono">+{Math.round(settings.auditLog.jitterFraction * 100)}%</span></>}
               />
               <Row label="Entries per request" value={String(settings.auditLog.pageSize)} mono />
               <Row label="Requests per poll" value={String(settings.auditLog.maxPagesPerRun)} mono />
@@ -57,9 +56,13 @@ export function SyncSection() {
               <Row
                 label="Catch-up"
                 value={
-                  settings.auditLog.catchUp
-                    ? `On, up to ${settings.auditLog.maxCatchUpPages.toLocaleString()} pages`
-                    : 'Off'
+                  settings.auditLog.catchUp ? (
+                    <>
+                      On, up to <span className="font-mono">{settings.auditLog.maxCatchUpPages.toLocaleString()}</span> pages
+                    </>
+                  ) : (
+                    'Off'
+                  )
                 }
               />
             </div>
@@ -84,8 +87,7 @@ export function SyncSection() {
               <Row label="Pacing floor" value={seconds(settings.groupInfo.pacingFloorSeconds)} mono />
               <Row
                 label="Jitter"
-                value={`up to +${Math.round(settings.groupInfo.jitterFraction * 100)}%`}
-                mono
+                value={<>up to <span className="font-mono">+{Math.round(settings.groupInfo.jitterFraction * 100)}%</span></>}
               />
             </div>
           </SettingsCard>
@@ -105,7 +107,7 @@ function SweepCard({ title, sweep }: { title: string; sweep: SweepSettings }) {
         <Row label="After a failure" value={seconds(sweep.retryIntervalSeconds)} mono />
         <Row label="While rate limited" value={seconds(sweep.rateLimitedIntervalSeconds)} mono />
         <Row label="Pacing floor" value={seconds(sweep.pacingFloorSeconds)} mono />
-        <Row label="Jitter" value={`up to ±${Math.round(sweep.jitterFraction * 100)}%`} mono />
+        <Row label="Jitter" value={<>up to <span className="font-mono">±{Math.round(sweep.jitterFraction * 100)}%</span></>} />
       </div>
     </SettingsCard>
   )

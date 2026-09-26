@@ -250,12 +250,14 @@ function ConnectionCard({
       <div className="flex max-w-lg flex-col gap-3">
         <Field
           label="Endpoint"
+          mono
           value={endpoint}
           placeholder={presetEndpoint(provider) || 'http://localhost:11434/v1'}
           onChange={setEndpoint}
         />
         <PasswordField
           label={settings.apiKeyStored ? 'API key (stored)' : 'API key'}
+          mono
           value={apiKey}
           onChange={setApiKey}
         />

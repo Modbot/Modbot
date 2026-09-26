@@ -102,8 +102,8 @@ function BotCard({ status, refresh }: { status: OnboardingStatus; refresh: () =>
     >
       <Fact label="Bot" value={status.integrations.discordConfigured ? 'Token stored' : 'Not configured'} />
       <form id="discord-bot" onSubmit={save} className="flex max-w-lg flex-col gap-3">
-        <PasswordField label="Bot token" value={botToken} onChange={setBotToken} />
-        <Field label="Guild id" value={guildId} onChange={setGuildId} placeholder="" />
+        <PasswordField label="Bot token" mono value={botToken} onChange={setBotToken} />
+        <Field label="Guild id" mono value={guildId} onChange={setGuildId} placeholder="" />
       </form>
     </SettingsCard>
   )

@@ -233,31 +233,33 @@ function BackendCard({ settings, onSaved }: { settings: EvidenceSettings; onSave
 
       {backend === 'Filesystem' && (
         <div className="flex max-w-lg flex-col gap-3">
-          <Field label="Directory" value={root} placeholder="/app/data/evidence" onChange={setRoot} />
+          <Field label="Directory" mono value={root} placeholder="/app/data/evidence" onChange={setRoot} />
         </div>
       )}
 
       {backend === 'S3' && (
         <div className="flex max-w-lg flex-col gap-3">
-          <Field label="Bucket" value={bucket} placeholder="modbot-evidence" onChange={setBucket} />
+          <Field label="Bucket" mono value={bucket} placeholder="modbot-evidence" onChange={setBucket} />
           <Field
             label="Endpoint"
+            mono
             value={endpoint}
             placeholder="https://s3.example.com"
             onChange={setEndpoint}
           />
-          <Field label="Access key id" value={accessKeyId} placeholder="" onChange={setAccessKeyId} />
+          <Field label="Access key id" mono value={accessKeyId} placeholder="" onChange={setAccessKeyId} />
           <PasswordField
             label={
               settings.backend.secretStored
                 ? 'Secret access key (stored)'
                 : 'Secret access key'
             }
+            mono
             value={secret}
             onChange={setSecret}
           />
-          <Field label="Region" value={region} placeholder="us-east-1" onChange={setRegion} />
-          <Field label="Key prefix (optional)" value={prefix} placeholder="" onChange={setPrefix} />
+          <Field label="Region" mono value={region} placeholder="us-east-1" onChange={setRegion} />
+          <Field label="Key prefix (optional)" mono value={prefix} placeholder="" onChange={setPrefix} />
           <Checkbox checked={usePathStyle} onChange={setUsePathStyle}>
             Path-style URLs
           </Checkbox>

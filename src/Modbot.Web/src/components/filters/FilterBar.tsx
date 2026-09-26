@@ -125,19 +125,19 @@ function Chip({
 
   return (
     <span className="inline-flex h-(--control-h) items-stretch divide-x-(--hairline) divide-border overflow-hidden rounded-sm border border-(length:--hairline) bg-card">
-      <span className="flex items-center px-2 text-muted-foreground">{property.label}</span>
+      <span className="flex shrink-0 items-center px-2 whitespace-nowrap text-muted-foreground">{property.label}</span>
 
       {operators.length > 1 && property.kind !== 'date' ? (
         <button
           type="button"
           onClick={nextOperator}
-          className="px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="shrink-0 px-2 whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label={`${property.label}: ${operatorWords(chip.operator, chip.values.length)}`}
         >
           {operatorWords(chip.operator, chip.values.length)}
         </button>
       ) : (
-        <span className="flex items-center px-2 text-muted-foreground">
+        <span className="flex shrink-0 items-center px-2 whitespace-nowrap text-muted-foreground">
           {operatorWords(chip.operator, chip.values.length)}
         </span>
       )}

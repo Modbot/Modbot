@@ -164,7 +164,7 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
         </div>
 
         <Stat
-          label={instance.headCount === 1 ? 'person' : 'people'}
+          label={instance.headCount === 1 ? 'Person' : 'People'}
           value={String(instance.headCount ?? '—')}
         />
       </PanelGrid>

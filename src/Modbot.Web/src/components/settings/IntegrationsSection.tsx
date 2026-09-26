@@ -171,10 +171,11 @@ function IntegrationsForm({
             mono={status.integrations.smtpConfigured && !!status.integrations.smtpHost}
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Host" value={host} onChange={setHost} placeholder="smtp.example.com" />
+            <Field label="Host" mono value={host} onChange={setHost} placeholder="smtp.example.com" />
             <Field label="Port" value={port} onChange={setPort} placeholder="587" />
             <Field
               label="From address"
+              mono
               value={fromAddress}
               onChange={setFromAddress}
               placeholder="modbot@example.com"
@@ -202,7 +203,7 @@ function IntegrationsForm({
             <Outcome tone="problem">{testResult && !testResult.sent && !testResult.queued ? testResult.error : null}</Outcome>
           </div>
 
-          <div className="grid items-end gap-3 sm:grid-cols-4">
+          <div className="grid items-start gap-3 sm:grid-cols-4">
             <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
               <span className="text-muted-foreground">Email limit per 24 hours</span>
               <Input
@@ -233,7 +234,14 @@ function IntegrationsForm({
 
 const when = (iso: string) => new Date(iso).toLocaleString()
 
-const queuedText = (sendsAt: string | null) => (sendsAt ? `Queued, sends at ${when(sendsAt)}.` : 'Queued.')
+const queuedText = (sendsAt: string | null) =>
+  sendsAt ? (
+    <>
+      Queued, sends at <span className="font-mono">{when(sendsAt)}</span>.
+    </>
+  ) : (
+    'Queued.'
+  )
 
 const STATE_LABEL: Record<string, string> = {
   queued: 'Queued',

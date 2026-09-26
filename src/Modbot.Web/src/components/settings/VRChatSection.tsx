@@ -131,7 +131,7 @@ function CredentialsCard({
         <div className="flex max-w-lg flex-col gap-3">
           <Field label="Email or username" value={username} onChange={setUsername} placeholder="" />
           <PasswordField label="Password" value={password} onChange={setPassword} />
-          <PasswordField label="TOTP secret (optional)" value={totpSecret} onChange={setTotpSecret} />
+          <PasswordField label="TOTP secret (optional)" mono value={totpSecret} onChange={setTotpSecret} />
         </div>
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
@@ -194,9 +194,13 @@ function ProxyCard({
             {testing ? 'Testing…' : 'Test connection'}
           </Button>
           <Hint>
-            {status.connection.checkedAt
-              ? `Last passed ${new Date(status.connection.checkedAt).toLocaleString()}`
-              : 'Never passed'}
+            {status.connection.checkedAt ? (
+              <>
+                Last passed <span className="font-mono">{new Date(status.connection.checkedAt).toLocaleString()}</span>
+              </>
+            ) : (
+              'Never passed'
+            )}
           </Hint>
           <Outcome tone="problem">{error}</Outcome>
         </>
@@ -210,6 +214,7 @@ function ProxyCard({
         <div className="flex max-w-lg flex-col gap-3">
           <Field
             label="Proxy URL"
+            mono
             value={proxyUrl}
             onChange={setProxyUrl}
             placeholder="socks5://host:port"

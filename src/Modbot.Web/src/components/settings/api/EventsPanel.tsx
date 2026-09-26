@@ -130,9 +130,9 @@ export function EventsPanel() {
         }
       >
         <div className="flex max-w-lg flex-col gap-3">
-          <PasswordField label="API key" value={key} onChange={setKey} />
+          <PasswordField label="API key" mono value={key} onChange={setKey} />
           <Field label="Event types" value={types} placeholder="*" onChange={setTypes} />
-          <Field label="Cursor" value={cursor} placeholder="" onChange={setCursor} />
+          <Field label="Cursor" mono value={cursor} placeholder="" onChange={setCursor} />
         </div>
       </SettingsCard>
 
