@@ -46,6 +46,36 @@ export function activityChartRows(
   return { rows: breakAtBands(rows, bands, { people: null, instances: null }), bands }
 }
 
+/** A stretch of time with at least one instance open. `twoOrMore` when two or more were open throughout. */
+export type OpenStretch = { x1: number; x2: number; twoOrMore: boolean }
+
+/**
+ * The stretches the chart shades behind the people line: one per run of time with an instance
+ * open, split where the count crosses between one and two or more.
+ *
+ * Read as the staircase is: each row's count holds from its moment until the next row's. The last
+ * row holds for no time, since it is the range's end (or the last reading, which the line also
+ * stops at). A break in the line is no instance and no shading, so a day nobody counted shows its
+ * stripes and never looks open.
+ */
+export function openStretches(rows: readonly ActivityChartRow[]): OpenStretch[] {
+  const out: OpenStretch[] = []
+
+  for (let i = 0; i + 1 < rows.length; i++) {
+    const x1 = rows[i].at
+    const x2 = rows[i + 1].at
+    const count = rows[i].instances
+    if (!(x2 > x1) || count === null || count < 1) continue
+
+    const twoOrMore = count >= 2
+    const last = out[out.length - 1]
+    if (last && last.x2 === x1 && last.twoOrMore === twoOrMore) last.x2 = x2
+    else out.push({ x1, x2, twoOrMore })
+  }
+
+  return out
+}
+
 /** The step lengths a whole-number scale may use, smallest first. Past the list it goes on by tens. */
 const WHOLE_STEPS = [1, 2, 5, 10, 20, 25, 50]
 
@@ -72,8 +102,7 @@ export function wholeTicks(max: number, most = 5): number[] {
   return ticks
 }
 
-/** The highest value of one key across the rows, ignoring breaks in the line. Nought with none. */
-export function highest(rows: readonly ActivityChartRow[], key: 'people' | 'instances'): number {
+/** The highest value of one key across the rows, ignoring breaks in the line. Nought with none. */export function highest(rows: readonly ActivityChartRow[], key: 'people' | 'instances'): number {
   return rows.reduce((m, r) => {
     const value = r[key]
     return value === null ? m : Math.max(m, value)

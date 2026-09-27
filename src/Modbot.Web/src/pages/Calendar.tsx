@@ -20,7 +20,7 @@ import {
   type CalendarFeed,
   type CalendarView,
 } from '@/lib/calendar'
-import { useLocation } from '@/lib/router'
+import { go, useLocation } from '@/lib/router'
 import { openInstance } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
@@ -52,6 +52,9 @@ export function Calendar() {
   const linkedId = location.search.get('event')
   const [linked, setLinked] = useState<CalendarEvent | null>(null)
   const [editing, setEditing] = useState<CalendarEvent | 'new' | null>(null)
+
+  // `?new` opens the form for a new event: the VRChat page's "Create event" leads here.
+  const wantsNew = location.search.has('new')
 
   const range = useMemo(() => {
     if (mode === 'month') {
@@ -119,6 +122,17 @@ export function Calendar() {
     }
   }, [linkedId])
 
+  // Closing the form takes `?new` out of the address, so going back to the page does not open it again.
+  const closeForm = () => {
+    setEditing(null)
+    if (!wantsNew) return
+
+    const params = new URLSearchParams(window.location.search)
+    params.delete('new')
+    const query = params.toString()
+    go(window.location.pathname + (query ? `?${query}` : ''), { replace: true })
+  }
+
   const drafts = useMemo(() => (data?.events ?? []).filter((e) => e.state === 'draft'), [data])
 
   // An event linked to may run outside the window on screen, so the one that was fetched stands in.
@@ -126,6 +140,8 @@ export function Calendar() {
     data?.events.find((e) => e.id === openId) ?? (linked && linked.id === openId ? linked : null)
 
   if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
+
+  const form = editing ?? (wantsNew && data.canManage ? 'new' : null)
 
   return (
     <div className="flex flex-col gap-3">
@@ -211,14 +227,14 @@ export function Calendar() {
         />
       )}
 
-      {editing && (
+      {form && (
         <CalendarEventForm
-          event={editing === 'new' ? null : editing}
+          event={form === 'new' ? null : form}
           categories={data.categories}
           platforms={data.platforms}
-          onClose={() => setEditing(null)}
+          onClose={closeForm}
           onSaved={(saved) => {
-            setEditing(null)
+            closeForm()
             load()
             setOpenId(saved.id)
           }}

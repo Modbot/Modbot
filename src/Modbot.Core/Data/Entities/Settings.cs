@@ -112,6 +112,25 @@ public class Settings
     /// <inheritdoc cref="ManagedGroupIconUrl"/>
     public string? ManagedGroupBannerUrl { get; set; }
 
+    /// <summary>
+    /// The languages the group lists on its VRChat page, as VRChat's codes (<c>eng</c>, <c>jpn</c>).
+    /// Null until the group-info sync has read them.
+    /// </summary>
+    /// <remarks>
+    /// Kept here with the pictures rather than in <c>GroupInfoSnapshot</c>, for the same reason: the
+    /// VRChat analytics page shows them as the group has them now, and none of the group-info facts
+    /// ever carried them, so adding them to the snapshot would write one "changed" fact on every
+    /// deployment the first time it polled.
+    /// </remarks>
+    public List<string>? ManagedGroupLanguages { get; set; }
+
+    /// <summary>
+    /// The links the group lists on its VRChat page. Only <c>http</c> and <c>https</c> addresses are
+    /// kept, so every one is safe to put in an <c>href</c>. Null until the sync has read them.
+    /// </summary>
+    /// <remarks><inheritdoc cref="ManagedGroupLanguages" path="/remarks"/></remarks>
+    public List<string>? ManagedGroupLinks { get; set; }
+
     // --- Public instances on modbot.co (central services design 4.6) ---
 
     /// <summary>

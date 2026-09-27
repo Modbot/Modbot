@@ -55,6 +55,10 @@ public sealed class DiscordServerIndex
         row.BotCanManageEvents = server.BotCanManageEvents;
         row.BotCanBanMembers = server.BotCanBanMembers;
         row.BotCanRemoveMembers = server.BotCanRemoveMembers;
+        row.IconUrl = Picture(server.IconUrl);
+        row.BannerUrl = Picture(server.BannerUrl);
+        row.BoostCount = server.BoostCount is >= 0 ? server.BoostCount : row.BoostCount;
+        row.BoostLevel = server.BoostLevel is >= 0 ? server.BoostLevel : row.BoostLevel;
         row.RefreshedAt = now;
         row.UpdatedAt = now;
 
@@ -182,6 +186,15 @@ public sealed class DiscordServerIndex
 
         return row;
     }
+
+    /// <summary>
+    /// A picture address kept only when it is an absolute <c>https</c> one, because the web app puts
+    /// it straight into an <c>img</c>. A server with no icon or banner has none, and null is right.
+    /// </summary>
+    private static string? Picture(string? url)
+        => Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var parsed) && parsed.Scheme == Uri.UriSchemeHttps
+            ? parsed.AbsoluteUri
+            : null;
 
     private static void Apply(DiscordChannel row, string guildId, DiscordChannelSnapshot snapshot, DateTimeOffset now)
     {

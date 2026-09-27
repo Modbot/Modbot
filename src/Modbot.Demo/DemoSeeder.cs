@@ -185,6 +185,8 @@ public sealed class DemoSeeder
         // they would have an empty member list claiming four hundred members at the last sweep.
         settings.GroupInfoSnapshot = null;
         settings.GroupInfoPolledAt = null;
+        settings.ManagedGroupLanguages = null;
+        settings.ManagedGroupLinks = null;
         settings.MemberSweepCompletedAt = null;
         settings.MemberSweepPreviousStartedAt = null;
         settings.MemberSweepCount = 0;
@@ -220,6 +222,11 @@ public sealed class DemoSeeder
         // roles by id and My Group has no "as of" time.
         settings.GroupInfoSnapshot = DemoGroupInfo.At(plan, plan.Now).ToJson();
         settings.GroupInfoPolledAt = plan.Now.AddMinutes(-2);
+
+        // The languages the VRChat analytics page lists under the group. No links: a demo has
+        // nowhere real to send anybody.
+        settings.ManagedGroupLanguages = ["eng", "jpn"];
+        settings.ManagedGroupLinks = [];
 
         // The sweeps, as a finished pass would have left them. A demo's member and ban lists are
         // filled in, so "the member list has not been read yet" is simply untrue on one -- and it

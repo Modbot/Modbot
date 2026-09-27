@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { InstanceActivitySeries } from '../src/lib/api.ts'
-import { highest, toActivityRows, wholeTicks } from '../src/pages/analytics/instanceActivitySeries.ts'
+import { highest, openStretches, toActivityRows, wholeTicks } from '../src/pages/analytics/instanceActivitySeries.ts'
 
 const series = (points: InstanceActivitySeries['points'], to: string): InstanceActivitySeries => ({
   range: 'day',
@@ -87,4 +87,71 @@ test('the highest value skips the breaks in the line', () => {
   assert.equal(highest(rows, 'people'), 6)
   assert.equal(highest(rows, 'instances'), 2)
   assert.equal(highest([], 'people'), 0)
+})
+
+test('open stretches run from each reading to the next, merged while the count stays on one side of two', () => {
+  const rows = [
+    { at: 0, people: 0, instances: 0 },
+    { at: 10, people: 5, instances: 1 },
+    { at: 20, people: 8, instances: 1 },
+    { at: 30, people: 20, instances: 2 },
+    { at: 40, people: 30, instances: 4 },
+    { at: 50, people: 6, instances: 1 },
+    { at: 60, people: 0, instances: 0 },
+    { at: 70, people: 0, instances: 0 },
+  ]
+  assert.deepEqual(openStretches(rows), [
+    { x1: 10, x2: 30, twoOrMore: false },
+    { x1: 30, x2: 50, twoOrMore: true },
+    { x1: 50, x2: 60, twoOrMore: false },
+  ])
+})
+
+test('the last row holds for no time, so an instance open at the end reaches the end and no further', () => {
+  const rows = [
+    { at: 0, people: 3, instances: 1 },
+    { at: 100, people: 3, instances: 1 },
+  ]
+  assert.deepEqual(openStretches(rows), [{ x1: 0, x2: 100, twoOrMore: false }])
+  assert.deepEqual(openStretches([{ at: 0, people: 3, instances: 1 }]), [])
+  assert.deepEqual(openStretches([]), [])
+})
+
+test('a break in the line is never shaded, so a day nobody counted cannot look open', () => {
+  const rows = [
+    { at: 0, people: 4, instances: 2 },
+    { at: 10, people: null, instances: null },
+    { at: 50, people: 4, instances: 2 },
+    { at: 60, people: 4, instances: 2 },
+  ]
+  assert.deepEqual(openStretches(rows), [
+    { x1: 0, x2: 10, twoOrMore: true },
+    { x1: 50, x2: 60, twoOrMore: true },
+  ])
+})
+
+test('two rows at the same moment neither split a stretch nor carry it across a break', () => {
+  assert.deepEqual(
+    openStretches([
+      { at: 0, people: 4, instances: 1 },
+      { at: 10, people: 4, instances: 1 },
+      { at: 10, people: 5, instances: 1 },
+      { at: 20, people: 5, instances: 1 },
+    ]),
+    [{ x1: 0, x2: 20, twoOrMore: false }],
+  )
+  // A reading on the very moment a missing day starts, then the break: the break wins.
+  assert.deepEqual(
+    openStretches([
+      { at: 0, people: 4, instances: 1 },
+      { at: 10, people: 4, instances: 1 },
+      { at: 10, people: null, instances: null },
+      { at: 50, people: 4, instances: 1 },
+      { at: 60, people: 4, instances: 1 },
+    ]),
+    [
+      { x1: 0, x2: 10, twoOrMore: false },
+      { x1: 50, x2: 60, twoOrMore: false },
+    ],
+  )
 })

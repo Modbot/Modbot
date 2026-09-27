@@ -226,6 +226,97 @@ public class GroupInfoSyncTests(PostgresFixture fixture) : SyncTestBase(fixture)
         Assert.Single(await ReadingsAsync());
     }
 
+    /// <summary>
+    /// The VRChat analytics page shows the group's languages and links as its VRChat page does, and
+    /// they come from the same read the sync already makes.
+    /// </summary>
+    [Fact]
+    public async Task ThePollRecordsTheGroupsLanguagesAndLinks()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        VRChat.Groups.Group!.Languages = ["eng", "jpn"];
+        VRChat.Groups.Group!.Links = ["https://discord.gg/example", "https://example.org/rules"];
+
+        await RunGroupInfoAsync();
+
+        var settings = await SettingsAsync();
+
+        Assert.Equal(["eng", "jpn"], settings.ManagedGroupLanguages);
+        Assert.Equal(["https://discord.gg/example", "https://example.org/rules"], settings.ManagedGroupLinks);
+    }
+
+    /// <summary>A link goes straight into an <c>href</c>, so anything but a web address is dropped.</summary>
+    [Fact]
+    public async Task ALinkThatIsNotAWebAddressIsNotKept()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        VRChat.Groups.Group!.Links =
+        [
+            "javascript:alert(1)",
+            "not a link",
+            "",
+            "http://example.org/",
+            "https://example.org/a",
+            "https://example.org/a",
+        ];
+
+        await RunGroupInfoAsync();
+
+        Assert.Equal(["http://example.org/", "https://example.org/a"], (await SettingsAsync()).ManagedGroupLinks);
+    }
+
+    /// <summary>
+    /// A list VRChat left out says nothing about the group, and keeps what was recorded. An empty
+    /// list says the group has none, and replaces it.
+    /// </summary>
+    [Fact]
+    public async Task AMissingListKeepsWhatWasRecorded_AndAnEmptyOneClearsIt()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        VRChat.Groups.Group!.Languages = ["eng"];
+        VRChat.Groups.Group!.Links = ["https://example.org/"];
+        await RunGroupInfoAsync();
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        VRChat.Groups.Group!.Languages = null!;
+        VRChat.Groups.Group!.Links = null!;
+        await RunGroupInfoAsync();
+
+        var kept = await SettingsAsync();
+        Assert.Equal(["eng"], kept.ManagedGroupLanguages);
+        Assert.Equal(["https://example.org/"], kept.ManagedGroupLinks);
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        VRChat.Groups.Group!.Languages = [];
+        VRChat.Groups.Group!.Links = [];
+        await RunGroupInfoAsync();
+
+        var cleared = await SettingsAsync();
+        Assert.Empty(cleared.ManagedGroupLanguages!);
+        Assert.Empty(cleared.ManagedGroupLinks!);
+    }
+
+    /// <summary>
+    /// Languages and links are not watched for change: a poll that saw a new one writes no fact,
+    /// the same as a new picture.
+    /// </summary>
+    [Fact]
+    public async Task NewLanguagesOrLinksWriteNoFact()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        await RunGroupInfoAsync();
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        VRChat.Groups.Group!.Languages = ["spa"];
+        VRChat.Groups.Group!.Links = ["https://example.org/"];
+
+        var run = await RunGroupInfoAsync();
+
+        Assert.Equal(SyncOutcome.Quiet, run.Outcome);
+        Assert.Single(await FactsAsync());
+        Assert.Equal(["spa"], (await SettingsAsync()).ManagedGroupLanguages);
+    }
+
     private async Task<IReadOnlyList<GroupMemberCount>> ReadingsAsync()
     {
         await using var context = Database.NewContext();

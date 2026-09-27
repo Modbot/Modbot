@@ -8943,6 +8943,42 @@
         ]
       }
     },
+    "/api/analytics/group/info": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Get group info",
+        "description": "The group as its VRChat page shows it: name, short code and discriminator, icon and banner, description, rules, languages (VRChat's codes, such as `eng`) and links, with the member and online counts from the newest reading. All of it is what the group-info sync last read, about every five minutes; opening the page asks VRChat nothing. `readAt` is when that sync last read the group.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetGroupInfo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupInfo"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/analytics/server": {
       "get": {
         "tags": [
@@ -24775,6 +24811,124 @@
           }
         }
       },
+      "GroupInfo": {
+        "required": [
+          "id",
+          "name",
+          "shortCode",
+          "discriminator",
+          "iconUrl",
+          "bannerUrl",
+          "description",
+          "rules",
+          "languages",
+          "links",
+          "members",
+          "online",
+          "countedAt",
+          "readAt",
+          "generatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "shortCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discriminator": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "iconUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rules": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "online": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "countedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "readAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "GroupMemberCountSeries": {
         "required": [
           "range",
@@ -31472,6 +31626,7 @@
           "from",
           "to",
           "today",
+          "server",
           "memberCount",
           "joined",
           "left",
@@ -31508,6 +31663,9 @@
               "string"
             ],
             "format": "date"
+          },
+          "server": {
+            "$ref": "#/components/schemas/ServerProfile"
           },
           "memberCount": {
             "type": "array",
@@ -31669,6 +31827,79 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ServerProfile": {
+        "required": [
+          "guildId",
+          "name",
+          "iconUrl",
+          "bannerUrl",
+          "createdAt",
+          "members",
+          "boostCount",
+          "boostLevel"
+        ],
+        "type": "object",
+        "properties": {
+          "guildId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "iconUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "boostCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "boostLevel": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

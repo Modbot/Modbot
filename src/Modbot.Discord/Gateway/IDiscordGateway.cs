@@ -329,6 +329,10 @@ public sealed record DiscordRoleSnapshot(
 /// <param name="BotCanManageEvents">Manage Events, which the calendar's Discord events need (calendar design §3.2).</param>
 /// <param name="BotCanBanMembers">Ban Members, which copying a VRChat ban into Discord needs (Discord sync design §6).</param>
 /// <param name="BotCanRemoveMembers">Kick Members, which removing somebody from the server needs.</param>
+/// <param name="IconUrl">The server's icon, or null for none.</param>
+/// <param name="BannerUrl">The server's banner, or null for none.</param>
+/// <param name="BoostCount">How many boosts the server has, or null when not known.</param>
+/// <param name="BoostLevel">The boost level Discord gives the server, 0 to 3, or null when not known.</param>
 public sealed record DiscordServerSnapshot(
     string GuildId,
     string Name,
@@ -338,7 +342,11 @@ public sealed record DiscordServerSnapshot(
     IReadOnlyList<DiscordRoleSnapshot> Roles,
     bool BotCanManageEvents = false,
     bool BotCanBanMembers = false,
-    bool BotCanRemoveMembers = false);
+    bool BotCanRemoveMembers = false,
+    string? IconUrl = null,
+    string? BannerUrl = null,
+    int? BoostCount = null,
+    int? BoostLevel = null);
 
 /// <summary>
 /// A server event as the calendar describes it: an external event whose location is a line of text.

@@ -105,6 +105,24 @@ public static class AnalyticsEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
+        // The group itself, for the top of the page. No window: it is the group as it is now.
+        group.MapGet("/group/info", async (
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+                Results.Ok(await new GroupInfoQuery(db).RunAsync(clock.UtcNow, ct)))
+            .RequiresFlag(ModbotPermissions.ViewAnalytics)
+            .WithName("GetGroupInfo")
+            .WithSummary("Get group info")
+            .WithDescription(
+                "The group as its VRChat page shows it: name, short code and discriminator, icon "
+                + "and banner, description, rules, languages (VRChat's codes, such as `eng`) and "
+                + "links, with the member and online counts from the newest reading. All of it is "
+                + "what the group-info sync last read, about every five minutes; opening the page "
+                + "asks VRChat nothing. `readAt` is when that sync last read the group.")
+            .Produces<GroupInfo>()
+            .Produces(StatusCodes.Status403Forbidden);
+
         group.MapGet("/server", async (
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,

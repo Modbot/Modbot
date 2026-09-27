@@ -1367,6 +1367,31 @@ export type GroupAnalytics = {
   generatedAt: string
 }
 
+/** The group as its own VRChat page shows it, from what the group-info sync last read. */
+export type GroupInfo = {
+  id: string | null
+  name: string | null
+  /** The code VRChat shows beside the name, such as `TESTIN`. */
+  shortCode: string | null
+  /** The four digits after the code's dot. */
+  discriminator: string | null
+  iconUrl: string | null
+  bannerUrl: string | null
+  description: string | null
+  rules: string | null
+  /** VRChat's language codes, such as `eng`. */
+  languages: string[]
+  /** Absolute `http` or `https` addresses only. */
+  links: string[]
+  /** The newest reading's member count, or null before the first. */
+  members: number | null
+  online: number | null
+  countedAt: string | null
+  /** When the group-info sync last read the group. */
+  readAt: string | null
+  generatedAt: string
+}
+
 export type MemberCountRange = 'day' | 'week' | 'month' | 'all'
 
 /** One reading of the group's counts, as VRChat reported them at `at`. */
@@ -1573,11 +1598,27 @@ export type ServerContributor = { who: Person; messages: number; voiceMinutes: n
 /** New members followed for 7 or 30 days after joining. */
 export type NewMembersStayed = { days: number; joined: number; stillHere: number; stillActive: number }
 
+/** The Discord server as its own server profile shows it, whatever the range. */
+export type ServerProfile = {
+  guildId: string | null
+  name: string | null
+  iconUrl: string | null
+  bannerUrl: string | null
+  /** When the server was made, read from its id. */
+  createdAt: string | null
+  /** Discord's own member count, bots included, from the newest reading. */
+  members: number | null
+  boostCount: number | null
+  /** 0 to 3, as Discord gives it. */
+  boostLevel: number | null
+}
+
 export type ServerAnalytics = {
   from: string
   to: string
   /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
   today: string | null
+  server: ServerProfile
   memberCount: DayValue[]
   joined: DayValue[]
   left: DayValue[]
@@ -4274,6 +4315,7 @@ export const api = {
   groupAnalytics: (query: string) => request<GroupAnalytics>(`/api/analytics/group?${query}`),
   groupMemberCount: (range: MemberCountRange) =>
     request<GroupMemberCountSeries>(`/api/analytics/group/member-count?range=${range}`),
+  groupInfo: () => request<GroupInfo>('/api/analytics/group/info'),
   teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),

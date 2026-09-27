@@ -99,6 +99,10 @@ public sealed class GroupInfoSync
         // icon and a banner a group is a grey box on modbot.co.
         RecordPictures(settings, group.IconUrl, group.BannerUrl);
 
+        // The languages and links, beside the pictures and for the same reason: the VRChat
+        // analytics page shows the group as it is now, and neither is worth a fact.
+        RecordLanguagesAndLinks(settings, group.Languages, group.Links);
+
         // The two counts, every poll, whether or not anything changed. This is a different store
         // from the facts below with a different question behind it: the My Group chart shows the
         // readings themselves, and a reading that said the same thing as the last one is still a
@@ -167,6 +171,51 @@ public sealed class GroupInfoSync
 
         static string? Picture(string? url) =>
             Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme == Uri.UriSchemeHttps
+                ? parsed.AbsoluteUri
+                : null;
+    }
+
+    /// <summary>
+    /// Keeps the group's languages and links up to date. A list VRChat left out entirely keeps
+    /// what was recorded before; an empty one means the group has none, and is recorded as such.
+    /// </summary>
+    /// <remarks>
+    /// A link that is not an absolute <c>http</c> or <c>https</c> address is dropped here, for the
+    /// same reason as a picture: whatever is stored goes straight into an <c>href</c>. A language
+    /// code is kept as VRChat wrote it, less blanks and repeats; the page turns it into a name.
+    /// </remarks>
+    private static void RecordLanguagesAndLinks(
+        Settings settings,
+        IReadOnlyList<string>? languages,
+        IReadOnlyList<string>? links)
+    {
+        if (languages is not null)
+        {
+            var kept = languages
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .Select(l => l.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (settings.ManagedGroupLanguages is null || !settings.ManagedGroupLanguages.SequenceEqual(kept, StringComparer.Ordinal))
+                settings.ManagedGroupLanguages = kept;
+        }
+
+        if (links is not null)
+        {
+            var kept = links
+                .Select(Link)
+                .OfType<string>()
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (settings.ManagedGroupLinks is null || !settings.ManagedGroupLinks.SequenceEqual(kept, StringComparer.Ordinal))
+                settings.ManagedGroupLinks = kept;
+        }
+
+        static string? Link(string? url) =>
+            Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var parsed)
+            && (parsed.Scheme == Uri.UriSchemeHttps || parsed.Scheme == Uri.UriSchemeHttp)
                 ? parsed.AbsoluteUri
                 : null;
     }

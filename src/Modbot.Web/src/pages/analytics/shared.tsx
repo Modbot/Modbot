@@ -6,6 +6,8 @@ import { Ago } from '@/components/Freshness'
 import { Row } from '@/components/ui/fact-row'
 import type { AnalyticsCoverage } from '@/lib/api'
 import { needsYear, plural } from '@/lib/format'
+import type { PageId } from '@/lib/nav'
+import { followLink } from '@/lib/router'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { cn } from '@/lib/utils'
 import { RANGES, type Range } from './useAnalytics'
@@ -106,6 +108,69 @@ export function Stat({
  */
 export function StatStrip({ className, children }: { className?: string; children: React.ReactNode }) {
   return <PanelGrid className={cn('grid-cols-2 xl:grid-cols-4', className)}>{children}</PanelGrid>
+}
+
+/**
+ * A named part of a page: a small heading with a rule running out from it, as the Live page heads
+ * each platform's half, and the panels under it.
+ */
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const id = `section-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+
+  return (
+    <section aria-labelledby={id} className="flex flex-col gap-2">
+      <h2 id={id} className="flex items-center gap-2 font-label text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        {title}
+        <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
+      </h2>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * A row of links along the foot of a page's header, set like tabs: each leads to the Modbot page
+ * that shows that part, and the page itself is marked. The caller leaves out what the person may
+ * not open. Scrolls sideways on a narrow screen rather than wrapping, like the Tabs component.
+ */
+export function HeaderTabs({
+  label,
+  tabs,
+  active,
+  pathOf,
+}: {
+  label: string
+  tabs: readonly { id: PageId; label: string }[]
+  active: PageId
+  pathOf: (id: PageId) => string
+}) {
+  return (
+    <nav aria-label={label} className="border-t border-t-(length:--hairline)">
+      <div className="flex items-stretch overflow-x-auto px-1 [scrollbar-width:thin]">
+        {tabs.map((tab) => {
+          const current = tab.id === active
+          const href = pathOf(tab.id)
+
+          return (
+            <a
+              key={tab.id}
+              href={href}
+              onClick={followLink(href)}
+              aria-current={current ? 'page' : undefined}
+              className={cn(
+                'relative flex shrink-0 items-center px-3 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                current ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+              style={{ fontSize: 'var(--text-base)', minHeight: 'var(--control-h)' }}
+            >
+              {tab.label}
+              {current && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[calc(var(--hairline)*2)] bg-primary" />}
+            </a>
+          )
+        })}
+      </div>
+    </nav>
+  )
 }
 
 /**

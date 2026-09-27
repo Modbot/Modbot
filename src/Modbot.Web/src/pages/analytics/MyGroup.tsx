@@ -2,8 +2,10 @@ import { useCallback, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
 import { Badge } from '@/components/ui/badge'
 import { DailyBars, DailyLine, RankedList, compactNumber, dateTime, longDay, percent } from '@/components/charts'
-import { api, type MemberCountPeaks } from '@/lib/api'
+import { api, type CurrentUser, type MemberCountPeaks } from '@/lib/api'
+import type { PageId } from '@/lib/nav'
 import { Ago } from '@/components/Freshness'
+import { GroupOverview } from './GroupOverview'
 import { InsightsPanel } from './InsightsPanel'
 import { MemberCountChart } from './MemberCountChart'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
@@ -14,6 +16,10 @@ import { plural } from '@/lib/format'
 
 /**
  * My Group -- is the community growing or shrinking, and what changed? (spec 10.1)
+ *
+ * It opens the way the group's own VRChat page does (`GroupOverview`): the banner, name and counts,
+ * VRChat's row of tabs leading to Modbot's pages for each, and the overview cards. The analytics
+ * follow, unchanged.
  *
  * Two sources on one page, kept visibly apart. Joins, leaves, invites and requests per day come
  * from the daily totals, which are never aged out; the headcount, roles, tenure and invite
@@ -26,12 +32,21 @@ import { plural } from '@/lib/format'
  * The member count chart has a range of its own (`MemberCountChart`): it is drawn from every
  * five-minute reading, not from the page's whole-day window.
  */
-export function MyGroup() {
+export function MyGroup({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const [range, setRange] = useState<Range>(30)
   const load = useCallback((q: string) => api.groupAnalytics(q), [])
   const { data, error } = useAnalytics(load, range)
 
-  if (error) return <PageMessage tone="danger">{error}</PageMessage>
+  const overview = <GroupOverview me={me} pathOf={pathOf} />
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-3">
+        {overview}
+        <PageMessage tone="danger">{error}</PageMessage>
+      </div>
+    )
+  }
 
   const sum = (points: { value: number }[]) => points.reduce((s, p) => s + p.value, 0)
   const latestCount = data?.memberCount[data.memberCount.length - 1]
@@ -40,6 +55,8 @@ export function MyGroup() {
 
   return (
     <div className="flex flex-col gap-3">
+      {overview}
+
       <AlertsCard />
 
       <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />

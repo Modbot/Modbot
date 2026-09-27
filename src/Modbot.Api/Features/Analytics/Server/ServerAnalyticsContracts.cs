@@ -29,8 +29,33 @@ public sealed record MemberHealth(int Members, int ActiveLast30Days, int WentQui
 public sealed record MessageHours(IReadOnlyList<decimal> Messages);
 
 /// <summary>
+/// The server as Discord's own server profile shows it, for the top of the page. Whatever the window.
+/// </summary>
+/// <param name="GuildId">The server in settings, or null when none is set.</param>
+/// <param name="Name">The server's name as the bot last read it, or null before it has.</param>
+/// <param name="IconUrl">The server's icon, or null for none.</param>
+/// <param name="BannerUrl">The server's banner, or null for none.</param>
+/// <param name="CreatedAt">
+/// When the server was made, read from its id: a Discord id carries the moment it was made. Null
+/// when the id is not a number.
+/// </param>
+/// <param name="Members">Discord's own member count, bots included, from the newest reading.</param>
+/// <param name="BoostCount">How many boosts the server has, or null when not known.</param>
+/// <param name="BoostLevel">The boost level Discord gives the server, 0 to 3, or null when not known.</param>
+public sealed record ServerProfile(
+    string? GuildId,
+    string? Name,
+    string? IconUrl,
+    string? BannerUrl,
+    DateTimeOffset? CreatedAt,
+    int? Members,
+    int? BoostCount,
+    int? BoostLevel);
+
+/// <summary>
 /// My Server: is the Discord server healthy, and who keeps it going? (M5 spec §6)
 /// </summary>
+/// <param name="Server">The server itself, as it is now. Read from what the bot stored; opening the page asks Discord nothing.</param>
 /// <param name="MemberCount">Discord's own member count, the last reading of each day it was read.</param>
 /// <param name="MessagesRemoved">Times a moderator removed messages, one or many at once.</param>
 /// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>
@@ -46,6 +71,7 @@ public sealed record ServerAnalytics(
     DateOnly From,
     DateOnly To,
     DateOnly? Today,
+    ServerProfile Server,
     IReadOnlyList<DayValue> MemberCount,
     IReadOnlyList<DayValue> Joined,
     IReadOnlyList<DayValue> Left,
