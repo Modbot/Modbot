@@ -106,31 +106,79 @@ The **Discord** page is under **Analytics** in the sidebar. It needs **See analy
 "is our Discord server healthy, and who keeps it going?" The **Members** link under the server's
 header opens [Discord members](/discord/members).
 
-Pick a range at the top: **7 days**, **30 days**, **90 days** or **All time**.
+**Active** means the person sent a message or spent time in voice. Bots are never counted.
 
-**Active** means the person sent a message or spent time in voice.
+### This week
 
-### The figures at the top
+Under the server's header, four numbers for the last seven days (today included), each with how far
+it moved from the seven days before: **▲** up, **▼** down, or **Same as last week**. They ignore the
+range you pick, like the first screen of Discord's own Server Insights.
 
 | Figure | What it shows |
 |---|---|
-| **Members** | Discord's own member count, as last read. |
-| **Messages** | Messages sent in the range. |
-| **Active in 30 days** | People active in the last 30 days, and what share of current members that is. |
-| **Time in voice** | Total time in voice channels in the range. |
+| **New members** | People who joined in the week and are still in the server. Someone who joined and left again, for example a captcha bot's kick, is not counted. |
+| **Talked** | Different people who sent a message or were in voice. |
+| **Messages** | Messages sent. |
+| **Time in voice** | Time spent in voice channels. |
 
-### The charts
+Modbot's numbers will not match Discord's exactly. Discord counts a "communicator" only after three
+messages, and its voice figure is time spent speaking; Modbot's is time connected. Discord's
+**Visitors** (people who opened the server) is not something a bot can see.
+
+Below that, pick a range for the rest of the page: **7 days**, **30 days**, **90 days** or
+**All time**.
+
+### What the bot can read
+
+After **Details**, Modbot says how many of the server's channels the bot can read, for example
+**Reads 35 of 165 channels**, and **No audit log** if it cannot read the audit log. It is shown in
+amber when anything is missing. With **Manage settings**, it links to the Discord part of
+Settings, which lists what the bot may do in each channel (see [Permissions the bot needs](/discord/bot-setup#permissions-the-bot-needs)).
+
+Messages in a channel the bot cannot read are counted nowhere on the page: not in the totals, the
+busiest channels, active members or top contributors. Kicks and removed messages are only ever read
+from the audit log. To fill the gaps, give the bot's role **View Channel** and **Read Message
+History** in those channels, and **View Audit Log**, in Discord's server settings.
+
+### Growth
 
 | Panel | What it shows |
 |---|---|
-| **Member count** | The member count over time, from the last reading each day. |
-| **Joins and leaves per day** | People who **Joined** and **Left** each day. |
+| **Members** | Discord's own member count, as last read, with how much it moved over the range. |
+| **Joined** | People who joined in the range. |
+| **Still here after 7 days** | The share of people who joined in the range (at least a week ago) who were still in the server a week later. |
+| **Joins and leaves per day** | People who **Joined** and **Left** each day. Switch to **Member count** for the count over time, from the last reading each day. |
+
+### Engagement
+
+| Panel | What it shows |
+|---|---|
+| **Messages** and **Time in voice** | Totals for the range. |
 | **Messages per day** | Messages sent each day. |
 | **Active members** | Different people active each day. Switch between **Day**, **7 days** and **30 days** to count people active over a day, the week ending that day, or the 30 days ending that day. The latest figures are shown underneath. |
 | **Minutes in voice per day** | Time spent in voice each day. |
-| **Busiest channels** | The channels with the most messages in the range. |
+| **Busiest channels** | The 10 channels with the most messages in the range; **Show all** lists up to 20. Each has the picture Discord gives its kind (**#** text, a speech bubble for a forum, a speaker for a voice channel's own chat, a megaphone for announcements) and, after the count, its category, or **Deleted** if the channel is gone from Discord. |
 | **Busiest hours** | Messages by day of the week and hour, in your own time zone (shown in the title). |
-| **Moderation actions per day** | **Bans**, **Kicks**, **Timeouts** and **Messages removed** each day. |
+| **Went quiet** | See below. |
+| **Top contributors** | See below. |
+
+### Moderation
+
+**Moderation actions per day**: **Bans**, **Kicks**, **Timeouts** and **Messages removed** each day.
+**Bans** in the corner opens the [bans](/moderation/members-and-bans) page, if you may open it. When the bot
+cannot read the audit log, the panel says **No audit log: kicks and removed messages missing.**
+Bans and timeouts still show, because the bot sees those without it.
+
+### Members
+
+About who is in the server now, whatever range you picked. Bots are not counted.
+
+| Figure | What it shows |
+|---|---|
+| **Linked to VRChat** | How many members have [linked a VRChat account](/discord/account-linking), out of everyone in the server. |
+| **New accounts joining** | Of the people who joined in the last 30 days, the share whose Discord account was under 30 days old when they joined, and how many of them are still here. An account's age comes from its id. |
+| **Here a year or more** | The share of members who joined over a year ago. |
+| **How long members have been here** | Everyone in the server split into **Under a month**, **1–6 months**, **6–12 months** and **A year or more**. Someone whose join the bot never saw counts from when it first saw them. |
 
 ### New members still here
 
@@ -143,14 +191,11 @@ For people who joined in the range, at least 7 or 30 days ago:
 | **Still here** | How many had not left, been kicked or been banned by then. |
 | **Still active** | How many were active in the week after that point. |
 
-### Member health
+### Went quiet
 
-This panel is about now, whatever range you picked.
-
-- **Members** — people in the server now, not counting bots.
-- **Active in 30 days** — the share of them active in the last 30 days.
-- **Went quiet** — current members who were active in the 30 days before that, but have not been
-  active since. Up to 20 of them are listed with their messages and voice time from back then.
+This panel is about now, whatever range you picked. It counts current members who were active in
+the 30 days before the last 30, but have not been active since, and lists up to 20 of them with
+their messages and voice time from back then.
 
 ### Top contributors
 

@@ -4,8 +4,9 @@ import type { CurrentUser } from './api.ts'
 import { mayOpen, type PageId } from './nav.ts'
 
 /**
- * The pieces of the Discord analytics page's header that are worth a test: which links a person
- * sees, the boost bar, and the size asked of Discord's picture site.
+ * The pieces of the Discord page that are worth a test: which links a person sees, the boost bar,
+ * the size asked of Discord's picture site, the week's ups and downs, an account's age read from
+ * its id, and which picture a channel is drawn with.
  */
 
 /**
@@ -91,5 +92,75 @@ export function discordPicture(url: string | null, size: number): string | null 
     return parsed.toString()
   } catch {
     return null
+  }
+}
+
+/**
+ * How one of the week's numbers moved against the week before: the difference and which way.
+ * "Same" when it did not move, so a flat week is not drawn as a fall.
+ */
+export function weekChange(pair: { thisWeek: number; lastWeek: number }): { by: number; way: 'up' | 'down' | 'same' } {
+  const by = pair.thisWeek - pair.lastWeek
+  return { by: Math.abs(by), way: by > 0 ? 'up' : by < 0 ? 'down' : 'same' }
+}
+
+/** The first moment of 2015, in milliseconds: where Discord starts counting its ids from. */
+const DISCORD_EPOCH_MS = 1_420_070_400_000
+
+/**
+ * When a Discord account was made, read from its id: the id's top bits are milliseconds since the
+ * start of 2015, the same way the header reads "Est." from the server's id. Null for an id that is
+ * not a number; Modbot never checks an id's shape, it only declines to read a date out of one.
+ */
+export function accountMadeAt(id: string): number | null {
+  if (!/^\d+$/.test(id)) return null
+
+  try {
+    return Number(BigInt(id) >> BigInt(22)) + DISCORD_EPOCH_MS
+  } catch {
+    return null
+  }
+}
+
+/** Under this many days, an account counts as new, as Discord's own Insights counts it. */
+export const NEW_ACCOUNT_DAYS = 30
+
+/**
+ * A Discord account's age in plain words against the server's clock: "12 days", "7 months",
+ * "4 years". `fresh` when it is under {@link NEW_ACCOUNT_DAYS}. Null when the id carries no date.
+ */
+export function accountAge(id: string, nowIso: string): { text: string; fresh: boolean } | null {
+  const made = accountMadeAt(id)
+  const now = Date.parse(nowIso)
+  if (made === null || !Number.isFinite(now)) return null
+
+  const days = Math.max(0, Math.floor((now - made) / 86_400_000))
+
+  if (days < 1) return { text: 'today', fresh: true }
+  if (days < 60) return { text: `${days} ${days === 1 ? 'day' : 'days'}`, fresh: days < NEW_ACCOUNT_DAYS }
+
+  const months = Math.floor(days / 30.44)
+  if (months < 12) return { text: `${months} months`, fresh: false }
+
+  const years = Math.floor(days / 365.25)
+  return { text: `${years} ${years === 1 ? 'year' : 'years'}`, fresh: false }
+}
+
+/** Which of Discord's channel pictures a stored channel kind is drawn with. */
+export type ChannelLook = 'text' | 'voice' | 'forum' | 'announcement' | 'stage'
+
+export function channelLook(type: string | null): ChannelLook {
+  switch (type) {
+    case 'voice':
+      return 'voice'
+    case 'stage':
+      return 'stage'
+    case 'forum':
+    case 'media':
+      return 'forum'
+    case 'announcement':
+      return 'announcement'
+    default:
+      return 'text'
   }
 }

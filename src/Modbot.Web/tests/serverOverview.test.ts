@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { boostGoal, boostShare, discordPicture, serverInitials, serverTabs } from '../src/lib/serverOverview.ts'
+import {
+  accountAge,
+  accountMadeAt,
+  boostGoal,
+  boostShare,
+  channelLook,
+  discordPicture,
+  serverInitials,
+  serverTabs,
+  weekChange,
+} from '../src/lib/serverOverview.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
 
 function person(...permissionNames: string[]): CurrentUser {
@@ -82,4 +92,39 @@ test('a Discord picture is asked for at a size; anything else is left alone, and
   assert.equal(discordPicture('http://cdn.discordapp.com/icons/1/abc.png', 256), null)
   assert.equal(discordPicture('javascript:alert(1)', 256), null)
   assert.equal(discordPicture(null, 256), null)
+})
+
+test('a week that went up, down or stayed the same says so, with the size of the move', () => {
+  assert.deepEqual(weekChange({ thisWeek: 25, lastWeek: 22 }), { by: 3, way: 'up' })
+  assert.deepEqual(weekChange({ thisWeek: 33, lastWeek: 47 }), { by: 14, way: 'down' })
+  assert.deepEqual(weekChange({ thisWeek: 6, lastWeek: 6 }), { by: 0, way: 'same' })
+})
+
+test('an account is dated from its id, as the server is', () => {
+  // The Thy Kingdom server's id reads as Oct 13, 2015 in the header.
+  assert.equal(new Date(accountMadeAt('103616471829069824')!).toISOString().slice(0, 10), '2015-10-13')
+  assert.equal(accountMadeAt('not-a-number'), null)
+  assert.equal(accountMadeAt(''), null)
+})
+
+test("an account's age reads in days, then months, then years, and is new under thirty days", () => {
+  const madeOn = (iso: string) => ((BigInt(Date.parse(iso) - 1_420_070_400_000) << BigInt(22))).toString()
+  const now = '2026-09-27T12:00:00Z'
+
+  assert.deepEqual(accountAge(madeOn('2026-09-27T08:00:00Z'), now), { text: 'today', fresh: true })
+  assert.deepEqual(accountAge(madeOn('2026-09-15T12:00:00Z'), now), { text: '12 days', fresh: true })
+  assert.deepEqual(accountAge(madeOn('2026-08-20T12:00:00Z'), now), { text: '38 days', fresh: false })
+  assert.deepEqual(accountAge(madeOn('2026-02-10T12:00:00Z'), now), { text: '7 months', fresh: false })
+  assert.deepEqual(accountAge(madeOn('2022-06-01T12:00:00Z'), now), { text: '4 years', fresh: false })
+  assert.equal(accountAge('abc', now), null)
+})
+
+test('each channel kind gets the picture Discord draws it with', () => {
+  assert.equal(channelLook('text'), 'text')
+  assert.equal(channelLook('voice'), 'voice')
+  assert.equal(channelLook('forum'), 'forum')
+  assert.equal(channelLook('media'), 'forum')
+  assert.equal(channelLook('announcement'), 'announcement')
+  assert.equal(channelLook('stage'), 'stage')
+  assert.equal(channelLook(null), 'text')
 })

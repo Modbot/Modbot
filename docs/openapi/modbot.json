@@ -21451,6 +21451,9 @@
         "required": [
           "id",
           "name",
+          "type",
+          "category",
+          "removed",
           "messages"
         ],
         "type": "object",
@@ -21463,6 +21466,21 @@
               "null",
               "string"
             ]
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "removed": {
+            "type": "boolean"
           },
           "messages": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
@@ -30678,6 +30696,105 @@
           }
         }
       },
+      "MemberTenure": {
+        "required": [
+          "underAMonth",
+          "oneToSixMonths",
+          "sixToTwelveMonths",
+          "yearOrMore"
+        ],
+        "type": "object",
+        "properties": {
+          "underAMonth": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "oneToSixMonths": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "sixToTwelveMonths": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "yearOrMore": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "MembersNow": {
+        "required": [
+          "members",
+          "linked",
+          "joined",
+          "newAccounts",
+          "newAccountsStillHere",
+          "tenure"
+        ],
+        "type": "object",
+        "properties": {
+          "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "linked": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "joined": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "newAccounts": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "newAccountsStillHere": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "tenure": {
+            "$ref": "#/components/schemas/MemberTenure"
+          }
+        }
+      },
       "MembershipView": {
         "required": [
           "userId",
@@ -34015,6 +34132,9 @@
           "to",
           "today",
           "server",
+          "week",
+          "reach",
+          "membersNow",
           "memberCount",
           "joined",
           "left",
@@ -34054,6 +34174,22 @@
           },
           "server": {
             "$ref": "#/components/schemas/ServerProfile"
+          },
+          "week": {
+            "$ref": "#/components/schemas/ServerWeek"
+          },
+          "reach": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ServerReach"
+              }
+            ]
+          },
+          "membersNow": {
+            "$ref": "#/components/schemas/MembersNow"
           },
           "memberCount": {
             "type": "array",
@@ -34301,6 +34437,35 @@
           }
         }
       },
+      "ServerReach": {
+        "required": [
+          "channelsRead",
+          "channels",
+          "auditLog"
+        ],
+        "type": "object",
+        "properties": {
+          "channelsRead": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "channels": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "auditLog": {
+            "type": "boolean"
+          }
+        }
+      },
       "ServerSettingsView": {
         "required": [
           "showOwnerEmail"
@@ -34309,6 +34474,39 @@
         "properties": {
           "showOwnerEmail": {
             "type": "boolean"
+          }
+        }
+      },
+      "ServerWeek": {
+        "required": [
+          "from",
+          "to",
+          "newMembers",
+          "talked",
+          "messages",
+          "voiceMinutes"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "newMembers": {
+            "$ref": "#/components/schemas/WeekPair"
+          },
+          "talked": {
+            "$ref": "#/components/schemas/WeekPair"
+          },
+          "messages": {
+            "$ref": "#/components/schemas/WeekPair"
+          },
+          "voiceMinutes": {
+            "$ref": "#/components/schemas/WeekPair"
           }
         }
       },
@@ -36989,6 +37187,31 @@
           },
           "canChangeAllowPrivateAddresses": {
             "type": "boolean"
+          }
+        }
+      },
+      "WeekPair": {
+        "required": [
+          "thisWeek",
+          "lastWeek"
+        ],
+        "type": "object",
+        "properties": {
+          "thisWeek": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "lastWeek": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },

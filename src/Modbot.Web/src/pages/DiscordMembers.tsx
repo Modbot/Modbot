@@ -22,6 +22,7 @@ import {
 } from '@/lib/api'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { formatDay } from '@/lib/format'
+import { accountAge } from '@/lib/serverOverview'
 import { useListPage } from '@/lib/listPage'
 import { useListSelection } from '@/lib/listSelection'
 import type { PageId } from '@/lib/nav'
@@ -45,6 +46,13 @@ import { ServerHeader } from '@/pages/analytics/ServerHeader'
  * list does not wait for it, and a header that fails to load is simply not drawn.
  *
  * Search, filters and paging all run on the server, like the group's list.
+ *
+ * A row shows one role, the highest in Discord's own order, and "+N" for the rest, as Discord's
+ * own Members page does; the person popup lists them all. Some servers give members dozens of
+ * roles, and a cell with every one made a row taller than a phone's screen. Account is how old
+ * the Discord account is, read from its id, because a new account is the first thing a moderator
+ * checks. A timeout is a mark beside the name rather than a column that is empty on nearly every
+ * row; its end is in the popup.
  */
 
 const PAGE_SIZE = 50
@@ -255,13 +263,15 @@ function MemberList({ me }: { me: CurrentUser }) {
                 <Th>Roles</Th>
                 <Th>Joined</Th>
                 {showLeft && <Th>Left</Th>}
-                <Th>Timed out until</Th>
+                <Th>Account</Th>
                 {seesLinks && <Th>VRChat</Th>}
               </>
             }
           >
             {list.members.map((m, i) => {
               const timedOut = m.timedOutUntil !== null && Date.parse(m.timedOutUntil) > now
+              const age = accountAge(m.userId, list.coverage.now)
+              const [topRole, ...otherRoles] = m.roles
 
               return (
                 <Tr
@@ -285,6 +295,15 @@ function MemberList({ me }: { me: CurrentUser }) {
                                 bot
                               </span>
                             )}
+                            {timedOut && m.timedOutUntil && (
+                              <span
+                                className="text-destructive"
+                                style={{ fontSize: 'var(--text-tiny)' }}
+                                title={`Until ${dateTime(m.timedOutUntil)}`}
+                              >
+                                timed out
+                              </span>
+                            )}
                           </Marks>
                         </div>
                         {m.plainName && (
@@ -297,23 +316,25 @@ function MemberList({ me }: { me: CurrentUser }) {
                   </Td>
                   <Td className="text-muted-foreground">{m.username}</Td>
                   <Td>
-                    <div className="flex flex-wrap gap-1 max-md:flex-nowrap">
-                      {m.roles.map((r) => (
-                        <RoleChip key={r.id} id={r.id} name={r.name} color={r.color} />
-                      ))}
-                      {m.roles.length === 0 && <span className="text-muted-foreground">—</span>}
-                    </div>
+                    {topRole ? (
+                      <div className="flex items-center gap-1.5">
+                        <RoleChip id={topRole.id} name={topRole.name} color={topRole.color} />
+                        {otherRoles.length > 0 && (
+                          <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                            +{otherRoles.length}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </Td>
                   <Td className="font-mono">
                     {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
                   </Td>
                   {showLeft && <Td className="font-mono">{m.leftAt ? formatDay(m.leftAt) : ''}</Td>}
-                  <Td className="font-mono">
-                    {timedOut && m.timedOutUntil ? (
-                      <span className="text-destructive">{dateTime(m.timedOutUntil)}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                  <Td className={cn('font-mono', age?.fresh && 'text-warn')}>
+                    {age ? age.text : <span className="text-muted-foreground">—</span>}
                   </Td>
                   {seesLinks && (
                     <Td onClick={(e) => e.stopPropagation()}>
