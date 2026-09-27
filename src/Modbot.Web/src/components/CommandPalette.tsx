@@ -28,8 +28,9 @@ type Item = {
  * over people, Discord people and worlds.
  *
  * Typing narrows the pages and actions by name at once, and pages by the other words they answer
- * to (`words` in lib/nav.ts); two characters or more also asks the server. `↑`/`↓` move, `Enter` runs, `Esc` closes. Opening a person, a world or a Discord person
- * from here goes through the same popup every list uses.
+ * to (`words` in lib/nav.ts); two characters or more also asks the server. `↑`/`↓` move, `Enter`
+ * runs, `Esc` closes. Opening a person, a world or a Discord person from here goes through the
+ * same popup every list uses.
  */
 export function CommandPalette({
   open,
