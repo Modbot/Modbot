@@ -135,6 +135,10 @@ public static class CompanionApi
                 + "handles this client retrying. Neither substitutes for the other.\n\n"
                 + "Events naming a group this deployment does not manage are rejected by index "
                 + "rather than stored. The client is meant never to have sent them.")
+
+            // The handler reads the body itself, so it can undo the gzip the companion sends, and
+            // the document has to be told what that body is.
+            .Accepts<EventBatchDto>("application/json")
             .Produces<EventBatchResponse>()
             .Produces<CompanionError>(StatusCodes.Status400BadRequest)
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)

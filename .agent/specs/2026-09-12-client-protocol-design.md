@@ -53,7 +53,7 @@ needs push (§6).**
 |---|---|
 | Transport | HTTPS. Plain HTTP is refused by the client, not merely warned about. |
 | Encoding | JSON, `application/json`, UTF-8 |
-| Compression | `Content-Encoding: gzip` on batches above ~4 KB |
+| Compression | `Content-Encoding: gzip` on batches above ~4 KB. The server must read both (§7.1) |
 | Auth | `Authorization: Bearer <device token>` (§3) |
 | Versioning | `/api/v{n}/client/...`, with `n` negotiated per server (§2.1) |
 
@@ -325,7 +325,7 @@ concern, and it degrades to a slow poll rather than to nothing when a proxy inte
 | Status | Meaning | Client behaviour |
 |---|---|---|
 | `200` | Accepted, possibly partially | Drop accepted events from the buffer |
-| `400` | Malformed batch | **Do not retry.** Log, drop, alarm — a retry loop on a permanent error is how buffers fill forever |
+| `400` | Malformed batch | Halve and retry; an event refused on its own is dropped, logged and alarmed on — a retry loop on a permanent error is how buffers fill forever (§7.1) |
 | `401` | Token invalid or revoked | Stop this pairing, surface it to the moderator |
 | `409` | API version unsupported | Re-negotiate (§2.1) |
 | `413` | Batch too large | Halve and retry |
@@ -335,6 +335,24 @@ concern, and it degrades to a slow poll rather than to nothing when a proxy inte
 Every error body is `{ "code": "...", "message": "..." }` with a stable machine-readable `code`.
 **The client branches on `code`, never on `message`** — message text is for humans and will be
 reworded.
+
+### 7.1 A `400` costs one event, not a batch
+
+*Added 2026-09-27.* Until then a `400` dropped the whole batch, and the server had nothing that
+undid the gzip of §2: the framework read a compressed body as JSON, failed, and answered a bare
+`400` before the events handler ran. Every batch over about 4 KB — every arrival burst — was
+dropped, forty events at a time on the first production pairing.
+
+- **The server reads the body itself**, plain or gzipped, capped at 1 MB as sent and 4 MB once
+  expanded, and only after the device token is checked. A body it cannot read is a `400`
+  `batch_malformed`; one over a cap is a `413` `batch_too_large`.
+- **The client halves a refused batch and sends again**, as it does for `413`, and drops an event
+  only when the server refuses it on its own. One bad event then costs that event. The first
+  rule above is narrowed, not reversed: nothing the server keeps refusing is retried forever.
+- **A bare `400` to a gzipped body is taken as an older server.** Every `400` from Modbot's own
+  code carries a `code`, so one without, to a compressed batch, is the framework failing to read
+  it. The client sends the same batch again as plain JSON, and sends that server plain JSON from
+  then on (until it restarts), so a new client keeps working against a server not yet updated.
 
 ---
 

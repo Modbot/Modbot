@@ -609,11 +609,11 @@ public sealed class CompanionAppState
 
         // Counted rather than silent. "We quietly lost some" is precisely the failure this
         // subsystem must not have, and the buffer forgets on purpose when it fills or ages out.
-        foreach (var connection in Connections.Where(c => c.MalformedBatches > 0))
+        foreach (var connection in Connections.Where(c => c.DroppedAsMalformed > 0))
         {
             yield return new CompanionWarning(
                 WarningSeverity.Warning,
-                $"“{connection.ServerId}” refused {connection.MalformedBatches:N0} batch(es) as "
+                $"“{connection.ServerId}” refused {connection.DroppedAsMalformed:N0} event(s) as "
                 + "malformed and they were dropped rather than retried. That is a bug worth "
                 + "reporting.");
         }
