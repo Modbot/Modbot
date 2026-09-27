@@ -1754,19 +1754,64 @@ export type ServerProfile = {
   boostLevel: number | null
 }
 
+/** One number for the last seven days and the seven before them. */
+export type WeekPair = { thisWeek: number; lastWeek: number }
+
+/** The last seven days against the seven before, whatever the range. */
+export type ServerWeek = {
+  from: string
+  to: string
+  /** People who joined in the week and are still in the server, bots left out. */
+  newMembers: WeekPair
+  /** Distinct people who sent a message or were in voice. */
+  talked: WeekPair
+  messages: WeekPair
+  voiceMinutes: WeekPair
+}
+
+/** How much of the server the bot can read. */
+export type ServerReach = { channelsRead: number; channels: number; auditLog: boolean }
+
+/** Who the members are now, bots left out, whatever the range. */
+export type MembersNow = {
+  members: number
+  /** Of them, how many have linked a VRChat account. */
+  linked: number
+  /** People who joined in the last thirty days, still in or not. */
+  joined: number
+  /** Of those, how many joined from an account under thirty days old. */
+  newAccounts: number
+  newAccountsStillHere: number
+  tenure: { underAMonth: number; oneToSixMonths: number; sixToTwelveMonths: number; yearOrMore: number }
+}
+
+/** A channel in the busiest list. `type` is the stored kind (`text`, `voice`, `forum`…), null when unknown. */
+export type ServerChannel = {
+  id: string
+  name: string | null
+  type: string | null
+  category: string | null
+  removed: boolean
+  messages: number
+}
+
 export type ServerAnalytics = {
   from: string
   to: string
   /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
   today: string | null
   server: ServerProfile
+  week: ServerWeek
+  /** Null when no server is set. */
+  reach: ServerReach | null
+  membersNow: MembersNow
   memberCount: DayValue[]
   joined: DayValue[]
   left: DayValue[]
   messages: DayValue[]
   voiceMinutes: DayValue[]
   active: ServerActiveDay[]
-  busiestChannels: { id: string; name: string | null; messages: number }[]
+  busiestChannels: ServerChannel[]
   /** 168 buckets, UTC, Monday 00:00 first. */
   hourOfWeek: { messages: number[] }
   newMembers: NewMembersStayed[]

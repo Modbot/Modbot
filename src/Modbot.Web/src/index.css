@@ -275,6 +275,11 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  /* The Discord page's week is four tiles that belong together: two rows of two, not three and one. */
+  :root:not([data-place="headset"]) [data-week] > [data-slot="panel-grid"]:has(> [data-slot="stat"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   :root:not([data-place="headset"]) [data-slot="stat"] {
     --stat-label: 0.6875rem;  /* 11px */
     --stat-value: 1rem;       /* 16px */

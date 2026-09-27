@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { compactNumber } from './format'
 import { seriesColor, type SeriesSlot } from './theme'
 
@@ -15,7 +16,8 @@ export function RankedList({
   format = compactNumber,
   onPick,
 }: {
-  rows: { key: string; label: string; value: number; note?: string }[]
+  /** `icon` sits before the label, as Discord puts a channel's kind before its name. */
+  rows: { key: string; label: string; value: number; note?: string; icon?: ReactNode }[]
   slot?: SeriesSlot
   format?: (value: number) => string
   /** Makes each row a button -- a list of people is a list of launchers for the subject pane. */
@@ -30,8 +32,9 @@ export function RankedList({
     <div className="flex flex-col gap-1.5">
       {rows.map((row) => {
         const label = (
-          <div className="w-36 shrink-0 truncate text-muted-foreground" title={row.label}>
-            {row.label}
+          <div className="flex w-36 shrink-0 items-center gap-1 text-muted-foreground" title={row.label}>
+            {row.icon}
+            <span className="min-w-0 truncate">{row.label}</span>
           </div>
         )
 

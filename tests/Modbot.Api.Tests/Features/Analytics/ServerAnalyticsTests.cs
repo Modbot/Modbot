@@ -226,4 +226,156 @@ public class ServerAnalyticsTests
         Assert.Equal(1, page.Health.WentQuiet);
         Assert.Equal("Cy", Assert.Single(page.Health.Quiet).Who.Name);
     }
+
+    /// <summary>A Discord id made at <paramref name="at"/>: milliseconds since 2015 in the top bits.</summary>
+    private static string IdMadeAt(DateTimeOffset at) =>
+        (((ulong)(at.ToUnixTimeMilliseconds() - ServerProfileQuery.DiscordEpochMs)) << 22)
+            .ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    [Fact]
+    public async Task TheWeek_IsTheLastSevenDaysAgainstTheSevenBefore_CountingOnlyJoinersWhoStayed()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+        var now = host.Clock.UtcNow;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.DiscordMembers.AddRange(
+                // Joined this week and still here.
+                new DiscordMember { GuildId = Guild, UserId = "10", Username = "di", DisplayName = "Di", JoinedAt = now.AddDays(-2), FirstSeenAt = now, UpdatedAt = now },
+                // Joined this week and left again, as a captcha kick does: not counted.
+                new DiscordMember { GuildId = Guild, UserId = "11", Username = "ed", DisplayName = "Ed", JoinedAt = now.AddDays(-3), LeftAt = now.AddDays(-1), FirstSeenAt = now, UpdatedAt = now },
+                // Joined the week before and still here.
+                new DiscordMember { GuildId = Guild, UserId = "12", Username = "fi", DisplayName = "Fi", JoinedAt = now.AddDays(-10), FirstSeenAt = now, UpdatedAt = now },
+                // A bot that joined this week: not counted.
+                new DiscordMember { GuildId = Guild, UserId = "13", Username = "robot", DisplayName = "Robot", IsBot = true, JoinedAt = now.AddDays(-1), FirstSeenAt = now, UpdatedAt = now });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var page = await host.GetJsonAsync<ServerAnalytics>("/api/analytics/server?days=7", cookie, Ct);
+
+        var today = AnalyticsSql.DayOf(now);
+        Assert.Equal(today, page.Week.To);
+        Assert.Equal(today.AddDays(-6), page.Week.From);
+
+        Assert.Equal(new WeekPair(1, 1), page.Week.NewMembers);
+
+        // Ada talked yesterday; nine days ago Ada and Bo both did. The seven-day range does not matter.
+        Assert.Equal(new WeekPair(1, 2), page.Week.Talked);
+        Assert.Equal(new WeekPair(1, 2), page.Week.Messages);
+        Assert.Equal(new WeekPair(0, 0), page.Week.VoiceMinutes);
+    }
+
+    [Fact]
+    public async Task TheReach_CountsChannelsTheBotMayRead_AndWhetherItHasTheAuditLog()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+        var now = host.Clock.UtcNow;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.DiscordChannels.AddRange(
+                new DiscordChannel { ChannelId = "502", GuildId = Guild, Name = "hangout", Type = DiscordChannelTypes.Voice, BotCanView = true, BotCanReadHistory = true, FirstSeenAt = now, UpdatedAt = now },
+                new DiscordChannel { ChannelId = "503", GuildId = Guild, Name = "old", BotCanView = true, BotCanReadHistory = true, RemovedAt = now, FirstSeenAt = now, UpdatedAt = now },
+                new DiscordChannel { ChannelId = "600", GuildId = Guild, Name = "Chat", Type = DiscordChannelTypes.Category, BotCanView = true, BotCanReadHistory = true, FirstSeenAt = now, UpdatedAt = now });
+            db.DiscordServers.Add(new DiscordServer { GuildId = Guild, Name = "The Black Cat", BotCanViewAuditLog = false, RefreshedAt = now, UpdatedAt = now });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var page = await host.GetJsonAsync<ServerAnalytics>("/api/analytics/server?days=90", cookie, Ct);
+
+        // general and memes the bot may not read, hangout it may; the deleted channel and the
+        // category are not counted at all.
+        Assert.Equal(new ServerReach(1, 3, false), page.Reach);
+    }
+
+    [Fact]
+    public async Task BusiestChannels_CarryTheirKindTheirCategoryAndWhetherTheyWereDeleted()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+        var now = host.Clock.UtcNow;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.DiscordChannels.Add(new DiscordChannel { ChannelId = "600", GuildId = Guild, Name = "Chat", Type = DiscordChannelTypes.Category, FirstSeenAt = now, UpdatedAt = now });
+            var memes = db.DiscordChannels.Single(c => c.ChannelId == "501");
+            memes.CategoryId = "600";
+            memes.Type = DiscordChannelTypes.Voice;
+            memes.RemovedAt = now;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var page = await host.GetJsonAsync<ServerAnalytics>("/api/analytics/server?days=90", cookie, Ct);
+
+        var general = page.BusiestChannels.Single(c => c.Id == "500");
+        Assert.Equal(DiscordChannelTypes.Text, general.Type);
+        Assert.Null(general.Category);
+        Assert.False(general.Removed);
+
+        var memesRow = page.BusiestChannels.Single(c => c.Id == "501");
+        Assert.Equal(DiscordChannelTypes.Voice, memesRow.Type);
+        Assert.Equal("Chat", memesRow.Category);
+        Assert.True(memesRow.Removed);
+    }
+
+    [Fact]
+    public async Task MembersNow_CountsLinksNewAccountsAndHowLongPeopleHaveStayed()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+        var now = host.Clock.UtcNow;
+        var fresh = IdMadeAt(now.AddDays(-5));
+        var freshGone = IdMadeAt(now.AddDays(-6));
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.DiscordMembers.AddRange(
+                // A five-day-old account that joined two days ago and stayed.
+                new DiscordMember { GuildId = Guild, UserId = fresh, Username = "new", DisplayName = "New", JoinedAt = now.AddDays(-2), FirstSeenAt = now, UpdatedAt = now },
+                // A six-day-old account that joined and left again.
+                new DiscordMember { GuildId = Guild, UserId = freshGone, Username = "gone", DisplayName = "Gone", JoinedAt = now.AddDays(-3), LeftAt = now.AddDays(-1), FirstSeenAt = now, UpdatedAt = now },
+                // An old account that joined ten days ago.
+                new DiscordMember { GuildId = Guild, UserId = "12", Username = "fi", DisplayName = "Fi", JoinedAt = now.AddDays(-10), FirstSeenAt = now, UpdatedAt = now },
+                new DiscordMember { GuildId = Guild, UserId = "14", Username = "gus", DisplayName = "Gus", JoinedAt = now.AddDays(-100), FirstSeenAt = now, UpdatedAt = now },
+                new DiscordMember { GuildId = Guild, UserId = "15", Username = "hal", DisplayName = "Hal", JoinedAt = now.AddDays(-400), FirstSeenAt = now, UpdatedAt = now },
+                // A new bot: never counted.
+                new DiscordMember { GuildId = Guild, UserId = IdMadeAt(now.AddDays(-1)), Username = "robot", DisplayName = "Robot", IsBot = true, JoinedAt = now.AddDays(-1), FirstSeenAt = now, UpdatedAt = now });
+            db.DiscordAccountLinks.AddRange(
+                new DiscordAccountLink { DiscordUserId = "3", DiscordUsername = "cy", VRChatUserId = "usr_cy", LinkedAt = now },
+                new DiscordAccountLink { DiscordUserId = "1", DiscordUsername = "ada", VRChatUserId = "usr_ada", LinkedAt = now.AddDays(-20), UnlinkedAt = now.AddDays(-10) });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var page = await host.GetJsonAsync<ServerAnalytics>("/api/analytics/server?days=90", cookie, Ct);
+        var members = page.MembersNow;
+
+        // In the server: Ada, Cy, New, Fi, Gus and Hal. Bo left; the bots are not counted.
+        Assert.Equal(6, members.Members);
+
+        // Cy's link is active; Ada's was undone.
+        Assert.Equal(1, members.Linked);
+
+        // Joined in the last thirty days: New, Gone and Fi. New and Gone came on new accounts; New stayed.
+        Assert.Equal(3, members.Joined);
+        Assert.Equal(2, members.NewAccounts);
+        Assert.Equal(1, members.NewAccountsStillHere);
+
+        // Ada and Cy have no join time, so they count from when the bot first saw them: just now.
+        Assert.Equal(new MemberTenure(4, 1, 0, 1), members.Tenure);
+    }
 }

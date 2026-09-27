@@ -5,7 +5,67 @@ namespace Modbot.Api.Features.Analytics.Server;
 public sealed record ActiveMembersDay(DateOnly Day, int Daily, int Weekly, int Monthly);
 
 /// <param name="Name">The channel's name as last stored, or null when the channel is not known.</param>
-public sealed record ChannelMessages(string Id, string? Name, decimal Messages);
+/// <param name="Type">
+/// The channel's kind as stored (<c>text</c>, <c>voice</c>, <c>forum</c> and so on), or null when the
+/// channel is not known. A voice channel's own text chat counts under the voice channel.
+/// </param>
+/// <param name="Category">The name of the category it sits in, or null for none.</param>
+/// <param name="Removed">Whether the channel has since been deleted in Discord.</param>
+public sealed record ChannelMessages(string Id, string? Name, string? Type, string? Category, bool Removed, decimal Messages);
+
+/// <summary>One number for the last seven days and the seven before them.</summary>
+public sealed record WeekPair(decimal ThisWeek, decimal LastWeek);
+
+/// <summary>
+/// The last seven days against the seven before, whatever the window: the numbers Discord's Server
+/// Insights opens on, so a moderator can see at once whether things are going up or down.
+/// </summary>
+/// <param name="From">The first day of this week: six days before <paramref name="To"/>.</param>
+/// <param name="To">Today by the server's clock, so not over yet.</param>
+/// <param name="NewMembers">
+/// People who joined in the week and are still in the server, bots left out. Joins that left again,
+/// as a captcha bot's kicks do, are not counted, so the number reads like Discord's own.
+/// </param>
+/// <param name="Talked">Distinct people who sent a message or were in voice.</param>
+/// <param name="Messages">Messages sent.</param>
+/// <param name="VoiceMinutes">Minutes spent in voice.</param>
+public sealed record ServerWeek(
+    DateOnly From,
+    DateOnly To,
+    WeekPair NewMembers,
+    WeekPair Talked,
+    WeekPair Messages,
+    WeekPair VoiceMinutes);
+
+/// <summary>
+/// How much of the server the bot can read, from the permissions stored on each channel's row.
+/// Messages in a channel it cannot read are counted nowhere, and kicks and removed messages are
+/// only ever read from the audit log, so the page says when either is missing.
+/// </summary>
+/// <param name="ChannelsRead">Channels the bot may both view and read the history of.</param>
+/// <param name="Channels">Every channel that is not a category and has not been deleted.</param>
+/// <param name="AuditLog">Whether the bot may read the audit log.</param>
+public sealed record ServerReach(int ChannelsRead, int Channels, bool AuditLog);
+
+/// <summary>How long the members in the server now have been in it, bots left out.</summary>
+public sealed record MemberTenure(int UnderAMonth, int OneToSixMonths, int SixToTwelveMonths, int YearOrMore);
+
+/// <summary>Who the members are, as things are now and whatever the window. Bots are left out throughout.</summary>
+/// <param name="Members">People in the server now.</param>
+/// <param name="Linked">Of them, how many have an active link to a VRChat account.</param>
+/// <param name="Joined">People who joined in the last thirty days, whether or not they are still in.</param>
+/// <param name="NewAccounts">
+/// Of those, how many joined from a Discord account less than thirty days old. An account's age is
+/// read from its id, as the server's own "Est." is.
+/// </param>
+/// <param name="NewAccountsStillHere">Of the new accounts, how many are still in the server.</param>
+public sealed record MembersNow(
+    int Members,
+    int Linked,
+    int Joined,
+    int NewAccounts,
+    int NewAccountsStillHere,
+    MemberTenure Tenure);
 
 /// <param name="Messages">Messages sent in the window.</param>
 /// <param name="VoiceMinutes">Minutes in voice in the window.</param>
@@ -61,6 +121,9 @@ public sealed record ServerProfile(
 /// My Server: is the Discord server healthy, and who keeps it going? (M5 spec §6)
 /// </summary>
 /// <param name="Server">The server itself, as it is now. Read from what the bot stored, all but the online count.</param>
+/// <param name="Week">The last seven days against the seven before, whatever the window.</param>
+/// <param name="Reach">How much of the server the bot can read, or null when no server is set.</param>
+/// <param name="MembersNow">Who the members are now, whatever the window.</param>
 /// <param name="MemberCount">Discord's own member count, the last reading of each day it was read.</param>
 /// <param name="MessagesRemoved">Times a moderator removed messages, one or many at once.</param>
 /// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>
@@ -77,6 +140,9 @@ public sealed record ServerAnalytics(
     DateOnly To,
     DateOnly? Today,
     ServerProfile Server,
+    ServerWeek Week,
+    ServerReach? Reach,
+    MembersNow MembersNow,
     IReadOnlyList<DayValue> MemberCount,
     IReadOnlyList<DayValue> Joined,
     IReadOnlyList<DayValue> Left,

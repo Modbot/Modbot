@@ -269,7 +269,16 @@ export function Toggle<T extends string>({
  * (daily totals, the fact log, what is kept) a click away. The full block at the top of a page was
  * three rows of words a moderator had to get past -- "fact log", "daily totals" -- before any answer.
  */
-export function CoverageLine({ coverage, generatedAt }: { coverage: AnalyticsCoverage; generatedAt: string }) {
+export function CoverageLine({
+  coverage,
+  generatedAt,
+  after,
+}: {
+  coverage: AnalyticsCoverage
+  generatedAt: string
+  /** More of the same line after Details, such as what the Discord bot cannot read. */
+  after?: React.ReactNode
+}) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -291,6 +300,12 @@ export function CoverageLine({ coverage, generatedAt }: { coverage: AnalyticsCov
         >
           {open ? 'Hide details' : 'Details'}
         </button>
+        {after && (
+          <>
+            <span aria-hidden>·</span>
+            {after}
+          </>
+        )}
       </div>
       {open && <CoverageNote coverage={coverage} generatedAt={generatedAt} />}
     </div>

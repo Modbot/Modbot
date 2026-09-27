@@ -22,6 +22,12 @@ namespace Modbot.Api.Features.Analytics.Server;
 /// leaves after it, so they cover what the fact log still holds. Member health is about now, so it
 /// reads the stored member list for who is in the server and ignores the window.
 /// </para>
+/// <para>
+/// Three parts ignore the window as well. The week is always the last seven days against the seven
+/// before, the numbers Discord's Server Insights opens on. The reach is what the bot may read, from
+/// the permissions stored on each channel's row. Members now counts links, account ages and how long
+/// people have stayed from the stored member list; an account's age is read from its id.
+/// </para>
 /// </remarks>
 public sealed class ServerAnalyticsQuery(ModbotContext db, IDiscordOnlineCount? online = null)
 {
@@ -83,6 +89,9 @@ public sealed class ServerAnalyticsQuery(ModbotContext db, IDiscordOnlineCount? 
             to,
             MissingDays.Today(to, now),
             await new ServerProfileQuery(db, online).RunAsync(guildId, ct),
+            await WeekAsync(guildId, today, ct),
+            await ReachAsync(guildId, ct),
+            await MembersNowAsync(guildId, now, ct),
             totals.Series(DailyTotalMetrics.DiscordMembersCount),
             totals.Series(DailyTotalMetrics.DiscordMembersJoined),
             totals.Series(DailyTotalMetrics.DiscordMembersLeft),
@@ -147,11 +156,145 @@ public sealed class ServerAnalyticsQuery(ModbotContext db, IDiscordOnlineCount? 
             .ToList();
 
         var ids = top.Select(c => c.Id).ToList();
-        var names = await db.DiscordChannels.AsNoTracking()
+        var channels = await db.DiscordChannels.AsNoTracking()
             .Where(c => ids.Contains(c.ChannelId) && (guildId == null || c.GuildId == guildId))
+            .Select(c => new { c.ChannelId, c.Name, c.Type, c.CategoryId, Removed = c.RemovedAt != null })
+            .ToDictionaryAsync(c => c.ChannelId, StringComparer.Ordinal, ct);
+
+        var categoryIds = channels.Values.Select(c => c.CategoryId).OfType<string>().Distinct().ToList();
+        var categories = await db.DiscordChannels.AsNoTracking()
+            .Where(c => categoryIds.Contains(c.ChannelId) && (guildId == null || c.GuildId == guildId))
             .ToDictionaryAsync(c => c.ChannelId, c => c.Name, StringComparer.Ordinal, ct);
 
-        return top.Select(c => new ChannelMessages(c.Id, names.GetValueOrDefault(c.Id), c.Messages)).ToList();
+        return top.Select(c =>
+            {
+                var known = channels.GetValueOrDefault(c.Id);
+                var category = known?.CategoryId is { } categoryId ? categories.GetValueOrDefault(categoryId) : null;
+                return new ChannelMessages(c.Id, known?.Name, known?.Type, category, known?.Removed ?? false, c.Messages);
+            })
+            .ToList();
+    }
+
+    /// <summary>The last seven days, today included, against the seven before them.</summary>
+    private async Task<ServerWeek> WeekAsync(string? guildId, DateOnly today, CancellationToken ct)
+    {
+        var from = today.AddDays(-6);
+        var lastFrom = today.AddDays(-13);
+        var lastTo = today.AddDays(-7);
+
+        bool InThis(DateOnly day) => day >= from && day <= today;
+        bool InLast(DateOnly day) => day >= lastFrom && day <= lastTo;
+
+        var sums = await db.DailyTotals.AsNoTracking()
+            .Where(t => (t.Metric == DailyTotalMetrics.DiscordMessages || t.Metric == DailyTotalMetrics.DiscordVoiceMinutes)
+                && t.Dimension == "" && t.Day >= lastFrom && t.Day <= today)
+            .Select(t => new { t.Metric, t.Day, t.Value })
+            .ToListAsync(ct);
+
+        WeekPair Sum(string metric) => new(
+            sums.Where(t => t.Metric == metric && InThis(t.Day)).Sum(t => t.Value),
+            sums.Where(t => t.Metric == metric && InLast(t.Day)).Sum(t => t.Value));
+
+        var activity = await db.DailyTotals.AsNoTracking()
+            .Where(t => ActivityMetrics.Contains(t.Metric) && t.Day >= lastFrom && t.Day <= today)
+            .Select(t => new { t.Day, t.Dimension })
+            .Distinct()
+            .ToListAsync(ct);
+
+        var talked = new WeekPair(
+            activity.Where(a => InThis(a.Day)).Select(a => a.Dimension).Distinct(StringComparer.Ordinal).Count(),
+            activity.Where(a => InLast(a.Day)).Select(a => a.Dimension).Distinct(StringComparer.Ordinal).Count());
+
+        var newMembers = new WeekPair(0, 0);
+
+        if (guildId is not null)
+        {
+            var thisStart = AnalyticsSql.DayStart(from);
+            var lastStart = AnalyticsSql.DayStart(lastFrom);
+            var end = AnalyticsSql.DayEnd(today);
+
+            var joins = await db.DiscordMembers.AsNoTracking()
+                .Where(m => m.GuildId == guildId && !m.IsBot && m.LeftAt == null
+                    && m.JoinedAt >= lastStart && m.JoinedAt < end)
+                .Select(m => m.JoinedAt!.Value)
+                .ToListAsync(ct);
+
+            newMembers = new WeekPair(joins.Count(j => j >= thisStart), joins.Count(j => j < thisStart));
+        }
+
+        return new ServerWeek(
+            from,
+            today,
+            newMembers,
+            talked,
+            Sum(DailyTotalMetrics.DiscordMessages),
+            Sum(DailyTotalMetrics.DiscordVoiceMinutes));
+    }
+
+    /// <summary>How many channels the bot may read, and whether it may read the audit log.</summary>
+    private async Task<ServerReach?> ReachAsync(string? guildId, CancellationToken ct)
+    {
+        if (guildId is null)
+            return null;
+
+        var channels = await db.DiscordChannels.AsNoTracking()
+            .Where(c => c.GuildId == guildId && c.RemovedAt == null && c.Type != DiscordChannelTypes.Category)
+            .Select(c => c.BotCanView && c.BotCanReadHistory)
+            .ToListAsync(ct);
+
+        var auditLog = await db.DiscordServers.AsNoTracking()
+            .Where(s => s.GuildId == guildId)
+            .Select(s => s.BotCanViewAuditLog)
+            .FirstOrDefaultAsync(ct);
+
+        return new ServerReach(channels.Count(reads => reads), channels.Count, auditLog);
+    }
+
+    /// <summary>Links, new accounts among recent joiners and how long people have stayed, from the stored member list.</summary>
+    private async Task<MembersNow> MembersNowAsync(string? guildId, DateTimeOffset now, CancellationToken ct)
+    {
+        if (guildId is null)
+            return new MembersNow(0, 0, 0, 0, 0, new MemberTenure(0, 0, 0, 0));
+
+        var links = db.ActiveAccountLinks();
+        var monthAgo = now.AddDays(-30);
+
+        var here = await db.DiscordMembers.AsNoTracking()
+            .Where(m => m.GuildId == guildId && !m.IsBot && m.LeftAt == null)
+            .Select(m => new
+            {
+                Since = m.JoinedAt ?? m.FirstSeenAt,
+                Linked = links.Any(l => l.DiscordUserId == m.UserId),
+            })
+            .ToListAsync(ct);
+
+        var joined = await db.DiscordMembers.AsNoTracking()
+            .Where(m => m.GuildId == guildId && !m.IsBot && m.JoinedAt >= monthAgo)
+            .Select(m => new { m.UserId, JoinedAt = m.JoinedAt!.Value, StillHere = m.LeftAt == null })
+            .ToListAsync(ct);
+
+        // An account under thirty days old on the day it joined. An id that is not a number has no age.
+        var fresh = joined
+            .Where(m => ServerProfileQuery.CreatedAt(m.UserId) is { } made && m.JoinedAt - made < TimeSpan.FromDays(30))
+            .ToList();
+
+        int Staying(double fromDays, double toDays) => here.Count(m =>
+        {
+            var days = (now - m.Since).TotalDays;
+            return days >= fromDays && days < toDays;
+        });
+
+        return new MembersNow(
+            here.Count,
+            here.Count(m => m.Linked),
+            joined.Count,
+            fresh.Count,
+            fresh.Count(m => m.StillHere),
+            new MemberTenure(
+                Staying(double.MinValue, 30),
+                Staying(30, 182),
+                Staying(182, 365),
+                Staying(365, double.MaxValue)));
     }
 
     private static MessageHours HourOfWeek(IReadOnlyList<DailyTotalRow> totals)
