@@ -200,7 +200,11 @@ public sealed record EvidenceStagedView(string Hash, long ByteSize);
 /// <param name="ExpectedHash">
 /// What the client believes it uploaded, where it computed one. A mismatch fails the commit.
 /// </param>
-public sealed record EvidenceCommitRequest(string? ExpectedHash = null);
+/// <param name="ReportId">
+/// The case file to attach to, for an upload begun before the case file existed. An upload begun
+/// for one case file cannot be committed to another.
+/// </param>
+public sealed record EvidenceCommitRequest(string? ExpectedHash = null, string? ReportId = null);
 
 /// <param name="ContentType">Modbot's determination from the bytes. Never the client's claim.</param>
 public sealed record EvidenceCommitResponse(

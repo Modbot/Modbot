@@ -22,6 +22,20 @@ public sealed class EvidenceRejectedException : Exception
     public ContentRejection Reason { get; } = ContentRejection.NotAllowed;
 }
 
+/// <summary>
+/// A commit named a different report from the one its upload was begun for. Nothing was attached.
+/// </summary>
+public sealed class EvidenceReportMismatchException : Exception
+{
+    public EvidenceReportMismatchException(string message) : base(message) { }
+
+    public EvidenceReportMismatchException(string message, Exception innerException)
+        : base(message, innerException) { }
+
+    public EvidenceReportMismatchException()
+        : base("This upload was begun for another case file. Nothing was attached.") { }
+}
+
 /// <param name="FileName">What the uploader called it.</param>
 /// <param name="DeclaredContentType">The client's claim. A courtesy check only.</param>
 /// <param name="DeclaredLength">The client's claim about size, where it makes one.</param>
@@ -212,14 +226,37 @@ public sealed class EvidenceUploadService
     /// the bytes are not the bytes anybody thinks they are, and an object whose contents do not
     /// hash to its name is detectably wrong.
     /// </param>
-    public async Task<CommitResult> CommitAsync(
+    public Task<CommitResult> CommitAsync(
         EvidenceUploadId uploadId,
         EvidenceHash? expectedHash = null,
+        CancellationToken ct = default)
+        => CommitAsync(uploadId, expectedHash, reportId: null, ct);
+
+    /// <summary>Phase 3, naming the report at the end rather than at the start.</summary>
+    /// <param name="reportId">
+    /// The report to attach to, for an upload begun before its report existed: the ban dialog
+    /// starts sending a screenshot while the moderator is still typing, and the case file is only
+    /// written once VRChat has accepted the ban. An upload that already names a report may repeat
+    /// it, but may not name a different one — that is a second answer to which case file this
+    /// evidence belongs to, and the first one was given before any bytes moved.
+    /// </param>
+    public async Task<CommitResult> CommitAsync(
+        EvidenceUploadId uploadId,
+        EvidenceHash? expectedHash,
+        string? reportId,
         CancellationToken ct = default)
     {
         RequireHealthyStore();
 
         var upload = await RequireUploadAsync(uploadId, ct).ConfigureAwait(false);
+
+        if (reportId is { Length: > 0 })
+        {
+            if (upload.ReportId is { } begunFor && !string.Equals(begunFor, reportId, StringComparison.Ordinal))
+                throw new EvidenceReportMismatchException();
+
+            upload = upload with { ReportId = reportId };
+        }
 
         // Idempotent on the upload id: a commit retried after a network failure returns the same
         // answer instead of attaching the evidence twice.

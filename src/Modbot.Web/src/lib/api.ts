@@ -4552,13 +4552,18 @@ export const api = {
   // ── Evidence uploads (evidence design §9.1). Phase 2, the bytes, is an XMLHttpRequest in the
   //    gallery so it can report progress; it is not here. ────────────────────────────────────
 
-  beginEvidenceUpload: (body: { fileName: string; contentType: string; length: number; reportId: string }) =>
+  /** `reportId` is null when the case file is not written yet; the commit names it then. */
+  beginEvidenceUpload: (body: { fileName: string; contentType: string; length: number; reportId: string | null }) =>
     post<EvidenceUploadTicket>('/api/evidence/uploads', body),
 
-  commitEvidenceUpload: (uploadId: string, expectedHash: string | null) =>
+  commitEvidenceUpload: (uploadId: string, expectedHash: string | null, reportId: string | null = null) =>
     post<EvidenceCommitted>(`/api/evidence/uploads/${encodeURIComponent(uploadId)}/commit`, {
       expectedHash,
+      reportId,
     }),
+
+  /** Upload limits for a screen with no case file yet — the ban dialog. */
+  evidenceDelivery: () => request<EvidenceDelivery>('/api/cases/evidence-delivery'),
 
   /** Where the bytes of a piece of evidence are served from. Same-origin, authenticated by the cookie. */
   evidenceUrl: (hash: string) => `/api/evidence/${encodeURIComponent(hash)}`,

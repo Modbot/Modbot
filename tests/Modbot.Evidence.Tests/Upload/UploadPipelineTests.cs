@@ -107,6 +107,62 @@ public sealed class UploadPipelineTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// The ban dialog sends a screenshot while the moderator is still typing, before the case file
+    /// it belongs to exists. The upload begins with no report and the commit names the one the ban
+    /// wrote.
+    /// </summary>
+    [Fact]
+    public async Task AnUploadBegunWithNoReportIsAttachedToTheReportItsCommitNames()
+    {
+        var content = SampleMedia.Png(2048);
+        var ticket = await _uploads.BeginAsync(
+            new BeginUploadRequest("shot.png", "image/png", content.Length, null, "Gunner24"), Ct);
+
+        using var body = new MemoryStream(content, writable: false);
+        await _uploads.ReceiveAsync(ticket.UploadId, body, content.Length, Ct);
+
+        await _uploads.CommitAsync(ticket.UploadId, null, "case-7", Ct);
+
+        var record = Assert.Single(_metadata.Records);
+        Assert.Equal("case-7", record.ReportId);
+    }
+
+    [Fact]
+    public async Task ACommitNamingTheSameReportTheUploadBeganForIsAccepted()
+    {
+        var content = SampleMedia.Png(2048);
+        var ticket = await _uploads.BeginAsync(
+            new BeginUploadRequest("shot.png", "image/png", content.Length, "case-7", "Gunner24"), Ct);
+
+        using var body = new MemoryStream(content, writable: false);
+        await _uploads.ReceiveAsync(ticket.UploadId, body, content.Length, Ct);
+
+        await _uploads.CommitAsync(ticket.UploadId, null, "case-7", Ct);
+
+        Assert.Equal("case-7", Assert.Single(_metadata.Records).ReportId);
+    }
+
+    /// <summary>
+    /// An upload begun for one case file is not moved to another at commit. The first answer to
+    /// where the evidence belongs was given before any bytes moved.
+    /// </summary>
+    [Fact]
+    public async Task ACommitNamingADifferentReportIsRefusedAndNothingIsAttached()
+    {
+        var content = SampleMedia.Png(2048);
+        var ticket = await _uploads.BeginAsync(
+            new BeginUploadRequest("shot.png", "image/png", content.Length, "case-7", "Gunner24"), Ct);
+
+        using var body = new MemoryStream(content, writable: false);
+        await _uploads.ReceiveAsync(ticket.UploadId, body, content.Length, Ct);
+
+        await Assert.ThrowsAsync<EvidenceReportMismatchException>(
+            () => _uploads.CommitAsync(ticket.UploadId, null, "case-8", Ct));
+
+        Assert.Empty(_metadata.Records);
+    }
+
+    /// <summary>
     /// Design section 7.2: object first, metadata second. A row in the blob record is a claim that
     /// the bytes were confirmed present, and section 8 relies on that claim being true.
     /// </summary>
