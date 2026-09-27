@@ -19,11 +19,16 @@ namespace Modbot.Companion.App;
 /// find out. In the few seconds after the name has been heard it says that instead, and stops
 /// saying it the moment the client would stop acting on anything.</para>
 /// <para>Built once, like the Voice and Clips cards: the window redraws on a timer and a control
-/// being pressed dies under a rebuild.</para>
+/// being pressed dies under a rebuild. Everything that changes reaches the card through
+/// <see cref="RefreshListeningControls"/>. The list of microphones is asked for again every five
+/// seconds while listening is on; that used to build the whole Settings page again each time and
+/// close any list somebody had open, until the listener's state became one of the parts the page
+/// ignores.</para>
 /// </remarks>
 public sealed partial class MainWindow
 {
     private readonly CheckBox _listeningOn = new();
+    private readonly TextBlock _listeningOnLabel = Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextBrush);
     private readonly TextBlock _listeningLine = Ui.Faint("");
     private readonly TextBlock _listeningProblem = Ui.Faint("");
 
@@ -37,6 +42,7 @@ public sealed partial class MainWindow
     /// <summary>Wires the Listening card. Called once, from the constructor.</summary>
     private void SetUpListening()
     {
+        _listeningOn.Content = _listeningOnLabel;
         _listeningOn.IsCheckedChanged += (_, _) => ListeningChanged();
         _listeningProblem.Foreground = Ui.T.DangerBrush;
 
@@ -103,21 +109,11 @@ public sealed partial class MainWindow
             _listeningMicrophone.SelectedIndex =
                 Math.Max(0, _listeningMicrophoneIds.IndexOf(listening.Settings.MicrophoneId));
         }
-    }
-
-    /// <summary>The Listening card: one switch, and what it is doing.</summary>
-    private Control ListeningCard()
-    {
-        foreach (var control in new Control[] { _listeningOn, _listeningLine, _listeningMicrophone, _listeningProblem })
-            DetachFromParent(control);
-
-        var listening = _snapshot.ListeningOrNone;
 
         // The label names the control and says the word out loud, because a control called "Listen
         // for a phrase" would leave somebody guessing which phrase. Its own name is the whole of
         // what it listens for until that name is heard, so that is what the switch is called.
-        _listeningOn.Content = Ui.Text(
-            $"Listen for “{listening.Called}”", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _listeningOnLabel.Text = $"Listen for “{listening.Called}”";
 
         // A machine that cannot listen says so and its switch does nothing, rather than reading
         // "Off" like a choice somebody made.
@@ -131,7 +127,16 @@ public sealed partial class MainWindow
         // thing that went wrong.
         _listeningProblem.Text = listening.Unsupported ?? Missing(listening) ?? listening.LastProblem ?? "";
         _listeningProblem.IsVisible = _listeningProblem.Text.Length > 0;
+    }
 
+    /// <summary>The Listening card: one switch, and what it is doing.</summary>
+    private Control ListeningCard()
+    {
+        foreach (var control in new Control[] { _listeningOn, _listeningLine, _listeningMicrophone, _listeningProblem })
+            DetachFromParent(control);
+
+        // Everything that changes — the word beside the switch, the problem line, the list — is
+        // put in by RefreshListeningControls, which runs after every build as well.
         return new StackPanel
         {
             Spacing = 12,

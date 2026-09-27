@@ -22,7 +22,7 @@ What it says is the **Voice** column of [Tell me about](#tell-me-about):
 
 | Kind | What is said | Where it comes from |
 |---|---|---|
-| **Joined** | *Rin joined your world*. Several people arriving together become *Rin and Kai joined your world*, or *five people joined your world*. | The client's own reading of VRChat's log, the same events the **Events** page shows. |
+| **Joined** | *Rin joined your world*. Several people arriving together become *Rin and Kai joined your world*, or *five people joined your world*. | The client's own reading of VRChat's log, the same events the **Audit Log** page shows. |
 | **Already there** | *Rin was already in your world when you arrived*, folded together the same way. | The same. |
 | **Left** | *Rin left your world*, folded together the same way. | The same. |
 | **Changed avatar** | *Rin switched to the avatar “Tall Cat”*. | The same. |
@@ -102,7 +102,7 @@ The differences from what a Modbot server gets:
   has no say in where it goes or whether it is sent.
 - **Pausing a paired server does not pause it.** Pausing stops the client reporting to that
   server; the backup is a separate flow and keeps going until it is turned off here.
-- **The client's window does not show it.** The **Events** page says what happened to each event's
+- **The client's window does not show it.** The **Audit Log** page says what happened to each event's
   own group's record — sent, waiting, withheld or failed — and nothing about the backup: no line
   of its own, no state, no filter, and no error if a batch of it fails. What the backup did is in
   the client's log file and in `%APPDATA%\Modbot\sent.jsonl`.
@@ -506,7 +506,7 @@ choice made once. Each has its own switch, so you can have either, both or neith
 | **Problem** | ✓ | ✓ | ✓ | A paired server rejected this device, or cannot be reached. |
 
 The ticks above are what a fresh client does. The first five kinds come from the client's own
-reading of VRChat's log — the same events the **Events** page lists, under the same names.
+reading of VRChat's log — the same events the **Audit Log** page lists, under the same names.
 **Flagged join** comes from your group's server, and **Problem** from the client itself.
 
 Each way keeps its own switch and its own volume: turning a kind on here does nothing while the

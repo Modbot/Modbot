@@ -99,10 +99,12 @@ internal sealed class PhraseListening : IDisposable
     private volatile bool _stopping;
     private IDisposable? _microphone;
 
-    /// <summary>Where the resampler had got to, and the last sample before this buffer.</summary>
-    private double _resamplePosition;
-
-    private float _resamplePrevious;
+    /// <summary>
+    /// Brings each buffer to the model's rate, carrying where it had got to between buffers. Fed
+    /// under the lock, like <see cref="_waiting"/>; reset before a microphone is opened, while no
+    /// sound can be arriving.
+    /// </summary>
+    private readonly Resampler _resampler = new(PhraseModel.Default.SampleRate);
 
     /// <summary>
     /// One stretch of sound folded down to mono, reused rather than allocated afresh five times a
@@ -484,8 +486,7 @@ internal sealed class PhraseListening : IDisposable
 
         try
         {
-            _resamplePosition = 0;
-            _resamplePrevious = 0;
+            _resampler.Reset();
             _microphone = new SharedMicrophone(Arrived, BufferMilliseconds, Using?.Id);
             return true;
         }
@@ -564,46 +565,13 @@ internal sealed class PhraseListening : IDisposable
 
         lock (_gate)
         {
-            Resample(mono, sampleRate, _waiting);
+            _resampler.Add(mono, sampleRate, _waiting);
 
             if (_waiting.Count > MostSamplesHeld)
                 _waiting.RemoveRange(0, _waiting.Count - MostSamplesHeld);
         }
 
         _wake.Set();
-    }
-
-    /// <summary>
-    /// Brings the machine's own rate — usually 48,000 samples a second — down to the 16,000 the
-    /// model was trained at, by reading between the samples.
-    /// </summary>
-    /// <remarks>
-    /// Straight-line interpolation, which is about fifteen lines and no library. It is not the
-    /// best resampler there is; what it costs is a little noise above 8,000 cycles a second, and
-    /// nothing in that band is part of telling one word from another. Where it had got to is
-    /// carried between buffers, along with the last sample of the one before, so there is no seam
-    /// every fifth of a second.
-    /// </remarks>
-    private void Resample(ReadOnlySpan<float> mono, int sampleRate, List<float> into)
-    {
-        var step = sampleRate / (double)PhraseModel.Default.SampleRate;
-        var position = _resamplePosition;
-        var last = mono.Length - 1;
-
-        while (position <= last)
-        {
-            var whole = (int)Math.Floor(position);
-            var part = (float)(position - whole);
-
-            var before = whole < 0 ? _resamplePrevious : mono[whole];
-            var after = mono[whole + 1];
-
-            into.Add(before + ((after - before) * part));
-            position += step;
-        }
-
-        _resamplePosition = position - mono.Length;
-        _resamplePrevious = mono[last];
     }
 
     private static float One(ReadOnlySpan<byte> sample, int bits, bool isFloat)

@@ -28,9 +28,11 @@ public sealed record NotificationScreen(IReadOnlyList<PopUp> PopUps)
         if (PopUps.Count != other.PopUps.Count)
             return false;
 
+        // The whole card, not only its id: a card can be filled in while it is up (a trust rank
+        // arriving after the person did), and the same id with new words is a different picture.
         for (var i = 0; i < PopUps.Count; i++)
         {
-            if (!string.Equals(PopUps[i].Id, other.PopUps[i].Id, StringComparison.Ordinal))
+            if (PopUps[i] != other.PopUps[i])
                 return false;
         }
 

@@ -130,6 +130,9 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
     private byte[]? _rgba;
     private OverlayPlacement _placement;
 
+    /// <summary>The device the panel was last hung on, or null while it is fixed in the room.</summary>
+    private uint? _hungOn;
+
     /// <param name="kind">Which panel this is; it decides the key, the name and the sort order.</param>
     /// <param name="overlayName">What SteamVR calls it in its own lists. Null takes the kind's name.</param>
     /// <param name="widthInMetres">The starting width, until a placement says otherwise.</param>
@@ -221,6 +224,8 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
                 }
             }
         }
+
+        FollowTheHand();
     }
 
     public bool Submit(IOverlaySurface surface)
@@ -306,27 +311,67 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
         ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayAlpha))(_handle, placement.Opacity);
         ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayCurvature))(_handle, placement.Curve);
 
-        var transform = HmdPoses.ToMatrix(Pose.From(placement.Offset));
-
-        uint? device = placement.Anchor switch
-        {
-            OverlayAnchor.Head => OpenVrInterop.TrackedDeviceIndexHmd,
-            OverlayAnchor.LeftHand => _session.DeviceIndex(Interaction.Hand.Left),
-            OverlayAnchor.RightHand => _session.DeviceIndex(Interaction.Hand.Right),
-            _ => null,
-        };
-
         if (placement.Anchor is OverlayAnchor.World)
         {
+            _hungOn = null;
+            var fixedInRoom = HmdPoses.ToMatrix(Pose.From(placement.Offset));
             ((delegate* unmanaged[Stdcall]<ulong, int, HmdMatrix34*, int>)Slot(OverlaySlot.SetOverlayTransformAbsolute))(
-                _handle, OpenVrInterop.TrackingUniverseStanding, &transform);
+                _handle, OpenVrInterop.TrackingUniverseStanding, &fixedInRoom);
             return;
         }
 
-        // A hand that is not there right now: the panel waits on the headset, at its offset, and
-        // is put on the hand the next time the placement is applied.
+        // A hand whose controller is not tracked right now: the panel waits in front of the head,
+        // where it can be read, and Poll puts it back on the hand once a controller is tracked
+        // there again.
+        var hand = HandDevice(placement.Anchor);
+        var drawn = placement.Anchor is OverlayAnchor.Head || hand is not null
+            ? placement
+            : placement.WhileTheHandIsGone();
+
+        _hungOn = hand ?? OpenVrInterop.TrackedDeviceIndexHmd;
+
+        // The width can differ from the placement's while the panel waits on the head.
+        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayWidthInMeters))(_handle, drawn.Width);
+
+        var transform = HmdPoses.ToMatrix(Pose.From(drawn.Offset));
         ((delegate* unmanaged[Stdcall]<ulong, uint, HmdMatrix34*, int>)Slot(OverlaySlot.SetOverlayTransformTrackedDeviceRelative))(
-            _handle, device ?? OpenVrInterop.TrackedDeviceIndexHmd, &transform);
+            _handle, _hungOn.Value, &transform);
+    }
+
+    /// <summary>
+    /// The tracked controller a hand anchor hangs on right now, or null for the head, the room,
+    /// or a hand with no tracked controller.
+    /// </summary>
+    private uint? HandDevice(OverlayAnchor anchor) => anchor switch
+    {
+        OverlayAnchor.LeftHand => _session.TrackedDeviceIndex(Interaction.Hand.Left),
+        OverlayAnchor.RightHand => _session.TrackedDeviceIndex(Interaction.Hand.Right),
+        _ => null,
+    };
+
+    /// <summary>
+    /// Puts a hand-anchored panel back where it belongs when the hand's controller has changed
+    /// since it was placed: gone, back, or a different device.
+    /// </summary>
+    /// <remarks>
+    /// <para>SteamVR hangs an overlay on a device index, not on "the left hand". A Quest's
+    /// controllers drop out when they are put down — during a world load, say — and over Steam
+    /// Link the left hand can pass to the hand-tracking device and back. Placed once and left, a
+    /// wrist panel stayed wherever the first answer put it: in the moderator's face while the
+    /// controller was gone, and, placed again while SteamVR had a left hand it could not see, on
+    /// the floor. So the hand is asked again on every poll, and a changed answer places the panel
+    /// again.</para>
+    /// <para>Asking is one index and one read of the poses, four times a second, and nothing is
+    /// set unless the answer changed.</para>
+    /// </remarks>
+    private void FollowTheHand()
+    {
+        if (_placement.Anchor is not (OverlayAnchor.LeftHand or OverlayAnchor.RightHand))
+            return;
+
+        var now = HandDevice(_placement.Anchor) ?? OpenVrInterop.TrackedDeviceIndexHmd;
+        if (now != _hungOn)
+            Apply(_placement);
     }
 
     public void Dispose()

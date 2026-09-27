@@ -4,6 +4,7 @@ using Modbot.Companion.Instances;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Sounds;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 using Modbot.Overlay.Interaction;
 using Modbot.Overlay.Views;
 
@@ -350,6 +351,31 @@ public sealed class OverlayDriver : IDisposable
     /// overlay shows the idle screen and nothing is contacted.
     /// </remarks>
     public ServerPairing? CurrentServer => Current()?.Pairing;
+
+    /// <summary>
+    /// A person's VRChat trust rank, as the server that manages the moderator's instance last
+    /// said it, or null when it has not said.
+    /// </summary>
+    /// <remarks>
+    /// Read from what is already held — the roster and the live events for this instance — and
+    /// never asked of the server. A person who has only just walked in is usually not known yet;
+    /// the server learns of them from this client's own report a couple of seconds later.
+    /// </remarks>
+    public TrustRank? RankOf(string subjectId)
+    {
+        if (Current() is not { } server || _instance is null)
+            return null;
+
+        var member = server.Cache.Context(_instance.InstanceId).Value?.Members
+            .FirstOrDefault(m => string.Equals(m.SubjectId, subjectId, StringComparison.Ordinal));
+        if (member?.TrustRank is { } rank)
+            return rank;
+
+        var heard = _events.FirstOrDefault(e => e.Person is { TrustRank: not null } person
+            && string.Equals(person.SubjectId, subjectId, StringComparison.Ordinal));
+
+        return heard?.Person?.TrustRank is { } word ? TrustRanks.Parse(word) : null;
+    }
 
     /// <summary>
     /// One turn. Safe to call on a timer; it does nothing at all when nothing is due.

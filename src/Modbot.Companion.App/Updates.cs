@@ -223,8 +223,10 @@ internal sealed class Updates
                 return;
 
             Log.Information("Modbot {Version} is available; downloading it in the background", version);
+            _state.UpdateFound = version;
             await _manager.DownloadUpdatesAsync(update);
 
+            _state.UpdateFound = null;
             _state.UpdateReady = version;
             Log.Information("Modbot {Version} is downloaded and will be installed the next time Modbot starts", version);
         }
@@ -234,6 +236,8 @@ internal sealed class Updates
         }
         finally
         {
+            // A download that failed is not a version being downloaded any more.
+            _state.UpdateFound = null;
             _checking = false;
         }
     }

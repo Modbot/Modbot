@@ -302,7 +302,7 @@ public static class OverlayView
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
 
         row.Children.Add(Tab("Instance", OverlayPage.Instance, screen.Page));
-        row.Children.Add(Tab("Events", OverlayPage.Events, screen.Page));
+        row.Children.Add(Tab("Audit Log", OverlayPage.Events, screen.Page));
 
         if (screen.Person is { } person)
             row.Children.Add(Tab(person.DisplayName ?? person.SubjectId, OverlayPage.Person, screen.Page));

@@ -230,6 +230,19 @@ public sealed class OpenVrSession
     }
 
     /// <summary>
+    /// SteamVR's index for a hand's controller while it is being tracked, or null when it has
+    /// none or has one SteamVR cannot see.
+    /// </summary>
+    public uint? TrackedDeviceIndex(Hand hand)
+    {
+        OpenVrSystem? system;
+        lock (_gate)
+            system = _table == 0 ? null : _system;
+
+        return system?.TrackedDeviceIndex(hand);
+    }
+
+    /// <summary>
     /// A refusal in words. Most are SteamVR's own and are named as they come; the one that is not
     /// SteamVR is xrizer, the OpenVR-on-OpenXR layer used with WiVRn and Monado on Linux, which
     /// runs games only and answers an overlay with InvalidApplicationType.

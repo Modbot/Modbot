@@ -3,6 +3,7 @@ using System.Reflection;
 using Modbot.Companion.Credits;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Journal;
+using Modbot.Companion.Listening;
 using Modbot.Companion.Pipeline;
 using Modbot.Companion.Presentation;
 using Modbot.Companion.Voice;
@@ -163,6 +164,33 @@ public class SnapshotLooksTheSameTests : IDisposable
     }
 
     [Fact]
+    public void TheMicrophonesAreComparedOneByOneRatherThanByTheListTheyCameIn()
+    {
+        // While listening is on the client asks Windows for its microphones every five seconds,
+        // and every answer is a new list. The same microphones in a new list are not a change:
+        // counted as one, they built the Settings page again every five seconds and closed any
+        // list a moderator had open on it.
+        var listening = ListeningStatus.None with
+        {
+            Phrases = ["Modbot, clip that"],
+            Microphones = [new Microphone("headset", "Headset")],
+        };
+
+        var same = listening with
+        {
+            Phrases = ["Modbot, clip that"],
+            Microphones = [new Microphone("headset", "Headset")],
+        };
+
+        var other = listening with { Microphones = [new Microphone("desk", "Desk microphone")] };
+
+        Assert.True((Snapshot() with { Listening = listening }).LooksTheSameAs(Snapshot() with { Listening = same }));
+        Assert.False((Snapshot() with { Listening = listening }).LooksTheSameAs(Snapshot() with { Listening = other }));
+        Assert.False((Snapshot() with { Listening = listening })
+            .LooksTheSameAs(Snapshot() with { Listening = listening with { LastHeard = "Modbot, clip that" } }));
+    }
+
+    [Fact]
     public void AChangeAnywhereElseInTheSnapshotIsNoticedWithoutAnybodyListingIt()
     {
         // Everything but the lists is left to the record's own equality, which is the point: a
@@ -185,8 +213,8 @@ public class SnapshotLooksTheSameTests : IDisposable
         //
         // This test names the snapshot's own lists, which are the ones compared item by item. Add
         // a list to the snapshot and it fails, which is the moment to decide whether the new one
-        // belongs with them or is happy costing a redraw. (The two lists that sit one level down,
-        // in the voice and in the thank-you lists, have a test each above.)
+        // belongs with them or is happy costing a redraw. (The lists that sit one level down, in
+        // the voice, the thank-you lists and the listener, have a test each above.)
         var lists = typeof(CompanionAppSnapshot)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(p => p.GetIndexParameters().Length == 0

@@ -3,6 +3,7 @@ using Modbot.Companion.Instances;
 using Modbot.Companion.Journal;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Sounds;
+using Modbot.Core.Users;
 
 namespace Modbot.Companion.Presentation;
 
@@ -33,18 +34,25 @@ public sealed class EventNotifier : IObservationSink
     private readonly Func<string?> _moderatorId;
     private readonly Action<PopUp, NotificationKind>? _popUp;
     private readonly Action<NotificationKind, string?>? _sound;
+    private readonly Func<string, TrustRank?>? _rankOf;
 
     /// <param name="moderatorId">The moderator's own VRChat id as the log last said, or null while unknown.</param>
     /// <param name="popUp">Where a card goes, or null when there is no notification overlay.</param>
     /// <param name="sound">Where a bleep is asked for, or null when this PC has no sound.</param>
+    /// <param name="rankOf">
+    /// A person's trust rank as the paired server last said it, or null while it has not. Read from
+    /// what the client already holds; see <see cref="AddRanks"/> for a rank that arrives later.
+    /// </param>
     public EventNotifier(
         Func<string?> moderatorId,
         Action<PopUp, NotificationKind>? popUp = null,
-        Action<NotificationKind, string?>? sound = null)
+        Action<NotificationKind, string?>? sound = null,
+        Func<string, TrustRank?>? rankOf = null)
     {
         _moderatorId = moderatorId;
         _popUp = popUp;
         _sound = sound;
+        _rankOf = rankOf;
     }
 
     public void Offer(IReadOnlyList<ObservedPresence> observations)
@@ -68,7 +76,8 @@ public sealed class EventNotifier : IObservationSink
             if (NotificationFilters.KindOf(observation.Kind) is not { } kind)
                 continue;
 
-            _popUp?.Invoke(Card(observation, kind), kind);
+            var rank = kind is NotificationKind.Joined ? _rankOf?.Invoke(observation.SubjectId) : null;
+            _popUp?.Invoke(Card(observation, kind, rank), kind);
             _sound?.Invoke(kind, observation.SubjectId);
         }
     }
@@ -79,9 +88,10 @@ public sealed class EventNotifier : IObservationSink
     /// <remarks>
     /// The heading names what happened and the large line names who, which is the shape the
     /// flagged-join card already has. The id is the kind and the person, so the same person
-    /// arriving twice restarts one card rather than stacking two.
+    /// arriving twice restarts one card rather than stacking two. A join card's small line is
+    /// the person's trust rank, in VRChat's own words, when it is known.
     /// </remarks>
-    public static PopUp Card(ObservedPresence observation, NotificationKind kind)
+    public static PopUp Card(ObservedPresence observation, NotificationKind kind, TrustRank? rank = null)
     {
         ArgumentNullException.ThrowIfNull(observation);
 
@@ -99,11 +109,42 @@ public sealed class EventNotifier : IObservationSink
                 PopUpTone.Problem);
         }
 
+        var detail = kind switch
+        {
+            NotificationKind.ChangedAvatar => observation.AvatarName,
+            NotificationKind.Joined when rank is { } known => TrustRanks.Name(known),
+            _ => null,
+        };
+
         return new PopUp(
             $"{NotificationFilters.Word(kind)}:{observation.SubjectId}",
             NotificationFilters.Label(kind),
             who,
-            kind is NotificationKind.ChangedAvatar ? observation.AvatarName : null,
+            detail,
             PopUpTone.Plain);
+    }
+
+    /// <summary>
+    /// Fills in the trust rank on join cards that are up without one, once the server has said it.
+    /// </summary>
+    /// <remarks>
+    /// A join card goes up the moment VRChat's log says somebody arrived, which is before any
+    /// server has heard of them: this client reports the join, and the server's roster and live
+    /// events carry the rank a couple of seconds later. So the card is filled in where it stands,
+    /// keeping its time, rather than waiting to go up at all. Called on the overlay's own tick.
+    /// </remarks>
+    public static void AddRanks(PopUps popUps, Func<string, TrustRank?> rankOf)
+    {
+        ArgumentNullException.ThrowIfNull(popUps);
+        ArgumentNullException.ThrowIfNull(rankOf);
+
+        var prefix = $"{NotificationFilters.Word(NotificationKind.Joined)}:";
+
+        popUps.Amend(card =>
+            card.Detail is null
+            && card.Id.StartsWith(prefix, StringComparison.Ordinal)
+            && rankOf(card.Id[prefix.Length..]) is { } rank
+                ? card with { Detail = TrustRanks.Name(rank) }
+                : card);
     }
 }

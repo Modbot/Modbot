@@ -217,6 +217,12 @@ public sealed record CompanionAppSnapshot(
     /// </summary>
     public string? SoundProblem { get; init; }
 
+    /// <summary>A newer version being downloaded, for the sidebar's foot, or null.</summary>
+    public string? UpdateFound { get; init; }
+
+    /// <summary>A newer version downloaded and waiting for a restart, for the sidebar's foot, or null.</summary>
+    public string? UpdateReady { get; init; }
+
     /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
     public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
 
@@ -283,6 +289,7 @@ public sealed record CompanionAppSnapshot(
             && Warnings.SequenceEqual(other.Warnings)
             && SameVoice(Voice, other.Voice)
             && SameCredits(Credits, other.Credits)
+            && SameListening(Listening, other.Listening)
             && (this with
             {
                 Servers = other.Servers,
@@ -290,7 +297,26 @@ public sealed record CompanionAppSnapshot(
                 Warnings = other.Warnings,
                 Voice = other.Voice,
                 Credits = other.Credits,
+                Listening = other.Listening,
             }) == other;
+    }
+
+    /// <summary>
+    /// The listener: what can be said and the microphones, item by item, the rest left to the record.
+    /// </summary>
+    /// <remarks>
+    /// The microphones are asked for again every five seconds while listening is on, and each
+    /// answer is a new list. Compared by reference, the same three microphones read as a change
+    /// every five seconds.
+    /// </remarks>
+    private static bool SameListening(ListeningStatus? a, ListeningStatus? b)
+    {
+        if (a is null || b is null)
+            return ReferenceEquals(a, b);
+
+        return a.Phrases.SequenceEqual(b.Phrases)
+            && a.MicrophonesOrNone.SequenceEqual(b.MicrophonesOrNone)
+            && (a with { Phrases = b.Phrases, Microphones = b.Microphones }) == b;
     }
 
     /// <summary>The voice: its two lists item by item, the rest left to the record.</summary>
@@ -443,6 +469,12 @@ public sealed class CompanionAppState
     /// </summary>
     public string? UpdateReady { get; set; }
 
+    /// <summary>
+    /// A newer version the updater has found and is downloading, or null. Cleared when the
+    /// download finishes, and when it fails.
+    /// </summary>
+    public string? UpdateFound { get; set; }
+
     public CompanionAppSnapshot Snapshot()
     {
         var logStatus = LogHealth.Evaluate(_clock.UtcNow, LogSilenceThreshold);
@@ -475,6 +507,8 @@ public sealed class CompanionAppState
             Listening with { Settings = Settings.Listening })
         {
             SoundProblem = SoundProblem,
+            UpdateFound = UpdateFound,
+            UpdateReady = UpdateReady,
         };
     }
 

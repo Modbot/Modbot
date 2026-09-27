@@ -220,6 +220,7 @@ public sealed partial class MainWindow : Window
         SetUpNotificationFilters();
         SetUpClips();
         SetUpListening();
+        SetUpVersion();
 
         // The palette and the shortcut sheet open over the page, inside this window, so the
         // window's own keys still reach them and nothing else appears in the taskbar.
@@ -334,6 +335,7 @@ public sealed partial class MainWindow : Window
 
         RenderIdentity();
         RenderHealth();
+        RenderVersion();
         RenderNav();
         DrawPage();
     }
@@ -356,6 +358,7 @@ public sealed partial class MainWindow : Window
         panel.Children.Add(Dock(SearchButton(), Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(_nav, Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(health, Avalonia.Controls.Dock.Bottom));
+        panel.Children.Add(Dock(VersionFoot(), Avalonia.Controls.Dock.Bottom));
         panel.Children.Add(Dock(_brandFoot, Avalonia.Controls.Dock.Bottom));
         panel.Children.Add(new Panel());
 
@@ -452,7 +455,7 @@ public sealed partial class MainWindow : Window
     private void RenderNav()
     {
         NavItem(Page.Servers, "Servers", _snapshot.Servers.Count == 0 ? null : $"{_snapshot.Servers.Count}");
-        NavItem(Page.Events, "Events", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}");
+        NavItem(Page.Events, "Audit Log", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}");
 
         // "on" is the panel actually up in a headset; "off" is the switch. Between them sits the
         // ordinary case -- switched on, SteamVR not running -- which says nothing, because it is
@@ -461,10 +464,12 @@ public sealed partial class MainWindow : Window
         NavItem(Page.SteamVr, "SteamVR", !overlay.On ? "off" : overlay.Attached ? "on" : null);
         NavItem(Page.Log, "Log", null);
         NavItem(Page.Settings, "Settings", null);
-        NavItem(Page.Credits, "Credits", null);
 
         if (_snapshot.DebugMode)
             NavItem(Page.Debug, "Debug", null);
+
+        // Last, whatever else is shown: the thank-yous are not a page anybody works in.
+        NavItem(Page.Credits, "Credits", null);
 
         RegisterWindowKeys();
     }
@@ -650,6 +655,10 @@ public sealed partial class MainWindow : Window
                 NotificationFilters = drawn.NotificationFilters,
                 LogFolder = drawn.LogFolder,
                 LogFolderConfigured = drawn.LogFolderConfigured,
+                DesktopNotifyOverlay = drawn.DesktopNotifyOverlay,
+                Clips = drawn.Clips,
+                Listening = drawn.Listening,
+                SoundProblem = drawn.SoundProblem,
             };
         }
 

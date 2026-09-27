@@ -93,6 +93,28 @@ public sealed record OverlayPlacement(
         _ => current <= WristWidth + 0.001f ? Default.Width : current,
     };
 
+    /// <summary>
+    /// Where a panel worn on a hand waits while that hand's controller is gone: in front of the
+    /// head where a head panel sits, at a size a roster can be read at. Opacity and curve stay.
+    /// A panel on the head or in the room has nothing to wait for and comes back as it is.
+    /// </summary>
+    /// <remarks>
+    /// <para>This is where it is drawn, not where it is kept. The placement itself still says the
+    /// hand, and the panel goes back on the hand as soon as a controller is tracked there again.</para>
+    /// <para>It used to wait on the headset at the wrist's own offset, which read in the head's axes
+    /// is ten centimetres above the eyes and turned to face upwards: the panel sat in the
+    /// moderator's face. A Quest's controllers drop out whenever they are put down, during a world
+    /// load for instance, so it was not a rare thing to see.</para>
+    /// </remarks>
+    public OverlayPlacement WhileTheHandIsGone() => Anchor is OverlayAnchor.LeftHand or OverlayAnchor.RightHand
+        ? this with
+        {
+            Anchor = OverlayAnchor.Head,
+            Offset = Default.Offset,
+            Width = WidthFor(OverlayAnchor.Head, Width),
+        }
+        : this;
+
     /// <summary>The same placement with every number inside its bounds.</summary>
     public OverlayPlacement Clamped() => this with
     {

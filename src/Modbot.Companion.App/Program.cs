@@ -1651,7 +1651,8 @@ internal sealed class CompanionHost : IOverlayListener
             notices: new EventNotifier(
                 () => observer.ModeratorId,
                 (popUp, kind) => _popUps?.Show(popUp, kind),
-                (kind, about) => _bleep?.Ask(kind, about)));
+                (kind, about) => _bleep?.Ask(kind, about),
+                subjectId => _overlay?.RankOf(subjectId)));
 
         _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
         _engineLoop.Start();
@@ -2477,6 +2478,11 @@ internal sealed class CompanionHost : IOverlayListener
             // seconds, because a moderator can want one to linger and the other to be brief.
             if (_popUps is not null)
             {
+                // A join card went up before the server knew the person; their trust rank is
+                // written onto it once the roster or a live event has it.
+                var overlay = _overlay;
+                EventNotifier.AddRanks(_popUps, subjectId => overlay.RankOf(subjectId));
+
                 if (_notifyHost is not null)
                 {
                     _notifyHost.Update(new NotificationScreen(

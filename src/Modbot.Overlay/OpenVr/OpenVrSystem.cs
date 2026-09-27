@@ -159,6 +159,30 @@ internal sealed unsafe class OpenVrSystem
         return index == InvalidDevice || index >= MaxDevices ? null : index;
     }
 
+    /// <summary>
+    /// SteamVR's index for a hand's controller if that controller is being tracked right now, or
+    /// null.
+    /// </summary>
+    /// <remarks>
+    /// A hand can have an index and no position: a Quest controller that has been put down keeps
+    /// its role for a while, and SteamVR can give the role to the hand-tracking device while no
+    /// hand is in view. A panel hung on a device like that is drawn wherever SteamVR last had it,
+    /// which can be the floor. Tracked is the only answer worth hanging a panel on.
+    /// </remarks>
+    public uint? TrackedDeviceIndex(Interaction.Hand hand)
+    {
+        if (DeviceIndex(hand) is not { } index)
+            return null;
+
+        fixed (byte* poses = _poses)
+        {
+            ((delegate* unmanaged[Stdcall]<int, float, void*, uint, void>)Slot(GetDeviceToAbsoluteTrackingPose))(
+                TrackingUniverseStanding, 0f, poses, MaxDevices);
+        }
+
+        return OpenVrLayouts.ReadPose(PoseBytes((int)index)) is null ? null : index;
+    }
+
     public OverlayTracking Read()
     {
         fixed (byte* poses = _poses)
