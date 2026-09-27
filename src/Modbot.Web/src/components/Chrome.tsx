@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { DemoMarker } from '@/components/DemoMarker'
 import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
-import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, type NavItem, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, sidebarEntry, type NavItem, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import type { StatusRowId } from '@/lib/status'
 import { IS_MAC, keyNames } from '@/lib/shortcuts'
@@ -45,6 +45,8 @@ export function Sidebar({
   footer?: React.ReactNode
 }) {
   const visible = NAV.filter((item) => !('hidden' in item && item.hidden) && mayOpen(me, item.id))
+  // A page shown as part of another, like Discord members on the Discord page, lights that one.
+  const lit = sidebarEntry(page)
 
   // A group heading travels with its first *visible* entry, so hiding "Users" does not take the
   // "Team" heading away from "Roles".
@@ -92,13 +94,13 @@ export function Sidebar({
               'relative flex h-(--control-h) w-full items-center gap-2 pr-3 text-left transition-colors',
               // A page that belongs to the one above it, like Worlds under VRChat, sits one step in.
               'indent' in item && item.indent ? 'pl-8' : 'pl-4',
-              page === item.id
+              lit === item.id
                 ? 'bg-card font-medium text-foreground'
                 : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
             )}
           >
             {/* The rail's marker: a bar on the edge, not a filled pill. */}
-            {page === item.id && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />}
+            {lit === item.id && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {badges?.[item.id] ? (
               <span

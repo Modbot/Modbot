@@ -15,15 +15,20 @@ import { HeaderTabs } from './shared'
  *
  * On a phone the icon sits over the banner and the name goes under it; from `sm` up the name moves
  * beside the icon, level with its lower half, as on the VRChat page.
+ *
+ * The Discord members page draws it too, with Members marked, so the two read as one Discord page.
  */
 export function ServerHeader({
   server,
   me,
   pathOf,
+  active = 'analytics-server',
 }: {
   server: ServerProfile
   me: CurrentUser
   pathOf: (id: PageId) => string
+  /** The link marked as the page on screen. */
+  active?: PageId
 }) {
   const banner = discordPicture(server.bannerUrl, 1024)
   const icon = discordPicture(server.iconUrl, 256)
@@ -69,7 +74,7 @@ export function ServerHeader({
 
       {boosts && <BoostBar goal={boosts} />}
 
-      <HeaderTabs label="Server" tabs={serverTabs(me)} active="analytics-server" pathOf={pathOf} />
+      <HeaderTabs label="Server" tabs={serverTabs(me)} active={active} pathOf={pathOf} />
     </Card>
   )
 }

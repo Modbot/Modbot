@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Analytics.Messages;
+using Modbot.Api.Features.Analytics.Server;
 using Modbot.Api.Features.Audit;
 using Modbot.Api.Features.DiscordLink;
 using Modbot.Api.Features.DiscordMembers;
@@ -221,10 +222,24 @@ public class DiscordMemberTests
         Assert.Equal(HttpStatusCode.NotFound, (await host.GetAsync("/api/discord/members/9", cookie, Ct)).StatusCode);
     }
 
+    [Fact]
+    public async Task TheServer_IsTheOneInSettings_AsTheBotStoredIt()
+    {
+        await using var host = await StartAsync(_db);
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var server = await host.GetJsonAsync<ServerProfile>("/api/discord/server", cookie, Ct);
+
+        Assert.Equal(Guild, server.GuildId);
+        Assert.Equal("The Black Cat", server.Name);
+        Assert.Equal(ServerProfileQuery.CreatedAt(Guild), server.CreatedAt);
+    }
+
     [Theory]
     [InlineData("/api/discord/members")]
     [InlineData("/api/discord/members/1")]
-    public async Task BothNeedViewMembers(string path)
+    [InlineData("/api/discord/server")]
+    public async Task EachNeedsViewMembers(string path)
     {
         await using var host = await StartAsync(_db);
 

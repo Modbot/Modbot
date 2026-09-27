@@ -227,6 +227,42 @@
         "security": [ ]
       }
     },
+    "/api/discord/server": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "Get Discord server",
+        "description": "The Discord server in settings as its own server profile shows it: name, icon and banner, the day it was made (read from its id), Discord's member count from the newest reading, and its boosts and boost level. All of it is what the bot last stored; asking asks Discord nothing. Every field is null when no server is set.\n\nNeeds the `ViewMembers` permission.",
+        "operationId": "GetDiscordServer",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerProfile"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/search": {
       "get": {
         "tags": [

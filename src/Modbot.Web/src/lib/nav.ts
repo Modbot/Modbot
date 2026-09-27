@@ -16,9 +16,11 @@ export const NAV = [
   // The people asking to be let in, read from VRChat when the page is opened. Beside Members
   // because it is the same roster one step earlier.
   { id: 'requests', label: 'Requests', needs: 'ViewJoinRequests' },
-  // The Discord server's own member list. Secondary to Members: separate, because most people are
-  // on one side only and most never link.
-  { id: 'discord-members', label: 'Discord members', needs: 'ViewMembers' },
+  // The Discord server's own member list. Separate from Members, because most people are on one
+  // side only and most never link. Not in the page list since 2026-09-27: it is the Members link on
+  // the Discord page's header, so the sidebar lights Discord while it is open. The palette and
+  // `g d` still reach it, and its address is unchanged.
+  { id: 'discord-members', label: 'Discord members', needs: 'ViewMembers', hidden: true, under: 'analytics-server' },
   // Everyone Modbot has a record of, not only the group's roster: the people it has seen in an
   // instance or read about in the audit log have a profile and a history too, and no list led to
   // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
@@ -132,6 +134,25 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   account: 'y',
   cases: '',
   credits: '',
+}
+
+/**
+ * The sidebar entry lit while a page is open: the page's own, or, for a page shown as part of
+ * another (`under`), that one's. Discord members is the Members link on the Discord page, so
+ * Discord stays lit.
+ */
+export function sidebarEntry(id: PageId): PageId {
+  const item = NAV.find((n) => n.id === id)
+  return item && 'under' in item ? item.under : id
+}
+
+/**
+ * Whether a page is offered by name, in the palette and as a `g` chord: every page in the
+ * sidebar, and a page off it that is shown as part of one that is. Other pages off the sidebar
+ * are reached from somewhere in particular -- a case file from Bans -- and have no name to go to.
+ */
+export function goesByName(item: NavItem): boolean {
+  return !('hidden' in item && item.hidden) || 'under' in item
 }
 
 /** Whether this person may open a page. Pages with no requirement are open to everyone signed in. */

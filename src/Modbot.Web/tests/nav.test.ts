@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { CREDITS_PATH, GO_TO_KEYS, IAM_PATH, MOVED, NAV, mayOpen, titleWithCount, waitingTotal } from '../src/lib/nav.ts'
+import {
+  CREDITS_PATH,
+  GO_TO_KEYS,
+  IAM_PATH,
+  MOVED,
+  NAV,
+  goesByName,
+  mayOpen,
+  sidebarEntry,
+  titleWithCount,
+  waitingTotal,
+} from '../src/lib/nav.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
 
 test('the waiting total adds up the counts the sidebar shows', () => {
@@ -104,6 +115,38 @@ test('Reviews sits beside Flags, with no heading of its own', () => {
 
 test("Modbot's own log is not called just Logs, which the audit log and the popup also were", () => {
   assert.equal(NAV.find((n) => n.id === 'logs')?.label, "Modbot's log")
+})
+
+test('Discord members is off the page list, shown as part of Discord, which the sidebar lights', () => {
+  const discordMembers = NAV.find((n) => n.id === 'discord-members')
+
+  assert.ok(discordMembers && 'hidden' in discordMembers && discordMembers.hidden)
+  assert.equal(sidebarEntry('discord-members'), 'analytics-server')
+  assert.equal(sidebarEntry('analytics-server'), 'analytics-server')
+  assert.equal(sidebarEntry('members'), 'members')
+  assert.equal(mayOpen(person('ViewMembers'), 'discord-members'), true)
+})
+
+test('Discord members is still offered by name and keeps its chord', () => {
+  const discordMembers = NAV.find((n) => n.id === 'discord-members')
+
+  assert.ok(discordMembers && goesByName(discordMembers))
+  assert.equal(GO_TO_KEYS['discord-members'], 'd')
+})
+
+test('a page off the list with no page over it is not offered by name', () => {
+  for (const id of ['cases', 'credits', 'health', 'account']) {
+    const item = NAV.find((n) => n.id === id)
+    assert.ok(item && !goesByName(item), `${id} is offered by name`)
+  }
+})
+
+test('every page shown as part of another points at one in the sidebar', () => {
+  for (const item of NAV) {
+    if (!('under' in item)) continue
+    const over = NAV.find((n) => n.id === item.under)
+    assert.ok(over && !('hidden' in over && over.hidden), `${item.id} is under a page not in the sidebar`)
+  }
 })
 
 test('every page in the sidebar has a go-to chord', () => {

@@ -7,6 +7,7 @@ namespace Modbot.Api.Features.Analytics.Server;
 
 /// <summary>
 /// The top of the Discord analytics page: the server as Discord's own server profile shows it.
+/// The Discord member list draws the same header, from <c>GET /api/discord/server</c>.
 /// </summary>
 /// <remarks>
 /// Read entirely from what the bot left behind. The name, pictures and boosts are on the server's
