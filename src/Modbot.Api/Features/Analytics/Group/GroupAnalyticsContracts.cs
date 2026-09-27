@@ -131,3 +131,38 @@ public sealed record GroupAnalytics(
     IReadOnlyList<DateOnly> DaysWithoutAuditLog,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);
+
+/// <summary>
+/// The group as its own VRChat page shows it: the header, the counts and the About card.
+/// </summary>
+/// <remarks>
+/// Everything here comes from the one group read the group-info sync already makes every five
+/// minutes, so the page costs VRChat nothing. Nothing is fetched when the page is opened.
+/// </remarks>
+/// <param name="Id">The group's VRChat id. Opaque.</param>
+/// <param name="ShortCode">The code VRChat shows beside the name, such as <c>TESTIN</c>.</param>
+/// <param name="Discriminator">The four digits after the code's dot.</param>
+/// <param name="IconUrl">The round picture. Only ever an <c>https</c> address.</param>
+/// <param name="BannerUrl">The wide picture across the top. Only ever an <c>https</c> address.</param>
+/// <param name="Languages">VRChat's language codes, such as <c>eng</c>. Empty when the group lists none or they were not read yet.</param>
+/// <param name="Links">The group's links, each an absolute <c>http</c> or <c>https</c> address.</param>
+/// <param name="Members">VRChat's <c>memberCount</c> at the newest reading, or null before the first.</param>
+/// <param name="Online">VRChat's <c>onlineMemberCount</c> at the same reading.</param>
+/// <param name="CountedAt">When that reading was taken.</param>
+/// <param name="ReadAt">When the group-info sync last read the group, or null if it never has.</param>
+public sealed record GroupInfo(
+    string? Id,
+    string? Name,
+    string? ShortCode,
+    string? Discriminator,
+    string? IconUrl,
+    string? BannerUrl,
+    string? Description,
+    string? Rules,
+    IReadOnlyList<string> Languages,
+    IReadOnlyList<string> Links,
+    int? Members,
+    int? Online,
+    DateTimeOffset? CountedAt,
+    DateTimeOffset? ReadAt,
+    DateTimeOffset GeneratedAt);

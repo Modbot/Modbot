@@ -140,6 +140,65 @@ public class ServerAnalyticsTests
     }
 
     [Fact]
+    public async Task TheServer_IsShownAsTheBotLastReadIt()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.DiscordServers.Add(new DiscordServer
+            {
+                GuildId = Guild,
+                Name = "The Black Cat",
+                IconUrl = "https://cdn.discordapp.com/icons/424242/abc.png",
+                BannerUrl = "https://cdn.discordapp.com/banners/424242/def.png",
+                BoostCount = 9,
+                BoostLevel = 2,
+                RefreshedAt = host.Clock.UtcNow,
+                UpdatedAt = host.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var page = await host.GetJsonAsync<ServerAnalytics>("/api/analytics/server?days=90", cookie, Ct);
+
+        var server = page.Server;
+        Assert.Equal(Guild, server.GuildId);
+        Assert.Equal("The Black Cat", server.Name);
+        Assert.Equal("https://cdn.discordapp.com/icons/424242/abc.png", server.IconUrl);
+        Assert.Equal("https://cdn.discordapp.com/banners/424242/def.png", server.BannerUrl);
+        Assert.Equal(9, server.BoostCount);
+        Assert.Equal(2, server.BoostLevel);
+
+        // The newest reading of Discord's own count.
+        Assert.Equal(2, server.Members);
+
+        // 424242 is too small to carry any time, so it reads as the first moment Discord counts from.
+        Assert.Equal(new DateTimeOffset(2015, 1, 1, 0, 0, 0, TimeSpan.Zero), server.CreatedAt);
+    }
+
+    [Fact]
+    public async Task WithNoServerRow_TheServerIsEmptyButTheIdAndDateAreStillThere()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var page = await host.GetJsonAsync<ServerAnalytics>("/api/analytics/server?days=90", cookie, Ct);
+
+        Assert.Equal(Guild, page.Server.GuildId);
+        Assert.Null(page.Server.Name);
+        Assert.Null(page.Server.IconUrl);
+        Assert.Null(page.Server.BoostCount);
+        Assert.NotNull(page.Server.CreatedAt);
+    }
+
+    [Fact]
     public async Task NewMembersWhoStayed_AndMembersWhoWentQuiet()
     {
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);

@@ -81,6 +81,7 @@ public sealed class ServerAnalyticsQuery(ModbotContext db)
             from,
             to,
             MissingDays.Today(to, now),
+            await new ServerProfileQuery(db).RunAsync(guildId, ct),
             totals.Series(DailyTotalMetrics.DiscordMembersCount),
             totals.Series(DailyTotalMetrics.DiscordMembersJoined),
             totals.Series(DailyTotalMetrics.DiscordMembersLeft),

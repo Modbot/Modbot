@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260927065839_AddServerPicturesAndBoosts")]
+    partial class AddServerPicturesAndBoosts
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6772,49 +6775,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_api_webhook_delivery_webhook_id_id");
 
                     b.ToTable("api_webhook_delivery", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldHeadCount", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTimeOffset>("CountedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("counted_at");
-
-                    b.Property<string>("Instances")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("instances");
-
-                    b.Property<int?>("Occupants")
-                        .HasColumnType("integer")
-                        .HasColumnName("occupants");
-
-                    b.Property<int?>("PrivateOccupants")
-                        .HasColumnType("integer")
-                        .HasColumnName("private_occupants");
-
-                    b.Property<int?>("PublicOccupants")
-                        .HasColumnType("integer")
-                        .HasColumnName("public_occupants");
-
-                    b.Property<string>("WorldId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("world_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_world_head_count");
-
-                    b.HasIndex("WorldId", "CountedAt")
-                        .HasDatabaseName("ix_world_head_count_world");
-
-                    b.ToTable("world_head_count", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>

@@ -23,11 +23,12 @@ public class AnalyticsAccessTests
         "/api/analytics/server",
     ];
 
-    /// <summary>The pages and the two charts with a window of their own, gated the same way.</summary>
+    /// <summary>The pages, the two charts with a window of their own and the group info, gated the same way.</summary>
     public static readonly TheoryData<string> Everything =
     [
         "/api/analytics/group",
         "/api/analytics/group/member-count",
+        "/api/analytics/group/info",
         "/api/analytics/team",
         "/api/analytics/worlds",
         "/api/analytics/instances",

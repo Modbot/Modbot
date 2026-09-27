@@ -293,6 +293,55 @@ public class DiscordServerIndexTests
     }
 
     [Fact]
+    public async Task TheServersPicturesAndBoosts_AreStored_AndKeptCurrentWhenTheServerChanges()
+    {
+        await using var services = await TestServices.CreateAsync(_db, Ct);
+        var (_, gateway) = await ReadyBotAsync(services);
+
+        // The default server has no pictures and no boost numbers.
+        await using (var db = services.Database.NewContext())
+        {
+            var before = await db.DiscordServers.AsNoTracking().SingleAsync(Ct);
+            Assert.Null(before.IconUrl);
+            Assert.Null(before.BannerUrl);
+            Assert.Null(before.BoostCount);
+            Assert.Null(before.BoostLevel);
+        }
+
+        gateway.Server = Server() with
+        {
+            IconUrl = "https://cdn.discordapp.com/icons/424242/abc.png",
+            BannerUrl = "https://cdn.discordapp.com/banners/424242/def.png",
+            BoostCount = 9,
+            BoostLevel = 2,
+        };
+        await gateway.RaiseServerChangedAsync(Guild);
+
+        await using (var db = services.Database.NewContext())
+        {
+            var after = await db.DiscordServers.AsNoTracking().SingleAsync(Ct);
+            Assert.Equal("https://cdn.discordapp.com/icons/424242/abc.png", after.IconUrl);
+            Assert.Equal("https://cdn.discordapp.com/banners/424242/def.png", after.BannerUrl);
+            Assert.Equal(9, after.BoostCount);
+            Assert.Equal(2, after.BoostLevel);
+        }
+
+        // The banner taken down and the icon given a non-https address: neither is kept. Boosts the
+        // snapshot does not know leave the last ones stored.
+        gateway.Server = Server() with { IconUrl = "javascript:alert(1)", BannerUrl = null, BoostCount = null, BoostLevel = null };
+        await gateway.RaiseServerChangedAsync(Guild);
+
+        await using (var db = services.Database.NewContext())
+        {
+            var cleared = await db.DiscordServers.AsNoTracking().SingleAsync(Ct);
+            Assert.Null(cleared.IconUrl);
+            Assert.Null(cleared.BannerUrl);
+            Assert.Equal(9, cleared.BoostCount);
+            Assert.Equal(2, cleared.BoostLevel);
+        }
+    }
+
+    [Fact]
     public async Task ChangesInAnotherServerTheBotIsIn_AreIgnored()
     {
         await using var services = await TestServices.CreateAsync(_db, Ct);

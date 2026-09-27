@@ -1517,6 +1517,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         builder.Entity<Settings>(entity =>
         {
             entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb");
+            entity.Property(e => e.ManagedGroupLanguages).HasColumnType("jsonb");
+            entity.Property(e => e.ManagedGroupLinks).HasColumnType("jsonb");
 
             // Written out rather than left to the CLR default, so a row that existed before this
             // feature reads as "everybody who gets past the checks that are not rules" rather

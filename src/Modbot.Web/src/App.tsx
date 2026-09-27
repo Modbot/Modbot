@@ -496,8 +496,8 @@ function Shell({
           )}
           {page === 'flags' && <Flags me={me} onOpenSubject={setSubject} onOpenCount={setOpenFlags} />}
           {page === 'audit' && <AuditLog />}
-          {page === 'analytics-group' && <MyGroup />}
-          {page === 'analytics-server' && <MyServer />}
+          {page === 'analytics-group' && <MyGroup me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'analytics-server' && <MyServer me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'analytics-team' && (
             <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
           )}

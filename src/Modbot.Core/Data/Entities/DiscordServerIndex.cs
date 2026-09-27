@@ -42,6 +42,26 @@ public class DiscordServer
 
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>The server's icon on Discord's picture site, or null when it has none.</summary>
+    /// <remarks>
+    /// This and the three below come with the server when the bot signs in and whenever the server
+    /// changes, so reading them costs no request. The Discord analytics page shows them at the top.
+    /// </remarks>
+    public string? IconUrl { get; set; }
+
+    /// <summary>The server's banner, or null when it has none. Only boosted servers can set one.</summary>
+    public string? BannerUrl { get; set; }
+
+    /// <summary>How many boosts the server has. Null until the bot has read it.</summary>
+    public int? BoostCount { get; set; }
+
+    /// <summary>The server's boost level, 0 to 3, as Discord states it. Null until the bot has read it.</summary>
+    /// <remarks>
+    /// Kept as Discord gives it rather than worked out from <see cref="BoostCount"/>: Discord lets a
+    /// server keep its level for a while after boosts run out.
+    /// </remarks>
+    public int? BoostLevel { get; set; }
+
     /// <summary>Whether the bot holds View Audit Log for the whole server.</summary>
     public bool BotCanViewAuditLog { get; set; }
 

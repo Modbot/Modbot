@@ -964,7 +964,14 @@ public sealed class DiscordNetGateway : IDiscordGateway
             roles,
             BotCanManageEvents: serverWide.ManageEvents,
             BotCanBanMembers: serverWide.BanMembers,
-            BotCanRemoveMembers: serverWide.KickMembers);
+            BotCanRemoveMembers: serverWide.KickMembers,
+
+            // All four arrive with the server under the Guilds intent, and a change to any of them
+            // is a server update, which reads this again. No request is made for them.
+            IconUrl: guild.IconUrl,
+            BannerUrl: guild.BannerUrl,
+            BoostCount: guild.PremiumSubscriptionCount,
+            BoostLevel: (int)guild.PremiumTier);
     }
 
     // ── Channel and role changes ───────────────────────────────────────────────────────────
