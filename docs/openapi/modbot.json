@@ -5997,7 +5997,7 @@
           "Moderation"
         ],
         "summary": "List flags",
-        "description": "The newest flags: open, dismissed or confirmed, and filtered by language.\n\nNeeds the `ViewProfile` permission.",
+        "description": "The newest flags: open, dismissed or confirmed, and filtered by language. Given `vrchat`, `discord` or both, only that person's flags, and the open count is theirs.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "ListModerationFlags",
         "parameters": [
           {
@@ -6009,6 +6009,20 @@
           },
           {
             "name": "language",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vrchat",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discord",
             "in": "query",
             "schema": {
               "type": "string"

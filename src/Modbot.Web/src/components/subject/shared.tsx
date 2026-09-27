@@ -184,6 +184,8 @@ export function PopupFrame({
   subtitle,
   lead,
   actions,
+  standing,
+  foot,
   left,
   children,
 }: {
@@ -191,6 +193,10 @@ export function PopupFrame({
   subtitle?: React.ReactNode
   lead?: React.ReactNode
   actions?: React.ReactNode
+  /** One row across both columns, straight under the title: what the reader must see first. */
+  standing?: React.ReactNode
+  /** A row pinned to the foot of the screen on a phone, for the controls a thumb needs. */
+  foot?: React.ReactNode
   left: React.ReactNode
   children: React.ReactNode
 }) {
@@ -201,6 +207,7 @@ export function PopupFrame({
       lead={lead}
       actions={actions}
       aria-describedby={undefined}
+      foot={foot ? <div className="shrink-0 md:hidden">{foot}</div> : undefined}
       className={cn(
         'top-0 left-0 h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0',
         'md:top-1/2 md:left-1/2 md:h-[calc(100dvh-2rem)] md:w-[calc(100vw-2rem)] md:max-w-[100rem]',
@@ -209,8 +216,12 @@ export function PopupFrame({
       // `minmax(0,1fr)` on the one-column case as well: a bare `grid` sizes its column to the
       // widest thing in it, so the stacked popup was as wide as its widest table and scrolled
       // sideways as a whole rather than letting the table scroll inside itself.
-      bodyClassName="grid grid-cols-[minmax(0,1fr)] overflow-auto p-0 md:grid-cols-[22rem_minmax(0,1fr)] md:overflow-hidden"
+      bodyClassName={cn(
+        'grid grid-cols-[minmax(0,1fr)] content-start overflow-auto p-0 md:grid-cols-[22rem_minmax(0,1fr)] md:overflow-hidden',
+        standing ? 'md:grid-rows-[auto_minmax(0,1fr)]' : 'md:grid-rows-[minmax(0,1fr)]',
+      )}
     >
+      {standing && <div className="md:col-span-2">{standing}</div>}
       {/* Every block in the column draws the hairline under itself, so the column draws only
           the one beside it. */}
       <aside className="flex flex-col md:overflow-auto md:border-r md:border-r-(length:--hairline)">

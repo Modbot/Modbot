@@ -27,12 +27,15 @@ function DialogContent({
   subtitle,
   lead,
   actions,
+  foot,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   title: string
   subtitle?: React.ReactNode
   lead?: React.ReactNode
   actions?: React.ReactNode
+  /** Drawn under the body and never scrolled away with it. */
+  foot?: React.ReactNode
   bodyClassName?: string
 }) {
   return (
@@ -77,6 +80,7 @@ function DialogContent({
           </DialogPrimitive.Close>
         </div>
         <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', bodyClassName)}>{children}</div>
+        {foot}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   )

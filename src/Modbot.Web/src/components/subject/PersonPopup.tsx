@@ -16,15 +16,24 @@ import {
   DiscordMetrics,
 } from '@/components/subject/DiscordSide'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
+import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
+import { PhoneActions, StandingBar } from '@/components/subject/Standing'
 import { Block, Empty, FactList, More, Panel, PopupFrame } from '@/components/subject/shared'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Ago, Unread } from '@/components/Freshness'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useDiscordRecords } from '@/lib/useDiscordRecords'
 import { useLoad } from '@/lib/useLoad'
-import { api, type AuditEntry, type CurrentUser, type PersonMetrics, type PersonView } from '@/lib/api'
+import {
+  api,
+  type AuditEntry,
+  type CurrentUser,
+  type MembershipView,
+  type PersonMetrics,
+  type PersonView,
+} from '@/lib/api'
 import { useDemo } from '@/lib/demo'
 import { ago, formatDay } from '@/lib/format'
 import { concernsPerson } from '@/lib/liveRules'
@@ -35,7 +44,7 @@ import { useDiscordMember } from '@/lib/useDiscordMember'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 
-const TABS = ['overview', 'logs', 'notes', 'history', 'cases', 'discord', 'messages', 'account', 'metrics', 'json'] as const
+const TABS = ['overview', 'logs', 'notes', 'history', 'cases', 'flags', 'discord', 'messages', 'account', 'metrics', 'json'] as const
 type Tab = (typeof TABS)[number]
 
 /**
@@ -141,12 +150,19 @@ function Resolved({
   const stored = useStoredProfile(vrchatId ?? '', live)
   const member = useDiscordMember(discordId, seesMembers)
 
+  // Read here rather than in the Membership card, because the row under the title and the phone's
+  // action row want the same answer, and three reads of one thing could disagree for a moment.
+  // Both counters only go up, so their sum changes whenever either does.
+  const loadMembership = useCallback(() => api.membership(vrchatId!), [vrchatId])
+  const membership = useLoad(vrchatId && seesMembers ? loadMembership : null, acted + live)
+
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
     { value: 'logs', label: 'Activity' },
     ...(notesId && readsNotes ? [{ value: 'notes' as const, label: 'Notes' }] : []),
     ...(vrchatId && seesProfile ? [{ value: 'history' as const, label: 'Profile changes' }] : []),
     ...(vrchatId && seesProfile ? [{ value: 'cases' as const, label: 'Cases' }] : []),
+    ...((vrchatId || discordId) && seesProfile ? [{ value: 'flags' as const, label: 'Flags' }] : []),
     ...(discordId && seesMembers ? [{ value: 'discord' as const, label: 'Discord' }] : []),
     ...(discordId && readsMessages ? [{ value: 'messages' as const, label: 'Messages' }] : []),
     ...(account && readsLogs ? [{ value: 'account' as const, label: 'Account' }] : []),
@@ -161,6 +177,32 @@ function Resolved({
       // a modern one (spec 3.1.1).
       subtitle={<span className="font-mono" title={at.id}>{vrchatId ?? discordId ?? at.id}</span>}
       lead={lead}
+      standing={
+        <StandingBar
+          person={person}
+          me={me}
+          membership={vrchatId && seesMembers ? membership : null}
+          version={acted + live}
+          notesId={notesId}
+          notesPlatform={notesPlatform}
+          // A chip only opens a tab this account has; the Banned chip needs only the member list,
+          // and the Cases tab it points at needs the profile permission as well.
+          onOpen={(next) => {
+            if (tabs.some((t) => t.value === next)) setTab(next)
+          }}
+        />
+      }
+      foot={
+        <PhoneActions
+          me={me}
+          vrchatId={vrchatId}
+          name={person.vrChat?.name ?? null}
+          membership={vrchatId && seesMembers ? membership.data : null}
+          canNote={notesId !== null && readsNotes}
+          onNote={() => setTab('notes')}
+          onActed={() => setActed((n) => n + 1)}
+        />
+      }
       left={
         <>
           {vrchatId ? (
@@ -196,7 +238,13 @@ function Resolved({
           {account === null && person.canSeeAccount && <Empty>No Modbot account.</Empty>}
 
           {vrchatId && seesMembers && (
-            <MembershipCard key={fresh} subjectId={vrchatId} me={me} onActed={() => setActed((n) => n + 1)} />
+            <MembershipCard
+              subjectId={vrchatId}
+              view={membership.data}
+              error={membership.error}
+              me={me}
+              onActed={() => setActed((n) => n + 1)}
+            />
           )}
         </>
       }
@@ -216,6 +264,9 @@ function Resolved({
         )}
         {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
         {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
+        {tab === 'flags' && (vrchatId || discordId) && (
+          <PersonFlags key={live} vrchatId={vrchatId} discordId={discordId} />
+        )}
         {tab === 'discord' && discordId && <DiscordHistory key={live} id={discordId} read={member} />}
         {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
         {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
@@ -477,17 +528,18 @@ function TimeInWorld({ data }: { data: PersonMetrics }) {
  */
 function MembershipCard({
   subjectId,
+  view,
+  error,
   me,
   onActed,
 }: {
   subjectId: string
+  view: MembershipView | null
+  error: string | null
   me: CurrentUser
   onActed: () => void
 }) {
   const demo = useDemo()
-
-  const load = useCallback(() => api.membership(subjectId), [subjectId])
-  const { data: view, error } = useLoad(load)
 
   // The name for the confirmation. Read here rather than passed down, because the standing this
   // card already knows and the name are wanted in the same sentence.
@@ -564,13 +616,16 @@ function MembershipCard({
             )}
           </p>
 
-          <ModerationActions
-            me={me}
-            person={{ userId: subjectId, banned: view.banned, isMember: view.isMember }}
-            name={profile?.displayName ?? subjectId}
-            onDone={onActed}
-            size="xs"
-          />
+          {/* On a phone these are in the row pinned to the foot of the popup instead. */}
+          <div className="hidden md:block">
+            <ModerationActions
+              me={me}
+              person={{ userId: subjectId, banned: view.banned, isMember: view.isMember }}
+              name={profile?.displayName ?? subjectId}
+              onDone={onActed}
+              size="xs"
+            />
+          </div>
         </div>
       )}
     </Panel>
