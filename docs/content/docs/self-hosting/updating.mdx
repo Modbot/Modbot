@@ -10,14 +10,14 @@ itself when it starts.
 ## How you find out there is one
 
 Modbot checks for a newer release a minute after it starts and every six hours after that, and
-shows what it found on the **Updates** card under **Settings**, **Server**:
+shows what it found on the **This install** card under **Settings**, **Server**:
 
 | Row | What it is |
 |---|---|
-| **Running** | The release this server is running. |
+| **Version** | The release this server is running. Point at it to see the exact commit and branch. |
+| **Install** | The hosting platform Modbot recognised, such as Railway, or `self-hosted`. |
 | **Newest** | The newest release there is. |
 | **Pull** | The image and tag to pull, shown only when there is a newer release. |
-| **Last checked** | When Modbot last asked. |
 
 **Modbot never updates itself.** It never pulls an image, never restarts itself and never touches
 your host. It tells you a newer version exists and what to pull; everything below is yours to do
@@ -38,8 +38,8 @@ ask today" is not "you are up to date".
 Take a backup of the database. The new version may change its tables when it starts, and going back
 to an older version does not undo those changes. See [PostgreSQL](/self-hosting/postgres#backups).
 
-Note the **Version** and **Version commit** on the **Deployment** card under **Settings**,
-**Server**, so you can tell afterwards that the update took.
+Note the **Version** on the **This install** card under **Settings**, **Server** — point at it to
+see the commit — so you can tell afterwards that the update took.
 
 ## Updating on Railway
 
@@ -122,12 +122,12 @@ A calendar version, `year.month.patch`, such as `2026.9.1`:
 The parts are not padded with zeros, so compare them part by part as numbers: `2026.9.10` is newer
 than `2026.9.2`.
 
-It is shown as **Version** on the **Deployment** card, and returned by `GET /api/version`, which
+It is shown as **Version** on the **This install** card, and returned by `GET /api/version`, which
 needs no sign-in.
 
 An image built with the repository's `Dockerfile` does not set a release number, so **Version**
-shows the default written in the source at that commit. **Version commit** tells you exactly which
-code you are running.
+shows the default written in the source at that commit. Pointing at **Version** shows the exact
+commit you are running.
 
 ### The API version
 

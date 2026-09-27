@@ -46,7 +46,7 @@ application, then **OAuth2**. Copy the **Client ID**, and reset and copy the **C
 ### Paste them into Modbot
 
 Open **Settings → Discord** and find the **Account linking** card. Paste them into
-**OAuth client id** and **OAuth client secret**, then press **Save account linking**.
+**Client id** and **Client secret**, then press **Save account linking**.
 
 The secret is stored encrypted and never shown again; **Client secret** says **Stored**. To keep it
 when you change something else, leave the secret field empty. If you change the client id without
@@ -58,11 +58,11 @@ entering a new secret, the stored secret is removed, because it belongs to the o
 
 ### Add the redirect URL in the Developer Portal
 
-The card now shows a **Redirect URL**. It is your public address followed by
+The card now shows a **Redirect address**. It is your public address followed by
 `/api/discord-link/callback`. Press **Copy**, then in the Developer Portal open **OAuth2 →
 Redirects**, add it, and save.
 
-If there is no **Redirect URL** on the card, the public address is not set.
+If there is no **Redirect address** on the card, the public address is not set.
 
 </Step>
 
@@ -214,7 +214,7 @@ These events appear in the audit log and can be sent to [event channels](/discor
 
 | Problem | What to do |
 |---|---|
-| Sign in with Discord fails every time | Check that the **Redirect URL** in the Developer Portal matches the one on the **Account linking** card exactly, and that the client secret is current. |
+| Sign in with Discord fails every time | Check that the redirect URL in the Developer Portal matches the **Redirect address** on the **Account linking** card exactly, and that the client secret is current. |
 | **Linking** says **Not set up** | Save the client id, the client secret, and a public address. |
 | Members link but get no role | Give the bot **Manage Roles** and move its role above the linked and 18+ roles. Check **Health** for the reason. |
 | New joiners are not messaged | Check that **Prompt new joiners to link their VRChat account** is on and the **Server Members Intent** is switched on. |

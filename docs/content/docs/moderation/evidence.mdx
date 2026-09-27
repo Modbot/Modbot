@@ -89,7 +89,7 @@ Each attached file shows:
 
 - **Images** inline. Click one to open it full size in a new tab.
 - **Video** in a player on the page. Seeking works when the storage supports reading part of a
-  file (**Settings**, **Evidence**, **Range reads**).
+  file (**Settings**, **Evidence**, **Partial downloads**).
 - The file name, its type, its size, the date it was stored and who uploaded it.
 - **Download**, to save the file.
 - Its `sha256` fingerprint. This is a code worked out from the file's exact contents. If a
@@ -125,14 +125,14 @@ Limits**, then press **Save limits**.
 |---|---|---|
 | **Per file (MB)** | The largest single file anyone can attach. Checked in the browser before sending, and again by the server while the file arrives. | 100 MB |
 | **Per report (MB)** | The most one case file may hold in total. 0 means no limit. If set, it cannot be smaller than the per-file limit. | 0 (no limit) |
-| **Deployment (MB)** | The most your whole Modbot may hold. 0 means no limit. | 0 (no limit) |
+| **Whole install (MB)** | The most your whole Modbot may hold. 0 means no limit. | 0 (no limit) |
 
 <Callout type="info" title="Only the per-file limit is checked today">
-Modbot saves the **Per report** and **Deployment** limits, but at the time of writing only
+Modbot saves the **Per report** and **Whole install** limits, but at the time of writing only
 **Per file** is checked when a file is uploaded.
 </Callout>
 
 The **What this store is doing** card in the same tab shows **Delivery** (**Straight from the
-store** or **Through Modbot**), **Range reads**, **Evidence held** (how many files and how much
+store** or **Through Modbot**), **Partial downloads**, **Evidence held** (how many files and how much
 space), **Destroyed** and **Accepted formats**. When delivery is straight from the store, opening a
 file sends your browser a link that works for 5 minutes.

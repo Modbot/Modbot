@@ -50,7 +50,7 @@ Leave **Presence Intent** off. Modbot does not ask for it.
 ### Invite the bot to your server
 
 The easiest way is the **Bot invite link** Modbot builds for you. It appears on the
-**Account linking** card under **Settings → Discord** once you have saved the **OAuth client id**
+**Account linking** card under **Settings → Discord** once you have saved the **Client id**
 there (the Developer Portal shows the client id under **OAuth2**). It asks for exactly the
 permissions the features you have set up need. See [Account linking](/discord/account-linking)
 if you want to fill in that card now.
@@ -83,7 +83,7 @@ You can do this in the [setup wizard](/setup-wizard) or later in Settings.
 - **In the setup wizard**, the step **Public address, Discord and email** has a **Discord bot**
   section with **Bot token** and **Server ID**.
 - **In Settings**, open **Settings → Discord**. On the **Bot** card, fill in **Bot token** and
-  **Guild id** (your server id), then press **Save**.
+  **Server id**, then press **Save**.
 
 The token is stored encrypted and is never shown again. Once one is saved, the **Bot** line on
 the card says **Token stored**. When you change something else later, leave **Bot token** empty:
@@ -129,7 +129,7 @@ What you lose without each one:
   leave, and new joiners are not asked to link their accounts.
 
 After you switch an intent on, Modbot asks for it again the next time Modbot restarts, or when you
-change the **Bot token**, the **Guild id**, or the **Prompt new joiners to link their VRChat
+change the **Bot token**, the **Server id**, or the **Prompt new joiners to link their VRChat
 account** switch.
 
 ## Permissions the bot needs
@@ -205,7 +205,7 @@ Every command run, answered or refused, is recorded in the audit log as **Discor
 
 ## Turning the bot off
 
-Clear **Guild id** on the **Bot** card and press **Save**. The bot disconnects within a few
+Clear **Server id** on the **Bot** card and press **Save**. The bot disconnects within a few
 seconds. Your channels and other Discord settings are kept for when you turn it back on.
 
 ## If something is wrong
@@ -218,5 +218,5 @@ Start with the **Discord bot** card on **Health**.
 | **Intents off in the Developer Portal:** … | Switch the named intents on under **Bot → Privileged Gateway Intents**. |
 | **reconnecting** for a long time | Check whether Discord is having problems. After a few minutes Modbot signs in again from scratch by itself. |
 | **connected**, but no slash commands appear in Discord | The bot was invited without the **applications.commands** scope. Invite it again with it. |
-| A problem registering the slash commands | Check that **Guild id** is your server's id and that the bot is in that server. |
+| A problem registering the slash commands | Check that **Server id** is your server's id and that the bot is in that server. |
 | A channel marked **Missing** … or **Removed** | Give the bot the named permissions in that channel, or pick a different channel. |

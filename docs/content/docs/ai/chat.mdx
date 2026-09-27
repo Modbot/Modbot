@@ -16,7 +16,7 @@ anyone a score or verdict.
 
 Chat needs three things:
 
-1. AI set up and switched on under **Settings** → **AI** → **Base** ([AI settings](/ai/settings)).
+1. AI set up and switched on under **Settings** → **AI** → **Connection** ([AI settings](/ai/settings)).
 2. **Chat on** under **Settings** → **AI** → **Chat**. It starts off.
 3. The **Use AI chat** permission on the person's role
    ([roles and permissions](/accounts/roles-and-permissions#use-ai-chat)).
@@ -174,8 +174,8 @@ saves them all.
 ### Chat
 
 - **Chat on** switches the Chat page on for everyone with **Use AI chat**. The card shows
-  **AI is off on Base.** when AI itself is off.
-- **Model** is the model Chat uses. Left empty, Chat uses the model on **Base** (shown as the
+  **AI is off on Connection.** when AI itself is off.
+- **Model** is the model Chat uses. Left empty, Chat uses the model on **Connection** (shown as the
   placeholder).
 - **Extra instructions** are added to the end of Chat's instructions, under a heading saying they
   come from your group's operator. Use them for things like your group's own words for roles, or
@@ -185,7 +185,7 @@ saves them all.
 
 | Setting | Default | Allowed | What it does |
 |---|---|---|---|
-| **Tool calls per reply** | 8 | 0 to 50 | How many lookups one reply may make. At 0, no tools are offered at all. |
+| **Steps per reply** | 8 | 0 to 50 | How many lookups one reply may make. At 0, no tools are offered at all. |
 | **Reply length (tokens)** | 2,000 | 256 to 32,000 | The most the model may write in each step of a reply, in tokens (small pieces of text, see [Limits and spend](/ai/limits-and-spend#how-spend-is-counted)). |
 | **Time limit (seconds)** | 120 | 10 to 600 | How long one whole reply may take, lookups included. |
 

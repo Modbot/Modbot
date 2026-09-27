@@ -24,7 +24,7 @@ under `https://api.vrchat.cloud/`:
 | `GET https://api.vrchat.cloud/api/1/users/usr_…` | `GET https://modbot.example.com/api/proxy/vrchat/api/1/users/usr_…` |
 | `POST https://api.vrchat.cloud/api/1/groups/grp_…/bans` | `POST https://modbot.example.com/api/proxy/vrchat/api/1/groups/grp_…/bans` |
 
-The address is shown on the VRChat proxy tab as **Base URL**, with a copy button. `GET`, `POST`,
+The address is shown on the VRChat proxy tab as **Address**, with a copy button. `GET`, `POST`,
 `PUT` and `DELETE` are forwarded; the query string and a JSON body go with them.
 
 ## Signing in
@@ -129,9 +129,11 @@ Any other status is VRChat's own, passed through.
 ## The playground
 
 **Settings → VRChat proxy** has a **Playground**: pick a method, type a path, add a body for a
-`POST` or `PUT`, and press **Send**. The request goes through the proxy as you, signed in to the
-web app, with the same permission a key needs, and the answer is shown with its status and its
-body.
+`POST` or `PUT`, and press **Send**. For `POST`, `PUT` or `DELETE`, which can change or delete
+things on VRChat as Modbot's own account, **Send** turns into a red **Send POST**, **Send PUT** or
+**Send DELETE** to confirm. Pressing **Enter** in the path field only ever sends a `GET`. The
+request goes through the proxy as you, signed in to the web app, with the same permission a key
+needs, and the answer is shown with its status and its body.
 
 ## Where to next
 

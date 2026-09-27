@@ -103,7 +103,8 @@ or the reason Modbot turned it off, is shown below.
 | **Turned off by Modbot** | Modbot turned it off. The reason is shown. |
 | **Off** | Someone turned it off. |
 
-**Delete** removes the webhook and its delivery log at once, with no confirmation.
+**Delete** turns into a red **Delete** and a **Cancel**; confirming removes the webhook and its
+delivery log at once.
 
 ## What Modbot sends
 
@@ -350,15 +351,15 @@ Other network problems show the error text from the connection.
 The secret is shown once when the webhook is made, and once each time you roll it. Modbot keeps it
 encrypted, because it needs to read it back to sign each request.
 
-**Roll secret** makes a new secret and shows it in a **Signing secret** window. **The old secret
-stops being used at once.** Any event sent before you have put the new secret into your receiver
-will fail your signature check, and if your receiver then answers with a `4xx`, that event is
-skipped for good.
+**Roll secret** turns into a red **Roll secret** and a **Cancel**; confirming makes a new secret and
+shows it in a **Signing secret** window. **The old secret stops being used at once.** Any event sent
+before you have put the new secret into your receiver will fail your signature check, and if your
+receiver then answers with a `4xx`, that event is skipped for good.
 
 To roll a secret without losing events:
 
 1. Click **Turn off** on the webhook.
-2. Click **Roll secret** and copy the new secret.
+2. Click **Roll secret**, confirm, and copy the new secret.
 3. Put the new secret into your receiver.
 4. Click **Turn on**. The events recorded while it was off are sent now, signed with the new secret.
 

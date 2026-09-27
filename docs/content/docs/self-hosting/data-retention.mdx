@@ -53,21 +53,24 @@ setting:
 ## Modbot's own log
 
 Modbot's log lines are not facts and have their own window: **Settings**, **Server**,
-**Logs**, **Keep for**, which is **180 days** out of the box rather than forever. They are Modbot
-talking about itself, not a record of what happened to a member, and six months is longer than any
-question anybody asks of them. `0` keeps them forever. See [Logs](/self-hosting/logs).
+**Keep for (days)**, **Modbot's log**, which is **180 days** out of the box rather than forever.
+They are Modbot talking about itself, not a record of what happened to a member, and six months is
+longer than any question anybody asks of them. `0` keeps them forever. See
+[Logs](/self-hosting/logs).
 
 ## Setting a retention window
 
 Open **Settings**, then the **Server** tab. You need the **Change settings** permission.
 
-The **Retention** card has three fields:
+The **Keep for (days)** panel has three record fields, alongside Modbot's own log:
 
-- **Moderation facts (days)**
-- **Presence facts (days)**
-- **Discord messages (days)**
+- **Moderation**
+- **Who was where**
+- **Discord messages**
 
-Type a number of days, or **0** to keep forever, and press **Save retention**.
+Type a number of days, or **0** to keep forever, and press **Save**. Shortening any of the windows
+asks you to confirm with a red **Delete older records** button, because the save also removes
+whatever now falls outside it.
 
 <Callout type="error" title="Deleted means gone">
 Anything past a retention window is destroyed permanently. There is no undo, no recycle bin, and
@@ -97,23 +100,22 @@ to 0, cannot bring back anything already removed.
 
 ## The storage estimate
 
-The **Storage** card at the top of **Settings**, **Server** shows what your own Modbot is
-storing. The numbers are measured from your database, not taken from a table.
+The **Storage** card, folded under **Settings**, **Server**, **Storage and machine usage**, shows
+what your own Modbot is storing. The numbers are measured from your database, not taken from a table.
 
 | Label | What it shows |
 |---|---|
 | **Database** | The size of Modbot's recorded history on disk: all facts and daily totals, indexes included. |
-| **Facts recorded** | How many facts are stored. On a large history this is PostgreSQL's own close estimate rather than an exact count. |
-| **Per fact** | The measured size of one fact, indexes included. |
+| **Records** | How many facts are stored. On a large history this is PostgreSQL's own close estimate rather than an exact count. |
+| **Per record** | The measured size of one fact, indexes included. |
 | **Arriving** | How many facts a day are arriving, measured over recent history. It says **Not measurable yet** until Modbot has at least a day of facts. |
 
 Two inputs turn this into your own terms:
 
-- **Cost per GB/mo**: what your host charges per GB per month. The chart adds a second line showing
-  the estimated monthly cost.
+- **Cost per GB a month**: what your host charges per GB per month. The chart adds a second line
+  showing the estimated monthly cost.
 - **Disk size (GB)**: the size of your disk if you host at home. The chart shows when the disk
-  would fill, and if it would last more than five years you see **You have plenty of storage for
-  the foreseeable future**.
+  would fill.
 
 Both inputs are remembered by your browser only. They are not saved in Modbot and change nothing
 about how it behaves.
@@ -146,7 +148,7 @@ Your hosting provider's own dashboard shows the full size of the database.
 
 ## Machine usage
 
-At the bottom of **Settings**, **Server** is a **Machine usage** card: how hard the
+Folded under **Settings**, **Server**, **Storage and machine usage** is a **Machine usage** card: how hard the
 machine Modbot runs on has been working over the **last half hour**, as one small chart per figure
 with its current value above it. You need the **See the operational log** permission to see it; for
 anybody else the card is not there.
