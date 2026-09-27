@@ -103,6 +103,10 @@ public sealed class GroupInfoSync
         // analytics page shows the group as it is now, and neither is worth a fact.
         RecordLanguagesAndLinks(settings, group.Languages, group.Links);
 
+        // Modbot's own roles and permissions in the group, from `myMember` in the same answer, so a
+        // refusal for a missing permission can say what the account has (VRChatGroupPermissions).
+        RecordAccount(settings, result.RawResponse);
+
         // The two counts, every poll, whether or not anything changed. This is a different store
         // from the facts below with a different question behind it: the My Group chart shows the
         // readings themselves, and a reading that said the same thing as the last one is still a
@@ -154,6 +158,39 @@ public sealed class GroupInfoSync
             settings,
             new GroupInfoRunResult(SyncOutcome.Produced, changed),
             ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Stores the group as VRChat answered a profile edit made from Modbot, so the page shows the
+    /// new values at once rather than after the next poll. Saved by the caller.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The same checks as a poll: pictures only when <c>https</c>, links only when <c>http</c> or
+    /// <c>https</c>. The snapshot takes only the fields an edit changes
+    /// (<see cref="GroupInfoSnapshot.WithEdit"/>).
+    /// </para>
+    /// <para>
+    /// Because the snapshot now holds the new values, the next poll sees no change and writes no
+    /// <see cref="FactType.GroupInfoChanged"/> for it. That is intended: the edit already wrote
+    /// its own fact naming who made it, which a poll never can, and the group's audit log records
+    /// VRChat's side. Before the first poll there is no snapshot, and none is made here — the
+    /// first one is the poll's baseline.
+    /// </para>
+    /// </remarks>
+    public static void RecordEdit(Settings settings, global::VRChat.API.Model.Group group)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(group);
+
+        RecordPictures(settings, group.IconUrl, group.BannerUrl);
+        RecordLanguagesAndLinks(settings, group.Languages, group.Links);
+
+        if (!string.IsNullOrWhiteSpace(group.Name))
+            settings.ManagedGroupName = group.Name;
+
+        if (GroupInfoSnapshot.Parse(settings.GroupInfoSnapshot) is { } previous)
+            settings.GroupInfoSnapshot = previous.WithEdit(group).ToJson();
     }
 
     /// <summary>
@@ -218,6 +255,27 @@ public sealed class GroupInfoSync
             && (parsed.Scheme == Uri.UriSchemeHttps || parsed.Scheme == Uri.UriSchemeHttp)
                 ? parsed.AbsoluteUri
                 : null;
+    }
+
+    /// <summary>
+    /// Keeps Modbot's own role ids and permissions in the group up to date. An answer with no
+    /// <c>myMember</c> keeps what was recorded before.
+    /// </summary>
+    internal static void RecordAccount(Settings settings, string? groupJson)
+    {
+        var (roleIds, permissions) = VRChatGroupPermissions.AccountFrom(groupJson);
+
+        if (roleIds is not null
+            && (settings.VRChatAccountRoleIds is null || !settings.VRChatAccountRoleIds.SequenceEqual(roleIds, StringComparer.Ordinal)))
+        {
+            settings.VRChatAccountRoleIds = roleIds;
+        }
+
+        if (permissions is not null
+            && (settings.VRChatAccountPermissions is null || !settings.VRChatAccountPermissions.SequenceEqual(permissions, StringComparer.Ordinal)))
+        {
+            settings.VRChatAccountPermissions = permissions;
+        }
     }
 
     private async Task<GroupInfoRunResult> FailedAsync<T>(

@@ -8,16 +8,17 @@ function person(...permissionNames: string[]): CurrentUser {
   return { permissionNames } as CurrentUser
 }
 
-test('the tabs are named the way VRChat names them, and lead to the matching pages', () => {
+test('the tabs are named and ordered the way vrchat.com names them, and lead to the matching pages', () => {
   assert.deepEqual(
     groupTabs(person('Administrator')).map((t) => [t.label, t.id]),
     [
       ['Overview', 'analytics-group'],
+      ['Posts', 'group-posts'],
       ['Events', 'calendar'],
       ['Instances', 'analytics-instances'],
       ['Members', 'members'],
-      ['Requests', 'requests'],
-      ['Bans', 'bans'],
+      ['Settings', 'group-settings'],
+      ['Banned Users', 'bans'],
     ],
   )
 })
@@ -25,12 +26,17 @@ test('the tabs are named the way VRChat names them, and lead to the matching pag
 test('a tab the person may not open is not offered, the same as in the sidebar', () => {
   assert.deepEqual(
     groupTabs(person('ViewAnalytics')).map((t) => t.label),
-    ['Overview', 'Instances'],
+    ['Overview', 'Posts', 'Instances'],
   )
   assert.deepEqual(
-    groupTabs(person('ViewAnalytics', 'ViewCalendar', 'ViewJoinRequests')).map((t) => t.label),
-    ['Overview', 'Events', 'Instances', 'Requests'],
+    groupTabs(person('ViewAnalytics', 'ViewCalendar', 'EditGroupProfile')).map((t) => t.label),
+    ['Overview', 'Posts', 'Events', 'Instances', 'Settings'],
   )
+})
+
+test('Settings is only offered to somebody who may change the group', () => {
+  assert.ok(!groupTabs(person('ViewAnalytics', 'ManageGroupPosts')).some((t) => t.id === 'group-settings'))
+  assert.ok(groupTabs(person('ViewAnalytics', 'EditGroupProfile')).some((t) => t.id === 'group-settings'))
 })
 
 test('the group code is the short code and the digits, joined by a dot', () => {

@@ -73,10 +73,25 @@ public sealed record LiveInstanceView(
 /// The Discord server's voice channels with somebody in them, in the server's own order. Empty when
 /// no Discord server is set or nobody is talking.
 /// </param>
+/// <param name="Tally">What has happened since the oldest open instance opened. Null when none is open.</param>
 public sealed record LiveView(
     IReadOnlyList<LiveInstanceView> Instances,
     DateTimeOffset GeneratedAt,
-    IReadOnlyList<LiveVoiceChannelView>? Voice = null);
+    IReadOnlyList<LiveVoiceChannelView>? Voice = null,
+    LiveTallyView? Tally = null);
+
+/// <summary>
+/// The running line along the top of the Live page: "Since 8:02 PM: 212 arrivals · 4 warns · 3 kicks · 1 ban".
+/// </summary>
+/// <param name="Since">When the oldest instance still open was opened: the start of tonight's event.</param>
+/// <param name="Arrivals">
+/// People seen walking into an open instance since then, each counted once. Only what a
+/// moderator's Companion App saw, and two apps in one instance both report the same arrival.
+/// </param>
+/// <param name="Warns">Instance warns from the group's audit log.</param>
+/// <param name="Kicks">Kicks from an instance. Removal from the group is a different action and is not counted.</param>
+/// <param name="Bans">Bans from the group.</param>
+public sealed record LiveTallyView(DateTimeOffset Since, int Arrivals, int Warns, int Kicks, int Bans);
 
 /// <param name="Here">Flagged people in the group's open instances now, each counted once.</param>
 public sealed record FlaggedHereCount(int Here);
@@ -302,7 +317,51 @@ public static class LiveEndpoints
                 HeadCounts.ShownUnsure(instance));
         }).ToList();
 
-        return new LiveView(views, now, await VoiceAsync(db, ct));
+        return new LiveView(views, now, await VoiceAsync(db, ct), await TallyAsync(db, instances, ct));
+    }
+
+    /// <summary>
+    /// Counts for the running line, from the oldest open instance's opening. Two queries on the
+    /// fact table over a few hours, so cheap enough for a page that asks every half minute.
+    /// </summary>
+    internal static async Task<LiveTallyView> TallyAsync(
+        ModbotContext db,
+        IReadOnlyCollection<VRChatInstance> open,
+        CancellationToken ct)
+    {
+        var since = open.Min(i => i.OpenedAt);
+        var numbers = open
+            .Select(i => i.VRChatInstanceId)
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var arrivals = numbers.Count == 0
+            ? 0
+            : await db.Events.AsNoTracking()
+                .Where(e => e.Type == FactType.InstanceJoined
+                    && e.OccurredAt >= since
+                    && e.InstanceId != null
+                    && numbers.Contains(e.InstanceId))
+                .Select(e => e.SubjectId)
+                .Distinct()
+                .CountAsync(ct);
+
+        var actions = await db.Events.AsNoTracking()
+            .Where(e => e.OccurredAt >= since
+                && (e.Type == FactType.GroupInstanceWarn
+                    || e.Type == FactType.GroupInstanceKick
+                    || e.Type == FactType.MemberBanned))
+            .GroupBy(e => e.Type)
+            .Select(g => new { Type = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.Type, g => g.Count, StringComparer.Ordinal, ct);
+
+        return new LiveTallyView(
+            since,
+            arrivals,
+            actions.GetValueOrDefault(FactType.GroupInstanceWarn),
+            actions.GetValueOrDefault(FactType.GroupInstanceKick),
+            actions.GetValueOrDefault(FactType.MemberBanned));
     }
 
     /// <summary>

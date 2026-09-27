@@ -52,7 +52,11 @@ public sealed record AuditRequest(
 /// second as the page boundary.
 /// </para>
 /// </remarks>
-public sealed class AuditQuery(ModbotContext db)
+/// <param name="held">
+/// The caller's permissions, for the links an entry carries to a case file or a review (see
+/// <see cref="AuditRecords"/>). Which entries they may read is settled by the type list, not this.
+/// </param>
+public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = ModbotPermissions.None)
 {
     public const int DefaultLimit = 50;
     public const int MaxLimit = 200;
@@ -68,6 +72,16 @@ public sealed class AuditQuery(ModbotContext db)
     public static readonly TimeSpan ActorWindow = TimeSpan.FromDays(90);
 
     public const int MaxActors = 50;
+
+    /// <summary>How many entries "Around this" shows either side of the one opened.</summary>
+    public const int AroundEach = 5;
+
+    /// <summary>
+    /// How far either side "Around this" looks. Bounded so the read touches the partitions near
+    /// the entry rather than every one the table has; five actions further apart than this are not
+    /// "around" anything.
+    /// </summary>
+    public static readonly TimeSpan AroundWindow = TimeSpan.FromDays(90);
 
     public async Task<AuditPage> PageAsync(AuditRequest request, CancellationToken ct = default)
     {
@@ -124,6 +138,79 @@ public sealed class AuditQuery(ModbotContext db)
     }
 
     /// <summary>
+    /// What else happened around one entry, or null when it does not exist or is not one of
+    /// <paramref name="types"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Finding 20 of the 2026-09-25 UX review: seeing the same moderator's actions around a
+    /// questionable ban meant building the filters by hand, and the id was needed to do it. This is
+    /// the two lists that question asks for, each with the entry in its place.
+    /// </para>
+    /// <para>
+    /// The lists follow the timeline's rules: only types this caller may see, and a fact that is
+    /// the second record of a decision is not a line of its own. Four small reads, each on the
+    /// actor or subject index and bounded by <see cref="AroundWindow"/>, then one naming pass for
+    /// all of them.
+    /// </para>
+    /// </remarks>
+    public async Task<AuditAround?> AroundAsync(long id, IReadOnlyList<string> types, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(types);
+
+        if (types.Count == 0)
+            return null;
+
+        var row = await db.Events.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == id && types.Contains(e.Type), ct);
+
+        if (row is null)
+            return null;
+
+        var near = new AuditRequest(
+            types, [], null, null, null, null,
+            row.OccurredAt - AroundWindow,
+            row.OccurredAt + AroundWindow,
+            null,
+            AroundEach);
+
+        List<ModbotEvent>? byActor = null;
+        if (row.ActorId is not null && row.ActorPlatform is not null)
+            byActor = await AroundOneAsync(row, near with { ActorId = row.ActorId, ActorPlatform = row.ActorPlatform }, ct);
+
+        List<ModbotEvent>? aboutSubject = null;
+        if (FactSubjects.For(row.Type) == SubjectKind.Person)
+            aboutSubject = await AroundOneAsync(row, near with { SubjectId = row.SubjectId, SubjectPlatform = row.SubjectPlatform }, ct);
+
+        var all = (byActor ?? []).Concat(aboutSubject ?? []).DistinctBy(e => e.Id).ToList();
+        var named = (await WithLinkedAsync(all, ct)).ToDictionary(e => e.Id);
+
+        return new AuditAround(
+            byActor?.Select(e => named[e.Id]).ToList(),
+            aboutSubject?.Select(e => named[e.Id]).ToList());
+    }
+
+    /// <summary>Up to <see cref="AroundEach"/> after the entry, the entry, and up to as many before: newest first.</summary>
+    private async Task<List<ModbotEvent>> AroundOneAsync(ModbotEvent row, AuditRequest request, CancellationToken ct)
+    {
+        var before = await Filtered(request with { Before = new AuditCursor(row.OccurredAt, row.Id) })
+            .OrderByDescending(e => e.OccurredAt)
+            .ThenByDescending(e => e.Id)
+            .Take(AroundEach)
+            .ToListAsync(ct);
+
+        var after = await Filtered(request)
+            .Where(e => e.OccurredAt > row.OccurredAt || (e.OccurredAt == row.OccurredAt && e.Id > row.Id))
+            .OrderBy(e => e.OccurredAt)
+            .ThenBy(e => e.Id)
+            .Take(AroundEach)
+            .ToListAsync(ct);
+
+        after.Reverse();
+        return [.. after, row, .. before];
+    }
+
+    /// <summary>
     /// A page of facts with the rest of each one's decision hanging off it (spec 5.3.2).
     /// </summary>
     /// <remarks>
@@ -152,7 +239,7 @@ public sealed class AuditQuery(ModbotContext db)
             .ToListAsync(ct);
 
         if (links.Count == 0)
-            return await AuditNaming.ResolveAsync(db, rows.Select(Project).ToList(), ct);
+            return await AuditRecords.AttachAsync(db, await AuditNaming.ResolveAsync(db, rows.Select(Project).ToList(), ct), held, ct);
 
         var linkedIds = links.Select(l => l.FactId).ToList();
         var earliest = links.Min(l => l.OccurredAt);
@@ -167,7 +254,7 @@ public sealed class AuditQuery(ModbotContext db)
         var mainOf = links.ToDictionary(l => l.FactId, l => l.MainFactId);
 
         var all = rows.Select(Project).Concat(linkedRows.Select(Project)).ToList();
-        var named = await AuditNaming.ResolveAsync(db, all, ct);
+        var named = await AuditRecords.AttachAsync(db, await AuditNaming.ResolveAsync(db, all, ct), held, ct);
 
         var byMain = named
             .Skip(rows.Count)

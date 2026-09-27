@@ -202,6 +202,12 @@ public class CalendarEventPlace
 
     public DateTimeOffset? ErrorAt { get; set; }
 
+    /// <summary>
+    /// The VRChat group permission Modbot's VRChat account lacked, when VRChat refused the last
+    /// write with a 403 for that reason. Null otherwise.
+    /// </summary>
+    public string? MissingGroupPermission { get; set; }
+
     public DateTimeOffset UpdatedAt { get; set; }
 }
 

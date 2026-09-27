@@ -131,6 +131,23 @@ public class Settings
     /// <remarks><inheritdoc cref="ManagedGroupLanguages" path="/remarks"/></remarks>
     public List<string>? ManagedGroupLinks { get; set; }
 
+    /// <summary>
+    /// The group roles Modbot's own VRChat account holds, by id, from <c>myMember</c> in the
+    /// group-info poll. Null until the poll has read them.
+    /// </summary>
+    /// <remarks>
+    /// Kept so a refusal for a missing group permission can say which roles the account has, with
+    /// no request of its own. The member list never includes the account asking for it, so this
+    /// is the only place Modbot learns its own roles.
+    /// </remarks>
+    public List<string>? VRChatAccountRoleIds { get; set; }
+
+    /// <summary>
+    /// The group permissions Modbot's own VRChat account holds, as VRChat's ids
+    /// (<c>group-bans-manage</c>, or <c>*</c> for the owner), from the same poll. Null until read.
+    /// </summary>
+    public List<string>? VRChatAccountPermissions { get; set; }
+
     // --- Public instances on modbot.co (central services design 4.6) ---
 
     /// <summary>

@@ -140,8 +140,19 @@ public sealed class GroupInvites
             VRChatCallPriority.Background,
             ct).ConfigureAwait(false);
 
+        // A 403 for a missing group permission is said as that, not as VRChat's "Forbidden".
+        var missing = result.Success || result.StatusCode != 403
+            ? null
+            : VRChatGroupPermissions.Refusal(
+                result.StatusCode, result.Kind, "CreateGroupInvite", groupId, result.RawResponse,
+                await _db.GetSettingsAsync(ct).ConfigureAwait(false));
+
         row.Worked = result.Success;
-        row.Problem = result.Success ? null : Short(result.ErrorMessage ?? $"VRChat answered {result.StatusCode}.");
+        row.Problem = result.Success
+            ? null
+            : Short(missing is not null
+                ? VRChatGroupPermissions.Sentence(missing)
+                : result.ErrorMessage ?? $"VRChat answered {result.StatusCode}.");
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         return result.Success

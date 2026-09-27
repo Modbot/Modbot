@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { changesCalendar } from '@/lib/liveRules'
-import { useLiveVersion } from '@/lib/useLiveVersion'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { CalendarEventForm } from '@/components/calendar/CalendarEventForm'
-import { WorldLink } from '@/components/facts'
-import { Badge } from '@/components/ui/badge'
+import type { Change, Entry, Spot } from '@/components/calendar/entry'
+import { spotOf } from '@/components/calendar/entry'
+import { EventDetails } from '@/components/calendar/EventDetails'
+import { MiniMonth } from '@/components/calendar/MiniMonth'
+import { MonthView } from '@/components/calendar/MonthView'
+import { QuickCreate } from '@/components/calendar/QuickCreate'
+import { ScheduleView } from '@/components/calendar/ScheduleView'
+import { TimeGrid } from '@/components/calendar/TimeGrid'
+import { UndoToast, type Toast } from '@/components/calendar/UndoToast'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -13,94 +18,113 @@ import { SwitchBank } from '@/components/ui/switch-bank'
 import { ApiError } from '@/lib/api'
 import {
   calendarApi,
-  PLACE_LABEL,
-  PLACE_STATE_LABEL,
-  STATE_LABEL,
+  inputFrom,
   type CalendarEvent,
+  type CalendarEventInput,
   type CalendarFeed,
   type CalendarView,
 } from '@/lib/calendar'
+import {
+  movedInput,
+  sameDay,
+  startOfDay,
+  stepAnchor,
+  viewDays,
+  viewRange,
+  viewTitle,
+  type CalendarViewName,
+} from '@/lib/calendarGrid'
+import { timeOfDay } from '@/lib/format'
+import { changesCalendar } from '@/lib/liveRules'
 import { go, useLocation } from '@/lib/router'
-import { openInstance } from '@/lib/subject'
-import { cn } from '@/lib/utils'
+import { useShortcuts } from '@/lib/shortcuts'
+import { useLiveVersion } from '@/lib/useLiveVersion'
 import { PageMessage } from '@/pages/analytics/shared'
-import { clockTime } from '@/lib/format'
 
-type Mode = 'month' | 'agenda'
+/** Below Tailwind's `sm`: a phone held upright, where seven columns of hours do not fit. */
+const PHONE = '(max-width: 39.9375rem)'
 
-/** One occurrence of one event, as the month grid and the agenda both list them. */
-type Entry = { event: CalendarEvent; startsAt: Date; endsAt: Date }
+const VIEWS: { value: CalendarViewName; label: string }[] = [
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+  { value: 'schedule', label: 'Schedule' },
+]
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const shortDay = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+
+/** An open event: which one, which of its dates, and where on screen it was clicked (none for a link). */
+type Detail = { id: string; start: Date; end: Date; spot: Spot | null }
 
 /**
- * The calendar (calendar design): planned events in a month grid or a list, where each is
- * published and how that went, and the calendar feed link.
+ * The calendar (calendar design), laid out the way Google Calendar is: Day, Week, Month and
+ * Schedule views, a small month to jump with, and events that are moved by dragging them.
  *
- * Times on the page are the browser's own. The form keeps each event's own time zone, which is
- * what its repeats are counted in.
+ * Times on the page are the browser's own. The form keeps each event's own time zone, which is what
+ * its repeats are counted in; a drag is measured on screen and saved in that zone (calendarGrid
+ * `movedInput`), through the same update the form's Save sends, so it is recorded and published
+ * exactly as an edit is.
  */
 export function Calendar() {
-  const [mode, setMode] = useState<Mode>('month')
-  const [month, setMonth] = useState(() => startOfMonth(new Date()))
-  const [data, setData] = useState<CalendarView | null>(null)
+  const [view, setView] = useState<CalendarViewName>(() =>
+    typeof window !== 'undefined' && window.matchMedia(PHONE).matches ? 'day' : 'week',
+  )
+  const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
+  const [data, setData] = useState<{ key: string; view: CalendarView } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<Detail | null>(null)
+  const [editing, setEditing] = useState<{ event: CalendarEvent | null; initial?: CalendarEventInput } | null>(null)
+  const [quick, setQuick] = useState<{ start: Date; end: Date; spot: Spot } | null>(null)
+  const [asking, setAsking] = useState<{ entry: Entry; change: Change } | null>(null)
+  // An event drawn at its new time while its save is on the way, so it does not jump back.
+  const [moving, setMoving] = useState<{ eventId: string; startBy: number; endBy: number } | null>(null)
+  const [toast, setToast] = useState<Toast | null>(null)
+  const toastCount = useRef(0)
+  // How far the server's clock is ahead of the browser's, from the last load.
+  const [skew, setSkew] = useState(0)
 
   // `?event=` opens one event, whenever it runs: what a source chip under a Chat answer links to.
   const [location] = useLocation()
   const linkedId = location.search.get('event')
   const [linked, setLinked] = useState<CalendarEvent | null>(null)
-  const [editing, setEditing] = useState<CalendarEvent | 'new' | null>(null)
 
   // `?new` opens the form for a new event: the VRChat page's "Create event" leads here.
   const wantsNew = location.search.has('new')
 
-  const range = useMemo(() => {
-    if (mode === 'month') {
-      const from = startOfWeek(month)
-      return { from, to: addDays(from, 42) }
-    }
+  const range = useMemo(() => viewRange(view, anchor), [view, anchor])
+  const rangeKey = `${range.from.toISOString()}|${range.to.toISOString()}`
+  const days = useMemo(() => viewDays(view, anchor), [view, anchor])
 
-    const from = addDays(new Date(), -1)
-    return { from, to: addDays(from, 60) }
-  }, [mode, month])
-
-  const load = useCallback(() => {
-    calendarApi
-      .view(range.from, range.to)
-      .then((view) => {
-        setData(view)
-        setError(null)
-      })
-      .catch((e: unknown) => {
-        setError(
-          e instanceof ApiError && e.status === 403
-            ? 'You do not have permission to see this.'
-            : e instanceof ApiError
-              ? e.message
-              : 'Could not load the calendar.',
-        )
-      })
-  }, [range])
+  const load = useCallback(
+    () =>
+      calendarApi
+        .view(range.from, range.to)
+        .then((loaded) => {
+          setData({ key: rangeKey, view: loaded })
+          setSkew(new Date(loaded.now).getTime() - Date.now())
+          setError(null)
+        })
+        .catch((e: unknown) => {
+          setError(
+            e instanceof ApiError && e.status === 403
+              ? 'You do not have permission to see this.'
+              : e instanceof ApiError
+                ? e.message
+                : 'Could not load the calendar.',
+          )
+        }),
+    [range, rangeKey],
+  )
 
   // Read again when the live stream says an event was planned, changed, opened or finished, or
-  // VRChat's calendar moved. It used to ask every twenty seconds.
+  // VRChat's calendar moved.
   const live = useLiveVersion(changesCalendar)
 
   useEffect(() => {
-    load()
+    void load()
   }, [load, live])
 
-  const entries = useMemo<Entry[]>(
-    () =>
-      (data?.events ?? [])
-        .flatMap((event) =>
-          event.occurrences.map((o) => ({ event, startsAt: new Date(o.startsAt), endsAt: new Date(o.endsAt) })),
-        )
-        .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime()),
-    [data],
-  )
+  const now = useNow(skew)
 
   useEffect(() => {
     if (!linkedId) return
@@ -111,7 +135,12 @@ export function Calendar() {
       .then((e) => {
         if (cancelled) return
         setLinked(e)
-        setOpenId(e.id)
+        setDetail({
+          id: e.id,
+          start: new Date(e.occurrenceStartsAt ?? e.startsAt),
+          end: new Date(e.occurrenceEndsAt ?? e.endsAt),
+          spot: null,
+        })
       })
       .catch(() => {
         // An event that is gone, or one this account may not see: the calendar opens as usual.
@@ -121,6 +150,107 @@ export function Calendar() {
       cancelled = true
     }
   }, [linkedId])
+
+  const entries = useMemo<Entry[]>(
+    () =>
+      (data?.view.events ?? [])
+        .flatMap((event) =>
+          event.occurrences.map((o) => {
+            const shift = moving?.eventId === event.id ? moving : null
+            return {
+              key: `${event.id}|${o.startsAt}`,
+              event,
+              start: new Date(new Date(o.startsAt).getTime() + (shift?.startBy ?? 0)),
+              end: new Date(new Date(o.endsAt).getTime() + (shift?.endBy ?? 0)),
+            }
+          }),
+        )
+        .sort((a, b) => a.start.getTime() - b.start.getTime() || a.key.localeCompare(b.key)),
+    [data, moving],
+  )
+
+  const canManage = data?.view.canManage ?? false
+
+  const step = (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction))
+  const goToday = () => setAnchor(startOfDay(now))
+  const newEvent = () => setEditing({ event: null })
+  const pickDay = (day: Date) => {
+    setAnchor(startOfDay(day))
+    setView('day')
+  }
+
+  useShortcuts([
+    { keys: 'd', label: 'Day', group: 'Calendar', page: true, run: () => setView('day') },
+    { keys: 'w', label: 'Week', group: 'Calendar', page: true, run: () => setView('week') },
+    { keys: 'm', label: 'Month', group: 'Calendar', page: true, run: () => setView('month') },
+    { keys: 'a', label: 'Schedule', group: 'Calendar', page: true, run: () => setView('schedule') },
+    { keys: 't', label: 'Today', group: 'Calendar', page: true, run: goToday },
+    { keys: 'j', label: 'Next', group: 'Calendar', page: true, run: () => step(1) },
+    { keys: 'arrowright', label: 'Next', group: 'Calendar', page: true, hidden: true, run: () => step(1) },
+    { keys: 'k', label: 'Previous', group: 'Calendar', page: true, run: () => step(-1) },
+    { keys: 'arrowleft', label: 'Previous', group: 'Calendar', page: true, hidden: true, run: () => step(-1) },
+    ...(canManage ? [{ keys: 'c', label: 'New event', group: 'Calendar' as const, page: true, run: newEvent }] : []),
+  ])
+
+  const say = useCallback((next: Omit<Toast, 'id'>) => setToast({ ...next, id: ++toastCount.current }), [])
+  const closeToast = useCallback(() => setToast(null), [])
+
+  /** Puts an event back as it was before a drag, through the same update. */
+  const undo = (before: CalendarEvent) => {
+    calendarApi
+      .update(before.id, inputFrom(before))
+      .then(() => load())
+      .catch((e: unknown) => say({ tone: 'problem', text: e instanceof ApiError ? e.message : 'Could not undo the move.' }))
+  }
+
+  /** Saves one drag: one request, when the pointer lets go. */
+  const save = async (entry: Entry, change: Change) => {
+    const before = entry.event
+    setMoving({
+      eventId: before.id,
+      startBy: change.start.getTime() - entry.start.getTime(),
+      endBy: change.end.getTime() - entry.end.getTime(),
+    })
+
+    try {
+      await calendarApi.update(before.id, movedInput(inputFrom(before), entry, change))
+      await load()
+      say({ tone: 'done', text: change.kind === 'move' ? 'Event moved' : 'Event changed', undo: () => undo(before) })
+    } catch (e: unknown) {
+      say({ tone: 'problem', text: e instanceof ApiError ? e.message : 'Could not move the event.' })
+    } finally {
+      setMoving(null)
+    }
+  }
+
+  const onChange = (entry: Entry, change: Change) => {
+    setDetail(null)
+    setQuick(null)
+
+    // The calendar keeps one rule per repeating event and no exceptions to it, so a date of one
+    // cannot move on its own: the whole series moves, and the moderator is told first.
+    if (entry.event.repeat !== 'none') {
+      setMoving({
+        eventId: entry.event.id,
+        startBy: change.start.getTime() - entry.start.getTime(),
+        endBy: change.end.getTime() - entry.end.getTime(),
+      })
+      setAsking({ entry, change })
+      return
+    }
+
+    void save(entry, change)
+  }
+
+  const openEntry = (entry: Entry, spot: Spot) => {
+    setQuick(null)
+    setDetail({ id: entry.event.id, start: entry.start, end: entry.end, spot })
+  }
+
+  const openCreate = (created: { start: Date; end: Date }, spot: Spot) => {
+    setDetail(null)
+    setQuick({ ...created, spot })
+  }
 
   // Closing the form takes `?new` out of the address, so going back to the page does not open it again.
   const closeForm = () => {
@@ -133,50 +263,38 @@ export function Calendar() {
     go(window.location.pathname + (query ? `?${query}` : ''), { replace: true })
   }
 
-  const drafts = useMemo(() => (data?.events ?? []).filter((e) => e.state === 'draft'), [data])
+  const drafts = useMemo(() => (data?.view.events ?? []).filter((e) => e.state === 'draft'), [data])
 
-  // An event linked to may run outside the window on screen, so the one that was fetched stands in.
-  const opened =
-    data?.events.find((e) => e.id === openId) ?? (linked && linked.id === openId ? linked : null)
+  // An event linked to may run outside the days on screen, so the one that was fetched stands in.
+  const opened = detail
+    ? (data?.view.events.find((e) => e.id === detail.id) ?? (linked?.id === detail.id ? linked : null))
+    : null
 
   if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
 
-  const form = editing ?? (wantsNew && data.canManage ? 'new' : null)
+  const form = editing ?? (wantsNew && canManage ? { event: null } : null)
+  const ready = data.key === rangeKey
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <SwitchBank
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: 'month', label: 'Month' },
-            { value: 'agenda', label: 'Agenda' },
-          ]}
-        />
-
-        {mode === 'month' && (
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon-sm" aria-label="Previous month" onClick={() => setMonth(addMonths(month, -1))}>
-              <ChevronLeft />
-            </Button>
-            <span className="min-w-36 text-center font-medium">
-              {/* The month being shown, which no shared date helper writes. */}
-              {/* oxlint-disable-next-line no-restricted-properties */}
-              {month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-            </span>
-            <Button variant="ghost" size="icon-sm" aria-label="Next month" onClick={() => setMonth(addMonths(month, 1))}>
-              <ChevronRight />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setMonth(startOfMonth(new Date()))}>
-              Today
-            </Button>
-          </div>
-        )}
-
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="outline" onClick={goToday}>
+          Today
+        </Button>
+        <div className="flex items-center">
+          <Button variant="ghost" size="icon" aria-label="Previous" onClick={() => step(-1)}>
+            <ChevronLeft />
+          </Button>
+          <Button variant="ghost" size="icon" aria-label="Next" onClick={() => step(1)}>
+            <ChevronRight />
+          </Button>
+        </div>
+        <h2 className="min-w-0 truncate font-label" style={{ fontSize: 'calc(var(--text-base) + 3px)' }}>
+          {viewTitle(view, anchor)}
+        </h2>
         <div className="flex-1" />
-
-        {data.canManage && <Button onClick={() => setEditing('new')}>New event</Button>}
+        <SwitchBank value={view} onChange={setView} options={VIEWS} label="View" />
+        {canManage && <Button onClick={newEvent}>New event</Button>}
       </div>
 
       {error && (
@@ -185,13 +303,43 @@ export function Calendar() {
         </p>
       )}
 
-      {data.canManage && <FeedRow />}
+      <div className="flex items-start gap-3">
+        <Card className="hidden w-[max(16rem,calc(var(--control-h)*7+1.5rem))] shrink-0 p-(--panel-pad) xl:flex">
+          <MiniMonth anchor={anchor} shown={view === 'schedule' ? [anchor] : days} today={now} onPick={setAnchor} />
+        </Card>
 
-      {mode === 'month' ? (
-        <MonthGrid month={month} entries={entries} now={data.now} onOpen={setOpenId} />
-      ) : (
-        <Agenda entries={entries} now={data.now} onOpen={setOpenId} />
-      )}
+        <div className="min-w-0 flex-1">
+          {view === 'day' || view === 'week' ? (
+            <TimeGrid
+              days={days}
+              entries={entries}
+              now={now}
+              canManage={canManage}
+              ready={ready}
+              scrollKey={`${view}|${rangeKey}`}
+              ghost={quick}
+              onOpen={openEntry}
+              onCreate={openCreate}
+              onChange={onChange}
+              onPickDay={pickDay}
+            />
+          ) : view === 'month' ? (
+            <MonthView
+              days={days}
+              month={anchor}
+              entries={entries}
+              now={now}
+              canManage={canManage}
+              onOpen={openEntry}
+              onCreate={openCreate}
+              onChange={onChange}
+              onPickDay={pickDay}
+            />
+          ) : (
+            <ScheduleView from={anchor} entries={entries} now={now} onOpen={openEntry} />
+          )}
+        </div>
+      </div>
 
       {drafts.length > 0 && (
         <Card>
@@ -205,7 +353,9 @@ export function Calendar() {
                 type="button"
                 className="flex min-h-(--row-h) items-center px-(--panel-pad) text-left hover:underline"
                 style={{ fontSize: 'var(--text-small)' }}
-                onClick={() => setOpenId(d.id)}
+                onClick={(e) =>
+                  setDetail({ id: d.id, start: new Date(d.startsAt), end: new Date(d.endsAt), spot: spotOf(e.currentTarget) })
+                }
               >
                 {d.title}
               </button>
@@ -214,257 +364,134 @@ export function Calendar() {
         </Card>
       )}
 
-      {opened && (
-        <EventDialog
+      {canManage && <FeedRow />}
+
+      {opened && detail && (
+        <EventDetails
+          key={`${detail.id}|${detail.start.toISOString()}`}
           event={opened}
-          canManage={data.canManage}
-          onClose={() => setOpenId(null)}
+          start={detail.start}
+          end={detail.end}
+          spot={detail.spot}
+          canManage={canManage}
+          onClose={() => setDetail(null)}
           onEdit={() => {
-            setEditing(opened)
-            setOpenId(null)
+            setEditing({ event: opened })
+            setDetail(null)
           }}
-          onChanged={load}
+          onDuplicate={() => {
+            setEditing({ event: null, initial: { ...inputFrom(opened), draft: false } })
+            setDetail(null)
+          }}
+          onChanged={() => void load()}
         />
       )}
+
+      {quick && (
+        <QuickCreate
+          key={`${quick.start.toISOString()}|${quick.end.toISOString()}`}
+          start={quick.start}
+          end={quick.end}
+          spot={quick.spot}
+          onClose={() => setQuick(null)}
+          onMore={(input) => {
+            setQuick(null)
+            setEditing({ event: null, initial: input })
+          }}
+          onSaved={() => {
+            setQuick(null)
+            void load()
+          }}
+        />
+      )}
+
+      <Dialog
+        open={asking !== null}
+        onOpenChange={(open) => {
+          if (open) return
+          setAsking(null)
+          setMoving(null)
+        }}
+      >
+        {asking && (
+          <DialogContent
+            title={`${asking.change.kind === 'move' ? 'Move' : 'Change'} every date of “${asking.entry.event.title}”?`}
+            className="max-w-[480px]"
+          >
+            <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
+              <p>This event repeats. Modbot can only move all of its dates together, not one date on its own.</p>
+              <p className="font-mono">
+                {shortDay.format(asking.entry.start)}, {timeOfDay(asking.entry.start.toISOString())} –{' '}
+                {timeOfDay(asking.entry.end.toISOString())}
+                {' → '}
+                {sameDay(asking.entry.start, asking.change.start) ? '' : `${shortDay.format(asking.change.start)}, `}
+                {timeOfDay(asking.change.start.toISOString())} – {timeOfDay(asking.change.end.toISOString())}
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setAsking(null)
+                    setMoving(null)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const { entry, change } = asking
+                    setAsking(null)
+                    void save(entry, change)
+                  }}
+                >
+                  {asking.change.kind === 'move' ? 'Move all events' : 'Change all events'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
 
       {form && (
         <CalendarEventForm
-          event={form === 'new' ? null : form}
-          categories={data.categories}
-          platforms={data.platforms}
+          event={form.event}
+          initial={'initial' in form ? form.initial : undefined}
+          categories={data.view.categories}
+          platforms={data.view.platforms}
           onClose={closeForm}
           onSaved={(saved) => {
             closeForm()
-            load()
-            setOpenId(saved.id)
+            void load()
+            setDetail({
+              id: saved.id,
+              start: new Date(saved.occurrenceStartsAt ?? saved.startsAt),
+              end: new Date(saved.occurrenceEndsAt ?? saved.endsAt),
+              spot: null,
+            })
           }}
         />
       )}
+
+      {toast && <UndoToast toast={toast} onClose={closeToast} />}
     </div>
   )
 }
 
-function MonthGrid({ month, entries, now, onOpen }: { month: Date; entries: Entry[]; now: string; onOpen: (id: string) => void }) {
-  const first = startOfWeek(month)
-  const days = Array.from({ length: 42 }, (_, i) => addDays(first, i))
-  const today = new Date(now)
+/**
+ * The time it is now, by the server's clock rather than the browser's (which is routinely wrong
+ * on a machine that has been asleep), moved on every half minute for the red line.
+ */
+function useNow(skew: number): Date {
+  const [tick, setTick] = useState(() => Date.now())
 
-  return (
-    <div className="relative overflow-x-auto">
-      {/*
-        All seven days fit on a phone rather than four of them and a sideways scroll. A month view
-        that has to be scrolled through is not a month view: the point of it is the shape of the
-        month, and four days at a time shows no shape at all. The cells get narrow and an event
-        title clips to a word or two, which is what tapping the day is for — and the Agenda beside
-        this reads the same events out in full.
-      */}
-      <Card className="grid grid-cols-7 sm:min-w-[720px]">
-        {WEEKDAYS.map((d) => (
-          <div
-            key={d}
-            className="flex min-h-(--strip-h) items-center border-b border-b-(length:--hairline) bg-strip px-2 text-muted-foreground"
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            {d}
-          </div>
-        ))}
-        {days.map((day) => {
-          const inMonth = day.getMonth() === month.getMonth()
-          const onDay = entries.filter((e) => sameDay(e.startsAt, day))
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
-          return (
-            <div
-              key={day.toISOString()}
-              className={cn(
-                'min-h-16 border-r border-r-(length:--hairline) border-b border-b-(length:--hairline) p-1 sm:min-h-24 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0',
-                !inMonth && 'bg-strip/50',
-              )}
-            >
-              <div
-                className={cn(
-                  'mb-1 px-1 font-mono',
-                  inMonth ? 'text-foreground' : 'text-muted-foreground',
-                  sameDay(day, today) && 'font-semibold',
-                )}
-                style={{ fontSize: 'var(--text-small)' }}
-              >
-                {day.getDate()}
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {onDay.map((entry) => (
-                  <button
-                    key={`${entry.event.id}-${entry.startsAt.toISOString()}`}
-                    type="button"
-                    onClick={() => onOpen(entry.event.id)}
-                    className={cn(
-                      'truncate rounded-sm px-1 text-left hover:bg-muted',
-                      entry.event.state === 'cancelled' && 'line-through text-muted-foreground',
-                      entry.event.state === 'open' && 'text-ok',
-                    )}
-                    style={{ fontSize: 'var(--text-small)' }}
-                    title={entry.event.title}
-                  >
-                    {/* The title, not the clock, in a cell a seventh of a phone wide: "3:0…" says
-                        nothing about the event and "Qu…" at least says which one. The time is
-                        back from `sm` up, and the Agenda states both at any width. */}
-                    <span className="hidden font-mono text-muted-foreground sm:inline">{time(entry.startsAt)} </span>
-                    {entry.event.title}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </Card>
-    </div>
-  )
-}
-
-function Agenda({ entries, now, onOpen }: { entries: Entry[]; now: string; onOpen: (id: string) => void }) {
-  const upcoming = entries.filter((e) => e.endsAt.getTime() > new Date(now).getTime() - 86400000)
-
-  if (upcoming.length === 0) return <PageMessage>No events.</PageMessage>
-
-  return (
-    <Card className="divide-y-(--hairline) divide-border">
-        {upcoming.map((entry) => (
-          <div
-            key={`${entry.event.id}-${entry.startsAt.toISOString()}`}
-            className="flex min-h-(--row-h) flex-wrap items-center gap-x-3 gap-y-1 px-(--panel-pad) py-1.5"
-          >
-            <span className="w-52 shrink-0 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-              {/* A calendar row names the weekday, which no shared date helper writes. */}
-              {/* oxlint-disable-next-line no-restricted-properties */}
-              {entry.startsAt.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}{' '}
-              {time(entry.startsAt)}–{time(entry.endsAt)}
-            </span>
-            <button type="button" className="font-medium hover:underline" onClick={() => onOpen(entry.event.id)}>
-              {entry.event.title}
-            </button>
-            <StateBadge event={entry.event} />
-            {entry.event.worldId && (
-              <span style={{ fontSize: 'var(--text-small)' }}>
-                <WorldLink id={entry.event.worldId} name={entry.event.worldName} unnamed="id" />
-              </span>
-            )}
-            <div className="flex flex-wrap gap-1">
-              {entry.event.places
-                .filter((p) => p.state !== 'removed')
-                .map((p) => (
-                  <PlaceBadge key={p.place} place={p.place} state={p.state} />
-                ))}
-            </div>
-          </div>
-        ))}
-    </Card>
-  )
-}
-
-function EventDialog({
-  event,
-  canManage,
-  onClose,
-  onEdit,
-  onChanged,
-}: {
-  event: CalendarEvent
-  canManage: boolean
-  onClose: () => void
-  onEdit: () => void
-  onChanged: () => void
-}) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const act = (run: () => Promise<void>, close: boolean) => {
-    setBusy(true)
-    setError(null)
-    run()
-      .then(() => {
-        onChanged()
-        if (close) onClose()
-      })
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'That did not work.'))
-      .finally(() => setBusy(false))
-  }
-
-  const start = new Date(event.occurrenceStartsAt ?? event.startsAt)
-  const end = new Date(event.occurrenceEndsAt ?? event.endsAt)
-  const live = event.state === 'scheduled' || event.state === 'open'
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent title={event.title} subtitle={<StateBadge event={event} />} className="max-w-[560px]">
-        <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
-          <div className="font-mono">
-            {start.toLocaleString(undefined, { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
-            {' – '}
-            {time(end)}
-          </div>
-
-          {event.description && <p className="whitespace-pre-wrap">{event.description}</p>}
-
-          {event.worldId && (
-            <div>
-              <span className="text-muted-foreground">World </span>
-              <WorldLink id={event.worldId} name={event.worldName} unnamed="id" />
-            </div>
-          )}
-
-          {event.opening && (
-            <div>
-              <span className="text-muted-foreground">Instance </span>
-              {event.opening.error ? (
-                <span className="text-destructive">{event.opening.error}</span>
-              ) : event.opening.instanceId ? (
-                <button type="button" className="hover:underline" onClick={() => openInstance(event.opening!.instanceId!)}>
-                  {event.opening.closed ? 'Closed' : 'Open'}
-                </button>
-              ) : (
-                <span>Opening</span>
-              )}
-              {event.opening.joinLink && (
-                <a className="ml-2 underline" href={event.opening.joinLink} target="_blank" rel="noreferrer">
-                  Join
-                </a>
-              )}
-            </div>
-          )}
-
-          {event.places.length > 0 && (
-            <div className="flex flex-col gap-1">
-              {event.places.map((p) => (
-                <div key={p.place} className="flex flex-wrap items-center gap-2">
-                  <PlaceBadge place={p.place} state={p.state} />
-                  {p.error && <span className="text-destructive">{p.error}</span>}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {error && <p className="text-destructive">{error}</p>}
-
-          {canManage && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {event.state !== 'cancelled' && (
-                <Button size="sm" disabled={busy} onClick={onEdit}>
-                  Edit
-                </Button>
-              )}
-              {live && (
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => act(() => calendarApi.cancel(event.id), false)}>
-                  Cancel event
-                </Button>
-              )}
-              <Button size="sm" variant="destructive" disabled={busy} onClick={() => act(() => calendarApi.remove(event.id), true)}>
-                Delete
-              </Button>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
+  return new Date(tick + skew)
 }
 
 function FeedRow() {
@@ -521,51 +548,4 @@ function FeedRow() {
       {error && <span className="text-destructive">{error}</span>}
     </div>
   )
-}
-
-function StateBadge({ event }: { event: CalendarEvent }) {
-  return (
-    <Badge
-      variant={event.state === 'open' ? 'default' : event.state === 'cancelled' ? 'destructive' : 'secondary'}
-    >
-      {STATE_LABEL[event.state] ?? event.state}
-    </Badge>
-  )
-}
-
-function PlaceBadge({ place, state }: { place: CalendarEvent['places'][number]['place']; state: CalendarEvent['places'][number]['state'] }) {
-  return (
-    <Badge variant={state === 'failed' ? 'destructive' : state === 'published' ? 'secondary' : 'outline'}>
-      {PLACE_LABEL[place] ?? place}: {PLACE_STATE_LABEL[state] ?? state}
-    </Badge>
-  )
-}
-
-function time(date: Date): string {
-  return clockTime(date.toISOString())
-}
-
-function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1)
-}
-
-function addMonths(date: Date, months: number): Date {
-  return new Date(date.getFullYear(), date.getMonth() + months, 1)
-}
-
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date)
-  next.setDate(next.getDate() + days)
-  return next
-}
-
-/** The Monday on or before a date, at midnight. */
-function startOfWeek(date: Date): Date {
-  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const offset = (day.getDay() + 6) % 7
-  return addDays(day, -offset)
-}
-
-function sameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }

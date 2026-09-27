@@ -24,8 +24,11 @@ import {
   type LogHealth,
   type PausedRule,
   type SyncHealth,
+  type VRChatGroupPermissionsHealth,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { vrchatPermissionLabel, vrchatRolesPage } from '@/lib/vrchatPermissions'
+import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { Empty } from './Members'
 
 /**
@@ -144,6 +147,9 @@ export function Health() {
             </div>
           )}
         </div>
+        {health.vrChatGroupPermissions && health.vrChatGroupPermissions.missing.length > 0 && (
+          <GroupPermissionsMissing permissions={health.vrChatGroupPermissions} />
+        )}
       </Part>
 
       <Database reachable={databaseReachable} />
@@ -656,18 +662,45 @@ function PausedRules({ rules, now }: { rules: PausedRule[]; now: string }) {
 function CalendarProblems({ calendar, now }: { calendar: CalendarHealth; now: string }) {
   return (
     <Part title="Calendar">
-      {calendar.problems.map((p) => (
-        <p key={`${p.eventId}-${p.place}`} className="max-w-3xl text-warn">
-          {p.title} · {CALENDAR_PLACE[p.place] ?? p.place} · {p.error}
-          {p.at && (
-            <>
-              {' ('}
-              <Ago iso={p.at} now={now} />)
-            </>
-          )}
-        </p>
-      ))}
+      {calendar.problems.map((p) =>
+        p.missingGroupPermission ? (
+          <div key={`${p.eventId}-${p.place}`} className="max-w-3xl text-warn">
+            {p.title} · {CALENDAR_PLACE[p.place] ?? p.place}
+            <VRChatPermissionMissing missing={p.missingGroupPermission} />
+          </div>
+        ) : (
+          <p key={`${p.eventId}-${p.place}`} className="max-w-3xl text-warn">
+            {p.title} · {CALENDAR_PLACE[p.place] ?? p.place} · {p.error}
+            {p.at && (
+              <>
+                {' ('}
+                <Ago iso={p.at} now={now} />)
+              </>
+            )}
+          </p>
+        ),
+      )}
     </Part>
+  )
+}
+
+/** The VRChat group permissions Modbot uses that its VRChat account lacks, as last read. */
+function GroupPermissionsMissing({ permissions }: { permissions: VRChatGroupPermissionsHealth }) {
+  const roles = permissions.roles
+
+  return (
+    <p className="max-w-3xl text-warn">
+      Missing in the group: {permissions.missing.map(vrchatPermissionLabel).join(', ')}
+      {roles !== null && (roles.length === 0 ? ' · No roles' : ` · Roles: ${roles.join(', ')}`)}{' '}
+      <a
+        href={vrchatRolesPage(permissions.groupId)}
+        target="_blank"
+        rel="noreferrer"
+        className="underline underline-offset-2"
+      >
+        Change it in VRChat → Group settings → Roles ↗
+      </a>
+    </p>
   )
 }
 

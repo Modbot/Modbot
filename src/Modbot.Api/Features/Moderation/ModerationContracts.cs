@@ -1,3 +1,5 @@
+using Modbot.VRChat;
+
 namespace Modbot.Api.Features.Moderation;
 
 /// <summary>What a moderator asked Modbot to do to somebody.</summary>
@@ -46,6 +48,11 @@ public sealed record ModerationActionRequest(
 /// answered, or a person who is no longer where the screen showed them. Nothing failed; the row
 /// was simply out of date, and the screen can drop it rather than reporting a refusal.
 /// </param>
+/// <param name="MissingGroupPermission">
+/// Set when VRChat refused because Modbot's own VRChat account lacks a group permission: which
+/// one, the account's roles when known, and the group, for the link to its roles page. Null for
+/// every other outcome.
+/// </param>
 public sealed record ModerationActionResult(
     string Action,
     string UserId,
@@ -55,4 +62,5 @@ public sealed record ModerationActionResult(
     string? Error,
     bool RateLimited,
     bool Repeat,
-    bool Gone = false);
+    bool Gone = false,
+    MissingGroupPermission? MissingGroupPermission = null);

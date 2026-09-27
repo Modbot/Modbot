@@ -146,6 +146,10 @@ public sealed record GroupAnalytics(
 /// <param name="BannerUrl">The wide picture across the top. Only ever an <c>https</c> address.</param>
 /// <param name="Languages">VRChat's language codes, such as <c>eng</c>. Empty when the group lists none or they were not read yet.</param>
 /// <param name="Links">The group's links, each an absolute <c>http</c> or <c>https</c> address.</param>
+/// <param name="JoinState">
+/// Who can join, in VRChat's words: <c>open</c>, <c>request</c>, <c>invite</c> or <c>closed</c>. Null
+/// before the first read.
+/// </param>
 /// <param name="Members">VRChat's <c>memberCount</c> at the newest reading, or null before the first.</param>
 /// <param name="Online">VRChat's <c>onlineMemberCount</c> at the same reading.</param>
 /// <param name="CountedAt">When that reading was taken.</param>
@@ -161,6 +165,7 @@ public sealed record GroupInfo(
     string? Rules,
     IReadOnlyList<string> Languages,
     IReadOnlyList<string> Links,
+    string? JoinState,
     int? Members,
     int? Online,
     DateTimeOffset? CountedAt,

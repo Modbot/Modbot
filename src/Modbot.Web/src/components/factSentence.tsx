@@ -3,10 +3,12 @@ import { ChevronRight } from 'lucide-react'
 import { JsonView } from '@/components/JsonView'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
+import { followLink } from '@/lib/router'
 import { openPersonVersion } from '@/lib/subject'
 import { avatarWorn, timeInInstance } from '@/lib/factDetails'
 import { duration } from '@/lib/format'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { VRCHAT_PERMISSIONS } from '@/lib/vrchatPermissions'
 
 /**
  * Every fact, as a sentence naming who did what to whom and where.
@@ -48,9 +50,45 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
 export function FactSentence({ entry }: { entry: AuditEntry }) {
   const write = SENTENCES[entry.type] ?? (entry.typeRaw ? RAW[entry.typeRaw] : undefined)
 
-  if (write) return <>{write(parts(entry))}</>
+  return (
+    <>
+      {write ? write(parts(entry)) : fallback(parts(entry))}
+      <RecordLinks entry={entry} />
+    </>
+  )
+}
 
-  return <>{fallback(parts(entry))}</>
+/**
+ * The record a fact leads to, after its sentence: a ban's case file, a flag's review.
+ *
+ * The server says which (`caseFileId`, `reviewId`) and leaves them out for somebody who may not
+ * open them. A decision shown once with its other facts inside it (a ban pressed in Modbot, and
+ * VRChat's record of it) may have the case file on either fact, so the linked ones are asked too.
+ */
+function RecordLinks({ entry }: { entry: AuditEntry }) {
+  const caseFile = entry.caseFileId ?? entry.linked?.find((fact) => fact.caseFileId)?.caseFileId
+  const review = entry.reviewId ?? entry.linked?.find((fact) => fact.reviewId)?.reviewId
+
+  if (!caseFile && !review) return null
+
+  return (
+    <>
+      {caseFile && <RecordLink to={`/cases/${encodeURIComponent(caseFile)}`}>Case file</RecordLink>}
+      {review && <RecordLink to={`/reviews?review=${encodeURIComponent(review)}`}>Review</RecordLink>}
+    </>
+  )
+}
+
+function RecordLink({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={to}
+      onClick={followLink(to)}
+      className="ml-2 text-link underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      {children}
+    </a>
+  )
 }
 
 // ── The pieces a sentence is assembled from ────────────────────────────────────────────────────
@@ -451,42 +489,6 @@ const NAMING_FIELD = /name|title|topic|description|bio|status|pronouns/i
 /** One entry of a changed list, said the way a person would: "new-member" as "new member". */
 function listItem(value: unknown): string {
   return typeof value === 'string' ? fieldName(value) : JSON.stringify(value)
-}
-
-/**
- * VRChat's group permissions as VRChat's own role editor labels them (read from the group settings
- * page on vrchat.com, 2026-09-25). VRChat's API names them by id alone. `*` is the owner's "all
- * permissions", which the editor does not list. An id this build does not know is spelled out.
- */
-const VRCHAT_PERMISSIONS: Record<string, string> = {
-  '*': 'Every permission',
-  'group-members-manage': 'Manage Group Member Data',
-  'group-data-manage': 'Manage Group Data',
-  'group-audit-view': 'View Audit log',
-  'group-roles-manage': 'Manage Group Roles',
-  'group-default-role-manage': 'Manage Group Default Role',
-  'group-roles-assign': 'Assign Group Roles',
-  'group-bans-manage': 'Manage Group Bans',
-  'group-members-remove': 'Remove Group Members',
-  'group-members-viewall': 'View All Members',
-  'group-announcement-manage': 'Manage Group Announcement',
-  'group-instance-announcement-create': 'Create Instance Announcement',
-  'group-calendar-manage': 'Manage Group Calendar',
-  'group-instance-calendar-link': 'Link Instances and Events',
-  'group-galleries-manage': 'Manage Group Galleries',
-  'group-invites-manage': 'Manage Group Invites',
-  'group-instance-moderate': 'Moderate Group Instances',
-  'group-instance-manage': 'Manage Group Instances',
-  'group-instance-queue-priority': 'Group Instance Queue Priority',
-  'group-instance-age-gated-create': 'Create Age Gated Instances',
-  'group-instance-public-create': 'Create Group Public Instances',
-  'group-instance-plus-create': 'Create Group+ Instances',
-  'group-instance-open-create': 'Create Members-Only Group Instances',
-  'group-instance-restricted-create': 'Role-Restrict Members-Only Instances',
-  'group-instance-plus-portal': 'Portal to Group+ Instances',
-  'group-instance-plus-portal-unlocked': 'Unlocked Portal to Group+ Instances',
-  'group-instance-join': 'Join Group Instances',
-  'group-instance-bypass-avatar-performance': 'Bypass Avatar Performance Requirements',
 }
 
 /** A permission from any platform's list, in the words its own settings use, or plain words. */
@@ -1134,6 +1136,20 @@ const SENTENCES: Record<string, Sentence> = {
     // and notifying were not kept, so an edit to only those left no difference to show.
     const unrecorded = fields.length === 0 && !published && before !== null && !('description' in before)
 
+    // Only the time changed -- a drag on the calendar, most often: said as the move it was.
+    const retimed = before && after ? timeChange(before, after) : null
+    if (retimed && fields.length === 1 && !published) {
+      return retimed.moved ? (
+        <>
+          {p.actor} moved the event<Quoted value={p.text('title')} /> from {retimed.from} to {retimed.to}.
+        </>
+      ) : (
+        <>
+          {p.actor} changed when the event<Quoted value={p.text('title')} /> ends, from {retimed.from} to {retimed.to}.
+        </>
+      )
+    }
+
     return (
       <>
         {p.actor} {published ? 'published the draft event' : 'changed the event'}
@@ -1529,6 +1545,35 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // ── The group's own page, changed from Modbot ───────────────────────────────────────────────
+  // The same `changed` shape VRChat's own group.update entries carry, so it reads the same way:
+  // each field with what it was and what it became, lists as what was added and taken away.
+  'modbot.group.profile.change': (p) => (
+    <>
+      {p.actor} changed the group's profile<Changed changed={p.changed} />.
+      <ChangedLists changed={p.changed} />
+    </>
+  ),
+
+  'modbot.group.post.create': (p) => (
+    <>
+      {p.actor} posted<Quoted value={p.text('title')} /> to the group
+      {p.entry.data?.['notified'] === true ? ' and notified its members' : null}.
+    </>
+  ),
+
+  'modbot.group.post.change': (p) => (
+    <>
+      {p.actor} changed the group post<Quoted value={p.text('title')} />.
+    </>
+  ),
+
+  'modbot.group.post.delete': (p) => (
+    <>
+      {p.actor} deleted the group post<Quoted value={p.text('title')} />.
+    </>
+  ),
+
   // ── Everything else Modbot does ─────────────────────────────────────────────────────────────
   'modbot.import.done': (p) => {
     const file = p.text('fileName') ?? 'a file'
@@ -1740,7 +1785,9 @@ type Say =
   | string
   | { word: string; show: (value: unknown) => string }
   | { toggle: string }
-  | { say: (before: unknown, after: unknown, whole: Record<string, unknown>) => string }
+  | {
+      say: (before: unknown, after: unknown, whole: Record<string, unknown>, wholeBefore: Record<string, unknown>) => string
+    }
 
 /**
  * What changed between two copies of a thing, each as a short phrase with its values.
@@ -1764,7 +1811,7 @@ function differences(
 
       if (typeof how === 'string') return how
       if ('toggle' in how) return `${now ? 'turned on' : 'turned off'} ${how.toggle}`
-      if ('say' in how) return how.say(was, now, after)
+      if ('say' in how) return how.say(was, now, after, before)
       return `${how.word} from ${clipped(how.show(was))} to ${clipped(how.show(now))}`
     })
 
@@ -1781,6 +1828,48 @@ const quoted = (value: unknown): string => (typeof value === 'string' && value ?
 /** A moment, in the reader's own time. */
 const moment = (value: unknown): string => (typeof value === 'string' ? (when(value) ?? value) : 'none')
 
+/** A time of day from a payload, in the reader's own clock, written the way `when` writes it. */
+function clock(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
+/** "Sat 26 Sep, 08:00 PM–10:00 PM" within a day, both moments in full across midnight. */
+function span(start: unknown, end: unknown): string {
+  if (typeof start !== 'string' || typeof end !== 'string') return moment(start)
+  const from = new Date(start)
+  const to = new Date(end)
+  return from.toDateString() === new Date(to.getTime() - 1).toDateString()
+    ? `${moment(start)}–${clock(end)}`
+    : `${moment(start)} – ${moment(end)}`
+}
+
+/**
+ * How an event's time changed between two copies of it: moved (the start changed, and the end with
+ * it or not), or only the end. Null when neither did.
+ */
+function timeChange(before: Record<string, unknown>, after: Record<string, unknown>): { moved: boolean; from: string; to: string } | null {
+  if (before['startsAt'] !== after['startsAt'])
+    return { moved: true, from: span(before['startsAt'], before['endsAt']), to: span(after['startsAt'], after['endsAt']) }
+
+  if (before['endsAt'] !== after['endsAt']) {
+    const sameDay =
+      typeof before['endsAt'] === 'string' &&
+      typeof after['endsAt'] === 'string' &&
+      new Date(before['endsAt']).toDateString() === new Date(after['endsAt']).toDateString()
+    const show = (v: unknown) => (sameDay && typeof v === 'string' ? clock(v) : moment(v))
+    return { moved: false, from: show(before['endsAt']), to: show(after['endsAt']) }
+  }
+
+  return null
+}
+
+/** The time change as one phrase among others: "moved it from … to …", or "the end, from … to …". */
+function timePhrase(before: Record<string, unknown>, after: Record<string, unknown>): string {
+  const change = timeChange(before, after)
+  if (!change) return 'the time'
+  return change.moved ? `moved it from ${change.from} to ${change.to}` : `the end, from ${change.from} to ${change.to}`
+}
+
 const ACCESS_WORDS: Record<string, string> = {
   members: 'group members only',
   plus: 'members and their friends',
@@ -1793,8 +1882,9 @@ const CALENDAR_FIELDS: Record<string, Say> = {
   imageUrl: 'the picture',
   vrchatImageId: 'the picture',
   category: { word: 'the category', show: plain },
-  startsAt: { say: (_, __, whole) => `the time, now ${moment(whole['startsAt'])}` },
-  endsAt: { say: (_, __, whole) => `the time, now ${moment(whole['startsAt'])}` },
+  // A start and an end that change together say one phrase, and are said once.
+  startsAt: { say: (_, __, after, before) => timePhrase(before, after) },
+  endsAt: { say: (_, __, after, before) => timePhrase(before, after) },
   timeZone: { word: 'the time zone', show: plain },
   repeat: { say: (_, __, whole) => `how it repeats, now ${repeatWords(whole)}` },
   repeatDays: { say: (_, __, whole) => `how it repeats, now ${repeatWords(whole)}` },

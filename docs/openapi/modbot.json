@@ -5997,7 +5997,7 @@
           "Moderation"
         ],
         "summary": "List flags",
-        "description": "The newest flags: open, dismissed or confirmed, and filtered by language.\n\nNeeds the `ViewProfile` permission.",
+        "description": "The newest flags: open, dismissed or confirmed, and filtered by language. Given `vrchat`, `discord` or both, only that person's flags, and the open count is theirs.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "ListModerationFlags",
         "parameters": [
           {
@@ -6009,6 +6009,20 @@
           },
           {
             "name": "language",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vrchat",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discord",
             "in": "query",
             "schema": {
               "type": "string"
@@ -8705,6 +8719,64 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuditEntry"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/audit/entries/{id}/around": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "Get entries around an audit log entry",
+        "description": "What else happened around one entry: the same actor's entries and the same person's entries, up to five either side, each list newest first with the entry itself in its place. `byActor` is null when nobody is named for the entry; `aboutSubject` is null when the entry is not about a person. Only types this account may read are listed, and an entry it may not read answers 404.",
+        "operationId": "GetAuditEntryAround",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditAround"
                 }
               }
             }
@@ -14417,6 +14489,456 @@
         ]
       }
     },
+    "/api/group/profile": {
+      "put": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Update group profile",
+        "description": "Change the group's name, description, rules, languages, links or who can join, on VRChat. Leave a field out (or null) to keep it. Only the fields that differ from what Modbot stored are sent, and nothing is sent when none do. Limits are VRChat's: a name of 3 to 64 characters, a description of up to 250, at most 3 languages (VRChat's codes, such as `eng`) and at most 3 `http` or `https` links. `joinState` is `open`, `request`, `invite` or `closed`. One request to VRChat, never retried: a refusal answers with VRChat's own message, a rate limit with 429. Once VRChat accepts, the change is written to the audit log with who made it and each field's old and new value, and the answer is the group as the page now shows it.\n\nNeeds the `EditGroupProfile` permission.",
+        "operationId": "UpdateGroupProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupProfileEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/posts": {
+      "get": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "List group posts",
+        "description": "The group's posts, read from VRChat when you ask, newest first. `page` and `pageSize` page it (at most 100 a page); `total` is VRChat's count. One request to VRChat per call, never retried. Authors are named from the profiles Modbot already has; `roles` are the group's roles as the last group read found them, for choosing who a new post is for.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetGroupPosts",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupPostList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Create group post",
+        "description": "Post in the group on VRChat. `title` and `text` are required. `visibility` is `group` (members only, the default) or `public`. `roleIds` limits it to those roles; empty means every member. `notify` has VRChat tell the members. One request, never retried; a refusal answers with VRChat's own message. Once VRChat accepts, the audit log records who posted.\n\nNeeds the `ManageGroupPosts` permission.",
+        "operationId": "CreateGroupPost",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupPostBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupPostSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Update group post",
+        "description": "Change a post: `id` names it, and the title, text, `visibility` and `roleIds` replace what it had. VRChat replaces the whole post, so send `imageId` back to keep its picture. Members are not notified again. One request, never retried. Once VRChat accepts, the audit log records who changed it.\n\nNeeds the `ManageGroupPosts` permission.",
+        "operationId": "UpdateGroupPost",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupPostBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupPostSaved"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/group/posts/delete": {
+      "post": {
+        "tags": [
+          "Group page"
+        ],
+        "summary": "Delete group post",
+        "description": "Delete a post on VRChat. `id` names it; `title` is kept in the audit log with the deletion, as the page showed it. One request, never retried. A post VRChat no longer has answers 404.\n\nNeeds the `ManageGroupPosts` permission.",
+        "operationId": "DeleteGroupPost",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupPostDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar": {
       "get": {
         "tags": [
@@ -17984,6 +18506,33 @@
           }
         }
       },
+      "AuditAround": {
+        "required": [
+          "byActor",
+          "aboutSubject"
+        ],
+        "type": "object",
+        "properties": {
+          "byActor": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          },
+          "aboutSubject": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          }
+        }
+      },
       "AuditCategory": {
         "enum": [
           "Moderation",
@@ -18224,6 +18773,20 @@
             "items": {
               "$ref": "#/components/schemas/AuditReporter"
             }
+          },
+          "caseFileId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "reviewId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -19583,6 +20146,16 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "missingGroupPermission": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MissingGroupPermission"
+              }
+            ]
           }
         }
       },
@@ -24999,6 +25572,7 @@
           "rules",
           "languages",
           "links",
+          "joinState",
           "members",
           "online",
           "countedAt",
@@ -25066,6 +25640,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "joinState": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "members": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -25152,6 +25732,284 @@
               "type": "string",
               "format": "date"
             }
+          }
+        }
+      },
+      "GroupPostBody": {
+        "required": [
+          "id",
+          "title",
+          "text",
+          "visibility",
+          "roleIds"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visibility": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roleIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "notify": {
+            "type": "boolean",
+            "default": false
+          },
+          "imageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GroupPostDelete": {
+        "required": [
+          "id"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GroupPostList": {
+        "required": [
+          "posts",
+          "total",
+          "page",
+          "pageSize",
+          "roles",
+          "readAt"
+        ],
+        "type": "object",
+        "properties": {
+          "posts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupPostRow"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupRoleChoice"
+            }
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GroupPostRow": {
+        "required": [
+          "id",
+          "title",
+          "text",
+          "authorId",
+          "authorName",
+          "imageUrl",
+          "imageId",
+          "visibility",
+          "roleIds",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "authorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "authorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visibility": {
+            "type": "string"
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "GroupPostSaved": {
+        "required": [
+          "post"
+        ],
+        "type": "object",
+        "properties": {
+          "post": {
+            "$ref": "#/components/schemas/GroupPostRow"
+          }
+        }
+      },
+      "GroupProfileEdit": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rules": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "languages": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "links": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "joinState": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "GroupRoleChoice": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -27631,6 +28489,54 @@
           }
         }
       },
+      "LiveTallyView": {
+        "required": [
+          "since",
+          "arrivals",
+          "warns",
+          "kicks",
+          "bans"
+        ],
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "arrivals": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "warns": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "kicks": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "bans": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "LiveView": {
         "required": [
           "instances",
@@ -27656,6 +28562,16 @@
             "items": {
               "$ref": "#/components/schemas/LiveVoiceChannelView"
             }
+          },
+          "tally": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LiveTallyView"
+              }
+            ]
           }
         }
       },
@@ -28754,6 +29670,41 @@
           }
         }
       },
+      "MissingGroupPermission": {
+        "required": [
+          "permission",
+          "groupId",
+          "roles",
+          "said"
+        ],
+        "type": "object",
+        "properties": {
+          "permission": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupId": {
+            "type": "string"
+          },
+          "roles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "said": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ModbotPermissions": {
         "type": "integer"
       },
@@ -28836,6 +29787,16 @@
           "gone": {
             "type": "boolean",
             "default": false
+          },
+          "missingGroupPermission": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MissingGroupPermission"
+              }
+            ]
           }
         }
       },
@@ -35487,6 +36448,10 @@
     {
       "name": "Giveaways",
       "x-displayName": "Giveaways"
+    },
+    {
+      "name": "Group page",
+      "x-displayName": "Group page"
     },
     {
       "name": "Logs",

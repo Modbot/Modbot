@@ -1,3 +1,5 @@
+using Modbot.VRChat;
+
 namespace Modbot.Api.Features.Calendar;
 
 /// <summary>An event as a person fills it in (calendar design §2).</summary>
@@ -39,7 +41,16 @@ public sealed record CalendarEventRequest(
 /// <summary>One place an event is published, and how that went.</summary>
 /// <param name="Place"><c>vrchat</c>, <c>discordEvent</c> or <c>channelPost</c>.</param>
 /// <param name="State"><c>waiting</c>, <c>published</c>, <c>failed</c> or <c>removed</c>.</param>
-public sealed record CalendarPlaceView(string Place, string State, string? Error, DateTimeOffset? ErrorAt, DateTimeOffset UpdatedAt);
+/// <param name="MissingGroupPermission">
+/// Set when VRChat refused the last write because Modbot's VRChat account lacks a group permission.
+/// </param>
+public sealed record CalendarPlaceView(
+    string Place,
+    string State,
+    string? Error,
+    DateTimeOffset? ErrorAt,
+    DateTimeOffset UpdatedAt,
+    MissingGroupPermission? MissingGroupPermission = null);
 
 /// <summary>The instance Modbot opened, or tried to, for the current occurrence.</summary>
 /// <param name="InstanceId">The instance in <c>vrchat_instance</c>, for the instance popup.</param>

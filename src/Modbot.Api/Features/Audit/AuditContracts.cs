@@ -121,6 +121,15 @@ public sealed record AuditReporter(Guid AccountId, string? Name, DateTimeOffset 
 /// caller reading one already holds <c>ViewAuditLog</c>, and the device id this is resolved from has
 /// always been in the entry's payload.
 /// </param>
+/// <param name="CaseFileId">
+/// The case file this entry leads to: the write-up of a ban, or the case file a case file fact is
+/// about. Null when there is none, and null for a caller who may not read case files, so a link is
+/// never drawn to a page that would refuse them.
+/// </param>
+/// <param name="ReviewId">
+/// The review this entry leads to: the review opened for a flag, or the review a review fact is
+/// about. Null when there is none, and null for a caller who may not read reviews.
+/// </param>
 public sealed record AuditEntry(
     long Id,
     DateTimeOffset OccurredAt,
@@ -148,7 +157,22 @@ public sealed record AuditEntry(
     TrustRank? SubjectTrustRank = null,
     TrustRank? ActorTrustRank = null,
     IReadOnlyList<AuditEntry>? Linked = null,
-    IReadOnlyList<AuditReporter>? ReportedBy = null);
+    IReadOnlyList<AuditReporter>? ReportedBy = null,
+    Guid? CaseFileId = null,
+    Guid? ReviewId = null);
+
+/// <summary>
+/// What else happened around one entry: the same moderator's actions, and the same person's facts.
+/// </summary>
+/// <remarks>
+/// Each list is newest first and holds the entry itself in its place, so a screen can mark "this
+/// one" without working out where it falls. Up to <see cref="AuditQuery.AroundEach"/> either side.
+/// </remarks>
+/// <param name="ByActor">Null when nobody is named for the entry.</param>
+/// <param name="AboutSubject">Null when the entry is not about a person.</param>
+public sealed record AuditAround(
+    IReadOnlyList<AuditEntry>? ByActor,
+    IReadOnlyList<AuditEntry>? AboutSubject);
 
 /// <param name="OccurredAt">Pass back as <c>beforeOccurredAt</c> for the next page.</param>
 /// <param name="Id">Pass back as <c>beforeId</c>. Both are required — see the endpoint.</param>

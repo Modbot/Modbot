@@ -413,6 +413,14 @@ export const moderationApi = {
       `/api/moderation-flags?state=${state}${language ? `&language=${encodeURIComponent(language)}` : ''}`,
     ),
 
+  /** One person's flags, under either or both of their accounts. `open` in the answer is theirs. */
+  personFlags: (state: 'open' | 'dismissed' | 'confirmed', person: { vrchat?: string | null; discord?: string | null }) => {
+    const q = new URLSearchParams({ state })
+    if (person.vrchat) q.set('vrchat', person.vrchat)
+    if (person.discord) q.set('discord', person.discord)
+    return http.request<FlagList>(`/api/moderation-flags?${q.toString()}`)
+  },
+
   /** Every open flag, in any language: the number beside Flags in the sidebar. Needs ViewProfile. */
   openFlagCount: () => http.request<{ open: number }>('/api/moderation-flags/open-count'),
 

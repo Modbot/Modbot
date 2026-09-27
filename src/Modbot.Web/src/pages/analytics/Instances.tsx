@@ -4,7 +4,9 @@ import { DailyBars, DailyLine, Heatmap, compactNumber, dateTime, longDay, minute
 import { InstanceCards } from '@/components/InstanceCards'
 import { InstanceTable } from '@/components/InstanceTable'
 import { HeadCount } from '@/components/HeadCount'
-import { api, type HourOfWeek, type InstancePeaks } from '@/lib/api'
+import { api, type CurrentUser, type HourOfWeek, type InstancePeaks } from '@/lib/api'
+import type { PageId } from '@/lib/nav'
+import { GroupHeaderFor } from './GroupHeader'
 import { InstanceActivityChart } from './InstanceActivityChart'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { CoverageLine, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
@@ -29,20 +31,34 @@ const THIN_REPORTS = 200
  * moderator's companion and so cover instances presence reports cannot see. Their coverage is its
  * own figure and is marked when it is thin; the presence panels carry the report count for the same
  * reason, the same way the Worlds page does.
+ *
+ * It is the Instances tab of the VRChat page, as vrchat.com shows a group's instances, so it opens
+ * under that page's header with Instances marked and the sidebar lights VRChat. The header is read
+ * once from what Modbot stored; the page does not wait for it.
  */
-export function Instances() {
+export function Instances({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const [range, setRange] = useState<Range>(30)
   const [layer, setLayer] = useState<'arrivals' | 'opened'>('arrivals')
   const load = useCallback((q: string) => api.instancesAnalytics(q), [])
   const { data, error } = useAnalytics(load, range)
 
-  if (error) return <PageMessage tone="danger">{error}</PageMessage>
+  const header = <GroupHeaderFor me={me} pathOf={pathOf} active="analytics-instances" />
+
+  if (error)
+    return (
+      <div className="flex flex-col gap-3">
+        {header}
+        <PageMessage tone="danger">{error}</PageMessage>
+      </div>
+    )
 
   const sum = (points: { value: number }[]) => points.reduce((s, p) => s + p.value, 0)
   const max = (points: { value: number }[]) => points.reduce((m, p) => Math.max(m, p.value), 0)
 
   return (
     <div className="flex flex-col gap-3">
+      {header}
+
       <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />
 
       {!data && <PageMessage>Loading…</PageMessage>}

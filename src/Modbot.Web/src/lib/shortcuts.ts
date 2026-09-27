@@ -20,7 +20,7 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
  * exactly what works on the screen that is open.
  */
 
-export type ShortcutGroup = 'General' | 'Go to' | 'Lists' | 'Filters' | 'Popups'
+export type ShortcutGroup = 'General' | 'Go to' | 'Lists' | 'Filters' | 'Calendar' | 'Popups'
 
 export type Shortcut = {
   /**

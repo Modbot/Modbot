@@ -25,6 +25,10 @@ public static class VRChatRefusal
         if (string.IsNullOrWhiteSpace(body))
             return null;
 
+        // The SDK's catch path hands the body back as "Error calling {method}: {body}" (spec 4.1),
+        // so the JSON is found where it starts rather than assumed to be the whole string.
+        body = WafBlock.Payload(body) ?? body;
+
         try
         {
             using var document = JsonDocument.Parse(body);

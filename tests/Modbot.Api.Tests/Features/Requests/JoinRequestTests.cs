@@ -441,4 +441,88 @@ public class JoinRequestTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.DoesNotContain(gate.Calls, c => c.Endpoint.Class == VRChatEndpointClass.GroupsRequestsAnswer);
     }
+
+    // ── Modbot's VRChat account lacks a group permission ──────────────────────────────────
+
+    /// <summary>
+    /// VRChat answers a 403 when Modbot's own VRChat account lacks the group permission. The
+    /// moderator is told which one and which roles the account has, not "Forbidden".
+    /// </summary>
+    [Fact]
+    public async Task A403NamesTheMissingGroupPermission_AndTheAccountsRoles()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var gate = new FakeVRChatGate().SignedInAs(userId: ModbotAccount);
+        gate.Returns("RespondGroupJoinRequest", VRChatResult<object>.Failure(
+            403, "Forbidden", rawResponse: """{"error":{"message":"You can't do that","status_code":403}}"""));
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+        await SeedAccountAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.AnswerJoinRequests, ct);
+        var response = await host.PostJsonAsync("/api/requests/approve", Body(Asker, "key-403"), cookie, ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await ResultOf(response, ct);
+        Assert.False(result.Done);
+        Assert.False(result.Gone);
+
+        // VRChat's own words, not the status line.
+        Assert.Equal("You can't do that", result.Error);
+
+        var missing = Assert.IsType<MissingGroupPermission>(result.MissingGroupPermission);
+        Assert.Equal("group-invites-manage", missing.Permission);
+        Assert.Equal(Group, missing.GroupId);
+        Assert.Equal(["Greeter"], missing.Roles);
+
+        // A second press of the same key is told the same thing, and sends nothing.
+        var again = await ResultOf(
+            await host.PostJsonAsync("/api/requests/approve", Body(Asker, "key-403"), cookie, ct), ct);
+
+        Assert.True(again.Repeat);
+        Assert.Equal("group-invites-manage", again.MissingGroupPermission?.Permission);
+        Assert.Single(gate.Calls, c => c.Endpoint.Class == VRChatEndpointClass.GroupsRequestsAnswer);
+    }
+
+    [Fact]
+    public async Task A403WhenTheAccountHoldsThePermissionIsNotCalledAMissingPermission()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        var gate = new FakeVRChatGate().SignedInAs(userId: ModbotAccount);
+        gate.Returns("RespondGroupJoinRequest", VRChatResult<object>.Failure(403, "Forbidden"));
+
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, gate);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+        await SeedAccountAsync(host, ct, "group-invites-manage");
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.AnswerJoinRequests, ct);
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/requests/reject", Body(Asker, "key-403-held"), cookie, ct), ct);
+
+        Assert.False(result.Done);
+        Assert.Null(result.MissingGroupPermission);
+        Assert.Equal("Forbidden", result.Error);
+    }
+
+    /// <summary>Modbot's VRChat account as the group-info poll would have stored it.</summary>
+    private static async Task SeedAccountAsync(ReadSurfaceTestHost host, CancellationToken ct, params string[] permissions)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        var settings = await db.GetSettingsAsync(ct);
+        settings.VRChatAccountRoleIds = ["grol_greeter"];
+        settings.VRChatAccountPermissions = ["group-audit-view", .. permissions];
+        settings.GroupInfoSnapshot = new Modbot.VRChat.Sync.GroupInfoSnapshot(
+            "Group", null, null, null, null, null, null, null, false, 1, 0,
+            [new Modbot.VRChat.Sync.GroupRoleSnapshot("grol_greeter", "Greeter", null, 1, false, false, false, false, [])]).ToJson();
+
+        await db.SaveChangesAsync(ct);
+    }
 }

@@ -6,9 +6,10 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { api, ApiError, type LivePerson, type LiveInstance, type LiveView, type LiveVoiceChannel } from '@/lib/api'
+import { api, ApiError, type LivePerson, type LiveInstance, type LiveTally, type LiveView, type LiveVoiceChannel } from '@/lib/api'
 import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
 import { ago, clockTime } from '@/lib/format'
+import { arrivedWithin, LIT_MS, NEW_MS, pinned, tallyCounts } from '@/lib/livePeople'
 import { DOT, type Tone } from '@/lib/status'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
@@ -119,16 +120,26 @@ export function Live() {
 
   if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
 
+  // The server's time now: when it answered, moved on by how long ago that was here. Arrival
+  // times are the server's, so a browser whose clock is wrong still marks the right people New.
+  const serverNow = Date.parse(data.generatedAt) + (updatedAt === null ? 0 : Math.max(0, now - updatedAt))
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-end gap-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {updatedAt !== null && (
-          <span className={cn('font-mono', now - updatedAt > STALE_MS && 'text-warn')}>
-            Updated {ago(new Date(updatedAt).toISOString(), new Date(Math.max(now, updatedAt)).toISOString())}
-          </span>
-        )}
-        <span aria-hidden className={cn('size-1.5 shrink-0', DOT[STREAM_TONE[stream]])} />
-        <span>{stateWord(stream)}</span>
+      <div
+        className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground"
+        style={{ fontSize: 'var(--text-small)' }}
+      >
+        {data.tally && <Tally tally={data.tally} />}
+        <span className="ml-auto flex items-center gap-2">
+          {updatedAt !== null && (
+            <span className={cn('font-mono', now - updatedAt > STALE_MS && 'text-warn')}>
+              Updated {ago(new Date(updatedAt).toISOString(), new Date(Math.max(now, updatedAt)).toISOString())}
+            </span>
+          )}
+          <span aria-hidden className={cn('size-1.5 shrink-0', DOT[STREAM_TONE[stream]])} />
+          <span>{stateWord(stream)}</span>
+        </span>
       </div>
 
       {error && (
@@ -141,9 +152,9 @@ export function Live() {
         {data.instances.length === 0 ? (
           <PageMessage>No open instances.</PageMessage>
         ) : (
-          <PanelGrid className="xl:grid-cols-2">
+          <PanelGrid className="desk:xl:grid-cols-2">
             {data.instances.map((instance) => (
-              <InstanceCard key={instance.id} instance={instance} />
+              <InstanceCard key={instance.id} instance={instance} now={serverNow} />
             ))}
           </PanelGrid>
         )}
@@ -153,7 +164,7 @@ export function Live() {
         {!data.voice || data.voice.length === 0 ? (
           <PageMessage>Nobody in voice.</PageMessage>
         ) : (
-          <PanelGrid className="md:grid-cols-2 xl:grid-cols-3">
+          <PanelGrid className="desk:md:grid-cols-2 desk:xl:grid-cols-3">
             {data.voice.map((channel) => (
               <VoiceCard key={channel.channelId} channel={channel} />
             ))}
@@ -161,6 +172,21 @@ export function Live() {
         )}
       </Section>
     </div>
+  )
+}
+
+/** "Since 8:02 PM: 212 arrivals · 4 warns · 3 kicks · 1 ban", from the oldest open instance's opening. */
+function Tally({ tally }: { tally: LiveTally }) {
+  return (
+    <span>
+      Since <span className="font-mono">{clockTime(tally.since)}</span>:{' '}
+      {tallyCounts(tally).map(([n, words], i) => (
+        <span key={i}>
+          {i > 0 && ' · '}
+          <span className="font-mono text-foreground">{n}</span> {words}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -206,7 +232,7 @@ function VoiceCard({ channel }: { channel: LiveVoiceChannel }) {
   )
 }
 
-function InstanceCard({ instance }: { instance: LiveInstance }) {
+function InstanceCard({ instance, now }: { instance: LiveInstance; now: number }) {
   const watched = instance.watching.length > 0
   const reporting = new Set(instance.watching.map((w) => w.userId))
 
@@ -215,7 +241,7 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
       {/* The instance as the game draws it, and beside it who is there: known only while a
           moderator's Companion App is in the instance, whose row says so. Its number is in the
           instance's popup. */}
-      <div className="flex flex-col sm:flex-row">
+      <div className="flex flex-col desk:sm:flex-row">
         <div className="shrink-0 p-(--panel-pad)">
           <InstanceTile
             instanceId={instance.id}
@@ -229,12 +255,12 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
             groupAccessType={instance.groupAccessType}
             region={instance.region}
             platforms={instance.worldPlatforms}
-            className="sm:w-56"
+            className="desk:sm:w-56 headset:max-w-sm"
           />
         </div>
 
-        <div className="min-w-0 flex-1 sm:border-l sm:border-l-(length:--hairline)">
-          {watched && <People title="Here now" people={instance.people} reporting={reporting} />}
+        <div className="min-w-0 flex-1 desk:sm:border-l desk:sm:border-l-(length:--hairline)">
+          {watched && <People title="Here now" people={instance.people} reporting={reporting} now={now} />}
 
           {!watched && instance.lastWatchedAt && instance.lastSeen.length > 0 && (
             <People title={`Last seen ${clockTime(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
@@ -248,21 +274,29 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
 /**
  * Who is or was in the instance: a strip naming the list, then one row a person. The moderators
  * whose Companion App is reporting the list carry the audit log's own "Companion App" tag.
+ *
+ * Flagged people and anybody kicked or banned before come first (lib/livePeople.ts). Somebody
+ * seen walking in within the last five minutes is marked New, and for the first minute their row
+ * is lit too. A redraw alone would make a new arrival look like somebody who had been there an
+ * hour. Only while the list is live: a last-seen list has nobody arriving.
  */
 function People({
   title,
   people,
   muted = false,
   reporting,
+  now,
 }: {
   title: string
   people: LivePerson[]
   muted?: boolean
   /** VRChat ids of the moderators whose Companion App is in the instance. */
   reporting?: Set<string>
+  /** The server's time now, for New. Left out for a list that is not live. */
+  now?: number
 }) {
   return (
-    <section className="flex flex-col max-sm:border-t max-sm:border-t-(length:--hairline)">
+    <section className="flex flex-col max-sm:border-t max-sm:border-t-(length:--hairline) headset:border-t headset:border-t-(length:--hairline)">
       <CardHeader className={cn(people.length === 0 && 'border-b-0')}>
         <CardTitle>{title}</CardTitle>
         <span className="ml-auto font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
@@ -274,8 +308,14 @@ function People({
           className={cn('divide-y-(length:--hairline) divide-border', muted && 'text-muted-foreground')}
           style={{ fontSize: 'var(--text-small)' }}
         >
-          {people.map((p) => (
-            <li key={p.userId} className="flex min-h-(--row-h) items-center gap-2 px-(--panel-pad) py-1">
+          {pinned(people).map((p) => (
+            <li
+              key={p.userId}
+              className={cn(
+                'flex min-h-(--row-h) items-center gap-2 px-(--panel-pad) py-1 transition-colors duration-1000',
+                arrivedWithin(p, now, LIT_MS) && 'bg-ok/10',
+              )}
+            >
               {/* The name and its marks as the member lists draw them: on a phone the name keeps
                   its line and truncates, and a mark that does not fit is hidden, so the time stays
                   on the line and every row is one height. */}
@@ -290,6 +330,7 @@ function People({
                       {flag}
                     </span>
                   ))}
+                  {arrivedWithin(p, now, NEW_MS) && <Badge variant="ok">New</Badge>}
                 </Marks>
               </div>
               <span className="shrink-0 whitespace-nowrap text-muted-foreground">

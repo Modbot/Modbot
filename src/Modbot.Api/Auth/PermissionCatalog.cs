@@ -50,6 +50,8 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.WriteNotes, "Write notes", "Write a note about somebody, and take one back. Reading notes needs the audit log.", "Moderation"),
         Describe(ModbotPermissions.ManageDiscordLinks, "Manage Discord links", "Unlink a member's Discord and VRChat accounts. Removes the roles Modbot gave them.", "Moderation"),
         Describe(ModbotPermissions.EditAgeVerification, "Edit 18+ verified", "Set or clear the 18+ verified mark on a VRChat user by hand. Syncs can only set it.", "Moderation"),
+        Describe(ModbotPermissions.EditGroupProfile, "Edit the group's profile", "Change the group's name, description, rules, languages, links and who can join, on VRChat.", "Administration"),
+        Describe(ModbotPermissions.ManageGroupPosts, "Manage group posts", "Post in the group on VRChat, change a post and delete one.", "Administration"),
         Describe(ModbotPermissions.ManageCalendar, "Manage calendar", "Create, change and cancel events, and the calendar feed link.", "Administration"),
         Describe(ModbotPermissions.RunGiveaways, "Run giveaways", "Create, change, open, close, draw and cancel giveaways.", "Administration"),
         Describe(ModbotPermissions.ManageUsers, "Manage users", "Add people, invite them, disable them and change their roles.", "Administration"),

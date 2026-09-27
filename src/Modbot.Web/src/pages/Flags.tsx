@@ -19,6 +19,7 @@ import {
 import { ApiError, type CurrentUser } from '@/lib/api'
 import { ago } from '@/lib/format'
 import { can } from '@/lib/permissions'
+import { followLink } from '@/lib/router'
 
 /**
  * What AutoMod rules flagged (AI moderation design §5). Seeing needs ViewProfile; the Dismiss,
@@ -179,7 +180,20 @@ export function Flags({
                           .join(' · ')}
                       </Badge>
                     )}
-                    {flag.reviewId && <Badge variant="secondary">In review</Badge>}
+                    {flag.reviewId &&
+                      (mayDismiss ? (
+                        <a
+                          href={`/reviews?review=${encodeURIComponent(flag.reviewId)}`}
+                          onClick={followLink(`/reviews?review=${encodeURIComponent(flag.reviewId)}`)}
+                          className="rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
+                        >
+                          <Badge variant="secondary" className="hover:underline">
+                            In review
+                          </Badge>
+                        </a>
+                      ) : (
+                        <Badge variant="secondary">In review</Badge>
+                      ))}
                   </div>
                   {flag.context && flag.context.length > 0 && (
                     <ul className="mt-1 flex flex-col text-muted-foreground">

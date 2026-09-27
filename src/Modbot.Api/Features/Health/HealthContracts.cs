@@ -257,7 +257,15 @@ public sealed record SyncHealth(
     CloudReportHealth? CloudReport = null,
     // The log Modbot keeps in its own database, and the copy it sends Modbot Cloud. Null when this
     // host has no log store registered at all.
-    LogHealth? Logs = null);
+    LogHealth? Logs = null,
+    // The VRChat group permissions Modbot uses that its own VRChat account lacks, as last read by
+    // the group-info poll. Null until that poll has read them.
+    VRChatGroupPermissionsHealth? VRChatGroupPermissions = null);
+
+/// <param name="GroupId">The managed group, for the link to its roles page.</param>
+/// <param name="Missing">VRChat's ids for the permissions Modbot uses that the account lacks. Empty when none.</param>
+/// <param name="Roles">The group roles the account holds, by name.</param>
+public sealed record VRChatGroupPermissionsHealth(string GroupId, IReadOnlyList<string> Missing, IReadOnlyList<string>? Roles);
 
 /// <summary>
 /// Modbot's own log: what the store is doing, and what is happening to the copy sent to Cloud.
@@ -332,7 +340,14 @@ public sealed record PausedRule(
 public sealed record CalendarHealth(bool MissingManageEvents, IReadOnlyList<CalendarProblem> Problems);
 
 /// <param name="Place"><c>vrchat</c>, <c>discordEvent</c>, <c>channelPost</c>, or <c>instance</c> for an instance that did not open.</param>
-public sealed record CalendarProblem(Guid EventId, string Title, string Place, string Error, DateTimeOffset? At);
+/// <param name="MissingGroupPermission">Set when VRChat refused because Modbot's VRChat account lacks a group permission.</param>
+public sealed record CalendarProblem(
+    Guid EventId,
+    string Title,
+    string Place,
+    string Error,
+    DateTimeOffset? At,
+    Modbot.VRChat.MissingGroupPermission? MissingGroupPermission = null);
 
 /// <summary>What AI calls have been doing over the last hour.</summary>
 /// <param name="Calls">Calls made in the last hour, whatever came of them.</param>

@@ -174,3 +174,35 @@ test('a plain /, a person link on /, and every other address stay where they are
   assert.equal(oldMembersAddress('/members', '?f=status:is:current'), null)
   assert.equal(oldMembersAddress('/audit', '?f=type:is:x'), null)
 })
+
+test("Instances is off the page list, shown as the VRChat page's Instances tab, which lights VRChat", () => {
+  const instances = NAV.find((n) => n.id === 'analytics-instances')
+
+  assert.ok(instances && 'hidden' in instances && instances.hidden)
+  assert.equal(sidebarEntry('analytics-instances'), 'analytics-group')
+  assert.equal(mayOpen(person('ViewAnalytics'), 'analytics-instances'), true)
+})
+
+test('Instances is still offered by name and keeps its chord', () => {
+  const instances = NAV.find((n) => n.id === 'analytics-instances')
+
+  assert.ok(instances && goesByName(instances))
+  assert.equal(GO_TO_KEYS['analytics-instances'], 'i')
+})
+
+test('Worlds stays in the sidebar under VRChat', () => {
+  const worlds = NAV.find((n) => n.id === 'analytics-worlds')
+
+  assert.ok(worlds && !('hidden' in worlds) && 'indent' in worlds && worlds.indent)
+})
+
+test("the VRChat page's Posts and Settings tabs light VRChat and ask for their own permissions", () => {
+  assert.equal(sidebarEntry('group-posts'), 'analytics-group')
+  assert.equal(sidebarEntry('group-settings'), 'analytics-group')
+
+  assert.equal(mayOpen(person('ViewAnalytics'), 'group-posts'), true)
+  assert.equal(mayOpen(person('ViewMembers'), 'group-posts'), false)
+
+  assert.equal(mayOpen(person('ViewAnalytics'), 'group-settings'), false)
+  assert.equal(mayOpen(person('EditGroupProfile'), 'group-settings'), true)
+})

@@ -1160,6 +1160,9 @@ endpoint classes §4.2 does not schedule:
 | `users.groups` | **0.2 req/s** | **no data at all** — see §4.3.4.1 |
 | `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative; under the `interactive` backstop since 2026-09-17 (§4.3.5) |
 | `groups.moderate` | **0.5 req/s** | the maintainer's deliberately low guess (M4 §12.2); under the `interactive` backstop since 2026-09-17 (§4.3.5) |
+| `groups.edit` | **0.1 req/s** | 2026-09-27 — changing the group's profile from the VRChat page; unmeasured, one request per Save, approved by the user as "only when a person acts". On the `global` backstop, below moderation |
+| `groups.posts` | **0.2 req/s** | 2026-09-27 — reading the group's posts when the Posts tab opens, a page turns or Refresh is pressed; unmeasured, `groups.read`'s rate (§4.3.4.1); `interactive` backstop |
+| `groups.posts.write` | **0.1 req/s** | 2026-09-27 — posting, changing and deleting a post, shared; unmeasured; `global` backstop, below moderation |
 | `users.lookup` | **1 req/s** | 2026-09-17 — one person read because somebody is waiting; §4.2.5's original users-lane rate, kept under the 3.5 the sync reads run at on the same endpoints (§4.3.5) |
 | `proxy` | **0.3 req/s** | 2026-09-17 — a request forwarded as the service account; the bottom of this table's range, because the limiter cannot see which endpoint it reaches (VRChat proxy design §4) |
 | `proxy.passthrough` | **0.5 req/s** | 2026-09-17 — a request forwarded with a caller's own cookie; a guess kept low, not counted against the service account (VRChat proxy design §4) |

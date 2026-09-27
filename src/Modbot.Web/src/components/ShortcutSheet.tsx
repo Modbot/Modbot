@@ -2,7 +2,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Kbd } from '@/components/ui/kbd'
 import { useModal, useShortcutList, type Shortcut, type ShortcutGroup } from '@/lib/shortcuts'
 
-const ORDER: ShortcutGroup[] = ['General', 'Go to', 'Lists', 'Filters', 'Popups']
+const ORDER: ShortcutGroup[] = ['General', 'Go to', 'Lists', 'Filters', 'Calendar', 'Popups']
 
 /**
  * Everything the screen that is open can do, grouped, with the key for each. Opened with `?`, and

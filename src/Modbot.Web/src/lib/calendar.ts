@@ -1,4 +1,4 @@
-import { http } from '@/lib/api'
+import { http, type MissingGroupPermission } from '@/lib/api'
 
 /** The event's own state (calendar design §2.1). */
 export type CalendarEventState = 'draft' | 'scheduled' | 'open' | 'finished' | 'cancelled'
@@ -15,6 +15,7 @@ export type CalendarPlace = {
   error: string | null
   errorAt: string | null
   updatedAt: string
+  missingGroupPermission?: MissingGroupPermission | null
 }
 
 export type CalendarOpening = {
@@ -223,6 +224,11 @@ export function blankEvent(now: Date): CalendarEventInput {
     openMinutesBefore: 10,
     draft: false,
   }
+}
+
+/** An input for a new event at a time drawn on the calendar, in the browser's time zone. */
+export function newEventAt(title: string, start: Date, end: Date): CalendarEventInput {
+  return { ...blankEvent(start), title, startsAt: localInputValue(start), endsAt: localInputValue(end) }
 }
 
 /** The input that edits an existing event. */

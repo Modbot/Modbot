@@ -153,6 +153,10 @@ public static class FactLabels
         [FactType.GiveawayClosed] = "Giveaway closed",
         [FactType.GroupAutoInvited] = "Invited to the group",
         [FactType.GroupAutoInviteFailed] = "Group invite failed",
+        [FactType.GroupProfileChanged] = "Group profile changed",
+        [FactType.GroupPostPosted] = "Posted in the group",
+        [FactType.GroupPostChanged] = "Group post changed",
+        [FactType.GroupPostRemoved] = "Group post deleted",
 
         [FactType.GiveawayEntered] = "Entered a giveaway",
         [FactType.GiveawayWithdrawn] = "Withdrew from a giveaway",

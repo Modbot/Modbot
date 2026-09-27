@@ -176,6 +176,23 @@ const LANGUAGES: Record<string, string> = {
   kvk: 'Korean Sign Language',
 }
 
+/**
+ * Every language above, by name: what a language picker offers. Where two codes share a name
+ * (Filipino is both `tgl` and `fil`), the first is offered and the other is still read.
+ */
+export function vrchatLanguages(): { code: string; name: string }[] {
+  const seen = new Set<string>()
+  const list: { code: string; name: string }[] = []
+
+  for (const [code, name] of Object.entries(LANGUAGES)) {
+    if (seen.has(name)) continue
+    seen.add(name)
+    list.push({ code, name })
+  }
+
+  return list.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 /** The name of a language VRChat's `language_*` tag names, or the code when this build has none. */
 export function languageName(code: string): string {
   return LANGUAGES[code.toLowerCase()] ?? code

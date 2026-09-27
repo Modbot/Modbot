@@ -158,7 +158,7 @@ public static class SyncHealthEndpoints
                             w.PartUnknown))],
                     await AiCallsAsync(db, clock.UtcNow, ct),
                     await EmailAsync(db, clock.UtcNow, ct),
-                    await CalendarHealthAsync(db, settings?.DiscordGuildId, ct),
+                    await CalendarHealthAsync(db, settings, ct),
                     await PausedRulesAsync(db, ct),
                     Run(diagnostics?.LastUserReadRun),
                     UserReads(diagnostics),
@@ -170,7 +170,8 @@ public static class SyncHealthEndpoints
                             settings?.CloudLastReportProblem,
                             settings?.CloudServerId is { Length: > 0 },
                             cloudAddress.Endpoint.Host),
-                    await LogsAsync(db, logStore, cloudAddress, ct)));
+                    await LogsAsync(db, logStore, cloudAddress, ct),
+                    GroupPermissions(settings)));
             })
             .RequiresFlag(ModbotPermissions.ViewOperationalLog)
             .WithName("GetSyncHealth")
@@ -308,11 +309,24 @@ public static class SyncHealthEndpoints
     }
 
     /// <summary>
+    /// The group permissions Modbot uses that its VRChat account lacks, from what the group-info
+    /// poll last stored. No request of its own.
+    /// </summary>
+    private static VRChatGroupPermissionsHealth? GroupPermissions(Modbot.Core.Data.Entities.Settings? settings) =>
+        settings?.ManagedGroupId is { Length: > 0 } groupId
+        && Modbot.VRChat.VRChatGroupPermissions.MissingOf(settings.VRChatAccountPermissions) is { } missing
+            ? new VRChatGroupPermissionsHealth(groupId, missing, Modbot.VRChat.VRChatGroupPermissions.RoleNames(settings))
+            : null;
+
+    /// <summary>
     /// Calendar places that failed, instances that did not open for the current occurrence, and a
     /// missing Manage Events while an event wants a Discord event (calendar design §3.2, §4).
     /// </summary>
-    private static async Task<CalendarHealth?> CalendarHealthAsync(ModbotContext db, string? guildId, CancellationToken ct)
+    private static async Task<CalendarHealth?> CalendarHealthAsync(
+        ModbotContext db, Modbot.Core.Data.Entities.Settings? settings, CancellationToken ct)
     {
+        var guildId = settings?.DiscordGuildId;
+
         var live = await db.CalendarEvents.AsNoTracking()
             .Where(e => e.DeletedAt == null
                 && (e.State == Modbot.Core.Data.Entities.CalendarEventStates.Scheduled
@@ -335,7 +349,16 @@ public static class SyncHealthEndpoints
             .ToListAsync(ct);
 
         var problems = failedPlaces
-            .Select(p => new CalendarProblem(p.EventId, titles[p.EventId], p.Place, p.Error ?? "Failed", p.ErrorAt))
+            .Select(p => new CalendarProblem(
+                p.EventId,
+                titles[p.EventId],
+                p.Place,
+                p.Error ?? "Failed",
+                p.ErrorAt,
+                p.MissingGroupPermission is { } permission && settings?.ManagedGroupId is { Length: > 0 } groupId
+                    ? new Modbot.VRChat.MissingGroupPermission(
+                        permission, groupId, Modbot.VRChat.VRChatGroupPermissions.RoleNames(settings), p.Error)
+                    : null))
             .Concat(failedOpenings
                 .Where(o => live.Any(e => e.Id == o.EventId && e.OccurrenceStartsAt == o.OccurrenceStartsAt))
                 .Select(o => new CalendarProblem(o.EventId, titles[o.EventId], "instance", o.Error!, o.AttemptedAt)))

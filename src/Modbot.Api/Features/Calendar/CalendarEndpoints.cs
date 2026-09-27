@@ -16,6 +16,7 @@ using Modbot.Core.Data.Entities;
 using Modbot.Core.Net;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
+using Modbot.VRChat;
 using Modbot.VRChat.Calendar;
 using NodaTime;
 using NodaTime.Text;
@@ -727,6 +728,12 @@ public static class CalendarEndpoints
             .Where(p => ids.Contains(p.EventId))
             .ToListAsync(ct);
 
+        // Read only when a place was refused for a missing VRChat group permission, for the group id
+        // and the account's roles that refusal names.
+        var settings = places.Any(p => p.MissingGroupPermission != null)
+            ? await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct)
+            : null;
+
         var openings = await db.CalendarOpenings.AsNoTracking()
             .Where(o => ids.Contains(o.EventId))
             .ToListAsync(ct);
@@ -797,7 +804,15 @@ public static class CalendarEndpoints
                 [.. places
                     .Where(p => p.EventId == e.Id)
                     .OrderBy(p => p.Place, StringComparer.Ordinal)
-                    .Select(p => new CalendarPlaceView(p.Place, p.State, p.Error, p.ErrorAt, p.UpdatedAt))],
+                    .Select(p => new CalendarPlaceView(
+                        p.Place,
+                        p.State,
+                        p.Error,
+                        p.ErrorAt,
+                        p.UpdatedAt,
+                        p.MissingGroupPermission is { } permission && settings?.ManagedGroupId is { Length: > 0 } groupId
+                            ? new MissingGroupPermission(permission, groupId, VRChatGroupPermissions.RoleNames(settings), p.Error)
+                            : null))],
                 opening is null
                     ? null
                     : new CalendarOpeningView(

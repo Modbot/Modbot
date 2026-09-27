@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { changesReviews } from '@/lib/liveRules'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,8 @@ import { ago, formatDay, needsYear } from '@/lib/format'
 import { api, ApiError, type Person, type ReviewEvidence, type ReviewList, type ReviewView } from '@/lib/api'
 import { PROPOSED_ACTION_LABELS, type ProposedAction } from '@/lib/autoMod'
 import { Row } from '@/components/ui/fact-row'
+import { useLocation } from '@/lib/router'
+import { cn } from '@/lib/utils'
 
 /**
  * Reviews of a moderator's pattern (spec 5.8.5).
@@ -28,9 +30,18 @@ export function Reviews({
   /** Called after a review closes, so the nav badge can catch up. */
   onChanged?: () => void
 }) {
+  const [location] = useLocation()
+
+  // `?review=` opens the page at one review: a flag's, linked from the audit log or the Flags page.
+  const wanted = location.search.get('review')
+
   const [state, setState] = useState<'open' | 'closed'>('open')
   const [list, setList] = useState<ReviewList | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // The review asked for may be closed. Not among the waiting ones, the page looks once among the
+  // closed ones; not there either, it stays where it is rather than going back and forth.
+  const looked = useRef<string | null>(null)
 
   const load = useCallback(() => {
     api
@@ -38,6 +49,11 @@ export function Reviews({
       .then((next) => {
         setList(next)
         setError(null)
+        if (wanted && looked.current !== wanted) {
+          looked.current = wanted
+          if (!next.reviews.some((review) => review.id === wanted))
+            setState((current) => (current === 'open' ? 'closed' : 'open'))
+        }
       })
       .catch((e: unknown) =>
         setError(
@@ -46,7 +62,7 @@ export function Reviews({
             : 'Could not load the reviews.',
         ),
       )
-  }, [state])
+  }, [state, wanted])
 
   // And again when the live stream says a review opened or closed.
   const live = useLiveVersion(changesReviews)
@@ -115,6 +131,7 @@ export function Reviews({
         <ReviewCard
           key={review.id}
           review={review}
+          marked={review.id === wanted}
           now={list.now}
           onOpenSubject={onOpenSubject}
           onClosed={() => {
@@ -129,11 +146,14 @@ export function Reviews({
 
 function ReviewCard({
   review,
+  marked,
   now,
   onOpenSubject,
   onClosed,
 }: {
   review: ReviewView
+  /** The review the address names: brought into view once and drawn marked. */
+  marked: boolean
   now: string
   onOpenSubject: (id: string) => void
   onClosed: () => void
@@ -144,6 +164,14 @@ function ReviewCard({
   const [showFacts, setShowFacts] = useState(false)
 
   const flagReview = review.signal === 'ai-flag'
+
+  const card = useRef<HTMLDivElement>(null)
+  const brought = useRef(false)
+  useEffect(() => {
+    if (!marked || brought.current) return
+    brought.current = true
+    card.current?.scrollIntoView({ block: 'center' })
+  }, [marked])
 
   const close = (outcome?: 'right' | 'wrong') => {
     if (!note.trim()) {
@@ -168,7 +196,7 @@ function ReviewCard({
   }
 
   return (
-    <Card>
+    <Card ref={card} className={cn(marked && 'ring-2 ring-ring')}>
       <CardHeader className="items-baseline">
         <CardTitle>{review.signalLabel}</CardTitle>
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>

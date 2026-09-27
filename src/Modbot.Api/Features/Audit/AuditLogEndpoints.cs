@@ -102,7 +102,7 @@ public static class AuditLogEndpoints
                 if (visible.Count == 0)
                     return Results.Ok(new AuditPage([], null, await new AuditQuery(db).CoverageAsync([], ct)));
 
-                return Results.Ok(await new AuditQuery(db).PageAsync(request, ct));
+                return Results.Ok(await new AuditQuery(db, held).PageAsync(request, ct));
             })
             .WithName("GetAuditLog")
             .WithSummary("List audit log")
@@ -144,7 +144,7 @@ public static class AuditLogEndpoints
                 if (visible.Count == 0)
                     return Results.Forbid();
 
-                var entry = await new AuditQuery(db).EntryAsync(id, visible, ct);
+                var entry = await new AuditQuery(db, held).EntryAsync(id, visible, ct);
 
                 return entry is null ? Results.NotFound() : Results.Ok(entry);
             })
@@ -155,6 +155,34 @@ public static class AuditLogEndpoints
                 + "For a link to a single entry. An entry of a type this account may not read "
                 + "answers 404, the same as one that does not exist.")
             .Produces<AuditEntry>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
+        group.MapGet("/entries/{id:long}/around", async (
+                HttpContext http,
+                [FromRoute] long id,
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+            {
+                var held = ModbotAuth.PermissionsOf(http.User);
+                var visible = AuditVisibility.VisibleTypes(held);
+
+                if (visible.Count == 0)
+                    return Results.Forbid();
+
+                var around = await new AuditQuery(db, held).AroundAsync(id, visible, ct);
+
+                return around is null ? Results.NotFound() : Results.Ok(around);
+            })
+            .WithName("GetAuditEntryAround")
+            .WithSummary("Get entries around an audit log entry")
+            .WithDescription(
+                "What else happened around one entry: the same actor's entries and the same "
+                + "person's entries, up to five either side, each list newest first with the entry "
+                + "itself in its place. `byActor` is null when nobody is named for the entry; "
+                + "`aboutSubject` is null when the entry is not about a person. Only types this "
+                + "account may read are listed, and an entry it may not read answers 404.")
+            .Produces<AuditAround>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 

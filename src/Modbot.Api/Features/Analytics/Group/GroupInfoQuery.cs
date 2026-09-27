@@ -46,6 +46,8 @@ public sealed class GroupInfoQuery(ModbotContext db)
             Blank(snapshot?.Rules),
             settings?.ManagedGroupLanguages ?? [],
             settings?.ManagedGroupLinks ?? [],
+            // Stored as the SDK's enum name ("Request"); VRChat's own word is the same in lower case.
+            Blank(snapshot?.JoinState)?.ToLowerInvariant(),
             latest?.MemberCount ?? snapshot?.MemberCount,
             latest?.OnlineMemberCount ?? snapshot?.OnlineMemberCount,
             latest?.CountedAt,

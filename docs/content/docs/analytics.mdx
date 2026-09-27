@@ -4,7 +4,8 @@ description: The five Analytics pages (Team, VRChat, Worlds, Instances and Disco
 ---
 
 Analytics is a set of five pages, each answering one question about your community. They are in the
-sidebar under **Analytics**, with **Worlds** and **Instances** under **VRChat**:
+sidebar under **Analytics**, with **Worlds** under **VRChat**. **Instances** is a tab on the
+**VRChat** page:
 
 | Page | The question it answers |
 |---|---|
@@ -106,6 +107,85 @@ The Instances page measures exactly this and says so — see [Coverage](#coverag
 ## VRChat
 
 **Is the community growing or shrinking, and what changed?**
+
+### The group's header and tabs
+
+The page opens the way your group's own page on vrchat.com does: the banner, the icon, the group's
+name, how many members are online and in the group, and the group code (**Copy group code** copies
+it). Under that is VRChat's row of tabs, in VRChat's order:
+
+| Tab | Opens |
+|---|---|
+| **Overview** | This page. |
+| **Posts** | The group's posts, at `/analytics/group/posts`. See [Posts](#posts). |
+| **Events** | The [Calendar](/moderation/calendar). |
+| **Instances** | The [Instances](#instances) page, at `/analytics/instances`. |
+| **Members** | The **Members** page. |
+| **Settings** | The group's settings, at `/analytics/group/settings`. See [Settings](#settings). |
+| **Banned Users** | The **Bans** page. |
+
+A tab is left out when you may not open the page it leads to, the same as the sidebar. **VRChat**
+stays lit in the sidebar on the Posts, Instances and Settings tabs.
+
+### Overview
+
+Under the header: the next event on the calendar, the group's **Languages** and **Links**, and
+**About this group** (the description and rules).
+
+**About this group** folds away: press its heading. Your browser remembers whether you left it
+folded; it starts open.
+
+With **Edit the group's profile**
+([roles and permissions](/accounts/roles-and-permissions#edit-the-groups-profile)), each of the three
+cards has a pencil that opens its editor in place. **Save** sends the change to VRChat; **Cancel**
+puts it back. The limits are VRChat's:
+
+- **Languages**: at most 3, picked from VRChat's list.
+- **Links**: at most 3, each a web address starting with `https://` or `http://`.
+- **Description**: at most 250 characters. The **Rules** have no limit of Modbot's own.
+
+Everything else on this page asks VRChat nothing when you open it: it is what Modbot last read,
+about every five minutes.
+
+### Posts
+
+The group's posts, newest first, with who wrote each, when, its picture if it has one, and who can
+see it: **Everyone**, **Members only**, or the roles it is limited to. Modbot reads them from VRChat
+when you open the tab, turn a page or press **Refresh**, and at no other time.
+
+With **Manage group posts**:
+
+- **New post**: a title, the text, **Who can see it** (**Members only** or **Everyone**), for a
+  members-only post **Only these roles** if it is for some roles, and **Notify members** to have
+  VRChat tell them.
+- The pencil on a post changes its title, text and who can see it. Members are not notified again,
+  and the post keeps its picture.
+- The bin deletes it, after you confirm.
+
+Posting a picture is not possible from Modbot yet.
+
+### Settings
+
+Everything about the group VRChat lets an admin change on its website, in one form: **Name**
+(3 to 64 characters), **Description**, **Rules**, **Languages**, **Links** and **Who can join**
+(**Anyone can join**, **Anyone can ask to join**, **Invite only** or **Closed**). **Save** sends only
+what you changed; **Cancel** puts the form back. **Logs**, beside **General**, opens the
+[audit log](/moderation/audit-log). The tab needs **Edit the group's profile**.
+
+The group's icon and banner cannot be changed from Modbot yet. Change them on vrchat.com.
+
+### When VRChat says no
+
+Every **Save**, post and delete is one request to VRChat, sent as Modbot's VRChat account. If VRChat
+refuses, the editor stays open and shows VRChat's own message; nothing is changed and nothing is
+tried again. The usual reason is that Modbot's VRChat account lacks the group permission for it in
+the group's roles on VRChat. If VRChat is limiting how fast Modbot may ask, try again later.
+
+Every change VRChat accepts is written to the [audit log](/moderation/audit-log) with who made it:
+**Group profile changed** (each field, with what it was and what it became), **Posted in the
+group**, **Group post changed** and **Group post deleted**.
+
+### The stats
 
 The stats along the top:
 
@@ -248,6 +328,15 @@ and outlasts a short retention window.
 ## Instances
 
 **When is the community actually active?**
+
+Open it from **Analytics** → **VRChat** → **Instances**: the tab in the row under the group's
+header. The page keeps that header at the top with **Instances** marked. The command palette finds
+it as **Instances**, and `g` then `i` opens it.
+
+<Callout type="info" title="It used to be in the sidebar">
+Instances had its own sidebar entry, under **VRChat**, until September 2026. Its address,
+`/analytics/instances`, is unchanged, so links and bookmarks still open it.
+</Callout>
 
 The stats along the top are **Opened** and **Closed** (instances in the range), **Typical time open**
 and **Most open at once**.

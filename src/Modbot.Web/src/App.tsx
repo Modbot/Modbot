@@ -25,7 +25,7 @@ import {
   type PageId,
 } from '@/lib/nav'
 import { can } from '@/lib/permissions'
-import { usePreferences, type Density } from '@/lib/preferences'
+import { usePreferences, type Density, type Place } from '@/lib/preferences'
 import { go, useLocation, useRoute } from '@/lib/router'
 import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
@@ -54,6 +54,8 @@ import { Members } from '@/pages/Members'
 import { Now } from '@/pages/Now'
 import { Requests } from '@/pages/Requests'
 import { People } from '@/pages/People'
+import { GroupPosts } from '@/pages/analytics/GroupPosts'
+import { GroupSettings } from '@/pages/analytics/GroupSettings'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
 import { MyServer } from '@/pages/analytics/MyServer'
@@ -84,7 +86,10 @@ const TITLES: Record<PageId, string> = {
   'analytics-server': 'Discord',
   'analytics-team': 'Team',
   'analytics-worlds': 'Worlds',
-  'analytics-instances': 'Instances',
+  // Tabs of the VRChat page, so they carry its name, as the sidebar does.
+  'analytics-instances': 'VRChat',
+  'group-posts': 'VRChat',
+  'group-settings': 'VRChat',
   reviews: 'Reviews',
   health: 'Health',
   logs: "Modbot's log",
@@ -120,6 +125,8 @@ const PATHS: Record<PageId, string> = {
   'analytics-team': '/analytics/team',
   'analytics-worlds': '/analytics/worlds',
   'analytics-instances': '/analytics/instances',
+  'group-posts': '/analytics/group/posts',
+  'group-settings': '/analytics/group/settings',
   reviews: '/reviews',
   health: '/health',
   logs: '/logs',
@@ -348,6 +355,17 @@ function Shell({
     : (NAV.find((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id))?.id ?? 'account')
   const title = TITLES[page]
 
+  // A headset opens on Live, which is what a moderator in VR is there to watch. Once, as the app
+  // opens, and only at the bare address: Now is still one tap away in the menu, and a pasted
+  // link with a person in it is left alone.
+  const opened = useRef(false)
+  useEffect(() => {
+    if (opened.current) return
+    opened.current = true
+    if (prefs.place === 'headset' && route === PATHS.now && !window.location.search && mayOpen(me, 'live'))
+      navigate(PATHS.live, { replace: true })
+  }, [prefs.place, route, me, navigate])
+
   // The popup lives in the query string rather than in component state, so it is linkable, survives
   // a refresh, and stacks (spec 10.2, lib/subject.ts). Every list that renders a person opens it the
   // same way; worlds and instances open themselves through the same module.
@@ -466,10 +484,14 @@ function Shell({
     })),
   ])
 
+  const places: { value: Place; label: string }[] = [
+    { value: 'desk', label: 'Desk' },
+    { value: 'headset', label: 'Headset' },
+  ]
+
   const densities: { value: Density; label: string }[] = [
     { value: 'dense', label: 'Dense' },
     { value: 'comfortable', label: 'Comfortable' },
-    { value: 'vr', label: 'VR' },
   ]
 
   const paletteActions: PaletteAction[] = [
@@ -479,9 +501,12 @@ function Shell({
       group: 'Appearance',
       run: () => prefs.setTheme(prefs.theme === 'dark' ? 'light' : 'dark'),
     },
+    ...places
+      .filter((p) => p.value !== prefs.place)
+      .map((p) => ({ id: `place:${p.value}`, label: p.label, group: 'Appearance', run: () => prefs.setPlace(p.value) })),
     ...densities
       .filter((d) => d.value !== prefs.density)
-      .map((d) => ({ id: `density:${d.value}`, label: `${d.label} density`, group: 'Appearance', run: () => prefs.setDensity(d.value) })),
+      .map((d) => ({ id: `density:${d.value}`, label: `${d.label} spacing`, group: 'Appearance', run: () => prefs.setDensity(d.value) })),
     { id: 'account', label: 'Your account', group: 'Account', run: () => navigate(PATHS.account) },
     ...(signOut ? [{ id: 'sign-out', label: 'Sign out', group: 'Account', run: signOut }] : []),
   ]
@@ -504,11 +529,13 @@ function Shell({
   return (
     // `dvh` rather than `vh`: a phone browser's own bars are part of `vh`, so a `vh` screen is
     // taller than the screen and the foot of the app sits under them.
-    <div className="grid h-[100dvh] grid-cols-1 lg:grid-cols-[13.5rem_1fr]">
-      <Sidebar {...nav} className="hidden lg:flex" />
+    // The sidebar and the wide-screen layout are for a desk: a headset keeps the phone's single
+    // column and bar at the foot at any width, because the sidebar's labels do not fit at its size.
+    <div className="grid h-[100dvh] grid-cols-1 desk:lg:grid-cols-[13.5rem_1fr]">
+      <Sidebar {...nav} className="hidden desk:lg:flex" />
       {/* `min-w-0`: a grid item is as wide as its widest child unless told otherwise, so without
           it a table that means to scroll inside its own box widens the whole app instead. */}
-      <main className="flex min-w-0 flex-col overflow-auto pb-[calc(3.25rem+env(safe-area-inset-bottom))] lg:pb-0">
+      <main className="flex min-w-0 flex-col overflow-auto pb-[calc(3.25rem+env(safe-area-inset-bottom))] desk:lg:pb-0 headset:pb-[calc(var(--control-h)+1.5rem+env(safe-area-inset-bottom))]">
         {/* Above everything, for everyone signed in, on every page (foundation spec 4.1.2). */}
         <SignInWaitBanner />
         {/* A critical notification that reached this person on no channel (foundation 4.5.3). */}
@@ -568,12 +595,16 @@ function Shell({
             <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
           )}
           {page === 'analytics-worlds' && <Worlds />}
-          {page === 'analytics-instances' && <Instances />}
+          {page === 'analytics-instances' && <Instances me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-posts' && <GroupPosts me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-settings' && <GroupSettings me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
           {page === 'health' && <Health />}
           {page === 'logs' && <Logs />}
           {page === 'settings' && <Settings me={me} />}
-          {page === 'account' && <Account me={me} onChanged={() => void refresh()} />}
+          {page === 'account' && (
+            <Account me={me} onChanged={() => void refresh()} density={prefs.density} setDensity={prefs.setDensity} />
+          )}
           {page === 'credits' && <Credits />}
         </div>
         <Footer />

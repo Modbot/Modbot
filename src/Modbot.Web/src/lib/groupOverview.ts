@@ -10,16 +10,22 @@ import { mayOpen, type PageId } from './nav.ts'
  */
 
 /**
- * The row under the group's header, named the way VRChat's own group page names its tabs, each
- * leading to the Modbot page that shows that part of the group. Overview is the page itself.
+ * The row under the group's header, named and ordered the way vrchat.com names a group's tabs:
+ * Overview · Posts · Events · Instances · Gallery · Members · Invites · Settings · Banned Users.
+ *
+ * Overview, Posts, Instances and Settings are the VRChat page itself, each at an address of its own
+ * under it; Events, Members and Banned Users lead to the Modbot pages that show that part of the
+ * group. Gallery and Invites are not built yet and have no tab until they are: each goes in at its
+ * place in VRChat's order, after Instances and after Members.
  */
 export const GROUP_TABS: readonly { id: PageId; label: string }[] = [
   { id: 'analytics-group', label: 'Overview' },
+  { id: 'group-posts', label: 'Posts' },
   { id: 'calendar', label: 'Events' },
   { id: 'analytics-instances', label: 'Instances' },
   { id: 'members', label: 'Members' },
-  { id: 'requests', label: 'Requests' },
-  { id: 'bans', label: 'Bans' },
+  { id: 'group-settings', label: 'Settings' },
+  { id: 'bans', label: 'Banned Users' },
 ]
 
 /** The tabs this person may open, in order: a page the sidebar hides is not offered here either. */

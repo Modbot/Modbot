@@ -120,6 +120,8 @@ public static class FlagEndpoints
         group.MapGet("", async (
                 [FromQuery] string? state,
                 [FromQuery] string? language,
+                [FromQuery] string? vrchat,
+                [FromQuery] string? discord,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
@@ -130,7 +132,19 @@ public static class FlagEndpoints
                     _ => ModerationFlagState.Open,
                 };
 
-                var query = db.ModerationFlags.AsNoTracking().Where(f => f.State == wanted);
+                // One person's flags, for their popup: either or both of their accounts. Everything
+                // below, the open count and the language counts included, is then about them alone,
+                // so the popup's number and its list cannot disagree.
+                var vrchatId = string.IsNullOrWhiteSpace(vrchat) ? null : vrchat.Trim();
+                var discordId = string.IsNullOrWhiteSpace(discord) ? null : discord.Trim();
+
+                var scope = db.ModerationFlags.AsNoTracking();
+                if (vrchatId is not null || discordId is not null)
+                    scope = scope.Where(f =>
+                        (vrchatId != null && f.SubjectPlatform == FactPlatform.VRChat && f.SubjectId == vrchatId)
+                        || (discordId != null && f.SubjectPlatform == FactPlatform.Discord && f.SubjectId == discordId));
+
+                var query = scope.Where(f => f.State == wanted);
 
                 // "unknown" is a language on this page: a flag whose language could not be told is
                 // exactly the kind a moderator wants to pick out.
@@ -145,13 +159,13 @@ public static class FlagEndpoints
                     .Take(PageSize)
                     .ToListAsync(ct);
 
-                var open = await db.ModerationFlags.CountAsync(f => f.State == ModerationFlagState.Open, ct);
+                var open = await scope.CountAsync(f => f.State == ModerationFlagState.Open, ct);
                 var text = await RuleTextAsync(db, flags, ct);
                 var context = await ContextAsync(db, flags, ct);
 
                 // Counted over every flag in this state, not only the page, so the filter offers a
                 // language the page in front of you happens not to show.
-                var counts = await db.ModerationFlags.AsNoTracking()
+                var counts = await scope
                     .Where(f => f.State == wanted)
                     .GroupBy(f => f.Language)
                     .Select(g => new { Language = g.Key, Flags = g.Count() })
@@ -170,7 +184,8 @@ public static class FlagEndpoints
             .WithName("ListModerationFlags")
             .WithSummary("List flags")
             .WithDescription(
-                "The newest flags: open, dismissed or confirmed, and filtered by language.")
+                "The newest flags: open, dismissed or confirmed, and filtered by language. Given `vrchat`, "
+                + "`discord` or both, only that person's flags, and the open count is theirs.")
             .Produces<FlagList>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ViewProfile);

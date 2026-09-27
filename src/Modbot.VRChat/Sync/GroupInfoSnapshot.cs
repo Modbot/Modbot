@@ -124,6 +124,30 @@ public sealed record GroupInfoSnapshot(
                 .ToList());
     }
 
+    /// <summary>
+    /// This snapshot with the fields a profile edit can change taken from VRChat's answer to it.
+    /// </summary>
+    /// <remarks>
+    /// Only those fields. VRChat's answer to an edit is not read with its roles, and its counts are
+    /// the poll's business: taking either from it would make the next poll see a "change" nobody
+    /// made. A field VRChat left out keeps what was recorded.
+    /// </remarks>
+    public GroupInfoSnapshot WithEdit(Group group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+
+        return this with
+        {
+            Name = group.Name ?? Name,
+            ShortCode = group.ShortCode ?? ShortCode,
+            Discriminator = group.Discriminator ?? Discriminator,
+            Description = group.Description ?? Description,
+            Rules = group.Rules ?? Rules,
+            JoinState = group.JoinState?.ToString() ?? JoinState,
+            Privacy = group.Privacy?.ToString() ?? Privacy,
+        };
+    }
+
     public string ToJson() => JsonSerializer.Serialize(this, Json);
 
     /// <summary>

@@ -85,6 +85,33 @@ public class AutoModTests
     }
 
     [Fact]
+    public async Task TheListAskedForOnePerson_HoldsOnlyTheirFlags_AndTheirOpenCount()
+    {
+        await using var host = await StartAsync();
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (_, reviewer) = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        await SwitchOnAsync(host, admin);
+        await ActingListAsync(host, admin, "Words", [Term("word", "scunthorpe")], delete: false);
+        await CheckAsync(host, Message("m1", "local-1", "I live in Scunthorpe"));
+        await CheckAsync(host, Message("m2", "local-1", "Scunthorpe again"));
+        await CheckAsync(host, Message("m3", "local-2", "Scunthorpe too"));
+
+        var theirs = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, "/api/moderation-flags?discord=local-1", null, reviewer, Ct));
+        Assert.Equal(2, theirs.GetProperty("open").GetInt32());
+        Assert.All(theirs.GetProperty("flags").EnumerateArray(), f => Assert.Equal("local-1", f.GetProperty("subjectId").GetString()));
+
+        // The same id on the other platform is somebody else.
+        var wrongSide = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, "/api/moderation-flags?vrchat=local-1", null, reviewer, Ct));
+        Assert.Equal(0, wrongSide.GetProperty("open").GetInt32());
+        Assert.Empty(wrongSide.GetProperty("flags").EnumerateArray());
+
+        // Asked for nobody in particular, the list is still the whole group's.
+        var everyone = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, "/api/moderation-flags", null, reviewer, Ct));
+        Assert.Equal(3, everyone.GetProperty("open").GetInt32());
+    }
+
+    [Fact]
     public async Task ANewDeploymentHasModerationOffWithNoRules()
     {
         await using var host = await StartAsync();
