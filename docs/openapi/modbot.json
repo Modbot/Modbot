@@ -24617,7 +24617,10 @@
       "HeadCountPoint": {
         "required": [
           "at",
-          "people"
+          "people",
+          "userCount",
+          "memberCount",
+          "source"
         ],
         "type": "object",
         "properties": {
@@ -24632,6 +24635,27 @@
               "string"
             ],
             "format": "int32"
+          },
+          "userCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "memberCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "source": {
+            "type": "string"
           }
         }
       },
