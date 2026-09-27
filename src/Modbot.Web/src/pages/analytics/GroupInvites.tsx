@@ -78,9 +78,9 @@ export function GroupInvites({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pag
       <PanelGrid className="grid-cols-1">
         <Card>
           <CardHeader>
-            <CardTitle>Invites</CardTitle>
+            <CardTitle>Sent invites</CardTitle>
             <CardAction>
-              <Button size="xs" variant="outline" onClick={() => setAsked((n) => n + 1)} disabled={loading} aria-label="Refresh invites">
+              <Button size="xs" variant="outline" onClick={() => setAsked((n) => n + 1)} disabled={loading} aria-label="Refresh sent invites">
                 <RefreshCw className={loading ? 'animate-spin' : undefined} /> Refresh
               </Button>
             </CardAction>
