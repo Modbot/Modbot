@@ -331,6 +331,48 @@ public class MembersTests
     }
 
     [Fact]
+    public async Task TheBanListNarrowsByCaseFileForThoseWhoMaySeeCaseFiles()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+            // One that stands on the standing ban, and a withdrawn one on the lifted ban: withdrawn
+            // counts as none, as the case file column shows it.
+            db.CaseFiles.AddRange(
+                new CaseFile
+                {
+                    UserId = "usr_banned", AuthorUserId = Guid.CreateVersion7(), AuthorUsername = "mod",
+                    WrittenReason = "Why.", CreatedAt = Day, UpdatedAt = Day, SnapshotTakenAt = Day,
+                },
+                new CaseFile
+                {
+                    UserId = "usr_forgiven", AuthorUserId = Guid.CreateVersion7(), AuthorUsername = "mod",
+                    WrittenReason = "Why.", CreatedAt = Day, UpdatedAt = Day, SnapshotTakenAt = Day,
+                    WithdrawnAt = Day.AddHours(1),
+                });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var profiles = await host.SignedInAsync(ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewProfile, Ct);
+
+        var written = await host.GetJsonAsync<GroupBanListResponse>("/api/bans?status=all&caseFile=written", profiles, Ct);
+        Assert.Equal(["usr_banned"], written.Bans.Select(b => b.UserId));
+
+        var none = await host.GetJsonAsync<GroupBanListResponse>("/api/bans?status=all&caseFile=none", profiles, Ct);
+        Assert.Equal(["usr_forgiven"], none.Bans.Select(b => b.UserId));
+
+        // Without ViewProfile the filter would say who has a case file, so it is ignored.
+        var auditOnly = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
+        var ignored = await host.GetJsonAsync<GroupBanListResponse>("/api/bans?status=all&caseFile=written", auditOnly, Ct);
+        Assert.Equal(2, ignored.Total);
+    }
+
+    [Fact]
     public async Task MembersNeedViewMembersAndBansNeedViewAuditLog()
     {
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);

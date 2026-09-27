@@ -1225,6 +1225,8 @@ export type GroupBanList = {
 export type GroupBanQuery = {
   search?: string
   status?: 'current' | 'lifted' | 'all'
+  /** Only bans with a case file that stands, or only those without. Needs ViewProfile; ignored without it. */
+  caseFile?: 'any' | 'written' | 'none'
   page?: number
   pageSize?: number
 }
@@ -4536,6 +4538,7 @@ export const api = {
     const q = new URLSearchParams()
     if (query.search) q.set('search', query.search)
     if (query.status && query.status !== 'current') q.set('status', query.status)
+    if (query.caseFile && query.caseFile !== 'any') q.set('caseFile', query.caseFile)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()

@@ -136,14 +136,22 @@ public static class MemberEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         app.MapGet("/api/bans", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
                 [FromQuery] string? search,
                 [FromQuery] string? status,
+                [FromQuery] string? caseFile,
                 [FromQuery] int? page,
                 [FromQuery] int? pageSize,
                 CancellationToken ct) =>
-                Results.Ok(await ListBansAsync(db, clock, search, status, page, pageSize, ct)))
+            {
+                // Narrowing by case file says whether one exists, which is the profile's to say.
+                // Without ViewProfile the filter is ignored rather than refused, as the audit log
+                // ignores a type the caller cannot see.
+                var mayKnow = ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ViewProfile);
+                return Results.Ok(await ListBansAsync(db, clock, search, status, page, pageSize, ct, mayKnow ? caseFile : null));
+            })
             .RequireAuthorization()
             .RequiresFlag(ModbotPermissions.ViewAuditLog)
             .WithTags("Members")
@@ -153,7 +161,9 @@ public static class MemberEndpoints
                 "This is the group's ban list -- everyone VRChat says is banned right now, "
                 + "whenever the ban was issued -- read by the ban sweep. Who banned them and why "
                 + "is the audit log's to say, at /api/audit/bans. Bans that stand by default; "
-                + "`status=lifted` shows bans a full sweep no longer listed, `status=all` both.")
+                + "`status=lifted` shows bans a full sweep no longer listed, `status=all` both. "
+                + "`caseFile=written` keeps the people with a case file that stands, "
+                + "`caseFile=none` the rest; it needs ViewProfile and is ignored without it.")
             .Produces<GroupBanListResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -461,7 +471,8 @@ public static class MemberEndpoints
         string? status,
         int? page,
         int? pageSize,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? caseFile = null)
     {
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
         var groupId = settings?.ManagedGroupId ?? string.Empty;
@@ -479,6 +490,15 @@ public static class MemberEndpoints
             "lifted" => query.Where(x => x.b.LiftedAt != null),
             "all" => query,
             _ => query.Where(x => x.b.LiftedAt == null),
+        };
+
+        // "Written" is what the case file column shows as "Open the case file": one that stands. A
+        // withdrawn one leaves the ban unwritten, as the column does.
+        query = Trimmed(caseFile)?.ToLowerInvariant() switch
+        {
+            "written" => query.Where(x => db.CaseFiles.Any(c => c.UserId == x.b.UserId && c.WithdrawnAt == null)),
+            "none" => query.Where(x => !db.CaseFiles.Any(c => c.UserId == x.b.UserId && c.WithdrawnAt == null)),
+            _ => query,
         };
 
         if (Trimmed(search) is { } term)

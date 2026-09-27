@@ -116,6 +116,7 @@ function GroupBans({
   const [typed, setTyped] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<NonNullable<GroupBanQuery['status']>>('current')
+  const [caseFile, setCaseFile] = useState<NonNullable<GroupBanQuery['caseFile']>>('any')
 
   // Which page of the list, in the address, so a link lands on the rows it was copied from.
   const at = useListPage()
@@ -147,7 +148,7 @@ function GroupBans({
     let cancelled = false
 
     api
-      .groupBans({ search, status, page, pageSize: PAGE_SIZE })
+      .groupBans({ search, status, caseFile, page, pageSize: PAGE_SIZE })
       .then((next) => {
         if (cancelled) return
         setList(next)
@@ -165,7 +166,7 @@ function GroupBans({
     return () => {
       cancelled = true
     }
-  }, [search, status, page, lifted, live])
+  }, [search, status, caseFile, page, lifted, live])
 
   const cases = useCaseFiles(list?.bans.map((b) => b.userId) ?? [], can(me, 'ViewProfile'))
 
@@ -203,6 +204,20 @@ function GroupBans({
           <option value="lifted">Bans that were lifted</option>
           <option value="all">Both</option>
         </Select>
+        {showCases && (
+          <Select
+            value={caseFile}
+            onChange={(next) => {
+              setCaseFile(next as typeof caseFile)
+              restart()
+            }}
+            aria-label="Case file"
+          >
+            <option value="any">Case file: any</option>
+            <option value="written">Case file written</option>
+            <option value="none">No case file</option>
+          </Select>
+        )}
       </div>
 
       <Card>
@@ -214,7 +229,7 @@ function GroupBans({
         </CardHeader>
 
       {list.bans.length === 0 ? (
-        <EmptyRow>{search ? 'Nobody matches' : 'No bans listed'}</EmptyRow>
+        <EmptyRow>{search || caseFile !== 'any' ? 'Nobody matches' : 'No bans listed'}</EmptyRow>
       ) : (
         <Table
           pinFirst
@@ -272,7 +287,7 @@ function GroupBans({
           }
         >
           {list.bans.map((ban) => (
-            <Tr key={ban.userId} className={cn('hover:bg-muted/40', ban.liftedAt && 'text-muted-foreground')}>
+            <Tr key={ban.userId} className={cn('group/row hover:bg-muted/40', ban.liftedAt && 'text-muted-foreground')}>
               <Td>
                 <div className="flex items-center gap-2">
                   {ban.avatarThumbnailUrl ? (
