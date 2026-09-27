@@ -111,8 +111,16 @@ public static class VRChatEndpointClass
     /// </remarks>
     public const string CalendarWrite = "calendar.write";
 
-    /// <summary>Reading the group's VRChat calendar events. <strong>Not measured.</strong></summary>
-    /// <remarks>Read only to look for an earlier copy before a create that got no answer is sent again (calendar design §3.1).</remarks>
+    /// <summary>
+    /// Reading the group's VRChat calendar -- a month's list, or one event on its own
+    /// (<c>GET /calendar/{groupId}</c> and <c>GET /calendar/{groupId}/{calendarId}</c>).
+    /// <strong>Not measured.</strong>
+    /// </summary>
+    /// <remarks>
+    /// Read to look for an earlier copy before a create that got no answer is sent again (calendar
+    /// design §3.1), and when someone opens the calendar or the VRChat page's Overview, or presses
+    /// Refresh (§12). Never on a timer.
+    /// </remarks>
     public const string CalendarRead = "calendar.read";
 
     /// <summary>

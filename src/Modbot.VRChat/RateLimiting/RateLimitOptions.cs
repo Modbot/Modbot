@@ -606,7 +606,8 @@ public static class VRChatRateLimits
             // maintainer asked for "a very lax rate limit by default" until the real number is
             // known: one write a minute, shared by create, update and delete, and one read every ten
             // seconds. Scoped to the group, counted against the global backstop, and a 429 is a cold
-            // stop like everywhere else -- never retried (calendar design §5).
+            // stop like everywhere else -- never retried (calendar design §5). Reads happen only when
+            // someone opens a page or presses Refresh, a few at a time (§12.1).
             [VRChatEndpointClass.CalendarWrite] = new(
                 VRChatEndpointClass.CalendarWrite, CalendarLane,
                 HardMaxPerSecond: PerSeconds(60), DefaultCeilingPerSecond: CeilingFor(PerSeconds(60)),

@@ -1116,6 +1116,17 @@ const SENTENCES: Record<string, Sentence> = {
   // is kept in every one of these payloads.
   'modbot.calendar.event.create': (p) => {
     const starts = when(p.text('startsAt'))
+
+    // Made on VRChat and read in by Modbot (calendar design §12): nobody in Modbot planned it.
+    if (p.text('on') === 'vrchat')
+      return (
+        <>
+          Modbot added the event<Quoted value={p.text('title')} /> from VRChat's calendar
+          {starts ? <>, for {starts}</> : null}
+          {repeats(p.entry.data)}.
+        </>
+      )
+
     return (
       <>
         {p.actor} planned the event<Quoted value={p.text('title')} />
@@ -1138,6 +1149,15 @@ const SENTENCES: Record<string, Sentence> = {
 
     // Only the time changed -- a drag on the calendar, most often: said as the move it was.
     const retimed = before && after ? timeChange(before, after) : null
+
+    if (p.text('on') === 'vrchat')
+      return (
+        <>
+          The event<Quoted value={p.text('title')} /> was changed on VRChat
+          {fields.length > 0 ? <>: {fields.join('; ')}</> : null}.
+        </>
+      )
+
     if (retimed && fields.length === 1 && !published) {
       return retimed.moved ? (
         <>
@@ -1166,11 +1186,16 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
-  'modbot.calendar.event.delete': (p) => (
-    <>
-      {p.actor} deleted the event<Quoted value={p.text('title')} />.
-    </>
-  ),
+  'modbot.calendar.event.delete': (p) =>
+    p.text('on') === 'vrchat' ? (
+      <>
+        The event<Quoted value={p.text('title')} /> was deleted on VRChat.
+      </>
+    ) : (
+      <>
+        {p.actor} deleted the event<Quoted value={p.text('title')} />.
+      </>
+    ),
 
   'modbot.calendar.event.open': (p) => {
     const starts = when(p.text('occurrenceStartsAt'))

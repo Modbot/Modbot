@@ -3,7 +3,8 @@
 - **Date:** 2026-09-15
 - **Status:** Built
 - **Covers:** planning events in Modbot, publishing them to VRChat's calendar, Discord and a
-  channel, opening the instance on time, and a calendar feed
+  channel, opening the instance on time, and a calendar feed; reading VRChat's calendar back in
+  (§12, added 2026-09-27)
 - **Depends on:** foundation §4.1 (gate), §4.3 (rate limits), §4.4 (clock), §5.9 (facts);
   M6 (instances, `PlaceStore`, instance cards); Discord event routes (channel picker)
 
@@ -95,9 +96,10 @@ event finishing and cancelling: each changes what the place should say.
   event says now, or deleted if it is no longer wanted. If the read fails, nothing is written and
   the look is made again later. Only one page is read, so a group with more events than that in one
   month could still end up with a copy.
-- **Changes made on VRChat's own site are not read back in this version.** Modbot is the source; the
-  next edit in Modbot overwrites them. Reading them back would need the calendar read budget on a
-  schedule, and nobody has asked for it yet.
+- **Changes made on VRChat's own site are read back** when someone opens the calendar (§12). Until
+  2026-09-27 they were not, and Modbot was the only source: the next edit in Modbot overwrote them.
+  That was narrowed because groups plan events on vrchat.com and in the game as well, and the
+  VRChat page's Overview said "No upcoming events" while VRChat showed one.
 - VRChat's own per-event `.ics` download (`GetGroupCalendarEventICS`) is **not exposed**. It needs a
   signed-in VRChat session, so a link to it is useless to members, and proxying it would spend the
   strict calendar budget every time somebody's calendar app refreshes. Modbot's own feed (§6)
@@ -156,7 +158,7 @@ event finishing and cancelling: each changes what the place should say.
 | Class | Lane | Rate | Source |
 |---|---|---|---|
 | `calendar.write` | `calendar` | **1 per 60 s**, shared by create, update and delete | **Not measured.** The maintainer asked for "a very lax rate limit by default" because VRChat's calendar limit is strict. Must be confirmed. |
-| `calendar.read` | `calendar.read` | **1 per 10 s** | **Not measured**, same reason. Used only for the look before a create that got no answer is sent again (§3.1), so it is rare. |
+| `calendar.read` | `calendar.read` | **1 per 10 s** | **Not measured**, same reason. Used for the look before a create that got no answer is sent again (§3.1), and for reading the calendar back when someone opens a page or presses Refresh (§12.1). Never on a timer. |
 | `instances.create` | `instances.create` | **1 per 5 s** | Measured by the maintainer. |
 
 All three are resource-scoped to the group where it applies, count against the global backstop,
@@ -207,6 +209,9 @@ the operational log:
 | `modbot.calendar.publish.fail` | A place failed; carries which place and the error |
 | `modbot.calendar.feed.regenerate` | The feed link was replaced |
 
+Changes read from VRChat's calendar (§12) use `create`, `change` and `delete` with `"on": "vrchat"` in
+the data and no actor: nobody in Modbot made them.
+
 ## 9. Scheduling
 
 Two loops, both on `IModbotClock`, never the system clock:
@@ -255,3 +260,85 @@ Schedule views, a small month to jump with on wide screens, and events moved by 
   without a description, so the two-field form cannot schedule; **More options** opens the full form.
 - **Colour is publish state:** scheduled, open, draft, finished, or failed somewhere (§3).
 - Only `ManageCalendar` can drag, draw or edit; `ViewCalendar` alone opens events and moves nothing.
+
+## 12. Reading VRChat's calendar back (added 2026-09-27)
+
+Seen 2026-09-27 on a live group: vrchat.com's Overview showed an upcoming watch party, and Modbot's
+VRChat page said "No upcoming events", because Modbot's calendar held only events made in Modbot.
+The maintainer settled the design one question at a time from the group's real calendar (10 events
+in September, a weekly series, none from Modbot).
+
+### 12.1 When it is read
+
+**Only when someone uses it**, the maintainer's standing rule for VRChat requests:
+
+| Trigger | Requests |
+|---|---|
+| The calendar page opens, or moves to dates it has not read | One `GetGroupCalendarEvents` per UTC month on screen (a Month view can touch three) |
+| The VRChat page's Overview opens | One for this month; one for next month when nothing on VRChat is left this month |
+| Refresh on the calendar page | The months on screen again, skipping the memory below |
+| A repeating event new to Modbot, or changed on VRChat | One `GetGroupCalendarEvent` for its series, which carries the rule (the month list has dates only) |
+| An event missing from a month read to its end | One `GetGroupCalendarEvent` for it, before it counts as deleted |
+
+- Each month's read is **remembered for five minutes, for everyone** (`CalendarVRChatReadMemory`, in
+  memory), so ten moderators opening the page cost one read. One read runs at a time; a second waits
+  and finds the months the first just read.
+- **Nothing on a timer.** The maintainer was offered a background read and chose not to. The feed
+  therefore learns about an event made on VRChat only after someone opens one of these pages.
+- All on `calendar.read`, at interactive priority. A 429 cold-stops it and is never retried: the
+  page says the calendar is waiting, and Modbot's own events still show.
+- At most three pages a month, ten series reads and five lookups in one read; the rest wait for the
+  next read.
+- The page asks through `POST /api/calendar/vrchat` (See calendar), which can take several seconds;
+  the page shows what Modbot has first and loads again when the read brought something in.
+
+### 12.2 How an event made on VRChat is kept
+
+- **As an ordinary Modbot event**, editable from Modbot (the maintainer's choice over view-only),
+  with `made_on_vrchat` set so the page can mark it **VRChat**. Its VRChat place is `published` with
+  VRChat's id and a fingerprint of what it says, so the publisher sends nothing until someone edits
+  it; an edit updates that same VRChat event, never a copy.
+- A repeating event is keyed by its **series id**; its dates in the list are matched to it by
+  `seriesId`.
+- It arrives with VRChat on and Discord, the channel post and opening the instance off. No world:
+  VRChat's calendar has none.
+- **VRChat's settings the form does not have** -- featured, host and guest early join, closing the
+  instance after the end, roles, instance overflow -- are kept on the event and sent back with every
+  create and update. The SDK's update body sends `featured` and `usesInstanceOverflow` as false when
+  they are left out (checked 2026-09-27), so without this an edit from Modbot would switch them off.
+  Events made in Modbot keep sending what they always did.
+- A one-off event from VRChat has no time zone; it is kept as UTC until a moderator picks one.
+  VRChat's "after N times" end is counted out to a last date.
+- **Not taken in:** drafts; a series every second week or more, or yearly (Modbot's rule has
+  neither); and a row with the title of a Modbot event whose create has no id yet, or whose VRChat
+  place was just removed -- it may be that very event, and taking it in would make a second.
+- A title or description longer than Modbot's limits (100 and 1000) is cut.
+
+### 12.3 Changes and deletes made on VRChat
+
+- **The newest change wins**, for every event, Modbot's own included. Each VRChat place keeps
+  VRChat's `updatedAt` as last seen, from the answer to Modbot's own write or from a read. A later
+  one means it was changed on VRChat. It is copied in, and becomes what Modbot last sent, unless an
+  edit made in Modbot is waiting to go out and is newer; then Modbot's goes out as usual. The first
+  read of an event Modbot published before this change only notes the `updatedAt`.
+- A change copied in touches only VRChat's fields (title, description, times, repeat and §2's VRChat
+  calendar fields); the world, access, region and Discord places are Modbot's alone. The picture
+  link is taken from VRChat only for an event made there.
+- **Deleted on VRChat:** an event missing from a month read to its end, which Modbot expects well
+  inside that month (VRChat's month is not exactly the UTC month), is looked up on its own. VRChat's
+  404, or the event marked deleted, deletes it in Modbot as a delete on the page does (cancelled and
+  hidden; the Discord places end), with the VRChat place `removed` so nothing is sent to take it
+  off. Found elsewhere, it is a change like any other. A failed or partial read deletes nothing.
+- **One exception, kept from before:** an update that meets a 404, because the event was deleted on
+  VRChat while an edit made in Modbot waited to go out, makes the event again. The edit is the newer
+  of the two.
+- A change to **one date** of a VRChat series cannot be held by Modbot's rule (§11). It stays on
+  VRChat; Modbot keeps the series.
+
+### 12.4 Not checked against the real services
+
+- Whether a create for a repeating event answers with the **series** id (assumed, so its dates are
+  matched by `seriesId`). If it answered with an occurrence id, later months could show a Modbot
+  series as a second event.
+- Whether VRChat's update keeps fields it is not sent (the settings above are sent back regardless).
+- VRChat's page size for the month list (60 by default) and whether `n` may be larger.

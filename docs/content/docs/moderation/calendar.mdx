@@ -15,6 +15,9 @@ Modbot does the rest:
 
 Each of these is a tick box on the event. Leave any of them off and Modbot does not touch that place.
 
+Events made on VRChat itself, on vrchat.com or in the game, show up on the page too, and you can
+edit them from Modbot. See [Events made on VRChat](#events-made-on-vrchat).
+
 ## Who can use it
 
 | To do this | You need |
@@ -51,6 +54,9 @@ views:
   **VRChat calendar: Published** or **Discord event: Failed**.
 
 **Week** is the view the page opens on. On a phone it opens on **Day**.
+
+**Refresh**, beside the views, reads your group's VRChat calendar again straight away. See
+[Events made on VRChat](#events-made-on-vrchat).
 
 On a wide screen a small month sits beside the calendar. Click a date in it to jump there; its own
 arrows page through months without moving the calendar. It is hidden on phones.
@@ -283,9 +289,53 @@ nothing is sent.
 - **Cancelling or deleting** the event, or unticking **Publish to VRChat calendar**, removes it from
   VRChat's calendar.
 - **A finished event stays** on VRChat's calendar as a past event.
-- **Changes made on VRChat's own website are not read back.** Modbot's copy wins: the next time you
-  change the event in Modbot, VRChat's copy is replaced. If someone deletes the event on VRChat, Modbot
-  puts it back the next time it sends a change.
+- **Changes made on VRChat are read back.** See [Events made on VRChat](#events-made-on-vrchat).
+
+### Events made on VRChat
+
+Modbot reads your group's VRChat calendar, so events someone made on vrchat.com or in the game show
+up on the Calendar page, in the **Upcoming event** box on the VRChat page's **Overview**, and in the
+calendar feed.
+
+**When Modbot reads it.** Only when someone is looking:
+
+- when the **Calendar** page opens, and when you move to dates it has not read yet: one request for
+  each month on screen (a **Month** view can touch three);
+- when the VRChat page's **Overview** opens: one request for this month, and one for next month when
+  nothing on VRChat is left this month;
+- when you click **Refresh** on the Calendar page.
+
+A month read in the last five minutes is not asked for again, by anyone, unless you click
+**Refresh**. Nothing is read on a timer, so the calendar feed only learns about an event made on
+VRChat after someone has opened one of these pages. A repeating event costs one more request the
+first time Modbot sees it, and again after it is changed on VRChat, to read how it repeats.
+
+**How they show.** An event made on VRChat has a **VRChat** badge next to its status. It is an
+ordinary Modbot event: with **Manage calendar** you can open, edit, drag, cancel and delete it, and
+your change is sent to that same event on VRChat, never as a second copy. It arrives with
+**Publish to VRChat calendar** ticked and **Discord event**, **Post to channel** and **Open the
+instance automatically** off; tick them if you want them. VRChat settings the Modbot form does not
+have, such as **Featured** or how early hosts may join, are kept as they are when you edit it.
+
+**Changed on VRChat.** The newest change wins. Modbot copies in a change made on VRChat, for any
+event, including ones planned in Modbot. If you changed the event in Modbot more recently and Modbot
+has not sent it yet, your change wins and is sent to VRChat.
+
+**Deleted on VRChat.** When an event is missing from a month Modbot read, Modbot asks VRChat about
+that one event. If VRChat says it is gone, Modbot deletes it too, which also ends its Discord event
+and post. A failed or partial read never deletes anything, and an event that was only moved to
+another month is updated, not deleted. One exception: if the event was edited in Modbot and that edit
+had not reached VRChat yet, the edit is newer, so Modbot puts the event back on VRChat.
+
+**What Modbot cannot hold.** Modbot keeps one rule per repeating event, so:
+
+- a change on VRChat to **one date only** of a repeating event is left on VRChat, and Modbot keeps
+  the series as it was;
+- an event repeating **every second week** (or every third, and so on) or **every year** is not
+  brought in.
+
+If the read fails, a red line under the page's controls says why, for example
+**VRChat's calendar is waiting on its rate limit.** Modbot's own events still show.
 
 ### When VRChat says no
 
@@ -516,6 +566,10 @@ entries (you need **See the operational log** to see them):
 | **Event failed to publish** | A place failed. Shows which place and the error. |
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |
 
+For events read from VRChat, the entries say so instead of naming a person: *Modbot added the event
+“…” from VRChat's calendar*, *The event “…” was changed on VRChat: …* and *The event “…” was
+deleted on VRChat*.
+
 ## Common problems
 
 **The VRChat calendar place stays on Waiting.** Modbot sends at most one VRChat calendar change a
@@ -535,8 +589,12 @@ event's description instead.
 **The instance did not open.** Check **Instance** on the event for VRChat's error. Modbot does not try
 again for that time; open it yourself in VRChat. The next time the event happens, Modbot tries again.
 
-**My edit on VRChat's website disappeared.** Modbot does not read changes back from VRChat. Make your
-changes in Modbot.
+**An event made on vrchat.com is not on the page.** Click **Refresh**. If it repeats every second
+week or every year, Modbot cannot hold it (see [What Modbot cannot hold](#events-made-on-vrchat)).
+Check also that a **Managed group** is chosen.
+
+**My edit on VRChat's website disappeared.** Someone changed the same event in Modbot more recently,
+and the newest change wins.
 
 **The feed link stopped working.** Someone clicked **New link**. Copy the new link from the Calendar
 page and add it to your calendar app again.

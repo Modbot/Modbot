@@ -82,13 +82,26 @@ function UpcomingEvent({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) =
     const from = new Date(Date.now() - 86_400_000)
     const to = new Date(from.getTime() + 61 * 86_400_000)
 
+    const show = () =>
+      calendarApi
+        .view(from, to)
+        .then((view) => {
+          if (!cancelled) setNext(nextEvent(view.events, view.now))
+        })
+        .catch(() => {
+          if (!cancelled) setFailed(true)
+        })
+
+    // What Modbot has now, then again once VRChat's own calendar has been read for the month the
+    // next event is in (calendar design §12.1): an event made on vrchat.com shows up here too.
+    void show()
     calendarApi
-      .view(from, to)
-      .then((view) => {
-        if (!cancelled) setNext(nextEvent(view.events, view.now))
+      .readVRChat({ upcoming: true })
+      .then((read) => {
+        if (!cancelled && read.outcome === 'read') void show()
       })
       .catch(() => {
-        if (!cancelled) setFailed(true)
+        // Modbot's own calendar is still shown; the calendar page says what went wrong.
       })
 
     return () => {

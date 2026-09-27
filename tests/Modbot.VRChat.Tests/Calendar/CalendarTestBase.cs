@@ -25,6 +25,23 @@ public abstract class CalendarTestBase(PostgresFixture fixture) : SyncTestBase(f
         return await new CalendarVRChatPublisher(Gate, context, Clock, Facts(context)).RunOnceAsync(Ct);
     }
 
+    /// <summary>What was read of VRChat's calendar and when, shared across reads the way the app shares it.</summary>
+    protected CalendarVRChatReadMemory ReadMemory { get; } = new();
+
+    /// <summary>Reads VRChat's calendar for the week from now, the way the calendar page does.</summary>
+    protected async Task<CalendarReadResult> ReadAsync(bool refresh = false)
+    {
+        await using var context = Database.NewContext();
+        var now = Clock.UtcNow;
+        return await new CalendarVRChatReader(Gate, context, Clock, Facts(context), ReadMemory).ReadAsync(now, now.AddDays(7), refresh, Ct);
+    }
+
+    protected async Task<List<CalendarEvent>> EventsAsync()
+    {
+        await using var context = Database.NewContext();
+        return await context.CalendarEvents.AsNoTracking().OrderBy(e => e.CreatedAt).ToListAsync(Ct);
+    }
+
     protected async Task<CalendarOpenerResult> OpenAsync()
     {
         await using var context = Database.NewContext();

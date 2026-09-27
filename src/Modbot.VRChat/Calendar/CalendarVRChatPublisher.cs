@@ -267,6 +267,7 @@ public sealed class CalendarVRChatPublisher
         VRChatFailureKind kind;
         string? createdId = null;
         string? foundId = null;
+        DateTimeOffset? answeredUpdatedAt = null;
 
         if (MayHaveBeenCreated(place))
         {
@@ -282,6 +283,7 @@ public sealed class CalendarVRChatPublisher
                 // Made after all. What it says is not known, so the next pass updates it.
                 place.ExternalId = foundId;
                 place.SentFingerprint = null;
+                place.VRChatUpdatedAt = null;
                 place.State = CalendarPlaceStates.Waiting;
                 place.FailedFingerprint = null;
                 place.Error = null;
@@ -322,6 +324,7 @@ public sealed class CalendarVRChatPublisher
 
                 (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
                 createdId = result.Value?.Id;
+                answeredUpdatedAt = CalendarVRChatCopy.UpdatedAt(result.Value);
 
                 if (success && string.IsNullOrEmpty(createdId))
                 {
@@ -343,12 +346,15 @@ public sealed class CalendarVRChatPublisher
                     ct).ConfigureAwait(false);
 
                 (status, success, error, body, kind) = (result.StatusCode, result.Success, result.ErrorMessage, result.RawResponse, result.Kind);
+                answeredUpdatedAt = CalendarVRChatCopy.UpdatedAt(result.Value);
 
-                // Deleted on VRChat's side. Forget the id; the next pass creates it again.
+                // Deleted on VRChat's side while an edit made in Modbot was waiting to go out: the
+                // edit is the newer of the two, so the event is made again (calendar design §12.3).
                 if (status == 404)
                 {
                     place.ExternalId = null;
                     place.SentFingerprint = null;
+                    place.VRChatUpdatedAt = null;
                     place.State = CalendarPlaceStates.Waiting;
                     place.UpdatedAt = now;
                     return CalendarPublishOutcome.NothingToDo;
@@ -385,12 +391,18 @@ public sealed class CalendarVRChatPublisher
                 place.ExternalId = null;
                 place.SentFingerprint = null;
                 place.State = CalendarPlaceStates.Removed;
+                place.VRChatUpdatedAt = null;
             }
             else
             {
                 place.ExternalId = createdId ?? place.ExternalId;
                 place.SentFingerprint = fingerprint;
                 place.State = CalendarPlaceStates.Published;
+
+                // What VRChat says now is Modbot's own write, so a read of the calendar does not take
+                // it for a change made there. Null when VRChat did not say; the next read starts from
+                // whatever it finds.
+                place.VRChatUpdatedAt = answeredUpdatedAt;
             }
 
             place.FailedFingerprint = null;

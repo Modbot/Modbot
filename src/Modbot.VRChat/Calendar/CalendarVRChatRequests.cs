@@ -37,19 +37,31 @@ public static class CalendarVRChatRequests
         return new CreateCalendarEventRequest(
             accessType: e.Visibility == "public" ? CalendarEventAccess.Public : CalendarEventAccess.Group,
             category: Category(e.Category),
+            closeInstanceAfterEndMinutes: e.VRChatCloseInstanceAfterEndMinutes ?? 0,
             description: e.Description ?? string.Empty,
             endsAt: ends,
+            featured: e.VRChatFeatured ?? false,
+            guestEarlyJoinMinutes: e.VRChatGuestEarlyJoinMinutes ?? 0,
+            hostEarlyJoinMinutes: e.VRChatHostEarlyJoinMinutes ?? 0,
             imageId: string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
             isDraft: false,
             languages: e.Languages.Count > 0 ? [.. e.Languages] : null!,
             platforms: e.Platforms.Count > 0 ? [.. e.Platforms.Select(Platform)] : null!,
             recurrence: Recurrence(e)!,
+            roleIds: e.VRChatRoleIds is { Count: > 0 } createRoles ? [.. createRoles] : null!,
             sendCreationNotification: e.NotifyMembers,
             startsAt: starts,
             tags: e.Tags.Count > 0 ? [.. e.Tags] : null!,
-            title: e.Title);
+            title: e.Title,
+            usesInstanceOverflow: e.VRChatUsesInstanceOverflow ?? false);
     }
 
+    /// <remarks>
+    /// The SDK always sends <c>featured</c> and <c>usesInstanceOverflow</c>, as false when not given
+    /// (checked 2026-09-27), and leaves out the minutes when they are 0 and the roles when null. So
+    /// what VRChat said for an event read from its calendar is sent back as it was, and an edit made
+    /// in Modbot does not switch those settings off.
+    /// </remarks>
     public static UpdateCalendarEventRequest Update(CalendarEvent e)
     {
         ArgumentNullException.ThrowIfNull(e);
@@ -59,17 +71,23 @@ public static class CalendarVRChatRequests
             // The update body takes the category as text rather than the enum; the stored word is
             // already VRChat's own.
             category: Categories.Contains(e.Category) ? e.Category : "hangout",
+            closeInstanceAfterEndMinutes: e.VRChatCloseInstanceAfterEndMinutes ?? 0,
             description: e.Description ?? string.Empty,
             endsAt: ends,
+            featured: e.VRChatFeatured ?? false,
+            guestEarlyJoinMinutes: e.VRChatGuestEarlyJoinMinutes ?? 0,
+            hostEarlyJoinMinutes: e.VRChatHostEarlyJoinMinutes ?? 0,
             imageId: string.IsNullOrWhiteSpace(e.VRChatImageId) ? null! : e.VRChatImageId,
             isDraft: false,
             languages: [.. e.Languages],
             platforms: [.. e.Platforms],
             recurrence: Recurrence(e)!,
+            roleIds: e.VRChatRoleIds is { } roles ? [.. roles] : null!,
             sendCreationNotification: false,
             startsAt: starts,
             tags: [.. e.Tags],
-            title: e.Title);
+            title: e.Title,
+            usesInstanceOverflow: e.VRChatUsesInstanceOverflow ?? false);
     }
 
     private static (DateTime Starts, DateTime Ends) Times(CalendarEvent e)
