@@ -15769,6 +15769,68 @@
         ]
       }
     },
+    "/api/calendar/vrchat": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Read VRChat's calendar",
+        "description": "Brings events made on VRChat, and changes and deletes made there, into Modbot's calendar for the months asked for. A month read in the last five minutes is not asked for again unless refresh is set. Can take several seconds: VRChat's calendar is read gently.\n\nNeeds the `ViewCalendar` permission.",
+        "operationId": "ReadVRChatCalendar",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CalendarVRChatReadRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarVRChatReadView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/calendar/events/{id}": {
       "get": {
         "tags": [
@@ -20605,6 +20667,7 @@
           "version",
           "createdAt",
           "updatedAt",
+          "madeOnVRChat",
           "places",
           "opening",
           "occurrences"
@@ -20775,6 +20838,9 @@
             "type": "string",
             "format": "date-time"
           },
+          "madeOnVRChat": {
+            "type": "boolean"
+          },
           "places": {
             "type": "array",
             "items": {
@@ -20921,6 +20987,55 @@
               {
                 "$ref": "#/components/schemas/MissingGroupPermission"
               }
+            ]
+          }
+        }
+      },
+      "CalendarVRChatReadRequest": {
+        "required": [
+          "from",
+          "to",
+          "upcoming",
+          "refresh"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "to": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "upcoming": {
+            "type": "boolean"
+          },
+          "refresh": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CalendarVRChatReadView": {
+        "required": [
+          "outcome",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         }

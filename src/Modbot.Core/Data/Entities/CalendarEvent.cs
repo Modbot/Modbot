@@ -108,6 +108,29 @@ public class CalendarEvent
     /// <summary>Whether VRChat tells group members when the event is created there.</summary>
     public bool NotifyMembers { get; set; }
 
+    // ── VRChat's settings Modbot's form does not have ────────────────────────────────────
+    //
+    // Kept as VRChat said them, for an event read from VRChat's calendar, and sent back unchanged
+    // with every update: VRChat's update body sends "featured" and "uses instance overflow" as false
+    // when they are left out, so an edit from Modbot would otherwise switch them off. Null for an
+    // event made in Modbot, which sends what it always has.
+
+    /// <summary>True when the event was made on VRChat (on vrchat.com or in the game) and read in by Modbot.</summary>
+    public bool MadeOnVRChat { get; set; }
+
+    public bool? VRChatFeatured { get; set; }
+
+    public int? VRChatHostEarlyJoinMinutes { get; set; }
+
+    public int? VRChatGuestEarlyJoinMinutes { get; set; }
+
+    public int? VRChatCloseInstanceAfterEndMinutes { get; set; }
+
+    /// <summary>The group roles VRChat shows the event to; null or empty for everyone it is visible to.</summary>
+    public List<string>? VRChatRoleIds { get; set; }
+
+    public bool? VRChatUsesInstanceOverflow { get; set; }
+
     // ── Where it goes ────────────────────────────────────────────────────────────────────
 
     public bool PublishToVRChat { get; set; }
@@ -194,6 +217,13 @@ public class CalendarEventPlace
 
     /// <summary>A hash of what was last written successfully.</summary>
     public string? SentFingerprint { get; set; }
+
+    /// <summary>
+    /// For VRChat, the event's <c>updatedAt</c> as VRChat last gave it, in the answer to a write or
+    /// in a read of the calendar. A later one on the next read means it was changed on VRChat's side
+    /// (calendar design §12). Null until one has been seen.
+    /// </summary>
+    public DateTimeOffset? VRChatUpdatedAt { get; set; }
 
     /// <summary>A hash of what was last refused. Not sent again until it changes.</summary>
     public string? FailedFingerprint { get; set; }

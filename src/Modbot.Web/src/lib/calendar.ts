@@ -66,6 +66,8 @@ export type CalendarEvent = {
   version: number
   createdAt: string
   updatedAt: string
+  /** Made on VRChat (on vrchat.com or in the game) and read in by Modbot. */
+  madeOnVRChat: boolean
   places: CalendarPlace[]
   opening: CalendarOpening | null
   occurrences: CalendarOccurrence[]
@@ -82,6 +84,16 @@ export type CalendarView = {
 export type CalendarWorld = { worldId: string; name: string | null; thumbnailUrl: string | null }
 
 export type CalendarFeed = { path: string | null; url: string | null }
+
+export type CalendarVRChatRead = {
+  outcome: 'read' | 'remembered' | 'notConfigured' | 'waiting' | 'failed'
+  error: string | null
+}
+
+/** A read of VRChat's calendar: the range a page shows, or what the next event needs. */
+export type CalendarVRChatReadInput =
+  | { from: Date; to: Date; refresh?: boolean }
+  | { upcoming: true; refresh?: boolean }
 
 export type CalendarEventInput = {
   title: string
@@ -127,6 +139,25 @@ export const calendarApi = {
   worlds: () => http.request<CalendarWorld[]>(`${base}/worlds`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),
   regenerateFeed: () => http.post<CalendarFeed>(`${base}/feed`),
+  /**
+   * Brings events made on VRChat, and changes and deletes made there, into Modbot's calendar
+   * (calendar design §12). Asks VRChat only for months not read in the last five minutes, unless
+   * `refresh`; can take several seconds.
+   */
+  readVRChat: (input: CalendarVRChatReadInput) =>
+    http.post<CalendarVRChatRead>(
+      `${base}/vrchat`,
+      'upcoming' in input
+        ? { upcoming: true, refresh: input.refresh ?? false }
+        : { from: input.from.toISOString(), to: input.to.toISOString(), upcoming: false, refresh: input.refresh ?? false },
+    ),
+}
+
+/** What a read of VRChat's calendar that did not go through says, or null when it did. */
+export function vrchatReadProblem(read: CalendarVRChatRead): string | null {
+  if (read.outcome === 'failed') return `Could not read VRChat's calendar${read.error ? `: ${read.error}` : '.'}`
+  if (read.outcome === 'waiting') return "VRChat's calendar is waiting on its rate limit."
+  return null
 }
 
 export const STATE_LABEL: Record<CalendarEventState, string> = {

@@ -15,11 +15,15 @@ import type { Spot } from './entry'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
+/** The event's state, and where it was made when that was VRChat (calendar design §12). */
 export function StateBadge({ event }: { event: CalendarEvent }) {
   return (
-    <Badge variant={event.state === 'open' ? 'ok' : event.state === 'cancelled' ? 'destructive' : event.state === 'draft' ? 'outline' : 'secondary'}>
-      {STATE_LABEL[event.state] ?? event.state}
-    </Badge>
+    <span className="inline-flex flex-wrap gap-1">
+      <Badge variant={event.state === 'open' ? 'ok' : event.state === 'cancelled' ? 'destructive' : event.state === 'draft' ? 'outline' : 'secondary'}>
+        {STATE_LABEL[event.state] ?? event.state}
+      </Badge>
+      {event.madeOnVRChat && <Badge variant="outline">VRChat</Badge>}
+    </span>
   )
 }
 

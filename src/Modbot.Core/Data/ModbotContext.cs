@@ -2017,6 +2017,13 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.Visibility).HasMaxLength(16);
             entity.Property(e => e.ChannelId).HasColumnType("text");
             entity.Property(e => e.State).HasMaxLength(16);
+            entity.Property(e => e.MadeOnVRChat).HasColumnName("made_on_vrchat");
+            entity.Property(e => e.VRChatFeatured).HasColumnName("vrchat_featured");
+            entity.Property(e => e.VRChatHostEarlyJoinMinutes).HasColumnName("vrchat_host_early_join_minutes");
+            entity.Property(e => e.VRChatGuestEarlyJoinMinutes).HasColumnName("vrchat_guest_early_join_minutes");
+            entity.Property(e => e.VRChatCloseInstanceAfterEndMinutes).HasColumnName("vrchat_close_instance_after_end_minutes");
+            entity.Property(e => e.VRChatRoleIds).HasColumnType("jsonb").HasColumnName("vrchat_role_ids");
+            entity.Property(e => e.VRChatUsesInstanceOverflow).HasColumnName("vrchat_uses_instance_overflow");
 
             // The scheduler's question every pass: which events are still live.
             entity.HasIndex(e => e.State).HasDatabaseName("ix_calendar_event_state");
@@ -2035,6 +2042,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.FailedFingerprint).HasMaxLength(64);
             entity.Property(e => e.Error).HasMaxLength(1024);
             entity.Property(e => e.MissingGroupPermission).HasMaxLength(64);
+            entity.Property(e => e.VRChatUpdatedAt).HasColumnName("vrchat_updated_at");
 
             entity.HasOne<CalendarEvent>()
                 .WithMany()

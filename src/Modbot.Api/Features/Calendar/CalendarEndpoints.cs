@@ -100,6 +100,49 @@ public static class CalendarEndpoints
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
+        group.MapPost("/vrchat", async (
+                [FromBody] CalendarVRChatReadRequest? body,
+                [FromServices] CalendarVRChatReader reader,
+                CancellationToken ct) =>
+            {
+                body ??= new CalendarVRChatReadRequest(null, null, Upcoming: true, Refresh: false);
+
+                CalendarReadResult result;
+
+                if (body.Upcoming)
+                {
+                    result = await reader.ReadUpcomingAsync(body.Refresh, ct);
+                }
+                else
+                {
+                    if (body.From is not { } from || body.To is not { } to || to <= from || to - from > MaxRange)
+                        return Results.BadRequest(new { error = "Ask for at most 62 days at a time." });
+
+                    result = await reader.ReadAsync(from, to, body.Refresh, ct);
+                }
+
+                return Results.Ok(new CalendarVRChatReadView(
+                    result.Outcome switch
+                    {
+                        CalendarReadOutcome.Read => "read",
+                        CalendarReadOutcome.Remembered => "remembered",
+                        CalendarReadOutcome.NotConfigured => "notConfigured",
+                        CalendarReadOutcome.Waiting => "waiting",
+                        _ => "failed",
+                    },
+                    result.Error));
+            })
+            .RequiresFlag(ModbotPermissions.ViewCalendar)
+            .WithName("ReadVRChatCalendar")
+            .WithSummary("Read VRChat's calendar")
+            .WithDescription(
+                "Brings events made on VRChat, and changes and deletes made there, into Modbot's calendar "
+                + "for the months asked for. A month read in the last five minutes is not asked for again "
+                + "unless refresh is set. Can take several seconds: VRChat's calendar is read gently.")
+            .Produces<CalendarVRChatReadView>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
         group.MapGet("/events/{id:guid}", async (
                 [FromRoute] Guid id,
                 [FromServices] ModbotContext db,
@@ -685,38 +728,7 @@ public static class CalendarEndpoints
         return result.Success ? result.Value : null;
     }
 
-    // Everything a moderator can edit, so a change fact can say what changed. The description,
-    // pictures, category, languages, platforms, tags, visibility and notifying were left out until
-    // 2026-09-25, and an edit to only those was recorded as a change with no difference in it.
-    private static JsonObject Describe(CalendarEvent e) => new()
-    {
-        ["title"] = e.Title,
-        ["description"] = e.Description,
-        ["imageUrl"] = e.ImageUrl,
-        ["vrchatImageId"] = e.VRChatImageId,
-        ["category"] = e.Category,
-        ["languages"] = string.Join(", ", e.Languages),
-        ["platforms"] = string.Join(", ", e.Platforms),
-        ["tags"] = string.Join(", ", e.Tags),
-        ["visibility"] = e.Visibility,
-        ["notifyMembers"] = e.NotifyMembers,
-        ["startsAt"] = e.StartsAt.ToString("O", CultureInfo.InvariantCulture),
-        ["endsAt"] = e.EndsAt.ToString("O", CultureInfo.InvariantCulture),
-        ["timeZone"] = e.TimeZone,
-        ["repeat"] = e.Repeat,
-        ["repeatDays"] = string.Join(",", e.RepeatDays),
-        ["repeatUntil"] = e.RepeatUntil?.ToString("O", CultureInfo.InvariantCulture),
-        ["worldId"] = e.WorldId,
-        ["accessType"] = e.AccessType,
-        ["region"] = e.Region,
-        ["state"] = e.State,
-        ["publishToVRChat"] = e.PublishToVRChat,
-        ["publishToDiscord"] = e.PublishToDiscord,
-        ["postToChannel"] = e.PostToChannel,
-        ["channelId"] = e.ChannelId,
-        ["autoOpen"] = e.AutoOpen,
-        ["openMinutesBefore"] = e.OpenMinutesBefore,
-    };
+    private static JsonObject Describe(CalendarEvent e) => CalendarEventFields.Of(e);
 
     internal static async Task<List<CalendarEventView>> ViewsAsync(
         ModbotContext db, IReadOnlyList<CalendarEvent> events, DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
@@ -801,6 +813,7 @@ public static class CalendarEndpoints
                 e.Version,
                 e.CreatedAt,
                 e.UpdatedAt,
+                e.MadeOnVRChat,
                 [.. places
                     .Where(p => p.EventId == e.Id)
                     .OrderBy(p => p.Place, StringComparer.Ordinal)

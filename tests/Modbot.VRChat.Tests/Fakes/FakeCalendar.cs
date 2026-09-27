@@ -23,6 +23,15 @@ public sealed class FakeCalendar
     /// <summary>How many times the list was read.</summary>
     public int Lists { get; private set; }
 
+    /// <summary>
+    /// Repeating events as VRChat keeps them: the series, with its rule, which only a read of the one
+    /// event returns. The list holds their dates instead.
+    /// </summary>
+    public List<CalendarEvent> Series { get; } = [];
+
+    /// <summary>How many times one event was read on its own.</summary>
+    public int Gets { get; private set; }
+
     /// <summary>What the list call answers with.</summary>
     public HttpStatusCode ListStatus { get; set; } = HttpStatusCode.OK;
 
@@ -128,7 +137,62 @@ public sealed class FakeCalendar
                 return Task.FromResult(new ApiResponse<PaginatedCalendarEventList>(HttpStatusCode.OK, new Multimap<string, string>(), page, "{}"));
             });
 
+        calendar
+            .GetGroupCalendarEventWithHttpInfoAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                Gets++;
+                if (ListStatus != HttpStatusCode.OK)
+                    return Task.FromResult(Failure<CalendarEvent>(ListStatus));
+
+                var id = call.ArgAt<string>(1);
+                var found = Series.Concat(OnVRChat).FirstOrDefault(e => e.Id == id);
+
+                return Task.FromResult(found is null ? Failure<CalendarEvent>(HttpStatusCode.NotFound) : Ok(found));
+            });
+
         return calendar;
+    }
+
+    /// <summary>
+    /// An event as VRChat's calendar returns it, with the fields Modbot reads; built without the
+    /// SDK's many required ones.
+    /// </summary>
+    public static CalendarEvent Made(
+        string id,
+        string title,
+        DateTimeOffset startsAt,
+        TimeSpan length,
+        DateTimeOffset updatedAt,
+        CalendarEventOccurrenceKind kind = CalendarEventOccurrenceKind.Single,
+        string? seriesId = null,
+        CalendarEventRecurrence? recurrence = null,
+        bool featured = false)
+    {
+        var body = (CalendarEvent)RuntimeHelpers.GetUninitializedObject(typeof(CalendarEvent));
+        body.Id = id;
+        body.Title = title;
+        body.Description = "Made on vrchat.com";
+        body.StartsAt = startsAt.UtcDateTime;
+        body.EndsAt = (startsAt + length).UtcDateTime;
+        body.DurationInMs = (long)length.TotalMilliseconds;
+        body.UpdatedAt = updatedAt.UtcDateTime;
+        body.CreatedAt = updatedAt.UtcDateTime;
+        body.OccurrenceKind = kind;
+        body.SeriesId = seriesId!;
+        body.Recurrence = recurrence!;
+        body.AccessType = CalendarEventAccess.Public;
+        body.Category = CalendarEventCategory.FilmMedia;
+        body.Languages = [];
+        body.Platforms = [];
+        body.Tags = [];
+        body.Featured = featured;
+        body.HostEarlyJoinMinutes = 60;
+        body.GuestEarlyJoinMinutes = 5;
+        body.CloseInstanceAfterEndMinutes = 5;
+        body.ImageId = "file_picture";
+        body.ImageUrl = "https://api.vrchat.cloud/api/1/file/file_picture/1/file";
+        return body;
     }
 
     private (HttpStatusCode Status, bool Saved, string Message) NextStatus() =>

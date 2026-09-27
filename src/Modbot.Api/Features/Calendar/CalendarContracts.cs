@@ -66,6 +66,7 @@ public sealed record CalendarOccurrenceView(DateTimeOffset StartsAt, DateTimeOff
 
 /// <param name="StartsAtLocal">The first start as wall-clock time in the event's zone, for the form.</param>
 /// <param name="Occurrences">The occurrences inside the range asked for.</param>
+/// <param name="MadeOnVRChat">Made on VRChat (on vrchat.com or in the game) and read in by Modbot.</param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -103,6 +104,7 @@ public sealed record CalendarEventView(
     int Version,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt,
+    bool MadeOnVRChat,
     IReadOnlyList<CalendarPlaceView> Places,
     CalendarOpeningView? Opening,
     IReadOnlyList<CalendarOccurrenceView> Occurrences);
@@ -117,6 +119,16 @@ public sealed record CalendarView(
     DateTimeOffset Now);
 
 public sealed record CalendarWorldView(string WorldId, string? Name, string? ThumbnailUrl);
+
+/// <param name="From">The start of the range the page shows. Left out with <paramref name="Upcoming"/>.</param>
+/// <param name="To">The end of the range the page shows.</param>
+/// <param name="Upcoming">Read what the next event needs instead of a range: this month, and the next when nothing is left in this one.</param>
+/// <param name="Refresh">Ask VRChat again even for a month read in the last five minutes.</param>
+public sealed record CalendarVRChatReadRequest(DateTimeOffset? From, DateTimeOffset? To, bool Upcoming, bool Refresh);
+
+/// <param name="Outcome"><c>read</c>, <c>remembered</c>, <c>notConfigured</c>, <c>waiting</c> or <c>failed</c>.</param>
+/// <param name="Error">What went wrong, in VRChat's words when it gave any.</param>
+public sealed record CalendarVRChatReadView(string Outcome, string? Error);
 
 /// <param name="Path">The feed's path on this server, always known.</param>
 /// <param name="Url">The whole address, when the public address is set.</param>

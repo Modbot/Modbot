@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { CalendarEventForm } from '@/components/calendar/CalendarEventForm'
 import type { Change, Entry, Spot } from '@/components/calendar/entry'
 import { spotOf } from '@/components/calendar/entry'
@@ -23,6 +23,7 @@ import {
   type CalendarEventInput,
   type CalendarFeed,
   type CalendarView,
+  vrchatReadProblem,
 } from '@/lib/calendar'
 import {
   movedInput,
@@ -123,6 +124,31 @@ export function Calendar() {
   useEffect(() => {
     void load()
   }, [load, live])
+
+  // VRChat's own calendar, for the dates on screen: read when they come into view and on Refresh,
+  // never on a timer (calendar design §12.1). The server remembers each month for five minutes, so
+  // moving back and forth costs nothing; Refresh asks again.
+  const [reading, setReading] = useState(0)
+  const [readProblem, setReadProblem] = useState<string | null>(null)
+
+  const readVRChat = useCallback(
+    (refresh: boolean) => {
+      setReading((n) => n + 1)
+      return calendarApi
+        .readVRChat({ from: range.from, to: range.to, refresh })
+        .then((read) => {
+          setReadProblem(vrchatReadProblem(read))
+          if (read.outcome === 'read') return load()
+        })
+        .catch((e: unknown) => setReadProblem(e instanceof ApiError ? e.message : "Could not read VRChat's calendar."))
+        .finally(() => setReading((n) => n - 1))
+    },
+    [range, load],
+  )
+
+  useEffect(() => {
+    void readVRChat(false)
+  }, [readVRChat])
 
   const now = useNow(skew)
 
@@ -294,12 +320,21 @@ export function Calendar() {
         </h2>
         <div className="flex-1" />
         <SwitchBank value={view} onChange={setView} options={VIEWS} label="View" />
+        <Button variant="outline" onClick={() => void readVRChat(true)} disabled={reading > 0}>
+          <RefreshCw className={reading > 0 ? 'animate-spin' : undefined} /> Refresh
+        </Button>
         {canManage && <Button onClick={newEvent}>New event</Button>}
       </div>
 
       {error && (
         <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
           {error}
+        </p>
+      )}
+
+      {readProblem && (
+        <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+          {readProblem}
         </p>
       )}
 
