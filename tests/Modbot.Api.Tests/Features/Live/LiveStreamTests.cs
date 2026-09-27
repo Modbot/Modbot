@@ -196,7 +196,7 @@ public class LiveStreamTests
         var @event = await NextEventAsync(socket);
         Assert.Equal(LiveKinds.FlaggedJoin, @event.GetProperty("kind").GetString());
         Assert.True(@event.GetProperty("flagged").GetBoolean());
-        Assert.Equal("2 prior moderation actions", @event.GetProperty("reason").GetString());
+        Assert.Equal("2 kicks or bans", @event.GetProperty("reason").GetString());
         Assert.Equal("Flagged", @event.GetProperty("person").GetProperty("standing").GetString());
         Assert.Equal(2, @event.GetProperty("person").GetProperty("priorActions").GetInt32());
         Assert.False(@event.GetProperty("byThisDevice").GetBoolean());
@@ -232,6 +232,48 @@ public class LiveStreamTests
 
         var @event = await NextEventAsync(socket);
         Assert.True(@event.GetProperty("person").GetProperty("eighteenPlus").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AJoinByANuisanceWithFiveWarns_ArrivesAsAFlaggedJoin_NamingBothRules()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        var subject = Subject();
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            db.VRChatUsers.Add(new VRChatUser
+            {
+                UserId = subject,
+                DisplayName = "Trouble",
+                Tags = """["system_troll"]""",
+                TrustRank = Modbot.Core.Users.TrustRank.Nuisance,
+                FirstSeenAt = host.Clock.UtcNow.AddDays(-1),
+                LastSeenAt = host.Clock.UtcNow,
+                LastUserReadAt = host.Clock.UtcNow.AddDays(-1),
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        // A minute apart, so five warns are five facts and not one reported five times.
+        for (var i = 0; i < 5; i++)
+        {
+            await WriteAsync(host, FactType.GroupInstanceWarn, subject, instance: null);
+            host.Clock.Advance(TimeSpan.FromMinutes(1));
+        }
+
+        using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
+        await NextOfKindAsync(socket, "hello");
+
+        await WriteAsync(host, FactType.InstanceJoined, subject, displayName: "Trouble");
+
+        var @event = await NextEventAsync(socket);
+        Assert.Equal(LiveKinds.FlaggedJoin, @event.GetProperty("kind").GetString());
+        Assert.Equal("5 warns · Nuisance", @event.GetProperty("reason").GetString());
+        Assert.Equal(0, @event.GetProperty("person").GetProperty("priorActions").GetInt32());
     }
 
     [Fact]

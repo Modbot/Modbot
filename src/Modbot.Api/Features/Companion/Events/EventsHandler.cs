@@ -152,7 +152,7 @@ public static class EventsHandler
     }
 
     /// <summary>
-    /// Wakes every other moderator's overlay when somebody with prior actions walks in.
+    /// Wakes every other moderator's overlay when somebody the flag rules match walks in.
     /// </summary>
     /// <remarks>
     /// <para><strong>Only genuine arrivals, and only the first report of one.</strong> A
@@ -187,20 +187,19 @@ public static class EventsHandler
         if (arrivals.Count == 0)
             return;
 
-        var priorActions = await ContextHandler.CountPriorActionsAsync(
-            database, [.. arrivals.Select(a => a.SubjectId).Distinct(StringComparer.Ordinal)], ct);
+        var people = arrivals.Select(a => a.SubjectId).Distinct(StringComparer.Ordinal).ToList();
+        var ranks = await ContextHandler.TrustRanksAsync(database, people, ct);
+        var flagged = await FlagRules.ReadAsync(database, people, ranks, ct);
 
-        if (priorActions.Count == 0)
+        if (!flagged.Values.Any(m => m.IsFlagged))
             return;
-
-        var ranks = await ContextHandler.TrustRanksAsync(database, [.. priorActions.Keys], ct);
 
         var paired = await devices.ListDevicesAsync(ct);
         var recipients = paired.Where(d => !d.IsRevoked).Select(d => d.Id).ToList();
 
         foreach (var arrival in arrivals)
         {
-            if (priorActions.GetValueOrDefault(arrival.SubjectId) is not (> 0 and var count))
+            if (flagged.GetValueOrDefault(arrival.SubjectId) is not { IsFlagged: true } match)
                 continue;
 
             var name = submitted
@@ -209,7 +208,7 @@ public static class EventsHandler
 
             alerts.Raise(
                 AlertHub.ForFlaggedJoin(
-                    clock, arrival.SubjectId, name, arrival.InstanceId!, count, ranks.GetValueOrDefault(arrival.SubjectId)),
+                    clock, arrival.SubjectId, name, arrival.InstanceId!, match, ranks.GetValueOrDefault(arrival.SubjectId)),
                 reportingDeviceId,
                 recipients,
                 clock.UtcNow);

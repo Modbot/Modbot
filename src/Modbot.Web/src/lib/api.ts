@@ -2360,6 +2360,22 @@ export type RepeatOffenderRules = {
   lastRunAt: string | null
 }
 
+export type FlagRuleAutoModOption = { id: string; kind: 'termList' | 'topic'; name: string; counts: boolean }
+
+/** Settings → Moderation → Flagged: which rules make a person Flagged on the companion and Live. */
+export type FlagRules = {
+  kicksAndBans: boolean
+  warns: boolean
+  warnsAtLeast: number
+  nuisance: boolean
+  autoMod: boolean
+  /** Every AutoMod rule counts, including ones added later. */
+  everyAutoModRule: boolean
+  autoModRules: FlagRuleAutoModOption[]
+}
+
+export type FlagRulesInput = Omit<FlagRules, 'autoModRules'> & { autoModRules: string[] }
+
 /** Settings → Auto-invites. `rules` is the same tree the giveaway rule builder reads and writes. */
 export type AutoInvites = {
   enabled: boolean
@@ -4354,6 +4370,10 @@ export const api = {
   /** Rebuilds every person's counts before it answers, because both are rules they are computed under. */
   setRepeatOffenderRules: (threshold: number, types: string[]) =>
     put<RepeatOffenderRules>('/api/settings/repeat-offenders', { threshold, types }),
+
+  flagRules: () => request<FlagRules>('/api/settings/flag-rules'),
+
+  setFlagRules: (body: FlagRulesInput) => put<FlagRules>('/api/settings/flag-rules', body),
 
   autoInvites: () => request<AutoInvites>('/api/settings/auto-invites'),
 

@@ -261,7 +261,7 @@ public class OverlayReadTests
         var member = Assert.Single(roster.Members, m => m.SubjectId == "usr_flag");
         Assert.Equal("Flagged", member.Standing);
         Assert.Equal(2, member.PriorActions);
-        Assert.Equal("2 prior actions", Assert.Single(member.Flags));
+        Assert.Equal("2 kicks or bans", Assert.Single(member.Flags));
     }
 
     /// <summary>
@@ -409,7 +409,7 @@ public class OverlayReadTests
         Assert.Equal(1, summary.PriorActions);
         Assert.Equal(Noon.AddDays(-25), summary.JoinedAt);
         Assert.Equal("Rin", summary.DisplayName);
-        Assert.Equal("1 prior action", Assert.Single(summary.Flags));
+        Assert.Equal("1 kick or ban", Assert.Single(summary.Flags));
     }
 
     [Fact]

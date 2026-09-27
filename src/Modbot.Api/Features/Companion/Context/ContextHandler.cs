@@ -64,10 +64,6 @@ public static class ContextHandler
     /// </summary>
     public static readonly TimeSpan RosterWindow = TimeSpan.FromHours(12);
 
-    /// <summary>The fact types that count as a moderation action against somebody.</summary>
-    private static readonly string[] ModerationActions =
-        [FactType.MemberKicked, FactType.MemberBanned];
-
     public static async Task<IResult> ContextAsync(
         int apiVersion,
         string? instanceId,
@@ -116,16 +112,16 @@ public static class ContextHandler
             return Results.Ok(new InstanceContextDto(instanceId, []));
 
         var subjects = people.Here.Select(p => p.UserId).ToList();
-        var priorActions = await CountPriorActionsAsync(database, subjects, ct);
         var members = await CurrentMembersAsync(database, subjects, ct);
         var ranks = await TrustRanksAsync(database, subjects, ct);
         var eighteenPlus = await EighteenPlusAsync(database, subjects, ct);
+        var flagged = await FlagRules.ReadAsync(database, subjects, ranks, ct);
 
         var roster = people.Here
             .Select(person => Describe(
                 person.UserId,
                 person.DisplayName,
-                priorActions,
+                flagged,
                 members,
                 ranks.GetValueOrDefault(person.UserId),
                 eighteenPlus.TryGetValue(person.UserId, out var marked) ? marked : null))
@@ -168,14 +164,21 @@ public static class ContextHandler
             .Select(e => new { e.Type, e.OccurredAt, e.Data })
             .ToListAsync(ct);
 
+        // Read even with no facts on record: a Nuisance rank or a flag on a linked Discord account
+        // still makes somebody Flagged.
+        var match = (await FlagRules.ReadAsync(
+                database, [subjectId], new Dictionary<string, TrustRank?> { [subjectId] = trustRank }, ct))
+            .GetValueOrDefault(subjectId) ?? FlagMatch.None;
+
         if (facts.Count == 0)
         {
             // Nothing on record is a perfectly good answer, and saying so is better than a 404 the
             // overlay would have to translate.
-            return Results.Ok(new UserSummaryDto(subjectId, null, "Ordinary", 0, null, [], [], trustRank));
+            return Results.Ok(new UserSummaryDto(
+                subjectId, null, Standing(match, isMember: false, isStaff: false), match.PriorActions, null,
+                match.Reasons, [], trustRank));
         }
 
-        var priorActions = facts.Count(f => ModerationActions.Contains(f.Type));
         var joinedAt = facts.FirstOrDefault(f => f.Type == FactType.MemberJoined)?.OccurredAt;
         var displayName = facts.LastOrDefault(f => ReadDisplayName(f.Data) is not null) is { } named
             ? ReadDisplayName(named.Data)
@@ -199,30 +202,13 @@ public static class ContextHandler
         return Results.Ok(new UserSummaryDto(
             subjectId,
             displayName,
-            Standing(priorActions, isMember, roles.Count > 0),
-            priorActions,
+            Standing(match, isMember, roles.Count > 0),
+            match.PriorActions,
             joinedAt,
-            Flags(priorActions),
+            match.Reasons,
             roles,
             trustRank));
     }
-
-    /// <summary>
-    /// How many moderation actions each of these people already has against them. One grouped
-    /// query rather than one per person: an instance can hold two hundred and forty.
-    /// </summary>
-    public static async Task<Dictionary<string, int>> CountPriorActionsAsync(
-        ModbotContext database,
-        IReadOnlyCollection<string> subjectIds,
-        CancellationToken ct)
-        => await database.Events
-            .AsNoTracking()
-            .Where(e => e.SubjectPlatform == FactPlatform.VRChat
-                     && subjectIds.Contains(e.SubjectId)
-                     && (e.Type == FactType.MemberKicked || e.Type == FactType.MemberBanned))
-            .GroupBy(e => e.SubjectId)
-            .Select(g => new { SubjectId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(g => g.SubjectId, g => g.Count, StringComparer.Ordinal, ct);
 
     /// <summary>The stored trust rank of each of these people whose tags have been read. One query.</summary>
     internal static async Task<Dictionary<string, TrustRank?>> TrustRanksAsync(
@@ -282,43 +268,37 @@ public static class ContextHandler
         return members;
     }
 
+    /// <param name="flagged">What <see cref="FlagRules"/> decided for everybody being described.</param>
     internal static RosterMemberDto Describe(
         string subjectId,
         string? displayName,
-        Dictionary<string, int> priorActions,
+        IReadOnlyDictionary<string, FlagMatch> flagged,
         HashSet<string> members,
         TrustRank? trustRank = null,
         bool? eighteenPlus = null)
     {
-        var actions = priorActions.GetValueOrDefault(subjectId);
+        var match = flagged.GetValueOrDefault(subjectId) ?? FlagMatch.None;
 
         return new RosterMemberDto(
             subjectId,
             displayName,
-            Standing(actions, members.Contains(subjectId), isStaff: false),
-            actions,
-            Flags(actions),
+            Standing(match, members.Contains(subjectId), isStaff: false),
+            match.PriorActions,
+            match.Reasons,
             trustRank,
             eighteenPlus);
     }
 
     /// <summary>
     /// Flagged beats everything: a moderator glancing at a roster needs the row that matters, and
-    /// somebody with prior actions who is also a member is still the row that matters.
+    /// somebody a rule flags who is also a member is still the row that matters.
     /// </summary>
-    private static string Standing(int priorActions, bool isMember, bool isStaff) => (priorActions, isStaff, isMember) switch
+    private static string Standing(FlagMatch match, bool isMember, bool isStaff) => (match.IsFlagged, isStaff, isMember) switch
     {
-        ( > 0, _, _) => "Flagged",
+        (true, _, _) => "Flagged",
         (_, true, _) => "Staff",
         (_, _, true) => "Member",
         _ => "Ordinary",
-    };
-
-    private static IReadOnlyList<string> Flags(int priorActions) => priorActions switch
-    {
-        0 => [],
-        1 => ["1 prior action"],
-        _ => [$"{priorActions} prior actions"],
     };
 
     /// <summary>

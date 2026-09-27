@@ -733,13 +733,10 @@ public static class OverlayView
             RosterStanding.Member => "Member",
             _ => "Not a member",
         };
+        // Why somebody is Flagged -- kicks and bans among the rest -- is the flags line below, in
+        // the server's words, so the count is not repeated here.
         lines.Children.Add(Text(
-            person.PriorActions switch
-            {
-                0 => standing,
-                1 => standing + " · 1 prior action",
-                var n => standing + " · " + n + " prior actions",
-            },
+            standing,
             T.Density.TextBase,
             person.Standing == RosterStanding.Flagged ? T.DangerBrush : T.TextDimBrush));
 
@@ -822,15 +819,8 @@ public static class OverlayView
         if (alert.TrustRank is { } rank)
             lines.Children.Add(RankLine(rank, T.Density.TextBase));
 
+        // The reason already names every rule that matched, kicks and bans included.
         lines.Children.Add(Text(alert.Reason, T.Density.TextBase, T.TextBrush));
-
-        if (alert.PriorActions > 0)
-        {
-            lines.Children.Add(Text(
-                alert.PriorActions == 1 ? "1 prior action" : $"{alert.PriorActions} prior actions",
-                T.Density.TextSmall,
-                T.TextDimBrush));
-        }
 
         return new Border
         {
@@ -1042,7 +1032,7 @@ public static class OverlayView
     }
 
     /// <summary>
-    /// What is known against a person — "1 prior action", a flag's name — as a mark on their own
+    /// What is known against a person — "1 kick or ban", "5 warns", "Nuisance" — as a mark on their own
     /// row.
     /// </summary>
     /// <remarks>

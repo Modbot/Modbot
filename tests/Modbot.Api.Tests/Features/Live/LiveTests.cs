@@ -271,7 +271,7 @@ public class LiveTests
         Assert.Equal(t.AddMinutes(20), bob.ArrivedAt);
         Assert.Null(bob.HereBefore);
         Assert.Equal("Flagged", bob.Standing);
-        Assert.Equal("1 prior action", Assert.Single(bob.Flags));
+        Assert.Equal("1 kick or ban", Assert.Single(bob.Flags));
 
         Assert.Null(instance.LastWatchedAt);
     }

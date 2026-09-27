@@ -1657,6 +1657,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => new { e.RuleId, e.TermKey, e.SubjectPlatform, e.SubjectId })
                 .HasDatabaseName("ix_automod_flag_rule_person");
 
+            // "Which rules have flags standing against these people?" -- asked for every roster
+            // read and every page of the live stream (flagged rules design §4).
+            entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId })
+                .HasDatabaseName("ix_automod_flag_person");
+
             entity.HasIndex(e => e.MessageId)
                 .HasDatabaseName("ix_ai_flag_message")
                 .HasFilter("message_id IS NOT NULL");

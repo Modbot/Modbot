@@ -3842,6 +3842,96 @@
         ]
       }
     },
+    "/api/settings/flag-rules": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get flag rules",
+        "description": "The rules that make a person Flagged on the companion and the Live page.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetFlagRules",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagRulesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update flag rules",
+        "description": "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. With `everyAutoModRule` false, only the flags of the rules in `autoModRules` count.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetFlagRules",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFlagRulesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagRulesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/cloud": {
       "get": {
         "tags": [
@@ -23182,6 +23272,73 @@
           }
         }
       },
+      "FlagRuleAutoModOption": {
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "counts"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FlagRulesView": {
+        "required": [
+          "kicksAndBans",
+          "warns",
+          "warnsAtLeast",
+          "nuisance",
+          "autoMod",
+          "everyAutoModRule",
+          "autoModRules"
+        ],
+        "type": "object",
+        "properties": {
+          "kicksAndBans": {
+            "type": "boolean"
+          },
+          "warns": {
+            "type": "boolean"
+          },
+          "warnsAtLeast": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nuisance": {
+            "type": "boolean"
+          },
+          "autoMod": {
+            "type": "boolean"
+          },
+          "everyAutoModRule": {
+            "type": "boolean"
+          },
+          "autoModRules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlagRuleAutoModOption"
+            }
+          }
+        }
+      },
       "FlagView": {
         "required": [
           "id",
@@ -31427,6 +31584,53 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "SetFlagRulesRequest": {
+        "required": [
+          "kicksAndBans",
+          "warns",
+          "warnsAtLeast",
+          "nuisance",
+          "autoMod",
+          "everyAutoModRule",
+          "autoModRules"
+        ],
+        "type": "object",
+        "properties": {
+          "kicksAndBans": {
+            "type": "boolean"
+          },
+          "warns": {
+            "type": "boolean"
+          },
+          "warnsAtLeast": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nuisance": {
+            "type": "boolean"
+          },
+          "autoMod": {
+            "type": "boolean"
+          },
+          "everyAutoModRule": {
+            "type": "boolean"
+          },
+          "autoModRules": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },

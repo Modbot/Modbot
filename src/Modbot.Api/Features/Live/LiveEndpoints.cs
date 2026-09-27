@@ -170,7 +170,6 @@ public static class LiveEndpoints
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var priorActions = await ContextHandler.CountPriorActionsAsync(db, everyone, ct);
         var members = await ContextHandler.CurrentMembersAsync(db, everyone, ct);
 
         // The stored profiles, in one lookup: a name for anybody the facts carried none for, and
@@ -192,10 +191,16 @@ public static class LiveEndpoints
             .Where(p => p.Value.Name is not null)
             .ToDictionary(p => p.Key, p => p.Value.Name!, StringComparer.Ordinal);
 
+        var flagged = await FlagRules.ReadAsync(
+            db,
+            everyone,
+            profiles.ToDictionary(p => p.Key, p => p.Value.Rank, StringComparer.Ordinal),
+            ct);
+
         LivePersonView Person(PersonHere p)
         {
             var name = p.DisplayName ?? names.GetValueOrDefault(p.UserId);
-            var described = ContextHandler.Describe(p.UserId, name, priorActions, members);
+            var described = ContextHandler.Describe(p.UserId, name, flagged, members);
 
             return new LivePersonView(
                 p.UserId,
