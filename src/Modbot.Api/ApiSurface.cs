@@ -39,6 +39,7 @@ using Modbot.Api.Features.Notifications;
 using Modbot.Api.Features.Insights;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Features.Live;
+using Modbot.Api.Features.Now;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Features.Search;
@@ -385,6 +386,10 @@ public static class ApiSurface
         // Live: the group's open instances right now and who is in each. From Modbot's own tables
         // only, so a page that refreshes every five seconds costs no VRChat budget.
         app.MapLive();
+
+        // Now: the front page's own data, when each person last looked and what happened since.
+        // The rest of the page is read from the endpoints above it, under their own permissions.
+        app.MapNow();
 
         // Live updates: the Live page's and the notifications' stream, a WebSocket with long
         // polling behind it (live updates design). The host must call UseWebSockets before this.

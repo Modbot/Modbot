@@ -11180,6 +11180,78 @@
         ]
       }
     },
+    "/api/live/flagged-count": {
+      "get": {
+        "tags": [
+          "Live"
+        ],
+        "summary": "Count flagged people in instances",
+        "description": "How many flagged people are in the group's open instances right now, by the same rules and the same \"who is present\" as the Live page: the number beside Live in the sidebar. Counts only instances a moderator is watching, because nobody else knows who is in one. Read from Modbot's own tables; nothing here calls VRChat.\n\nNeeds the `ViewLiveInstances` permission.",
+        "operationId": "CountFlaggedPeopleHere",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlaggedHereCount"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/now/look": {
+      "post": {
+        "tags": [
+          "Now"
+        ],
+        "summary": "Record a look at Now",
+        "description": "Called when the Now page opens and every few minutes while it stays on screen. Returns what happened since this account last looked: counts of bans, kicks, case files, notes, flags, join requests, joins and leaves, from the audit log only. The counting starts from the last look before the current one, and a look moves it on only after 15 minutes away, so a reload does not reset it. `changes` is null without permission to read the audit log.",
+        "operationId": "LookAtNow",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NowLook"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/chat": {
       "get": {
         "tags": [
@@ -23717,6 +23789,22 @@
           }
         }
       },
+      "FlaggedHereCount": {
+        "required": [
+          "here"
+        ],
+        "type": "object",
+        "properties": {
+          "here": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "ForgotPasswordRequest": {
         "required": [
           "username"
@@ -29051,6 +29139,64 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/NotificationView"
+            }
+          }
+        }
+      },
+      "NowChange": {
+        "required": [
+          "kind",
+          "count",
+          "types"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "NowLook": {
+        "required": [
+          "since",
+          "lookedBefore",
+          "now",
+          "changes"
+        ],
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lookedBefore": {
+            "type": "boolean"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "changes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/NowChange"
             }
           }
         }
@@ -35301,6 +35447,10 @@
     {
       "name": "Notifications",
       "x-displayName": "Notifications"
+    },
+    {
+      "name": "Now",
+      "x-displayName": "Now"
     },
     {
       "name": "Requests",

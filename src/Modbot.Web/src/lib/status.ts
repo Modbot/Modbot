@@ -160,3 +160,24 @@ function aiState(health: SyncHealth): State | null {
 
   return { label: 'working', tone: 'ok' }
 }
+
+/** Modbot's health in one line, for the Now page: what needs somebody, or that nothing does. */
+export type StatusLine = { text: string; tone: Tone; section: StatusRowId | null }
+
+/**
+ * The rows said once. Broken parts first, then parts waiting on something, each as the row says
+ * it ("VRChat needs you"); then parts that have not answered; and "All working" when every part
+ * that is set up says it is. A part that is not set up is not a fault, so it says nothing here.
+ */
+export function statusLine(rows: StatusRow[]): StatusLine {
+  const said = (list: StatusRow[]) => list.map((r) => `${r.name} ${r.state}`).join(' · ')
+
+  const trouble = [...rows.filter((r) => r.tone === 'bad'), ...rows.filter((r) => r.tone === 'warn')]
+  if (trouble.length > 0)
+    return { text: said(trouble), tone: trouble[0].tone, section: trouble[0].id }
+
+  const unknown = rows.filter((r) => r.tone === 'muted' && r.state.startsWith('unknown'))
+  if (unknown.length > 0) return { text: said(unknown), tone: 'muted', section: unknown[0].id }
+
+  return { text: 'All working', tone: 'ok', section: null }
+}

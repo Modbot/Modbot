@@ -1526,6 +1526,23 @@ export type InstanceRow = {
   worldPlatforms: string[] | null
 }
 
+/** How many of one kind of thing happened since the last look at Now, and the fact types counted. */
+export type NowChange = {
+  kind: 'bans' | 'unbans' | 'kicks' | 'warns' | 'caseFiles' | 'notes' | 'flags' | 'joinRequests' | 'joins' | 'leaves'
+  count: number
+  types: string[]
+}
+
+/** The Now page's "since you last looked". */
+export type NowLook = {
+  since: string
+  /** False on a first look, when `since` is a day ago rather than an earlier look. */
+  lookedBefore: boolean
+  now: string
+  /** Every kind with at least one. Null without permission to read the audit log. */
+  changes: NowChange[] | null
+}
+
 /** A moderator whose client is in an open instance right now. */
 export type LiveWatcher = {
   userId: string
@@ -4334,6 +4351,12 @@ export const api = {
   instanceWorld: (id: string) => request<InstanceWorldView>(`/api/instances/${encodeURIComponent(id)}/world`),
 
   live: () => request<LiveView>('/api/live'),
+
+  /** Flagged people in the group's open instances now: the number beside Live. Needs ViewLiveInstances. */
+  liveFlaggedCount: () => request<{ here: number }>('/api/live/flagged-count'),
+
+  /** Tells the server the Now page is on screen, and reads what happened since the last look. */
+  lookAtNow: () => post<NowLook>('/api/now/look'),
 
   /** A one-use ticket for the live updates WebSocket (live updates design §4). */
   liveTicket: () => request<{ ticket: string; expiresAt: string }>('/api/live/tickets', { method: 'POST' }),

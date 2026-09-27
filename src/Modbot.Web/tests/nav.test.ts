@@ -8,6 +8,7 @@ import {
   NAV,
   goesByName,
   mayOpen,
+  oldMembersAddress,
   sidebarEntry,
   titleWithCount,
   waitingTotal,
@@ -154,4 +155,22 @@ test('every page in the sidebar has a go-to chord', () => {
     if ('hidden' in item && item.hidden) continue
     assert.notEqual(GO_TO_KEYS[item.id], '', `${item.id} has no letter`)
   }
+})
+
+test('Now is the first page and needs no permission of its own', () => {
+  assert.equal(NAV[0].id, 'now')
+  assert.equal(mayOpen(person(), 'now'), true)
+  assert.equal(GO_TO_KEYS.now, 'k')
+})
+
+test('an old member list address with its filters goes on to /members, keeping them', () => {
+  assert.equal(oldMembersAddress('/', '?f=status:is:current'), '/members?f=status%3Ais%3Acurrent')
+  assert.equal(oldMembersAddress('/', '?page=3&subject=usr_1'), '/members?page=3&subject=usr_1')
+})
+
+test('a plain /, a person link on /, and every other address stay where they are', () => {
+  assert.equal(oldMembersAddress('/', ''), null)
+  assert.equal(oldMembersAddress('/', '?subject=usr_1'), null)
+  assert.equal(oldMembersAddress('/members', '?f=status:is:current'), null)
+  assert.equal(oldMembersAddress('/audit', '?f=type:is:x'), null)
 })
