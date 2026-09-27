@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { instanceName, instanceNumber } from '../src/lib/instanceName.ts'
+import { instanceEnd, instanceName, instanceNumber } from '../src/lib/instanceName.ts'
 
 test('an instance is named the way VRChat shows it: the world, then the number', () => {
   assert.equal(instanceName('The Black Cat', 'wrld_4b34', '19453'), 'The Black Cat #19453')
@@ -38,4 +38,13 @@ test('an instance with no name, or a blank one, keeps its number', () => {
 
 test('a name is shown without the spaces around it', () => {
   assert.equal(instanceName('Murder 4', 'wrld_4b34', '16354', '  6 killed 7 '), 'Murder 4 “6 killed 7”')
+})
+
+test('an instance is closed only when a moderator closed it, and otherwise ended', () => {
+  assert.equal(instanceEnd({ closedAt: null, closedByModerator: false }), 'open now')
+  assert.equal(instanceEnd({ closedAt: '2026-09-25T03:22:00Z', closedByModerator: true }), 'closed')
+  assert.equal(instanceEnd({ closedAt: '2026-09-25T03:22:00Z', closedByModerator: false }), 'ended')
+
+  // An older server that does not say is read as the common case, not as a moderator's close.
+  assert.equal(instanceEnd({ closedAt: '2026-09-25T03:22:00Z' }), 'ended')
 })

@@ -88,6 +88,16 @@ public sealed record DemoInstance
     /// </remarks>
     public required int OpenedBy { get; init; }
 
+    /// <summary>
+    /// True when the opener closed it by hand, so VRChat's audit log has a close entry for it.
+    /// </summary>
+    /// <remarks>
+    /// Most real instances are never closed that way: they empty out and drop off the group's list,
+    /// and VRChat writes nothing. The demo used to write a close entry for every instance, which hid
+    /// every screen that confused "closed by a moderator" with "ended". About one in five here.
+    /// </remarks>
+    public bool ClosedByModerator { get; init; }
+
     public bool IsOpen => ClosedAt is null;
 
     public string Location(string groupId) =>
@@ -410,6 +420,10 @@ public sealed class DemoPlan
                     Visits = visits,
                     Peak = Math.Max(1, visits.Count - random.Next(0, 3)),
                     OpenedBy = Spread((number - 1).ToString(CultureInfo.InvariantCulture), StaffCount),
+
+                    // From the instance's own number rather than the dice, so choosing which ones a
+                    // moderator closed leaves every other number in the demo where it was.
+                    ClosedByModerator = ClosedByHand((number - 1).ToString(CultureInfo.InvariantCulture)),
                 });
             }
         }
@@ -574,6 +588,12 @@ public sealed class DemoPlan
     /// <summary>A Discord-shaped id. Snowflakes are numbers; nothing in Modbot parses one.</summary>
     public static string Snowflake(int n)
         => (900_000_000_000_000_000L + (n * 7_919L)).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>How many instances in every <see cref="ClosedByHand"/> bucket a moderator closes: one in five.</summary>
+    public const int ClosedByHandOneIn = 5;
+
+    /// <summary>Whether a moderator closed the instance with this number by hand. The same every time.</summary>
+    public static bool ClosedByHand(string number) => Spread(number + ":closed", ClosedByHandOneIn) == 0;
 
     /// <summary>
     /// Spreads a name across a fixed number of buckets, the same way every time.

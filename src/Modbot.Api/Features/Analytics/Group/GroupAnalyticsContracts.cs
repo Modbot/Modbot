@@ -71,9 +71,9 @@ public sealed record MemberCountPoint(DateTimeOffset At, int Members, int Online
 /// </summary>
 /// <param name="Range"><c>day</c>, <c>week</c>, <c>month</c> or <c>all</c>.</param>
 /// <param name="StepSeconds">
-/// The window was cut into steps this long and the last reading in each kept, so the series is
-/// never more than about 500 points. A day's steps are shorter than the poll rate, so a day is
-/// every reading.
+/// The window was cut into steps this long, each a whole multiple of it since the Unix epoch, and
+/// the last reading in each kept, so the series is never more than 500 points. A day's steps are
+/// shorter than the poll rate, so a day is every reading.
 /// </param>
 /// <param name="DaysWithoutReadings">
 /// UTC days the window touches with nothing behind them: before the first thing known, or, from

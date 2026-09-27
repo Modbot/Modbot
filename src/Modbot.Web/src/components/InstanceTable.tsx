@@ -3,13 +3,14 @@ import { WorldLink } from '@/components/facts'
 import { openInstance } from '@/lib/subject'
 import type { InstanceRow } from '@/lib/api'
 import { access } from '@/lib/format'
-import { instanceNumber } from '@/lib/instanceName'
+import { instanceEnd, instanceNumber } from '@/lib/instanceName'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { cn } from '@/lib/utils'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 
 /**
- * A table of actual instances: where, when, how busy, and how it ended.
+ * A table of actual instances: where, when, how busy, and how it ended. "closed" only when a
+ * moderator closed it by hand; an instance that emptied out and dropped off the list "ended".
  *
  * One copy, shared by the Instances page's two lists, the instances in a world, and the instances one
  * person was seen in. They differ only in which rows they hold.
@@ -85,11 +86,13 @@ export function InstanceTable({
           <Td className="whitespace-nowrap text-muted-foreground">
             <div className="font-mono">{dateTime(r.openedAt)}</div>
             <div style={{ fontSize: 'var(--text-tiny)' }}>
-              {!r.closedAt
-                ? 'open now'
-                : r.closedBy === 'time'
-                  ? 'went quiet'
-                  : <>closed <span className="font-mono">{dateTime(r.closedAt)}</span></>}
+              {!r.closedAt ? (
+                'open now'
+              ) : (
+                <>
+                  {instanceEnd(r)} <span className="font-mono">{dateTime(r.closedAt)}</span>
+                </>
+              )}
             </div>
           </Td>
         </Tr>

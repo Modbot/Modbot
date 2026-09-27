@@ -102,6 +102,9 @@ export function barRows(
   return { rows, runs: missingRuns(days, missing) }
 }
 
+/** How a line fills a day with no row: nought, the last value carried, or nothing at all. */
+export type LineMode = 'zero' | 'carry' | 'gap'
+
 export type LineRow = Record<string, number | string | null | undefined> & { i: number; day: string; mark?: DayMark }
 
 /**
@@ -112,7 +115,8 @@ export type LineRow = Record<string, number | string | null | undefined> & { i: 
  * value seen, as a level should be, but under `carriedKey(key)` rather than `key`: the chart draws
  * that stretch dashed, because the value was carried over, not measured. The carried stretch
  * includes the measured days either side of it, so the dashes join the solid line rather than
- * floating beside it.
+ * floating beside it. `gap` leaves it empty, for a measure a day can simply not have: a day no
+ * instance ended has no typical length, and nought minutes would be a length nothing had.
  *
  * A missing day is null in every key, so the line breaks there instead of dipping to nought or
  * running straight across a day nobody saw.
@@ -121,12 +125,12 @@ export function lineRows(
   from: string,
   to: string,
   series: { key: string; points: DayPoint[] }[],
-  mode: 'zero' | 'carry',
+  mode: LineMode,
   marks: DayMarks = {},
 ): { rows: LineRow[]; runs: DayRun[] } {
   const days = daysBetween(from, to)
   const recorded =
-    mode === 'carry' ? new Set(series.flatMap((s) => s.points.map((p) => p.day))) : daysWithValues(series)
+    mode === 'zero' ? daysWithValues(series) : new Set(series.flatMap((s) => s.points.map((p) => p.day)))
   const missing = missingSet(days, marks.missing, recorded)
 
   const rows: LineRow[] = days.map((day, i) => ({ i, day, mark: markOf(day, missing, marks.today) }))
@@ -149,7 +153,7 @@ export function lineRows(
         last = value
       } else if (mode === 'zero') {
         row[s.key] = 0
-      } else if (last !== null) {
+      } else if (mode === 'carry' && last !== null) {
         row[carried] = last
       }
     })
@@ -168,6 +172,19 @@ export function lineRows(
   }
 
   return { rows, runs: missingRuns(days, missing) }
+}
+
+/**
+ * Whether a point of a line stands alone, with no value on the day before or after it. A line
+ * between days draws nothing for a single day, so the chart puts a dot there instead; without it a
+ * week with one evening in it looked empty.
+ */
+export function standsAlone(rows: readonly LineRow[], key: string, i: number): boolean {
+  const value = rows[i]?.[key]
+  if (value === null || value === undefined) return false
+  const before = rows[i - 1]?.[key]
+  const after = rows[i + 1]?.[key]
+  return (before === null || before === undefined) && (after === null || after === undefined)
 }
 
 /**

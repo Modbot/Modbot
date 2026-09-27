@@ -16,10 +16,20 @@ namespace Modbot.Api.Features.Analytics.Instances;
 /// control mean two different things.
 /// </para>
 /// <para>
-/// Thinned by the server, never by the chart: the window is cut into equal steps and the last
-/// reading in each step is kept, so every point is a total that was true at the time shown. Picking
-/// points in the browser would mean sending the whole staircase first, which is the cost the
-/// thinning exists to avoid.
+/// Thinned by the server, never by the chart. The window is cut into steps on fixed boundaries
+/// (<see cref="ReadingRange"/>), and in each step three readings are kept: the one with the most
+/// people, the one with the most instances open, and the last. The highest, because a line that
+/// kept only each step's last reading dropped an evening's peak whenever it fell between two
+/// readings kept, and never reached the "most people at once" printed above it. The last as well,
+/// because a staircase holds each point until the next one, and a step's peak held across the
+/// quiet hours after it would draw a crowd that had gone home. Every point is still a total that
+/// was true at the time shown. Picking points in the browser would mean sending the whole
+/// staircase first, which is the cost the thinning exists to avoid.
+/// </para>
+/// <para>
+/// Several changes at the same instant (the sweep closing two instances on one clock reading) are
+/// read as one: only the total after the last of them can be kept. That is the rule the page's
+/// peaks use, so the chart and the tiles agree about the highest point.
 /// </para>
 /// </remarks>
 public sealed class InstanceActivityQuery(ModbotContext db)
@@ -52,8 +62,9 @@ public sealed class InstanceActivityQuery(ModbotContext db)
             ? []
             : await PointsAsync(group!, from, to, step, ct);
 
+        var days = new MissingDaysQuery(db);
         var missing = from < to
-            ? await new MissingDaysQuery(db).HeadCountsAsync(AnalyticsSql.DayOf(from), AnalyticsSql.DayOf(to), ct)
+            ? await days.HeadCountsAsync(AnalyticsSql.DayOf(from), AnalyticsSql.DayOf(to), await days.ModbotStartAsync(ct), ct)
             : [];
 
         return new InstanceActivitySeries(range!, from, to, step, points, now, missing);
@@ -79,14 +90,24 @@ public sealed class InstanceActivityQuery(ModbotContext db)
     {
         var sql = $"""
             {InstanceActivitySql.Running}
-            SELECT p.at, p.people, p.instances
-            FROM (
-                SELECT DISTINCT ON (floor(EXTRACT(EPOCH FROM (r.at - @from)) / @step))
-                       r.at, r.people::int AS people, r.instances::int AS instances, r.id
+            , settled AS (
+                SELECT r.at, r.id, r.people::int AS people, r.instances::int AS instances,
+                       floor(EXTRACT(EPOCH FROM r.at) / @step)::bigint AS step_no,
+                       LEAD(r.at) OVER (ORDER BY r.at, r.id) AS next_at
                 FROM running r
-                ORDER BY floor(EXTRACT(EPOCH FROM (r.at - @from)) / @step), r.at DESC, r.id DESC
-            ) p
-            ORDER BY p.at
+            ),
+            ranked AS (
+                SELECT s.at, s.id, s.people, s.instances,
+                       row_number() OVER (PARTITION BY s.step_no ORDER BY s.people DESC, s.instances DESC, s.at, s.id) AS by_people,
+                       row_number() OVER (PARTITION BY s.step_no ORDER BY s.instances DESC, s.people DESC, s.at, s.id) AS by_instances,
+                       row_number() OVER (PARTITION BY s.step_no ORDER BY s.at DESC, s.id DESC) AS by_last
+                FROM settled s
+                WHERE s.next_at IS NULL OR s.next_at > s.at
+            )
+            SELECT p.at, p.people, p.instances
+            FROM ranked p
+            WHERE p.by_people = 1 OR p.by_instances = 1 OR p.by_last = 1
+            ORDER BY p.at, p.id
             """;
 
         return await _sql.ReadAsync(

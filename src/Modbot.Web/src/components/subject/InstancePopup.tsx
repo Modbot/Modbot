@@ -16,7 +16,7 @@ import { concernsInstance } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { access } from '@/lib/format'
-import { instanceName } from '@/lib/instanceName'
+import { instanceEnd, instanceName } from '@/lib/instanceName'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -66,7 +66,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
   return (
     <PopupFrame
       title={title}
-      subtitle={instance ? <span title={instance.location}>{instance.closedAt ? 'Closed' : 'Open now'}</span> : undefined}
+      subtitle={instance ? <span title={instance.location}>{endLabel(instance)}</span> : undefined}
       lead={lead}
       left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
     >
@@ -130,7 +130,7 @@ function Identity({ view }: { view: InstanceView }) {
 
         <Field label="Who can join">{access(instance.groupAccessType) ?? view.type ?? '—'}</Field>
 
-        <Field label={instance.closedAt ? 'Closed' : 'Open now'}>
+        <Field label={endLabel(instance)}>
           {instance.closedAt ? (
             <>
               <span className="font-mono">{dateTime(instance.closedAt)}</span>
@@ -321,4 +321,10 @@ function People({ view }: { view: InstanceView }) {
       )}
     </Panel>
   )
+}
+
+/** "Open now", "Closed" (by a moderator) or "Ended" (on its own), as a heading. */
+function endLabel(instance: Parameters<typeof instanceEnd>[0]): string {
+  const end = instanceEnd(instance)
+  return end.charAt(0).toUpperCase() + end.slice(1)
 }

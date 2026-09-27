@@ -11,11 +11,19 @@ namespace Modbot.Api.Features.Analytics.Instances;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Opened and closed per day come from the daily totals. Everything about an instance's life —
-/// how long it stayed open, how many were open at once — is computed live from the audit log's
-/// instance facts, keyed on <c>(world_id, instance_id)</c> because an instance id is unique only
-/// within its world (spec 5.3). Population comes from presence reports and so only covers
+/// Opened and closed per day come from the daily totals. "Closed" there means closed by a
+/// moderator: it counts VRChat's <c>group.instance.close</c> entries, which VRChat writes only when
+/// somebody closes an instance by hand. How many were open at once is computed live from the audit
+/// log's instance facts, keyed on <c>(world_id, instance_id)</c> because an instance id is unique
+/// only within its world (spec 5.3). Population comes from presence reports and so only covers
 /// instances a moderator's client was in.
+/// </para>
+/// <para>
+/// <strong>How long an instance stays open comes from the instance table, not the audit log.</strong>
+/// Most instances are never closed by hand: they empty out and drop off the group's list, and
+/// Modbot records that end itself in <c>vrchat_instance</c> without any audit entry. Measured from
+/// close entries, the typical time open was "—" on an install whose instances had all ended, beside a
+/// table listing four of them with their lengths. Every ended instance counts here, however it ended.
 /// </para>
 /// <para>
 /// <strong>An instance with no close on record is open until the last thing seen in it.</strong>
@@ -57,15 +65,12 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
             [DailyTotalMetrics.InstancesOpened, DailyTotalMetrics.InstancesClosed], ct);
 
         var lives = await LifetimesAsync(from, to, ct);
+        var ended = await EndedAsync(from, to, ct);
 
-        var withBothEnds = lives
-            .Where(l => l.ClosedAt is not null)
-            .Select(l => (decimal)(l.ClosedAt!.Value - l.OpenedAt).TotalMinutes)
-            .ToList();
-
-        decimal? typical = withBothEnds.Count == 0 ? null : Median(withBothEnds);
+        decimal? typical = ended.Count == 0 ? null : Median(ended.Select(e => e.Minutes));
 
         var missing = new MissingDaysQuery(db);
+        var modbotStart = await missing.ModbotStartAsync(ct);
 
         return new InstancesAnalytics(
             from,
@@ -76,8 +81,8 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
             MostOpenAtOnce(lives, from, to),
             await MostPeopleInOneAsync(from, to, ct),
             typical,
-            TypicalMinutesOpenPerDay(lives),
-            withBothEnds.Count,
+            TypicalMinutesOpenPerDay(ended),
+            ended.Count,
             lives.Count(l => l.OpenedAt >= AnalyticsSql.DayStart(from)),
             await InstancesAsync(openOnly: true, from, to, now, ct),
             await InstancesAsync(openOnly: false, from, to, now, ct),
@@ -85,14 +90,15 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
             await new InstancePeaksQuery(db).RunAsync(from, to, ct),
             await new PresenceCounts(db).ReportsAsync(from, to, ct),
             await missing.AuditLogAsync(from, to, ct),
-            await missing.HeadCountsAsync(from, to, ct),
-            await missing.PresenceReportsAsync(from, to, ct),
+            await missing.HeadCountsAsync(from, to, modbotStart, ct),
+            await missing.PresenceReportsAsync(from, to, modbotStart, ct),
+            MissingDays.Before(from, to, modbotStart),
             await AnalyticsCoverageQuery.RunAsync(db, ct),
             now);
     }
 
     /// <summary>
-    /// The median time open, day by day, over the instances that both opened and closed that day.
+    /// The median time open, day by day, over the instances that ended that day.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -100,17 +106,59 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
     /// getting longer, which is the question anybody who looks at the number twice actually has.
     /// </para>
     /// <para>
-    /// Counted on the day an instance closed, and only where both ends are on record — the same
-    /// rule the window's median uses, so the line and the number beside it cannot disagree. An
-    /// instance that ran past midnight lands on the day it finished.
+    /// Counted on the day an instance ended, over the same instances the window's median uses, so
+    /// the line and the number beside it cannot disagree. An instance that ran past midnight lands
+    /// on the day it finished. A day nothing ended has no row: it has no typical length, and nought
+    /// minutes would be a length nothing had.
     /// </para>
     /// </remarks>
-    private static IReadOnlyList<DayValue> TypicalMinutesOpenPerDay(IReadOnlyList<Lifetime> lives) => lives
-        .Where(l => l.ClosedAt is not null)
-        .GroupBy(l => AnalyticsSql.DayOf(l.ClosedAt!.Value))
+    public static IReadOnlyList<DayValue> TypicalMinutesOpenPerDay(IReadOnlyList<EndedInstance> ended) => ended
+        .GroupBy(e => AnalyticsSql.DayOf(e.ClosedAt))
         .OrderBy(g => g.Key)
-        .Select(g => new DayValue(g.Key, Median(g.Select(l => (decimal)(l.ClosedAt!.Value - l.OpenedAt).TotalMinutes))))
+        .Select(g => new DayValue(g.Key, Median(g.Select(e => e.Minutes))))
         .ToList();
+
+    /// <summary>One instance that has ended: when Modbot first saw it and when it ended.</summary>
+    public sealed record EndedInstance(DateTimeOffset OpenedAt, DateTimeOffset ClosedAt)
+    {
+        /// <summary>How long it was open. Nought, never less, where the two times disagree.</summary>
+        public decimal Minutes => ClosedAt <= OpenedAt ? 0m : (decimal)(ClosedAt - OpenedAt).TotalMinutes;
+    }
+
+    /// <summary>
+    /// The group's instances that ended inside the window, from <c>vrchat_instance</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Whatever ended it: dropping off the group's list, going quiet, or a moderator closing it
+    /// (which VRChat follows by dropping it off the list). <c>opened_at</c> is the first moment
+    /// Modbot knew of the instance, so one already running when Modbot started reads a little short.
+    /// </para>
+    /// <para>
+    /// Only the managed group's own instances. The table also holds public instances a moderator
+    /// wandered into, whose end is the last time anybody was seen there rather than a close.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<EndedInstance>> EndedAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    {
+        var group = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.ManagedGroupId)
+            .FirstOrDefaultAsync(ct);
+
+        if (string.IsNullOrWhiteSpace(group))
+            return [];
+
+        var start = AnalyticsSql.DayStart(from);
+        var end = AnalyticsSql.DayEnd(to);
+
+        var rows = await db.VRChatInstances.AsNoTracking()
+            .Where(i => i.GroupId == group && i.ClosedAt != null && i.ClosedAt >= start && i.ClosedAt < end)
+            .Select(i => new { i.OpenedAt, i.ClosedAt })
+            .ToListAsync(ct);
+
+        return rows.Select(r => new EndedInstance(r.OpenedAt, r.ClosedAt!.Value)).ToList();
+    }
 
     /// <summary>The middle value, or the mean of the middle two. The list is never empty here.</summary>
     private static decimal Median(IEnumerable<decimal> values)

@@ -159,6 +159,7 @@ public class DemoSeedTests
         Assert.NotEqual(string.Empty, state.Step);
 
         await EveryFactPointsAtSomebodyWhoExistsAsync(host, ct);
+        await OnlyTheInstancesAModeratorClosedHaveACloseEntryAsync(host, plan, ct);
         await TheAnalyticsAddUpAsync(host, ct);
         await TheLivePageHasInstancesOpenWithPeopleInThemAsync(host, ct);
         await EverythingTimeBasedEndsNowAsync(host, ct);
@@ -205,6 +206,53 @@ public class DemoSeedTests
             if (fact.WorldId is { Length: > 0 } world)
                 Assert.Contains(world, knownWorlds);
         }
+    }
+
+    /// <summary>
+    /// VRChat writes a close entry only when a moderator closes an instance by hand. The demo used
+    /// to write one for every instance, which hid every screen that mixed up "closed" and "ended".
+    /// </summary>
+    [Fact]
+    public void MostDemoInstancesEndOnTheirOwn_AndAboutOneInFiveIsClosedByAModerator()
+    {
+        var plan = DemoPlan.Build(new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero));
+
+        var ended = plan.Instances.Where(i => i.ClosedAt is not null).ToList();
+        var byHand = ended.Count(i => i.ClosedByModerator);
+
+        Assert.True(ended.Count > 100, $"Only {ended.Count} instances ended.");
+        Assert.InRange((double)byHand / ended.Count, 0.1, 0.3);
+        Assert.DoesNotContain(plan.Instances, i => i.IsOpen && i.ClosedByModerator);
+
+        // The same instances every time the demo is built.
+        var again = DemoPlan.Build(new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero));
+        Assert.Equal(
+            plan.Instances.Select(i => (i.Number, i.ClosedByModerator)),
+            again.Instances.Select(i => (i.Number, i.ClosedByModerator)));
+    }
+
+    private static async Task OnlyTheInstancesAModeratorClosedHaveACloseEntryAsync(
+        DemoSeedHost host,
+        DemoPlan plan,
+        CancellationToken ct)
+    {
+        var closes = await host.Db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.GroupInstanceClosed)
+            .Select(e => new { e.InstanceId, e.ActorId })
+            .ToListAsync(ct);
+
+        var byHand = plan.Instances.Where(i => i.ClosedAt is not null && i.ClosedByModerator).Select(i => i.Number).ToHashSet();
+
+        Assert.Equal(byHand.Count, closes.Count);
+        Assert.All(closes, c => Assert.Contains(c.InstanceId!, byHand));
+
+        // A close by hand has somebody who did it, as VRChat's own entries do.
+        Assert.All(closes, c => Assert.False(string.IsNullOrEmpty(c.ActorId)));
+
+        // Every other ended instance ended the way real ones do: off the group's list, no entry.
+        var endedOnTheirOwn = await host.Db.VRChatInstances.AsNoTracking()
+            .CountAsync(i => i.ClosedAt != null && i.ClosedBy == "list", ct);
+        Assert.True(endedOnTheirOwn > closes.Count * 2, $"{endedOnTheirOwn} ended, {closes.Count} closed by hand.");
     }
 
     private static async Task TheAnalyticsAddUpAsync(DemoSeedHost host, CancellationToken ct)

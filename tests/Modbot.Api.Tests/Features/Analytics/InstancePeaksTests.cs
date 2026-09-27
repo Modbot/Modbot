@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Activity;
 using Modbot.Api.Features.Analytics.Instances;
 using Modbot.Api.Tests.Features.Audit;
 using Modbot.Api.Tests.Features.Places;
@@ -221,6 +222,93 @@ public class InstancePeaksTests
         Assert.Equal(1, series.Points[0].Instances);
         Assert.Equal(10, series.Points[1].People);
         Assert.Equal(2, series.Points[1].Instances);
+    }
+
+    /// <summary>
+    /// A week is cut into half-hour steps. The evening's peak of six lasted three minutes in the
+    /// middle of one, and the old thinning kept only each step's last reading, so the chart topped
+    /// out at four under a tile that said six. Each step now keeps its highest reading and its last.
+    /// </summary>
+    [Fact]
+    public async Task TheActivitySeries_KeepsEachStepsHighestReading_AndItsLast()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
+
+        host.Clock.UtcNow = new DateTimeOffset(2026, 9, 26, 12, 7, 0, TimeSpan.Zero);
+
+        // 03:00 to 03:30 UTC is one half-hour step, counted from the epoch.
+        var opened = new DateTimeOffset(2026, 9, 26, 3, 2, 0, TimeSpan.Zero);
+        var closed = opened.AddMinutes(20);
+        var instance = await PlacesFixtures.InstanceAsync(host, World, "1", opened, closed, closed, ct);
+
+        await CountsAsync(host, instance.Id, ct,
+            (opened, 1),
+            (opened.AddMinutes(10), 6),
+            (opened.AddMinutes(13), 4));
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var series = await host.GetJsonAsync<InstanceActivitySeries>("/api/analytics/instances/activity?range=week", cookie, ct);
+        var page = await PageAsync(host, "days=7", ct);
+
+        Assert.Equal(1800, series.StepSeconds);
+
+        // The peak is on the chart, at its own moment, and it is the peak the tile prints.
+        var peak = Assert.Single(series.Points, p => p.People == 6);
+        Assert.Equal(opened.AddMinutes(10), peak.At, TimeSpan.FromSeconds(1));
+        Assert.Equal(page.Peaks.MostPeopleAtOnce!.Value, series.Points.Max(p => p.People));
+
+        // And the step's last reading, so the line comes back down: the instance ended at 03:22.
+        Assert.Equal(0, series.Points[^1].People);
+        Assert.Equal(closed, series.Points[^1].At, TimeSpan.FromSeconds(1));
+
+        // Nothing kept from the step but its highest (also its most instances) and its last.
+        Assert.Equal(2, series.Points.Count);
+    }
+
+    /// <summary>
+    /// The steps used to start at "now minus the range", so every reload cut the same readings
+    /// differently. Loaded again seven minutes later, with nothing new counted, the chart is the same.
+    /// </summary>
+    [Fact]
+    public async Task TheActivitySeries_DrawsTheSameStepsOnEveryLoad()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
+
+        var now = new DateTimeOffset(2026, 9, 26, 12, 7, 0, TimeSpan.Zero);
+        host.Clock.UtcNow = now;
+
+        var opened = now.AddDays(-2);
+        var closed = opened.AddHours(5);
+        var instance = await PlacesFixtures.InstanceAsync(host, World, "1", opened, closed, closed, ct);
+
+        // A reading every minute for five hours, going up and down.
+        await CountsAsync(host, instance.Id, ct,
+            [.. Enumerable.Range(0, 300).Select(i => (opened.AddMinutes(i), 3 + (i * 7 % 11)))]);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var first = await host.GetJsonAsync<InstanceActivitySeries>("/api/analytics/instances/activity?range=week", cookie, ct);
+
+        host.Clock.UtcNow = now.AddMinutes(7);
+        var second = await host.GetJsonAsync<InstanceActivitySeries>("/api/analytics/instances/activity?range=week", cookie, ct);
+
+        Assert.NotEmpty(first.Points);
+        Assert.Equal(
+            first.Points.Select(p => (p.At, p.People, p.Instances)),
+            second.Points.Select(p => (p.At, p.People, p.Instances)));
+
+        // Every point is in a step of its own or shares it with at most two others.
+        Assert.All(
+            first.Points.GroupBy(p => ReadingRange.StepOf(p.At, first.StepSeconds)),
+            g => Assert.InRange(g.Count(), 1, 3));
+
+        // And the highest reading of the evening is on the chart.
+        Assert.Equal(13, first.Points.Max(p => p.People));
     }
 
     [Fact]

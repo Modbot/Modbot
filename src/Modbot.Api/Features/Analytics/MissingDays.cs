@@ -75,6 +75,12 @@ public static class MissingDays
                 || (firstReading is { } reading && d >= reading && !daysWithReadings.Contains(d)))
             .ToList();
 
+    /// <summary>
+    /// Two lists of missing days as one, in order, each day once.
+    /// </summary>
+    public static IReadOnlyList<DateOnly> Union(IEnumerable<DateOnly> a, IEnumerable<DateOnly> b)
+        => a.Concat(b).Distinct().Order().ToList();
+
     /// <summary>The earlier of two days, either of which may be unknown.</summary>
     public static DateOnly? Earliest(DateOnly? a, DateOnly? b) => (a, b) switch
     {
@@ -174,7 +180,22 @@ public sealed class MissingDaysQuery(ModbotContext db)
     /// total, which is kept forever, and is not missing.
     /// </para>
     /// </remarks>
-    public async Task<IReadOnlyList<DateOnly>> PresenceReportsAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    public Task<IReadOnlyList<DateOnly>> PresenceReportsAsync(DateOnly from, DateOnly to, CancellationToken ct)
+        => UnreportedAsync(from, to, ct);
+
+    /// <summary>
+    /// The days above, and the days before Modbot started: nothing could report from an instance
+    /// before Modbot was there to hear it.
+    /// </summary>
+    /// <param name="modbotStart">From <see cref="ModbotStartAsync"/>.</param>
+    public async Task<IReadOnlyList<DateOnly>> PresenceReportsAsync(
+        DateOnly from,
+        DateOnly to,
+        DateOnly? modbotStart,
+        CancellationToken ct)
+        => MissingDays.Union(MissingDays.Before(from, to, modbotStart), await UnreportedAsync(from, to, ct));
+
+    private async Task<IReadOnlyList<DateOnly>> UnreportedAsync(DateOnly from, DateOnly to, CancellationToken ct)
     {
         var sql = $"""
             WITH {Lives},
@@ -221,11 +242,24 @@ public sealed class MissingDaysQuery(ModbotContext db)
     /// Days a group instance was open and Modbot had no head count for any of that time.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The same rule the instance coverage uses (peaks spec 3.1): an instance counts from its first
     /// head count onwards, and the measure is open time, never the calendar. A day nothing was open
     /// is a quiet day and not missing; a day an instance was open and never counted is.
+    /// </para>
+    /// <para>
+    /// Days before Modbot started are missing as well. The rule above can only find an uncounted
+    /// instance in the instance table, and before Modbot existed that table has nothing in it, so
+    /// those days used to read as quiet: nought people, beside audit-log charts that striped the same
+    /// days as no data.
+    /// </para>
     /// </remarks>
-    public async Task<IReadOnlyList<DateOnly>> HeadCountsAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    /// <param name="modbotStart">From <see cref="ModbotStartAsync"/>.</param>
+    public async Task<IReadOnlyList<DateOnly>> HeadCountsAsync(
+        DateOnly from,
+        DateOnly to,
+        DateOnly? modbotStart,
+        CancellationToken ct)
     {
         var sql = $"""
             WITH {Lives},
@@ -254,7 +288,57 @@ public sealed class MissingDaysQuery(ModbotContext db)
             ORDER BY d
             """;
 
-        return await _sql.ReadAsync(sql, r => AnalyticsSql.DayOf(r, 0), ct, await WindowParametersAsync(from, to, ct));
+        var uncounted = await _sql.ReadAsync(sql, r => AnalyticsSql.DayOf(r, 0), ct, await WindowParametersAsync(from, to, ct));
+
+        return MissingDays.Union(MissingDays.Before(from, to, modbotStart), uncounted);
+    }
+
+    /// <summary>
+    /// The first day Modbot was collecting anything about the group as it happened, or null when it
+    /// never has.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The earliest of four things only a running Modbot can write, each one index lookup: the first
+    /// of the group's instances it saw (<c>vrchat_instance.opened_at</c> is the moment Modbot first
+    /// knew of it), the first head count, the first member count reading, and the first presence
+    /// report from a companion.
+    /// </para>
+    /// <para>
+    /// Not the audit log. Its catch-up reads back through the history VRChat still holds, so its
+    /// first fact can be weeks older than Modbot itself. The audit-log charts are right to show those
+    /// weeks (<see cref="AuditLogAsync"/>); a head-count chart has nothing for them.
+    /// </para>
+    /// </remarks>
+    public async Task<DateOnly?> ModbotStartAsync(CancellationToken ct)
+    {
+        const string Sql = """
+            SELECT LEAST(
+                (SELECT MIN(i.opened_at) FROM vrchat_instance i WHERE i.group_id = @group),
+                (SELECT MIN(h.counted_at) FROM instance_head_count h),
+                (SELECT MIN(c.counted_at) FROM group_member_count c WHERE c.group_id = @group),
+                (SELECT MIN(f.first_at)
+                 FROM unnest(@presence) AS t(type)
+                 CROSS JOIN LATERAL (
+                     SELECT MIN(e.occurred_at) AS first_at
+                     FROM modbot_event e
+                     WHERE e.type = t.type
+                 ) f))
+            """;
+
+        var group = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.ManagedGroupId)
+            .FirstOrDefaultAsync(ct);
+
+        var rows = await _sql.ReadAsync(
+            Sql,
+            r => AnalyticsSql.InstantOrNull(r, 0),
+            ct,
+            ("group", string.IsNullOrWhiteSpace(group) ? string.Empty : group),
+            ("presence", AnalyticsSql.PresenceTypes));
+
+        return rows.Count > 0 && rows[0] is { } at ? AnalyticsSql.DayOf(at) : null;
     }
 
     /// <summary>

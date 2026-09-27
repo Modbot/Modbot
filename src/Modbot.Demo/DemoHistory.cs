@@ -293,7 +293,10 @@ public sealed class DemoHistory
                 }),
             };
 
-            if (instance.ClosedAt is { } closed)
+            // A close entry only for the few a moderator closed by hand. The rest end the way most
+            // real instances do: they empty out, drop off the group's list, and VRChat writes
+            // nothing. The seeder records that end on the instance itself (closed by "list").
+            if (instance.ClosedAt is { } closed && instance.ClosedByModerator)
             {
                 yield return new FactRecord
                 {
@@ -301,10 +304,12 @@ public sealed class DemoHistory
                     OccurredAt = closed,
                     SubjectPlatform = FactPlatform.VRChat,
                     SubjectId = opener.UserId,
+                    ActorPlatform = FactPlatform.VRChat,
+                    ActorId = opener.UserId,
                     WorldId = instance.World.WorldId,
                     InstanceId = instance.Number,
                     Source = FactSource.AuditLog,
-                    Data = Held([], [], [], new JsonObject { ["worldName"] = instance.World.Name }),
+                    Data = Held(opener.GroupRoles, opener.GroupRoles, [], new JsonObject { ["worldName"] = instance.World.Name }),
                 };
             }
 

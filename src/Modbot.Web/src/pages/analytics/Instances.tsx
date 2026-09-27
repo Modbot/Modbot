@@ -18,8 +18,9 @@ const THIN_REPORTS = 200
 /**
  * Instances -- when is the community actually active? (spec 10.1)
  *
- * Opened and closed per day come from the daily totals. How long instances stay open and how many
- * are open at once come from the fact log. The heatmap is the cyclic answer spec 5.10 says a daily
+ * Opened and closed per day come from the daily totals; "closed" there is closed by a moderator.
+ * How many are open at once comes from the fact log, and how long instances stay open from the
+ * instance table, which records every end however it came about. The heatmap is the cyclic answer spec 5.10 says a daily
  * series cannot give: "Tuesdays at 8pm are our busiest hour" is only visible once the days are laid
  * over each other.
  *
@@ -47,17 +48,7 @@ export function Instances() {
 
       {data && (
         <PanelGrid className="grid-cols-1">
-          <StatStrip>
-            <Stat label="Opened" value={compactNumber(sum(data.opened))} />
-            <Stat label="Closed" value={compactNumber(sum(data.closed))} />
-            <Stat
-              label="Typical time open"
-              value={data.typicalMinutesOpen === null ? '—' : minutes(data.typicalMinutesOpen)}
-            />
-            <Stat label="Most open at once" value={compactNumber(max(data.mostOpenAtOnce))} />
-          </StatStrip>
-
-          <Peaks peaks={data.peaks} />
+          <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
 
           {/*
             Before the charts, deliberately. The counts answer "is the community active"; this
@@ -167,11 +158,13 @@ export function Instances() {
           </PanelGrid>
 
           <PanelGrid className="lg:grid-cols-2">
+            {/* A gap, not nought, on a day nothing ended: that day has no typical length. */}
             <Panel title="Typical time open, per day">
               <DailyLine
                 from={data.from}
                 to={data.to}
-                missing={data.daysWithoutAuditLog}
+                mode="gap"
+                missing={data.daysBeforeModbot}
                 today={data.today}
                 series={[{ key: 'open', label: 'typical time open', points: data.typicalMinutesOpenPerDay, slot: 4 }]}
                 format={minutes}
@@ -193,7 +186,18 @@ export function Instances() {
             </Panel>
           </PanelGrid>
 
-          <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
+          {/* The tiles last: the instances and charts above are what a moderator came for. */}
+          <StatStrip>
+            <Stat label="Opened" value={compactNumber(sum(data.opened))} />
+            <Stat label="Closed" value={compactNumber(sum(data.closed))} />
+            <Stat
+              label="Typical time open"
+              value={data.typicalMinutesOpen === null ? '—' : minutes(data.typicalMinutesOpen)}
+            />
+            <Stat label="Most open at once" value={compactNumber(max(data.mostOpenAtOnce))} />
+          </StatStrip>
+
+          <Peaks peaks={data.peaks} />
         </PanelGrid>
       )}
     </div>
