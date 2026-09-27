@@ -445,11 +445,14 @@ public static class ApiSurface
         // fact log resolve optionally here for the same reason they do above.
         Features.Requests.RequestEndpoints.MapJoinRequests(app);
 
-        // The group's own page on VRChat: its profile and its posts, changed from the VRChat
+        // The group's own page on VRChat: its profile, posts, roles, sent invites and gallery, changed from the VRChat
         // page. Each write is one request a person pressed a button for; the gate and the fact log
         // resolve optionally for the same reason they do above.
         Features.GroupPage.GroupProfileEndpoints.MapGroupProfile(app);
         Features.GroupPage.GroupPostEndpoints.MapGroupPosts(app);
+        Features.GroupPage.GroupRoleEndpoints.MapGroupRoles(app);
+        Features.GroupPage.GroupInviteEndpoints.MapGroupInvites(app);
+        Features.GroupPage.GroupGalleryEndpoints.MapGroupGallery(app);
 
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.

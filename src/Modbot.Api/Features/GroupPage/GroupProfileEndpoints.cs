@@ -87,7 +87,7 @@ public static class GroupProfileEndpoints
                 var answer = await vrchat.UpdateAsync(groupId, request, ct);
 
                 if (!answer.Success)
-                    return GroupPageAnswers.Refused(answer);
+                    return GroupPageAnswers.Refused(answer, "UpdateGroup", groupId, settings);
 
                 var now = clock.UtcNow;
 

@@ -40,6 +40,12 @@ public static class GroupPageRules
     /// <summary>The most posts one page asks VRChat for.</summary>
     public const int PostPageSize = 20;
 
+    /// <summary>The most invites one page asks VRChat for.</summary>
+    public const int InvitePageSize = 50;
+
+    /// <summary>The most gallery images one page asks VRChat for.</summary>
+    public const int GalleryPageSize = 40;
+
     /// <summary>Who can join, in VRChat's words, in the order its settings list them.</summary>
     public static readonly IReadOnlyList<string> JoinStates = ["open", "request", "invite", "closed"];
 
@@ -192,6 +198,75 @@ public static class GroupPageRules
         var image = string.IsNullOrWhiteSpace(body.ImageId) ? null : body.ImageId;
 
         return (new GroupPostBody(id, title, text, visibility, roles, body.Notify, image), null);
+    }
+
+    /// <summary>
+    /// A role with its text trimmed and its permissions cleaned; or the reason it cannot be sent.
+    /// VRChat requires a name for a new role and documents no length limits for either field, so
+    /// none is made up here.
+    /// </summary>
+    /// <remarks>
+    /// Permission ids are passed through as VRChat's own words. Only blanks and repeats go: an id
+    /// this build does not know may be one VRChat added since, and the role already holding it must
+    /// be able to keep it (spec 3.1.1's rule for ids, applied to these too).
+    /// </remarks>
+    public static (GroupRoleBody? Role, string? Problem) TidyRole(GroupRoleBody body, bool creating)
+    {
+        ArgumentNullException.ThrowIfNull(body);
+
+        var id = string.IsNullOrWhiteSpace(body.Id) ? null : body.Id;
+
+        if (!creating && id is null)
+            return (null, "Say which role to change.");
+
+        var name = body.Name?.Trim();
+        if ((creating && string.IsNullOrEmpty(name)) || name is { Length: 0 })
+            return (null, "A role needs a name.");
+
+        var description = body.Description?.Trim();
+
+        var permissions = body.Permissions?
+            .Select(p => (p ?? string.Empty).Trim())
+            .Where(p => p.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(p => p, StringComparer.Ordinal)
+            .ToList();
+
+        return (new GroupRoleBody(id, name, description, permissions), null);
+    }
+
+    /// <summary>
+    /// Each field of a role that the tidied body actually changes, with what it was and what it
+    /// becomes. <paramref name="before"/> is the role as last recorded, or null when Modbot has no
+    /// record of it, in which case every field the body sets counts as a change.
+    /// </summary>
+    public static IReadOnlyList<(string Field, JsonNode? Old, JsonNode? New)> RoleChanges(
+        (string? Name, string? Description, IReadOnlyList<string> Permissions)? before, GroupRoleBody tidy)
+    {
+        ArgumentNullException.ThrowIfNull(tidy);
+
+        var changes = new List<(string, JsonNode?, JsonNode?)>();
+
+        void Text(string field, string? was, string? now)
+        {
+            if (now is not null && (before is null || !string.Equals(was ?? string.Empty, now, StringComparison.Ordinal)))
+                changes.Add((field, was is null ? null : JsonValue.Create(was), JsonValue.Create(now)));
+        }
+
+        Text("name", before?.Name, tidy.Name);
+        Text("description", before?.Description, tidy.Description);
+
+        if (tidy.Permissions is { } now)
+        {
+            var was = before?.Permissions.OrderBy(p => p, StringComparer.Ordinal).ToList();
+
+            if (was is null || !was.SequenceEqual(now, StringComparer.Ordinal))
+                changes.Add(("permissions",
+                    was is null ? null : new JsonArray([.. was.Select(v => (JsonNode?)JsonValue.Create(v))]),
+                    new JsonArray([.. now.Select(v => (JsonNode?)JsonValue.Create(v))])));
+        }
+
+        return changes;
     }
 
     /// <summary>A link written the way Modbot stores one, or null when it is not a web address.</summary>

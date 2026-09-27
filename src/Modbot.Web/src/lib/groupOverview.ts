@@ -13,24 +13,37 @@ import { mayOpen, type PageId } from './nav.ts'
  * The row under the group's header, named and ordered the way vrchat.com names a group's tabs:
  * Overview · Posts · Events · Instances · Gallery · Members · Invites · Settings · Banned Users.
  *
- * Overview, Posts, Instances and Settings are the VRChat page itself, each at an address of its own
- * under it; Events, Members and Banned Users lead to the Modbot pages that show that part of the
- * group. Gallery and Invites are not built yet and have no tab until they are: each goes in at its
- * place in VRChat's order, after Instances and after Members.
+ * Overview, Posts, Instances, Gallery, Invites and Settings are the VRChat page itself, each at an
+ * address of its own under it; Events, Members and Banned Users lead to the Modbot pages that show
+ * that part of the group.
  */
 export const GROUP_TABS: readonly { id: PageId; label: string }[] = [
   { id: 'analytics-group', label: 'Overview' },
   { id: 'group-posts', label: 'Posts' },
   { id: 'calendar', label: 'Events' },
   { id: 'analytics-instances', label: 'Instances' },
+  { id: 'group-gallery', label: 'Gallery' },
   { id: 'members', label: 'Members' },
+  { id: 'group-invites', label: 'Invites' },
   { id: 'group-settings', label: 'Settings' },
   { id: 'bans', label: 'Banned Users' },
 ]
 
-/** The tabs this person may open, in order: a page the sidebar hides is not offered here either. */
+/**
+ * The tabs this person may open, in order: a page the sidebar hides is not offered here either.
+ * Settings opens at General, or at Roles for somebody who may manage roles but not the profile.
+ */
 export function groupTabs(me: CurrentUser): { id: PageId; label: string }[] {
-  return GROUP_TABS.filter((tab) => mayOpen(me, tab.id))
+  return GROUP_TABS.flatMap((tab) => {
+    if (mayOpen(me, tab.id)) return [tab]
+    if (tab.id === 'group-settings' && mayOpen(me, 'group-roles')) return [{ id: 'group-roles' as PageId, label: tab.label }]
+    return []
+  })
+}
+
+/** The Settings tab's own id for this person: the one `groupTabs` gives them. */
+export function settingsTab(me: CurrentUser): PageId {
+  return mayOpen(me, 'group-settings') ? 'group-settings' : 'group-roles'
 }
 
 /** `TESTIN.4698`, the way VRChat writes a group's code; the code alone without the digits. */

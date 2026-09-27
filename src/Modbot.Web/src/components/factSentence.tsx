@@ -1574,6 +1574,39 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'modbot.group.role.create': (p) => {
+    const permissions = p.entry.data?.['permissions']
+    const count = Array.isArray(permissions) ? permissions.length : null
+    return (
+      <>
+        {p.actor} created the group role<Quoted value={p.text('name')} />
+        {count !== null ? <> with {count === 1 ? '1 permission' : `${count} permissions`}</> : null}.
+      </>
+    )
+  },
+
+  'modbot.group.role.change': (p) => (
+    <>
+      {p.actor} changed the group role<Quoted value={p.text('name')} />
+      <Changed changed={p.changed} />.
+      <ChangedLists changed={p.changed} />
+    </>
+  ),
+
+  'modbot.group.role.delete': (p) => (
+    <>
+      {p.actor} deleted the group role<Quoted value={p.text('name')} />.
+    </>
+  ),
+
+  'modbot.group.invite.cancel': (p) => <>{p.actor} cancelled the group's invite to {p.subject}.</>,
+
+  'modbot.group.gallery.image.delete': (p) => (
+    <>
+      {p.actor} removed an image from the gallery<Quoted value={p.text('galleryName')} />.
+    </>
+  ),
+
   // ── Everything else Modbot does ─────────────────────────────────────────────────────────────
   'modbot.import.done': (p) => {
     const file = p.text('fileName') ?? 'a file'

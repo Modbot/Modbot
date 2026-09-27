@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { groupCode, groupTabs, isWebLink, languageName, linkLabel, nextEvent } from '../src/lib/groupOverview.ts'
+import { groupCode, groupTabs, isWebLink, languageName, linkLabel, nextEvent, settingsTab } from '../src/lib/groupOverview.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
 import type { CalendarEvent } from '../src/lib/calendar.ts'
 
@@ -16,7 +16,9 @@ test('the tabs are named and ordered the way vrchat.com names them, and lead to 
       ['Posts', 'group-posts'],
       ['Events', 'calendar'],
       ['Instances', 'analytics-instances'],
+      ['Gallery', 'group-gallery'],
       ['Members', 'members'],
+      ['Invites', 'group-invites'],
       ['Settings', 'group-settings'],
       ['Banned Users', 'bans'],
     ],
@@ -26,12 +28,26 @@ test('the tabs are named and ordered the way vrchat.com names them, and lead to 
 test('a tab the person may not open is not offered, the same as in the sidebar', () => {
   assert.deepEqual(
     groupTabs(person('ViewAnalytics')).map((t) => t.label),
-    ['Overview', 'Posts', 'Instances'],
+    ['Overview', 'Posts', 'Instances', 'Gallery'],
   )
   assert.deepEqual(
     groupTabs(person('ViewAnalytics', 'ViewCalendar', 'EditGroupProfile')).map((t) => t.label),
-    ['Overview', 'Posts', 'Events', 'Instances', 'Settings'],
+    ['Overview', 'Posts', 'Events', 'Instances', 'Gallery', 'Settings'],
   )
+})
+
+test('Invites is only offered to somebody who may manage invites', () => {
+  assert.ok(!groupTabs(person('ViewAnalytics')).some((t) => t.id === 'group-invites'))
+  assert.ok(groupTabs(person('ViewAnalytics', 'ManageGroupInvites')).some((t) => t.id === 'group-invites'))
+})
+
+test('Settings opens at Roles for somebody who may manage roles but not the profile', () => {
+  const tabs = groupTabs(person('ViewAnalytics', 'ManageGroupRoles'))
+  const settings = tabs.find((t) => t.label === 'Settings')
+
+  assert.equal(settings?.id, 'group-roles')
+  assert.equal(settingsTab(person('ViewAnalytics', 'ManageGroupRoles')), 'group-roles')
+  assert.equal(settingsTab(person('ViewAnalytics', 'EditGroupProfile', 'ManageGroupRoles')), 'group-settings')
 })
 
 test('Settings is only offered to somebody who may change the group', () => {

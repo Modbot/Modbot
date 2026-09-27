@@ -2,7 +2,9 @@ import { useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Outcome } from '@/components/settings/fields'
-import { ApiError } from '@/lib/api'
+import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
+import { ApiError, type MissingGroupPermission } from '@/lib/api'
+import { missingPermissionOf } from '@/lib/vrchatPermissions'
 
 /**
  * The confirmation before a small action that takes something away: dismissing a flag, unlinking
@@ -76,17 +78,22 @@ function ConfirmBody({
 }) {
   const [sending, setSending] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
+  const [missing, setMissing] = useState<MissingGroupPermission | null>(null)
 
   const send = () => {
     setSending(true)
     setProblem(null)
+    setMissing(null)
 
     onConfirm()
       .then(() => {
         onClose()
         onDone?.()
       })
-      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : failed))
+      .catch((e: unknown) => {
+        setProblem(e instanceof ApiError ? e.message : failed)
+        setMissing(e instanceof ApiError ? missingPermissionOf(e.detail) : null)
+      })
       .finally(() => setSending(false))
   }
 
@@ -102,7 +109,11 @@ function ConfirmBody({
           </Button>
         </div>
 
-        <Outcome tone="problem">{problem}</Outcome>
+        {missing ? (
+          <VRChatPermissionMissing missing={missing} className="text-destructive" />
+        ) : (
+          <Outcome tone="problem">{problem}</Outcome>
+        )}
       </div>
     </DialogContent>
   )

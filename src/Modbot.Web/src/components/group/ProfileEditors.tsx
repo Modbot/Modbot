@@ -1,11 +1,13 @@
 import { useId } from 'react'
 import { Pencil, Plus, X } from 'lucide-react'
 import { Outcome } from '@/components/settings/fields'
+import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import type { MissingGroupPermission } from '@/lib/api'
 import { LIMITS, languageChoices } from '@/lib/groupProfile'
 import { languageName } from '@/lib/groupOverview'
 import { cn } from '@/lib/utils'
@@ -29,11 +31,15 @@ export function EditButton({ label, onClick }: { label: string; onClick: () => v
   )
 }
 
-/** Cancel and Save, with the reason a Save failed beside them. */
+/**
+ * Cancel and Save, with the reason a Save failed beside them: the VRChat permission Modbot's account
+ * is missing, with the link to grant it, when that is the reason.
+ */
 export function SaveCancel({
   saving,
   disabled,
   problem,
+  missing = null,
   onSave,
   onCancel,
   save = 'Save',
@@ -42,6 +48,7 @@ export function SaveCancel({
   /** Nothing to save yet, or something in the form is wrong. */
   disabled?: boolean
   problem: string | null
+  missing?: MissingGroupPermission | null
   onSave: () => void
   onCancel: () => void
   save?: string
@@ -57,7 +64,11 @@ export function SaveCancel({
         </Button>
       </div>
       <div className="text-right">
-        <Outcome tone="problem">{problem}</Outcome>
+        {missing ? (
+          <VRChatPermissionMissing missing={missing} className="text-destructive" />
+        ) : (
+          <Outcome tone="problem">{problem}</Outcome>
+        )}
       </div>
     </div>
   )

@@ -103,6 +103,9 @@ public sealed class GroupInfoSync
         // analytics page shows the group as it is now, and neither is worth a fact.
         RecordLanguagesAndLinks(settings, group.Languages, group.Links);
 
+        // The galleries, for the Gallery tab to list without a request of its own.
+        RecordGalleries(settings, group.Galleries);
+
         // Modbot's own roles and permissions in the group, from `myMember` in the same answer, so a
         // refusal for a missing permission can say what the account has (VRChatGroupPermissions).
         RecordAccount(settings, result.RawResponse);
@@ -194,6 +197,32 @@ public sealed class GroupInfoSync
     }
 
     /// <summary>
+    /// Stores the roles as VRChat answered a role edit made from Modbot: the whole list after a
+    /// change or a delete, the one new role after a create. Saved by the caller.
+    /// </summary>
+    /// <remarks>
+    /// For the reason <see cref="RecordEdit"/> gives: the next poll then sees no change and writes
+    /// no <see cref="FactType.GroupInfoChanged"/> for one the edit already recorded with who made
+    /// it. Before the first poll there is no snapshot, and none is made here.
+    /// </remarks>
+    public static void RecordRoles(Settings settings, IReadOnlyList<global::VRChat.API.Model.GroupRole>? all = null, global::VRChat.API.Model.GroupRole? added = null)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        if (GroupInfoSnapshot.Parse(settings.GroupInfoSnapshot) is not { } previous)
+            return;
+
+        if (all is not null)
+            previous = previous.WithRoles(all);
+        else if (added is not null)
+            previous = previous.WithRole(added);
+        else
+            return;
+
+        settings.GroupInfoSnapshot = previous.ToJson();
+    }
+
+    /// <summary>
     /// Keeps the group's icon and banner up to date, ignoring anything that is not an
     /// <c>https</c> address.
     /// </summary>
@@ -255,6 +284,21 @@ public sealed class GroupInfoSync
             && (parsed.Scheme == Uri.UriSchemeHttps || parsed.Scheme == Uri.UriSchemeHttp)
                 ? parsed.AbsoluteUri
                 : null;
+    }
+
+    /// <summary>
+    /// Keeps the group's galleries up to date. An answer with no gallery list keeps what was
+    /// recorded before; an empty one means the group has none.
+    /// </summary>
+    internal static void RecordGalleries(Settings settings, IReadOnlyList<global::VRChat.API.Model.GroupGallery>? galleries)
+    {
+        if (galleries is null)
+            return;
+
+        var json = GroupGallerySnapshot.ToJson(GroupGallerySnapshot.From(galleries));
+
+        if (!string.Equals(settings.ManagedGroupGalleries, json, StringComparison.Ordinal))
+            settings.ManagedGroupGalleries = json;
     }
 
     /// <summary>

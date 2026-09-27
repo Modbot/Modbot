@@ -57,6 +57,9 @@ import { Requests } from '@/pages/Requests'
 import { People } from '@/pages/People'
 import { GroupPosts } from '@/pages/analytics/GroupPosts'
 import { GroupSettings } from '@/pages/analytics/GroupSettings'
+import { GroupRoles } from '@/pages/analytics/GroupRoles'
+import { GroupInvites } from '@/pages/analytics/GroupInvites'
+import { GroupGallery } from '@/pages/analytics/GroupGallery'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
 import { MyServer } from '@/pages/analytics/MyServer'
@@ -91,6 +94,9 @@ const TITLES: Record<PageId, string> = {
   'analytics-instances': 'VRChat',
   'group-posts': 'VRChat',
   'group-settings': 'VRChat',
+  'group-roles': 'VRChat',
+  'group-gallery': 'VRChat',
+  'group-invites': 'VRChat',
   reviews: 'Reviews',
   health: 'Health',
   logs: "Modbot's log",
@@ -128,6 +134,9 @@ const PATHS: Record<PageId, string> = {
   'analytics-instances': '/analytics/instances',
   'group-posts': '/analytics/group/posts',
   'group-settings': '/analytics/group/settings',
+  'group-roles': '/analytics/group/settings/roles',
+  'group-gallery': '/analytics/group/gallery',
+  'group-invites': '/analytics/group/invites',
   reviews: '/reviews',
   health: '/health',
   logs: '/logs',
@@ -601,6 +610,9 @@ function Shell({
           {page === 'analytics-instances' && <Instances me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-posts' && <GroupPosts me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-settings' && <GroupSettings me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-roles' && <GroupRoles me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-gallery' && <GroupGallery me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-invites' && <GroupInvites me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
           {page === 'health' && <Health />}
           {page === 'logs' && <Logs />}

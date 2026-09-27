@@ -266,7 +266,7 @@ function PostForm({
   onSaved: (post: GroupPostRow, created: boolean) => void
 }) {
   const [draft, setDraft] = useState<PostDraft>(() => (post ? draftOf(post) : emptyDraft()))
-  const { saving, problem, run } = useSave(post ? 'Could not save the post.' : 'Could not post.')
+  const { saving, problem, missing, run } = useSave(post ? 'Could not save the post.' : 'Could not post.')
   const invalid = postProblem(draft)
   const set = (change: Partial<PostDraft>) => setDraft((d) => ({ ...d, ...change }))
 
@@ -341,6 +341,7 @@ function PostForm({
 
       <SaveCancel
         saving={saving}
+        missing={missing}
         disabled={invalid !== null}
         problem={problem}
         onCancel={onCancel}

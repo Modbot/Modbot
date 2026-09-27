@@ -1448,6 +1448,68 @@ export type GroupPostBody = {
   imageId?: string | null
 }
 
+/** One of the group's roles on VRChat. */
+export type GroupRoleRow = {
+  id: string
+  name: string | null
+  description: string | null
+  /** VRChat's ids (`group-bans-manage`; `*` is every permission), including any with no label here. */
+  permissions: string[]
+  order: number
+  /** The role every member has. VRChat does not let it be deleted. */
+  isDefault: boolean
+  isManagementRole: boolean
+  isSelfAssignable: boolean
+  requiresTwoFactor: boolean
+  /** Whether Modbot's own VRChat account has the role, as last read. */
+  heldByModbot: boolean
+}
+
+export type GroupRoleList = { roles: GroupRoleRow[]; readAt: string }
+
+/** A new role, or a change to one (`id` set). A field left out is kept. */
+export type GroupRoleBody = {
+  id?: string | null
+  name?: string
+  description?: string
+  permissions?: string[]
+}
+
+/** Somebody the group invited on VRChat who has not answered yet. */
+export type GroupInviteRow = { userId: string; displayName: string | null; invitedAt: string | null }
+
+export type GroupInviteList = {
+  invites: GroupInviteRow[]
+  page: number
+  pageSize: number
+  /** True when the page came back full: VRChat sends no total. */
+  hasMore: boolean
+  readAt: string
+}
+
+export type GroupGalleryChoice = { id: string; name: string | null; description: string | null; membersOnly: boolean }
+
+export type GroupGalleryImageRow = {
+  id: string
+  imageUrl: string | null
+  /** False while it waits for somebody to approve it. */
+  approved: boolean
+  submittedById: string | null
+  submittedByName: string | null
+  createdAt: string | null
+}
+
+export type GroupGalleryPage = {
+  galleries: GroupGalleryChoice[]
+  /** The gallery these images are from; null when the group has none. */
+  galleryId: string | null
+  images: GroupGalleryImageRow[]
+  page: number
+  pageSize: number
+  hasMore: boolean
+  readAt: string
+}
+
 export type GroupInfo = {
   id: string | null
   name: string | null
@@ -4465,6 +4527,25 @@ export const api = {
     request<{ post: GroupPostRow }>('/api/group/posts', { method: 'PUT', body: JSON.stringify(body) }),
   deleteGroupPost: (id: string, title: string | null) =>
     request<void>('/api/group/posts/delete', { method: 'POST', body: JSON.stringify({ id, title }) }),
+  groupRoles: () => request<GroupRoleList>('/api/group/roles'),
+  createGroupRole: (body: GroupRoleBody) =>
+    request<{ role: GroupRoleRow }>('/api/group/roles', { method: 'POST', body: JSON.stringify(body) }),
+  updateGroupRole: (body: GroupRoleBody) =>
+    request<{ role: GroupRoleRow }>('/api/group/roles', { method: 'PUT', body: JSON.stringify(body) }),
+  deleteGroupRole: (id: string, name: string | null) =>
+    request<void>('/api/group/roles/delete', { method: 'POST', body: JSON.stringify({ id, name }) }),
+  groupInvites: (page = 1) => request<GroupInviteList>(`/api/group/invites?page=${page}`),
+  cancelGroupInvite: (userId: string, displayName: string | null) =>
+    request<void>('/api/group/invites/cancel', { method: 'POST', body: JSON.stringify({ userId, displayName }) }),
+  groupGallery: (galleryId: string | null, page = 1) =>
+    request<GroupGalleryPage>(
+      `/api/group/gallery?page=${page}${galleryId ? `&galleryId=${encodeURIComponent(galleryId)}` : ''}`,
+    ),
+  removeGroupGalleryImage: (galleryId: string, imageId: string, submittedById: string | null) =>
+    request<void>('/api/group/gallery/remove', {
+      method: 'POST',
+      body: JSON.stringify({ galleryId, imageId, submittedById }),
+    }),
   teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),

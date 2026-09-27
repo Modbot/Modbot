@@ -240,6 +240,24 @@ public static class VRChatRateLimits
     /// <summary>Posting, changing and deleting a post (<see cref="VRChatEndpointClass.GroupsPostsWrite"/>).</summary>
     public const string GroupsPostsWriteLane = "groups.posts.write";
 
+    /// <summary>Reading the group's roles (<see cref="VRChatEndpointClass.GroupsRoles"/>).</summary>
+    public const string GroupsRolesLane = "groups.roles";
+
+    /// <summary>Creating, changing and deleting a role (<see cref="VRChatEndpointClass.GroupsRolesWrite"/>).</summary>
+    public const string GroupsRolesWriteLane = "groups.roles.write";
+
+    /// <summary>Reading the invites sent (<see cref="VRChatEndpointClass.GroupsInvitesRead"/>).</summary>
+    public const string GroupsInvitesReadLane = "groups.invites.read";
+
+    /// <summary>Cancelling an invite (<see cref="VRChatEndpointClass.GroupsInvitesCancel"/>).</summary>
+    public const string GroupsInvitesCancelLane = "groups.invites.cancel";
+
+    /// <summary>Reading a gallery's images (<see cref="VRChatEndpointClass.GroupsGallery"/>).</summary>
+    public const string GroupsGalleryLane = "groups.gallery";
+
+    /// <summary>Removing a gallery image (<see cref="VRChatEndpointClass.GroupsGalleryWrite"/>).</summary>
+    public const string GroupsGalleryWriteLane = "groups.gallery.write";
+
     /// <summary>
     /// The backstop for what a moderator presses. Never entered as a queue -- a backstop is only
     /// ever an ancestor -- but every class names a lane, and this one names its own so nothing
@@ -445,6 +463,47 @@ public static class VRChatRateLimits
             // a Refresh never holds up a Post, and a 429 on either leaves the other working.
             [VRChatEndpointClass.GroupsPostsWrite] = new(
                 VRChatEndpointClass.GroupsPostsWrite, GroupsPostsWriteLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                ResourceScoped: true),
+
+            // NOT MEASURED -- the three lists the VRChat page's Roles, Invites and Gallery tabs
+            // read: GET /groups/{groupId}/roles, /invites and /galleries/{galleryId}. Each at
+            // groups.read's 0.2 req/s, one request when its tab opens, per page and per Refresh;
+            // nothing polls them. Interactive backstop, like the posts: somebody opened a page.
+            [VRChatEndpointClass.GroupsRoles] = new(
+                VRChatEndpointClass.GroupsRoles, GroupsRolesLane,
+                HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
+                Backstop: VRChatEndpointClass.Interactive,
+                ResourceScoped: true),
+
+            [VRChatEndpointClass.GroupsInvitesRead] = new(
+                VRChatEndpointClass.GroupsInvitesRead, GroupsInvitesReadLane,
+                HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
+                Backstop: VRChatEndpointClass.Interactive,
+                ResourceScoped: true),
+
+            [VRChatEndpointClass.GroupsGallery] = new(
+                VRChatEndpointClass.GroupsGallery, GroupsGalleryLane,
+                HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
+                Backstop: VRChatEndpointClass.Interactive,
+                ResourceScoped: true),
+
+            // NOT MEASURED -- the writes those tabs make: creating, changing and deleting a role,
+            // cancelling an invite, removing a gallery image. One per ten seconds each, on the
+            // global backstop for the reason groups.edit gives, and each apart from its read so a
+            // Refresh never holds up a Save.
+            [VRChatEndpointClass.GroupsRolesWrite] = new(
+                VRChatEndpointClass.GroupsRolesWrite, GroupsRolesWriteLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                ResourceScoped: true),
+
+            [VRChatEndpointClass.GroupsInvitesCancel] = new(
+                VRChatEndpointClass.GroupsInvitesCancel, GroupsInvitesCancelLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                ResourceScoped: true),
+
+            [VRChatEndpointClass.GroupsGalleryWrite] = new(
+                VRChatEndpointClass.GroupsGalleryWrite, GroupsGalleryWriteLane,
                 HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
                 ResourceScoped: true),
 

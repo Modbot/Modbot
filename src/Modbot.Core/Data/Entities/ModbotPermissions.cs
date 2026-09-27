@@ -350,6 +350,20 @@ public enum ModbotPermissions : long
     /// <summary>Post in the group on VRChat, change a post, and delete one.</summary>
     ManageGroupPosts = 1L << 39,
 
+    // --- The VRChat page's Roles, Invites and Gallery tabs. Bits 40 to 42. ---
+
+    /// <summary>
+    /// Create, change and delete the group's roles on VRChat: their names, descriptions and
+    /// permissions. Every change is written to the audit log with who made it.
+    /// </summary>
+    ManageGroupRoles = 1L << 40,
+
+    /// <summary>See the invites the group has sent on VRChat, and cancel one.</summary>
+    ManageGroupInvites = 1L << 41,
+
+    /// <summary>Remove an image from one of the group's galleries on VRChat.</summary>
+    ManageGroupGallery = 1L << 42,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

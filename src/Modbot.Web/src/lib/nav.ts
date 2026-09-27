@@ -65,6 +65,12 @@ export const NAV = [
   // page; Settings is only for changing the group, so it needs the permission that does.
   { id: 'group-posts', label: 'VRChat posts', needs: 'ViewAnalytics', hidden: true, under: 'analytics-group' },
   { id: 'group-settings', label: 'VRChat settings', needs: 'EditGroupProfile', hidden: true, under: 'analytics-group' },
+  // The Roles tab inside Settings, and the Gallery and Invites tabs. Looking at the gallery is part
+  // of reading the page; the invites list and the roles are only for the people who manage them,
+  // since VRChat itself shows them only to those.
+  { id: 'group-roles', label: 'VRChat roles', needs: 'ManageGroupRoles', hidden: true, under: 'analytics-group' },
+  { id: 'group-gallery', label: 'VRChat gallery', needs: 'ViewAnalytics', hidden: true, under: 'analytics-group' },
+  { id: 'group-invites', label: 'VRChat invites', needs: 'ManageGroupInvites', hidden: true, under: 'analytics-group' },
   // The Discord server, beside the group: its own members, messages and voice (M5 spec §6).
   { id: 'analytics-server', label: 'Discord', needs: 'ViewAnalytics' },
   // Not in the page list: the status rows at the foot of the sidebar say what it says, and each
@@ -144,6 +150,9 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'analytics-instances': 'i',
   'group-posts': '',
   'group-settings': '',
+  'group-roles': '',
+  'group-gallery': '',
+  'group-invites': '',
   reviews: 'r',
   health: 'h',
   logs: 'o',

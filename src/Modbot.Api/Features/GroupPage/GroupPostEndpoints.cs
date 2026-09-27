@@ -64,7 +64,7 @@ public static class GroupPostEndpoints
                 // Never an empty list in place of one Modbot could not read: the two look the same
                 // on a screen, and only one of them means the group has no posts.
                 if (!answer.Success)
-                    return GroupPageAnswers.Refused(answer);
+                    return GroupPageAnswers.Refused(answer, "GetGroupPosts", groupId, settings);
 
                 var posts = answer.Value?.Posts ?? [];
                 var names = await AuthorNamesAsync(db, posts, ct);
@@ -203,7 +203,7 @@ public static class GroupPostEndpoints
             if (vrchat is null || facts is null || partitions is null)
                 return GroupPageAnswers.NotSetUp();
 
-            var groupId = await ManagedGroupAsync(ct);
+            var (groupId, settings) = await ManagedGroupAsync(ct);
             if (groupId is null)
                 return GroupPageAnswers.NoGroup();
 
@@ -229,7 +229,7 @@ public static class GroupPostEndpoints
                 : await vrchat.UpdateAsync(groupId, post.Id!, request, ct);
 
             if (!answer.Success)
-                return GroupPageAnswers.Refused(answer);
+                return GroupPageAnswers.Refused(answer, creating ? "AddGroupPost" : "UpdateGroupPost", groupId, settings);
 
             var saved = answer.Value;
             var postId = saved?.Id ?? post.Id ?? string.Empty;
@@ -277,7 +277,7 @@ public static class GroupPostEndpoints
             if (vrchat is null || facts is null || partitions is null)
                 return GroupPageAnswers.NotSetUp();
 
-            var groupId = await ManagedGroupAsync(ct);
+            var (groupId, settings) = await ManagedGroupAsync(ct);
             if (groupId is null)
                 return GroupPageAnswers.NoGroup();
 
@@ -293,7 +293,7 @@ public static class GroupPostEndpoints
                     ? Results.Json(
                         new { error = "That post is no longer there. Somebody may have deleted it in VRChat." },
                         statusCode: StatusCodes.Status404NotFound)
-                    : GroupPageAnswers.Refused(answer);
+                    : GroupPageAnswers.Refused(answer, "DeleteGroupPost", groupId, settings);
             }
 
             var now = clock.UtcNow;
@@ -316,10 +316,11 @@ public static class GroupPostEndpoints
             return Results.NoContent();
         }
 
-        private async Task<string?> ManagedGroupAsync(CancellationToken ct)
+        /// <summary>The managed group, with the settings a refusal names the account's roles from.</summary>
+        private async Task<(string? GroupId, Core.Data.Entities.Settings? Settings)> ManagedGroupAsync(CancellationToken ct)
         {
             var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
-            return settings?.ManagedGroupId is { Length: > 0 } id ? id : null;
+            return (settings?.ManagedGroupId is { Length: > 0 } id ? id : null, settings);
         }
     }
 

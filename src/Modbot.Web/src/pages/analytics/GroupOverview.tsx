@@ -163,7 +163,7 @@ type OnSave = ((edit: GroupProfileEdit) => Promise<unknown>) | undefined
 
 function Languages({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
   const [draft, setDraft] = useState<string[] | null>(null)
-  const { saving, problem, run, clear } = useSave()
+  const { saving, problem, missing, run, clear } = useSave()
 
   const close = () => {
     setDraft(null)
@@ -189,6 +189,7 @@ function Languages({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
           <LanguagePicker value={draft} onChange={setDraft} />
           <SaveCancel
             saving={saving}
+            missing={missing}
             disabled={isEmptyEdit(changes) || invalid !== null}
             problem={problem ?? invalid}
             onCancel={close}
@@ -212,7 +213,7 @@ function Languages({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
 
 function Links({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
   const [draft, setDraft] = useState<string[] | null>(null)
-  const { saving, problem, run, clear } = useSave()
+  const { saving, problem, missing, run, clear } = useSave()
   const links = info.links.filter(isWebLink)
 
   const close = () => {
@@ -239,6 +240,7 @@ function Links({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
           <LinkListEditor value={draft} onChange={setDraft} />
           <SaveCancel
             saving={saving}
+            missing={missing}
             disabled={isEmptyEdit(changes) || invalid !== null}
             problem={problem ?? invalid}
             onCancel={close}
@@ -285,7 +287,7 @@ function localStore(): Storage | null {
 function About({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
   const [folded, setFolded] = useState(() => readFolded(localStore()))
   const [draft, setDraft] = useState<{ description: string; rules: string } | null>(null)
-  const { saving, problem, run, clear } = useSave()
+  const { saving, problem, missing, run, clear } = useSave()
   const bodyId = useId()
 
   const toggle = () => {
@@ -352,6 +354,7 @@ function About({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
             </FieldRow>
             <SaveCancel
               saving={saving}
+              missing={missing}
               disabled={isEmptyEdit(changes) || tooLong !== null}
               problem={problem}
               onCancel={close}

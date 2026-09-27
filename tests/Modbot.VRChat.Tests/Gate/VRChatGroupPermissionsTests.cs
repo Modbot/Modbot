@@ -27,6 +27,16 @@ public class VRChatGroupPermissionsTests
     [InlineData("CreateGroupCalendarEvent", "group-calendar-manage")]
     [InlineData("UpdateGroupCalendarEvent", "group-calendar-manage")]
     [InlineData("DeleteGroupCalendarEvent", "group-calendar-manage")]
+    [InlineData("UpdateGroup", "group-data-manage")]
+    [InlineData("AddGroupPost", "group-announcement-manage")]
+    [InlineData("UpdateGroupPost", "group-announcement-manage")]
+    [InlineData("DeleteGroupPost", "group-announcement-manage")]
+    [InlineData("CreateGroupRole", "group-roles-manage")]
+    [InlineData("UpdateGroupRole", "group-roles-manage")]
+    [InlineData("DeleteGroupRole", "group-roles-manage")]
+    [InlineData("GetGroupInvites", "group-invites-manage")]
+    [InlineData("DeleteGroupInvite", "group-invites-manage")]
+    [InlineData("DeleteGroupGalleryImage", "group-galleries-manage")]
     public void EachGroupActionNamesThePermissionItNeeds(string operation, string permission)
         => Assert.Equal(permission, VRChatGroupPermissions.NeededFor(operation));
 
@@ -34,9 +44,30 @@ public class VRChatGroupPermissionsTests
     [InlineData("GetGroupRequests")]
     [InlineData("GetGroupInstances")]
     [InlineData("GetGroup")]
+    [InlineData("GetGroupRoles")]
+    [InlineData("GetGroupGalleryImages")]
     [InlineData(null)]
     public void AnActionNoSourceSettlesNamesNone(string? operation)
         => Assert.Null(VRChatGroupPermissions.NeededFor(operation));
+
+    /// <summary>
+    /// The group snapshot records permissions by the SDK's enum names; a person sees VRChat's ids.
+    /// </summary>
+    [Theory]
+    [InlineData("group_all", "*")]
+    [InlineData("group_bans_manage", "group-bans-manage")]
+    [InlineData("group_calendar_manage", "group-calendar-manage")]
+    [InlineData("something-the-sdk-does-not-know", "something-the-sdk-does-not-know")]
+    public void ThePermissionIdComesFromTheSdksOwnMapping(string sdkName, string id)
+        => Assert.Equal(id, VRChatGroupPermissions.IdOf(sdkName));
+
+    [Theory]
+    [InlineData("group-data-manage", "Manage Group Data")]
+    [InlineData("group-announcement-manage", "Manage Group Announcement")]
+    [InlineData("group-roles-manage", "Manage Group Roles")]
+    [InlineData("group-galleries-manage", "Manage Group Galleries")]
+    public void ThePagePermissionsHaveVRChatsLabels(string permission, string label)
+        => Assert.Equal(label, VRChatGroupPermissions.Label(permission));
 
     [Fact]
     public void A403NamesThePermission_TheRoles_AndVRChatsOwnWords()

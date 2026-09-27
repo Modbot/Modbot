@@ -100,28 +100,63 @@ public sealed record GroupInfoSnapshot(
             group.IsVerified,
             group.MemberCount,
             group.OnlineMemberCount,
-            (group.Roles ?? [])
-                .Where(r => !string.IsNullOrWhiteSpace(r.Id))
-                .Select(r => new GroupRoleSnapshot(
-                    r.Id,
-                    r.Name,
-                    r.Description,
-                    r.Order,
-                    r.IsManagementRole,
-                    r.IsSelfAssignable,
-                    r.IsAddedOnJoin,
-                    r.DefaultRole,
-                    // Sorted for the same reason the roles are: VRChat handing back the same
-                    // permissions in a different order is not a change to the group.
-                    (r.Permissions ?? [])
-                        .Select(p => p.ToString())
-                        .OrderBy(p => p, StringComparer.Ordinal)
-                        .ToList()))
-                // Ordered so that VRChat returning the same roles in a different order is not
-                // mistaken for a change. Ordering by id rather than by `order` because `order` is
-                // itself one of the things being watched.
+            RolesFrom(group.Roles ?? []));
+    }
+
+    /// <summary>The roles as a snapshot records them, from VRChat's answer.</summary>
+    public static IReadOnlyList<GroupRoleSnapshot> RolesFrom(IEnumerable<GroupRole> roles)
+    {
+        ArgumentNullException.ThrowIfNull(roles);
+
+        return roles
+            .Where(r => r is not null && !string.IsNullOrWhiteSpace(r.Id))
+            .Select(r => new GroupRoleSnapshot(
+                r.Id,
+                r.Name,
+                r.Description,
+                r.Order,
+                r.IsManagementRole,
+                r.IsSelfAssignable,
+                r.IsAddedOnJoin,
+                r.DefaultRole,
+                // Sorted for the same reason the roles are: VRChat handing back the same
+                // permissions in a different order is not a change to the group.
+                (r.Permissions ?? [])
+                    .Select(p => p.ToString())
+                    .OrderBy(p => p, StringComparer.Ordinal)
+                    .ToList()))
+            // Ordered so that VRChat returning the same roles in a different order is not
+            // mistaken for a change. Ordering by id rather than by `order` because `order` is
+            // itself one of the things being watched.
+            .OrderBy(r => r.Id, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// This snapshot with its roles replaced by the ones VRChat answered a role edit made from
+    /// Modbot with, so the next poll does not record the same change a second time.
+    /// </summary>
+    /// <remarks>
+    /// Written the way <see cref="From"/> writes them, so an unchanged role compares equal to what
+    /// the poll will read. The edit wrote its own fact naming who made it, which a poll never can.
+    /// </remarks>
+    public GroupInfoSnapshot WithRoles(IEnumerable<GroupRole> roles) => this with { Roles = RolesFrom(roles) };
+
+    /// <summary>This snapshot with one role added, or replaced when it is already recorded.</summary>
+    public GroupInfoSnapshot WithRole(GroupRole role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+
+        var added = RolesFrom([role]);
+
+        return this with
+        {
+            Roles = Roles
+                .Where(r => !added.Any(a => string.Equals(a.Id, r.Id, StringComparison.Ordinal)))
+                .Concat(added)
                 .OrderBy(r => r.Id, StringComparer.Ordinal)
-                .ToList());
+                .ToList(),
+        };
     }
 
     /// <summary>

@@ -206,3 +206,16 @@ test("the VRChat page's Posts and Settings tabs light VRChat and ask for their o
   assert.equal(mayOpen(person('ViewAnalytics'), 'group-settings'), false)
   assert.equal(mayOpen(person('EditGroupProfile'), 'group-settings'), true)
 })
+
+test("the VRChat page's Roles, Gallery and Invites tabs light VRChat and ask for their own permissions", () => {
+  for (const id of ['group-roles', 'group-gallery', 'group-invites'] as const) assert.equal(sidebarEntry(id), 'analytics-group')
+
+  assert.equal(mayOpen(person('EditGroupProfile'), 'group-roles'), false)
+  assert.equal(mayOpen(person('ManageGroupRoles'), 'group-roles'), true)
+
+  assert.equal(mayOpen(person('ViewAnalytics'), 'group-gallery'), true)
+  assert.equal(mayOpen(person('ViewMembers'), 'group-gallery'), false)
+
+  assert.equal(mayOpen(person('ViewAnalytics'), 'group-invites'), false)
+  assert.equal(mayOpen(person('ManageGroupInvites'), 'group-invites'), true)
+})

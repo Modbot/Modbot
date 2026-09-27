@@ -68,6 +68,11 @@ public static class AuditVisibility
         [FactType.GroupPostPosted] = AuditCategory.Moderation,
         [FactType.GroupPostChanged] = AuditCategory.Moderation,
         [FactType.GroupPostRemoved] = AuditCategory.Moderation,
+        [FactType.GroupRoleMade] = AuditCategory.Moderation,
+        [FactType.GroupRoleEdited] = AuditCategory.Moderation,
+        [FactType.GroupRoleRemoved] = AuditCategory.Moderation,
+        [FactType.GroupInviteCancelled] = AuditCategory.Moderation,
+        [FactType.GroupGalleryImageRemoved] = AuditCategory.Moderation,
 
         // The first read of each list: a headcount with a date on it, which is membership
         // history in the same sense the group-info baseline is.

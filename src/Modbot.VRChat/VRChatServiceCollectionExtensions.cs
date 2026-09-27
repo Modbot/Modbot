@@ -168,10 +168,13 @@ public static class VRChatServiceCollectionExtensions
         // place: the endpoint classes and the interactive priority are decided beside the syncs.
         services.AddSingleton<Moderation.GroupJoinRequests>();
 
-        // The group's own page: editing its profile, and its posts. Singletons holding nothing but
+        // The group's own page: its profile, posts, roles, sent invites and gallery. Singletons holding nothing but
         // the gate, for the same reason; every request they send is one a person asked for.
         services.AddSingleton<GroupPage.GroupProfile>();
         services.AddSingleton<GroupPage.GroupPosts>();
+        services.AddSingleton<GroupPage.GroupRoleManager>();
+        services.AddSingleton<GroupPage.GroupSentInvites>();
+        services.AddSingleton<GroupPage.GroupGalleries>();
 
         // Auto-invites (auto-invites design). Scoped, not singleton like the three above, because
         // both hold a ModbotContext for the pass: the sender writes the row that remembers an

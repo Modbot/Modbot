@@ -108,4 +108,62 @@ public class GroupPageRulesTests
         Assert.Equal("group", post.Visibility);
         Assert.Equal(["grol_1"], post.RoleIds);
     }
+
+    // ── Roles ──────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void ANewRoleNeedsAName()
+    {
+        Assert.NotNull(GroupPageRules.TidyRole(new GroupRoleBody(null, null, null, null), creating: true).Problem);
+        Assert.NotNull(GroupPageRules.TidyRole(new GroupRoleBody(null, "   ", null, null), creating: true).Problem);
+        Assert.Null(GroupPageRules.TidyRole(new GroupRoleBody(null, "Helper", null, null), creating: true).Problem);
+    }
+
+    [Fact]
+    public void AChangeNamesItsRole_AndMayLeaveTheNameOut()
+    {
+        Assert.NotNull(GroupPageRules.TidyRole(new GroupRoleBody(null, "Helper", null, null), creating: false).Problem);
+        Assert.Null(GroupPageRules.TidyRole(new GroupRoleBody("grol_1", null, "New", null), creating: false).Problem);
+        Assert.NotNull(GroupPageRules.TidyRole(new GroupRoleBody("grol_1", "", null, null), creating: false).Problem);
+    }
+
+    /// <summary>
+    /// Permission ids are VRChat's words, passed through: one this build does not know may be one
+    /// VRChat added since, and a role holding it must keep it.
+    /// </summary>
+    [Fact]
+    public void PermissionsLoseOnlyBlanksAndRepeats()
+    {
+        var (role, _) = GroupPageRules.TidyRole(
+            new GroupRoleBody("grol_1", null, null, ["group-bans-manage", " ", "group-bans-manage", "group-new-thing"]),
+            creating: false);
+
+        Assert.Equal(["group-bans-manage", "group-new-thing"], role!.Permissions);
+    }
+
+    [Fact]
+    public void OnlyWhatDiffersFromTheRecordedRoleIsAChange()
+    {
+        var before = ((string?)"Moderator", (string?)"Keeps the peace", (IReadOnlyList<string>)["group-bans-manage", "group-audit-view"]);
+
+        var same = GroupPageRules.RoleChanges(before, new GroupRoleBody("grol_1", "Moderator", "Keeps the peace", ["group-audit-view", "group-bans-manage"]));
+        Assert.Empty(same);
+
+        var renamed = GroupPageRules.RoleChanges(before, new GroupRoleBody("grol_1", "Mod", null, null));
+        Assert.Equal(["name"], renamed.Select(c => c.Field));
+        Assert.Equal("Moderator", renamed[0].Old!.GetValue<string>());
+        Assert.Equal("Mod", renamed[0].New!.GetValue<string>());
+
+        var fewer = GroupPageRules.RoleChanges(before, new GroupRoleBody("grol_1", null, null, ["group-audit-view"]));
+        Assert.Equal(["permissions"], fewer.Select(c => c.Field));
+    }
+
+    [Fact]
+    public void ARoleModbotHasNoRecordOfCountsEveryFieldSentAsAChange()
+    {
+        var changes = GroupPageRules.RoleChanges(null, new GroupRoleBody("grol_1", "Helper", null, ["group-audit-view"]));
+
+        Assert.Equal(["name", "permissions"], changes.Select(c => c.Field));
+        Assert.Null(changes[0].Old);
+    }
 }

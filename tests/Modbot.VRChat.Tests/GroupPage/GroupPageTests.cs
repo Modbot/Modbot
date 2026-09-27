@@ -234,6 +234,217 @@ public class GroupPageTests
         Assert.All(gate.Calls, c => Assert.Equal(VRChatCallPriority.Interactive, c.Priority));
     }
 
+    // ── Roles, sent invites and the gallery ────────────────────────────────────────────────
+
+    /// <summary>
+    /// The reason <see cref="GroupRoleChange"/> exists: the SDK's request always writes
+    /// <c>isSelfAssignable</c> and <c>order</c>, and its permissions are an enum that cannot carry
+    /// one VRChat added after it. Serialized with the SDK's own settings.
+    /// </summary>
+    [Fact]
+    public void ARoleEditSendsOnlyTheFieldsBeingSet_WithPermissionsAsVRChatsWords()
+    {
+        var settings = new ApiClient().SerializerSettings;
+
+        Assert.Equal("""{"name":"Helper"}""", JsonConvert.SerializeObject(new GroupRoleChange(name: "Helper"), settings));
+        Assert.Equal(
+            """{"permissions":["group-bans-manage","group-something-new"]}""",
+            JsonConvert.SerializeObject(new GroupRoleChange(permissions: ["group-bans-manage", "group-something-new"]), settings));
+        Assert.Equal("""{"description":""}""", JsonConvert.SerializeObject(new GroupRoleChange(description: string.Empty), settings));
+    }
+
+    [Fact]
+    public void ANewRoleIsWrittenTheSameWay()
+    {
+        var settings = new ApiClient().SerializerSettings;
+
+        var json = JsonConvert.SerializeObject(
+            new GroupRoleChange("Helper", "Helps", ["group-audit-view"]).ForCreate(), settings);
+
+        Assert.Equal("""{"name":"Helper","description":"Helps","permissions":["group-audit-view"]}""", json);
+        Assert.DoesNotContain("isSelfAssignable", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ARoleChangeWithNothingSetIsEmpty()
+    {
+        Assert.True(new GroupRoleChange().IsEmpty);
+        Assert.False(new GroupRoleChange(permissions: []).IsEmpty);
+    }
+
+    [Fact]
+    public void TheNewWritesAreOnePerTenSeconds_OnTheirOwnLanes_BelowModeration()
+    {
+        foreach (var name in new[]
+                 {
+                     VRChatEndpointClass.GroupsRolesWrite,
+                     VRChatEndpointClass.GroupsInvitesCancel,
+                     VRChatEndpointClass.GroupsGalleryWrite,
+                 })
+        {
+            var budget = VRChatRateLimits.Defaults[name];
+
+            Assert.Equal(0.1, budget.HardMaxPerSecond, 9);
+            Assert.Equal(VRChatEndpointClass.Global, budget.Backstop);
+            Assert.True(budget.ResourceScoped);
+            Assert.Equal(1, budget.BurstTokens);
+            Assert.DoesNotContain(name, VRChatRateLimits.Scheduled);
+        }
+
+        // Cancelling never uses up the thirty seconds auto-invites wait between sends.
+        Assert.NotEqual(
+            VRChatRateLimits.Defaults[VRChatEndpointClass.GroupsInvites].Lane,
+            VRChatRateLimits.Defaults[VRChatEndpointClass.GroupsInvitesCancel].Lane);
+    }
+
+    [Fact]
+    public void TheNewReadsAreNoFasterThanGroupReads_OnTheirOwnLanes()
+    {
+        var groupRead = VRChatRateLimits.Defaults[VRChatEndpointClass.GroupsRead];
+
+        foreach (var name in new[]
+                 {
+                     VRChatEndpointClass.GroupsRoles,
+                     VRChatEndpointClass.GroupsInvitesRead,
+                     VRChatEndpointClass.GroupsGallery,
+                 })
+        {
+            var read = VRChatRateLimits.Defaults[name];
+
+            Assert.Equal(0.2, read.HardMaxPerSecond, 9);
+            Assert.True(read.HardMaxPerSecond <= groupRead.HardMaxPerSecond);
+            Assert.NotEqual(groupRead.Lane, read.Lane);
+            Assert.Equal(VRChatEndpointClass.Interactive, read.Backstop);
+            Assert.True(read.ResourceScoped);
+            Assert.DoesNotContain(name, VRChatRateLimits.Scheduled);
+        }
+    }
+
+    /// <summary>A 429 on opening the Roles tab never stops the group poll.</summary>
+    [Fact]
+    public async Task A429OnReadingRolesDoesNotStopTheGroupPoll()
+    {
+        var harness = new LimiterHarness();
+        var roles = new VRChatEndpoint(VRChatEndpointClass.GroupsRoles, "grp_test");
+
+        await harness.CallAsync(roles, status: 429, ct: Ct);
+
+        Assert.False((await harness.CallAsync(roles, ct: Ct)).IsAcquired);
+        Assert.True((await harness.CallAsync(new VRChatEndpoint(VRChatEndpointClass.GroupsRead, "grp_test"), ct: Ct)).IsAcquired);
+        Assert.True((await harness.CallAsync(new VRChatEndpoint(VRChatEndpointClass.GroupsRolesWrite, "grp_test"), ct: Ct)).IsAcquired);
+    }
+
+    [Fact]
+    public async Task A429OnCancellingAnInviteDoesNotStopSendingOne()
+    {
+        var harness = new LimiterHarness();
+        var cancel = new VRChatEndpoint(VRChatEndpointClass.GroupsInvitesCancel, "grp_test");
+
+        await harness.CallAsync(cancel, status: 429, ct: Ct);
+
+        Assert.False((await harness.CallAsync(cancel, ct: Ct)).IsAcquired);
+        Assert.True((await harness.CallAsync(new VRChatEndpoint(VRChatEndpointClass.GroupsInvites, "grp_test"), ct: Ct)).IsAcquired);
+        Assert.True((await harness.CallAsync(new VRChatEndpoint(VRChatEndpointClass.GroupsInvitesRead, "grp_test"), ct: Ct)).IsAcquired);
+    }
+
+    [Fact]
+    public async Task EveryNewCallNamesItsClassAndGoesOutAsInteractive()
+    {
+        var gate = new RecordingGate();
+        var roles = new GroupRoleManager(gate);
+        var invites = new GroupSentInvites(gate);
+        var gallery = new GroupGalleries(gate);
+
+        await roles.ListAsync("grp_test", Ct);
+        await roles.CreateAsync("grp_test", new GroupRoleChange(name: "Helper"), Ct);
+        await roles.UpdateAsync("grp_test", "grol_1", new GroupRoleChange(name: "Helper"), Ct);
+        await roles.DeleteAsync("grp_test", "grol_1", Ct);
+        await invites.ListAsync("grp_test", 500, -1, Ct);
+        await invites.CancelAsync("grp_test", "usr_1", Ct);
+        await gallery.ListAsync("grp_test", "ggal_1", 500, -1, Ct);
+        await gallery.RemoveAsync("grp_test", "ggal_1", "ggim_1", Ct);
+
+        Assert.Equal(
+            [
+                (VRChatEndpointClass.GroupsRoles, "GetGroupRoles"),
+                (VRChatEndpointClass.GroupsRolesWrite, "CreateGroupRole"),
+                (VRChatEndpointClass.GroupsRolesWrite, "UpdateGroupRole"),
+                (VRChatEndpointClass.GroupsRolesWrite, "DeleteGroupRole"),
+                (VRChatEndpointClass.GroupsInvitesRead, "GetGroupInvites"),
+                (VRChatEndpointClass.GroupsInvitesCancel, "DeleteGroupInvite"),
+                (VRChatEndpointClass.GroupsGallery, "GetGroupGalleryImages"),
+                (VRChatEndpointClass.GroupsGalleryWrite, "DeleteGroupGalleryImage"),
+            ],
+            gate.Calls.Select(c => (c.Endpoint.Class, c.Endpoint.Operation!)).ToList());
+
+        Assert.All(gate.Calls, c => Assert.Equal("grp_test", c.Endpoint.ResourceId));
+        Assert.All(gate.Calls, c => Assert.Equal(VRChatCallPriority.Interactive, c.Priority));
+    }
+
+    [Fact]
+    public void GalleryImagesAreReadFromThePlainList_OrFromAPage()
+    {
+        const string one = """{"id":"ggim_1","galleryId":"ggal_1","imageUrl":"https://api.vrchat.cloud/x","approved":true}""";
+
+        Assert.Equal(["ggim_1"], GroupGalleries.ImagesOf(null, $"[{one}]").Select(i => i.Id));
+        Assert.Equal(["ggim_1"], GroupGalleries.ImagesOf(null, "{\"images\":[" + one + "]}").Select(i => i.Id));
+        Assert.Equal(["ggim_1"], GroupGalleries.ImagesOf(Newtonsoft.Json.Linq.JArray.Parse($"[{one}]"), null).Select(i => i.Id));
+        Assert.Empty(GroupGalleries.ImagesOf(null, "not json"));
+        Assert.Empty(GroupGalleries.ImagesOf(null, """[{"galleryId":"ggal_1"}]"""));
+    }
+
+    /// <summary>
+    /// A role saved from Modbot is stored the way the poll will read it, so the next poll writes
+    /// no "roles changed" fact for a change the edit already recorded with who made it.
+    /// </summary>
+    [Fact]
+    public void ARoleSavedFromModbotIsStoredTheWayThePollReadsIt()
+    {
+        var group = GroupInfoSnapshotTests.Group();
+        var settings = new Settings { GroupInfoSnapshot = GroupInfoSnapshot.From(group).ToJson() };
+
+        var added = new GroupRole
+        {
+            Id = "grol_new",
+            Name = "Helper",
+            Permissions = [GroupPermissions.group_audit_view, GroupPermissions.group_bans_manage],
+        };
+
+        GroupInfoSync.RecordRoles(settings, added: added);
+
+        group.Roles = [.. group.Roles ?? [], added];
+        var polled = GroupInfoSnapshot.From(group);
+
+        Assert.Empty(polled.DifferencesFrom(GroupInfoSnapshot.Parse(settings.GroupInfoSnapshot)));
+    }
+
+    [Fact]
+    public void RecordRolesMakesNoSnapshotWhereThereWasNone()
+    {
+        var settings = new Settings();
+
+        GroupInfoSync.RecordRoles(settings, all: []);
+
+        Assert.Null(settings.GroupInfoSnapshot);
+    }
+
+    [Fact]
+    public void TheGalleriesAreStoredFromThePoll_AndAMissingListKeepsThem()
+    {
+        var settings = new Settings();
+
+        GroupInfoSync.RecordGalleries(settings, [new GroupGallery { Id = "ggal_1", Name = "Photos", MembersOnly = true }]);
+        var stored = settings.ManagedGroupGalleries;
+
+        Assert.Equal([new GroupGallerySnapshot("ggal_1", "Photos", null, true)], GroupGallerySnapshot.Parse(stored));
+
+        GroupInfoSync.RecordGalleries(settings, null);
+        Assert.Equal(stored, settings.ManagedGroupGalleries);
+
+        GroupInfoSync.RecordGalleries(settings, []);
+        Assert.Empty(GroupGallerySnapshot.Parse(settings.ManagedGroupGalleries));
+    }
+
     /// <summary>Records each call and answers nothing: what is sent, not what comes back, is under test.</summary>
     private sealed class RecordingGate : IVRChatGate
     {

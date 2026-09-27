@@ -19,7 +19,9 @@ namespace Modbot.VRChat;
 /// wiki's Groups page quotes them: "Manage Group Invites" covers creating and cancelling invites
 /// and accepting, declining and blocking join requests; "Manage Group Bans" covers banning,
 /// unbanning and the ban list; "Assign Group Roles" covers giving and taking roles; "Manage Group
-/// Calendar" covers creating, changing and publishing calendar entries. The id behind each label
+/// Calendar" covers creating, changing and publishing calendar entries; "Manage Group Data",
+/// "Manage Group Announcement", "Manage Group Roles" and "Manage Group Galleries" cover the group's
+/// profile, its posts, its roles and its galleries. The id behind each label
 /// is from the role editor's own list (the web app's <c>vrchatPermissions.ts</c>).
 /// </para>
 /// <para>
@@ -37,6 +39,10 @@ public static class VRChatGroupPermissions
     public const string ManageCalendar = "group-calendar-manage";
     public const string ViewAuditLog = "group-audit-view";
     public const string ViewAllMembers = "group-members-viewall";
+    public const string ManageData = "group-data-manage";
+    public const string ManageAnnouncement = "group-announcement-manage";
+    public const string ManageRoles = "group-roles-manage";
+    public const string ManageGalleries = "group-galleries-manage";
 
     private static readonly Dictionary<string, string> Needed = new(StringComparer.Ordinal)
     {
@@ -51,6 +57,22 @@ public static class VRChatGroupPermissions
         ["CreateGroupCalendarEvent"] = ManageCalendar,
         ["UpdateGroupCalendarEvent"] = ManageCalendar,
         ["DeleteGroupCalendarEvent"] = ManageCalendar,
+
+        // The VRChat page's own writes. "Manage Group Data" covers the group's name, description,
+        // rules, languages, links and who can join; "Manage Group Announcement" its posts; "Manage
+        // Group Roles" creating, changing and deleting roles; "Manage Group Galleries" removing a
+        // gallery image; and reading or cancelling the invites the group sent is "Manage Group
+        // Invites", like sending one. Reading the roles and a gallery is left out: members can.
+        ["UpdateGroup"] = ManageData,
+        ["AddGroupPost"] = ManageAnnouncement,
+        ["UpdateGroupPost"] = ManageAnnouncement,
+        ["DeleteGroupPost"] = ManageAnnouncement,
+        ["CreateGroupRole"] = ManageRoles,
+        ["UpdateGroupRole"] = ManageRoles,
+        ["DeleteGroupRole"] = ManageRoles,
+        ["GetGroupInvites"] = ManageInvites,
+        ["DeleteGroupInvite"] = ManageInvites,
+        ["DeleteGroupGalleryImage"] = ManageGalleries,
     };
 
     /// <summary>
@@ -79,7 +101,32 @@ public static class VRChatGroupPermissions
         [ManageCalendar] = "Manage Group Calendar",
         [ViewAuditLog] = "View Audit log",
         [ViewAllMembers] = "View All Members",
+        [ManageData] = "Manage Group Data",
+        [ManageAnnouncement] = "Manage Group Announcement",
+        [ManageRoles] = "Manage Group Roles",
+        [ManageGalleries] = "Manage Group Galleries",
     };
+
+    /// <summary>
+    /// VRChat's id for a permission from the SDK's enum name for it (<c>group_bans_manage</c> →
+    /// <c>group-bans-manage</c>, <c>group_all</c> → <c>*</c>), read from the SDK's own mapping. A name
+    /// the SDK does not map is given back as it is.
+    /// </summary>
+    /// <remarks>
+    /// The group snapshot records permissions by the SDK's names; everything a person sees, and
+    /// everything sent back to VRChat, uses VRChat's.
+    /// </remarks>
+    public static string IdOf(string sdkName)
+    {
+        ArgumentNullException.ThrowIfNull(sdkName);
+
+        var field = typeof(global::VRChat.API.Model.GroupPermissions).GetField(sdkName);
+        var member = field?.GetCustomAttributes(typeof(System.Runtime.Serialization.EnumMemberAttribute), false)
+            .OfType<System.Runtime.Serialization.EnumMemberAttribute>()
+            .FirstOrDefault();
+
+        return member?.Value ?? sdkName;
+    }
 
     /// <summary>The permission an operation needs, or null when no source settles it.</summary>
     public static string? NeededFor(string? operation) =>

@@ -454,6 +454,32 @@ public static class FactType
     /// </summary>
     public const string GroupPostRemoved = "modbot.group.post.delete";
 
+    /// <summary>
+    /// Somebody created a group role. Payload: the role's id, name, description and permissions.
+    /// </summary>
+    public const string GroupRoleMade = "modbot.group.role.create";
+
+    /// <summary>
+    /// Somebody changed a group role. Payload: the role's id and name, and <c>changed</c>, each
+    /// field with its <c>old</c> and <c>new</c> value.
+    /// </summary>
+    public const string GroupRoleEdited = "modbot.group.role.change";
+
+    /// <summary>Somebody deleted a group role. Payload: the role's id and its name.</summary>
+    public const string GroupRoleRemoved = "modbot.group.role.delete";
+
+    /// <summary>
+    /// Somebody cancelled the group's invite to a person. The subject is that person, not the
+    /// group, so it shows on their history. Payload: the group's id.
+    /// </summary>
+    public const string GroupInviteCancelled = "modbot.group.invite.cancel";
+
+    /// <summary>
+    /// Somebody removed an image from one of the group's galleries. Payload: the gallery's id and
+    /// name, the image's id and who submitted it.
+    /// </summary>
+    public const string GroupGalleryImageRemoved = "modbot.group.gallery.image.delete";
+
     // ── Modbot's own calendar (calendar design §8). The subject is the event's id. ──────────
     //
     // "Planned event" in the names, because the CalendarEvent* names above are VRChat's own

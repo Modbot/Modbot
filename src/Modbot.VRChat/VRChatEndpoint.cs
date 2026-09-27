@@ -299,6 +299,69 @@ public static class VRChatEndpointClass
     public const string GroupsPostsWrite = "groups.posts.write";
 
     /// <summary>
+    /// Reading the group's roles — <c>GET /groups/{groupId}/roles</c>. One request when the Roles
+    /// tab opens and one per Refresh; nothing polls it.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> Budgeted at <see cref="GroupsRead"/>'s 0.2 req/s, the
+    /// conservative reading spec 4.3.4.1 applies to an unmeasured endpoint returning group data.
+    /// Its own class rather than a share of <see cref="GroupsRead"/>, so opening the tab never
+    /// holds up or cold stops the group poll.
+    /// </remarks>
+    public const string GroupsRoles = "groups.roles";
+
+    /// <summary>
+    /// Creating, changing and deleting one of the group's roles — <c>POST /groups/{groupId}/roles</c>,
+    /// <c>PUT</c> and <c>DELETE /groups/{groupId}/roles/{groupRoleId}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> One request every ten seconds, shared by all three, on the
+    /// <see cref="Global"/> backstop for the reason <see cref="GroupsEdit"/> is: below moderation.
+    /// Apart from giving and taking roles (<see cref="ModerationWrite"/>), which role sync uses.
+    /// </remarks>
+    public const string GroupsRolesWrite = "groups.roles.write";
+
+    /// <summary>
+    /// Reading the invites the group has sent — <c>GET /groups/{groupId}/invites</c>. One request
+    /// when the Invites tab opens, one per page and one per Refresh; nothing polls it.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> Budgeted at <see cref="GroupsRead"/>'s 0.2 req/s. Apart from
+    /// <see cref="GroupsInvites"/>, which paces sending, so a Refresh never delays an auto-invite.
+    /// </remarks>
+    public const string GroupsInvitesRead = "groups.invites.read";
+
+    /// <summary>
+    /// Cancelling an invite the group sent — <c>DELETE /groups/{groupId}/invites/{userId}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> One request every ten seconds, on the <see cref="Global"/>
+    /// backstop like the other page writes. Apart from <see cref="GroupsInvites"/>, so cancelling
+    /// never uses up the thirty seconds auto-invites wait between sends.
+    /// </remarks>
+    public const string GroupsInvitesCancel = "groups.invites.cancel";
+
+    /// <summary>
+    /// Reading one of the group's galleries — <c>GET /groups/{groupId}/galleries/{groupGalleryId}</c>.
+    /// One request when the Gallery tab opens, one when another gallery is chosen, one per page
+    /// and one per Refresh. The list of galleries itself comes from the group poll already made.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> Budgeted at <see cref="GroupsRead"/>'s 0.2 req/s.
+    /// </remarks>
+    public const string GroupsGallery = "groups.gallery";
+
+    /// <summary>
+    /// Removing an image from one of the group's galleries —
+    /// <c>DELETE /groups/{groupId}/galleries/{groupGalleryId}/images/{groupGalleryImageId}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> One request every ten seconds, on the <see cref="Global"/>
+    /// backstop like the other page writes.
+    /// </remarks>
+    public const string GroupsGalleryWrite = "groups.gallery.write";
+
+    /// <summary>
     /// A request forwarded to VRChat as it was written, on the service account's session --
     /// <c>/api/proxy/vrchat/…</c> (VRChat proxy design). Any endpoint, any method.
     /// </summary>

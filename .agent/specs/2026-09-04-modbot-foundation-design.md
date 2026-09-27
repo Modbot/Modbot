@@ -1163,6 +1163,12 @@ endpoint classes §4.2 does not schedule:
 | `groups.edit` | **0.1 req/s** | 2026-09-27 — changing the group's profile from the VRChat page; unmeasured, one request per Save, approved by the user as "only when a person acts". On the `global` backstop, below moderation |
 | `groups.posts` | **0.2 req/s** | 2026-09-27 — reading the group's posts when the Posts tab opens, a page turns or Refresh is pressed; unmeasured, `groups.read`'s rate (§4.3.4.1); `interactive` backstop |
 | `groups.posts.write` | **0.1 req/s** | 2026-09-27 — posting, changing and deleting a post, shared; unmeasured; `global` backstop, below moderation |
+| `groups.roles` | **0.2 req/s** | 2026-09-27 — reading the group's roles when Settings → Roles opens or Refresh is pressed; unmeasured, `groups.read`'s rate (§4.3.4.1), apart from it so the tab never holds up the group poll; `interactive` backstop |
+| `groups.roles.write` | **0.1 req/s** | 2026-09-27 — creating, changing and deleting a role, shared; unmeasured; `global` backstop, below moderation |
+| `groups.invites.read` | **0.2 req/s** | 2026-09-27 — reading the invites the group sent when the Invites tab opens, a page turns or Refresh is pressed; unmeasured, `groups.read`'s rate; `interactive` backstop |
+| `groups.invites.cancel` | **0.1 req/s** | 2026-09-27 — cancelling a sent invite; unmeasured; `global` backstop; apart from `groups.invites`, so it never uses up auto-invites' pace |
+| `groups.gallery` | **0.2 req/s** | 2026-09-27 — reading one gallery's images when the Gallery tab opens, a gallery is picked, a page turns or Refresh is pressed; unmeasured, `groups.read`'s rate; `interactive` backstop. The gallery list itself comes from the group poll |
+| `groups.gallery.write` | **0.1 req/s** | 2026-09-27 — removing a gallery image; unmeasured; `global` backstop, below moderation |
 | `users.lookup` | **1 req/s** | 2026-09-17 — one person read because somebody is waiting; §4.2.5's original users-lane rate, kept under the 3.5 the sync reads run at on the same endpoints (§4.3.5) |
 | `proxy` | **0.3 req/s** | 2026-09-17 — a request forwarded as the service account; the bottom of this table's range, because the limiter cannot see which endpoint it reaches (VRChat proxy design §4) |
 | `proxy.passthrough` | **0.5 req/s** | 2026-09-17 — a request forwarded with a caller's own cookie; a guess kept low, not counted against the service account (VRChat proxy design §4) |

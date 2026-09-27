@@ -132,6 +132,17 @@ public class Settings
     public List<string>? ManagedGroupLinks { get; set; }
 
     /// <summary>
+    /// The group's galleries (id, name, description, members only), as JSON, from the group-info
+    /// poll. Null until the poll has read them.
+    /// </summary>
+    /// <remarks>
+    /// Kept so the VRChat page's Gallery tab can list the galleries with no request of its own: the
+    /// poll's answer carries them already. Kept out of <c>GroupInfoSnapshot</c> for the same reason
+    /// as the languages and links. Their images are read when the tab asks for them, never stored.
+    /// </remarks>
+    public string? ManagedGroupGalleries { get; set; }
+
+    /// <summary>
     /// The group roles Modbot's own VRChat account holds, by id, from <c>myMember</c> in the
     /// group-info poll. Null until the poll has read them.
     /// </summary>

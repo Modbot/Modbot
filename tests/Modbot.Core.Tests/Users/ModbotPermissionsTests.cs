@@ -35,6 +35,9 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 36, (long)ModbotPermissions.RunDiscordSync);
         Assert.Equal(1L << 38, (long)ModbotPermissions.EditGroupProfile);
         Assert.Equal(1L << 39, (long)ModbotPermissions.ManageGroupPosts);
+        Assert.Equal(1L << 40, (long)ModbotPermissions.ManageGroupRoles);
+        Assert.Equal(1L << 41, (long)ModbotPermissions.ManageGroupInvites);
+        Assert.Equal(1L << 42, (long)ModbotPermissions.ManageGroupGallery);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }

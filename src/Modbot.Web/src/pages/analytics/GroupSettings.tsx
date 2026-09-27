@@ -27,14 +27,14 @@ import { PageMessage } from './shared'
 
 /**
  * The VRChat page's Settings tab, as vrchat.com lays out a group's settings: a row of its own tabs
- * (General, then Logs), and under General every part of the group's profile VRChat lets an admin
+ * (General, Roles, then Logs), and under General every part of the group's profile VRChat lets an admin
  * change from its website — name, description, rules, languages, links and who can join.
  *
  * One Save sends one request with only the fields that changed, and nothing at all when none did.
  * The page then shows the group as VRChat answered. Cancel puts the form back as stored.
  *
- * Roles go in the row between General and Logs when they are built. The icon and banner are not
- * here: changing them means VRChat's file upload, which Modbot does not do yet.
+ * Roles is its own page (GroupRoles.tsx), at its own address, reached from the same row. The icon
+ * and banner are not here: changing them means VRChat's file upload, which Modbot does not do yet.
  */
 export function GroupSettings({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const { info, error, setInfo } = useGroupInfo()
@@ -45,19 +45,35 @@ export function GroupSettings({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pa
   return (
     <div className="flex flex-col gap-3">
       <GroupHeader info={info} me={me} pathOf={pathOf} active="group-settings" />
-      <SettingsTabs me={me} pathOf={pathOf} />
+      <SettingsTabs me={me} pathOf={pathOf} active="group-settings" />
       {/* Keyed on what was read, so a Save that comes back starts the form from VRChat's answer. */}
       <General key={info.generatedAt} info={info} onSaved={setInfo} />
     </div>
   )
 }
 
-/** General · Logs, the way VRChat's settings split. Logs is Modbot's audit log. */
-function SettingsTabs({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
-  const tabs: { label: string; href: string; current: boolean }[] = [
-    { label: 'General', href: pathOf('group-settings'), current: true },
-    ...(mayOpen(me, 'audit') ? [{ label: 'Logs', href: pathOf('audit'), current: false }] : []),
-  ]
+/**
+ * General · Roles · Logs, the way VRChat's settings split. Logs is Modbot's audit log. Each is
+ * offered only to somebody who may open it.
+ */
+export function SettingsTabs({
+  me,
+  pathOf,
+  active,
+}: {
+  me: CurrentUser
+  pathOf: (id: PageId) => string
+  active: 'group-settings' | 'group-roles'
+}) {
+  const tabs = (
+    [
+      { id: 'group-settings', label: 'General' },
+      { id: 'group-roles', label: 'Roles' },
+      { id: 'audit', label: 'Logs' },
+    ] as const
+  )
+    .filter((tab) => mayOpen(me, tab.id))
+    .map((tab) => ({ label: tab.label, href: pathOf(tab.id), current: tab.id === active }))
 
   return (
     <nav aria-label="Settings" className="flex items-stretch gap-1 overflow-x-auto border-b border-b-(length:--hairline)">
@@ -83,7 +99,7 @@ function SettingsTabs({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) =>
 
 function General({ info, onSaved }: { info: GroupInfo; onSaved: (info: GroupInfo) => void }) {
   const [draft, setDraft] = useState<ProfileDraft>(() => draftFrom(info))
-  const { saving, problem, run, clear } = useSave()
+  const { saving, problem, missing, run, clear } = useSave()
   const set = (change: Partial<ProfileDraft>) => setDraft((d) => ({ ...d, ...change }))
 
   const changes = profileChanges(info, draft)
@@ -168,6 +184,7 @@ function General({ info, onSaved }: { info: GroupInfo; onSaved: (info: GroupInfo
         <CardContent>
           <SaveCancel
             saving={saving}
+            missing={missing}
             disabled={isEmptyEdit(changes) || invalid !== null}
             problem={problem}
             onCancel={() => {
