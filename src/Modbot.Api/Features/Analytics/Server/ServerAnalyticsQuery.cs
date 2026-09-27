@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 
 namespace Modbot.Api.Features.Analytics.Server;
 
@@ -22,7 +23,7 @@ namespace Modbot.Api.Features.Analytics.Server;
 /// reads the stored member list for who is in the server and ignores the window.
 /// </para>
 /// </remarks>
-public sealed class ServerAnalyticsQuery(ModbotContext db)
+public sealed class ServerAnalyticsQuery(ModbotContext db, IDiscordOnlineCount? online = null)
 {
     /// <summary>The spans new members are followed for.</summary>
     public static readonly int[] StaySpans = [7, 30];
@@ -81,7 +82,7 @@ public sealed class ServerAnalyticsQuery(ModbotContext db)
             from,
             to,
             MissingDays.Today(to, now),
-            await new ServerProfileQuery(db).RunAsync(guildId, ct),
+            await new ServerProfileQuery(db, online).RunAsync(guildId, ct),
             totals.Series(DailyTotalMetrics.DiscordMembersCount),
             totals.Series(DailyTotalMetrics.DiscordMembersJoined),
             totals.Series(DailyTotalMetrics.DiscordMembersLeft),

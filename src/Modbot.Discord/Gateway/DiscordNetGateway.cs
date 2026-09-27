@@ -1184,6 +1184,29 @@ public sealed class DiscordNetGateway : IDiscordGateway
     public int? ReadMemberCount(string guildId)
         => ParseId(guildId) is { } id && _client.GetGuild(id) is { } guild ? guild.MemberCount : null;
 
+    public async Task<int?> ReadOnlineCountAsync(string guildId, CancellationToken ct)
+    {
+        if (ParseId(guildId) is not { } id || _client.GetGuild(id) is null)
+            return null;
+
+        try
+        {
+            // Someone is waiting on a page for this, so it neither waits out a rate limit nor
+            // tries again: a count that does not come shows as no count.
+            var guild = await _client.Rest.GetGuildAsync(
+                    id,
+                    withCounts: true,
+                    new RequestOptions { CancelToken = ct, RetryMode = RetryMode.AlwaysFail, Timeout = 5_000 })
+                .ConfigureAwait(false);
+            return guild?.ApproximatePresenceCount;
+        }
+        catch (Exception e) when (e is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            _log.Warning(e, "Could not read how many of the Discord server's members are online");
+            return null;
+        }
+    }
+
     private static DiscordMemberSnapshot Describe(IGuildUser user) => new(
         Text(user.Id),
         user.Username ?? string.Empty,
