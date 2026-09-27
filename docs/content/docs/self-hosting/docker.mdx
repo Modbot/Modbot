@@ -69,8 +69,9 @@ cd Modbot
 docker build -t modbot .
 ```
 
-The **Deployment** card in **Settings** shows the commit and branch the image was built from, if the
-build is told. A plain `docker build` has no access to git, so pass them in if you want them shown:
+The **This install** card in **Settings** shows the commit and branch the image was built from
+(point at **Version**), if the build is told. A plain `docker build` has no access to git, so pass
+them in if you want them shown:
 
 ```bash
 docker build -t modbot \

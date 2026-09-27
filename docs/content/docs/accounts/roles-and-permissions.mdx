@@ -27,7 +27,8 @@ how many people hold it. Click a card to open it:
 - **Name** and **One line about it** (the description).
 - A checklist of every permission, grouped under **Reading**, **Evidence**, **Moderation** and
   **Administration**. Each has a short label and a line saying what it covers.
-- **Save changes**, and for roles you made yourself, **Delete role**.
+- **Save changes**, and for roles you made yourself, **Delete role** — press it again, in red, to
+  confirm, or **Cancel** to back out.
 
 Press **New role** to make one. Give it a name, tick its permissions and press **Create role**.
 
@@ -223,7 +224,7 @@ Name: `ViewOperationalLog`
   [Checking a deployment](/self-hosting/health).
 - The **Modbot's log** page: Modbot's own log lines, with their properties and exceptions. See
   [Logs](/self-hosting/logs).
-- Reading the **Health alerts** card under **Settings**, **Integrations**. Changing it needs
+- Reading the **Health alerts** card under **Settings**, **Email and alerts**. Changing it needs
   **Change settings**. See [Alerts by email](/self-hosting/alerts).
 - Those Modbot events in the [event stream](/api/events-websocket), [long polling](/api/long-polling)
   and [webhooks](/api/webhooks).
@@ -427,9 +428,9 @@ role means.
 
 Name: `ManageSettings`
 
-- Opens the **Settings** page and changes everything on it: **Server** (retention and the
-  public address), **Modbot's VRChat login**, **Integrations**, **Discord** (including event
-  channels and instance announcements), **Moderation**, **AutoMod**, **Evidence**, **Sync**, **AI**
+- Opens the **Settings** page and changes everything on it: **Server** (how long records are kept
+  and the public address), **Modbot's VRChat login**, **Email and alerts**, **Discord** (including
+  event channels and instance announcements), **Moderation**, **AutoMod**, **Evidence**, **AI**
   (including insights and limits) and **API**.
 - Runs the [setup wizard](/setup-wizard) again once it has been completed.
 - Allows webhooks to be sent to private network addresses.

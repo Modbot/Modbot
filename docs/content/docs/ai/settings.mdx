@@ -1,10 +1,10 @@
 ---
 title: AI settings and providers
-description: Turning AI on, choosing a provider, the endpoint, key and model, the Test button, and what each AI feature sends to the provider.
+description: Turning AI on, choosing a provider, the address, key and model, the Test button, and what each AI feature sends to the provider.
 ---
 
 Modbot's AI features (moderation rules, insights and Chat) all talk to one AI service that you
-choose. You set it up once, under **Settings** → **AI** → **Base**, and every feature uses it.
+choose. You set it up once, under **Settings** → **AI** → **Connection**, and every feature uses it.
 
 Modbot does not come with an AI service or pay for one. You bring your own: a hosted provider with
 your own API key, or a model server you run yourself. Everything AI-related is off until you turn it
@@ -18,7 +18,7 @@ Changing anything on the **AI** tab needs the **Change settings** permission
 Modbot talks to any service that understands the OpenAI chat format (often called
 "OpenAI-compatible"). The **Connection** card offers these presets:
 
-| Preset | Endpoint it fills in |
+| Preset | Address it fills in |
 |---|---|
 | **OpenRouter** (recommended, and the default) | `https://openrouter.ai/api/v1` |
 | **xAI** | `https://api.x.ai/v1` |
@@ -26,7 +26,7 @@ Modbot talks to any service that understands the OpenAI chat format (often calle
 | **OpenAI** | `https://api.openai.com/v1` |
 | **Custom** | Nothing. You type the address. |
 
-A preset only fills in the **Endpoint** box. You can edit the address afterwards.
+A preset only fills in the **Address** box. You can edit the address afterwards.
 
 **OpenRouter is the one we recommend**, and a new Modbot starts on it. One key reaches almost every
 model there is, which is why Modbot can show you the whole list with prices (see
@@ -48,16 +48,16 @@ use **Custom** with a model you run yourself. See [What is sent to the provider]
 <Steps>
 <Step>
 
-### Open the Base tab
+### Open the Connection tab
 
-Go to **Settings** → **AI** → **Base**. The card is called **Connection**.
+Go to **Settings** → **AI** → **Connection**.
 
 </Step>
 <Step>
 
 ### Choose a provider
 
-Click one of the provider buttons. The **Endpoint** box fills in.
+Click one of the provider buttons. The **Address** box fills in.
 
 </Step>
 <Step>
@@ -98,19 +98,19 @@ Switch **AI on** and press **Save**.
 
 **AI on** is the switch for every AI feature at once. With it off, nothing is sent to any provider,
 whatever the other AI tabs say. With it off you can still save an unfinished form, so you can fill
-in the endpoint today and the key later. With it on, Modbot will not save until the endpoint, the
+in the address today and the key later. With it on, Modbot will not save until the address, the
 model and (for any preset except **Custom**) the key are all there.
 
-**Endpoint** is the full address of the service, starting with `https://` (or `http://` for
+**Address** is the full address of the service, starting with `https://` (or `http://` for
 **Custom**). It cannot contain `?` or `#`, and it cannot contain a user name or password: put the key
 in the key field.
 
 **API key** is write-only. Once saved, the page never shows it again; the label changes to
 **API key (stored)** so you know one is there. To replace it, type a new one and save. To delete it,
-press **Remove key**.
+press **Remove key** and confirm.
 
-<Callout type="warn" title="Changing the endpoint forgets the key">
-A stored key is only ever sent to the endpoint it was saved with. If you change the endpoint and
+<Callout type="warn" title="Changing the address forgets the key">
+A stored key is only ever sent to the address it was saved with. If you change the address and
 save without typing a key, the stored key is removed. The same rule applies to **Test** and the
 model list: against a different address, they go without the stored key. This stops a key being
 redirected to another server.
@@ -120,7 +120,7 @@ redirected to another server.
 [Insights](/ai/insights) and [Chat](/ai/chat) each have their own **Model** box; left empty, they use
 this one.
 
-**Fallback model** is optional. When the main model errors, runs out of time, or the provider will
+**Backup model** is optional. When the main model errors, runs out of time, or the provider will
 not run it, Modbot tries the same request once more on this one. It is picked from the same list as
 **Model**.
 
@@ -164,8 +164,8 @@ rules could not use — and a router whose price depends on the model it picks s
 
 **The order.** Models recommended for the box you opened come first, cheapest first. A model is
 recommended when it can do what that feature needs (tools for Chat, structured output for moderation
-rules, nothing in particular for insights, which are written as plain text, and both for the **Base**
-box that everything falls back to), when it has a real price, and when OpenRouter added it less than
+rules, nothing in particular for insights, which are written as plain text, and both for the
+**Connection** box that everything falls back to), when it has a real price, and when OpenRouter added it less than
 eighteen months ago. Modbot never favours a particular
 model by name.
 
@@ -180,7 +180,7 @@ once a day while AI is on and set to OpenRouter.
 
 ### On any other provider
 
-Modbot asks your endpoint for its own list of models and shows it, with the price beside any model
+Modbot asks your address for its own list of models and shows it, with the price beside any model
 you entered a price for on the [Limits](/ai/limits-and-spend) tab, or **No price**.
 
 ### A model that is not on the list
@@ -191,25 +191,25 @@ picker marks it **Not in list**. Use **Test** to check it works.
 ## The Test button
 
 **Test** uses the values on the form, not the saved ones, so you can check a new key before it
-replaces one that works. It needs an endpoint and a model.
+replaces one that works. It needs an address and a model.
 
 A test is a real request to the provider. It is counted as the **Connection test** feature on the
 [Limits](/ai/limits-and-spend) tab, and a spend limit can stop it. If a limit is reached, **Test**
 shows that limit's sentence instead of calling the provider.
 
-If the model list does not load, the endpoint may not offer one. That is not an error: type the model
+If the model list does not load, the address may not offer one. That is not an error: type the model
 name yourself and use **Test** to check it.
 
 ## What is sent to the provider
 
-Everything below goes to the endpoint on **Base**, with your key. Text your members wrote — Discord
+Everything below goes to the address on **Connection**, with your key. Text your members wrote — Discord
 messages, VRChat display names, bios, status lines and pronouns — is sent to the AI provider you
 choose, and so are pictures when a rule is set to look at them. Your provider's own terms decide
 what happens to it there.
 
 The first time you switch **AI on**, Modbot shows you this list and you have to confirm it. That
 happens once for the deployment, and it is recorded in the
-[audit log](/moderation/audit-log) with your name, the time and the endpoint you were shown.
+[audit log](/moderation/audit-log) with your name, the time and the address you were shown.
 
 | Feature | What is sent |
 |---|---|

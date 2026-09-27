@@ -318,7 +318,7 @@ can take a little longer.
 
 ### The Discord event
 
-When **Discord event** is ticked, Modbot makes an event in the server set as **Guild id**
+When **Discord event** is ticked, Modbot makes an event in the server set as **Server id**
 (**Settings**, **Discord**, **Bot**). The bot needs the **Manage Events** permission in that server.
 
 - It has the title, description, start and end, and the picture link (or the world's picture) as its
@@ -373,7 +373,7 @@ The **Discord event** and **Channel post** places use the same states as VRChat:
 | Error | Fix |
 |---|---|
 | **The bot may not manage server events; it needs Manage Events.** | Give the bot's role **Manage Events** in your Discord server. |
-| **The bot is not in that server.** | Check **Guild id** in **Settings**, **Discord**, and that the bot has been invited. |
+| **The bot is not in that server.** | Check **Server id** in **Settings**, **Discord**, and that the bot has been invited. |
 | **Discord is rate limiting the bot.** | Nothing. Modbot tries again on its next check. |
 
 A refusal that will not fix itself, such as a missing permission, is not sent again until the event
@@ -524,7 +524,7 @@ If it still waits, VRChat may have asked Modbot to slow down; check **VRChat req
 [Health](/self-hosting/health#vrchat-request-limits). Also check that a **Managed group** is chosen.
 
 **Nothing happens in Discord.** Check that the bot is connected on [Health](/self-hosting/health),
-that **Guild id** is set, and, for the Discord event, that the bot has **Manage Events**. After fixing
+that **Server id** is set, and, for the Discord event, that the bot has **Manage Events**. After fixing
 a permission, change something about the event, such as its description, and save, so Modbot tries
 again.
 

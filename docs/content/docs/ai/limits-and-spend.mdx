@@ -7,7 +7,7 @@ Every AI feature in Modbot sends paid requests to your provider. **Settings** â†
 shows what each feature has cost, estimates the month's bill, and lets you set money limits so no
 feature, and nobody using Chat, can run it past what you are willing to pay.
 
-The page needs the **Change settings** permission, including its list of top Chat users.
+The page needs the **Change settings** permission, including its list of top chat users.
 
 ## Features
 
@@ -18,7 +18,7 @@ Spend is counted and limited per feature:
 | **Moderation** | AI topic checks, including **Try it** with AI topics ([AutoMod](/moderation/automod)) |
 | **Insights** | Scheduled insights and **Generate now** ([insights](/ai/insights)) |
 | **Chat** | Every step of every Chat reply ([Chat](/ai/chat)) |
-| **Connection test** | The **Test** button on **Base** ([AI settings](/ai/settings)) |
+| **Connection test** | The **Test** button on **Connection** ([AI settings](/ai/settings)) |
 
 ## How spend is counted
 
@@ -180,15 +180,15 @@ a price, working out the amount from the mix of tokens that feature has used. If
 has a lower monthly money limit, the lower one is kept. Until then the token limit keeps counting and
 stops the feature with "The monthly AI token limit for Moderation is reached." (or Insights).
 
-## Top Chat users this month
+## Top chat users this month
 
-The **Top Chat users this month** card lists the ten accounts that spent most on Chat this month, with
+The **Top chat users this month** card lists the ten accounts that spent most on Chat this month, with
 what they spent and how many tokens they used. It helps decide whether a user or role limit is
 needed.
 
 ## Prices
 
-The **Prices per million tokens** card lists every model in use: the models set on **Base**, **Chat**
+The **Prices per million tokens** card lists every model in use: the models set on **Connection**, **Chat**
 and **Insights**, every model that has been used, and any model you have priced.
 
 | Column | Meaning |
@@ -214,7 +214,7 @@ Like limits, the whole price list is saved at once.
 **Fetch prices** downloads OpenRouter's public list of model prices straight away. It needs no key.
 The card shows when prices were last fetched, or **Not fetched**.
 
-Modbot also fetches automatically once a day, but only while AI is on and the provider on **Base** is
+Modbot also fetches automatically once a day, but only while AI is on and the provider on **Connection** is
 **OpenRouter**. A deployment using any other provider, or a local model, never contacts OpenRouter
 unless someone presses **Fetch prices**. If an automatic fetch fails, Modbot tries again an hour
 later; if OpenRouter says it is receiving too many requests, Modbot waits a day.

@@ -40,7 +40,7 @@ own tables every time it starts. See [PostgreSQL](/self-hosting/postgres).
 |---|---|---|
 | **Evidence storage** | Keeping screenshots and videos attached to case files. You can use an S3-compatible storage bucket, a folder on disk, or the database itself. Until you choose one, uploads are turned off and everything else works. | **Settings**, **Evidence** tab. See [Storage buckets](/self-hosting/storage-buckets). |
 | **The Discord bot** | Posting events to Discord, instance announcements, account linking, and reading your Discord server. | The setup wizard, or **Settings**, **Discord** tab. See [Setting up the bot](/discord/bot-setup). |
-| **Email (SMTP)** | Sending email, such as password reset links. | The setup wizard, or **Settings**, **Integrations** tab. |
+| **Email (SMTP)** | Sending email, such as password reset links. | The setup wizard, or **Settings**, **Email and alerts** tab. |
 | **An AI provider** | AI moderation rules, insights and chat. | **Settings**, **AI** tab. See [AI settings](/ai/settings). |
 | **A proxy** | Reaching VRChat from a host whose network VRChat's Cloudflare protection blocks. Common on VPS and datacentre hosting. | The setup wizard's connection check, or **Settings**, **Modbot's VRChat login** tab. |
 | **Seq** | Sending logs to a [Seq](https://datalust.co/seq) server, so you keep them when the container's disk does not survive. | The `SEQ_URL` environment variable. |
@@ -138,9 +138,9 @@ not one of the things that variable is protecting you from. The **Check for upda
 **Settings**, **Server** is what turns it off, and it is on by default. Modbot never
 updates itself. See [Updating](/self-hosting/updating#how-you-find-out-there-is-one).
 
-**Settings → Data → Modbot Cloud** shows when the last report went and gives you a link code, which
-you type into `cloud.modbot.co` to claim this server on your Cloud account. The code lasts 15
-minutes and works once. **Health** shows the last report too.
+**Settings → Server**, on the **This install** panel, shows when the last report went and has a
+**Get link code** button, which you type into `cloud.modbot.co` to claim this server on your Cloud
+account. The code lasts 15 minutes and works once. **Health** shows the last report too.
 
 Modbot Cloud also keeps two things your Modbot does not:
 

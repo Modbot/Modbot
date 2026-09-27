@@ -25,9 +25,9 @@ The bot needs permissions in your Discord server, and only the ones you actually
 
 | What you switch on | What the bot needs |
 | --- | --- |
-| Keep paired roles in step | Manage Roles, and its own role above every role you pair |
-| Copy group bans into Discord, as a ban | Ban Members |
-| Copy group bans into Discord, as a removal | Kick Members |
+| Keep paired roles in step | Manage roles, and its own role above every role you pair |
+| Copy group bans into Discord, as a ban | Ban members |
+| Copy group bans into Discord, as a removal | Kick members |
 
 Re-invite the bot with the link on **Settings → Discord → Account linking** after switching one on:
 the link asks for exactly what your settings need.
@@ -106,8 +106,10 @@ Modbot never copies a ban it made itself, in either direction.
 **Show what would change** lists every difference and does nothing at all — no bans, no role
 changes, nothing written down. Read it before you press anything else.
 
-**Copy what is different** then makes those changes. On a server that has been running for a while
-this is the press that moves the most people, so look at the list first.
+**Copy what is different** also lists every difference first, without changing anything, then turns
+into a red **Copy it** and a **Cancel**. Press **Copy it** to make the changes, or **Cancel** to back
+out. On a server that has been running for a while this is the press that moves the most people, so
+look at the list first.
 
 The first run only ever bans. It never lifts a ban, because "there is no ban here" and "the ban here
 was lifted" look the same before Modbot has any history of its own.
@@ -118,9 +120,9 @@ The card shows when each half last ran and what went wrong.
 
 | What it says | What to do |
 | --- | --- |
-| The bot cannot assign a role | Give the bot Manage Roles, and move its own role above that one in Discord |
-| The bot may not ban in this server | Give the bot Ban Members, and keep its role above the people it bans |
-| The bot may not remove people from this server | Give the bot Kick Members |
+| The bot cannot assign a role | Give the bot Manage roles, and move its own role above that one in Discord |
+| The bot may not ban in this server | Give the bot Ban members, and keep its role above the people it bans |
+| The bot may not remove people from this server | Give the bot Kick members |
 
 A ban that could not be copied because of a missing permission is copied on the next check once you
 fix it.

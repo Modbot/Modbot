@@ -78,8 +78,8 @@ out of the text as well.
 
 ## How long lines are kept
 
-**Settings**, **Server**, **Logs**, **Keep for**. **180 days** by default, and `0` keeps
-them forever. Changing it needs the **Change settings** permission.
+**Settings**, **Server**, **Keep for (days)**, **Modbot's log**. **180 days** by default, and `0`
+keeps them forever. Changing it needs the **Change settings** permission.
 
 Once a day, Modbot deletes the lines past the window, ten thousand rows at a time.
 
@@ -94,8 +94,8 @@ The setting covers the database copy only. Log files have their own limit on how
 ## Sending logs to Modbot Cloud
 
 Modbot sends the same lines on to [Modbot Cloud](https://cloud.modbot.co). It is **on unless you
-turn it off**, in **Settings**, **Server**, **Logs**, **Send logs to Modbot Cloud**, and it
-is off entirely when `MODBOT_CLOUD_DISABLED` is set — that variable wins over the switch.
+turn it off**, in **Settings**, **Server**, **Keep for (days)**, **Send logs to Modbot Cloud**, and
+it is off entirely when `MODBOT_CLOUD_DISABLED` is set — that variable wins over the switch.
 
 Why it is there: a deployment the project cannot reach is a deployment nobody can help with. You
 write "it stopped syncing yesterday", and the one thing that would answer it was in a container that

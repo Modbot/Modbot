@@ -62,8 +62,8 @@ An invite link:
   If you lose it, make a new one.
 
 Invite links that have not been used yet are listed under **Invite links not used yet** on the
-Users page, with who made each one, its roles and when it expires. Press **Take back** to cancel
-one.
+Users page, with who made each one, its roles and when it expires. Press **Take back**, then the
+red **Take back** that takes its place, to cancel one, or **Cancel** to back out.
 
 This is the way to add people because nobody but the new moderator ever knows their password.
 
@@ -167,9 +167,9 @@ effect on their very next click in Modbot, not the next time they sign in.
 
 In the person's panel, under **Access**:
 
-- **Disable this account** ends every session they have straight away and stops them signing in.
-  Nothing they did is removed from history. Invite links they made stop working. You cannot
-  disable your own account.
+- **Disable this account** asks you to confirm, in red, before it acts. It then ends every session
+  they have straight away and stops them signing in. Nothing they did is removed from history.
+  Invite links they made stop working. You cannot disable your own account.
 - **Enable this account** lets them sign in again. Sessions that were open before they were
   disabled do not come back; they have to sign in fresh.
 
@@ -252,7 +252,7 @@ There are two ways. You only need one.
 The sign-in page has **Forgot password?**. The person types their **Username** and presses
 **Send me a link**. Modbot sends a reset link:
 
-1. **by email**, if email is set up under **Settings**, **Integrations**, **Email sending**, and the
+1. **by email**, if email is set up under **Settings**, **Email and alerts**, **Email sending**, and the
    account has an email address,
 2. otherwise **by Discord direct message**, if a **Bot token** is saved under **Settings**,
    **Discord**, and the account has a Discord user id.
@@ -311,7 +311,7 @@ the mail server refuses is retried 5 times with a growing wait before it is mark
 
 ### Where to see it and change it
 
-**Settings**, **Integrations**, **Email sending** shows **Sent in the last 24 hours** against the
+**Settings**, **Email and alerts**, **Email sending** shows **Sent in the last 24 hours** against the
 limit, how many are **Queued** and **Failed**, when the next queued email goes, and a table of
 everything still waiting with its address, kind, state and, for a failure, what the mail server
 said.
