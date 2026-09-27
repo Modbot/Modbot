@@ -25,7 +25,7 @@ export function ShortcutSheet({
   open: boolean
   onOpenChange: (open: boolean) => void
   title?: string
-  /** Groups to leave out. The bar at the foot of a phone drops "Go to", which is the Menu's job. */
+  /** Groups to leave out. The bar at the foot of a phone drops the app's own keys, which are Menu and Search. */
   omit?: readonly ShortcutGroup[]
 }) {
   return (

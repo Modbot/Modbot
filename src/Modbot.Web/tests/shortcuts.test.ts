@@ -1,6 +1,22 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { describeKeys, isTyping, keyToken, matchKeys } from '../src/lib/shortcuts.ts'
+import { describeKeys, hasPageActions, isTyping, keyToken, matchKeys } from '../src/lib/shortcuts.ts'
+
+test('a page has actions only when it registered a key of its own that the sheet lists', () => {
+  // Now: the palette, the sheet and the go-to keys, all the app's own.
+  assert.equal(
+    hasPageActions([
+      { group: 'General', hidden: false },
+      { group: 'Go to', hidden: false },
+    ]),
+    false,
+  )
+  // A key the sheet leaves out does not count: there would be nothing to tap.
+  assert.equal(hasPageActions([{ group: 'General' }, { group: 'Lists', hidden: true }]), false)
+  assert.equal(hasPageActions([{ group: 'General' }, { group: 'Lists' }]), true)
+  assert.equal(hasPageActions([{ group: 'Calendar' }]), true)
+  assert.equal(hasPageActions([]), false)
+})
 
 test('a letter typed into a text box is typing; a checkbox is not', () => {
   assert.equal(isTyping({ tagName: 'INPUT' }), true)
