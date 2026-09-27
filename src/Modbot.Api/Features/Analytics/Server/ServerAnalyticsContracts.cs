@@ -40,6 +40,10 @@ public sealed record MessageHours(IReadOnlyList<decimal> Messages);
 /// when the id is not a number.
 /// </param>
 /// <param name="Members">Discord's own member count, bots included, from the newest reading.</param>
+/// <param name="Online">
+/// How many members Discord counts as online, asked of Discord and kept five minutes. Null when
+/// the bot is not connected or Discord did not answer.
+/// </param>
 /// <param name="BoostCount">How many boosts the server has, or null when not known.</param>
 /// <param name="BoostLevel">The boost level Discord gives the server, 0 to 3, or null when not known.</param>
 public sealed record ServerProfile(
@@ -49,13 +53,14 @@ public sealed record ServerProfile(
     string? BannerUrl,
     DateTimeOffset? CreatedAt,
     int? Members,
+    int? Online,
     int? BoostCount,
     int? BoostLevel);
 
 /// <summary>
 /// My Server: is the Discord server healthy, and who keeps it going? (M5 spec §6)
 /// </summary>
-/// <param name="Server">The server itself, as it is now. Read from what the bot stored; opening the page asks Discord nothing.</param>
+/// <param name="Server">The server itself, as it is now. Read from what the bot stored, all but the online count.</param>
 /// <param name="MemberCount">Discord's own member count, the last reading of each day it was read.</param>
 /// <param name="MessagesRemoved">Times a moderator removed messages, one or many at once.</param>
 /// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>

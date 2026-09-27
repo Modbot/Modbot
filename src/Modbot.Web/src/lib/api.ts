@@ -1608,6 +1608,8 @@ export type ServerProfile = {
   createdAt: string | null
   /** Discord's own member count, bots included, from the newest reading. */
   members: number | null
+  /** How many members Discord counts as online, asked of Discord and kept five minutes. Null when the bot is not connected. */
+  online: number | null
   boostCount: number | null
   /** 0 to 3, as Discord gives it. */
   boostLevel: number | null

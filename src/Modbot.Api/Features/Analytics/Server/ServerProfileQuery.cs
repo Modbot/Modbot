@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data;
+using Modbot.Core.Discord;
 
 namespace Modbot.Api.Features.Analytics.Server;
 
@@ -10,12 +11,13 @@ namespace Modbot.Api.Features.Analytics.Server;
 /// The Discord member list draws the same header, from <c>GET /api/discord/server</c>.
 /// </summary>
 /// <remarks>
-/// Read entirely from what the bot left behind. The name, pictures and boosts are on the server's
+/// Nearly all of it is what the bot left behind. The name, pictures and boosts are on the server's
 /// row, written whenever the bot reads the server; the member count is the newest reading of
 /// Discord's own count, whatever the page's window; the day the server was made is in its id.
-/// Opening the page never asks Discord anything.
+/// The online count is the one thing asked of Discord, through <paramref name="online"/>, which
+/// keeps each answer five minutes; with none given, as for the AI chat, nothing is asked.
 /// </remarks>
-public sealed class ServerProfileQuery(ModbotContext db)
+public sealed class ServerProfileQuery(ModbotContext db, IDiscordOnlineCount? online = null)
 {
     /// <summary>The first moment of 2015, in milliseconds: where Discord starts counting its ids from.</summary>
     public const long DiscordEpochMs = 1_420_070_400_000;
@@ -23,7 +25,7 @@ public sealed class ServerProfileQuery(ModbotContext db)
     public async Task<ServerProfile> RunAsync(string? guildId, CancellationToken ct = default)
     {
         if (guildId is null)
-            return new ServerProfile(null, null, null, null, null, null, null, null);
+            return new ServerProfile(null, null, null, null, null, null, null, null, null);
 
         var row = await db.DiscordServers.AsNoTracking()
             .Where(s => s.GuildId == guildId)
@@ -36,6 +38,8 @@ public sealed class ServerProfileQuery(ModbotContext db)
             .Select(t => (decimal?)t.Value)
             .FirstOrDefaultAsync(ct);
 
+        var onlineCount = online is null ? null : await online.ReadAsync(guildId, ct);
+
         return new ServerProfile(
             guildId,
             string.IsNullOrWhiteSpace(row?.Name) ? null : row.Name,
@@ -43,6 +47,7 @@ public sealed class ServerProfileQuery(ModbotContext db)
             row?.BannerUrl,
             CreatedAt(guildId),
             members is { } count ? (int)count : null,
+            onlineCount,
             row?.BoostCount,
             row?.BoostLevel);
     }

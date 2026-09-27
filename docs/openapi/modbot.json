@@ -233,7 +233,7 @@
           "Discord"
         ],
         "summary": "Get Discord server",
-        "description": "The Discord server in settings as its own server profile shows it: name, icon and banner, the day it was made (read from its id), Discord's member count from the newest reading, and its boosts and boost level. All of it is what the bot last stored; asking asks Discord nothing. Every field is null when no server is set.\n\nNeeds the `ViewMembers` permission.",
+        "description": "The Discord server in settings as its own server profile shows it: name, icon and banner, the day it was made (read from its id), Discord's member count from the newest reading, how many members Discord counts as online, and its boosts and boost level. All but the online count is what the bot last stored. The online count is asked of Discord and kept five minutes, and is null when the bot is not connected. Every field is null when no server is set.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetDiscordServer",
         "responses": {
           "200": {
@@ -31874,6 +31874,7 @@
           "bannerUrl",
           "createdAt",
           "members",
+          "online",
           "boostCount",
           "boostLevel"
         ],
@@ -31911,6 +31912,15 @@
             "format": "date-time"
           },
           "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "online": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",

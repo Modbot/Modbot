@@ -11,6 +11,7 @@ using Modbot.Api.Features.Analytics.Team;
 using Modbot.Api.Features.Analytics.Worlds;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Analytics;
@@ -126,6 +127,7 @@ public static class AnalyticsEndpoints
         group.MapGet("/server", async (
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                [FromServices] IDiscordOnlineCount online,
                 [FromQuery] int? days,
                 [FromQuery] bool? all,
                 [FromQuery] DateOnly? from,
@@ -135,7 +137,7 @@ public static class AnalyticsEndpoints
                 var window = await WindowAsync(db, clock, ServerAnalyticsQuery.Sources, days, all, from, to, ct);
                 if (window.Error is not null) return window.Error;
 
-                return Results.Ok(await new ServerAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
+                return Results.Ok(await new ServerAnalyticsQuery(db, online).RunAsync(window.From, window.To, clock.UtcNow, ct));
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetServerAnalytics")
