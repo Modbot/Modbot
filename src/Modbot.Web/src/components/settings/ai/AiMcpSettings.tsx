@@ -7,7 +7,7 @@ import { api, ApiError, type McpConnection, type McpSettings as Settings } from 
 import { CopyBox } from '@/pages/Users'
 import { cn } from '@/lib/utils'
 import { failure, when } from '../api/shared'
-import { Outcome, Placeholder, Switch } from '../fields'
+import { ConfirmButton, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
 /**
@@ -159,9 +159,7 @@ function ConnectionsCard() {
               <Td className={cn(c.lastUsedAt && 'font-mono')}>{c.lastUsedAt ? when(c.lastUsedAt) : 'Never'}</Td>
               <Td className="font-mono">{when(c.expiresAt)}</Td>
               <Td className="text-right">
-                <Button size="xs" variant="ghost" onClick={() => disconnect(c.id)}>
-                  Disconnect
-                </Button>
+                <ConfirmButton onConfirm={() => disconnect(c.id)}>Disconnect</ConfirmButton>
               </Td>
             </Tr>
           ))}
@@ -260,7 +258,7 @@ function LocalAppsCard({ settings }: { settings: Settings }) {
       )}
       <Outcome tone="problem">{problem}</Outcome>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 @3xl:grid-cols-2">
         <div className="min-w-0">
           <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             With API key

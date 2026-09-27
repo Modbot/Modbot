@@ -109,9 +109,9 @@ function LinkingForm({
       </div>
 
       <div className="flex max-w-lg flex-col gap-3">
-        <Field label="OAuth client id" mono value={clientId} onChange={setClientId} placeholder="" />
-        <PasswordField label="OAuth client secret" mono value={clientSecret} onChange={setClientSecret} />
-        <CopyValue label="Redirect URL" value={settings.redirectUrl} />
+        <Field label="Client id" mono value={clientId} onChange={setClientId} placeholder="" />
+        <PasswordField label="Client secret" mono value={clientSecret} onChange={setClientSecret} />
+        <CopyValue label="Redirect address" value={settings.redirectUrl} />
         <CopyValue label="Bot invite link" value={settings.inviteUrl} open />
       </div>
 

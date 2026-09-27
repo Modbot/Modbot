@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { api, ApiError, type AiSettings, type AiSettingsInput } from '@/lib/api'
-import { Field, NumberField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
+import { ConfirmButton, Field, NumberField, Outcome, PasswordField, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { ModelField } from './ModelField'
@@ -182,16 +182,13 @@ function ConnectionCard({
             {busy === 'test' ? 'Testing…' : 'Test'}
           </Button>
           {settings.apiKeyStored && (
-            <Button
-              size="xs"
+            <ConfirmButton
               variant="outline"
               disabled={busy !== null}
-              onClick={() =>
-                save({ ...body(), apiKey: undefined, removeApiKey: true }, 'remove')
-              }
+              onConfirm={() => save({ ...body(), apiKey: undefined, removeApiKey: true }, 'remove')}
             >
               {busy === 'remove' ? 'Removing…' : 'Remove key'}
-            </Button>
+            </ConfirmButton>
           )}
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
           <Outcome tone="problem">{problem}</Outcome>
@@ -249,7 +246,7 @@ function ConnectionCard({
 
       <div className="flex max-w-lg flex-col gap-3">
         <Field
-          label="Endpoint"
+          label="Address"
           mono
           value={endpoint}
           placeholder={presetEndpoint(provider) || 'http://localhost:11434/v1'}
@@ -270,7 +267,7 @@ function ConnectionCard({
           onChange={setModel}
         />
         <ModelField
-          label="Fallback model"
+          label="Backup model"
           feature="base"
           name="base-fallback"
           value={fallbackModel}

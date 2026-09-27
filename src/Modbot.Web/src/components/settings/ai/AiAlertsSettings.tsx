@@ -162,7 +162,7 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
       </SettingsCard>
 
       <SettingsCard title="What is watched" span={12} footer={footer('watchers')}>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 @5xl:grid-cols-3">
           {stored.watchers.map((w) => (
             <label key={w.watcher} className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
               <span className="text-muted-foreground">{w.label}</span>

@@ -67,7 +67,7 @@ export function RepeatOffendersCard() {
     >
       <div className="max-w-lg">
         <NumberField
-          label="Repeat offender threshold"
+          label="Repeat offender after"
           value={threshold}
           min={2}
           max={100}
@@ -77,7 +77,7 @@ export function RepeatOffendersCard() {
 
       <div className="flex flex-col gap-1">
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          Repeat offender types
+          What counts
         </span>
         {(rules?.types ?? []).map((type) => (
           <Checkbox

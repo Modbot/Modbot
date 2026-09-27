@@ -97,7 +97,7 @@ export function FlaggedCard() {
         )}
 
         <Switch checked={nuisance} onChange={setNuisance}>
-          Nuisance rank
+          Nuisance on VRChat
         </Switch>
 
         <Switch checked={autoMod} onChange={setAutoMod}>

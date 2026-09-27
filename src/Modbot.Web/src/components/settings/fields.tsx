@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
@@ -211,5 +213,60 @@ export function Placeholder({
     <Card className="col-span-12">
       <EmptyRow tone={tone}>{children}</EmptyRow>
     </Card>
+  )
+}
+
+/**
+ * An action that takes something away, on a row or in a footer (console look §12.1.1): the first
+ * press swaps it in place for a `destructive` button and a `ghost` Cancel, and only the second
+ * press acts. `confirm` is the red button's word when it should say more than the first one.
+ */
+export function ConfirmButton({
+  children,
+  confirm,
+  onConfirm,
+  disabled,
+  size = 'xs',
+  variant = 'ghost',
+  type = 'button',
+  title,
+}: {
+  children: React.ReactNode
+  confirm?: React.ReactNode
+  onConfirm: () => void
+  disabled?: boolean
+  size?: 'xs' | 'sm'
+  variant?: 'ghost' | 'outline' | 'default' | 'destructive'
+  type?: 'button'
+  /** Why the button cannot be pressed, when it cannot. */
+  title?: string
+}) {
+  const [asking, setAsking] = useState(false)
+
+  if (asking)
+    return (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <Button
+          type={type}
+          size={size}
+          variant="destructive"
+          disabled={disabled}
+          onClick={() => {
+            setAsking(false)
+            onConfirm()
+          }}
+        >
+          {confirm ?? children}
+        </Button>
+        <Button type="button" size={size} variant="ghost" onClick={() => setAsking(false)}>
+          Cancel
+        </Button>
+      </span>
+    )
+
+  return (
+    <Button type={type} size={size} variant={variant} disabled={disabled} title={title} onClick={() => setAsking(true)}>
+      {children}
+    </Button>
   )
 }

@@ -6,12 +6,12 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { Checkbox, Fact, Field, Outcome, PasswordField, Placeholder } from './fields'
 import { HealthAlertsCard } from './HealthAlertsCard'
-import { PublicInstancesCard } from './PublicInstancesCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { dateTime } from '@/components/charts/format'
 
 /**
- * Email — spec 7.1 step 5, re-run. The public address moved to Host & Database.
+ * Email and alerts — spec 7.1 step 5, re-run. The public address moved to Server, and so did the
+ * public instances switch, which sat here under the name "Modbot Cloud" (settings review §1.3).
  * Discord has its own tab since event
  * channels arrived (Discord event routes design §7).
  *
@@ -32,15 +32,13 @@ export function IntegrationsSection({
   refresh: () => Promise<void>
 }) {
   return (
-    <SettingsSection id="integrations" title="Integrations">
+    <SettingsSection id="integrations" title="Email and alerts">
       {/* Mounted only once the status is in hand -- see VRChatSection for why. */}
       {status ? (
         <IntegrationsForm status={status} refresh={refresh} />
       ) : (
         <Placeholder tone={statusError ? 'danger' : undefined}>{statusError ?? 'Loading…'}</Placeholder>
       )}
-      {/* Beside the email card, or on a row of its own while that card waits for the status. */}
-      <PublicInstancesCard span={status ? 6 : 12} />
       <HealthAlertsCard />
     </SettingsSection>
   )
@@ -149,11 +147,12 @@ function IntegrationsForm({
   return (
     <SettingsCard
       title="Email sending"
+      span={12}
       flush
       footer={
         <>
           <Button type="submit" form="integrations-form" size="xs" disabled={saving}>
-            {saving ? 'Saving…' : 'Save integrations'}
+            {saving ? 'Saving…' : 'Save'}
           </Button>
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
           <Outcome tone="problem">{error}</Outcome>
@@ -172,7 +171,7 @@ function IntegrationsForm({
             mono={status.integrations.smtpConfigured && !!status.integrations.smtpHost}
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Host" mono value={host} onChange={setHost} placeholder="smtp.example.com" />
+            <Field label="Server address" mono value={host} onChange={setHost} placeholder="smtp.example.com" />
             <Field label="Port" value={port} onChange={setPort} placeholder="587" />
             <Field
               label="From address"
@@ -185,7 +184,7 @@ function IntegrationsForm({
             <PasswordField label="Password" value={smtpPassword} onChange={setSmtpPassword} />
           </div>
           <Checkbox checked={useTls} onChange={setUseTls}>
-            Use TLS
+            Encrypted connection
           </Checkbox>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[16rem]">

@@ -422,7 +422,7 @@ function LimitsCard({ data, onSaved }: { data: AiLimits; onSaved: (next: AiLimit
 
 function TopUsersCard({ data }: { data: AiLimits }) {
   return (
-    <SettingsCard title="Top Chat users this month" span={12} flush>
+    <SettingsCard title="Top chat users this month" span={12} flush>
       {data.topChatUsers.length === 0 ? (
         <EmptyRow>None.</EmptyRow>
       ) : (

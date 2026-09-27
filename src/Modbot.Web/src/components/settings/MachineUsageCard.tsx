@@ -83,7 +83,7 @@ export function MachineUsageCard() {
   // As many columns as there are charts, so a host that cannot report its disk leaves no empty
   // third on the right.
   const charts = [processor, memory, disk].filter(Boolean).length
-  const columns = charts === 3 ? 'lg:grid-cols-3' : charts === 2 ? 'lg:grid-cols-2' : ''
+  const columns = charts === 3 ? '@3xl:grid-cols-3' : charts === 2 ? '@3xl:grid-cols-2' : ''
 
   return (
     <SettingsCard span={12} title="Machine usage">

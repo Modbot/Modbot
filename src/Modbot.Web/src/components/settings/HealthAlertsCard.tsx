@@ -87,7 +87,7 @@ export function HealthAlertsCard() {
       {!view ? (
         problem ? <EmptyRow tone="danger">{problem}</EmptyRow> : <EmptyRow>Loading…</EmptyRow>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 @3xl:grid-cols-2">
           <div className="flex flex-col gap-2">
             <div className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
               What is watched

@@ -122,7 +122,10 @@ function StoreHealth({ health, onProbed }: { health: EvidenceHealth; onProbed: (
         </Button>
       }
     >
-      <p>{health.explanation}</p>
+      {/* Unset, the server's line only says the title again. */}
+      {(health.locked || health.state === 'Healthy' || health.state === 'Unreachable') && (
+        <p>{health.explanation}</p>
+      )}
       {health.locked && <p>Uploads are blocked.</p>}
     </Notice>
   )
@@ -299,7 +302,7 @@ function StoreFactsCard({ settings }: { settings: EvidenceSettings }) {
           }
         />
         <Row
-          label="Range reads"
+          label="Partial downloads"
           value={settings.capabilities.rangeRead ? 'Supported' : 'Not supported'}
         />
         <Row
@@ -377,13 +380,13 @@ function LimitsCard({ settings, onSaved }: { settings: EvidenceSettings; onSaved
         <Field label="Per file (MB)" value={perFile} placeholder="100" onChange={setPerFile} />
         <Field label="Per report (MB)" value={perReport} placeholder="0" onChange={setPerReport} />
         <Field
-          label="Deployment (MB)"
+          label="Whole install (MB)"
           value={perDeployment}
           placeholder="0"
           onChange={setPerDeployment}
         />
       </div>
-      <Hint>Per report and deployment: 0 means no limit.</Hint>
+      <Hint>0 means no limit.</Hint>
     </SettingsCard>
   )
 }

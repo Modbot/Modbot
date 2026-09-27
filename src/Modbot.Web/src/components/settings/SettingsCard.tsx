@@ -14,9 +14,9 @@ import { cn } from '@/lib/utils'
 // SettingsCard inside an existing section, or one more SettingsSection listed in Settings.tsx.
 
 /**
- * One settings tab's content: a grid of cards. Cards span 6 columns by default and stack to one
- * column below `lg`. The heading is for screen readers only, because the tab above already shows
- * the same name.
+ * One settings topic's content: a grid of cards. Cards span 6 columns by default and stack to one
+ * column while the topic has less than 48rem to draw in. The heading is for screen readers only,
+ * because the list beside it already shows the same name.
  */
 export function SettingsSection({
   id,
@@ -41,7 +41,9 @@ export function SettingsSection({
  * One card on the settings grid.
  *
  * `span` is the width on wide screens: 6 for most cards, 12 for the few that genuinely need the
- * instance (a chart, a form with many columns). Everything narrower than `lg` gets one card per row.
+ * instance (a chart, a form with many columns). Below 48rem of room there is one card per row. The
+ * room is Settings' content column (`@container` in Settings.tsx), not the window: the topic list
+ * beside it takes 12rem, and a desk window only just past `lg` left two cards of 17rem each.
  * `footer` is where the card's buttons and their "Saved." / error text go, so every card puts its
  * actions in the same place.
  */
@@ -68,7 +70,7 @@ export function SettingsCard({
     <Card
       className={cn(
         'col-span-12',
-        span === 12 ? 'lg:col-span-12' : 'lg:col-span-6',
+        span === 12 ? '@3xl:col-span-12' : '@3xl:col-span-6',
         className,
       )}
     >
