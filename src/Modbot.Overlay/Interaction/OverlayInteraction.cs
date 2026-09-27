@@ -41,6 +41,8 @@ public sealed record InteractionResult(
 /// <item><strong>Resize and distance.</strong> While held, scrolling up and down pushes and pulls the
 /// panel along the hand's ray; left and right changes its width. Both stay inside the placement's
 /// bounds.</item>
+/// <item><strong>Two-handed resize.</strong> While one hand carries it, the other gripping on the
+/// panel sizes it by how far apart the two hands are.</item>
 /// <item><strong>Head lock.</strong> Two grips on the panel within <see cref="DoubleTap"/> put it
 /// back in front of the head at the default offset, so a lost panel can always be found.</item>
 /// <item><strong>Click.</strong> The trigger while pointing is a click at that spot.</item>
@@ -62,10 +64,43 @@ public sealed class OverlayInteraction
     /// <summary>Metres of width per poll at full scroll.</summary>
     public const float WidthStep = 0.005f;
 
+    /// <summary>
+    /// How far a thumbstick must be pushed before it counts. Legacy controller state is the raw
+    /// axis, and a stick at rest reads a little off centre — enough, polled thirty times a second,
+    /// to walk a held panel away and shrink it with nobody touching anything.
+    /// </summary>
+    public const float StickDeadZone = 0.2f;
+
+    /// <summary>
+    /// A stick with the dead zone taken out: zero inside it, and from there the rest of the travel
+    /// stretched back to the whole range, so the edge of the dead zone is a gentle start rather
+    /// than a jump.
+    /// </summary>
+    public static Vector2 Stick(Vector2 raw)
+    {
+        static float One(float value)
+        {
+            var size = MathF.Abs(value);
+            return size <= StickDeadZone
+                ? 0f
+                : MathF.Sign(value) * Math.Min(1f, (size - StickDeadZone) / (1f - StickDeadZone));
+        }
+
+        return new Vector2(One(raw.X), One(raw.Y));
+    }
+
     private OverlayPlacement _placement;
     private OverlayTracking _last = OverlayTracking.None;
     private Hand? _holding;
     private Pose _heldOffset;
+
+    /// <summary>
+    /// The second hand's hold while the panel is being carried: how far apart the two hands were,
+    /// and how wide the panel was, when it took hold. Null when only one hand has it.
+    /// </summary>
+    private Stretching? _stretching;
+
+    private sealed record Stretching(float Distance, float Width);
     private readonly Dictionary<Hand, TimeSpan> _lastGrip = new();
 
     public OverlayInteraction(OverlayPlacement placement)
@@ -115,6 +150,7 @@ public sealed class OverlayInteraction
         ArgumentNullException.ThrowIfNull(placement);
         _placement = placement.Clamped();
         _holding = null;
+        _stretching = null;
     }
 
     /// <param name="now">Any steadily rising clock; only differences are used.</param>
@@ -136,6 +172,7 @@ public sealed class OverlayInteraction
             else
             {
                 Hold(hand);
+                Stretch(holding, tracking);
             }
         }
 
@@ -175,7 +212,7 @@ public sealed class OverlayInteraction
                 }
                 else
                 {
-                    scroll = hand.Scroll;
+                    scroll = Stick(hand.Scroll);
                 }
             }
         }
@@ -242,28 +279,91 @@ public sealed class OverlayInteraction
 
     private void Hold(HandState hand)
     {
+        var stick = Stick(hand.Scroll);
+
         // Pushing and pulling slide the panel along the line from the hand to it, never through
         // the hand: the distance changes and the direction stays.
-        if (hand.Scroll.Y != 0f && _heldOffset.Position.Length() > 0f)
+        if (stick.Y != 0f && _heldOffset.Position.Length() > 0f)
         {
             var direction = Vector3.Normalize(_heldOffset.Position);
             var distance = Math.Clamp(
-                _heldOffset.Position.Length() + (hand.Scroll.Y * DistanceStep),
+                _heldOffset.Position.Length() + (stick.Y * DistanceStep),
                 OverlayPlacement.MinDistance,
                 OverlayPlacement.MaxDistance);
             _heldOffset = _heldOffset with { Position = direction * distance };
         }
 
         var width = _placement.Width;
-        if (hand.Scroll.X != 0f)
-            width = Math.Clamp(width + (hand.Scroll.X * WidthStep), OverlayPlacement.MinWidth, OverlayPlacement.MaxWidth);
+        if (stick.X != 0f)
+            width = Math.Clamp(width + (stick.X * WidthStep), OverlayPlacement.MinWidth, OverlayPlacement.MaxWidth);
 
         _placement = _placement with { Offset = _heldOffset.ToOverlayPose(), Width = width };
     }
 
+    /// <summary>
+    /// Two hands on the panel: the carrying hand holds it where it is, and the other hand, gripping
+    /// on the panel, sizes it by how far apart the two are — pull apart to make it bigger, bring
+    /// them together to make it smaller, the way XSOverlay's windows are sized.
+    /// </summary>
+    /// <remarks>
+    /// <para>The second hand takes hold the way the first did: a fresh squeeze while its ray is on
+    /// the panel. From then the width follows the ratio of the distance between the controllers to
+    /// what it was at that squeeze, so the panel keeps the size it had until the hands move, and a
+    /// small hand movement is a small change. Letting go with the second hand keeps the new size
+    /// and leaves the first still carrying; letting go with the first ends both.</para>
+    /// <para>The thumbstick still resizes as well. Two hands is the quick way to a very different
+    /// size; the stick is the fine one.</para>
+    /// </remarks>
+    private void Stretch(Hand holding, OverlayTracking tracking)
+    {
+        var otherSide = holding == Hand.Left ? Hand.Right : Hand.Left;
+        var other = tracking[otherSide];
+        var carrying = tracking[holding];
+
+        if (_stretching is { } stretching)
+        {
+            if (!other.Tracked || !other.Grab)
+            {
+                _stretching = null;
+                return;
+            }
+
+            var apart = Vector3.Distance(carrying.Device.Position, other.Device.Position);
+            _placement = _placement with
+            {
+                Width = Math.Clamp(
+                    stretching.Width * apart / stretching.Distance,
+                    OverlayPlacement.MinWidth,
+                    OverlayPlacement.MaxWidth),
+            };
+            return;
+        }
+
+        // A fresh squeeze, not one held since before: a hand that was already gripping when the
+        // panel was picked up is not asking to stretch it.
+        if (!other.Tracked || !other.Grab || _last[otherSide].Grab)
+            return;
+
+        if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel
+            || PanelGeometry.Hit(panel, _placement.Width, other.Aim) is not { IsOnPanel: true })
+        {
+            return;
+        }
+
+        var start = Vector3.Distance(carrying.Device.Position, other.Device.Position);
+
+        // Hands on top of each other give no distance to measure a stretch against.
+        if (start >= MinStretchDistance)
+            _stretching = new Stretching(start, _placement.Width);
+    }
+
+    /// <summary>How far apart the two controllers must be when the second one takes hold.</summary>
+    public const float MinStretchDistance = 0.05f;
+
     private void LetGo(Hand side, HandState hand)
     {
         _holding = null;
+        _stretching = null;
 
         if (!hand.Tracked)
         {

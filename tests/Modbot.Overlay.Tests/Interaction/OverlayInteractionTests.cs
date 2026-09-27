@@ -194,8 +194,42 @@ public class OverlayInteractionTests
 
         var result = interaction.Update(Hands.RightOnly(Hands.Hand(FromOrigin(), scroll: new Vector2(0, -0.6f))), At(0));
 
-        Assert.Equal(new Vector2(0, -0.6f), result.Scroll);
+        // Passed on with the dead zone taken out: -0.6 is half of the travel past it.
+        Assert.Equal(0f, result.Scroll.X);
+        Assert.Equal(-0.5f, result.Scroll.Y, 4);
         Assert.False(result.PlacementChanged);
+    }
+
+    [Fact]
+    public void AStickAtRestMovesNothing()
+    {
+        // A thumbstick left alone reads a little off centre. Held for a thousand polls, that used
+        // to walk the panel away and shrink it; it is inside the dead zone now.
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+        var aim = FromOrigin();
+        interaction.Update(Hands.RightOnly(Hands.Hand(aim, grab: true)), At(0));
+        var taken = interaction.Placement;
+
+        for (var i = 1; i <= 1000; i++)
+            interaction.Update(Hands.RightOnly(Hands.Hand(aim, grab: true, scroll: new Vector2(-0.12f, 0.15f))), At(i));
+
+        Assert.Equal(taken.Width, interaction.Placement.Width);
+        Assert.Equal(Pose.From(taken.Offset).Position.Length(), Pose.From(interaction.Placement.Offset).Position.Length(), 4);
+
+        var pointed = new OverlayInteraction(OverlayPlacement.Default)
+            .Update(Hands.RightOnly(Hands.Hand(FromOrigin(), scroll: new Vector2(0, 0.15f))), At(0));
+        Assert.Equal(Vector2.Zero, pointed.Scroll);
+    }
+
+    [Theory]
+    [InlineData(0f, 0f)]
+    [InlineData(0.2f, 0f)]
+    [InlineData(0.6f, 0.5f)]
+    [InlineData(1f, 1f)]
+    [InlineData(-1f, -1f)]
+    public void TheDeadZoneIsTakenOutAndTheRestStretchedToTheWholeRange(float raw, float expected)
+    {
+        Assert.Equal(expected, OverlayInteraction.Stick(new Vector2(raw, raw)).X, 4);
     }
 
     [Fact]

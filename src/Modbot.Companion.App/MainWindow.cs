@@ -1760,6 +1760,10 @@ public sealed record MainWindowActions(
     /// </summary>
     public Func<Task<bool>> RestartAsync { get; init; } = () => Task.FromResult(false);
 
+    /// <summary>The sidebar's Check for updates button: one check now, and what came of it.</summary>
+    public Func<Task<UpdateCheckOutcome>> CheckForUpdatesAsync { get; init; } =
+        () => Task.FromResult(UpdateCheckOutcome.CannotCheck);
+
     /// <summary>
     /// The Settings page's Desktop overlay card changed: the whole record as the controls now
     /// read. Added the same way.

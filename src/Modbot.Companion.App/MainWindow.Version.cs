@@ -32,12 +32,74 @@ public sealed partial class MainWindow
     /// <summary>Set when a restart could not start a new copy, so the next tick does not hide why.</summary>
     private bool _updateRestartFailed;
 
-    /// <summary>Wires the foot's button. Called once, from the constructor.</summary>
+    private readonly Button _checkUpdates = Ui.Button("Check for updates");
+    private readonly TextBlock _checkLine = Ui.Faint("");
+
+    /// <summary>
+    /// How long what a check came to stays under the button. "Up to date" is true when it is said
+    /// and stops being worth believing an hour later, so it does not stay.
+    /// </summary>
+    private readonly DispatcherTimer _checkLineClear = new() { Interval = TimeSpan.FromSeconds(10) };
+
+    /// <summary>Wires the foot's buttons. Called once, from the constructor.</summary>
     private void SetUpVersion()
     {
         _updateRestart.Margin = new Thickness(0, 4, 0, 0);
         _updateRestart.Click += async (_, _) => await CrashGuard.RunAsync("restarting to update Modbot", UpdateRestartPressedAsync);
         _updateRestartDisarm.Tick += (_, _) => DisarmUpdateRestart();
+
+        _checkUpdates.Margin = new Thickness(0, 4, 0, 0);
+        _checkUpdates.Click += async (_, _) => await CrashGuard.RunAsync("checking for updates", CheckForUpdatesPressedAsync);
+        _checkLine.IsVisible = false;
+        _checkLineClear.Tick += (_, _) =>
+        {
+            _checkLineClear.Stop();
+            _checkLine.IsVisible = false;
+        };
+    }
+
+    /// <summary>
+    /// One check now, so a moderator who has heard of a new version does not have to restart
+    /// Modbot to make it look. What it finds is downloaded, and the foot then offers the restart
+    /// that installs it.
+    /// </summary>
+    private async Task CheckForUpdatesPressedAsync()
+    {
+        _checkUpdates.IsEnabled = false;
+        _checkLineClear.Stop();
+        ShowCheckLine("Checking…", Ui.T.TextFaintBrush);
+
+        try
+        {
+            var outcome = await _actions.CheckForUpdatesAsync();
+            switch (outcome)
+            {
+                case UpdateCheckOutcome.UpToDate:
+                    ShowCheckLine("Up to date", Ui.T.TextFaintBrush);
+                    _checkLineClear.Start();
+                    break;
+                case UpdateCheckOutcome.Failed:
+                    ShowCheckLine("Could not check for updates", Ui.T.DangerBrush);
+                    _checkLineClear.Start();
+                    break;
+                default:
+                    // Downloaded: the line above says so and the restart button is up. Already
+                    // checking: that check's answer arrives the same way.
+                    _checkLine.IsVisible = false;
+                    break;
+            }
+        }
+        finally
+        {
+            _checkUpdates.IsEnabled = true;
+        }
+    }
+
+    private void ShowCheckLine(string text, Avalonia.Media.IBrush colour)
+    {
+        _checkLine.Text = text;
+        _checkLine.Foreground = colour;
+        _checkLine.IsVisible = true;
     }
 
     /// <summary>The version, and what the updater has found, put into the foot's kept controls.</summary>
@@ -52,6 +114,10 @@ public sealed partial class MainWindow
 
         _updateRestart.IsVisible = ready;
 
+        // Offered only by a copy that updates itself, and not while a newer version is already
+        // downloading or waiting: then the thing to press is the restart.
+        _checkUpdates.IsVisible = _snapshot.CanCheckForUpdates && !ready && _snapshot.UpdateFound is null;
+
         if (_updateRestartFailed)
             return;
 
@@ -64,7 +130,7 @@ public sealed partial class MainWindow
     {
         Spacing = 2,
         Margin = new Thickness(0, 6, 0, 0),
-        Children = { _versionLine, _updateLine, _updateRestart },
+        Children = { _versionLine, _updateLine, _updateRestart, _checkUpdates, _checkLine },
     };
 
     private async Task UpdateRestartPressedAsync()

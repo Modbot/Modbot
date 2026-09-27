@@ -223,6 +223,9 @@ public sealed record CompanionAppSnapshot(
     /// <summary>A newer version downloaded and waiting for a restart, for the sidebar's foot, or null.</summary>
     public string? UpdateReady { get; init; }
 
+    /// <summary>Whether this copy looks for updates, so the sidebar can offer a check now.</summary>
+    public bool CanCheckForUpdates { get; init; }
+
     /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
     public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
 
@@ -475,6 +478,12 @@ public sealed class CompanionAppState
     /// </summary>
     public string? UpdateFound { get; set; }
 
+    /// <summary>
+    /// Whether this copy looks for updates at all: an installed copy with checking left on. The
+    /// sidebar only offers Check for updates when it does.
+    /// </summary>
+    public bool CanCheckForUpdates { get; set; }
+
     public CompanionAppSnapshot Snapshot()
     {
         var logStatus = LogHealth.Evaluate(_clock.UtcNow, LogSilenceThreshold);
@@ -509,6 +518,7 @@ public sealed class CompanionAppState
             SoundProblem = SoundProblem,
             UpdateFound = UpdateFound,
             UpdateReady = UpdateReady,
+            CanCheckForUpdates = CanCheckForUpdates,
         };
     }
 

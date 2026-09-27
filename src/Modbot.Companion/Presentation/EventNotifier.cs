@@ -3,6 +3,7 @@ using Modbot.Companion.Instances;
 using Modbot.Companion.Journal;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Sounds;
+using Modbot.Core.Time;
 using Modbot.Core.Users;
 
 namespace Modbot.Companion.Presentation;
@@ -31,28 +32,54 @@ namespace Modbot.Companion.Presentation;
 /// </remarks>
 public sealed class EventNotifier : IObservationSink
 {
+    /// <summary>
+    /// How long a join waits for the person's trust rank before it is told without one.
+    /// </summary>
+    /// <remarks>
+    /// The rank comes from the paired server, which only hears of the person when this client
+    /// reports them: two seconds after the join, then the server's answer. Five seconds covers that
+    /// with room over, and is still soon enough to be about somebody who has just walked in.
+    /// </remarks>
+    public static readonly TimeSpan RankWait = TimeSpan.FromSeconds(5);
+
     private readonly Func<string?> _moderatorId;
     private readonly Action<PopUp, NotificationKind>? _popUp;
     private readonly Action<NotificationKind, string?>? _sound;
     private readonly Func<string, TrustRank?>? _rankOf;
+    private readonly IModbotClock? _clock;
+    private readonly Func<bool>? _rankComing;
+    private readonly List<Held> _held = [];
+    private readonly Lock _gate = new();
 
     /// <param name="moderatorId">The moderator's own VRChat id as the log last said, or null while unknown.</param>
     /// <param name="popUp">Where a card goes, or null when there is no notification overlay.</param>
     /// <param name="sound">Where a bleep is asked for, or null when this PC has no sound.</param>
     /// <param name="rankOf">
     /// A person's trust rank as the paired server last said it, or null while it has not. Read from
-    /// what the client already holds; see <see cref="AddRanks"/> for a rank that arrives later.
+    /// what the client already holds.
+    /// </param>
+    /// <param name="clock">
+    /// What a held join is timed against. Null tells every join at once, as before there was a rank
+    /// to wait for.
+    /// </param>
+    /// <param name="rankComing">
+    /// Whether a rank can arrive at all: true while a paired server covers the instance the
+    /// moderator is in. A join in an instance nobody's server watches is told at once.
     /// </param>
     public EventNotifier(
         Func<string?> moderatorId,
         Action<PopUp, NotificationKind>? popUp = null,
         Action<NotificationKind, string?>? sound = null,
-        Func<string, TrustRank?>? rankOf = null)
+        Func<string, TrustRank?>? rankOf = null,
+        IModbotClock? clock = null,
+        Func<bool>? rankComing = null)
     {
         _moderatorId = moderatorId;
         _popUp = popUp;
         _sound = sound;
         _rankOf = rankOf;
+        _clock = clock;
+        _rankComing = rankComing;
     }
 
     public void Offer(IReadOnlyList<ObservedPresence> observations)
@@ -77,10 +104,72 @@ public sealed class EventNotifier : IObservationSink
                 continue;
 
             var rank = kind is NotificationKind.Joined ? _rankOf?.Invoke(observation.SubjectId) : null;
-            _popUp?.Invoke(Card(observation, kind, rank), kind);
-            _sound?.Invoke(kind, observation.SubjectId);
+
+            // A join whose rank is not known yet, in an instance a paired server covers, waits
+            // for it: the card and its sound go together, as soon as the rank is in or the wait is
+            // up. Everything else is told at once.
+            if (kind is NotificationKind.Joined && rank is null && _clock is { } clock && _rankComing?.Invoke() == true)
+            {
+                lock (_gate)
+                    _held.Add(new Held(observation, clock.UtcNow + RankWait));
+
+                continue;
+            }
+
+            Tell(observation, kind, rank);
         }
     }
+
+    /// <summary>
+    /// Tells the joins that were waiting for a rank: each one whose rank has come in, and each one
+    /// that has waited long enough. Called on a timer; does nothing when nothing is waiting.
+    /// </summary>
+    public void TellWaiting()
+    {
+        if (_clock is null)
+            return;
+
+        List<(ObservedPresence Observation, TrustRank? Rank)> ready = [];
+
+        lock (_gate)
+        {
+            if (_held.Count == 0)
+                return;
+
+            var now = _clock.UtcNow;
+            for (var i = 0; i < _held.Count; i++)
+            {
+                var held = _held[i];
+                var rank = _rankOf?.Invoke(held.Observation.SubjectId);
+                if (rank is null && now < held.Until)
+                    continue;
+
+                ready.Add((held.Observation, rank));
+                _held.RemoveAt(i--);
+            }
+        }
+
+        foreach (var (observation, rank) in ready)
+            Tell(observation, NotificationKind.Joined, rank);
+    }
+
+    /// <summary>How many joins are waiting for a rank right now.</summary>
+    public int Waiting
+    {
+        get
+        {
+            lock (_gate)
+                return _held.Count;
+        }
+    }
+
+    private void Tell(ObservedPresence observation, NotificationKind kind, TrustRank? rank)
+    {
+        _popUp?.Invoke(Card(observation, kind, rank), kind);
+        _sound?.Invoke(kind, observation.SubjectId);
+    }
+
+    private sealed record Held(ObservedPresence Observation, DateTimeOffset Until);
 
     /// <summary>
     /// The card one observation becomes.

@@ -344,7 +344,7 @@ public static class OverlayView
     /// </remarks>
     private static Control EventsPanel(OverlayScreen screen)
     {
-        var rows = new StackPanel { Spacing = 2 };
+        var rows = new StackPanel { Spacing = RowGap };
 
         var events = screen.EventsOrNone;
         if (events.Count == 0)
@@ -396,10 +396,8 @@ public static class OverlayView
 
         var line = new StackPanel
         {
-            Tag = @event.Person is { } person ? new OverlayTarget.Person(person.SubjectId) : null,
             Orientation = Orientation.Horizontal,
             Spacing = 10,
-            Height = T.Density.RowHeight,
             Children = { what, who },
         };
 
@@ -409,7 +407,7 @@ public static class OverlayView
         when.VerticalAlignment = VerticalAlignment.Center;
         line.Children.Add(when);
 
-        return line;
+        return Row(line, @event.Person?.SubjectId);
     }
 
     /// <summary>An event kind in plain words. An unknown kind is shown as it came, never guessed at.</summary>
@@ -557,7 +555,7 @@ public static class OverlayView
 
     private static Control RosterPanel(OverlayScreen screen)
     {
-        var rows = new StackPanel { Spacing = 2 };
+        var rows = new StackPanel { Spacing = RowGap };
 
         var here = screen.Roster.Value?.Members.Count ?? 0;
 
@@ -671,10 +669,8 @@ public static class OverlayView
 
         var line = new StackPanel
         {
-            Tag = new OverlayTarget.Person(member.SubjectId),
             Orientation = Orientation.Horizontal,
             Spacing = 10,
-            Height = T.Density.RowHeight,
             Children = { badge, name },
         };
 
@@ -689,7 +685,52 @@ public static class OverlayView
         if (member.Flags.Count > 0)
             line.Children.Add(FlagChip(string.Join(" · ", member.Flags)));
 
-        return line;
+        return Row(line, member.SubjectId);
+    }
+
+    /// <summary>How tall one roster or events row is, in panel pixels.</summary>
+    /// <remarks>
+    /// Tighter than the density's row height, which left more air than name between two rows.
+    /// Each row is its own box now, so the eye no longer needs that air to tell rows apart, and
+    /// 40 of the texture's 1,024 pixels is still about 1.8 cm on a panel 45 cm wide: easy to land
+    /// a controller's ray on.
+    /// </remarks>
+    private const double RowBoxHeight = 40;
+
+    /// <summary>The gap between two rows' boxes.</summary>
+    private const double RowGap = 4;
+
+    /// <summary>
+    /// One row of a list: a box that opens a person's card when <paramref name="subjectId"/> is
+    /// known, or the same line with no box when there is nobody to open.
+    /// </summary>
+    /// <remarks>
+    /// The box is the whole of what a tap or a click lands on, drawn, so a moderator can see where
+    /// a row starts and ends rather than guessing at a name. On the desktop overlay window it is
+    /// also lit while the mouse is over it. A row with nothing behind it has no box, which is how
+    /// it says so.
+    /// </remarks>
+    private static Control Row(Control line, string? subjectId)
+    {
+        line.VerticalAlignment = VerticalAlignment.Center;
+
+        var row = new Border
+        {
+            Height = RowBoxHeight,
+            Padding = new Thickness(12, 0),
+            CornerRadius = T.CornerRadius,
+            Child = line,
+        };
+
+        if (subjectId is null)
+            return row;
+
+        row.Tag = new OverlayTarget.Person(subjectId);
+        row.Background = T.Surface3Brush;
+        row.PointerEntered += (_, _) => row.Background = T.AccentDimBrush;
+        row.PointerExited += (_, _) => row.Background = T.Surface3Brush;
+
+        return row;
     }
 
     /// <summary>

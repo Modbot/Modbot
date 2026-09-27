@@ -95,6 +95,101 @@ public class JoinCardRankTests
         Assert.Equal([flagged, left], popUps.Current());
     }
 
+    private sealed class Waits
+    {
+        public readonly List<PopUp> Shown = [];
+        public readonly List<NotificationKind> Sounds = [];
+        public readonly Dictionary<string, TrustRank> Ranks = [];
+        public bool ServerCovers = true;
+    }
+
+    private EventNotifier Waiting(Waits waits) => new(
+        () => "usr_me",
+        (popUp, _) => waits.Shown.Add(popUp),
+        (kind, _) => waits.Sounds.Add(kind),
+        id => waits.Ranks.TryGetValue(id, out var rank) ? rank : null,
+        _clock,
+        () => waits.ServerCovers);
+
+    [Fact]
+    public void AJoinWaitsForTheRankAndGoesUpTheMomentItArrives()
+    {
+        var waits = new Waits();
+        var notifier = Waiting(waits);
+
+        notifier.Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);
+
+        // Nothing yet: neither the card nor its sound.
+        Assert.Empty(waits.Shown);
+        Assert.Empty(waits.Sounds);
+        Assert.Equal(1, notifier.Waiting);
+
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        notifier.TellWaiting();
+        Assert.Empty(waits.Shown);
+
+        waits.Ranks["usr_rin"] = TrustRank.TrustedUser;
+        notifier.TellWaiting();
+
+        Assert.Equal("Trusted User", Assert.Single(waits.Shown).Detail);
+        Assert.Equal(NotificationKind.Joined, Assert.Single(waits.Sounds));
+        Assert.Equal(0, notifier.Waiting);
+    }
+
+    [Fact]
+    public void AJoinWhoseRankNeverComesGoesUpWithoutOneOnceTheWaitIsOver()
+    {
+        var waits = new Waits();
+        var notifier = Waiting(waits);
+
+        notifier.Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);
+
+        _clock.Advance(EventNotifier.RankWait - TimeSpan.FromMilliseconds(1));
+        notifier.TellWaiting();
+        Assert.Empty(waits.Shown);
+
+        _clock.Advance(TimeSpan.FromMilliseconds(1));
+        notifier.TellWaiting();
+
+        var card = Assert.Single(waits.Shown);
+        Assert.Equal("Rin", card.Body);
+        Assert.Null(card.Detail);
+        Assert.Single(waits.Sounds);
+    }
+
+    [Fact]
+    public void AJoinWhoseRankIsAlreadyKnownDoesNotWait()
+    {
+        var waits = new Waits();
+        waits.Ranks["usr_rin"] = TrustRank.User;
+
+        Waiting(waits).Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);
+
+        Assert.Equal("User", Assert.Single(waits.Shown).Detail);
+    }
+
+    [Fact]
+    public void AJoinInAnInstanceNoPairedServerCoversDoesNotWait()
+    {
+        // No server will ever send a rank for it, so waiting would only make it late.
+        var waits = new Waits { ServerCovers = false };
+
+        Waiting(waits).Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);
+
+        Assert.Single(waits.Shown);
+        Assert.Single(waits.Sounds);
+    }
+
+    [Fact]
+    public void OnlyJoinsWait()
+    {
+        var waits = new Waits();
+
+        Waiting(waits).Offer([Seen(PresenceKind.Left, "usr_rin", "Rin")]);
+
+        Assert.Single(waits.Shown);
+    }
+
     [Fact]
     public void AnAmendThatChangesTheIdIsIgnored()
     {
