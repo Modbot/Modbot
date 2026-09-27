@@ -214,6 +214,43 @@ export function access(groupAccessType: string | null): string | null {
 }
 
 /**
+ * Who may join a group instance, in the game's own words: "Group", "Group+", "Group Public". The
+ * words a moderator sees on the instance in VRChat, so a row here and the game agree. A word this
+ * build has not seen is shown as VRChat wrote it.
+ */
+export function accessInGame(groupAccessType: string | null): string | null {
+  if (!groupAccessType) return null
+
+  return ({ members: 'Group', plus: 'Group+', public: 'Group Public' } as Record<string, string>)[groupAccessType] ?? groupAccessType
+}
+
+/** A time of day the way people say it: "8:04 PM", not "08:04 PM". */
+export function timeOfDay(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
+/**
+ * When something ran, as one range: "Sep 26, 6:02–7:21 PM" inside a day, "Sep 19, 6:01 PM – Sep 20,
+ * 12:11 AM" across midnight, "Sep 26, 8:04 PM –" while it is still going. Replaces a start and an
+ * end stacked in one cell, which a narrow screen cut off mid-date.
+ */
+export function whenRange(from: string, to: string | null): string {
+  const withYear = needsYear(...[from, to].filter((d): d is string => d !== null))
+  const start = `${formatDay(from, withYear)}, ${timeOfDay(from)}`
+  if (!to) return `${start} –`
+
+  if (new Date(from).toDateString() === new Date(to).toDateString()) {
+    const a = timeOfDay(from)
+    const b = timeOfDay(to)
+    // "6:02 PM–7:21 PM" reads as "6:02–7:21 PM" when both halves share the AM/PM.
+    const shared = a.slice(-3) === b.slice(-3) && /\s?[AP]M$/i.test(a) ? a.replace(/\s?[AP]M$/i, '') : a
+    return `${formatDay(from, withYear)}, ${shared}–${b}`
+  }
+
+  return `${start} – ${formatDay(to, withYear)}, ${timeOfDay(to)}`
+}
+
+/**
  * A head count as text: `52`, or `80?` when it is unsure -- taken from VRChat's `n_users` because the
  * instance's page had no `userCount`. `n_users` ran up to about thirty high on a busy evening, so the
  * mark stays on the number wherever it goes. `format` writes the number itself.

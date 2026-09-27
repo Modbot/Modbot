@@ -7,7 +7,7 @@ import { HeadCount } from '@/components/HeadCount'
 import { api, type HourOfWeek, type InstancePeaks } from '@/lib/api'
 import { InstanceActivityChart } from './InstanceActivityChart'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
+import { CoverageLine, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -49,7 +49,7 @@ export function Instances() {
 
       {data && (
         <PanelGrid className="grid-cols-1">
-          <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
+          <CoverageLine coverage={data.coverage} generatedAt={data.generatedAt} />
 
           {/*
             Before the charts, deliberately. The counts answer "is the community active"; this

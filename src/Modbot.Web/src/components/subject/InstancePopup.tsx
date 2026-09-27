@@ -16,7 +16,7 @@ import { api, type CurrentUser, type InstanceView } from '@/lib/api'
 import { concernsInstance } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
 import { useLiveVersion } from '@/lib/useLiveVersion'
-import { access, headCountText, plural } from '@/lib/format'
+import { accessInGame, headCountText, plural } from '@/lib/format'
 import { instanceEnd, instanceName } from '@/lib/instanceName'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
@@ -129,7 +129,7 @@ function Identity({ view }: { view: InstanceView }) {
           <span className="font-mono">{instance.vrChatInstanceId ?? '—'}</span>
         </Field>
 
-        <Field label="Who can join">{access(instance.groupAccessType) ?? view.type ?? '—'}</Field>
+        <Field label="Who can join">{accessInGame(instance.groupAccessType) ?? view.type ?? '—'}</Field>
 
         <Field label={endLabel(instance)}>
           {instance.closedAt ? (

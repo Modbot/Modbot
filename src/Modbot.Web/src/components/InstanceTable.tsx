@@ -1,8 +1,9 @@
-import { dateTime, minutes } from '@/components/charts'
+import { minutes } from '@/components/charts'
+import { RegionBadge } from '@/components/InstanceBadges'
 import { WorldLink } from '@/components/facts'
 import { openInstance } from '@/lib/subject'
 import type { InstanceRow } from '@/lib/api'
-import { access } from '@/lib/format'
+import { accessInGame, whenRange } from '@/lib/format'
 import { instanceEnd, instanceNumber } from '@/lib/instanceName'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { cn } from '@/lib/utils'
@@ -21,6 +22,11 @@ import { Table, Td, Th, Tr } from '@/components/ui/data-table'
  * place of the name, because that is all there is. Both the world and the instance open their own
  * popup, which is the point: a row that only displayed ids was a dead end. An instance opened with
  * a name shows the name, and its number moves to the tooltip.
+ *
+ * The whole row opens the instance; the world's name still opens the world. Who could join is said
+ * in the game's words and the region with the tile's flag, so a row and the game read the same.
+ * One "When" range replaces a start and an end stacked in one cell, and there is no "people now"
+ * column: it was a dash on every row but the open one, which says how many are there instead.
  */
 export function InstanceTable({
   instances,
@@ -37,15 +43,22 @@ export function InstanceTable({
         <>
           {showWorld && <Th>World</Th>}
           <Th>Instance</Th>
-          <Th className="text-right">People</Th>
           <Th className="text-right">Most at once</Th>
           <Th className="text-right">Open for</Th>
-          <Th>Started</Th>
+          <Th>When</Th>
         </>
       }
     >
       {instances.map((r) => (
-        <Tr key={r.id}>
+        <Tr
+          key={r.id}
+          className="cursor-pointer hover:bg-muted/40"
+          onClick={(e) => {
+            // The world's name and the instance's own button open what they name.
+            if ((e.target as HTMLElement).closest('button, a')) return
+            openInstance(r.id)
+          }}
+        >
           {showWorld && (
             <Td title={r.location}>
               <div className="flex items-center gap-2">
@@ -77,26 +90,32 @@ export function InstanceTable({
             </button>
             {/* "Group members · EU" over three lines makes every row in the table three lines
                 tall on a phone. The table already scrolls; the row need not also be a stack. */}
-            <div className="whitespace-nowrap text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
-              {[access(r.groupAccessType), r.region?.toUpperCase()].filter(Boolean).join(' · ') || '—'}
+            <div
+              className="flex items-center gap-1.5 whitespace-nowrap text-muted-foreground"
+              style={{ fontSize: 'var(--text-tiny)' }}
+            >
+              {accessInGame(r.groupAccessType) ?? (r.region ? null : '—')}
+              {accessInGame(r.groupAccessType) && r.region && <span aria-hidden>·</span>}
+              <RegionBadge region={r.region} />
             </div>
-          </Td>
-          <Td className="text-right font-mono">
-            {r.closedAt ? '—' : <HeadCount count={r.peopleNow ?? 0} unsure={r.peopleNow !== null && r.peopleNowUnsure} />}
           </Td>
           <Td className="text-right font-mono">
             {r.peakPeople === null ? '—' : <HeadCount count={r.peakPeople} unsure={r.peakPeopleUnsure} />}
           </Td>
           <Td className="text-right font-mono">{minutes(r.minutesOpen)}</Td>
           <Td className="whitespace-nowrap text-muted-foreground">
-            <div className="font-mono">{dateTime(r.openedAt)}</div>
+            <div className="font-mono">{whenRange(r.openedAt, r.closedAt)}</div>
             <div style={{ fontSize: 'var(--text-tiny)' }}>
               {!r.closedAt ? (
-                'open now'
-              ) : (
                 <>
-                  {instanceEnd(r)} <span className="font-mono">{dateTime(r.closedAt)}</span>
+                  open now ·{' '}
+                  <span className="font-mono">
+                    <HeadCount count={r.peopleNow ?? 0} unsure={r.peopleNow !== null && r.peopleNowUnsure} />
+                  </span>{' '}
+                  here
                 </>
+              ) : (
+                instanceEnd(r)
               )}
             </div>
           </Td>
