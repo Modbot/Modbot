@@ -27543,6 +27543,54 @@
           }
         }
       },
+      "LiveTallyView": {
+        "required": [
+          "since",
+          "arrivals",
+          "warns",
+          "kicks",
+          "bans"
+        ],
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "arrivals": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "warns": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "kicks": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "bans": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "LiveView": {
         "required": [
           "instances",
@@ -27568,6 +27616,16 @@
             "items": {
               "$ref": "#/components/schemas/LiveVoiceChannelView"
             }
+          },
+          "tally": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LiveTallyView"
+              }
+            ]
           }
         }
       },

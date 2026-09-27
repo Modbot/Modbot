@@ -339,7 +339,7 @@
    A list with two forms: a table where there is room, two-line rows where
    there is not.
 
-   Worlds' table is eleven columns. On a phone, and in VR where the text is
+   Worlds' table is eleven columns. On a phone, and in a headset where the text is
    larger, only the name and two numbers fit; the rest ran off the side behind
    a scrollbar a laser pointer cannot catch. So the page draws both and shows
    one: `data-layout="wide"` on the table, `data-layout="narrow"` on the rows.
@@ -360,11 +360,11 @@
   }
 }
 
-[data-density="vr"] [data-layout="wide"] {
+[data-place="headset"] [data-layout="wide"] {
   display: none;
 }
 
-[data-density="vr"] [data-layout="narrow"] {
+[data-place="headset"] [data-layout="narrow"] {
   display: block;
 }
 
