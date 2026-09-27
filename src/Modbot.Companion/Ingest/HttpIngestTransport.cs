@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Headers;
@@ -30,6 +31,9 @@ public sealed class HttpIngestTransport : IIngestTransport
 
     private readonly HttpClient _http;
 
+    /// <summary>Event addresses that could not read a gzipped batch. Sent plain JSON from then on.</summary>
+    private readonly ConcurrentDictionary<Uri, bool> _plainOnly = new();
+
     public HttpIngestTransport(HttpClient http) => _http = http;
 
     public async Task<IngestResult> SendAsync(
@@ -37,12 +41,37 @@ public sealed class HttpIngestTransport : IIngestTransport
         EventBatch batch,
         CancellationToken cancellationToken)
     {
+        var payload = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(batch, Json));
+        var gzip = payload.Length > CompressAbove && !_plainOnly.ContainsKey(pairing.EventsEndpoint);
+
+        var result = await SendOnceAsync(pairing, payload, gzip, cancellationToken).ConfigureAwait(false);
+
+        // Servers before 2026-09-27 had nothing that undid the gzip, so the framework answered a
+        // compressed batch with a bare 400 before Modbot's own code ever saw it -- and the client
+        // dropped every batch big enough to compress. A 400 from Modbot's own code always carries
+        // a code; one without a code, to a gzipped body, is that. The same batch goes again as
+        // plain JSON, and so does every batch to this server after it.
+        if (gzip && result is { Outcome: IngestOutcome.Malformed, Code: null })
+        {
+            _plainOnly[pairing.EventsEndpoint] = true;
+            result = await SendOnceAsync(pairing, payload, gzip: false, cancellationToken).ConfigureAwait(false);
+        }
+
+        return result;
+    }
+
+    private async Task<IngestResult> SendOnceAsync(
+        ServerPairing pairing,
+        byte[] payload,
+        bool gzip,
+        CancellationToken cancellationToken)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Post, pairing.EventsEndpoint);
 
         // The device token. Ingest-scoped: it can submit presence facts and nothing else -- it
         // cannot read the member list, read a profile, or ban anybody.
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", pairing.DeviceToken);
-        request.Content = BuildContent(batch);
+        request.Content = BuildContent(payload, compress: gzip);
 
         HttpResponseMessage response;
         try
@@ -66,11 +95,9 @@ public sealed class HttpIngestTransport : IIngestTransport
         }
     }
 
-    private static HttpContent BuildContent(EventBatch batch)
+    private static HttpContent BuildContent(byte[] payload, bool compress)
     {
-        var payload = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(batch, Json));
-
-        if (payload.Length <= CompressAbove)
+        if (!compress)
         {
             var plain = new ByteArrayContent(payload);
             plain.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };

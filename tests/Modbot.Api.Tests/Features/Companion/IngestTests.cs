@@ -1,5 +1,9 @@
+using System.IO.Compression;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using Modbot.Api.Features.Companion.Events;
 using Modbot.TestSupport;
 
@@ -332,6 +336,116 @@ public class IngestTests
             [.. Enumerable.Range(0, EventsHandler.MaxEventsPerBatch + 1).Select(i => Event(subject: $"usr_{i}"))]));
 
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, (await host.Client.SendAsync(request, ct)).StatusCode);
+    }
+
+    private static ByteArrayContent Gzipped(byte[] payload)
+    {
+        using var buffer = new MemoryStream();
+        using (var gzip = new GZipStream(buffer, CompressionLevel.Fastest, leaveOpen: true))
+            gzip.Write(payload);
+
+        var content = new ByteArrayContent(buffer.ToArray());
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
+        content.Headers.ContentEncoding.Add("gzip");
+        return content;
+    }
+
+    /// <summary>
+    /// The companion gzips every batch over about 4 KB. Until 2026-09-27 nothing here undid that,
+    /// the framework answered a bare 400, and the companion dropped the batch -- every arrival
+    /// burst was lost.
+    /// </summary>
+    [Fact]
+    public async Task AGzippedBatchIsReadLikeAPlainOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var batch = Batch([.. Enumerable.Range(0, 40).Select(i => Event(subject: $"usr_{i}"))]);
+        var request = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", token);
+        request.Content = Gzipped(JsonSerializer.SerializeToUtf8Bytes(batch, JsonSerializerOptions.Web));
+
+        var response = await host.Client.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+
+        var result = (await response.Content.ReadFromJsonAsync<EventBatchResponse>(ct))!;
+        Assert.Equal(40, result.Accepted);
+        Assert.Empty(result.Rejected);
+    }
+
+    /// <summary>
+    /// A body the server cannot read is Modbot's own 400, with a code. The companion takes a bare
+    /// 400 to a gzipped batch as a server too old to read gzip, so this one must not be bare.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnUnreadableBodyIs400WithACode(bool gzip)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var junk = Encoding.UTF8.GetBytes("{ this is not a batch");
+        var request = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", token);
+        request.Content = gzip
+            ? Gzipped(junk)
+            : new ByteArrayContent(junk) { Headers = { ContentType = new MediaTypeHeaderValue("application/json") } };
+
+        var response = await host.Client.SendAsync(request, ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("batch_malformed", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ABodyClaimingGzipThatIsNotIs400WithACode()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var request = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", token);
+        request.Content = new ByteArrayContent(Encoding.UTF8.GetBytes("not gzip at all"));
+        request.Content.Headers.ContentEncoding.Add("gzip");
+
+        var response = await host.Client.SendAsync(request, ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("batch_malformed", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AGzipThatExpandsPastTheCapIs413()
+    {
+        // A small body that expands to gigabytes is stopped while reading, not after.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var request = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", token);
+        request.Content = Gzipped(new byte[EventBatchReader.MaxDecompressedBytes + 1]);
+
+        var response = await host.Client.SendAsync(request, ct);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Contains("batch_too_large", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AGzippedBodyWithoutAValidTokenIs401()
+    {
+        // The body is read only once the token is checked, so nobody without one can make the
+        // server decompress anything.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, _) = await ReadyAsync(ct);
+        await using var __ = host;
+
+        var request = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", "not-a-real-token");
+        request.Content = Gzipped(new byte[EventBatchReader.MaxDecompressedBytes + 1]);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await host.Client.SendAsync(request, ct)).StatusCode);
     }
 
     [Fact]

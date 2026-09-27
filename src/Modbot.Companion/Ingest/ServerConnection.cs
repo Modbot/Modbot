@@ -144,8 +144,11 @@ public sealed class ServerConnection : IIngestTarget
     /// <summary>How many the server already had from somebody else. Expected, not a fault.</summary>
     public int DeduplicatedTotal { get; private set; }
 
-    /// <summary>Batches the server called malformed. Non-zero means a bug worth an alarm.</summary>
-    public int MalformedBatches { get; private set; }
+    /// <summary>
+    /// Events the server refused as malformed even on their own, and which were dropped. Non-zero
+    /// means a bug worth an alarm.
+    /// </summary>
+    public int DroppedAsMalformed { get; private set; }
 
     public ConnectionState State { get; private set; } = ConnectionState.Healthy;
 
@@ -318,18 +321,28 @@ public sealed class ServerConnection : IIngestTarget
                 NoteWaitingChanges();
                 break;
 
-            case IngestOutcome.Malformed:
-                // A permanent error. Retrying a batch the server will always refuse is how a buffer
-                // fills up forever and stops reporting anything at all, so these are dropped and
-                // counted loudly instead.
-                MalformedBatches++;
+            case IngestOutcome.Malformed when sent.Count > 1:
+                // Something in here the server will never take, but not necessarily all of it.
+                // Dropping the whole batch lost forty good events for one bad one (2026-09-26), so
+                // it is halved and sent again, and only an event refused on its own is dropped.
+                // Nothing leaves the buffer here.
+                _batchSize = Math.Max(1, sent.Count / 2);
+                _inFlightBatchId = null;
+                State = ConnectionState.Waiting;
+                break;
 
-                // Each event is marked failed as well as counted, so the screen says what became
-                // of the ones that were dropped rather than leaving them waiting forever.
+            case IngestOutcome.Malformed:
+                // A permanent error. Retrying an event the server will always refuse is how a
+                // buffer fills up forever and stops reporting anything at all, so it is dropped
+                // and counted loudly instead.
+                DroppedAsMalformed += sent.Count;
+
+                // Marked failed as well as counted, so the screen says what became of it rather
+                // than leaving it waiting forever.
                 _journal?.RecordFailed(Name, sent);
                 _journal?.RecordNote(
                     Name,
-                    $"The server refused a batch of {sent.Count} as malformed. They were dropped, not retried.");
+                    "The server refused an event as malformed. It was dropped, not retried.");
                 _buffer.Remove(sent.Select(e => e.CompanionEventId));
                 Succeeded();
                 NoteWaitingChanges();

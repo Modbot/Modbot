@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.Extensions.Options;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Context;
@@ -79,8 +81,8 @@ public static class EventsHandler
 
     public static async Task<IResult> HandleAsync(
         int apiVersion,
-        EventBatchDto? batch,
         HttpContext context,
+        IOptions<JsonOptions> json,
         DeviceAuthenticator authenticator,
         IFactWriter facts,
         ICompanionDeviceStore devices,
@@ -97,18 +99,21 @@ public static class EventsHandler
         if (!authentication.Succeeded)
             return authentication.Failure!;
 
+        var (read, batch) = await EventBatchReader.ReadAsync(context.Request, json.Value.SerializerOptions, ct);
+        if (read == BatchReadOutcome.TooLarge)
+            return CompanionApiErrors.TooLarge("The batch is too big to read; send fewer events at a time.");
+        if (read == BatchReadOutcome.Malformed)
+            return CompanionApiErrors.Malformed("The body is not a readable batch.");
+
         if (batch?.Events is not { Count: > 0 } events)
             return CompanionApiErrors.Malformed("A batch must carry at least one event.");
 
+        // 413, so the client halves and retries rather than dropping. Nothing is lost: the events
+        // are still in its buffer.
         if (events.Count > MaxEventsPerBatch)
         {
-            // 413, so the client halves and retries rather than dropping. Nothing is lost: the
-            // events are still in its buffer.
-            return Results.Json(
-                new CompanionError(
-                    CompanionApiErrors.BatchTooLarge,
-                    $"A batch may carry at most {MaxEventsPerBatch} events; this one carried {events.Count}."),
-                statusCode: StatusCodes.Status413PayloadTooLarge);
+            return CompanionApiErrors.TooLarge(
+                $"A batch may carry at most {MaxEventsPerBatch} events; this one carried {events.Count}.");
         }
 
         var settings = await database.GetSettingsAsync(ct);

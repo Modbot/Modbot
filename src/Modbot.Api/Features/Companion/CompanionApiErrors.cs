@@ -15,7 +15,8 @@ public sealed record CompanionError(string Code, string Message);
 /// </summary>
 /// <remarks>
 /// Each status means one thing to the client, and they are not interchangeable: <c>400</c> tells
-/// it to drop a batch it will never be able to send, <c>401</c> tells it to stop this pairing
+/// it the batch will never be accepted as it is (it splits it, and drops what is refused on its
+/// own), <c>401</c> tells it to stop this pairing
 /// visibly, <c>409</c> tells it to renegotiate, and <c>5xx</c> tells it to keep buffering. Getting
 /// one wrong turns a permanent failure into an infinite retry or the reverse.
 /// </remarks>
@@ -34,12 +35,21 @@ public static class CompanionApiErrors
     public const string NotConfigured = "not_configured";
 
     /// <summary>
-    /// <c>400</c>. The batch is wrong and will be wrong every time, so the client drops it. A
-    /// retry loop on a permanent error is how an offline buffer fills forever and stops reporting
-    /// anything at all.
+    /// <c>400</c>. The batch is wrong and will be wrong every time. The client halves it and drops
+    /// only an event refused on its own; a retry loop on a permanent error is how an offline buffer
+    /// fills forever and stops reporting anything at all.
     /// </summary>
     public static IResult Malformed(string message)
         => Results.BadRequest(new CompanionError(BatchMalformed, message));
+
+    /// <summary>
+    /// <c>413</c>. Not a <c>400</c>: nothing is wrong with the events, so the client halves the
+    /// batch and sends again rather than dropping presence that cannot be filled in later.
+    /// </summary>
+    public static IResult TooLarge(string message)
+        => Results.Json(
+            new CompanionError(BatchTooLarge, message),
+            statusCode: StatusCodes.Status413PayloadTooLarge);
 
     /// <summary>
     /// <c>401</c>. Terminal for this pairing: the client stops and tells the moderator rather than

@@ -15,6 +15,9 @@ public class HttpIngestTransportTests
 
         public byte[]? LastBody { get; private set; }
 
+        /// <summary>Whether each request so far was gzipped, in order.</summary>
+        public List<bool> Gzipped { get; } = [];
+
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
@@ -23,6 +26,7 @@ public class HttpIngestTransportTests
             LastBody = request.Content is null
                 ? null
                 : await request.Content.ReadAsByteArrayAsync(cancellationToken);
+            Gzipped.Add(request.Content?.Headers.ContentEncoding.Contains("gzip") == true);
 
             return respond(request);
         }
@@ -109,6 +113,61 @@ public class HttpIngestTransportTests
         var (_, handler) = await SendAsync(_ => Respond(HttpStatusCode.OK));
 
         Assert.Empty(handler.LastRequest!.Content!.Headers.ContentEncoding);
+    }
+
+    /// <summary>
+    /// A server from before 2026-09-27 cannot read gzip, and its framework answers a compressed
+    /// batch with a 400 that carries no code. The batch goes again as plain JSON rather than being
+    /// dropped as malformed.
+    /// </summary>
+    [Fact]
+    public async Task ABare400ToAGzippedBatchIsSentAgainAsPlainJson()
+    {
+        var (result, handler) = await SendAsync(
+            request => request.Content!.Headers.ContentEncoding.Contains("gzip")
+                ? new HttpResponseMessage(HttpStatusCode.BadRequest)
+                : Respond(HttpStatusCode.OK, """{"accepted":200,"deduplicated":0,"rejected":[]}"""),
+            Batch(events: 200));
+
+        Assert.Equal([true, false], handler.Gzipped);
+        Assert.Equal(IngestOutcome.Accepted, result.Outcome);
+        Assert.Equal(200, result.Accepted);
+        Assert.Contains("\"batchId\":\"batch-1\"", Encoding.UTF8.GetString(handler.LastBody!));
+    }
+
+    [Fact]
+    public async Task AServerThatCannotReadGzipIsSentPlainJsonFromThenOn()
+    {
+        var handler = new StubHandler(request => request.Content!.Headers.ContentEncoding.Contains("gzip")
+            ? new HttpResponseMessage(HttpStatusCode.BadRequest)
+            : Respond(HttpStatusCode.OK));
+        using var http = new HttpClient(handler);
+        var transport = new HttpIngestTransport(http);
+
+        await transport.SendAsync(Pairing, Batch(events: 200), TestContext.Current.CancellationToken);
+        await transport.SendAsync(Pairing, Batch(events: 200), TestContext.Current.CancellationToken);
+
+        Assert.Equal([true, false, false], handler.Gzipped);
+    }
+
+    [Fact]
+    public async Task A400WithACodeIsModbotsOwnAnswerAndIsNotSentAgain()
+    {
+        var (result, handler) = await SendAsync(
+            _ => Respond(HttpStatusCode.BadRequest, """{"code":"batch_malformed","message":"no"}"""),
+            Batch(events: 200));
+
+        Assert.Equal([true], handler.Gzipped);
+        Assert.Equal(IngestOutcome.Malformed, result.Outcome);
+    }
+
+    [Fact]
+    public async Task ABare400ToAPlainBatchIsNotSentAgain()
+    {
+        var (result, handler) = await SendAsync(_ => new HttpResponseMessage(HttpStatusCode.BadRequest));
+
+        Assert.Equal([false], handler.Gzipped);
+        Assert.Equal(IngestOutcome.Malformed, result.Outcome);
     }
 
     [Fact]

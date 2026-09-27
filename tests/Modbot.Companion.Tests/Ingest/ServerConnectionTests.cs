@@ -16,6 +16,9 @@ public sealed class ServerConnectionTests : IDisposable
 
         public Exception? Throw { get; set; }
 
+        /// <summary>A batch holding any event for this subject is refused as malformed.</summary>
+        public string? RefuseSubject { get; set; }
+
         public ScriptedTransport Then(IngestResult result)
         {
             _answers.Enqueue(result);
@@ -28,6 +31,9 @@ public sealed class ServerConnectionTests : IDisposable
 
             if (Throw is { } fault)
                 throw fault;
+
+            if (RefuseSubject is { } refused && batch.Events.Any(e => e.SubjectId == refused))
+                return Task.FromResult(new IngestResult(IngestOutcome.Malformed, Code: "batch_malformed"));
 
             return Task.FromResult(_answers.Count > 0
                 ? _answers.Dequeue()
@@ -219,18 +225,65 @@ public sealed class ServerConnectionTests : IDisposable
     }
 
     [Fact]
-    public async Task AMalformedBatchIsDroppedRatherThanRetriedForever()
+    public async Task AMalformedBatchIsHalvedAndSentAgainRatherThanDropped()
     {
-        // A retry loop on a permanent error is how a buffer fills up and reporting stops
-        // altogether. Dropped, counted, and worth an alarm.
-        _transport.Then(new IngestResult(IngestOutcome.Malformed, Code: "invalid_batch"));
+        _transport.Then(new IngestResult(IngestOutcome.Malformed, Code: "batch_malformed"));
         var connection = Connection();
         Fill(connection, 50);
 
         await connection.PumpAsync(TestContext.Current.CancellationToken);
 
+        Assert.Equal(50, connection.Pending);
+        Assert.Equal(0, connection.DroppedAsMalformed);
+        Assert.True(connection.IsDueToSend());
+
+        await connection.PumpAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(25, _transport.Sent[1].Events.Count);
+        Assert.NotEqual(_transport.Sent[0].BatchId, _transport.Sent[1].BatchId);
+    }
+
+    [Fact]
+    public async Task OneBadEventCostsThatEventAndNotTheRestOfTheBatch()
+    {
+        // 2026-09-26: forty good events were dropped at a time because the server refused the
+        // batch they were in. Now only what the server refuses on its own is lost.
+        _transport.RefuseSubject = "usr_37";
+        var connection = Connection();
+        Fill(connection, 50);
+
+        for (var attempt = 0; attempt < 50 && connection.Pending > 0; attempt++)
+        {
+            await connection.PumpAsync(TestContext.Current.CancellationToken);
+            _clock.Advance(ServerConnection.DefaultBatchInterval);
+        }
+
         Assert.Equal(0, connection.Pending);
-        Assert.Equal(1, connection.MalformedBatches);
+        Assert.Equal(1, connection.DroppedAsMalformed);
+
+        var delivered = _transport.Sent
+            .Where(b => b.Events.All(e => e.SubjectId != "usr_37"))
+            .SelectMany(b => b.Events)
+            .Select(e => e.SubjectId)
+            .ToList();
+        Assert.Equal(49, delivered.Count);
+        Assert.Equal(49, delivered.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task AnEventRefusedOnItsOwnIsDroppedRatherThanRetriedForever()
+    {
+        // A retry loop on a permanent error is how a buffer fills up and reporting stops
+        // altogether. Dropped, counted, and worth an alarm.
+        _transport.RefuseSubject = "usr_0";
+        var connection = Connection();
+        connection.Accept(Observation("usr_0"));
+        _clock.Advance(ServerConnection.DefaultBatchInterval);
+
+        await connection.PumpAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, connection.Pending);
+        Assert.Equal(1, connection.DroppedAsMalformed);
     }
 
     [Fact]
