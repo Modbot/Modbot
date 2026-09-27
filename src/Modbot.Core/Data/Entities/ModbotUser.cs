@@ -121,6 +121,21 @@ public class ModbotUser
 
     public DateTimeOffset? LastLoginAt { get; set; }
 
+    /// <summary>
+    /// When this person last had the Now page on screen. Moved forward while they look at it.
+    /// </summary>
+    public DateTimeOffset? NowLookedAt { get; set; }
+
+    /// <summary>
+    /// What the Now page's "since you last looked" counts from: the last <see cref="NowLookedAt"/>
+    /// before the stretch of looking that is going on now. Null until they have been away once.
+    /// </summary>
+    /// <remarks>
+    /// Two times rather than one, because one time moved forward on every visit would make a
+    /// reload say "nothing since a second ago".
+    /// </remarks>
+    public DateTimeOffset? NowSince { get; set; }
+
     /// <summary>The union of this account's roles. Requires <see cref="Roles"/> to be loaded.</summary>
     public ModbotPermissions EffectivePermissions
         => ModbotRole.Union(Roles.Select(r => r.Role.Permissions));

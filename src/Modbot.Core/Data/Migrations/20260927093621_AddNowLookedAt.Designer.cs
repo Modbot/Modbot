@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260927093621_AddNowLookedAt")]
+    partial class AddNowLookedAt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1051,11 +1054,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("failed_fingerprint");
-
-                    b.Property<string>("MissingGroupPermission")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("missing_group_permission");
 
                     b.Property<DateTimeOffset?>("OccurrenceStartsAt")
                         .HasColumnType("timestamp with time zone")
@@ -6104,14 +6102,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("UserProfilePolledAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("user_profile_polled_at");
-
-                    b.PrimitiveCollection<string>("VRChatAccountPermissions")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("vr_chat_account_permissions");
-
-                    b.PrimitiveCollection<string>("VRChatAccountRoleIds")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("vr_chat_account_role_ids");
 
                     b.Property<string>("VRChatAuthCookieEncrypted")
                         .HasColumnType("text")

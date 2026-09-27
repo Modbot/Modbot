@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { statusRows } from '../src/lib/status.ts'
+import { statusLine, statusRows, type StatusRow } from '../src/lib/status.ts'
 import type { SyncHealth } from '../src/lib/api.ts'
 
 /** Only the fields the rows read. The rest of the answer is not their business. */
@@ -153,4 +153,37 @@ test('a spend limit that has been reached beats everything else AI could say', (
 
   assert.equal(rows.find((r) => r.id === 'ai')?.state, 'limit reached')
   assert.equal(rows.find((r) => r.id === 'ai')?.tone, 'bad')
+})
+
+function rowOf(id: StatusRow['id'], name: string, state: string, tone: StatusRow['tone']): StatusRow {
+  return { id, name, state, tone }
+}
+
+test('the one line says all working when every part that is set up says so', () => {
+  const line = statusLine([
+    rowOf('vrchat', 'VRChat', 'working', 'ok'),
+    rowOf('discord', 'Discord', 'not set up', 'muted'),
+    rowOf('database', 'Database', 'online', 'ok'),
+  ])
+
+  assert.deepEqual(line, { text: 'All working', tone: 'ok', section: null })
+})
+
+test('the one line names broken parts first, then the ones waiting, and opens the first', () => {
+  const line = statusLine([
+    rowOf('discord', 'Discord', 'reconnecting', 'warn'),
+    rowOf('vrchat', 'VRChat', 'needs you', 'bad'),
+    rowOf('database', 'Database', 'online', 'ok'),
+  ])
+
+  assert.equal(line.text, 'VRChat needs you · Discord reconnecting')
+  assert.equal(line.tone, 'bad')
+  assert.equal(line.section, 'vrchat')
+})
+
+test('a part that has not answered is never read as working', () => {
+  const line = statusLine(statusRows({ gate: null, health: null, databaseReachable: null }))
+
+  assert.equal(line.tone, 'muted')
+  assert.notEqual(line.text, 'All working')
 })

@@ -27,6 +27,7 @@ export function Sidebar({
   onOpenHealth,
   group,
   badges,
+  alarms,
   className,
   footer,
 }: {
@@ -40,6 +41,11 @@ export function Sidebar({
   group?: SidebarGroup | null
   /** A count to show beside an entry -- open reviews beside Reviews. Zero or absent shows nothing. */
   badges?: Partial<Record<PageId, number>>
+  /**
+   * Entries whose count is somebody in an instance right now rather than a queue, drawn in the
+   * destructive colour: flagged people beside Live.
+   */
+  alarms?: Partial<Record<PageId, boolean>>
   className?: string
   /** Drawn at the foot, under Modbot's own mark. The phone sheet puts the top bar's controls here. */
   footer?: React.ReactNode
@@ -104,9 +110,14 @@ export function Sidebar({
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
             {badges?.[item.id] ? (
               <span
-                className="rounded-sm bg-primary px-1 font-mono text-primary-foreground"
+                className={cn(
+                  'rounded-sm px-1 font-mono',
+                  alarms?.[item.id]
+                    ? 'bg-destructive text-destructive-foreground'
+                    : 'bg-primary text-primary-foreground',
+                )}
                 style={{ fontSize: 'var(--text-tiny)', lineHeight: 1.5 }}
-                aria-label={`${badges[item.id]} waiting`}
+                aria-label={alarms?.[item.id] ? `${badges[item.id]} flagged here` : `${badges[item.id]} waiting`}
               >
                 {badges[item.id]}
               </span>

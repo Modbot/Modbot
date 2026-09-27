@@ -4,14 +4,20 @@
 import type { CurrentUser } from './api.ts'
 import { can, canAny } from './permissions.ts'
 
-// A count beside a label is only ever one read from the server: open reviews and open flags
-// (App.tsx). The prototype showed a hardcoded "14,208" next to Members, and a made-up number in a
-// running deployment is indistinguishable from a real one.
+// A count beside a label is only ever one read from the server: open reviews, open flags, their
+// total beside Now, and flagged people in an instance beside Live (App.tsx). The prototype showed
+// a hardcoded "14,208" next to Members, and a made-up number in a running deployment is
+// indistinguishable from a real one.
 //
 // Each entry names the permission it needs. The sidebar hides what the person cannot open; the
 // server refuses the data regardless (accounts and access design §8). Permission names, never
 // bits -- see lib/permissions.ts for why.
 export const NAV = [
+  // The front page (UX review 2026-09-25, finding 3): what is waiting for a decision, who is in the
+  // group's instances, Modbot's health and what changed since this person last looked. Every part
+  // is read under its own page's permission, so it needs none of its own.
+  { id: 'now', label: 'Now' },
+  // At `/members` since Now took `/` on 2026-09-27; `/` with the list's own filters still opens it.
   { id: 'members', label: 'Members', needs: 'ViewMembers' },
   // The people asking to be let in, read from VRChat when the page is opened. Beside Members
   // because it is the same roster one step earlier.
@@ -119,6 +125,7 @@ export type PageId = NavItem['id']
  * with no chord, reached from elsewhere.
  */
 export const GO_TO_KEYS: Record<PageId, string> = {
+  now: 'k',
   members: 'm',
   requests: 'j',
   'discord-members': 'd',
@@ -185,6 +192,25 @@ export function waitingTotal(badges: Partial<Record<PageId, number>>): number {
     if (typeof count === 'number' && Number.isFinite(count) && count > 0) total += Math.floor(count)
   }
   return total
+}
+
+/**
+ * Where an address that meant the member list goes now that `/` is Now.
+ *
+ * The member list writes its filters and its page into the address (`/?f=status:is:current`: the
+ * `PARAM`s of lib/filters.ts and lib/listPage.ts, spelled out because neither loads in Node), and
+ * those addresses were copied into messages and bookmarks for months. Now reads neither, so a `/`
+ * carrying either one can only have meant the member list, and goes there with everything else in
+ * the address kept. Null for every other address, including a plain `/` and a `/?subject=…`, which
+ * are Now's.
+ */
+export function oldMembersAddress(path: string, search: string): string | null {
+  if (path !== '/') return null
+
+  const params = new URLSearchParams(search)
+  if (!params.has('f') && !params.has('page')) return null
+
+  return `/members?${params.toString()}`
 }
 
 /** `(3) Modbot` while something is waiting, and the title as it was when nothing is. */

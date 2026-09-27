@@ -9,13 +9,24 @@ import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { moderationApi } from '@/lib/autoMod'
 import { DemoContext } from '@/lib/demo'
 import { changesFlags } from '@/lib/liveRules'
-import { REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
+import { INSTANCE_KINDS, PRESENCE_KINDS, REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
 import { setMyModbotOrigin, setServerGroup } from '@/lib/myModbot'
 import { setVRChatImagesProxied } from '@/lib/vrchatMedia'
-import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, goesByName, mayOpen, titleWithCount, waitingTotal, type PageId } from '@/lib/nav'
+import {
+  CREDITS_PATH,
+  GO_TO_KEYS,
+  MOVED,
+  NAV,
+  goesByName,
+  mayOpen,
+  oldMembersAddress,
+  titleWithCount,
+  waitingTotal,
+  type PageId,
+} from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density, type Place } from '@/lib/preferences'
-import { go, useRoute } from '@/lib/router'
+import { go, useLocation, useRoute } from '@/lib/router'
 import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
 import { openPerson } from '@/lib/subject'
@@ -40,6 +51,7 @@ import { Connect } from '@/pages/Connect'
 import { Logs } from '@/pages/Logs'
 import { DiscordMembers } from '@/pages/DiscordMembers'
 import { Members } from '@/pages/Members'
+import { Now } from '@/pages/Now'
 import { Requests } from '@/pages/Requests'
 import { People } from '@/pages/People'
 import { GroupPosts } from '@/pages/analytics/GroupPosts'
@@ -57,6 +69,7 @@ import { Settings } from '@/pages/Settings'
 import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, string> = {
+  now: 'Now',
   members: 'Members',
   requests: 'Requests',
   // Shown as the Members part of the Discord page, so it carries that page's name, as the sidebar does.
@@ -86,13 +99,17 @@ const TITLES: Record<PageId, string> = {
   credits: 'Credits',
 }
 
+/** A burst of arrivals is one read of the count beside Live, not one per arrival. */
+const FLAGGED_HERE_SETTLE_MS = 1_000
+
 /**
  * Pages live at real paths so the popup's link means something: `/audit?subject=usr_…` survives a
  * refresh and can be pasted to another moderator (spec 10.2). A popup whose URL put you back on the
  * members list would be a popup nobody shares.
  */
 const PATHS: Record<PageId, string> = {
-  members: '/',
+  now: '/',
+  members: '/members',
   requests: '/requests',
   'discord-members': '/discord/members',
   people: '/people',
@@ -147,7 +164,7 @@ function pageFor(path: string): PageId {
   // tab is the redirect's business.
   const wanted = (MOVED[path] ?? path).split('#')[0]
   const match = (Object.keys(PATHS) as PageId[]).find((id) => PATHS[id] === wanted)
-  return match ?? 'members'
+  return match ?? 'now'
 }
 
 /** The pages that live outside the app shell and need no session: a link somebody was sent. */
@@ -322,6 +339,15 @@ function Shell({
     if (moved) navigate(moved, { replace: true })
   }, [route, navigate])
 
+  // The member list lived at `/` until Now took it. `/` still opens Now, but a `/` carrying the
+  // list's own filters or page was a link to the list, and is sent on to it.
+  const [location] = useLocation()
+  const search = location.search.toString()
+  useEffect(() => {
+    const members = oldMembersAddress(route, search)
+    if (members) navigate(members, { replace: true })
+  }, [route, search, navigate])
+
   // A page this person may not open shows the first one they may. The server refuses the data
   // regardless; this only keeps the shell from rendering an empty page with an error in it.
   const page = mayOpen(me, requested)
@@ -330,11 +356,11 @@ function Shell({
   const title = TITLES[page]
 
   // A headset opens on Live, which is what a moderator in VR is there to watch. Once, as the app
-  // opens, and only at the bare address: Members is still one tap away in the menu, and a pasted
+  // opens, and only at the bare address: Now is still one tap away in the menu, and a pasted
   // link with a person in it is left alone. The address is read while the shell first draws,
-  // because the Members page writes its filter into the query from its own effect, which runs
-  // before this one.
-  const [openedBare] = useState(() => route === PATHS.members && !window.location.search)
+  // because a page may write its filter into the query from its own effect, which runs before
+  // this one.
+  const [openedBare] = useState(() => route === PATHS.now && !window.location.search)
   const opened = useRef(false)
   useEffect(() => {
     if (opened.current) return
@@ -376,29 +402,59 @@ function Shell({
     refreshFlagCount()
   }, [refreshFlagCount, page])
 
+  // The number beside "Live": flagged people in the group's instances right now. Read the same way,
+  // and again whenever somebody arrives or leaves or an instance opens or closes, settled so a burst
+  // of arrivals is one read. Drawn in the destructive colour, because it is a person in the game
+  // now rather than a queue that can wait.
+  const seesLive = mayOpen(me, 'live')
+  const [flaggedHere, setFlaggedHere] = useState(0)
+  const refreshFlaggedHere = useCallback(() => {
+    if (!seesLive) return
+    api.liveFlaggedCount().then((c) => setFlaggedHere(c.here)).catch(() => undefined)
+  }, [seesLive])
+
+  useEffect(() => {
+    refreshFlaggedHere()
+  }, [refreshFlaggedHere, page])
+
+  const settleFlaggedHere = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(settleFlaggedHere.current), [])
+
   // And whenever a review or a flag opens or closes anywhere, from the live stream.
   useLiveStream(
     useCallback(
       (event: LiveEvent) => {
         if (REVIEW_KINDS.has(event.kind)) refreshReviewCount()
         if (changesFlags(event)) refreshFlagCount()
+        if (PRESENCE_KINDS.has(event.kind) || INSTANCE_KINDS.has(event.kind) || changesFlags(event)) {
+          window.clearTimeout(settleFlaggedHere.current)
+          settleFlaggedHere.current = window.setTimeout(refreshFlaggedHere, FLAGGED_HERE_SETTLE_MS)
+        }
       },
-      [refreshReviewCount, refreshFlagCount],
+      [refreshReviewCount, refreshFlagCount, refreshFlaggedHere],
     ),
   )
 
   // Join requests have no count yet: VRChat is the only place they are read, and whether that is
   // worth a request on a timer is still open. When it is settled, the count goes in here beside
   // the other two and the sidebar and the tab title pick it up with no other change.
-  const badges: Partial<Record<PageId, number>> = {
+  const queues: Partial<Record<PageId, number>> = {
     ...(canReview ? { reviews: openReviews } : {}),
     ...(seesFlags ? { flags: openFlags } : {}),
   }
 
+  // Now carries the total of the queues it lists, and Live its own number beside them.
+  const waiting = waitingTotal(queues)
+  const badges: Partial<Record<PageId, number>> = {
+    ...queues,
+    now: waiting,
+    ...(seesLive ? { live: flaggedHere } : {}),
+  }
+  const alarms: Partial<Record<PageId, boolean>> = { live: true }
+
   // The tab's title says how much is waiting, `(3) Modbot`, so a moderator whose Modbot tab is in
   // the background can see it from the tab strip. The cleanup puts the plain title back before the
   // next count is applied, so the count is never added twice.
-  const waiting = waitingTotal(badges)
   useEffect(() => {
     const plain = document.title
     document.title = titleWithCount(plain, waiting)
@@ -469,6 +525,7 @@ function Shell({
     onOpenHealth: (section: StatusRowId) => go(`${PATHS.health}#${section}`),
     group: status.group,
     badges,
+    alarms,
   }
 
   return (
@@ -496,6 +553,14 @@ function Shell({
           onSignOut={signOut}
         />
         <div className="p-4 lg:p-5">
+          {page === 'now' && (
+            <Now
+              me={me}
+              onOpenSubject={setSubject}
+              onGo={(p) => navigate(PATHS[p])}
+              onOpenHealth={(section) => go(section ? `${PATHS.health}#${section}` : PATHS.health)}
+            />
+          )}
           {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}
           {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} />}
           {page === 'discord-members' && <DiscordMembers me={me} pathOf={(id) => PATHS[id]} />}

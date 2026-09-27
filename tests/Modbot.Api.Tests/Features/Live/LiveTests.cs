@@ -232,6 +232,63 @@ public class LiveTests
         Assert.Empty((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Instances);
     }
 
+    /// <summary>
+    /// The number beside Live: flagged people present now, by the same rules as the page. Somebody
+    /// with no record is not counted, and neither is the moderator watching.
+    /// </summary>
+    [Fact]
+    public async Task TheFlaggedCount_CountsFlaggedPeoplePresent()
+    {
+        await using var host = await ReadyAsync(_db);
+        var t = host.Clock.UtcNow.AddHours(-1);
+
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t, null, Ct);
+        var (device, moderator) = await ModeratorAsync(host);
+
+        await host.WriteFactAsync(Seen(FactType.InstanceJoined, moderator, t.AddMinutes(10), device, "Mod"), Ct);
+        await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_ada", t.AddMinutes(15), device, "Ada"), Ct);
+        await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_bob", t.AddMinutes(20), device, "Bob"), Ct);
+        await host.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.MemberBanned,
+            OccurredAt = t.AddDays(-3),
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = "usr_bob",
+            Source = FactSource.AuditLog,
+        }, Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+        var count = await host.GetJsonAsync<FlaggedHereCount>("/api/live/flagged-count", cookie, Ct);
+
+        Assert.Equal(1, count.Here);
+    }
+
+    [Fact]
+    public async Task TheFlaggedCount_IsRefusedWithoutViewLiveInstances()
+    {
+        await using var host = await ReadyAsync(_db);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, Ct);
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await host.GetAsync("/api/live/flagged-count", cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task TheFlaggedCount_IsZeroWithNobodyWatching()
+    {
+        await using var host = await ReadyAsync(_db);
+        var t = host.Clock.UtcNow.AddHours(-1);
+
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t, null, Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+        var count = await host.GetJsonAsync<FlaggedHereCount>("/api/live/flagged-count", cookie, Ct);
+
+        Assert.Equal(0, count.Here);
+    }
+
     [Fact]
     public async Task AWatchedInstance_ListsWhoIsHere_ArrivedOrHereBefore_WithFlags()
     {

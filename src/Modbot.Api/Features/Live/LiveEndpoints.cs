@@ -93,6 +93,9 @@ public sealed record LiveView(
 /// <param name="Bans">Bans from the group.</param>
 public sealed record LiveTallyView(DateTimeOffset Since, int Arrivals, int Warns, int Kicks, int Bans);
 
+/// <param name="Here">Flagged people in the group's open instances now, each counted once.</param>
+public sealed record FlaggedHereCount(int Here);
+
 /// <summary>A Discord voice channel with people in it right now.</summary>
 /// <param name="Name">The channel's name, or null when the server index has not seen it.</param>
 public sealed record LiveVoiceChannelView(string ChannelId, string? Name, IReadOnlyList<LiveVoiceMemberView> People);
@@ -131,8 +134,9 @@ public static class LiveEndpoints
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        app.MapGroup("/api/live").WithTags("Live").RequireAuthorization()
-            .MapGet("/", async (
+        var live = app.MapGroup("/api/live").WithTags("Live").RequireAuthorization();
+
+        live.MapGet("/", async (
                     [FromServices] ModbotContext db,
                     [FromServices] IModbotClock clock,
                     CancellationToken ct) =>
@@ -149,7 +153,65 @@ public static class LiveEndpoints
             .Produces<LiveView>()
             .Produces(StatusCodes.Status403Forbidden);
 
+        live.MapGet("/flagged-count", async (
+                    [FromServices] ModbotContext db,
+                    CancellationToken ct) =>
+                Results.Ok(new FlaggedHereCount(await FlaggedHereAsync(db, ct))))
+            .RequiresFlag(ModbotPermissions.ViewLiveInstances)
+            .WithName("CountFlaggedPeopleHere")
+            .WithSummary("Count flagged people in instances")
+            .WithDescription(
+                "How many flagged people are in the group's open instances right now, by the same "
+                + "rules and the same \"who is present\" as the Live page: the number beside Live in "
+                + "the sidebar. Counts only instances a moderator is watching, because nobody else "
+                + "knows who is in one. Read from Modbot's own tables; nothing here calls VRChat.")
+            .Produces<FlaggedHereCount>()
+            .Produces(StatusCodes.Status403Forbidden);
+
         return app;
+    }
+
+    /// <summary>
+    /// The number beside Live: everybody present in an open group instance whom the flag rules
+    /// mark, each counted once however many instances they are in. What <see cref="ReadAsync"/>
+    /// reads, less everything a count does not need.
+    /// </summary>
+    internal static async Task<int> FlaggedHereAsync(ModbotContext db, CancellationToken ct)
+    {
+        var groupId = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.ManagedGroupId)
+            .FirstOrDefaultAsync(ct);
+
+        if (groupId is not { Length: > 0 })
+            return 0;
+
+        var instances = await db.VRChatInstances.AsNoTracking()
+            .Where(i => i.GroupId == groupId && i.SeenInGroupList && i.ClosedAt == null)
+            .ToListAsync(ct);
+
+        if (instances.Count == 0)
+            return 0;
+
+        var people = await new InstancePeopleReader(db).ForInstancesAsync(instances, ct);
+
+        var here = people.Values
+            .SelectMany(p => p.Here)
+            .Select(p => p.UserId)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (here.Count == 0)
+            return 0;
+
+        var ranks = await db.VRChatUsers.AsNoTracking()
+            .Where(u => here.Contains(u.UserId))
+            .Select(u => new { u.UserId, u.TrustRank })
+            .ToDictionaryAsync(u => u.UserId, u => u.TrustRank, StringComparer.Ordinal, ct);
+
+        var flagged = await FlagRules.ReadAsync(db, here, ranks, ct);
+
+        return here.Count(id => flagged.GetValueOrDefault(id)?.IsFlagged == true);
     }
 
     internal static async Task<LiveView> ReadAsync(ModbotContext db, DateTimeOffset now, CancellationToken ct)
