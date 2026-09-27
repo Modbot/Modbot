@@ -5,13 +5,13 @@ import type { CurrentUser } from '@/lib/api'
 import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, sidebarEntry, type NavItem, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import type { StatusRowId } from '@/lib/status'
-import { IS_MAC, keyNames } from '@/lib/shortcuts'
+import { IS_MAC, hasPageActions, keyNames, useShortcutList } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
 import type { Place, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { Headset, LogOut, Menu, Monitor, Moon, Search, Sun, UserRound, X, Zap } from 'lucide-react'
+import { Headset, House, LogOut, Menu, Monitor, Moon, Search, Sun, UserRound, X, Zap } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -354,45 +354,92 @@ export function NavSheet({
  * The bar at the foot of the screen on a phone and in a headset.
  *
  * At the foot rather than the top because a phone held in one hand puts the top of a tall screen
- * out of a thumb's reach, and these are the three controls a moderator reaches for most: the
- * pages, a person by name, and whatever the screen they are on can do. A headset gets it for the
- * same three controls, at the headset's larger size, in place of a sidebar whose labels do not fit.
+ * out of a thumb's reach, and these are the controls a moderator reaches for most: the pages, a
+ * person by name, what is waiting, and whatever the screen they are on can do. A headset gets it
+ * for the same controls, at the headset's larger size, in place of a sidebar whose labels do not fit.
+ *
+ * Now is here with its count because it is the page a moderator comes back to between everything
+ * else, and the count says whether coming back is worth it without opening Menu.
  *
  * "Actions" is the answer to the keyboard. Every key a page registers carries a label already
  * (lib/shortcuts.ts), so the sheet that lists them for `?` is also the list of what the page can
- * do -- and each row runs it (components/ShortcutSheet.tsx). It leaves out "Go to", because that
- * is what Menu is.
+ * do -- and each row runs it (components/ShortcutSheet.tsx). It leaves out the app's own keys,
+ * which Menu and Search already are, and so is drawn only on a page that registered keys of its
+ * own: on the rest it opened a sheet of keyboard help (review 2026-09-27, finding 8).
  */
 export function BottomBar({
+  page,
+  waiting,
   onMenu,
   onSearch,
-  onThisPage,
+  onNow,
+  onActions,
 }: {
+  page: PageId
+  waiting: number
   onMenu: () => void
   onSearch: () => void
-  onThisPage: () => void
+  onNow: () => void
+  onActions: () => void
 }) {
+  const actions = hasPageActions(useShortcutList())
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-30 flex divide-x-(--hairline) divide-border border-t border-t-(length:--hairline) bg-background pb-[env(safe-area-inset-bottom)] desk:lg:hidden"
     >
       <BottomButton icon={<Menu className="size-5 headset:size-7" />} label="Menu" onClick={onMenu} />
       <BottomButton icon={<Search className="size-5 headset:size-7" />} label="Search" onClick={onSearch} />
-      <BottomButton icon={<Zap className="size-5 headset:size-7" />} label="Actions" onClick={onThisPage} />
+      <BottomButton
+        icon={<House className="size-5 headset:size-7" />}
+        label="Now"
+        count={waiting}
+        current={page === 'now'}
+        onClick={onNow}
+      />
+      {actions && <BottomButton icon={<Zap className="size-5 headset:size-7" />} label="Actions" onClick={onActions} />}
     </nav>
   )
 }
 
-function BottomButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+function BottomButton({
+  icon,
+  label,
+  count,
+  current,
+  onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  count?: number
+  current?: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-muted-foreground active:bg-muted"
+      aria-current={current ? 'page' : undefined}
+      className={cn(
+        'flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 active:bg-muted',
+        current ? 'text-foreground' : 'text-muted-foreground',
+      )}
       style={{ minHeight: 'var(--control-h)' }}
     >
       {icon}
-      <span style={{ fontSize: 'var(--text-tiny)' }}>{label}</span>
+      <span className="flex items-center gap-1" style={{ fontSize: 'var(--text-tiny)' }}>
+        {label}
+        {/* The same mark as the sidebar's, so the number reads the same in both places. */}
+        {count ? (
+          <span
+            className="rounded-sm bg-primary px-1 font-mono text-primary-foreground"
+            style={{ lineHeight: 1.5 }}
+            aria-label={`${count} waiting`}
+          >
+            {count}
+          </span>
+        ) : null}
+      </span>
     </button>
   )
 }

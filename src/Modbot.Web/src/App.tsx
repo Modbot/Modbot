@@ -30,7 +30,7 @@ import { groupTabFrom } from '@/lib/groupOverview'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density, type Place } from '@/lib/preferences'
 import { go, useLocation, useRoute } from '@/lib/router'
-import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
+import { APP_GROUPS, useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
 import { openPerson } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
@@ -489,7 +489,7 @@ function Shell({
 
   const [paletteOpen, setPaletteOpen] = useState(false)
   // The same sheet, named for how it was asked for: `?` asks for the keys, the bar at the foot of
-  // a phone asks for what this page can do. It is one list either way.
+  // a phone asks for what this page can do, which is the same list without the app's own keys.
   const [sheet, setSheet] = useState<'keys' | 'page' | null>(null)
   const [navOpen, setNavOpen] = useState(false)
 
@@ -651,11 +651,11 @@ function Shell({
         open={sheet !== null}
         onOpenChange={(open) => setSheet(open ? 'keys' : null)}
         title={sheet === 'page' ? 'Actions' : 'Keyboard shortcuts'}
-        omit={sheet === 'page' ? ['Go to'] : undefined}
+        omit={sheet === 'page' ? APP_GROUPS : undefined}
       />
 
       {/* The phone's shell: the pages in a sheet, and the bar at the foot that opens it, the
-          palette and the page's own keys. Not drawn at all from `lg` up. */}
+          palette, Now and the page's own keys. Not drawn at all from `lg` up. */}
       <NavSheet
         open={navOpen}
         onOpenChange={setNavOpen}
@@ -666,9 +666,12 @@ function Shell({
         onSignOut={signOut}
       />
       <BottomBar
+        page={page}
+        waiting={waiting}
         onMenu={() => setNavOpen(true)}
         onSearch={() => setPaletteOpen(true)}
-        onThisPage={() => setSheet('page')}
+        onNow={() => navigate(PATHS.now)}
+        onActions={() => setSheet('page')}
       />
     </div>
   )

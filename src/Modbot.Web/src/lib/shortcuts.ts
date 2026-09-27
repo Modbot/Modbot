@@ -130,6 +130,22 @@ export function isModalOpen(): boolean {
 
 // ── Pure parts, kept free of the DOM so they can be tested with Node alone ──────────────────
 
+/**
+ * The groups that are the app's rather than the page's: the palette and this sheet, and a key for
+ * every page. On a phone the bar at the foot already has Search and Menu for them, and nobody
+ * holding one wants a list of keys.
+ */
+export const APP_GROUPS: readonly ShortcutGroup[] = ['General', 'Go to']
+
+/**
+ * Whether the screen that is open has anything of its own to do. The bar at the foot of a phone
+ * shows Actions only when it does: on a page with none, the sheet would list nothing but the app's
+ * own keys (review 2026-09-27, finding 8).
+ */
+export function hasPageActions(shortcuts: readonly Pick<Shortcut, 'group' | 'hidden'>[]): boolean {
+  return shortcuts.some((s) => !s.hidden && !APP_GROUPS.includes(s.group))
+}
+
 /** Whether typing into this element is what a key press means. */
 export function isTyping(target: {
   tagName?: string
