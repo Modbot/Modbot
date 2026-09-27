@@ -23,6 +23,7 @@ import {
 } from '@/lib/api'
 import { textList } from '@/lib/caseSnapshot'
 import { formatDay } from '@/lib/format'
+import { followLink } from '@/lib/router'
 import { cn } from '@/lib/utils'
 
 /**
@@ -241,11 +242,26 @@ function Header({
             <SubjectLink id={view.bannedBy.id} name={view.bannedBy.name} onOpen={onOpenSubject} />
           </>
         )}
-        {view.auditEntryId && (
+        {/* The ban's own entry in the audit log, opened at that row. VRChat's id for it is kept as
+            text only where Modbot never recorded the ban as a fact, so there is no row to open. */}
+        {view.banFactId !== null ? (
           <>
-            {' · audit entry '}
-            <span className="font-mono">{view.auditEntryId}</span>
+            {' · '}
+            <a
+              href={`/audit?fact=${view.banFactId}`}
+              onClick={followLink(`/audit?fact=${view.banFactId}`)}
+              className="text-link underline-offset-2 hover:underline"
+            >
+              Audit log entry
+            </a>
           </>
+        ) : (
+          view.auditEntryId && (
+            <>
+              {' · audit entry '}
+              <span className="font-mono">{view.auditEntryId}</span>
+            </>
+          )
         )}
       </CardContent>
     </Card>

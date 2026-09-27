@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import { JsonView } from '@/components/JsonView'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import type { AuditEntry } from '@/lib/api'
+import { followLink } from '@/lib/router'
 import { openPersonVersion } from '@/lib/subject'
 import { avatarWorn, timeInInstance } from '@/lib/factDetails'
 import { duration } from '@/lib/format'
@@ -49,9 +50,45 @@ import { VRCHAT_PERMISSIONS } from '@/lib/vrchatPermissions'
 export function FactSentence({ entry }: { entry: AuditEntry }) {
   const write = SENTENCES[entry.type] ?? (entry.typeRaw ? RAW[entry.typeRaw] : undefined)
 
-  if (write) return <>{write(parts(entry))}</>
+  return (
+    <>
+      {write ? write(parts(entry)) : fallback(parts(entry))}
+      <RecordLinks entry={entry} />
+    </>
+  )
+}
 
-  return <>{fallback(parts(entry))}</>
+/**
+ * The record a fact leads to, after its sentence: a ban's case file, a flag's review.
+ *
+ * The server says which (`caseFileId`, `reviewId`) and leaves them out for somebody who may not
+ * open them. A decision shown once with its other facts inside it (a ban pressed in Modbot, and
+ * VRChat's record of it) may have the case file on either fact, so the linked ones are asked too.
+ */
+function RecordLinks({ entry }: { entry: AuditEntry }) {
+  const caseFile = entry.caseFileId ?? entry.linked?.find((fact) => fact.caseFileId)?.caseFileId
+  const review = entry.reviewId ?? entry.linked?.find((fact) => fact.reviewId)?.reviewId
+
+  if (!caseFile && !review) return null
+
+  return (
+    <>
+      {caseFile && <RecordLink to={`/cases/${encodeURIComponent(caseFile)}`}>Case file</RecordLink>}
+      {review && <RecordLink to={`/reviews?review=${encodeURIComponent(review)}`}>Review</RecordLink>}
+    </>
+  )
+}
+
+function RecordLink({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={to}
+      onClick={followLink(to)}
+      className="ml-2 text-link underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      {children}
+    </a>
+  )
 }
 
 // ── The pieces a sentence is assembled from ────────────────────────────────────────────────────

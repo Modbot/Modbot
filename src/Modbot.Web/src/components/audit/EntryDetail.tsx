@@ -11,11 +11,12 @@ import { PersonLink, InstanceLink, SourceBadge, WorldLink } from '@/components/f
 import { JsonView } from '@/components/JsonView'
 import { EmptyRow } from '@/components/PanelGrid'
 import { VersionCard } from '@/components/subject/ProfileVersions'
-import { api, type AuditEntry } from '@/lib/api'
+import { api, type AuditAround, type AuditEntry } from '@/lib/api'
 import { needsYear } from '@/lib/format'
 import { fieldName } from '@/lib/profileFields'
 import { openPersonVersion } from '@/lib/subject'
 import { useLoad } from '@/lib/useLoad'
+import { cn } from '@/lib/utils'
 
 /**
  * Everything one audit log entry holds, under its row.
@@ -23,8 +24,15 @@ import { useLoad } from '@/lib/useLoad'
  * The sentence in the row says what happened; this says everything the fact recorded: every
  * column, the diff a change carried, the snapshot a profile fact stands for, and the payload and
  * the whole entry as JSON. Nothing here is reworded: the JSON is what the server answered.
+ *
+ * It leads with what happened around the entry (finding 20 of the 2026-09-25 UX review): the
+ * question asked of a questionable ban is what else that moderator did then, and what else
+ * happened to that person, and it used to take hand-built filters and a copied id to answer. The
+ * raw type is for checking, not reading, so it sits with the JSON.
+ *
+ * `around` is off for a fact shown inside another entry's detail, whose own detail already has it.
  */
-export function EntryDetail({ entry }: { entry: AuditEntry }) {
+export function EntryDetail({ entry, around = true }: { entry: AuditEntry; around?: boolean }) {
   const changed = changedFields(entry)
 
   // Under a row of the audit log this sits in a cell as wide as the whole table, which a narrow
@@ -32,23 +40,10 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
   // inset and the panel's two edges), so each fact's value lands on screen beside its label.
   return (
     <div className="grid gap-3 border-t-(length:--hairline) bg-muted/20 p-(--panel-pad) grid-cols-1 max-lg:max-w-[calc(100vw-2rem-2*var(--hairline))] lg:grid-cols-2">
+      {around && <Around entry={entry} />}
+
       <div className="flex flex-col gap-3">
         <div className="max-w-lg text-foreground">
-          <Row
-            label="Type"
-            mono
-            value={
-              <>
-                {entry.type}
-                {entry.typeRaw && (
-                  <span className="ml-2 text-muted-foreground" title="The source's own word">
-                    {entry.typeRaw}
-                  </span>
-                )}
-              </>
-            }
-          />
-          <Row label="Log" value={entry.category} />
           <Row label="Source" value={<SourceBadge source={entry.source} />} />
           {entry.occurredBefore ? (
             <Row
@@ -167,8 +162,118 @@ export function EntryDetail({ entry }: { entry: AuditEntry }) {
         what the page is for. The JSON is here to be checked when the words are not enough.
       */}
       <div className="flex flex-col gap-3">
+        <div className="max-w-lg text-foreground">
+          <Row
+            label="Type"
+            mono
+            value={
+              <>
+                {entry.type}
+                {entry.typeRaw && (
+                  <span className="ml-2 text-muted-foreground" title="The source's own word">
+                    {entry.typeRaw}
+                  </span>
+                )}
+              </>
+            }
+          />
+          <Row label="Log" value={entry.category} />
+        </div>
         <JsonView title="Raw JSON" value={entry} closed />
       </div>
+    </div>
+  )
+}
+
+/**
+ * What happened around this entry: the same moderator's actions, and the same person's facts.
+ *
+ * Each list comes from the server newest first with the entry in its place, marked here. Every
+ * line opens into its own detail the way "Same decision" does, rather than moving the log, so the
+ * reader keeps the row they started from.
+ */
+function Around({ entry }: { entry: AuditEntry }) {
+  // An entry nobody did and that is about no person has nothing to put here.
+  const wanted = Boolean(entry.actorId) || entry.subjectKind === 'Person'
+
+  const load = useCallback(() => api.auditAround(entry.id), [entry.id])
+  const { data, error } = useLoad<AuditAround>(wanted ? load : null)
+
+  if (!wanted) return null
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle>Around this</CardTitle>
+      </CardHeader>
+      {error && <EmptyRow tone="danger">{error}</EmptyRow>}
+      {!error && !data && <EmptyRow>Loading…</EmptyRow>}
+      {data && (
+        <div className="grid grid-cols-1 divide-y-(length:--hairline) divide-border lg:grid-cols-2 lg:divide-x-(length:--hairline) lg:divide-y-0">
+          {data.byActor && (
+            <AroundList
+              title={`By ${entry.actorName ?? entry.actorId ?? 'the same account'}`}
+              entries={data.byActor}
+              current={entry.id}
+            />
+          )}
+          {data.aboutSubject && (
+            <AroundList
+              title={`About ${entry.subjectName ?? entry.subjectId}`}
+              entries={data.aboutSubject}
+              current={entry.id}
+            />
+          )}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function AroundList({ title, entries, current }: { title: string; entries: AuditEntry[]; current: number }) {
+  return (
+    <div className="min-w-0">
+      <div className="truncate px-(--panel-pad) py-2 font-medium" style={{ fontSize: 'var(--text-small)' }}>
+        {title}
+      </div>
+      {entries.length <= 1 && <EmptyRow>Nothing else near it.</EmptyRow>}
+      {entries.length > 1 &&
+        entries.map((fact) =>
+          fact.id === current ? (
+            <div
+              key={fact.id}
+              aria-current="true"
+              className="flex flex-wrap items-baseline gap-2 border-t border-t-(length:--hairline) bg-accent px-(--panel-pad) py-2 pl-[calc(var(--panel-pad)+1.25rem)]"
+              style={{ fontSize: 'var(--text-small)' }}
+            >
+              <span className="font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
+              <span className="min-w-0 flex-1">
+                <FactSentence entry={fact} />
+              </span>
+              <span className="text-muted-foreground">This one</span>
+            </div>
+          ) : (
+            <details key={fact.id} className="group border-t border-t-(length:--hairline)">
+              <summary
+                className={cn(
+                  'flex cursor-pointer list-none items-baseline gap-2 px-(--panel-pad) py-2 hover:bg-muted/40',
+                  'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden',
+                )}
+                style={{ fontSize: 'var(--text-small)' }}
+              >
+                <ChevronRight
+                  className="size-3.5 shrink-0 self-center text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                  aria-hidden
+                />
+                <span className="shrink-0 font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
+                <span className="min-w-0 flex-1">
+                  <SourceBadge source={fact.source} /> <FactSentence entry={fact} />
+                </span>
+              </summary>
+              <EntryDetail entry={fact} around={false} />
+            </details>
+          ),
+        )}
     </div>
   )
 }
@@ -204,7 +309,7 @@ function SameDecision({ entry }: { entry: AuditEntry }) {
             <FactSentence entry={fact} />
             <span className="font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
           </summary>
-          <EntryDetail entry={fact} />
+          <EntryDetail entry={fact} around={false} />
         </details>
       ))}
     </Card>

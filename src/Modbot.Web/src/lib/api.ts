@@ -730,6 +730,16 @@ export type AuditEntry = {
    * were folded into it.
    */
   reportedBy?: AuditReporter[] | null
+  /** The case file this entry leads to: a ban's write-up, or the case file a case file fact is about. */
+  caseFileId?: string | null
+  /** The review this entry leads to: a flag's review, or the review a review fact is about. */
+  reviewId?: string | null
+}
+
+/** The same moderator's entries and the same person's around one entry, newest first, the entry in its place. */
+export type AuditAround = {
+  byActor: AuditEntry[] | null
+  aboutSubject: AuditEntry[] | null
 }
 
 /** One moderator's client that reported a fact, and when its report arrived. */
@@ -4294,6 +4304,8 @@ export const api = {
 
   /** One entry by its id. 404 when it does not exist or this account may not read its type. */
   auditEntry: (id: string) => request<AuditEntry>(`/api/audit/entries/${encodeURIComponent(id)}`),
+
+  auditAround: (id: number) => request<AuditAround>(`/api/audit/entries/${id}/around`),
 
   bans: (query: { offset?: number; limit?: number; includeUnbanned?: boolean } = {}) => {
     const q = new URLSearchParams()

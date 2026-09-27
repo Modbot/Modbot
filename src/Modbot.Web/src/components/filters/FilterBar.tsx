@@ -11,6 +11,7 @@ import {
   operatorWords,
   type FilterChip,
   type FilterOperator,
+  type FilterOption,
   type FilterProperty,
 } from '@/lib/filters'
 import { useShortcuts } from '@/lib/shortcuts'
@@ -297,6 +298,10 @@ function ValueEditor({
   const [typed, setTyped] = useState(property.kind === 'id' || property.kind === 'text' ? (values[0] ?? '') : '')
   const [cursor, setCursor] = useState(0)
 
+  if (property.kind === 'search') {
+    return <SearchEditor property={property} onChange={onChange} onDone={onDone} />
+  }
+
   if (property.kind === 'yesno') {
     return (
       <Panel>
@@ -446,6 +451,112 @@ function ValueEditor({
           )
         })}
       </div>
+    </Panel>
+  )
+}
+
+/**
+ * One id, found by name: type a name, pick who or what it is, and the chip holds the id.
+ *
+ * Nobody knows a person's `usr_…` by heart, and the filters that wanted one sent moderators off to
+ * copy it from somewhere else first (finding 20 of the 2026-09-25 UX review). An id pasted in
+ * still works: it is offered as it is, below whatever the search found.
+ */
+function SearchEditor({
+  property,
+  onChange,
+  onDone,
+}: {
+  property: FilterProperty
+  onChange: (chip: FilterChip) => void
+  onDone: () => void
+}) {
+  const [typed, setTyped] = useState('')
+  const [cursor, setCursor] = useState(0)
+  const words = typed.trim()
+
+  // The answer is kept with the words it answered, so a slow answer never lands on newer words.
+  const [answered, setAnswered] = useState<{ words: string; found: FilterOption[] | null } | null>(null)
+  const found = answered?.words === words ? answered.found : null
+  const failed = words.length >= 2 && answered?.words === words && answered.found === null
+
+  useEffect(() => {
+    if (words.length < 2 || !property.search) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      property
+        .search!(words)
+        .then((next) => {
+          if (!cancelled) setAnswered({ words, found: next })
+        })
+        .catch(() => {
+          if (!cancelled) setAnswered({ words, found: null })
+        })
+    }, 150)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [words, property])
+
+  const rows: (FilterOption & { typedId?: boolean })[] = [
+    ...(found ?? []),
+    ...(words && !(found ?? []).some((o) => o.value === words) ? [{ value: words, label: words, typedId: true }] : []),
+  ]
+  const at = Math.min(cursor, Math.max(0, rows.length - 1))
+
+  const pick = (option: FilterOption & { typedId?: boolean }) => {
+    if (!option.typedId) property.onPick?.(option)
+    onChange({ property: property.id, operator: 'is', values: [option.value] })
+    onDone()
+  }
+
+  return (
+    <Panel>
+      <input
+        autoFocus
+        value={typed}
+        onChange={(e) => {
+          setTyped(e.target.value)
+          setCursor(0)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setCursor((c) => Math.min(rows.length - 1, c + 1))
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setCursor((c) => Math.max(0, c - 1))
+          } else if (e.key === 'Enter' && rows[at]) {
+            e.preventDefault()
+            pick(rows[at])
+          }
+        }}
+        placeholder={property.placeholder ?? property.label}
+        aria-label={property.label}
+        className="h-(--control-h) w-full border-b border-b-(length:--hairline) bg-transparent px-2 outline-none placeholder:text-muted-foreground"
+      />
+      {words && (
+        <div className="max-h-72 overflow-auto py-1">
+          {failed && <EmptyRow tone="danger" className="px-2">Could not search</EmptyRow>}
+          {words.length >= 2 && answered?.words !== words && <EmptyRow className="px-2">Searching…</EmptyRow>}
+          {rows.map((o, i) => (
+            <Row key={`${o.typedId ? 'typed' : 'found'}:${o.value}`} active={i === at} onClick={() => pick(o)} onHover={() => setCursor(i)}>
+              {o.typedId ? (
+                <>
+                  <span className="shrink-0 text-muted-foreground">Id</span>
+                  <span className="min-w-0 flex-1 truncate font-mono">{o.value}</span>
+                </>
+              ) : (
+                <>
+                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                  {o.detail && <span className="max-w-[45%] shrink-0 truncate font-mono text-muted-foreground">{o.detail}</span>}
+                </>
+              )}
+            </Row>
+          ))}
+        </div>
+      )}
     </Panel>
   )
 }

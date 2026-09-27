@@ -10,7 +10,7 @@ import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
-import { useFilters, type FilterProperty } from '@/lib/filters'
+import { useFilters, type FilterOption, type FilterProperty } from '@/lib/filters'
 import { useListSelection } from '@/lib/listSelection'
 import { auditMatches } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
@@ -168,7 +168,7 @@ export function AuditLog() {
       .finally(() => setLoading(false))
   }, [pages, query])
 
-  const entries = pages.flatMap((p) => p.entries)
+  const entries = useMemo(() => pages.flatMap((p) => p.entries), [pages])
   const coverage = pages[0]?.coverage
   const next = pages[pages.length - 1]?.next
 
@@ -257,6 +257,33 @@ export function AuditLog() {
     },
   ])
 
+  // Names for the ids the About and World chips hold: the ones picked from a search, and the ones
+  // the rows on screen already carry, so a chip read back from the address shows a name as well.
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const remember = useCallback(
+    (option: FilterOption) => setPicked((current) => ({ ...current, [option.value]: option.label })),
+    [],
+  )
+  const names = useMemo(() => {
+    const people = new Map<string, string>()
+    const worlds = new Map<string, string>()
+    for (const entry of entries) {
+      if (entry.subjectName && entry.subjectKind === 'Person') people.set(entry.subjectId, entry.subjectName)
+      if (entry.worldId && entry.worldName) worlds.set(entry.worldId, entry.worldName)
+    }
+    for (const [id, name] of Object.entries(picked)) {
+      people.set(id, name)
+      worlds.set(id, name)
+    }
+    const known = (map: Map<string, string>, chip: string) =>
+      chips
+        .filter((c) => c.property === chip)
+        .flatMap((c) => c.values)
+        .filter((id) => map.has(id))
+        .map((id) => ({ value: id, label: map.get(id)! }))
+    return { people: known(people, 'subject'), worlds: known(worlds, 'world') }
+  }, [entries, picked, chips])
+
   const properties = useMemo<FilterProperty[]>(
     () => [
       { id: 'source', label: 'Source', kind: 'choice', options: SOURCES.map((s) => ({ value: s, label: sourceLabel(s) })) },
@@ -288,8 +315,24 @@ export function AuditLog() {
         options: (filters?.actors ?? []).map((a) => ({ value: a.id, label: a.name ?? a.id, count: a.actions })),
         placeholder: 'Name or id',
       },
-      { id: 'subject', label: 'About', kind: 'id', placeholder: 'usr_…' },
-      { id: 'world', label: 'World', kind: 'id', placeholder: 'wrld_…' },
+      {
+        id: 'subject',
+        label: 'About',
+        kind: 'search',
+        placeholder: 'Name or id',
+        options: names.people,
+        search: searchPeople,
+        onPick: remember,
+      },
+      {
+        id: 'world',
+        label: 'World',
+        kind: 'search',
+        placeholder: 'Name or id',
+        options: names.worlds,
+        search: searchWorlds,
+        onPick: remember,
+      },
       { id: 'instance', label: 'Instance number', kind: 'id', placeholder: '39047' },
       { id: 'when', label: 'When', kind: 'date' },
       {
@@ -306,7 +349,7 @@ export function AuditLog() {
       { id: 'hasActor', label: 'Somebody named', kind: 'yesno' },
       { id: 'text', label: 'Text', kind: 'text', placeholder: 'A word or phrase' },
     ],
-    [filters],
+    [filters, names, remember],
   )
 
   if (error) return <Empty tone="danger">{error}</Empty>
@@ -370,6 +413,21 @@ export function AuditLog() {
       </Card>
     </div>
   )
+}
+
+/** The command palette's search, narrowed to people: VRChat and Discord, since either can be what an entry is about. */
+async function searchPeople(words: string): Promise<FilterOption[]> {
+  const found = await api.search(words)
+  return [
+    ...found.people.map((p) => ({ value: p.userId, label: p.displayName ?? p.userId, detail: p.displayName ? p.userId : null })),
+    ...found.discordPeople.map((p) => ({ value: p.userId, label: p.displayName, detail: `Discord · @${p.username}` })),
+  ]
+}
+
+/** The command palette's search, narrowed to worlds. */
+async function searchWorlds(words: string): Promise<FilterOption[]> {
+  const found = await api.search(words)
+  return found.worlds.map((w) => ({ value: w.worldId, label: w.name ?? w.worldId, detail: w.name ? w.worldId : null }))
 }
 
 /**

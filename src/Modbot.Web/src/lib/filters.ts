@@ -18,6 +18,8 @@ export type FilterKind =
   | 'choice'
   /** One id, matched exactly. */
   | 'id'
+  /** One id, found by name: a person, a world. A pasted id is taken as it is. */
+  | 'search'
   /** A word or phrase, matched anywhere. */
   | 'text'
   /** A day, or a stretch of days. */
@@ -48,6 +50,8 @@ export type FilterOption = {
   count?: number | null
   /** A swatch beside the label, as a CSS colour. */
   color?: string | null
+  /** A second, quieter line beside the label: the id under a name. */
+  detail?: string | null
 }
 
 export type FilterProperty = {
@@ -62,8 +66,15 @@ export type FilterProperty = {
   negatable?: boolean
   /** Choice: whether a typed value not in the list may be used, for an id the list does not carry. */
   freeText?: boolean
-  /** Id and text: the hint in the box. */
+  /** Id, search and text: the hint in the box. */
   placeholder?: string
+  /**
+   * Search: what the typed words find, as ids with names. A chip holds the id; its name is shown
+   * from `options`, which the page keeps filled with the names it has learned.
+   */
+  search?: (words: string) => Promise<FilterOption[]>
+  /** Search: told the name of an id picked from the results, so the chip can show it. */
+  onPick?: (option: FilterOption) => void
 }
 
 export type FilterChip = { property: string; operator: FilterOperator; values: string[] }
@@ -74,6 +85,7 @@ export function operatorsFor(property: FilterProperty): FilterOperator[] {
     case 'choice':
       return property.negatable === false ? ['is'] : ['is', 'is-not']
     case 'id':
+    case 'search':
       return ['is']
     case 'text':
       return ['contains']

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { dateRange, decodeChip, encodeChip, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
+import { dateRange, decodeChip, encodeChip, operatorsFor, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
 import {
   AUDIT_DEFAULTS,
   auditQueryFrom,
@@ -162,4 +162,18 @@ test('trust rank and platform ask only for what was picked, never for the rest o
 
   const empty = peopleQueryFrom([{ property: 'trustRank', operator: 'is', values: [] }])
   assert.equal(empty.trustRanks, undefined)
+})
+
+test('a name search chip holds one id, and the audit log asks for that id', () => {
+  // About and World are found by name, but the chip and the address still carry the id: a link
+  // pasted to another moderator must mean the same person whatever they are called by then.
+  assert.deepEqual(operatorsFor({ id: 'subject', label: 'About', kind: 'search' }), ['is'])
+
+  const query = auditQueryFrom([
+    { property: 'subject', operator: 'is', values: ['usr_eve'] },
+    { property: 'world', operator: 'is', values: ['wrld_cat'] },
+  ])
+
+  assert.equal(query.subject, 'usr_eve')
+  assert.equal(query.world, 'wrld_cat')
 })

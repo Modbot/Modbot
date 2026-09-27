@@ -8736,6 +8736,64 @@
         ]
       }
     },
+    "/api/audit/entries/{id}/around": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "Get entries around an audit log entry",
+        "description": "What else happened around one entry: the same actor's entries and the same person's entries, up to five either side, each list newest first with the entry itself in its place. `byActor` is null when nobody is named for the entry; `aboutSubject` is null when the entry is not about a person. Only types this account may read are listed, and an entry it may not read answers 404.",
+        "operationId": "GetAuditEntryAround",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditAround"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/audit/filters": {
       "get": {
         "tags": [
@@ -18362,6 +18420,33 @@
           }
         }
       },
+      "AuditAround": {
+        "required": [
+          "byActor",
+          "aboutSubject"
+        ],
+        "type": "object",
+        "properties": {
+          "byActor": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          },
+          "aboutSubject": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            }
+          }
+        }
+      },
       "AuditCategory": {
         "enum": [
           "Moderation",
@@ -18602,6 +18687,20 @@
             "items": {
               "$ref": "#/components/schemas/AuditReporter"
             }
+          },
+          "caseFileId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "reviewId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
