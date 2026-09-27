@@ -12,17 +12,26 @@ import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { Ago, Unread } from '@/components/Freshness'
 import { Pager } from '@/components/Pager'
-import { api, ApiError, type CurrentUser, type DiscordMemberList, type DiscordMemberQuery } from '@/lib/api'
+import {
+  api,
+  ApiError,
+  type CurrentUser,
+  type DiscordMemberList,
+  type DiscordMemberQuery,
+  type ServerProfile,
+} from '@/lib/api'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { formatDay } from '@/lib/format'
 import { useListPage } from '@/lib/listPage'
 import { useListSelection } from '@/lib/listSelection'
+import type { PageId } from '@/lib/nav'
 import { DISCORD_MEMBER_DEFAULTS, discordMemberQueryFrom } from '@/lib/pageFilters'
 import { can } from '@/lib/permissions'
 import { useShortcuts } from '@/lib/shortcuts'
 import { openDiscordPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
 import { Empty, Marks } from '@/pages/Members'
+import { ServerHeader } from '@/pages/analytics/ServerHeader'
 
 /**
  * The Discord server's members, as the bot keeps them.
@@ -31,12 +40,42 @@ import { Empty, Marks } from '@/pages/Members'
  * server but not both, and most never link, so neither list can be a column on the other. A row
  * opens the Discord person popup; the linked VRChat name in it opens the VRChat one.
  *
+ * It is the Members part of the Discord page, so it opens under that page's header with Members
+ * marked, and the sidebar lights Discord. The header is read once, from what the bot stored; the
+ * list does not wait for it, and a header that fails to load is simply not drawn.
+ *
  * Search, filters and paging all run on the server, like the group's list.
  */
 
 const PAGE_SIZE = 50
 
-export function DiscordMembers({ me }: { me: CurrentUser }) {
+export function DiscordMembers({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
+  const [server, setServer] = useState<ServerProfile | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    api
+      .discordServer()
+      .then((next) => {
+        if (!cancelled) setServer(next)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return (
+    <div className="flex flex-col gap-3">
+      {server && <ServerHeader server={server} me={me} pathOf={pathOf} active="discord-members" />}
+      <MemberList me={me} />
+    </div>
+  )
+}
+
+function MemberList({ me }: { me: CurrentUser }) {
   const seesLinks = can(me, 'ViewProfile')
 
   const [typed, setTyped] = useState('')

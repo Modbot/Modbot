@@ -12,7 +12,7 @@ import { changesFlags } from '@/lib/liveRules'
 import { REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
 import { setMyModbotOrigin, setServerGroup } from '@/lib/myModbot'
 import { setVRChatImagesProxied } from '@/lib/vrchatMedia'
-import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, mayOpen, titleWithCount, waitingTotal, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, MOVED, NAV, goesByName, mayOpen, titleWithCount, waitingTotal, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density } from '@/lib/preferences'
 import { go, useRoute } from '@/lib/router'
@@ -57,7 +57,8 @@ import { Setup } from '@/pages/setup/Setup'
 const TITLES: Record<PageId, string> = {
   members: 'Members',
   requests: 'Requests',
-  'discord-members': 'Discord members',
+  // Shown as the Members part of the Discord page, so it carries that page's name, as the sidebar does.
+  'discord-members': 'Discord',
   people: 'People',
   live: 'Live',
   calendar: 'Calendar',
@@ -401,7 +402,7 @@ function Shell({
   useShortcuts([
     { keys: 'mod+k', label: 'Search and commands', group: 'General', run: () => setPaletteOpen((o) => !o) },
     { keys: '?', label: 'Keyboard shortcuts', group: 'General', run: () => setSheet((s) => (s ? null : 'keys')) },
-    ...NAV.filter((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id) && GO_TO_KEYS[n.id]).map((n) => ({
+    ...NAV.filter((n) => goesByName(n) && mayOpen(me, n.id) && GO_TO_KEYS[n.id]).map((n) => ({
       keys: `g ${GO_TO_KEYS[n.id]}`,
       label: n.label,
       group: 'Go to' as const,
@@ -468,7 +469,7 @@ function Shell({
         <div className="p-4 lg:p-5">
           {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}
           {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} />}
-          {page === 'discord-members' && <DiscordMembers me={me} />}
+          {page === 'discord-members' && <DiscordMembers me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'people' && <People />}
           {page === 'live' && <Live />}
           {page === 'calendar' && <Calendar />}

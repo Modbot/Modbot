@@ -4283,6 +4283,9 @@ export const api = {
 
   discordMember: (id: string) => request<DiscordMember>(`/api/discord/members/${encodeURIComponent(id)}`),
 
+  /** The server itself, for the header over the member list: the Discord page's own header. */
+  discordServer: () => request<ServerProfile>('/api/discord/server'),
+
   /** `at` is a message id to open on: the page holding it comes back, whatever `page` says. */
   discordMemberMessages: (id: string, page: number, pageSize: number, at?: string) =>
     request<DiscordMemberMessages>(

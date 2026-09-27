@@ -5,7 +5,7 @@ import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Kbd } from '@/components/ui/kbd'
 import { api, type CurrentUser, type SearchResults } from '@/lib/api'
-import { NAV, mayOpen, type PageId } from '@/lib/nav'
+import { NAV, goesByName, mayOpen, type PageId } from '@/lib/nav'
 import { useModal, useShortcutList } from '@/lib/shortcuts'
 import { openDiscordPerson, openPerson, openWorld } from '@/lib/subject'
 import { cn } from '@/lib/utils'
@@ -102,7 +102,7 @@ function Palette({
   const goTo = useMemo(() => new Map(shortcuts.filter((s) => s.group === 'Go to').map((s) => [s.label, s.keys])), [shortcuts])
 
   const items = useMemo<Item[]>(() => {
-    const pages: Item[] = NAV.filter((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id)).map((n) => ({
+    const pages: Item[] = NAV.filter((n) => goesByName(n) && mayOpen(me, n.id)).map((n) => ({
       id: `page:${n.id}`,
       group: 'Go to',
       label: n.label,

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Analytics.Server;
 using Modbot.Api.Features.DiscordLink;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -213,6 +214,26 @@ public static class DiscordMemberEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapDiscordMemberActivity();
+
+        // The server itself, for the header over the member list, which is the Discord analytics
+        // page's header with Members marked. Its own endpoint, because the only other source is
+        // the whole analytics page; gated like the list it sits over, not on See analytics.
+        app.MapGet("/api/discord/server", async (
+                [FromServices] ModbotContext db,
+                CancellationToken ct) =>
+                Results.Ok(await new ServerProfileQuery(db).RunAsync(await GuildIdAsync(db, ct), ct)))
+            .WithTags("Discord")
+            .RequireAuthorization()
+            .RequiresFlag(ModbotPermissions.ViewMembers)
+            .WithName("GetDiscordServer")
+            .WithSummary("Get Discord server")
+            .WithDescription(
+                "The Discord server in settings as its own server profile shows it: name, icon and "
+                + "banner, the day it was made (read from its id), Discord's member count from the "
+                + "newest reading, and its boosts and boost level. All of it is what the bot last "
+                + "stored; asking asks Discord nothing. Every field is null when no server is set.")
+            .Produces<ServerProfile>()
+            .Produces(StatusCodes.Status403Forbidden);
 
         return app;
     }
