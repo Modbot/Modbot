@@ -44,8 +44,13 @@ public sealed record HourOfWeek(IReadOnlyList<decimal> Arrivals, IReadOnlyList<d
 /// </param>
 /// <param name="ClosedBy">
 /// <c>list</c> when the group's live list stopped carrying it -- exact -- or <c>time</c> when it
-/// simply went quiet for long enough. Null while it is still open. The two are not equally
-/// trustworthy and the screen says which it has.
+/// simply went quiet for long enough. Null while it is still open. How Modbot noticed the end, not
+/// who ended it: see <paramref name="ClosedByModerator"/>.
+/// </param>
+/// <param name="ClosedByModerator">
+/// True when a moderator closed it by hand: VRChat's audit log has a close entry for it. False for
+/// an instance that ended on its own (emptied out and dropped off the group's list, or went quiet),
+/// and for one still open.
 /// </param>
 public sealed record InstanceRow(
     Guid Id,
@@ -64,7 +69,8 @@ public sealed record InstanceRow(
     int? PeakPeople,
     decimal MinutesOpen,
     int? WorldCapacity = null,
-    IReadOnlyList<string>? WorldPlatforms = null);
+    IReadOnlyList<string>? WorldPlatforms = null,
+    bool ClosedByModerator = false);
 
 /// <summary>
 /// The instance that held the most people at one moment inside the window.
@@ -124,12 +130,14 @@ public sealed record ActivityPoint(DateTimeOffset At, int People, int Instances)
 /// </summary>
 /// <param name="Range"><c>day</c>, <c>week</c>, <c>month</c> or <c>all</c>.</param>
 /// <param name="StepSeconds">
-/// The window was cut into steps this long and the last reading in each kept, so the series is never
-/// more than about five hundred points.
+/// The window was cut into steps this long, each a whole multiple of it since the Unix epoch, and in
+/// each step the reading with the most people, the one with the most instances open and the last
+/// were kept. At most five hundred steps, so never more than three times that many points.
 /// </param>
 /// <param name="DaysWithoutHeadCounts">
-/// UTC days the window touches on which a group instance was open and Modbot had no head count for
-/// any of that time. A day nothing was open is quiet, not missing, and is not in here.
+/// UTC days the window touches from before Modbot started, and days on which a group instance was
+/// open and Modbot had no head count for any of that time. A day Modbot was running and nothing was
+/// open is quiet, not missing, and is not in here.
 /// </param>
 public sealed record InstanceActivitySeries(
     string Range,
@@ -141,18 +149,25 @@ public sealed record InstanceActivitySeries(
     IReadOnlyList<DateOnly> DaysWithoutHeadCounts);
 
 /// <param name="Opened">Instances opened per day (daily totals).</param>
-/// <param name="Closed">Instances closed per day (daily totals).</param>
+/// <param name="Closed">
+/// Instances a moderator closed by hand, per day (daily totals of VRChat's close entries). Not every
+/// instance that ended: most end by emptying out, and VRChat writes no entry for that.
+/// </param>
 /// <param name="MostOpenAtOnce">
 /// The most instances open at the same moment, per day. An instance with no close on record is
 /// open until the last thing Modbot saw happen in it.
 /// </param>
 /// <param name="MostPeopleInOne">The most people known to be in a single instance at once, per day. From presence reports.</param>
-/// <param name="TypicalMinutesOpen">Median time from open to close, for instances with both on record.</param>
-/// <param name="TypicalMinutesOpenPerDay">
-/// The same median, day by day, over instances that opened and closed on that day. One number for a
-/// window says whether evenings are long; a line says whether they are getting longer.
+/// <param name="TypicalMinutesOpen">
+/// Median time open, over the group's instances that ended in the window, however they ended. From
+/// <c>vrchat_instance</c>: first seen to ended.
 /// </param>
-/// <param name="InstancesWithBothEnds">How many instances that median is over.</param>
+/// <param name="TypicalMinutesOpenPerDay">
+/// The same median, day by day, over the instances that ended on that day. A day nothing ended has no
+/// row. One number for a window says whether evenings are long; a line says whether they are getting
+/// longer.
+/// </param>
+/// <param name="InstancesWithBothEnds">How many ended instances that median is over.</param>
 /// <param name="InstancesOpened">Instances opened inside the window.</param>
 /// <param name="OpenNow">Instances the group has open right now, busiest first.</param>
 /// <param name="Recent">The most recent instances in the window, newest first.</param>
@@ -166,8 +181,18 @@ public sealed record InstanceActivitySeries(
 /// Days before Modbot began reading the group's audit log, which openings, closings and how long
 /// instances stayed open come from.
 /// </param>
-/// <param name="DaysWithoutHeadCounts">Days an instance was open and never counted (see <see cref="InstanceActivitySeries"/>).</param>
-/// <param name="DaysWithoutPresenceReports">Days an instance was open and no companion reported from any.</param>
+/// <param name="DaysWithoutHeadCounts">
+/// Days before Modbot started, and days an instance was open and never counted (see
+/// <see cref="InstanceActivitySeries"/>).
+/// </param>
+/// <param name="DaysWithoutPresenceReports">
+/// Days before Modbot started, and days an instance was open and no companion reported from any.
+/// </param>
+/// <param name="DaysBeforeModbot">
+/// Days before Modbot started collecting anything about the group as it happened: its first instance
+/// seen, head count, member count reading or presence report. The instance table, which the typical
+/// time open comes from, has nothing before then.
+/// </param>
 public sealed record InstancesAnalytics(
     DateOnly From,
     DateOnly To,
@@ -188,5 +213,6 @@ public sealed record InstancesAnalytics(
     IReadOnlyList<DateOnly> DaysWithoutAuditLog,
     IReadOnlyList<DateOnly> DaysWithoutHeadCounts,
     IReadOnlyList<DateOnly> DaysWithoutPresenceReports,
+    IReadOnlyList<DateOnly> DaysBeforeModbot,
     AnalyticsCoverage Coverage,
     DateTimeOffset GeneratedAt);

@@ -20,9 +20,24 @@ namespace Modbot.Api.Features.Places;
 /// has only ever seen as an id has no name here and the screen shows the id, which is the truth
 /// about what is known.
 /// </para>
+/// <para>
+/// <strong>Closed by a moderator, or ended.</strong> <c>closed_by</c> says how Modbot noticed the
+/// end (the list dropped it, or it went quiet), never who ended it. A moderator closing an
+/// instance by hand looks the same to the list as an instance that emptied out. What tells them
+/// apart is VRChat's own <c>group.instance.close</c> entry in the audit log, which it writes only
+/// for a close by hand, so the rows look for one. A screen that said "closed" for every ended
+/// instance contradicted a "Closed: 0" tile above it.
+/// </para>
 /// </remarks>
 public static class InstanceRows
 {
+    /// <summary>
+    /// How long after Modbot noticed an instance had ended a close entry can still be its own. The
+    /// list is read every few seconds, so a moderator's close comes before Modbot notices the end;
+    /// this only allows for VRChat's clock and Modbot's disagreeing a little.
+    /// </summary>
+    public static readonly TimeSpan CloseEntryLeeway = TimeSpan.FromMinutes(5);
+
     /// <summary>
     /// Reads a page of instances and names their worlds.
     /// </summary>
@@ -60,6 +75,11 @@ public static class InstanceRows
 
         var worldIds = page.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
 
+        var closedByModerator = await ClosedByModeratorAsync(
+            db,
+            page.Select(r => (r.Id, r.WorldId, r.VRChatInstanceId, r.OpenedAt, r.ClosedAt)).ToList(),
+            ct);
+
         var named = await db.VRChatWorlds
             .AsNoTracking()
             .Where(w => worldIds.Contains(w.WorldId))
@@ -94,9 +114,63 @@ public static class InstanceRows
                     r.PeakUserCount,
                     Math.Round(minutes, 1),
                     world?.Capacity,
-                    PlatformsOf(world?.Platforms));
+                    PlatformsOf(world?.Platforms),
+                    closedByModerator.Contains(r.Id));
             })
             .ToList();
+    }
+
+    /// <summary>
+    /// Which of the ended instances a moderator closed by hand: those with a
+    /// <c>group.instance.close</c> entry for the same world and instance number, dated between the
+    /// instance's opening and a little after it ended.
+    /// </summary>
+    /// <remarks>
+    /// VRChat hands instance numbers out again, so one entry could fall inside two rows' times only
+    /// if the number was reissued within <see cref="CloseEntryLeeway"/> of the first ending. It then
+    /// belongs to the later row that had opened by then, never to both.
+    /// </remarks>
+    private static async Task<IReadOnlySet<Guid>> ClosedByModeratorAsync(
+        ModbotContext db,
+        IReadOnlyList<(Guid Id, string WorldId, string? Number, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt)> rows,
+        CancellationToken ct)
+    {
+        var ended = rows.Where(r => r.ClosedAt is not null && r.Number is not null).ToList();
+
+        if (ended.Count == 0)
+            return new HashSet<Guid>();
+
+        var worlds = ended.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
+        var numbers = ended.Select(r => r.Number!).Distinct(StringComparer.Ordinal).ToList();
+        var earliest = ended.Min(r => r.OpenedAt);
+        var latest = ended.Max(r => r.ClosedAt!.Value) + CloseEntryLeeway;
+
+        var closes = await db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.GroupInstanceClosed
+                        && e.OccurredAt >= earliest && e.OccurredAt <= latest
+                        && e.WorldId != null && worlds.Contains(e.WorldId)
+                        && e.InstanceId != null && numbers.Contains(e.InstanceId))
+            .Select(e => new { e.WorldId, e.InstanceId, e.OccurredAt })
+            .ToListAsync(ct);
+
+        var found = new HashSet<Guid>();
+
+        foreach (var close in closes)
+        {
+            var owner = ended
+                .Where(r => string.Equals(r.WorldId, close.WorldId, StringComparison.Ordinal)
+                            && string.Equals(r.Number, close.InstanceId, StringComparison.Ordinal)
+                            && r.OpenedAt <= close.OccurredAt
+                            && close.OccurredAt <= r.ClosedAt!.Value + CloseEntryLeeway)
+                .OrderByDescending(r => r.OpenedAt)
+                .Select(r => (Guid?)r.Id)
+                .FirstOrDefault();
+
+            if (owner is { } id)
+                found.Add(id);
+        }
+
+        return found;
     }
 
     /// <summary>

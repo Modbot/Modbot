@@ -1,6 +1,6 @@
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis, type DotItemDotProps } from 'recharts'
 import { ChartFrame } from './ChartFrame'
-import { carriedKey, lineRows, type DayMarks } from './coverage'
+import { carriedKey, lineRows, standsAlone, type DayMarks, type LineMode } from './coverage'
 import { HollowDot, MissingBands, Stripes } from './marks'
 import { rechartsTooltip } from './rechartsTooltip'
 import { compactNumber, longDay, shortDay, tickDays } from './format'
@@ -12,9 +12,11 @@ import { useStripeId } from './useStripeId'
  * One or more values over time, as lines.
  *
  * A line because the question is a shape -- is this going up. `mode` says how a day with no row
- * is filled: `carry` for a level (a headcount stays what it was), `zero` for a count. A carried
- * stretch is drawn dashed, because nothing was measured on those days; the value is the last one
- * that was.
+ * is filled: `carry` for a level (a headcount stays what it was), `zero` for a count, `gap` for a
+ * measure a day can simply not have (a typical length on a day nothing ended). A carried stretch
+ * is drawn dashed, because nothing was measured on those days; the value is the last one that
+ * was. In a gapped line a day with nothing either side of it gets a dot, since a line needs two
+ * days to draw anything.
  *
  * `zeroBased` says whether the axis must include zero. True for anything that is a quantity of
  * events, where the distance from zero is the message. False for a level -- a membership of
@@ -41,7 +43,7 @@ export function DailyLine({
   from: string
   to: string
   series: DaySeries[]
-  mode?: 'zero' | 'carry'
+  mode?: LineMode
   zeroBased?: boolean
   height?: number
   emptyText?: string
@@ -60,8 +62,12 @@ export function DailyLine({
   )
   const empty = series.every((s) => s.points.length === 0)
 
-  const todayDot = (color: string) => ({ cx, cy, index }: DotItemDotProps) =>
-    rows[index]?.mark === 'today' ? <HollowDot key={`today-${index}`} cx={cx} cy={cy} color={color} /> : null
+  const dot = (key: string, color: string) => ({ cx, cy, index }: DotItemDotProps) => {
+    if (rows[index]?.mark === 'today') return <HollowDot key={`today-${index}`} cx={cx} cy={cy} color={color} />
+    if (mode === 'gap' && standsAlone(rows, key, index) && cx !== undefined && cy !== undefined)
+      return <circle key={`alone-${index}`} cx={cx} cy={cy} r={3} fill={color} />
+    return null
+  }
 
   return (
     <ChartFrame height={height} empty={empty} emptyText={emptyText} legend={legend}>
@@ -100,7 +106,7 @@ export function DailyLine({
             name={s.label}
             stroke={seriesColor(s.slot)}
             strokeWidth={2}
-            dot={todayDot(seriesColor(s.slot))}
+            dot={dot(s.key, seriesColor(s.slot))}
             activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
             connectNulls={false}
             isAnimationActive={false}

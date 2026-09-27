@@ -7,6 +7,7 @@ import {
   daysBetween,
   lineRows,
   missingRuns,
+  standsAlone,
   timeBands,
 } from '../src/components/charts/coverage.ts'
 import { memberCountRows } from '../src/pages/analytics/memberCountSeries.ts'
@@ -184,5 +185,59 @@ test('instance activity breaks across a day an instance was open and never count
       // The last count carried to the end of the window, as before.
       ['2026-06-03T12:00:00.000Z', 4],
     ],
+  )
+})
+
+test('a gapped line leaves a day with no row empty, rather than dipping to nought or carrying', () => {
+  const { rows, runs } = lineRows(
+    '2026-06-01',
+    '2026-06-05',
+    [{ key: 'open', points: [{ day: '2026-06-02', value: 90 }, { day: '2026-06-04', value: 30 }] }],
+    'gap',
+    { missing: ['2026-06-01'], today: '2026-06-05' },
+  )
+
+  assert.deepEqual(
+    rows.map((r) => [r.day, r.open, r[carriedKey('open')], r.mark]),
+    [
+      ['2026-06-01', null, null, 'missing'],
+      ['2026-06-02', 90, null, undefined],
+      ['2026-06-03', null, null, undefined],
+      ['2026-06-04', 30, null, undefined],
+      ['2026-06-05', null, null, 'today'],
+    ],
+  )
+  assert.deepEqual(runs, [{ first: 0, last: 0 }])
+})
+
+test('a gapped line keeps a real value of nought, and it is never hidden behind a band', () => {
+  const { rows, runs } = lineRows(
+    '2026-06-01',
+    '2026-06-02',
+    [{ key: 'open', points: [{ day: '2026-06-01', value: 0 }] }],
+    'gap',
+    { missing: ['2026-06-01'] },
+  )
+  assert.equal(rows[0].open, 0)
+  assert.equal(rows[0].mark, undefined)
+  assert.equal(rows[1].open, null)
+  assert.deepEqual(runs, [])
+})
+
+test('a counted line still fills a quiet day with nought', () => {
+  const { rows } = lineRows('2026-06-01', '2026-06-02', [{ key: 'n', points: [{ day: '2026-06-01', value: 2 }] }], 'zero')
+  assert.deepEqual(rows.map((r) => r.n), [2, 0])
+})
+
+test('a point with nothing on either side stands alone and gets a dot', () => {
+  const { rows } = lineRows(
+    '2026-06-01',
+    '2026-06-05',
+    [{ key: 'open', points: [{ day: '2026-06-01', value: 10 }, { day: '2026-06-03', value: 20 }, { day: '2026-06-04', value: 25 }] }],
+    'gap',
+  )
+  assert.deepEqual(
+    rows.map((_, i) => standsAlone(rows, 'open', i)),
+    [true, false, false, false, false],
   )
 })

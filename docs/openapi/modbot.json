@@ -25749,6 +25749,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "closedByModerator": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -25873,6 +25877,7 @@
           "daysWithoutAuditLog",
           "daysWithoutHeadCounts",
           "daysWithoutPresenceReports",
+          "daysBeforeModbot",
           "coverage",
           "generatedAt"
         ],
@@ -25989,6 +25994,13 @@
             }
           },
           "daysWithoutPresenceReports": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "daysBeforeModbot": {
             "type": "array",
             "items": {
               "type": "string",

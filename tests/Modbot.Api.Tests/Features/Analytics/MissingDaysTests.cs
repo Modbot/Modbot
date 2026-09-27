@@ -158,7 +158,8 @@ public class MissingDaysTests
     /// <summary>
     /// Three days: one an instance was open and counted and reported from, one an instance was open
     /// and neither counted nor reported from, and one nothing was open. Only the second is missing;
-    /// the third is a quiet day and must not be called anything else.
+    /// the third is a quiet day and must not be called anything else. The days before the first
+    /// instance Modbot saw are before Modbot started, and missing too.
     /// </summary>
     [Fact]
     public async Task HeadCountsAndPresence_AreMissingOnlyOnDaysSomethingWasOpen()
@@ -192,11 +193,97 @@ public class MissingDaysTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
         var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=7", cookie, Ct);
 
-        Assert.Equal([Today.AddDays(-2)], page.DaysWithoutHeadCounts);
-        Assert.Equal([Today.AddDays(-2)], page.DaysWithoutPresenceReports);
+        var beforeModbot = Range(Today.AddDays(-6), Today.AddDays(-4));
 
+        Assert.Equal([.. beforeModbot, Today.AddDays(-2)], page.DaysWithoutHeadCounts);
+        Assert.Equal([.. beforeModbot, Today.AddDays(-2)], page.DaysWithoutPresenceReports);
+        Assert.Equal(beforeModbot, page.DaysBeforeModbot);
+
+        // The activity chart's window starts part-way through its first day, seven days back.
         var activity = await host.GetJsonAsync<InstanceActivitySeries>("/api/analytics/instances/activity?range=week", cookie, Ct);
-        Assert.Equal([Today.AddDays(-2)], activity.DaysWithoutHeadCounts);
+        Assert.Equal([.. Range(Today.AddDays(-7), Today.AddDays(-4)), Today.AddDays(-2)], activity.DaysWithoutHeadCounts);
+    }
+
+    /// <summary>
+    /// The review's install: the audit log starts on one day, and before it every chart on the
+    /// Instances page must say "no data" rather than some saying "0 people". Modbot started with
+    /// the first thing it recorded as it happened: here a member count reading, earlier than any
+    /// instance. The audit log's own start is not used for it, because its catch-up reaches back
+    /// before Modbot existed.
+    /// </summary>
+    [Fact]
+    public async Task DaysBeforeModbotStarted_AreMissingOnEveryInstanceChart()
+    {
+        await using var host = await StartAsync();
+        await ManagedGroupAsync(host);
+
+        // The catch-up read an instance opening from before Modbot was installed.
+        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, "wrld_a:1", Now.AddDays(-5), actor: "usr_mod", worldId: "wrld_a", instanceId: "1"), Ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.GroupMemberCounts.Add(new GroupMemberCount { GroupId = "grp_1", CountedAt = Now.AddDays(-3), MemberCount = 40, OnlineMemberCount = 2 });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        // An instance Modbot saw and counted, a day after it started.
+        var opened = Now.AddDays(-2);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "2", opened, opened.AddHours(1), opened.AddHours(1), Ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.InstanceHeadCounts.Add(new InstanceHeadCount
+            {
+                InstanceId = instance.Id,
+                CountedAt = opened.AddMinutes(1),
+                HeadCount = 3,
+                UserCount = 3,
+                MemberCount = 3,
+                Source = HeadCounts.FromPage,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_a", opened.AddMinutes(2), "wrld_a", "2"), Ct);
+        await host.RebuildDailyTotalsAsync(Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=7", cookie, Ct);
+
+        var beforeModbot = Range(Today.AddDays(-6), Today.AddDays(-4));
+
+        // The audit log reaches further back, and its charts are right to show that day.
+        Assert.Equal(Range(Today.AddDays(-6), Today.AddDays(-6)), page.DaysWithoutAuditLog);
+
+        Assert.Equal(beforeModbot, page.DaysBeforeModbot);
+        Assert.Equal(beforeModbot, page.DaysWithoutHeadCounts);
+
+        // Presence also misses the day the audit log says an instance opened and nobody reported.
+        Assert.Equal(beforeModbot, page.DaysWithoutPresenceReports);
+    }
+
+    /// <summary>With nothing ever recorded as it happened, there is no day Modbot was collecting.</summary>
+    [Fact]
+    public async Task WithNothingRecorded_EveryDayIsBeforeModbot()
+    {
+        await using var host = await StartAsync();
+        await ManagedGroupAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=7", cookie, Ct);
+
+        Assert.Equal(Range(Today.AddDays(-6), Today), page.DaysBeforeModbot);
+        Assert.Equal(Range(Today.AddDays(-6), Today), page.DaysWithoutHeadCounts);
+    }
+
+    [Fact]
+    public void Union_IsBothLists_InOrder_EachDayOnce()
+    {
+        Assert.Equal(
+            [Today.AddDays(-3), Today.AddDays(-2), Today],
+            MissingDays.Union([Today, Today.AddDays(-3)], [Today.AddDays(-2), Today]));
     }
 
     // ── The member count ───────────────────────────────────────────────────────────────────

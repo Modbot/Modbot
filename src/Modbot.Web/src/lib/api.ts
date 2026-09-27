@@ -1481,8 +1481,10 @@ export type InstanceRow = {
   region: string | null
   openedAt: string
   closedAt: string | null
-  /** `list` (exact) or `time` (it merely went quiet). Null while still open. */
+  /** How Modbot noticed the end: `list` (exact) or `time` (it merely went quiet). Null while still open. */
   closedBy: string | null
+  /** True when a moderator closed it by hand (VRChat's audit log has a close entry for it). */
+  closedByModerator: boolean
   peopleNow: number | null
   peakPeople: number | null
   minutesOpen: number
@@ -1644,7 +1646,7 @@ export type InstanceActivitySeries = {
   stepSeconds: number
   points: ActivityPoint[]
   generatedAt: string
-  /** UTC days an instance was open and never counted. */
+  /** UTC days before Modbot started, and days an instance was open and never counted. */
   daysWithoutHeadCounts: string[]
 }
 
@@ -1654,10 +1656,13 @@ export type InstancesAnalytics = {
   /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
   today: string | null
   opened: DayValue[]
+  /** Instances a moderator closed by hand, per day. Not every instance that ended. */
   closed: DayValue[]
   mostOpenAtOnce: DayValue[]
   mostPeopleInOne: DayValue[]
+  /** Median time open over the group's instances that ended in the range, however they ended. */
   typicalMinutesOpen: number | null
+  /** The same, per day an instance ended. A day nothing ended has no row. */
   typicalMinutesOpenPerDay: DayValue[]
   instancesWithBothEnds: number
   instancesOpened: number
@@ -1669,6 +1674,8 @@ export type InstancesAnalytics = {
   daysWithoutAuditLog: string[]
   daysWithoutHeadCounts: string[]
   daysWithoutPresenceReports: string[]
+  /** Days before Modbot started collecting anything about the group as it happened. */
+  daysBeforeModbot: string[]
   coverage: AnalyticsCoverage
   generatedAt: string
 }

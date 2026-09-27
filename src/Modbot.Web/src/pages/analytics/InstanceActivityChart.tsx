@@ -12,7 +12,7 @@ import {
   useStripeId,
 } from '@/components/charts'
 import { ApiError, api, type InstanceActivitySeries, type MemberCountRange } from '@/lib/api'
-import { activityChartRows } from './instanceActivitySeries'
+import { activityChartRows, highest, wholeTicks } from './instanceActivitySeries'
 import { MEMBER_COUNT_RANGES, readingTime, timeLabel, timeTicks } from './memberCountSeries'
 import { Nothing, Panel, Toggle } from './shared'
 
@@ -21,14 +21,18 @@ import { Nothing, Panel, Toggle } from './shared'
  *
  * Its own range, separate from the page's, for the same reason the member count chart has one: the
  * page's ranges are whole days of daily totals and this is a staircase of readings taken every
- * thirty seconds. The server thins a long range to about 500 points, each of them a total that was
- * true at the time shown.
+ * thirty seconds. The server thins a long range to about 500 steps, keeping each step's highest
+ * reading and its last, so the line reaches every peak and each point is a total that was true at
+ * the time shown.
  *
  * Two axes on one chart, against the charts' one-axis rule and for the same reason the member count
  * chart breaks it: the two lines are one thing at two magnitudes -- the same people, and how many
  * instances they were spread across -- and thirty people in one instance is a different evening
  * from thirty across six. The instance axis is on the right, in the instance line's colour, so a
  * value can only be read against the axis it belongs to.
+ *
+ * Both scales count whole things from nought, and end on the tick just above their highest value
+ * (`wholeTicks`): no half people, and a single instance drawn at full height rather than a quarter.
  *
  * `step` is a staircase and not a curve, because a head count is kept only when it changes and the
  * value between two readings is the earlier one's, right up to the next. A day an instance was open
@@ -71,6 +75,8 @@ export function InstanceActivityChart() {
   const to = data ? Date.parse(data.to) : 0
   const span = to - from
   const names = { people: 'people', instances: 'instances' }
+  const peopleTicks = wholeTicks(highest(rows, 'people'))
+  const instanceTicks = wholeTicks(highest(rows, 'instances'))
 
   return (
     <Panel
@@ -113,7 +119,9 @@ export function InstanceActivityChart() {
             <YAxis
               yAxisId="people"
               width="auto"
-              domain={[0, 'auto']}
+              domain={[0, peopleTicks[peopleTicks.length - 1]]}
+              ticks={peopleTicks}
+              allowDecimals={false}
               tickFormatter={compactNumber}
               tickLine={false}
               axisLine={false}
@@ -122,7 +130,8 @@ export function InstanceActivityChart() {
               yAxisId="instances"
               orientation="right"
               width="auto"
-              domain={[0, 'auto']}
+              domain={[0, instanceTicks[instanceTicks.length - 1]]}
+              ticks={instanceTicks}
               allowDecimals={false}
               tickFormatter={compactNumber}
               tickLine={false}

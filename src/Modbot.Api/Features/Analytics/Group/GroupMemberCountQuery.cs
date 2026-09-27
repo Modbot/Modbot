@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Activity;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 
@@ -12,10 +13,23 @@ namespace Modbot.Api.Features.Analytics.Group;
 /// <para>
 /// <strong>Readings, not days.</strong> The sync reads the group about every five minutes and
 /// keeps each reading in <c>group_member_count</c>. A day is 288 readings and a week is 2,016,
-/// which is more than a line 800 pixels wide can show, so the window is cut into equal steps of
-/// at least <c>span / MaxPoints</c> and the <em>last reading</em> in each step is kept. The last
+/// which is more than a line 800 pixels wide can show, so the window is cut into steps
+/// (<see cref="ReadingRange"/>) and the <em>last reading</em> in each step is kept. The last
 /// reading and not an average, because every point on the chart is then a number VRChat actually
 /// reported at the time shown, which is what the tooltip says it is.
+/// </para>
+/// <para>
+/// <strong>The last, not the highest.</strong> The instance chart keeps each step's highest head
+/// count, because a crowd is a peak that comes and goes inside a step and the page prints that
+/// peak above the chart. A member count is a level that creeps: within one step it moves by a
+/// person or two, and the reading at the end of the step is the one the next step carries on from.
+/// The highest would shift the line up by whatever joined and left inside the step, which is a
+/// count nobody ever had.
+/// </para>
+/// <para>
+/// <strong>Steps sit on fixed boundaries</strong>, whole multiples of the step since the Unix epoch,
+/// the same as the instance chart. Counted from "now minus the range", a reload cut the same
+/// readings differently and could keep a different reading from each step.
 /// </para>
 /// <para>
 /// <strong>Before the first reading, the facts.</strong> A deployment older than the readings
@@ -56,10 +70,10 @@ public sealed class GroupMemberCountQuery(ModbotContext db)
 
     /// <summary>
     /// The length of one step, in whole seconds, so that a window of <paramref name="span"/> comes
-    /// out at no more than <see cref="MaxPoints"/> points. Never shorter than a second.
+    /// out at no more than <see cref="MaxPoints"/> points. The instance chart's rule, so the two
+    /// charts cut a range the same way.
     /// </summary>
-    public static int StepSeconds(TimeSpan span)
-        => Math.Max(1, (int)Math.Ceiling(span.TotalSeconds / MaxPoints));
+    public static int StepSeconds(TimeSpan span) => ReadingRange.StepSeconds(span);
 
     /// <returns>Null when <paramref name="range"/> is not one of the four.</returns>
     public async Task<GroupMemberCountSeries?> RunAsync(string? range, DateTimeOffset now, CancellationToken ct = default)
@@ -145,8 +159,9 @@ public sealed class GroupMemberCountQuery(ModbotContext db)
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The steps are counted from <paramref name="from"/>, not from the epoch, so a window is at
-    /// most <see cref="MaxPoints"/> steps and not that plus one straddling the start.
+    /// The steps are counted from the epoch, not from <paramref name="from"/>, so the same reading
+    /// is in the same step on every load. That can add a part step at the start, which
+    /// <see cref="StepSeconds"/> leaves room for.
     /// </para>
     /// <para>
     /// The fact half is the carry-forward from the catch-up migration, written a second time here
@@ -163,7 +178,7 @@ public sealed class GroupMemberCountQuery(ModbotContext db)
         const string Sql = """
             SELECT p.at, p.members, p.online, p.carried
             FROM (
-                SELECT DISTINCT ON (floor(extract(epoch FROM q.at - @from) / @step))
+                SELECT DISTINCT ON (floor(extract(epoch FROM q.at) / @step))
                        q.at, q.members, q.online, q.carried
                 FROM (
                     SELECT c.counted_at AS at, c.member_count AS members, c.online_member_count AS online, false AS carried
@@ -197,7 +212,7 @@ public sealed class GroupMemberCountQuery(ModbotContext db)
                     ) d
                     WHERE d.at >= @from AND d.at < @to AND d.at < @readingsFrom
                 ) q
-                ORDER BY floor(extract(epoch FROM q.at - @from) / @step), q.at DESC
+                ORDER BY floor(extract(epoch FROM q.at) / @step), q.at DESC
             ) p
             ORDER BY p.at
             """;

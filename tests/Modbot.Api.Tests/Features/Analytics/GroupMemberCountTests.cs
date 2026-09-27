@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Analytics.Activity;
 using Modbot.Api.Features.Analytics.Group;
 using Modbot.Api.Tests.Features.Audit;
 using Modbot.Core.Data;
@@ -23,17 +24,19 @@ public class GroupMemberCountTests
     public GroupMemberCountTests(PostgresFixture db) => _db = db;
 
     [Theory]
-    [InlineData(24 * 60 * 60, 173)]
-    [InlineData(7 * 24 * 60 * 60, 1210)]
-    [InlineData(30 * 24 * 60 * 60, 5184)]
-    [InlineData(60 * 60, 8)]
+    [InlineData(24 * 60 * 60, 180)]
+    [InlineData(7 * 24 * 60 * 60, 1800)]
+    [InlineData(30 * 24 * 60 * 60, 7200)]
+    [InlineData(60 * 60, 10)]
     [InlineData(0, 1)]
-    public void TheStep_IsTheShortestWholeSecondThatKeepsARangeUnder500Points(int spanSeconds, int expected)
+    public void TheStep_IsTheShortestListedLengthThatKeepsARangeUnder500Points(int spanSeconds, int expected)
     {
         var step = GroupMemberCountQuery.StepSeconds(TimeSpan.FromSeconds(spanSeconds));
 
         Assert.Equal(expected, step);
-        Assert.True(Math.Ceiling((double)spanSeconds / step) <= GroupMemberCountQuery.MaxPoints);
+
+        // Plus one for the part step a window that does not start on a boundary touches.
+        Assert.True(Math.Ceiling((double)spanSeconds / step) + 1 <= GroupMemberCountQuery.MaxPoints);
     }
 
     /// <summary>A day's step is shorter than the poll rate, so a day is every reading, untouched.</summary>
@@ -61,7 +64,7 @@ public class GroupMemberCountTests
         Assert.Equal(GroupMemberCountQuery.Day, series.Range);
         Assert.Equal(now.AddDays(-1), series.From);
         Assert.Equal(now, series.To);
-        Assert.Equal(173, series.StepSeconds);
+        Assert.Equal(180, series.StepSeconds);
 
         Assert.Equal([now.AddMinutes(-20), now.AddMinutes(-15), now.AddMinutes(-10)], series.Points.Select(p => p.At));
         Assert.Equal([8123, 8123, 8124], series.Points.Select(p => p.Members));
@@ -70,7 +73,8 @@ public class GroupMemberCountTests
 
     /// <summary>
     /// A week of five-minute readings is 2,016 rows. The chart gets at most 500 of them, each the
-    /// last reading in its step, so every point is still a number VRChat reported.
+    /// last reading in its step, so every point is still a number VRChat reported. The steps are
+    /// counted from the epoch, so they are half hours on the clock whatever the window's start.
     /// </summary>
     [Fact]
     public async Task AWeek_IsThinnedToTheLastReadingOfEachStep()
@@ -90,8 +94,8 @@ public class GroupMemberCountTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var series = await host.GetJsonAsync<GroupMemberCountSeries>("/api/analytics/group/member-count?range=week", cookie, ct);
 
-        Assert.Equal(1210, series.StepSeconds);
-        Assert.InRange(series.Points.Count, 400, GroupMemberCountQuery.MaxPoints);
+        Assert.Equal(1800, series.StepSeconds);
+        Assert.InRange(series.Points.Count, 300, GroupMemberCountQuery.MaxPoints);
 
         // Every point is a real reading, the points come in time order, and no step is served twice.
         var steps = new HashSet<long>();
@@ -100,7 +104,7 @@ public class GroupMemberCountTests
             var sinceFrom = point.At - from;
             Assert.Equal(0, sinceFrom.Ticks % PollRate.Ticks);
             Assert.Equal(10_000 + (int)(sinceFrom / PollRate), point.Members);
-            Assert.True(steps.Add((long)Math.Floor(sinceFrom.TotalSeconds / series.StepSeconds)));
+            Assert.True(steps.Add(ReadingRange.StepOf(point.At, series.StepSeconds)));
         }
 
         Assert.Equal(series.Points.OrderBy(p => p.At), series.Points);
@@ -108,6 +112,45 @@ public class GroupMemberCountTests
         // The last reading in a step is the one kept: the final point is the final reading.
         Assert.Equal(from + (Readings - 1) * PollRate, series.Points[^1].At);
         Assert.Equal(10_000 + Readings - 1, series.Points[^1].Members);
+    }
+
+    /// <summary>
+    /// Loaded again a few minutes later with no new reading, the same readings are kept: the steps
+    /// are places on the clock, not distances from a start that moves with every load. Each step
+    /// keeps its last reading, not its highest, because a member count is a level.
+    /// </summary>
+    [Fact]
+    public async Task AReload_KeepsTheSameReadings_AndEachStepsLast()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var now = new DateTimeOffset(2026, 9, 26, 12, 7, 0, TimeSpan.Zero);
+        host.Clock.UtcNow = now;
+
+        // Up and down inside one half hour, 03:00 to 03:30, three days ago.
+        var step = new DateTimeOffset(2026, 9, 23, 3, 0, 0, TimeSpan.Zero);
+        await AddReadingsAsync(host,
+        [
+            (step.AddMinutes(5), 100, 5),
+            (step.AddMinutes(10), 104, 9),
+            (step.AddMinutes(15), 101, 6),
+        ], ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var first = await host.GetJsonAsync<GroupMemberCountSeries>("/api/analytics/group/member-count?range=week", cookie, ct);
+
+        host.Clock.UtcNow = now.AddMinutes(11);
+        var second = await host.GetJsonAsync<GroupMemberCountSeries>("/api/analytics/group/member-count?range=week", cookie, ct);
+
+        var point = Assert.Single(first.Points);
+        Assert.Equal(step.AddMinutes(15), point.At);
+        Assert.Equal(101, point.Members);
+
+        Assert.Equal(
+            first.Points.Select(p => (p.At, p.Members, p.Online)),
+            second.Points.Select(p => (p.At, p.Members, p.Online)));
     }
 
     /// <summary>
