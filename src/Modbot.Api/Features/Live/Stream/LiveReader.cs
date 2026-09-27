@@ -130,9 +130,7 @@ public sealed class LiveReader
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var members = people.Count == 0
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : await ContextHandler.CurrentMembersAsync(_db, people, ct);
+        var members = await MembersAndStaff.ReadAsync(_db, people, ct);
 
         var ranks = people.Count == 0
             ? new Dictionary<string, TrustRank?>(StringComparer.Ordinal)

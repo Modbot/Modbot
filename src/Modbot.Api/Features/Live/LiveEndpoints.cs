@@ -170,7 +170,7 @@ public static class LiveEndpoints
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var members = await ContextHandler.CurrentMembersAsync(db, everyone, ct);
+        var members = await MembersAndStaff.ReadAsync(db, everyone, ct);
 
         // The stored profiles, in one lookup: a name for anybody the facts carried none for, and
         // the trust rank for everybody, which lives nowhere but the profile row.

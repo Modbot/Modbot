@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Live.Stream;
+using Modbot.Api.Tests.Features.Companion;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -176,6 +178,64 @@ public class LiveStreamTests
         var second = await NextEventAsync(socket);
         Assert.Equal(leave.ToString(System.Globalization.CultureInfo.InvariantCulture), second.GetProperty("id").GetString());
         Assert.Equal(LiveKinds.PersonLeft, second.GetProperty("kind").GetString());
+    }
+
+    /// <summary>
+    /// The stream describes people the way the roster does, from the group's member list. Long-time
+    /// members and staff have no join on record, and must not arrive as nobody in particular.
+    /// </summary>
+    [Fact]
+    public async Task AJoinByAListedMemberOrStaff_SaysSo_WithNoJoinOnRecord()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        const string group = "grp_live_roster";
+        string? groupBefore;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            var settings = await db.GetSettingsAsync(Ct);
+            groupBefore = settings.ManagedGroupId;
+            settings.ManagedGroupId = group;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var member = Subject();
+        var staff = Subject();
+        var swept = host.Clock.UtcNow.AddHours(-1);
+
+        try
+        {
+            await MemberListFixtures.GroupAsync(host.Services, "usr_live_owner", swept, Ct);
+            await MemberListFixtures.ListAsync(host.Services, Ct,
+                MemberListFixtures.Listed(group, member, swept),
+                MemberListFixtures.Listed(group, staff, swept, "member", null, MemberListFixtures.ModeratorRole));
+
+            using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
+            await NextOfKindAsync(socket, "hello");
+
+            await WriteAsync(host, FactType.InstanceJoined, member, displayName: "Mei");
+            await WriteAsync(host, FactType.InstanceJoined, staff, displayName: "Kai");
+
+            var first = await NextEventAsync(socket);
+            Assert.Equal(member, first.GetProperty("person").GetProperty("id").GetString());
+            Assert.Equal("Member", first.GetProperty("person").GetProperty("standing").GetString());
+
+            var second = await NextEventAsync(socket);
+            Assert.Equal(staff, second.GetProperty("person").GetProperty("id").GetString());
+            Assert.Equal("Staff", second.GetProperty("person").GetProperty("standing").GetString());
+        }
+        finally
+        {
+            await MemberListFixtures.ClearAsync(host.Services, group, Ct);
+
+            using var scope = host.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            (await db.GetSettingsAsync(Ct)).ManagedGroupId = groupBefore;
+            await db.SaveChangesAsync(Ct);
+        }
     }
 
     [Fact]

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Live;
 using Modbot.Api.Tests.Features.Audit;
+using Modbot.Api.Tests.Features.Companion;
 using Modbot.Api.Tests.Features.Places;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -274,6 +275,49 @@ public class LiveTests
         Assert.Equal("1 kick or ban", Assert.Single(bob.Flags));
 
         Assert.Null(instance.LastWatchedAt);
+    }
+
+    /// <summary>
+    /// Members and staff come off the group's member list, so the people who joined before Modbot
+    /// started recording -- the founders, the long-time staff -- are not shown as nobody in particular.
+    /// </summary>
+    [Fact]
+    public async Task AWatchedInstance_SaysWhoIsAMemberAndWhoIsStaff_FromTheMemberList()
+    {
+        await using var host = await ReadyAsync(_db);
+        var t = host.Clock.UtcNow.AddHours(-1);
+
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t, null, Ct);
+        var (device, moderator) = await ModeratorAsync(host);
+
+        await MemberListFixtures.ClearAsync(host.Services, Group, Ct);
+
+        try
+        {
+            await MemberListFixtures.GroupAsync(host.Services, "usr_live_owner", t, Ct);
+            await MemberListFixtures.ListAsync(host.Services, Ct,
+                MemberListFixtures.Listed(Group, "usr_mei", t),
+                MemberListFixtures.Listed(Group, "usr_kai", t, "member", null, MemberListFixtures.ModeratorRole),
+                MemberListFixtures.Listed(Group, "usr_gone", t.AddDays(-1), leftAt: t));
+
+            await host.WriteFactAsync(Seen(FactType.InstanceJoined, moderator, t.AddMinutes(10), device), Ct);
+            await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_mei", t.AddMinutes(20), device, "Mei"), Ct);
+            await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_kai", t.AddMinutes(20), device, "Kai"), Ct);
+            await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_gone", t.AddMinutes(20), device, "Gone"), Ct);
+            await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_live_owner", t.AddMinutes(20), device, "Owner"), Ct);
+
+            var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+            var instance = Assert.Single((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Instances);
+
+            Assert.Equal("Member", Assert.Single(instance.People, p => p.UserId == "usr_mei").Standing);
+            Assert.Equal("Staff", Assert.Single(instance.People, p => p.UserId == "usr_kai").Standing);
+            Assert.Equal("Ordinary", Assert.Single(instance.People, p => p.UserId == "usr_gone").Standing);
+            Assert.Equal("Staff", Assert.Single(instance.People, p => p.UserId == "usr_live_owner").Standing);
+        }
+        finally
+        {
+            await MemberListFixtures.ClearAsync(host.Services, Group, Ct);
+        }
     }
 
     [Fact]

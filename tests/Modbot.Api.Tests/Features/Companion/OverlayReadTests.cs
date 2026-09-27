@@ -264,6 +264,149 @@ public class OverlayReadTests
         Assert.Equal("2 kicks or bans", Assert.Single(member.Flags));
     }
 
+    private static Task ClearMemberListAsync(CompanionApiTestHost host, CancellationToken ct)
+        => MemberListFixtures.ClearAsync(host.Services, Group, ct);
+
+    private static string StandingOf(InstanceContextDto roster, string subjectId)
+        => Assert.Single(roster.Members, m => m.SubjectId == subjectId).Standing;
+
+    /// <summary>
+    /// The bug the owner reported: their staff, themselves included, showed grey. Everybody here
+    /// joined before Modbot started recording, so none of them has a join fact; the member list and
+    /// the group's roles are what say who they are.
+    /// </summary>
+    [Fact]
+    public async Task TheMemberListSaysWhoIsAMemberAndWhoIsStaff_WithNoJoinOnRecord()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+        await ClearMemberListAsync(host, ct);
+
+        var moderator = await host.PairModeratorAsync(ct);
+        var swept = Noon.AddHours(-1);
+
+        await MemberListFixtures.GroupAsync(host.Services, "usr_roster_owner", swept, ct);
+        await MemberListFixtures.ListAsync(host.Services, ct,
+            MemberListFixtures.Listed(Group, "usr_founder", swept),
+            MemberListFixtures.Listed(Group, "usr_unworded", swept, status: null),
+            MemberListFixtures.Listed(Group, "usr_fan", swept, "member", null, MemberListFixtures.SupporterRole),
+            MemberListFixtures.Listed(Group, "usr_mod", swept, "member", null, MemberListFixtures.ModeratorRole),
+            MemberListFixtures.Listed(Group, "usr_modflag", swept, "member", null, MemberListFixtures.ModeratorRole));
+
+        await WriteAsync(host,
+            // Two kicks long before the list last read them: flagged, and still on the list.
+            Fact(FactType.MemberKicked, "usr_modflag", Noon.AddDays(-40), instance: null),
+            Fact(FactType.MemberKicked, "usr_modflag", Noon.AddDays(-30), instance: null),
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-20), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_founder", Noon.AddMinutes(-10), "Founder", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_unworded", Noon.AddMinutes(-10), "Unworded", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_fan", Noon.AddMinutes(-10), "Fan", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_mod", Noon.AddMinutes(-10), "Mod", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_modflag", Noon.AddMinutes(-10), "Modflag", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_roster_owner", Noon.AddMinutes(-10), "Owner", device: moderator.DeviceId));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}", ct);
+
+        Assert.Equal("Member", StandingOf(roster, "usr_founder"));
+        Assert.Equal("Member", StandingOf(roster, "usr_unworded"));
+
+        // A role that cannot kick, remove or ban is not staff.
+        Assert.Equal("Member", StandingOf(roster, "usr_fan"));
+
+        Assert.Equal("Staff", StandingOf(roster, "usr_mod"));
+        Assert.Equal("Staff", StandingOf(roster, "usr_roster_owner"));
+
+        // Flagged still beats Staff.
+        Assert.Equal("Flagged", StandingOf(roster, "usr_modflag"));
+
+        // The card reads the same answer as the row it opens from.
+        Assert.Equal("Staff", (await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_mod", ct)).Standing);
+        Assert.Equal("Member", (await GetAsync<UserSummaryDto>(host, token, "/api/v1/companion/user/usr_founder", ct)).Standing);
+
+        await ClearMemberListAsync(host, ct);
+    }
+
+    [Fact]
+    public async Task LeftBannedInvitedAndRecentlyGone_AreNotMembers_AndARecentJoinIs()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+        await ClearMemberListAsync(host, ct);
+
+        var moderator = await host.PairModeratorAsync(ct);
+        var swept = Noon.AddHours(-1);
+
+        await MemberListFixtures.GroupAsync(host.Services, "usr_roster_owner", swept, ct);
+        await MemberListFixtures.ListAsync(host.Services, ct,
+            MemberListFixtures.Listed(Group, "usr_left", swept.AddDays(-1), leftAt: swept),
+            MemberListFixtures.Listed(Group, "usr_banned", swept, "member", null, MemberListFixtures.ModeratorRole),
+            MemberListFixtures.Listed(Group, "usr_invited", swept, "invited"),
+            MemberListFixtures.Listed(Group, "usr_requested", swept, "requested"),
+            MemberListFixtures.Listed(Group, "usr_quit", swept, "member", null, MemberListFixtures.ModeratorRole));
+        await MemberListFixtures.BanAsync(host.Services, Group, "usr_banned", Noon.AddMinutes(-30), ct);
+
+        await WriteAsync(host,
+            // Newer than the list: the leave wins over the row that still lists them.
+            Fact(FactType.MemberLeft, "usr_quit", Noon.AddMinutes(-30), instance: null),
+            // Newer than the last sweep: a member the list has not caught up with.
+            Fact(FactType.MemberJoined, "usr_new", Noon.AddMinutes(-20), instance: null),
+            // Older than the last sweep, which did not list them: long gone.
+            Fact(FactType.MemberJoined, "usr_stale", Noon.AddDays(-30), instance: null),
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-15), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_left", Noon.AddMinutes(-10), "Left", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_banned", Noon.AddMinutes(-10), "Banned", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_invited", Noon.AddMinutes(-10), "Invited", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_requested", Noon.AddMinutes(-10), "Requested", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_quit", Noon.AddMinutes(-10), "Quit", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_new", Noon.AddMinutes(-10), "New", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_stale", Noon.AddMinutes(-10), "Stale", device: moderator.DeviceId));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}", ct);
+
+        Assert.Equal("Ordinary", StandingOf(roster, "usr_left"));
+        Assert.Equal("Ordinary", StandingOf(roster, "usr_banned"));
+        Assert.Equal("Ordinary", StandingOf(roster, "usr_invited"));
+        Assert.Equal("Ordinary", StandingOf(roster, "usr_requested"));
+        Assert.Equal("Ordinary", StandingOf(roster, "usr_quit"));
+        Assert.Equal("Member", StandingOf(roster, "usr_new"));
+        Assert.Equal("Ordinary", StandingOf(roster, "usr_stale"));
+
+        await ClearMemberListAsync(host, ct);
+    }
+
+    /// <summary>
+    /// Before the first sweep has finished there is no list to go by, and the fact log is the
+    /// answer exactly as it was before the list was read at all.
+    /// </summary>
+    [Fact]
+    public async Task BeforeTheFirstSweep_TheJoinAndLeaveFactsDecide()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+        await ClearMemberListAsync(host, ct);
+
+        var moderator = await host.PairModeratorAsync(ct);
+
+        await WriteAsync(host,
+            Fact(FactType.MemberJoined, "usr_joined", Noon.AddDays(-30), instance: null),
+            Fact(FactType.MemberJoined, "usr_gone", Noon.AddDays(-30), instance: null),
+            Fact(FactType.MemberLeft, "usr_gone", Noon.AddDays(-20), instance: null),
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-15), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_joined", Noon.AddMinutes(-10), "Joined", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_gone", Noon.AddMinutes(-10), "Gone", device: moderator.DeviceId));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}", ct);
+
+        Assert.Equal("Member", StandingOf(roster, "usr_joined"));
+        Assert.Equal("Ordinary", StandingOf(roster, "usr_gone"));
+    }
+
     /// <summary>
     /// The rank comes off the stored profile row, not the facts: it is the one thing on a roster
     /// row that the fact log does not carry, and a moderator glancing at a headset wants it.
