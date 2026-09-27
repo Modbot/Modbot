@@ -141,7 +141,7 @@ test('the question mark goes after the number however it is written', () => {
   assert.equal(headCountText(12000, false, compact), '12K')
 })
 
-test('who may join is said in the game's words', () => {
+test('who may join is said in the words the game uses', () => {
   assert.equal(accessInGame('public'), 'Group Public')
   assert.equal(accessInGame('plus'), 'Group+')
   assert.equal(accessInGame('members'), 'Group')

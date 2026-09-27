@@ -75,7 +75,7 @@ export function Instances() {
           )}
 
           <Panel
-            title={`When the community is active (${zoneLabel()})`}
+            title="When the community is active (your time)"
             flush={sum(toPoints(data.hourOfWeek[layer])) === 0}
             right={
               <Toggle
@@ -146,7 +146,7 @@ export function Instances() {
               minutes on the axis: a busy day is thousands of people-minutes and a chart of
               thousands is a chart nobody reads.
             */}
-            <Panel title="Busy time per day">
+            <Panel title="People-hours per day">
               <DailyLine
                 from={data.from}
                 to={data.to}
@@ -278,7 +278,7 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
         <Stat
           label="Busiest day"
           value={busiestDayPeak === null ? '—' : <People count={busiestDayPeak} unsure={peaks.busiestDay?.unsure} />}
-          note={peaks.busiestDay ? longDay(peaks.busiestDay.day) : undefined}
+          note={peaks.busiestDay ? `${longDay(peaks.busiestDay.day)} UTC` : undefined}
           noteMono
         />
         <Stat
@@ -305,7 +305,7 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
 /**
  * Shifts the 168 UTC buckets into the viewer's clock and lays them out by day.
  *
- * Whole hours only. A half-hour zone lands half an hour off, which is stated on the panel; the
+ * Whole hours only. A half-hour zone lands half an hour off; the
  * alternative -- buckets by the viewer's zone on the server -- would make the same query return
  * different rows to two moderators in different countries, and the cache would lie to one of them.
  */
@@ -321,13 +321,6 @@ function toLocalGrid(buckets: HourOfWeek['arrivals']): number[][] {
   return grid
 }
 
-function zoneLabel(): string {
-  const offset = -new Date().getTimezoneOffset()
-  const sign = offset >= 0 ? '+' : '−'
-  const h = Math.floor(Math.abs(offset) / 60)
-  const m = Math.abs(offset) % 60
-  return `UTC${sign}${h}${m ? `:${String(m).padStart(2, '0')}` : ''}`
-}
 
 /** A number of people, drawn with a person beside it. */
 function People({ count, unsure = false, title }: { count: number; unsure?: boolean; title?: string }) {

@@ -7,7 +7,7 @@ import { Ago } from '@/components/Freshness'
 import { InsightsPanel } from './InsightsPanel'
 import { MemberCountChart } from './MemberCountChart'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
+import { CoverageLine, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 import { plural } from '@/lib/format'
@@ -50,6 +50,8 @@ export function MyGroup() {
         // One sheet: every panel on the page shares its edges with the next, rows of two sit in a
         // nested grid, and the six readings run across the top like the gauges on a panel.
         <PanelGrid className="grid-cols-1">
+          <CoverageLine coverage={data.coverage} generatedAt={data.generatedAt} />
+
           <StatStrip className="md:grid-cols-3 xl:grid-cols-6">
             <Stat
               label="Members"
@@ -193,7 +195,6 @@ export function MyGroup() {
             </Panel>
           </PanelGrid>
 
-          <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
         </PanelGrid>
       )}
     </div>

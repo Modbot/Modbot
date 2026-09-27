@@ -3,7 +3,7 @@ import { DailyBars, DailyLine, Heatmap, RankedList, compactNumber, longDay, minu
 import { PersonLink } from '@/components/facts'
 import { api, type ServerContributor } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
+import { CoverageLine, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 import { plural } from '@/lib/format'
@@ -41,6 +41,8 @@ export function MyServer() {
 
       {data && (
         <PanelGrid className="grid-cols-1">
+          <CoverageLine coverage={data.coverage} generatedAt={data.generatedAt} />
+
           <StatStrip>
             <Stat
               label="Members"
@@ -164,7 +166,7 @@ export function MyServer() {
               )}
             </Panel>
 
-            <Panel title={`Busiest hours (${zoneLabel()})`} flush={data.hourOfWeek.messages.every((v) => v === 0)}>
+            <Panel title="Busiest hours (your time)" flush={data.hourOfWeek.messages.every((v) => v === 0)}>
               {data.hourOfWeek.messages.every((v) => v === 0) ? (
                 <EmptyRow>No messages in this range.</EmptyRow>
               ) : (
@@ -255,7 +257,6 @@ export function MyServer() {
             </Panel>
           </PanelGrid>
 
-          <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
         </PanelGrid>
       )}
     </div>
@@ -302,10 +303,3 @@ function toLocalGrid(buckets: number[]): number[][] {
   return grid
 }
 
-function zoneLabel(): string {
-  const offset = -new Date().getTimezoneOffset()
-  const sign = offset >= 0 ? '+' : '−'
-  const h = Math.floor(Math.abs(offset) / 60)
-  const m = Math.abs(offset) % 60
-  return `UTC${sign}${h}${m ? `:${String(m).padStart(2, '0')}` : ''}`
-}
