@@ -20,6 +20,14 @@ namespace Modbot.Api.Features.Analytics.Worlds;
 /// <param name="Visitors">Distinct people seen in the window.</param>
 /// <param name="Visits">Arrivals seen: a person entering, or already there when a client arrived.</param>
 /// <param name="InstancesOpened">Group instances opened in this world in the window, from the audit log.</param>
+/// <param name="Instances">
+/// Group instances of this world Modbot saw opened in the window, from <c>vrchat_instance</c>. The
+/// same rows the Instances page lists and the world's popup counts, so it agrees with both.
+/// </param>
+/// <param name="MinutesOpen">Minutes with at least one of those instances open, overlaps counted once.</param>
+/// <param name="MostAtOnce">The most people VRChat counted in any one of them, or null when none was counted.</param>
+/// <param name="MostAtOnceUnsure">True when that number rests only on counts that could not tell people apart.</param>
+/// <param name="LastOpenedAt">When the newest of those instances opened.</param>
 public sealed record WorldSummary(
     string WorldId,
     string? Name,
@@ -30,11 +38,16 @@ public sealed record WorldSummary(
     int Visitors,
     int Visits,
     decimal InstancesOpened,
-    DateTimeOffset? LastSeenAt);
+    DateTimeOffset? LastSeenAt,
+    int Instances,
+    decimal MinutesOpen,
+    int? MostAtOnce,
+    bool MostAtOnceUnsure,
+    DateTimeOffset? LastOpenedAt);
 
 public sealed record WorldSeries(string WorldId, IReadOnlyList<DayValue> Points);
 
-/// <param name="Worlds">Every world with anything recorded in the window, most time first.</param>
+/// <param name="Worlds">Every world with anything recorded in the window, longest time open first.</param>
 /// <param name="VisitorsPerDay">Distinct people per day for the busiest worlds, from daily totals.</param>
 /// <param name="PresenceReports">How many presence facts the window holds — the page says "thin" below a handful.</param>
 /// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>

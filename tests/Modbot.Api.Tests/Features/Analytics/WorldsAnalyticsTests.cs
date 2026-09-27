@@ -1,5 +1,8 @@
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Analytics.Worlds;
 using Modbot.Api.Tests.Features.Audit;
+using Modbot.Api.Tests.Features.Places;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using static Modbot.Api.Tests.Features.Analytics.AnalyticsFacts;
@@ -75,6 +78,56 @@ public class WorldsAnalyticsTests
         Assert.Equal(1m, Assert.Single(page.VisitorsPerDay[1].Points).Value);
     }
 
+    /// <summary>
+    /// A world nobody from the team went into still shows how long it was open and how full it got,
+    /// and ranks above a world a companion saw one person in for longer than it saw anybody.
+    /// </summary>
+    [Fact]
+    public async Task InstancesTimeOpenAndMostAtOnce_ComeFromTheInstances_AndDecideTheOrder()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
+
+        var t = host.Clock.UtcNow.AddHours(-10);
+
+        // Karaoke: one instance, four hours, twelve people, no companion.
+        var karaoke = await PlacesFixtures.InstanceAsync(host, "wrld_karaoke", "1", t, t.AddHours(4), t.AddHours(4), ct);
+        await SetPeakAsync(host, karaoke.Id, 12, ct);
+
+        // Black Cat: two short instances, one person, and a companion there.
+        await PlacesFixtures.InstanceAsync(host, "wrld_cat", "2", t, t.AddMinutes(13), t.AddMinutes(13), ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_cat", "3", t.AddMinutes(13), t.AddMinutes(14), t.AddMinutes(14), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_a", t, "wrld_cat", "2"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_a", t.AddMinutes(13), "wrld_cat", "2"), ct);
+
+        // Somebody else's instance of the same world: not ours.
+        var other = await PlacesFixtures.InstanceAsync(host, "wrld_cat", "4", t, t.AddHours(9), t.AddHours(9), ct);
+        await SetGroupAsync(host, other.Id, "grp_other", ct);
+
+        await host.RebuildDailyTotalsAsync(ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<WorldsAnalytics>("/api/analytics/worlds?days=30", cookie, ct);
+
+        Assert.Equal(["wrld_karaoke", "wrld_cat"], page.Worlds.Select(w => w.WorldId));
+
+        var k = page.Worlds[0];
+        Assert.Equal(1, k.Instances);
+        Assert.Equal(240m, k.MinutesOpen);
+        Assert.Equal(12, k.MostAtOnce);
+        Assert.Equal(t, k.LastOpenedAt);
+        Assert.Equal(0, k.Visitors);
+
+        var c = page.Worlds[1];
+        Assert.Equal(2, c.Instances);
+        Assert.Equal(14m, c.MinutesOpen);
+        Assert.Equal(7, c.MostAtOnce);
+        Assert.Equal(t.AddMinutes(13), c.LastOpenedAt);
+        Assert.Equal(1, c.Visitors);
+    }
+
     [Fact]
     public async Task WithNoPresenceReports_ThePageStillAnswers()
     {
@@ -88,5 +141,32 @@ public class WorldsAnalyticsTests
         Assert.Empty(page.Worlds);
         Assert.Empty(page.VisitorsPerDay);
         Assert.Equal(0, page.PresenceReports);
+    }
+
+    private static async Task ManagedGroupAsync(ReadSurfaceTestHost host, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var settings = await db.GetSettingsAsync(ct);
+        settings.ManagedGroupId = "grp_1";
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task SetGroupAsync(ReadSurfaceTestHost host, Guid id, string group, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var instance = await db.VRChatInstances.FindAsync([id], ct);
+        instance!.GroupId = group;
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task SetPeakAsync(ReadSurfaceTestHost host, Guid id, int peak, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var instance = await db.VRChatInstances.FindAsync([id], ct);
+        instance!.PeakUserCount = peak;
+        await db.SaveChangesAsync(ct);
     }
 }

@@ -200,9 +200,11 @@ public static class AnalyticsEndpoints
             .WithSummary("Get world analytics")
             .WithDescription(
                 "Worlds: which of our worlds actually get used? "
-                + "Time people were seen in each world, distinct visitors and instances opened, plus "
-                + "visitors per day per world from daily totals. Time and visitors come from presence "
-                + "reports, which exist only while a moderator's companion is in the instance.")
+                + "For each world: the group instances Modbot saw opened, how long at least one was "
+                + "open, and the most people VRChat counted in one, longest time open first. Beside "
+                + "them, time people were seen, distinct visitors and audit-log instance creates, plus "
+                + "visitors per day per world from daily totals. Time seen and visitors come from "
+                + "presence reports, which exist only while a moderator's companion is in the instance.")
             .Produces<WorldsAnalytics>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
