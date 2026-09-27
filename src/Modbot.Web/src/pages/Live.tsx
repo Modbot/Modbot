@@ -201,6 +201,7 @@ function InstanceCard({ instance }: { instance: LiveInstance }) {
             number={instance.vrChatInstanceId}
             imageUrl={instance.worldImageUrl}
             people={instance.headCount}
+            peopleUnsure={instance.headCountUnsure}
             capacity={instance.worldCapacity}
             groupAccessType={instance.groupAccessType}
             region={instance.region}

@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils'
 import { openInstance } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { instanceNumber } from '@/lib/instanceName'
+import { headCountText } from '@/lib/format'
+import { HeadCount } from '@/components/HeadCount'
 
 /**
  * Open instances as the game's own instance list shows them: the world's picture, and over its
@@ -24,6 +26,7 @@ export function InstanceCards({ instances }: { instances: InstanceRow[] }) {
           number={r.vrChatInstanceId}
           imageUrl={r.worldThumbnailImageUrl}
           people={r.peopleNow}
+          peopleUnsure={r.peopleNowUnsure}
           capacity={r.worldCapacity}
           groupAccessType={r.groupAccessType}
           region={r.region}
@@ -56,6 +59,7 @@ export function InstanceTile({
   number,
   imageUrl,
   people,
+  peopleUnsure = false,
   capacity,
   groupAccessType,
   region,
@@ -68,6 +72,8 @@ export function InstanceTile({
   number?: string | null
   imageUrl: string | null
   people: number | null
+  /** The count came from VRChat's `n_users`: shown as "80?". */
+  peopleUnsure?: boolean
   capacity: number | null
   groupAccessType: string | null
   region: string | null
@@ -75,7 +81,8 @@ export function InstanceTile({
   className?: string
 }) {
   const here = people ?? 0
-  const count = capacity ? `${here}/${capacity}` : `${here}`
+  const unsure = people !== null && peopleUnsure
+  const count = `${headCountText(here, unsure)}${capacity ? `/${capacity}` : ''}`
   const access = groupAccessType ? (ACCESS_IN_GAME[groupAccessType] ?? groupAccessType) : null
   const name = worldName ?? 'Unknown world'
   const named = instanceName?.trim() ? instanceNumber(number, instanceName) : null
@@ -115,7 +122,8 @@ export function InstanceTile({
         <span className="block truncate font-semibold">{name}</span>
         {named && <span className="block truncate">{named}</span>}
         <span className="block" style={{ fontSize: 'var(--text-small)' }}>
-          {count}
+          <HeadCount count={here} unsure={unsure} />
+          {capacity ? `/${capacity}` : null}
           {access ? ` - ${access}` : null}
         </span>
       </span>

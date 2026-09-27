@@ -163,14 +163,27 @@ public sealed record InstanceView(
 /// <param name="At">When the count was read.</param>
 /// <param name="People">How many were in it: the instance page's count, or the group list's before that was read.</param>
 /// <param name="UserCount">
-/// The instance page's other count, <c>userCount</c>, beside <c>n_users</c> which <paramref name="People"/>
-/// is taken from. Null when the reading came from the group list. Sent so the two can be compared on a
-/// live group: one reading of a club said 80, the world's capacity, when it was nowhere near full,
-/// and only the stored rows can say whether <c>userCount</c> agreed.
+/// The instance page's <c>userCount</c>, which <paramref name="People"/> is taken from. Null when the
+/// reading came from the group list, or when the page had none and <paramref name="People"/> is
+/// <paramref name="NUsers"/>.
 /// </param>
 /// <param name="MemberCount">The group list's count of group members in it at the time.</param>
 /// <param name="Source"><c>page</c> or <c>list</c>: which read the reading came from.</param>
-public sealed record HeadCountPoint(DateTimeOffset At, int People, int? UserCount, int? MemberCount, string Source)
+/// <param name="NUsers">
+/// The instance page's <c>n_users</c>, kept beside <paramref name="UserCount"/>. Null for a list reading.
+/// </param>
+/// <param name="Unsure">
+/// True when <paramref name="People"/> is <paramref name="NUsers"/> because the page had no
+/// <c>userCount</c>. Shown as "80?".
+/// </param>
+public sealed record HeadCountPoint(
+    DateTimeOffset At,
+    int People,
+    int? UserCount,
+    int? MemberCount,
+    string Source,
+    int? NUsers = null,
+    bool Unsure = false)
 {
     /// <summary>How many changes one popup carries. A day's busy instance changes about this often.</summary>
     public const int Most = 2000;

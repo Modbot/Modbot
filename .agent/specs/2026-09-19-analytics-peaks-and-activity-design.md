@@ -36,8 +36,11 @@ and the one source that could have answered them honestly was unread.**
 2. **Everything about population came from presence facts**, which exist only while a moderator's
    companion is in the instance. A busy night nobody with the client attended reads as nought.
 3. **`instance_head_count` had never been read by analytics.** It has existed since instance tooling
-   and is written every thirty seconds for every open group instance from VRChat's own `n_users` —
-   no companion involved. The Live page and the Discord announcement card were its only readers.
+   and is written every thirty seconds for every open group instance from VRChat's own count —
+   no companion involved. (That count was `n_users` when this was written. It is `userCount` since
+   2026-09-26, when `n_users` was found reading up to about thirty high on a busy club; the stored
+   readings were corrected, and a peak resting on a reading that had to fall back to `n_users` is
+   shown as "80?". Research: vrchat-instance-findings.md §3.1.) The Live page and the Discord announcement card were its only readers.
 4. **No graph of how busy instances are over time.** The page could say how many instances opened and
    how long they lasted, never how full they were.
 5. **A single number that wanted to be a line**: the median time open for the whole window.

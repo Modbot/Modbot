@@ -52,6 +52,11 @@ public sealed record HourOfWeek(IReadOnlyList<decimal> Arrivals, IReadOnlyList<d
 /// an instance that ended on its own (emptied out and dropped off the group's list, or went quiet),
 /// and for one still open.
 /// </param>
+/// <param name="PeopleNowUnsure">
+/// True when <paramref name="PeopleNow"/> came from the page's <c>n_users</c> because it had no
+/// <c>userCount</c>. Shown as "80?".
+/// </param>
+/// <param name="PeakPeopleUnsure">True when only such readings reach <paramref name="PeakPeople"/>.</param>
 public sealed record InstanceRow(
     Guid Id,
     string Location,
@@ -70,7 +75,9 @@ public sealed record InstanceRow(
     decimal MinutesOpen,
     int? WorldCapacity = null,
     IReadOnlyList<string>? WorldPlatforms = null,
-    bool ClosedByModerator = false);
+    bool ClosedByModerator = false,
+    bool PeopleNowUnsure = false,
+    bool PeakPeopleUnsure = false);
 
 /// <summary>
 /// The instance that held the most people at one moment inside the window.
@@ -80,6 +87,9 @@ public sealed record InstanceRow(
 /// <param name="VRChatInstanceId">VRChat's number for it — what a moderator saw in game.</param>
 /// <param name="People">How many were in it at that moment, as VRChat's own count reported.</param>
 /// <param name="At">The moment. The earliest one, where the instance reached that number twice.</param>
+/// <param name="Unsure">
+/// True when that reading took <c>n_users</c> because the page had no <c>userCount</c>. Shown as "80?".
+/// </param>
 public sealed record BusiestInstance(
     Guid Id,
     string WorldId,
@@ -87,7 +97,8 @@ public sealed record BusiestInstance(
     string? VRChatInstanceId,
     DateTimeOffset OpenedAt,
     int People,
-    DateTimeOffset At);
+    DateTimeOffset At,
+    bool Unsure = false);
 
 /// <summary>
 /// How full the group's instances ever got inside the window, and when.

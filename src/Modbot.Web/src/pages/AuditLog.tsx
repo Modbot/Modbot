@@ -30,6 +30,27 @@ const SETTLE_MS = 400
 const AT_TOP_PX = 40
 
 /**
+ * What actually scrolls this page. The app scrolls inside its own `<main>`, not the window, so
+ * `window.scrollY` stays 0 however far down the reader is -- and read that way, every new row went
+ * straight in under them and pushed what they were reading down the screen.
+ */
+function scrollerOf(el: HTMLElement | null): HTMLElement {
+  for (let node = el?.parentElement ?? null; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node)
+    if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) return node
+  }
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement
+}
+
+/**
+ * Newest first by when it happened, as the server orders it. New facts are merged in by that
+ * order, not stacked on top by arrival: a client that sends its backlog late delivers facts
+ * that happened an hour ago, and stacking them put 6:40 PM above 7:04 PM.
+ */
+const newestFirst = (a: AuditEntry, b: AuditEntry) =>
+  b.occurredAt.localeCompare(a.occurredAt) || b.id - a.id
+
+/**
  * The merged timeline (spec 5.9.5).
  *
  * One log, because the questions people actually ask span sources: *"who changed the ban
@@ -156,6 +177,7 @@ export function AuditLog() {
   // the log would show, never a guess at it from the event. With the list scrolled, rows arriving
   // under the reader would move what they are looking at, so they wait behind a count instead.
   const settle = useRef<number | undefined>(undefined)
+  const listRef = useRef<HTMLDivElement>(null)
 
   const prepend = useCallback(() => {
     api
@@ -165,9 +187,11 @@ export function AuditLog() {
           const first = current[0]
           if (!first) return [page]
 
-          const topId = first.entries[0]?.id ?? 0
-          const fresh = page.entries.filter((entry) => entry.id > topId)
-          return [{ ...first, entries: [...fresh, ...first.entries], coverage: page.coverage }, ...current.slice(1)]
+          const known = new Set(first.entries.map((entry) => entry.id))
+          const fresh = page.entries.filter((entry) => !known.has(entry.id))
+          if (fresh.length === 0) return current
+          const merged = [...fresh, ...first.entries].sort(newestFirst)
+          return [{ ...first, entries: merged, coverage: page.coverage }, ...current.slice(1)]
         })
         setPending(0)
       })
@@ -179,7 +203,7 @@ export function AuditLog() {
       (event: LiveEvent) => {
         if (!auditMatches(event, query)) return
 
-        if (window.scrollY > AT_TOP_PX) {
+        if (scrollerOf(listRef.current).scrollTop > AT_TOP_PX) {
           setPending((n) => n + 1)
           return
         }
@@ -194,7 +218,7 @@ export function AuditLog() {
   useEffect(() => () => window.clearTimeout(settle.current), [])
 
   const showNew = () => {
-    window.scrollTo({ top: 0 })
+    scrollerOf(listRef.current).scrollTo({ top: 0 })
     prepend()
   }
 
@@ -291,7 +315,7 @@ export function AuditLog() {
   if (pages.length === 0) return <Empty>Loading…</Empty>
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={listRef} className="flex flex-col gap-3">
       <FilterBar properties={properties} chips={chips} onChange={setChips}>
         {pending > 0 && (
           <Button size="sm" variant="outline" onClick={showNew}>

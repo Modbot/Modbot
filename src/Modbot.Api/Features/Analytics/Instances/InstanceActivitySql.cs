@@ -11,9 +11,9 @@ namespace Modbot.Api.Features.Analytics.Instances;
 /// <strong>Why head counts and not presence facts.</strong> Everything else about population on the
 /// analytics pages comes from the companion's presence reports, and those exist only while a
 /// moderator's client is standing in the instance — so a busy night nobody with the client attended
-/// reads as empty. <c>instance_head_count</c> is the other source: <c>n_users</c> from each open
-/// group instance's own page, read about every thirty seconds by <c>InstanceHeadCountSync</c>, with
-/// the group list's number as the fallback. No moderator is involved, so it covers the instances
+/// reads as empty. <c>instance_head_count</c> is the other source: <c>userCount</c> from each open
+/// group instance's own page (<c>n_users</c> when the page has none), read about every thirty seconds
+/// by <c>InstanceHeadCountSync</c>, with the group list's number as the fallback. No moderator is involved, so it covers the instances
 /// presence cannot see. It had never been read by analytics before this; the Live page and the
 /// Discord card were its only readers.
 /// </para>
@@ -46,7 +46,12 @@ public static class InstanceActivitySql
     /// <para>
     /// <c>running</c> has one row per moment the total changed, carrying <c>at</c> (a
     /// <c>timestamptz</c>), <c>at_utc</c> (the same moment as a bare UTC timestamp, for day and
-    /// hour arithmetic), <c>id</c>, <c>people</c> and <c>instances</c>.
+    /// hour arithmetic), <c>id</c>, <c>people</c>, <c>instances</c> and <c>unsure</c>.
+    /// </para>
+    /// <para>
+    /// <c>unsure</c> is how many of the instances in the total have an unsure count at that moment: a
+    /// page reading with no <c>user_count</c>, whose number is <c>n_users</c> (<c>HeadCounts</c>). It is
+    /// added up the same way as the people, so a total with any of them in it is unsure.
     /// </para>
     /// <para>
     /// The seed rows are folded into one row at the window's first moment rather than left one per
@@ -66,10 +71,10 @@ public static class InstanceActivitySql
               AND COALESCE(i.closed_at, i.last_seen_at) >= @from
         ),
         seed AS (
-            SELECT o.id AS instance_id, r.head_count
+            SELECT o.id AS instance_id, r.head_count, r.unsure
             FROM open_before o
             CROSS JOIN LATERAL (
-                SELECT h.head_count
+                SELECT h.head_count, (h.source = 'page' AND h.user_count IS NULL)::int AS unsure
                 FROM instance_head_count h
                 WHERE h.instance_id = o.id AND h.counted_at < @from
                 ORDER BY h.counted_at DESC, h.id DESC
@@ -77,10 +82,11 @@ public static class InstanceActivitySql
             ) r
         ),
         steps AS (
-            SELECT s.instance_id, @from AS at, 0::bigint AS id, s.head_count, true AS is_seed
+            SELECT s.instance_id, @from AS at, 0::bigint AS id, s.head_count, s.unsure, true AS is_seed
             FROM seed s
             UNION ALL
-            SELECT h.instance_id, h.counted_at, h.id, h.head_count, false
+            SELECT h.instance_id, h.counted_at, h.id, h.head_count,
+                   (h.source = 'page' AND h.user_count IS NULL)::int, false
             FROM instance_head_count h
             JOIN vrchat_instance i ON i.id = h.instance_id AND i.group_id = @group
             WHERE h.counted_at >= @from AND h.counted_at < @to
@@ -88,40 +94,44 @@ public static class InstanceActivitySql
         deltas AS (
             SELECT st.at, st.id, st.is_seed,
                    st.head_count - COALESCE(LAG(st.head_count) OVER w, 0) AS people_change,
-                   CASE WHEN LAG(st.head_count) OVER w IS NULL THEN 1 ELSE 0 END AS instance_change
+                   CASE WHEN LAG(st.head_count) OVER w IS NULL THEN 1 ELSE 0 END AS instance_change,
+                   st.unsure - COALESCE(LAG(st.unsure) OVER w, 0) AS unsure_change
             FROM steps st
             WINDOW w AS (PARTITION BY st.instance_id ORDER BY st.at, st.id)
         ),
         seed_total AS (
             SELECT @from AS at, 0::bigint AS id,
                    COALESCE(SUM(s.head_count), 0)::bigint AS people_change,
-                   COUNT(*)::bigint AS instance_change
+                   COUNT(*)::bigint AS instance_change,
+                   COALESCE(SUM(s.unsure), 0)::bigint AS unsure_change
             FROM seed s
             HAVING COUNT(*) > 0
         ),
         last_of AS (
-            SELECT DISTINCT ON (st.instance_id) st.instance_id, st.at, st.head_count
+            SELECT DISTINCT ON (st.instance_id) st.instance_id, st.at, st.head_count, st.unsure
             FROM steps st
             ORDER BY st.instance_id, st.at DESC, st.id DESC
         ),
         end_rows AS (
-            SELECT GREATEST(COALESCE(v.closed_at, v.last_seen_at), l.at) AS at, l.head_count
+            SELECT GREATEST(COALESCE(v.closed_at, v.last_seen_at), l.at) AS at, l.head_count, l.unsure
             FROM last_of l
             JOIN vrchat_instance v ON v.id = l.instance_id
         ),
         stream AS (
-            SELECT at, id, people_change::bigint AS people_change, instance_change::bigint AS instance_change
+            SELECT at, id, people_change::bigint AS people_change, instance_change::bigint AS instance_change,
+                   unsure_change::bigint AS unsure_change
             FROM deltas WHERE NOT is_seed
             UNION ALL
-            SELECT at, id, people_change, instance_change FROM seed_total
+            SELECT at, id, people_change, instance_change, unsure_change FROM seed_total
             UNION ALL
-            SELECT at, 9223372036854775807::bigint, -head_count::bigint, -1::bigint
+            SELECT at, 9223372036854775807::bigint, -head_count::bigint, -1::bigint, -unsure::bigint
             FROM end_rows WHERE at >= @from AND at < @to
         ),
         running AS (
             SELECT at, (at AT TIME ZONE 'UTC') AS at_utc, id,
                    SUM(people_change) OVER w AS people,
-                   SUM(instance_change) OVER w AS instances
+                   SUM(instance_change) OVER w AS instances,
+                   SUM(unsure_change) OVER w AS unsure
             FROM stream
             WINDOW w AS (ORDER BY at, id ROWS UNBOUNDED PRECEDING)
         )

@@ -68,7 +68,9 @@ public static class InstanceRows
                 // The instance page's head count, not the group list's number, which counts group
                 // members only (HeadCounts). Before the page has been read, the list's number.
                 PeopleNow = i.HeadCount ?? i.LastUserCount,
+                PeopleNowUnsure = i.HeadCount != null && i.HeadCountUnsure,
                 i.PeakUserCount,
+                i.PeakUnsure,
                 i.LastSeenAt,
             })
             .ToListAsync(ct);
@@ -115,7 +117,9 @@ public static class InstanceRows
                     Math.Round(minutes, 1),
                     world?.Capacity,
                     PlatformsOf(world?.Platforms),
-                    closedByModerator.Contains(r.Id));
+                    closedByModerator.Contains(r.Id),
+                    r.PeopleNowUnsure,
+                    r.PeakUnsure);
             })
             .ToList();
     }

@@ -3,6 +3,7 @@ import { User } from 'lucide-react'
 import { DailyBars, DailyLine, Heatmap, compactNumber, dateTime, longDay, minutes, percent } from '@/components/charts'
 import { InstanceCards } from '@/components/InstanceCards'
 import { InstanceTable } from '@/components/InstanceTable'
+import { HeadCount } from '@/components/HeadCount'
 import { api, type HourOfWeek, type InstancePeaks } from '@/lib/api'
 import { InstanceActivityChart } from './InstanceActivityChart'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
@@ -239,13 +240,25 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
       <StatStrip>
         <Stat
           label="Most people at once"
-          value={peaks.mostPeopleAtOnce ? compactNumber(peaks.mostPeopleAtOnce.value) : '—'}
+          value={
+            peaks.mostPeopleAtOnce ? (
+              <HeadCount count={peaks.mostPeopleAtOnce.value} unsure={peaks.mostPeopleAtOnce.unsure} format={compactNumber} />
+            ) : (
+              '—'
+            )
+          }
           note={peaks.mostPeopleAtOnce ? dateTime(peaks.mostPeopleAtOnce.at) : undefined}
           noteMono
         />
         <Stat
           label="Fullest instance"
-          value={peaks.busiestInstance ? compactNumber(peaks.busiestInstance.people) : '—'}
+          value={
+            peaks.busiestInstance ? (
+              <HeadCount count={peaks.busiestInstance.people} unsure={peaks.busiestInstance.unsure} format={compactNumber} />
+            ) : (
+              '—'
+            )
+          }
           note={
             peaks.busiestInstance ? (
               <>
@@ -264,7 +277,7 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
         */}
         <Stat
           label="Busiest day"
-          value={busiestDayPeak === null ? '—' : <People count={busiestDayPeak} />}
+          value={busiestDayPeak === null ? '—' : <People count={busiestDayPeak} unsure={peaks.busiestDay?.unsure} />}
           note={peaks.busiestDay ? longDay(peaks.busiestDay.day) : undefined}
           noteMono
         />
@@ -274,6 +287,7 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
             peaks.busiestHour ? (
               <People
                 count={Math.round(peaks.busiestHour.peopleMinutes / 60)}
+                unsure={peaks.busiestHour.unsure}
                 title={`${(peaks.busiestHour.peopleMinutes / 60).toFixed(1)} on average`}
               />
             ) : (
@@ -316,11 +330,13 @@ function zoneLabel(): string {
 }
 
 /** A number of people, drawn with a person beside it. */
-function People({ count, title }: { count: number; title?: string }) {
+function People({ count, unsure = false, title }: { count: number; unsure?: boolean; title?: string }) {
   return (
     <span className="inline-flex items-center gap-1.5" title={title}>
       <User aria-hidden className="size-[0.8em] shrink-0" strokeWidth={2.25} />
-      {compactNumber(count)}
+      <span>
+        <HeadCount count={count} unsure={unsure} format={compactNumber} />
+      </span>
       <span className="sr-only">{count === 1 ? ' person' : ' people'}</span>
     </span>
   )

@@ -30,17 +30,30 @@ public class InstanceHeadCount
     public DateTimeOffset CountedAt { get; set; }
 
     /// <summary>
-    /// How many people were in the instance. <c>n_users</c> from the instance's own page when it could be
-    /// read, otherwise the group list's <c>memberCount</c> -- <see cref="Source"/> says which.
+    /// How many people were in the instance. From the instance's own page when it could be read --
+    /// its <c>userCount</c>, or <c>n_users</c> when the body had no <c>userCount</c> -- otherwise the
+    /// group list's <c>memberCount</c>. <see cref="Source"/> says which read it came from.
     /// </summary>
+    /// <remarks>
+    /// A page reading with no <see cref="UserCount"/> took its number from <c>n_users</c>, and is
+    /// shown as unconfirmed ("80?"): <c>n_users</c> ran up to about thirty above the real count on a
+    /// busy club (<see cref="HeadCounts"/>).
+    /// </remarks>
     public int HeadCount { get; set; }
 
     /// <summary>
-    /// The instance page's <c>userCount</c>, kept beside <c>n_users</c> because the two disagreed in
-    /// the one probe made (research: vrchat-instance-findings.md section 3). Null when the count
-    /// came from the group's list.
+    /// The instance page's <c>userCount</c>: how many people are in it, and the head count whenever
+    /// the body carried it. Null when the reading came from the group's list, or when the page's body
+    /// had none and the head count fell back to <see cref="NUsers"/>.
     /// </summary>
     public int? UserCount { get; set; }
+
+    /// <summary>
+    /// The instance page's <c>n_users</c>, kept beside <see cref="UserCount"/>. Higher than the real
+    /// count while an instance is busy, so it is the head count only when <c>userCount</c> is missing.
+    /// Null when the reading came from the group's list, and on readings stored before it was kept.
+    /// </summary>
+    public int? NUsers { get; set; }
 
     /// <summary>The group list's <c>memberCount</c> at the time, when Modbot had one.</summary>
     public int? MemberCount { get; set; }

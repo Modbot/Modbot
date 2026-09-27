@@ -14,7 +14,7 @@ namespace Modbot.VRChat.Tests.Fakes;
 /// </summary>
 public sealed class FakeInstances
 {
-    private readonly Dictionary<string, (HttpStatusCode Status, Instance? Body)> _pages = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (HttpStatusCode Status, Instance? Body, string Raw)> _pages = new(StringComparer.Ordinal);
 
     /// <summary>Every location asked for, in order.</summary>
     public List<string> Requests { get; } = [];
@@ -25,17 +25,20 @@ public sealed class FakeInstances
     /// <summary>What creating an instance answers. 200 makes one; anything else refuses.</summary>
     public HttpStatusCode CreateStatus { get; set; } = HttpStatusCode.OK;
 
-    /// <summary>What a live instance's page says, and the name it was opened with, if any.</summary>
-    public FakeInstances Page(string location, int nUsers, int userCount, bool active = true, string? displayName = null)
+    /// <summary>
+    /// What a live instance's page says, and the name it was opened with, if any. A null
+    /// <paramref name="userCount"/> is a body with no <c>userCount</c> in it at all.
+    /// </summary>
+    public FakeInstances Page(string location, int nUsers, int? userCount, bool active = true, string? displayName = null)
     {
-        _pages[location] = (HttpStatusCode.OK, Body(active, nUsers, userCount, displayName));
+        _pages[location] = (HttpStatusCode.OK, Body(active, nUsers, userCount ?? 0, displayName), Raw(active, nUsers, userCount));
         return this;
     }
 
     /// <summary>A status other than 200 for this instance's page -- 429 for a limit, 500 for trouble.</summary>
     public FakeInstances Status(string location, HttpStatusCode status)
     {
-        _pages[location] = (status, null);
+        _pages[location] = (status, null, "{}");
         return this;
     }
 
@@ -53,6 +56,14 @@ public sealed class FakeInstances
         return instance;
     }
 
+    /// <summary>
+    /// The body as it arrives, with only the head count's fields. The SDK's model cannot say whether
+    /// <c>userCount</c> was there, so the sync looks at this.
+    /// </summary>
+    private static string Raw(bool active, int nUsers, int? userCount) => userCount is { } people
+        ? $"{{\"active\":{(active ? "true" : "false")},\"n_users\":{nUsers},\"userCount\":{people}}}"
+        : $"{{\"active\":{(active ? "true" : "false")},\"n_users\":{nUsers}}}";
+
     public IInstancesApi Build()
     {
         var instances = Substitute.For<IInstancesApi>();
@@ -64,11 +75,11 @@ public sealed class FakeInstances
                 var location = $"{call.ArgAt<string>(0)}:{call.ArgAt<string>(1)}";
                 Requests.Add(location);
 
-                var (status, body) = _pages.TryGetValue(location, out var page)
+                var (status, body, raw) = _pages.TryGetValue(location, out var page)
                     ? page
-                    : (HttpStatusCode.OK, Body(active: false, nUsers: 0, userCount: 0));
+                    : (HttpStatusCode.OK, Body(active: false, nUsers: 0, userCount: 0), Raw(false, 0, 0));
 
-                return Task.FromResult(new ApiResponse<Instance>(status, new Multimap<string, string>(), body!, "{}"));
+                return Task.FromResult(new ApiResponse<Instance>(status, new Multimap<string, string>(), body!, raw));
             });
 
         instances

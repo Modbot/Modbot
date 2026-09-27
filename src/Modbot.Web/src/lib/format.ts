@@ -212,3 +212,12 @@ export function access(groupAccessType: string | null): string | null {
     ] ?? groupAccessType
   )
 }
+
+/**
+ * A head count as text: `52`, or `80?` when it is unsure -- taken from VRChat's `n_users` because the
+ * instance's page had no `userCount`. `n_users` ran up to about thirty high on a busy evening, so the
+ * mark stays on the number wherever it goes. `format` writes the number itself.
+ */
+export function headCountText(count: number, unsure: boolean, format: (n: number) => string = String): string {
+  return unsure ? `${format(count)}?` : format(count)
+}

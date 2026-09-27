@@ -54,6 +54,41 @@ public class InstancePeaksTests
         Assert.Equal(instance.Id, page.Peaks.BusiestInstance.Id);
         Assert.Equal(9, page.Peaks.BusiestInstance.People);
         Assert.Equal(opened.AddMinutes(30), page.Peaks.BusiestInstance.At, TimeSpan.FromSeconds(1));
+
+        // Every reading had a userCount, so nothing is unsure.
+        Assert.False(page.Peaks.MostPeopleAtOnce.Unsure);
+        Assert.False(page.Peaks.BusiestInstance.Unsure);
+    }
+
+    /// <summary>
+    /// A page reading with no userCount took n_users, which runs high on a busy evening. A peak that
+    /// rests on it says so, and one after it that does not stays sure.
+    /// </summary>
+    [Fact]
+    public async Task APeakFromAReadingWithNoUserCount_IsUnsure()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
+
+        var opened = host.Clock.UtcNow.AddHours(-6);
+        var instance = await PlacesFixtures.InstanceAsync(host, World, "1", opened, opened.AddMinutes(60), opened.AddMinutes(60), ct);
+
+        await CountsAsync(host, instance.Id, ct, (opened, 3));
+        await UnsureCountAsync(host, instance.Id, opened.AddMinutes(30), 9, ct);
+        await CountsAsync(host, instance.Id, ct, (opened.AddMinutes(40), 5));
+
+        var page = await PageAsync(host, "days=7", ct);
+
+        Assert.Equal(9, page.Peaks.MostPeopleAtOnce!.Value);
+        Assert.True(page.Peaks.MostPeopleAtOnce.Unsure);
+
+        Assert.Equal(9, page.Peaks.BusiestInstance!.People);
+        Assert.True(page.Peaks.BusiestInstance.Unsure);
+
+        // Ten minutes at nine sits inside whichever hour held the most people-time.
+        Assert.True(page.Peaks.BusiestHour!.Unsure);
     }
 
     /// <summary>
@@ -351,6 +386,29 @@ public class InstancePeaksTests
         var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
         var settings = await db.GetSettingsAsync(ct);
         settings.ManagedGroupId = Group;
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>A page reading whose body had no userCount: its head count is n_users, and unsure.</summary>
+    private static async Task UnsureCountAsync(
+        ReadSurfaceTestHost host,
+        Guid instanceId,
+        DateTimeOffset at,
+        int nUsers,
+        CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        db.InstanceHeadCounts.Add(new InstanceHeadCount
+        {
+            InstanceId = instanceId,
+            CountedAt = at,
+            HeadCount = nUsers,
+            NUsers = nUsers,
+            Source = HeadCounts.FromPage,
+        });
+
         await db.SaveChangesAsync(ct);
     }
 

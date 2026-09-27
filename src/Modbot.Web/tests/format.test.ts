@@ -6,6 +6,7 @@ import {
   duration,
   formatDay,
   formatDayRange,
+  headCountText,
   howLong,
   lengthOfTime,
   needsYear,
@@ -123,4 +124,16 @@ test('a range over New Year keeps both years', () => {
 test('several dates need the year if any one of them does', () => {
   assert.equal(needsYear(`${thisYear}-01-10T12:00:00`, `${thisYear}-02-10T12:00:00`), false)
   assert.equal(needsYear(`${lastYear}-12-15T12:00:00`, `${thisYear}-01-10T12:00:00`), true)
+})
+
+test('a head count taken from n_users carries a question mark, and a sure one does not', () => {
+  assert.equal(headCountText(52, false), '52')
+  assert.equal(headCountText(80, true), '80?')
+  assert.equal(headCountText(0, true), '0?')
+})
+
+test('the question mark goes after the number however it is written', () => {
+  const compact = (n: number) => (n >= 1000 ? `${n / 1000}K` : String(n))
+  assert.equal(headCountText(12000, true, compact), '12K?')
+  assert.equal(headCountText(12000, false, compact), '12K')
 })

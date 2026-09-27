@@ -57,6 +57,7 @@ internal sealed class ListLiveInstancesTool : ReadTool
                     r.Region,
                     r.OpenedAt,
                     r.HeadCount,
+                    r.HeadCountUnsure,
                     watching = r.Watching.Select(w => new { w.UserId, w.DisplayName, w.Since }),
                     people = r.People.Select(Person),
                     r.LastWatchedAt,

@@ -78,11 +78,11 @@ public sealed class InstancePeaksQuery(ModbotContext db)
             , spans AS (
                 SELECT r.at_utc AS s,
                        (LEAST(COALESCE(LEAD(r.at) OVER (ORDER BY r.at, r.id), @to), @to) AT TIME ZONE 'UTC') AS e,
-                       r.people, r.instances
+                       r.people, r.instances, r.unsure > 0 AS unsure
                 FROM running r
             ),
             parts AS (
-                SELECT sp.people, sp.instances, h AS hour,
+                SELECT sp.people, sp.instances, sp.unsure, h AS hour,
                        GREATEST(sp.s, h) AS s,
                        LEAST(sp.e, h + interval '1 hour') AS e
                 FROM spans sp
@@ -98,7 +98,9 @@ public sealed class InstancePeaksQuery(ModbotContext db)
                        MAX(p.instances)::int AS most_instances,
                        (array_agg(p.s ORDER BY p.people DESC, p.s))[1] AS most_people_at,
                        (array_agg(p.s ORDER BY p.instances DESC, p.s))[1] AS most_instances_at,
-                       SUM(p.people * EXTRACT(EPOCH FROM (p.e - p.s)) / 60.0)::numeric AS people_minutes
+                       SUM(p.people * EXTRACT(EPOCH FROM (p.e - p.s)) / 60.0)::numeric AS people_minutes,
+                       (array_agg(p.unsure ORDER BY p.people DESC, p.s))[1] AS most_people_unsure,
+                       bool_or(p.unsure) AS any_unsure
                 FROM parts p
                 GROUP BY p.hour
             )
@@ -110,7 +112,9 @@ public sealed class InstancePeaksQuery(ModbotContext db)
                    COALESCE(SUM(people_minutes), 0)::numeric,
                    (array_agg(per_hour.hour ORDER BY people_minutes DESC, per_hour.hour))[1],
                    COALESCE(MAX(people_minutes), 0)::numeric,
-                   (array_agg(most_people ORDER BY people_minutes DESC, per_hour.hour))[1]::int
+                   (array_agg(most_people ORDER BY people_minutes DESC, per_hour.hour))[1]::int,
+                   (array_agg(most_people_unsure ORDER BY most_people DESC, most_people_at))[1],
+                   (array_agg(any_unsure ORDER BY people_minutes DESC, per_hour.hour))[1]
             FROM per_hour
             GROUP BY 1
             ORDER BY 1
@@ -127,7 +131,9 @@ public sealed class InstancePeaksQuery(ModbotContext db)
                 r.GetDecimal(5),
                 Utc(r, 6),
                 r.GetDecimal(7),
-                r.GetInt32(8)),
+                r.GetInt32(8),
+                r.GetBoolean(9),
+                r.GetBoolean(10)),
             ct,
             Parameters(group, from, to));
     }
@@ -139,7 +145,8 @@ public sealed class InstancePeaksQuery(ModbotContext db)
     /// The reading itself, not the instance's stored <c>peak_user_count</c>: that one covers the
     /// instance's whole life, which may reach outside the window a moderator asked about, and it
     /// carries no time. A tie goes to the earliest reading, then to the instance's own id, so the
-    /// same window always names the same instance.
+    /// same window always names the same instance. A page reading with no <c>user_count</c> took
+    /// <c>n_users</c>, and the answer says so.
     /// </remarks>
     private async Task<BusiestInstance?> BusiestInstanceAsync(
         string group,
@@ -148,7 +155,7 @@ public sealed class InstancePeaksQuery(ModbotContext db)
         CancellationToken ct)
     {
         const string Sql = """
-            SELECT h.instance_id, h.head_count, h.counted_at
+            SELECT h.instance_id, h.head_count, h.counted_at, (h.source = 'page' AND h.user_count IS NULL)
             FROM instance_head_count h
             JOIN vrchat_instance i ON i.id = h.instance_id AND i.group_id = @group
             WHERE h.counted_at >= @from AND h.counted_at < @to AND h.head_count > 0
@@ -158,7 +165,7 @@ public sealed class InstancePeaksQuery(ModbotContext db)
 
         var rows = await _sql.ReadAsync(
             Sql,
-            r => (Id: r.GetGuid(0), People: r.GetInt32(1), At: AnalyticsSql.InstantOf(r, 2)),
+            r => (Id: r.GetGuid(0), People: r.GetInt32(1), At: AnalyticsSql.InstantOf(r, 2), Unsure: r.GetBoolean(3)),
             ct,
             ("group", group),
             ("from", AnalyticsSql.DayStart(from)),
@@ -183,7 +190,7 @@ public sealed class InstancePeaksQuery(ModbotContext db)
         return place is null
             ? null
             : new BusiestInstance(
-                best.Id, place.WorldId, place.Name, place.VRChatInstanceId, place.OpenedAt, best.People, best.At);
+                best.Id, place.WorldId, place.Name, place.VRChatInstanceId, place.OpenedAt, best.People, best.At, best.Unsure);
     }
 
     /// <summary>

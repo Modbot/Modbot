@@ -1321,8 +1321,11 @@ export type InviteFunnel = {
   requestsRejected: number
 }
 
-/** The highest a count reached, and the first moment it was that high. */
-export type PeakCount = { value: number; at: string }
+/**
+ * The highest a count reached, and the first moment it was that high. `unsure` when an instance head
+ * count in it came from `n_users` because VRChat sent no `userCount`: shown as "80?".
+ */
+export type PeakCount = { value: number; at: string; unsure: boolean }
 
 /**
  * How many readings a member-count peak rests on. `thin` is true when fewer than half the window's
@@ -1486,7 +1489,11 @@ export type InstanceRow = {
   /** True when a moderator closed it by hand (VRChat's audit log has a close entry for it). */
   closedByModerator: boolean
   peopleNow: number | null
+  /** `peopleNow` came from `n_users` because VRChat sent no `userCount`: shown as "80?". */
+  peopleNowUnsure: boolean
   peakPeople: number | null
+  /** Only such counts reach `peakPeople`. */
+  peakPeopleUnsure: boolean
   minutesOpen: number
   /** How many people the world holds, as its page says. Null until Modbot has read the world. */
   worldCapacity: number | null
@@ -1530,6 +1537,8 @@ export type LiveInstance = {
   region: string | null
   openedAt: string
   headCount: number | null
+  /** `headCount` came from `n_users` because VRChat sent no `userCount`: shown as "80?". */
+  headCountUnsure: boolean
   watching: LiveWatcher[]
   /** Empty whenever nobody is watching. */
   people: LivePerson[]
@@ -1594,10 +1603,10 @@ export type ServerAnalytics = {
 }
 
 /** The day the group's instances held the most people-time. */
-export type BusiestDay = { day: string; peopleMinutes: number; mostPeopleAtOnce: number }
+export type BusiestDay = { day: string; peopleMinutes: number; mostPeopleAtOnce: number; unsure: boolean }
 
 /** One real clock hour on one real date -- not "Saturdays at 8". */
-export type BusiestHour = { startedAt: string; peopleMinutes: number; mostPeopleAtOnce: number }
+export type BusiestHour = { startedAt: string; peopleMinutes: number; mostPeopleAtOnce: number; unsure: boolean }
 
 /** The single instance that held the most people at one moment. */
 export type BusiestInstance = {
@@ -1608,6 +1617,7 @@ export type BusiestInstance = {
   openedAt: string
   people: number
   at: string
+  unsure: boolean
 }
 
 /**
@@ -1757,7 +1767,16 @@ export type InstanceView = {
   logTruncated: boolean
   now: string
   /** How many were in it each time the count changed, oldest first. The most recent 2000. */
-  headCounts: { at: string; people: number; userCount: number | null; memberCount: number | null; source: string }[]
+  headCounts: {
+    at: string
+    people: number
+    userCount: number | null
+    memberCount: number | null
+    source: string
+    nUsers: number | null
+    /** `people` is `nUsers` because VRChat sent no `userCount`: shown as "80?". */
+    unsure: boolean
+  }[]
 }
 
 export type PersonMetrics = {
