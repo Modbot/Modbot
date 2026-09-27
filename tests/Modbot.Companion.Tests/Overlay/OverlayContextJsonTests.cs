@@ -29,6 +29,28 @@ public class OverlayContextJsonTests
     }
 
     [Fact]
+    public void ARosterRowAndALivePersonCarryTheEighteenPlusMark()
+    {
+        const string roster = """
+            {"instanceId":"39911","members":[
+              {"subjectId":"usr_a","displayName":"Rin","standing":"Ordinary","priorActions":0,"flags":[],"trustRank":"KnownUser","eighteenPlus":true},
+              {"subjectId":"usr_b","displayName":"Mei","standing":"Member","priorActions":0,"flags":[],"trustRank":null,"eighteenPlus":false},
+              {"subjectId":"usr_c","displayName":"Kai","standing":"Member","priorActions":0,"flags":[]}
+            ]}
+            """;
+        const string person = """{"id":"usr_a","displayName":"Rin","trustRank":"KnownUser","standing":"Ordinary","priorActions":0,"flags":[],"eighteenPlus":true}""";
+        const string olderPerson = """{"id":"usr_a","displayName":"Rin","trustRank":null,"standing":"Ordinary","priorActions":0,"flags":[]}""";
+
+        var context = JsonSerializer.Deserialize<InstanceContext>(roster, Json)!;
+
+        Assert.True(context.Members[0].EighteenPlus);
+        Assert.False(context.Members[1].EighteenPlus);
+        Assert.Null(context.Members[2].EighteenPlus);
+        Assert.True(JsonSerializer.Deserialize<LivePerson>(person, Json)!.EighteenPlus);
+        Assert.Null(JsonSerializer.Deserialize<LivePerson>(olderPerson, Json)!.EighteenPlus);
+    }
+
+    [Fact]
     public void AServerThatDoesNotSendTheRankStillAnswers()
     {
         const string roster = """{"instanceId":"39911","members":[{"subjectId":"usr_a","displayName":"Rin","standing":"Ordinary","priorActions":0,"flags":[]}]}""";

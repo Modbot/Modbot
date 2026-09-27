@@ -52,6 +52,7 @@ public sealed class InstanceSessionTracker
     private readonly Dictionary<string, string> _displayNameToUserId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _userIdToDisplayName = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _userIdToAvatar = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTime?> _arrivedAt = new(StringComparer.Ordinal);
 
     private Phase _phase = Phase.Outside;
     private InstanceLocation? _instance;
@@ -68,6 +69,21 @@ public sealed class InstanceSessionTracker
 
     /// <summary>Who is in the instance right now, as far as the log has said.</summary>
     public IReadOnlyCollection<string> Roster => _userIdToDisplayName.Keys;
+
+    /// <summary>
+    /// When each person in the instance got here, by VRChat's own timestamp: the moment they
+    /// joined, for anybody who arrived while the moderator was watching, the moderator included;
+    /// null for everybody who was already standing there when the moderator arrived.
+    /// </summary>
+    /// <remarks>
+    /// <para>Kept for the overlay's Instance list, which shows how long each person has been here
+    /// and filters by it. Nothing is sent from it.</para>
+    /// <para>Built from replayed history as well as live lines, because it is state rather than a
+    /// report: a companion started in the middle of a session still knows when the people who
+    /// came in after the moderator arrived. The same rule as the reports decides who counts as
+    /// already here, so the two never disagree.</para>
+    /// </remarks>
+    public IReadOnlyDictionary<string, DateTime?> ArrivedAt => _arrivedAt;
 
     /// <summary>The instance the moderator is in, or <c>null</c> when that is not yet known.</summary>
     public InstanceLocation? CurrentInstance => _phase is Phase.Departed or Phase.Outside ? null : _instance;
@@ -107,6 +123,7 @@ public sealed class InstanceSessionTracker
         _userIdToDisplayName.Clear();
         _displayNameToUserId.Clear();
         _userIdToAvatar.Clear();
+        _arrivedAt.Clear();
 
         _phase = Phase.Outside;
         _instance = null;
@@ -178,6 +195,7 @@ public sealed class InstanceSessionTracker
         _userIdToDisplayName.Clear();
         _displayNameToUserId.Clear();
         _userIdToAvatar.Clear();
+        _arrivedAt.Clear();
 
         // The world's readable name arrives on the line after this one. Whatever is held is last
         // world's, so it goes now rather than being allowed to name this world by accident.
@@ -227,6 +245,7 @@ public sealed class InstanceSessionTracker
                     : [];
 
             case Phase.Present:
+                _arrivedAt[joined.UserId] = joined.Timestamp;
                 return Emit(PresenceKind.Joined, joined.Timestamp, joined.UserId, joined.DisplayName);
 
             // Outside: no instance to attribute this to. Departed: VRChat does not emit joins
@@ -343,6 +362,14 @@ public sealed class InstanceSessionTracker
         if (instance is null)
             return [];
 
+        // The same split, kept: an exact time for the moderator, and "already here" for the rest.
+        // Only for people still here -- a buffered join whose leave has already been read is gone.
+        foreach (var join in buffered)
+        {
+            if (_userIdToDisplayName.ContainsKey(join.UserId))
+                _arrivedAt[join.UserId] = join.UserId == LocalUserId ? join.Timestamp : null;
+        }
+
         return buffered.Select(join => new ObservedPresence(
             // Everyone except the moderator was already standing there, for an unknown length of
             // time -- possibly hours. "Present at this time" is all that is actually known, and
@@ -381,6 +408,7 @@ public sealed class InstanceSessionTracker
         {
             _userIdToDisplayName.Remove(userId);
             _userIdToAvatar.Remove(userId);
+            _arrivedAt.Remove(userId);
         }
 
         if (!string.IsNullOrEmpty(displayName)

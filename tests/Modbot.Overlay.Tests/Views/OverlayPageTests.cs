@@ -148,14 +148,172 @@ public class OverlayPageTests
         Assert.Contains(targets, t => t is OverlayTarget.RefreshPerson);
 
         // The whole list of target kinds the panel has. Anything new has to be added here on
-        // purpose, which is the point. The last three are the bar's, which the headset draws under
-        // the panel (PanelFrameTests); none of them acts on a person either.
-        Assert.All(targets, t => Assert.True(
-            t is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.ClosePerson
-                or OverlayTarget.RefreshPerson or OverlayTarget.Roster or OverlayTarget.Events
-                or OverlayTarget.DismissAlert
-                or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
-            $"Unexpected overlay target {t.GetType().Name}."));
+        // purpose, which is the point.
+        Assert.All(targets, t => Assert.True(Allowed(t), $"Unexpected overlay target {t.GetType().Name}."));
+    }
+
+    /// <summary>
+    /// The whole list of target kinds the panel has. Anything new has to be added here on purpose,
+    /// which is the point. The filter row's four only choose what a list shows; the last three are
+    /// the bar's, which the headset draws under the panel (PanelFrameTests).
+    /// </summary>
+    private static bool Allowed(OverlayTarget target) =>
+        target is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.ClosePerson
+            or OverlayTarget.RefreshPerson or OverlayTarget.Roster or OverlayTarget.Events
+            or OverlayTarget.DismissAlert
+            or OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters or OverlayTarget.TypeName
+            or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
+
+    [Fact]
+    public void EveryFilterStateStillOffersNothingThatActsOnAPerson()
+    {
+        var events = new[] { Event("e1", LiveEventKinds.PersonJoined) };
+
+        foreach (var part in Enum.GetValues<FilterPart>())
+        {
+            var filters = new ListFilters(Who: Who.Flagged, Name: "ri", Open: part);
+            var screens = new[]
+            {
+                Screen(OverlayPage.Instance) with { RosterFilters = filters },
+                Screen(OverlayPage.Events, null, events) with { EventFilters = filters },
+            };
+
+            foreach (var screen in screens)
+                Assert.All(Targets(screen).Select(t => t.Target), t => Assert.True(Allowed(t), $"Unexpected overlay target {t.GetType().Name}."));
+        }
+    }
+
+    private static IReadOnlyList<FilterPart> Parts(OverlayScreen screen) =>
+        [.. Targets(screen).Select(t => t.Target).OfType<OverlayTarget.Filter>().Select(f => f.Part)];
+
+    [Fact]
+    public void TheInstanceListAndTheAuditLogEachHaveTheirOwnFilters()
+    {
+        Assert.Equal(
+            [FilterPart.Who, FilterPart.Rank, FilterPart.Time, FilterPart.Name, FilterPart.Sort],
+            Parts(Screen(OverlayPage.Instance)));
+
+        Assert.Equal(
+            [FilterPart.Who, FilterPart.Rank, FilterPart.Kind, FilterPart.Time, FilterPart.Name],
+            Parts(Screen(OverlayPage.Events, null, Event("e1", LiveEventKinds.PersonJoined))));
+    }
+
+    [Fact]
+    public void AFilterRowTapIsForTheListItIsOver()
+    {
+        var lists = Targets(Screen(OverlayPage.Events, null, Event("e1", LiveEventKinds.PersonJoined)))
+            .Select(t => t.Target)
+            .OfType<OverlayTarget.Filter>()
+            .Select(f => f.List)
+            .Distinct();
+
+        Assert.Equal([OverlayPage.Events], lists);
+    }
+
+    [Fact]
+    public void AnEmptyAuditLogHasNoFiltersToShow()
+    {
+        Assert.Empty(Parts(Screen(OverlayPage.Events)));
+    }
+
+    [Fact]
+    public void APickedFilterStaysInSightOverAListItEmptied()
+    {
+        // Otherwise a list the filters emptied would have no way back but to leave the instance.
+        var screen = Screen(OverlayPage.Instance) with { RosterFilters = new ListFilters(Name: "nobody by this name") };
+
+        Assert.NotEmpty(Parts(screen));
+        Assert.Contains(Targets(screen), t => t.Target is OverlayTarget.ClearFilters);
+        Assert.DoesNotContain(Targets(screen), t => t.Target is OverlayTarget.Person);
+    }
+
+    [Fact]
+    public void ClearIsOfferedOnlyWhileSomethingIsPicked()
+    {
+        Assert.DoesNotContain(Targets(Screen(OverlayPage.Instance)), t => t.Target is OverlayTarget.ClearFilters);
+        Assert.Contains(
+            Targets(Screen(OverlayPage.Instance) with { RosterFilters = new ListFilters(Order: RosterOrder.Name) }),
+            t => t.Target is OverlayTarget.ClearFilters);
+    }
+
+    [Fact]
+    public void AnOpenRankFilterOffersEveryRankAndNotKnown()
+    {
+        var screen = Screen(OverlayPage.Instance) with { RosterFilters = new ListFilters(Open: FilterPart.Rank) };
+
+        var choices = Targets(screen)
+            .Select(t => t.Target)
+            .OfType<OverlayTarget.Pick>()
+            .Where(p => p.Part is FilterPart.Rank)
+            .Select(p => p.Choice)
+            .ToList();
+
+        Assert.Equal(RankPick.Offered.Select(r => r is { } rank ? (int)rank : -1), choices);
+    }
+
+    [Fact]
+    public void AnOpenNameFilterIsABoxHoldingTheName()
+    {
+        var screen = Screen(OverlayPage.Instance) with { RosterFilters = new ListFilters(Name: "ri", Open: FilterPart.Name) };
+
+        var box = Assert.Single(Targets(screen).Select(t => t.Target).OfType<OverlayTarget.TypeName>());
+        Assert.Equal(new OverlayTarget.TypeName(OverlayPage.Instance, "ri"), box);
+    }
+
+    [Fact]
+    public void AFilteredRosterDrawsOnlyWhoItKept()
+    {
+        var screen = Screen(OverlayPage.Instance) with { RosterFilters = new ListFilters(Who: Who.Flagged) };
+
+        var people = Targets(screen).Select(t => t.Target).OfType<OverlayTarget.Person>().Select(p => p.SubjectId);
+
+        Assert.Equal(["usr_rin"], people);
+    }
+
+    [Fact]
+    public void AFilteredAuditLogDrawsOnlyTheKindsPicked()
+    {
+        var events = new[] { Event("e1", LiveEventKinds.PersonJoined), Event("e2", LiveEventKinds.PersonLeft) };
+        var joined = new KindPick().Toggle(LiveEventKinds.PersonJoined);
+
+        var screen = Screen(OverlayPage.Events, null, events) with { EventFilters = new ListFilters(Kinds: joined) };
+
+        Assert.Single(Targets(screen), t => t.Target is OverlayTarget.Person);
+    }
+
+    [Fact]
+    public void AChangedFilterIsAChangeWorthRedrawing()
+    {
+        var plain = Screen(OverlayPage.Instance);
+
+        Assert.False(plain.LooksTheSameAs(plain with { RosterFilters = new ListFilters(Open: FilterPart.Who) }));
+        Assert.False(plain.LooksTheSameAs(plain with { EventFilters = new ListFilters(Who: Who.Staff) }));
+        Assert.True(plain.LooksTheSameAs(plain with { RosterFilters = ListFilters.None }));
+    }
+
+    [Fact]
+    public void TheClockRedrawsAListOncePerMinuteAndNothingElse()
+    {
+        var at = new DateTimeOffset(2026, 9, 26, 21, 0, 10, TimeSpan.Zero);
+        var list = Screen(OverlayPage.Instance) with { Now = at };
+
+        Assert.True(list.LooksTheSameAs(list with { Now = at.AddSeconds(30) }));
+        Assert.False(list.LooksTheSameAs(list with { Now = at.AddMinutes(1) }));
+
+        var person = new UserSummary("usr_rin", "Rin", RosterStanding.Flagged, 2, null, [], []);
+        var card = Screen(OverlayPage.Person, person) with { Now = at };
+        Assert.True(card.LooksTheSameAs(card with { Now = at.AddMinutes(5) }));
+    }
+
+    [Fact]
+    public void ChangedArrivalTimesAreAChangeWorthRedrawing()
+    {
+        var at = new DateTimeOffset(2026, 9, 26, 21, 0, 0, TimeSpan.Zero);
+        var screen = Screen(OverlayPage.Instance) with { Arrivals = new Dictionary<string, DateTimeOffset?> { ["usr_rin"] = at } };
+
+        Assert.True(screen.LooksTheSameAs(screen with { Arrivals = new Dictionary<string, DateTimeOffset?> { ["usr_rin"] = at } }));
+        Assert.False(screen.LooksTheSameAs(screen with { Arrivals = new Dictionary<string, DateTimeOffset?> { ["usr_rin"] = null } }));
+        Assert.False(screen.LooksTheSameAs(screen with { Arrivals = null }));
     }
 
     [Fact]

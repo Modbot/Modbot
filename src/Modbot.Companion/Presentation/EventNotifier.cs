@@ -4,7 +4,6 @@ using Modbot.Companion.Journal;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Sounds;
 using Modbot.Core.Time;
-using Modbot.Core.Users;
 
 namespace Modbot.Companion.Presentation;
 
@@ -33,53 +32,54 @@ namespace Modbot.Companion.Presentation;
 public sealed class EventNotifier : IObservationSink
 {
     /// <summary>
-    /// How long a join waits for the person's trust rank before it is told without one.
+    /// How long a join waits for the person's trust rank and 18+ mark before it is told without
+    /// them.
     /// </summary>
     /// <remarks>
-    /// The rank comes from the paired server, which only hears of the person when this client
-    /// reports them: two seconds after the join, then the server's answer. Five seconds covers that
-    /// with room over, and is still soon enough to be about somebody who has just walked in.
+    /// Both come from the paired server, which only hears of the person when this client reports
+    /// them: two seconds after the join, then the server's answer. Five seconds covers that with
+    /// room over, and is still soon enough to be about somebody who has just walked in.
     /// </remarks>
-    public static readonly TimeSpan RankWait = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan InfoWait = TimeSpan.FromSeconds(5);
 
     private readonly Func<string?> _moderatorId;
     private readonly Action<PopUp, NotificationKind>? _popUp;
     private readonly Action<NotificationKind, string?>? _sound;
-    private readonly Func<string, TrustRank?>? _rankOf;
+    private readonly Func<string, PersonInfo?>? _infoOf;
     private readonly IModbotClock? _clock;
-    private readonly Func<bool>? _rankComing;
+    private readonly Func<bool>? _infoComing;
     private readonly List<Held> _held = [];
     private readonly Lock _gate = new();
 
     /// <param name="moderatorId">The moderator's own VRChat id as the log last said, or null while unknown.</param>
     /// <param name="popUp">Where a card goes, or null when there is no notification overlay.</param>
     /// <param name="sound">Where a bleep is asked for, or null when this PC has no sound.</param>
-    /// <param name="rankOf">
-    /// A person's trust rank as the paired server last said it, or null while it has not. Read from
-    /// what the client already holds.
+    /// <param name="infoOf">
+    /// A person's trust rank and 18+ mark as the paired server last said them, or null while it has
+    /// said neither. Read from what the client already holds.
     /// </param>
     /// <param name="clock">
-    /// What a held join is timed against. Null tells every join at once, as before there was a rank
-    /// to wait for.
+    /// What a held join is timed against. Null tells every join at once, as before there was
+    /// anything to wait for.
     /// </param>
-    /// <param name="rankComing">
-    /// Whether a rank can arrive at all: true while a paired server covers the instance the
+    /// <param name="infoComing">
+    /// Whether the info can arrive at all: true while a paired server covers the instance the
     /// moderator is in. A join in an instance nobody's server watches is told at once.
     /// </param>
     public EventNotifier(
         Func<string?> moderatorId,
         Action<PopUp, NotificationKind>? popUp = null,
         Action<NotificationKind, string?>? sound = null,
-        Func<string, TrustRank?>? rankOf = null,
+        Func<string, PersonInfo?>? infoOf = null,
         IModbotClock? clock = null,
-        Func<bool>? rankComing = null)
+        Func<bool>? infoComing = null)
     {
         _moderatorId = moderatorId;
         _popUp = popUp;
         _sound = sound;
-        _rankOf = rankOf;
+        _infoOf = infoOf;
         _clock = clock;
-        _rankComing = rankComing;
+        _infoComing = infoComing;
     }
 
     public void Offer(IReadOnlyList<ObservedPresence> observations)
@@ -103,33 +103,34 @@ public sealed class EventNotifier : IObservationSink
             if (NotificationFilters.KindOf(observation.Kind) is not { } kind)
                 continue;
 
-            var rank = kind is NotificationKind.Joined ? _rankOf?.Invoke(observation.SubjectId) : null;
+            var info = kind is NotificationKind.Joined ? _infoOf?.Invoke(observation.SubjectId) : null;
 
-            // A join whose rank is not known yet, in an instance a paired server covers, waits
-            // for it: the card and its sound go together, as soon as the rank is in or the wait is
-            // up. Everything else is told at once.
-            if (kind is NotificationKind.Joined && rank is null && _clock is { } clock && _rankComing?.Invoke() == true)
+            // A join whose info is not in yet, in an instance a paired server covers, waits for
+            // it: the card and its sound go together, as soon as the info is in or the wait is up.
+            // Everything else is told at once.
+            if (kind is NotificationKind.Joined && info is null && _clock is { } clock && _infoComing?.Invoke() == true)
             {
                 lock (_gate)
-                    _held.Add(new Held(observation, clock.UtcNow + RankWait));
+                    _held.Add(new Held(observation, clock.UtcNow + InfoWait));
 
                 continue;
             }
 
-            Tell(observation, kind, rank);
+            Tell(observation, kind, info);
         }
     }
 
     /// <summary>
-    /// Tells the joins that were waiting for a rank: each one whose rank has come in, and each one
-    /// that has waited long enough. Called on a timer; does nothing when nothing is waiting.
+    /// Tells the joins that were waiting for the person's info: each one whose info has come in,
+    /// and each one that has waited long enough. Called on a timer; does nothing when nothing is
+    /// waiting.
     /// </summary>
     public void TellWaiting()
     {
         if (_clock is null)
             return;
 
-        List<(ObservedPresence Observation, TrustRank? Rank)> ready = [];
+        List<(ObservedPresence Observation, PersonInfo? Info)> ready = [];
 
         lock (_gate)
         {
@@ -140,20 +141,20 @@ public sealed class EventNotifier : IObservationSink
             for (var i = 0; i < _held.Count; i++)
             {
                 var held = _held[i];
-                var rank = _rankOf?.Invoke(held.Observation.SubjectId);
-                if (rank is null && now < held.Until)
+                var info = _infoOf?.Invoke(held.Observation.SubjectId);
+                if (info is null && now < held.Until)
                     continue;
 
-                ready.Add((held.Observation, rank));
+                ready.Add((held.Observation, info));
                 _held.RemoveAt(i--);
             }
         }
 
-        foreach (var (observation, rank) in ready)
-            Tell(observation, NotificationKind.Joined, rank);
+        foreach (var (observation, info) in ready)
+            Tell(observation, NotificationKind.Joined, info);
     }
 
-    /// <summary>How many joins are waiting for a rank right now.</summary>
+    /// <summary>How many joins are waiting for the person's info right now.</summary>
     public int Waiting
     {
         get
@@ -163,9 +164,9 @@ public sealed class EventNotifier : IObservationSink
         }
     }
 
-    private void Tell(ObservedPresence observation, NotificationKind kind, TrustRank? rank)
+    private void Tell(ObservedPresence observation, NotificationKind kind, PersonInfo? info)
     {
-        _popUp?.Invoke(Card(observation, kind, rank), kind);
+        _popUp?.Invoke(Card(observation, kind, info), kind);
         _sound?.Invoke(kind, observation.SubjectId);
     }
 
@@ -178,9 +179,11 @@ public sealed class EventNotifier : IObservationSink
     /// The heading names what happened and the large line names who, which is the shape the
     /// flagged-join card already has. The id is the kind and the person, so the same person
     /// arriving twice restarts one card rather than stacking two. A join card's small line is
-    /// the person's trust rank, in VRChat's own words, when it is known.
+    /// <see cref="PersonInfo.Line"/>: the trust rank in VRChat's own words, then "18+" when they
+    /// carry Modbot's mark. Somebody without the mark gets no word for it, the way the Members list
+    /// shows the badge only on those who have it.
     /// </remarks>
-    public static PopUp Card(ObservedPresence observation, NotificationKind kind, TrustRank? rank = null)
+    public static PopUp Card(ObservedPresence observation, NotificationKind kind, PersonInfo? info = null)
     {
         ArgumentNullException.ThrowIfNull(observation);
 
@@ -201,7 +204,7 @@ public sealed class EventNotifier : IObservationSink
         var detail = kind switch
         {
             NotificationKind.ChangedAvatar => observation.AvatarName,
-            NotificationKind.Joined when rank is { } known => TrustRanks.Name(known),
+            NotificationKind.Joined => info?.Line(),
             _ => null,
         };
 
@@ -214,26 +217,27 @@ public sealed class EventNotifier : IObservationSink
     }
 
     /// <summary>
-    /// Fills in the trust rank on join cards that are up without one, once the server has said it.
+    /// Fills in the trust rank and 18+ mark on join cards that are up without them, once the
+    /// server has said them.
     /// </summary>
     /// <remarks>
-    /// A join card goes up the moment VRChat's log says somebody arrived, which is before any
-    /// server has heard of them: this client reports the join, and the server's roster and live
-    /// events carry the rank a couple of seconds later. So the card is filled in where it stands,
-    /// keeping its time, rather than waiting to go up at all. Called on the overlay's own tick.
+    /// A card that went up because the wait ran out was up before the server had heard of the
+    /// person: this client reports the join, and the server's roster and live events carry the
+    /// info a couple of seconds later. So the card is filled in where it stands, keeping its time.
+    /// Called on the overlay's own tick.
     /// </remarks>
-    public static void AddRanks(PopUps popUps, Func<string, TrustRank?> rankOf)
+    public static void AddInfo(PopUps popUps, Func<string, PersonInfo?> infoOf)
     {
         ArgumentNullException.ThrowIfNull(popUps);
-        ArgumentNullException.ThrowIfNull(rankOf);
+        ArgumentNullException.ThrowIfNull(infoOf);
 
         var prefix = $"{NotificationFilters.Word(NotificationKind.Joined)}:";
 
         popUps.Amend(card =>
             card.Detail is null
             && card.Id.StartsWith(prefix, StringComparison.Ordinal)
-            && rankOf(card.Id[prefix.Length..]) is { } rank
-                ? card with { Detail = TrustRanks.Name(rank) }
+            && infoOf(card.Id[prefix.Length..])?.Line() is { } line
+                ? card with { Detail = line }
                 : card);
     }
 }

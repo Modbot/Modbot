@@ -121,6 +121,17 @@ public static class OverlayView
         if (screen.Clips.IsVisible)
             stack.Children.Add(SaveClipBar(screen.Clips));
 
+        // The list's own filters, between the tabs and the list, and the open one's choices under
+        // them. Each list keeps its own. Not over an empty list, where they would have nothing to
+        // filter, unless something is picked and has to be seen to be cleared.
+        if (screen.ShownFilters is { } filters && (HasRows(screen) || filters.AnyPicked || filters.Open is not null))
+        {
+            stack.Children.Add(FilterRow(screen, screen.Page, filters));
+
+            if (filters.Open is { } open)
+                stack.Children.Add(Choices(screen.Page, open, filters));
+        }
+
         // One screen at a time. A panel that stacked all three would need scrolling to reach the
         // bottom of, and scrolling in a headset is the thing to design out.
         stack.Children.Add(screen.Page switch
@@ -335,6 +346,275 @@ public static class OverlayView
     }
 
     /// <summary>
+    /// A list's filters in one row: each names itself until something is picked, then says what
+    /// is. Clear is there only while something is picked.
+    /// </summary>
+    /// <remarks>
+    /// <para>Taps, not typing, because typing is hostile in a headset: every filter but the name is
+    /// a handful of choices under one tap (<see cref="Choices"/>). The row wraps rather than
+    /// running off the panel when every filter is saying something long.</para>
+    /// <para>Name is left off a headset that has no keyboard, unless a name was typed on the
+    /// desktop window, because then it is hiding people and has to say so.</para>
+    /// </remarks>
+    private static Control FilterRow(OverlayScreen screen, OverlayPage list, ListFilters filters)
+    {
+        var row = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
+
+        row.Children.Add(FilterChip(list, FilterPart.Who, filters, filters.Who is Who.All ? null : WhoWords(filters.Who)));
+        row.Children.Add(FilterChip(list, FilterPart.Rank, filters, filters.Ranks.IsEmpty ? null : RankWords(filters.Ranks)));
+
+        if (list is OverlayPage.Events)
+            row.Children.Add(FilterChip(list, FilterPart.Kind, filters, filters.Kinds.IsEmpty ? null : KindWords(filters.Kinds)));
+
+        row.Children.Add(FilterChip(list, FilterPart.Time, filters, filters.Time is TimeWindow.Any ? null : TimeWords(filters.Time)));
+
+        if (!screen.NoKeyboard || filters.Name is not null)
+            row.Children.Add(FilterChip(list, FilterPart.Name, filters, filters.Name));
+
+        if (list is OverlayPage.Instance)
+            row.Children.Add(FilterChip(list, FilterPart.Sort, filters, filters.Order is RosterOrder.Standing ? null : OrderWords(filters.Order)));
+
+        if (filters.AnyPicked)
+            row.Children.Add(Choice("Clear", false, new OverlayTarget.ClearFilters(list)));
+
+        return row;
+    }
+
+    /// <summary>Whether the list showing has anything in it before any filter.</summary>
+    private static bool HasRows(OverlayScreen screen) => screen.Page switch
+    {
+        OverlayPage.Instance => screen.Roster.Value is { Members.Count: > 0 },
+        OverlayPage.Events => screen.EventsOrNone.Count > 0,
+        _ => false,
+    };
+
+    /// <summary>A filter's own name on its chip: "Joined" on the Instance list, "When" on the Audit Log.</summary>
+    private static string PartName(OverlayPage list, FilterPart part) => part switch
+    {
+        FilterPart.Who => "Who",
+        FilterPart.Rank => "Rank",
+        FilterPart.Time => list is OverlayPage.Instance ? "Joined" : "When",
+        FilterPart.Name => "Name",
+        FilterPart.Sort => "Sort",
+        _ => "Kind",
+    };
+
+    /// <param name="picked">What is picked, in words, or null while nothing is.</param>
+    private static Control FilterChip(OverlayPage list, FilterPart part, ListFilters filters, string? picked)
+    {
+        var open = filters.Open == part;
+        var set = picked is not null;
+
+        var label = Text(
+            (set ? PartName(list, part) + ": " + picked : PartName(list, part)) + (open ? "  ▴" : "  ▾"),
+            T.Density.TextSmall,
+            set ? T.TextBrush : T.TextDimBrush,
+            FontWeight.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        label.HorizontalAlignment = HorizontalAlignment.Center;
+        label.MaxWidth = 260;
+
+        return new Border
+        {
+            Tag = new OverlayTarget.Filter(list, part),
+            Background = set ? T.AccentDimBrush : T.Surface2Brush,
+            BorderBrush = open ? T.AccentForegroundBrush : set ? T.AccentBrush : T.Border2Brush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            MinWidth = 96,
+            MinHeight = ChipHeight,
+            Padding = new Thickness(14, 6),
+            Child = label,
+        };
+    }
+
+    /// <summary>How tall a filter or a choice is: short of a tab, still an easy target for a ray.</summary>
+    private const double ChipHeight = 48;
+
+    /// <summary>
+    /// The open filter's choices, in a strip under the row. One tap picks; a filter that takes
+    /// several (rank, kind) stays open so the next can be ticked.
+    /// </summary>
+    private static Control Choices(OverlayPage list, FilterPart part, ListFilters filters)
+    {
+        var strip = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 8, LineSpacing = 8 };
+
+        switch (part)
+        {
+            case FilterPart.Who:
+                foreach (var who in Enum.GetValues<Who>())
+                    strip.Children.Add(Choice(who is Who.All ? "All" : WhoWords(who), filters.Who == who, new OverlayTarget.Pick(list, part, (int)who)));
+                break;
+
+            case FilterPart.Rank:
+                foreach (var rank in RankPick.Offered)
+                {
+                    strip.Children.Add(Choice(
+                        rank is { } known ? TrustRanks.Name(known) : "Not known",
+                        filters.Ranks.Has(rank),
+                        new OverlayTarget.Pick(list, part, rank is { } value ? (int)value : -1),
+                        rank));
+                }
+
+                break;
+
+            case FilterPart.Time:
+                foreach (var window in Enum.GetValues<TimeWindow>())
+                {
+                    strip.Children.Add(Choice(
+                        window switch
+                        {
+                            TimeWindow.Any => "Any time",
+                            TimeWindow.FiveMinutes => "Last 5 min",
+                            TimeWindow.FifteenMinutes => "Last 15 min",
+                            TimeWindow.Hour => "Last hour",
+                            _ => "Earlier",
+                        },
+                        filters.Time == window,
+                        new OverlayTarget.Pick(list, part, (int)window)));
+                }
+
+                break;
+
+            case FilterPart.Sort:
+                foreach (var order in Enum.GetValues<RosterOrder>())
+                    strip.Children.Add(Choice(OrderWords(order), filters.Order == order, new OverlayTarget.Pick(list, part, (int)order)));
+                break;
+
+            case FilterPart.Kind:
+                for (var i = 0; i < KindPick.Offered.Count; i++)
+                {
+                    var kind = KindPick.Offered[i];
+                    strip.Children.Add(Choice(Words(kind), filters.Kinds.Has(kind), new OverlayTarget.Pick(list, part, i)));
+                }
+
+                break;
+
+            case FilterPart.Name:
+                strip.Children.Add(NameBox(list, filters.Name));
+                if (filters.Name is not null)
+                    strip.Children.Add(Choice("Clear", false, new OverlayTarget.Pick(list, part, 0)));
+                break;
+        }
+
+        return new Border
+        {
+            Background = T.SurfaceBrush,
+            BorderBrush = T.AccentForegroundBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(12, 10),
+            Child = strip,
+        };
+    }
+
+    /// <param name="rank">A rank's colour mark beside its name, for the rank choices.</param>
+    private static Control Choice(string caption, bool chosen, OverlayTarget target, TrustRank? rank = null)
+    {
+        var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+        if (rank is { } known)
+        {
+            line.Children.Add(new Ellipse
+            {
+                Width = 10,
+                Height = 10,
+                VerticalAlignment = VerticalAlignment.Center,
+                Fill = DesignTokens.Brush(Color.Parse(TrustRanks.Colour(known))),
+            });
+        }
+
+        var label = Text(
+            chosen ? "✓ " + caption : caption,
+            T.Density.TextSmall,
+            chosen ? T.TextBrush : T.TextDimBrush,
+            chosen ? FontWeight.SemiBold : FontWeight.Normal);
+        label.VerticalAlignment = VerticalAlignment.Center;
+        line.Children.Add(label);
+        line.VerticalAlignment = VerticalAlignment.Center;
+        line.HorizontalAlignment = HorizontalAlignment.Center;
+
+        return new Border
+        {
+            Tag = target,
+            Background = chosen ? T.AccentDimBrush : T.Surface3Brush,
+            BorderBrush = chosen ? T.AccentBrush : T.BorderBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            MinHeight = ChipHeight,
+            MinWidth = 72,
+            Padding = new Thickness(12, 6),
+            Child = line,
+        };
+    }
+
+    /// <summary>
+    /// The name searched for, in a box that looks like one. The text is drawn as text, never
+    /// read as anything else, like every name on the panel.
+    /// </summary>
+    private static Control NameBox(OverlayPage list, string? name)
+    {
+        var label = Text((name ?? string.Empty) + "|", T.Density.TextBase, T.TextBrush);
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Tag = new OverlayTarget.TypeName(list, name ?? string.Empty),
+            Background = T.Surface3Brush,
+            BorderBrush = T.Border2Brush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Width = 360,
+            MinHeight = ChipHeight,
+            Padding = new Thickness(12, 6),
+            Child = label,
+        };
+    }
+
+    private static string WhoWords(Who who) => who switch
+    {
+        Who.Flagged => "Flagged",
+        Who.Members => "Members",
+        Who.Staff => "Staff",
+        Who.NotInGroup => "Not in group",
+        _ => "All",
+    };
+
+    private static string RankWords(RankPick ranks)
+    {
+        var first = ranks.Picked.First();
+        var name = first is { } known ? TrustRanks.Name(known) : "Not known";
+        return ranks.Count == 1 ? name : name + " +" + (ranks.Count - 1);
+    }
+
+    private static string KindWords(KindPick kinds)
+    {
+        var picked = kinds.Picked.ToList();
+        return picked.Count switch
+        {
+            1 => Words(picked[0]),
+            2 => Words(picked[0]) + ", " + Words(picked[1]),
+            _ => Words(picked[0]) + " +" + (picked.Count - 1),
+        };
+    }
+
+    private static string TimeWords(TimeWindow window) => window switch
+    {
+        TimeWindow.FiveMinutes => "5 min",
+        TimeWindow.FifteenMinutes => "15 min",
+        TimeWindow.Hour => "1 hour",
+        TimeWindow.Earlier => "earlier",
+        _ => "any time",
+    };
+
+    private static string OrderWords(RosterOrder order) => order switch
+    {
+        RosterOrder.Newest => "Newest",
+        RosterOrder.Name => "Name",
+        _ => "Standing",
+    };
+
+    /// <summary>
     /// What the live link has heard for this instance, newest first: who joined, who left, who
     /// was already here, and a watch ending.
     /// </summary>
@@ -346,10 +626,17 @@ public static class OverlayView
     {
         var rows = new StackPanel { Spacing = RowGap };
 
-        var events = screen.EventsOrNone;
+        var filters = screen.EventFiltersOrNone;
+        var all = screen.EventsOrNone;
+        var events = ListFiltering.Events(all, filters, screen.Now);
+
+        // How many the filters left, said only while they are hiding something.
+        if (filters.Hides)
+            rows.Children.Add(Text(events.Count + " of " + all.Count, T.Density.TextSmall, T.TextDimBrush, FontWeight.SemiBold));
+
         if (events.Count == 0)
         {
-            rows.Children.Add(Text("Nothing yet.", T.Density.TextBase, T.TextDimBrush));
+            rows.Children.Add(Text(all.Count > 0 ? "Nothing matches." : "Nothing yet.", T.Density.TextBase, T.TextDimBrush));
         }
         else
         {
@@ -400,6 +687,14 @@ public static class OverlayView
             Spacing = 10,
             Children = { what, who },
         };
+
+        // The rank, as on the Instance list, so a row the Rank filter kept says why it was kept.
+        if (@event.Person is { } person && ListFiltering.RankOf(person) is { } rank)
+        {
+            var mark = RankLine(rank, T.Density.TextSmall);
+            mark.VerticalAlignment = VerticalAlignment.Center;
+            line.Children.Add(mark);
+        }
 
         // The clock the event arrived with, in the moderator's own time. It is the server's
         // stamp, not this machine's.
@@ -558,6 +853,11 @@ public static class OverlayView
         var rows = new StackPanel { Spacing = RowGap };
 
         var here = screen.Roster.Value?.Members.Count ?? 0;
+        var filters = screen.RosterFiltersOrNone;
+        var arrivals = screen.ArrivalsOrNone;
+        var shown = screen.Roster.Value is { } loaded
+            ? ListFiltering.Roster(loaded.Members, filters, arrivals, screen.Now)
+            : [];
 
         rows.Children.Add(new DockPanel
         {
@@ -565,7 +865,9 @@ public static class OverlayView
             Children =
             {
                 Dock(Text(
-                    here == 1 ? "1 here" : here + " here",
+                    filters.Hides ? shown.Count + " of " + here + " here"
+                        : here == 1 ? "1 here"
+                        : here + " here",
                     T.Density.TextSmall,
                     T.TextDimBrush,
                     FontWeight.SemiBold), Avalonia.Controls.Dock.Left),
@@ -589,23 +891,31 @@ public static class OverlayView
                 T.Density.TextBase,
                 T.TextDimBrush));
         }
+        else if (shown.Count == 0)
+        {
+            rows.Children.Add(Text("Nobody matches.", T.Density.TextBase, T.TextDimBrush));
+        }
         else
         {
-            // Flagged first, then staff, then everybody else: the overlay's job is to put the row
-            // that matters where the eye lands, not to reproduce a sortable table. Within a band
-            // the order is by the name in plain letters, so 𝕬𝖑𝖊𝖝 sits with the As.
-            var ordered = context.Members
-                .OrderBy(Priority)
-                .ThenBy(SortName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            // Unless the moderator picked another order: flagged first, then staff, then everybody
+            // else. The overlay's job is to put the row that matters where the eye lands
+            // (ListFiltering.Roster).
 
             // Scrolled-past rows are counted, not hidden without a word.
-            var skip = Math.Clamp(screen.RosterSkip, 0, Math.Max(0, ordered.Count - 1));
+            var skip = Math.Clamp(screen.RosterSkip, 0, Math.Max(0, shown.Count - 1));
             if (skip > 0)
                 rows.Children.Add(Text(skip == 1 ? "1 more above" : skip + " more above", T.Density.TextSmall, T.TextDimBrush));
 
-            foreach (var member in ordered.Skip(skip))
-                rows.Children.Add(RosterRow(member));
+            // How long each person has been here, from this PC's own log. Nothing when the log
+            // never mentioned them, rather than a guess.
+            foreach (var member in shown.Skip(skip))
+            {
+                var joined = arrivals.TryGetValue(member.SubjectId, out var at) && screen.Now != default
+                    ? ListFiltering.JoinedWords(at, screen.Now)
+                    : null;
+
+                rows.Children.Add(RosterRow(member, joined));
+            }
         }
 
         return new Border
@@ -620,25 +930,8 @@ public static class OverlayView
         };
     }
 
-    private static int Priority(RosterMember member) => member.Standing switch
-    {
-        RosterStanding.Flagged => 0,
-        RosterStanding.Staff => 1,
-        RosterStanding.Member => 2,
-        _ => 3,
-    };
-
-    /// <summary>The name in plain letters, else the name, else the id: what the row sorts by.</summary>
-    private static string SortName(RosterMember member)
-    {
-        if (member.DisplayName is null)
-            return member.SubjectId;
-
-        var plain = NameNormalizer.Readable(member.DisplayName);
-        return plain.Length == 0 ? member.DisplayName : plain;
-    }
-
-    private static Control RosterRow(RosterMember member)
+    /// <param name="joined">How long they have been here, in words, or null when it is not known.</param>
+    private static Control RosterRow(RosterMember member, string? joined)
     {
         var badge = new Ellipse
         {
@@ -682,10 +975,13 @@ public static class OverlayView
             line.Children.Add(mark);
         }
 
+        if (member.EighteenPlus == true)
+            line.Children.Add(EighteenPlusChip());
+
         if (member.Flags.Count > 0)
             line.Children.Add(FlagChip(string.Join(" · ", member.Flags)));
 
-        return Row(line, member.SubjectId);
+        return Row(line, member.SubjectId, joined);
     }
 
     /// <summary>How tall one roster or events row is, in panel pixels.</summary>
@@ -710,16 +1006,28 @@ public static class OverlayView
     /// also lit while the mouse is over it. A row with nothing behind it has no box, which is how
     /// it says so.
     /// </remarks>
-    private static Control Row(Control line, string? subjectId)
+    /// <param name="trailing">Words at the row's far end, such as how long somebody has been here.</param>
+    private static Control Row(Control line, string? subjectId, string? trailing = null)
     {
         line.VerticalAlignment = VerticalAlignment.Center;
+
+        Control content = line;
+        if (trailing is not null)
+        {
+            var end = Text(trailing, T.Density.TextSmall, T.TextDimBrush);
+            end.VerticalAlignment = VerticalAlignment.Center;
+            end.Margin = new Thickness(10, 0, 0, 0);
+            DockPanel.SetDock(end, Avalonia.Controls.Dock.Right);
+
+            content = new DockPanel { LastChildFill = true, Children = { end, line } };
+        }
 
         var row = new Border
         {
             Height = RowBoxHeight,
             Padding = new Thickness(12, 0),
             CornerRadius = T.CornerRadius,
-            Child = line,
+            Child = content,
         };
 
         if (subjectId is null)
@@ -755,6 +1063,27 @@ public static class OverlayView
             BorderThickness = new Thickness(T.Density.Hairline),
             CornerRadius = T.CornerRadius,
             Padding = new Thickness(8, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = label,
+        };
+    }
+
+    /// <summary>
+    /// Modbot's 18+ mark on a roster row, in the green the website's Members list gives it. Shown
+    /// only on those who carry it, so somebody without it gets no mark at all.
+    /// </summary>
+    private static Control EighteenPlusChip()
+    {
+        var label = Text("18+", T.Density.TextSmall, T.OkBrush, FontWeight.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Background = new SolidColorBrush(T.Palette.Ok, 0.16),
+            BorderBrush = T.OkBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(6, 1),
             VerticalAlignment = VerticalAlignment.Center,
             Child = label,
         };

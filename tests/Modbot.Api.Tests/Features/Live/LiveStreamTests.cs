@@ -171,6 +171,7 @@ public class LiveStreamTests
         Assert.Equal("Rin", person.GetProperty("displayName").GetString());
         Assert.Equal("Ordinary", person.GetProperty("standing").GetString());
         Assert.Equal(JsonValueKind.Null, person.GetProperty("trustRank").ValueKind);
+        Assert.Equal(JsonValueKind.Null, person.GetProperty("eighteenPlus").ValueKind);
 
         var second = await NextEventAsync(socket);
         Assert.Equal(leave.ToString(System.Globalization.CultureInfo.InvariantCulture), second.GetProperty("id").GetString());
@@ -199,6 +200,38 @@ public class LiveStreamTests
         Assert.Equal("Flagged", @event.GetProperty("person").GetProperty("standing").GetString());
         Assert.Equal(2, @event.GetProperty("person").GetProperty("priorActions").GetInt32());
         Assert.False(@event.GetProperty("byThisDevice").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AJoinCarriesTheEighteenPlusMarkOffTheStoredProfile()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        var subject = Subject();
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            db.VRChatUsers.Add(new VRChatUser
+            {
+                UserId = subject,
+                DisplayName = "Rin",
+                AgeVerificationStatus = "18+",
+                Is18PlusVerified = true,
+                FirstSeenAt = host.Clock.UtcNow,
+                LastSeenAt = host.Clock.UtcNow,
+                LastRefreshedAt = host.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
+        await NextOfKindAsync(socket, "hello");
+
+        await WriteAsync(host, FactType.InstanceJoined, subject, displayName: "Rin");
+
+        var @event = await NextEventAsync(socket);
+        Assert.True(@event.GetProperty("person").GetProperty("eighteenPlus").GetBoolean());
     }
 
     [Fact]

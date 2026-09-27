@@ -85,6 +85,19 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// <summary>The wheel, or j and k, as whole roster rows.</summary>
     public event Action<int>? RosterScrolled;
 
+    /// <summary>The name searched for, as typed here while the Name filter is open, with its list.</summary>
+    public event Action<OverlayPage, string>? NameTyped;
+
+    /// <summary>
+    /// The name being typed, kept here rather than read back off the drawn screen: the drive
+    /// loop draws four times a second, and two keys pressed between draws would otherwise each
+    /// start from the same old text. Null while no Name filter is open.
+    /// </summary>
+    private string? _typing;
+
+    /// <summary>The list <see cref="_typing"/> belongs to.</summary>
+    private OverlayPage? _typingFor;
+
     public DesktopOverlayWindow()
     {
         Title = "Modbot";
@@ -142,8 +155,31 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         };
 
         KeyDown += OnKeyDown;
+        TextInput += OnTextInput;
 
         _throughWatch.Tick += (_, _) => WatchTheMouse();
+    }
+
+    /// <summary>The list whose Name filter is open on the screen drawn now, or null.</summary>
+    private OverlayPage? TypingFor
+        => _drawn is { ShownFilters.Open: FilterPart.Name } drawn ? drawn.Page : null;
+
+    /// <summary>Letters go into the name while its filter is open, and are the list's keys otherwise.</summary>
+    private void OnTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (TypingFor is not { } list || string.IsNullOrEmpty(e.Text))
+            return;
+
+        // Control characters are keys, not text; Backspace and Enter are handled as keys.
+        var typed = new string(e.Text.Where(c => !char.IsControl(c)).ToArray());
+        if (typed.Length == 0)
+            return;
+
+        var next = (_typing ?? string.Empty) + typed;
+        _typing = next.Length > ListFilters.LongestName ? next[..ListFilters.LongestName] : next;
+
+        NameTyped?.Invoke(list, _typing);
+        e.Handled = true;
     }
 
     /// <summary>
@@ -220,6 +256,15 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             return false;
 
         _drawn = screen;
+
+        // The name being typed starts from what the list already holds whenever its filter opens,
+        // and is let go when it closes.
+        if (TypingFor != _typingFor)
+        {
+            _typingFor = TypingFor;
+            _typing = _typingFor is null ? null : screen.ShownFilters?.Name ?? string.Empty;
+        }
+
         _groupName.Text = screen.GroupLabel ?? "Not in a group instance";
         _groupName.Foreground = screen.GroupLabel is null ? Ui.T.TextDimBrush : Ui.T.TextBrush;
 
@@ -464,6 +509,31 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </remarks>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        // While a name is being typed, letters are letters: j and k go into it rather than
+        // scrolling. Backspace takes the last character off, and Enter closes the filter.
+        if (TypingFor is { } list)
+        {
+            switch (e.Key)
+            {
+                case Key.Back:
+                    if (_typing is { Length: > 0 } typing)
+                    {
+                        var shorter = new System.Globalization.StringInfo(typing);
+                        _typing = shorter.LengthInTextElements > 1 ? shorter.SubstringByTextElements(0, shorter.LengthInTextElements - 1) : string.Empty;
+                        NameTyped?.Invoke(list, _typing);
+                    }
+
+                    e.Handled = true;
+                    return;
+                case Key.Enter:
+                    PanelTapped?.Invoke(new OverlayTarget.Filter(list, FilterPart.Name));
+                    e.Handled = true;
+                    return;
+                case Key.J or Key.K:
+                    return;
+            }
+        }
+
         switch (e.Key)
         {
             case Key.J or Key.Down:

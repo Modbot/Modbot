@@ -65,6 +65,34 @@ public abstract record OverlayTarget
     /// <summary>The bar's hand: the panel lets rays through to VRChat while it is on.</summary>
     /// <remarks>Handled by the panel's own host, like <see cref="Lock"/>.</remarks>
     public sealed record ClickThrough : OverlayTarget;
+
+    /// <summary>
+    /// One of a list's filters in the row above it. Tapping it shows its choices under the row, or
+    /// hides them when they are showing.
+    /// </summary>
+    /// <param name="List">The list it filters: <see cref="Views.OverlayPage.Instance"/> or <see cref="Views.OverlayPage.Events"/>.</param>
+    public sealed record Filter(Views.OverlayPage List, Views.FilterPart Part) : OverlayTarget;
+
+    /// <summary>
+    /// One choice among an open filter's. A filter that takes one choice takes it and closes; a
+    /// filter that takes several ticks or unticks it and stays open.
+    /// </summary>
+    /// <param name="Choice">
+    /// Which choice: the enum's value for Who, the time and the order; the rank's value, or -1 for
+    /// "Not known"; the kind's place in <see cref="Views.KindPick.Offered"/>. For Name it is 0, and
+    /// clears the name.
+    /// </param>
+    public sealed record Pick(Views.OverlayPage List, Views.FilterPart Part, int Choice) : OverlayTarget;
+
+    /// <summary>Clear: every filter on a list back to showing everybody.</summary>
+    public sealed record ClearFilters(Views.OverlayPage List) : OverlayTarget;
+
+    /// <summary>
+    /// The box holding the name searched for. In a headset, tapping it brings up the runtime's
+    /// keyboard with <paramref name="Text"/> already in it; on the desktop window, typing goes
+    /// there while it is showing.
+    /// </summary>
+    public sealed record TypeName(Views.OverlayPage List, string Text) : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>

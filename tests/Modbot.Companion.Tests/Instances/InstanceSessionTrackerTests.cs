@@ -370,4 +370,66 @@ public class InstanceSessionTrackerTests
         // that is reported to anybody.
         Assert.Empty(Feed(Joining(), new WorldNameEvent(Tick(), "The Black Cat")));
     }
+
+    // --- When each person got here, for the overlay's Instance list ------------------------------
+
+    [Fact]
+    public void PeopleAlreadyHereHaveNoArrivalTimeAndTheModeratorAndLaterArrivalsDo()
+    {
+        Feed(
+            Joining(),
+            Joined("usr_a"),
+            Joined(Local, "me"),
+            new LocalPlayerIdentifiedEvent(Tick(), "me"));
+        var mine = _at.AddSeconds(-1);
+
+        var late = Joined("usr_late");
+        Feed(late);
+
+        Assert.True(_tracker.ArrivedAt.ContainsKey("usr_a"));
+        Assert.Null(_tracker.ArrivedAt["usr_a"]);
+        Assert.Equal(mine, _tracker.ArrivedAt[Local]);
+        Assert.Equal(late.Timestamp, _tracker.ArrivedAt["usr_late"]);
+    }
+
+    [Fact]
+    public void SomebodyWhoLeftHasNoArrivalTime()
+    {
+        Feed(
+            Joining(),
+            Joined(Local, "me"),
+            new LocalPlayerIdentifiedEvent(Tick(), "me"),
+            Joined("usr_late"),
+            Left("usr_late"));
+
+        Assert.False(_tracker.ArrivedAt.ContainsKey("usr_late"));
+    }
+
+    [Fact]
+    public void ANewInstanceStartsWithNoArrivalTimes()
+    {
+        Feed(
+            Joining(),
+            Joined(Local, "me"),
+            new LocalPlayerIdentifiedEvent(Tick(), "me"),
+            Joined("usr_late"),
+            new LocalPlayerLeftRoomEvent(Tick()),
+            Joining());
+
+        Assert.Empty(_tracker.ArrivedAt);
+    }
+
+    [Fact]
+    public void ForgettingTheSessionForgetsTheArrivalTimes()
+    {
+        Feed(
+            Joining(),
+            Joined(Local, "me"),
+            new LocalPlayerIdentifiedEvent(Tick(), "me"),
+            Joined("usr_late"));
+
+        _tracker.ForgetSession();
+
+        Assert.Empty(_tracker.ArrivedAt);
+    }
 }
