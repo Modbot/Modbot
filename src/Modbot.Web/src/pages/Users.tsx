@@ -19,7 +19,7 @@ import {
 import { formatDay } from '@/lib/format'
 import { usernameProblem } from '@/lib/username'
 import { cn } from '@/lib/utils'
-import { Empty } from '@/pages/Members'
+import { Empty } from '@/components/ListParts'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
 import { ConfirmButton } from '@/components/settings/fields'

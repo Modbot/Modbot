@@ -43,7 +43,7 @@ public class PeopleTests
         settings.ManagedGroupId = Group;
 
         db.GroupMembers.AddRange(
-            new GroupMember { GroupId = Group, UserId = "usr_alice", Roles = "[]", JoinedAt = Day.AddDays(-30), FirstSeenAt = Day, LastSeenAt = Day },
+            new GroupMember { GroupId = Group, UserId = "usr_alice", Roles = "[\"grol_mod\"]", IsRepresenting = true, JoinedAt = Day.AddDays(-30), FirstSeenAt = Day, LastSeenAt = Day },
             new GroupMember { GroupId = Group, UserId = "usr_gone", Roles = "[]", JoinedAt = Day.AddDays(-5), FirstSeenAt = Day, LastSeenAt = Day, LeftAt = Day.AddHours(1) });
 
         db.GroupBans.AddRange(
@@ -429,14 +429,115 @@ public class PeopleTests
     }
 
     [Fact]
-    public async Task ItNeedsSeeProfilesAndSeeMembersIsNotEnough()
+    public async Task EachRowCarriesTheMemberListsFieldsAndNobodyElseHasAny()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+        var list = await host.GetJsonAsync<PeopleListResponse>("/api/people", cookie, Ct);
+
+        var alice = list.People.Single(p => p.UserId == "usr_alice");
+        Assert.Equal(["grol_mod"], alice.RoleIds);
+        // No group-info snapshot names the role, so it is shown as its id.
+        Assert.Equal(["grol_mod"], alice.RoleNames);
+        Assert.Equal(Day.AddDays(-30), alice.JoinedAt);
+        Assert.True(alice.IsRepresenting);
+        Assert.NotNull(alice.LinkedDiscord);
+        Assert.Equal("111", alice.LinkedDiscord.UserId);
+
+        var gone = list.People.Single(p => p.UserId == "usr_gone");
+        Assert.Equal(Day.AddDays(-5), gone.JoinedAt);
+
+        var visitor = list.People.Single(p => p.UserId == "usr_visitor");
+        Assert.Empty(visitor.RoleIds);
+        Assert.Null(visitor.JoinedAt);
+        Assert.False(visitor.IsRepresenting);
+        Assert.Null(visitor.LinkedDiscord);
+
+        // The Role filter's choices come from the group's roles, which nothing has read yet here;
+        // and no member sweep has finished, which the Members view says.
+        Assert.Empty(list.Roles);
+        Assert.False(list.Coverage.MemberList.FirstSweepComplete);
+    }
+
+    [Fact]
+    public async Task TheMemberListsFiltersNarrowPeopleTheWayTheyNarrowedMembers()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        var mods = await host.GetJsonAsync<PeopleListResponse>("/api/people?role=grol_mod", cookie, Ct);
+        Assert.Equal(["usr_alice"], mods.People.Select(p => p.UserId));
+
+        // Holding none of the roles, and having no role at all, both take in everybody who was
+        // never a member: they hold no role.
+        var notMods = await host.GetJsonAsync<PeopleListResponse>("/api/people?notRole=grol_mod", cookie, Ct);
+        Assert.Equal(4, notMods.Total);
+        Assert.DoesNotContain("usr_alice", notMods.People.Select(p => p.UserId));
+
+        var noRole = await host.GetJsonAsync<PeopleListResponse>("/api/people?membership=member&noRole=true", cookie, Ct);
+        Assert.Empty(noRole.People);
+
+        var someRole = await host.GetJsonAsync<PeopleListResponse>("/api/people?noRole=false", cookie, Ct);
+        Assert.Equal(["usr_alice"], someRole.People.Select(p => p.UserId));
+
+        var representing = await host.GetJsonAsync<PeopleListResponse>("/api/people?representing=true", cookie, Ct);
+        Assert.Equal(["usr_alice"], representing.People.Select(p => p.UserId));
+
+        var notRepresenting = await host.GetJsonAsync<PeopleListResponse>("/api/people?representing=false", cookie, Ct);
+        Assert.Equal(4, notRepresenting.Total);
+
+        // What an unusual-activity alert links to: the people who joined inside the stretch.
+        // Somebody who never joined is outside every stretch.
+        var from = Uri.EscapeDataString(Day.AddDays(-10).ToString("O"));
+        var to = Uri.EscapeDataString(Day.ToString("O"));
+        var recent = await host.GetJsonAsync<PeopleListResponse>($"/api/people?joinedFrom={from}&joinedTo={to}", cookie, Ct);
+        Assert.Equal(["usr_gone"], recent.People.Select(p => p.UserId));
+    }
+
+    [Fact]
+    public async Task SortsByNewestJoinerFirstWithPeopleWhoNeverJoinedLast()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
+
+        var joined = await host.GetJsonAsync<PeopleListResponse>("/api/people?sort=joined", cookie, Ct);
+        Assert.Equal(["usr_gone", "usr_alice"], joined.People.Take(2).Select(p => p.UserId));
+        Assert.Equal(5, joined.Total);
+    }
+
+    [Fact]
+    public async Task SeeMembersAloneReadsTheMemberListsTwoViewsAndNothingWider()
     {
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
         await host.ResetAsync(Ct);
         await SeedAsync(host);
 
         var membersOnly = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+
+        var members = await host.GetJsonAsync<PeopleListResponse>("/api/people?membership=member", membersOnly, Ct);
+        Assert.Equal(["usr_alice"], members.People.Select(p => p.UserId));
+        // A link needs See profiles (Discord account linking design §11).
+        Assert.Null(members.People[0].LinkedDiscord);
+
+        var left = await host.GetJsonAsync<PeopleListResponse>("/api/people?membership=left", membersOnly, Ct);
+        Assert.Equal(["usr_gone"], left.People.Select(p => p.UserId));
+
         Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/people", membersOnly, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/people?membership=not-member", membersOnly, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/people?membership=member&flagged=true", membersOnly, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/people?membership=member&linked=linked", membersOnly, Ct)).StatusCode);
+
+        var neither = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/people?membership=member", neither, Ct)).StatusCode);
 
         var profiles = await host.SignedInAsync(ModbotPermissions.ViewProfile, Ct);
         Assert.Equal(HttpStatusCode.OK, (await host.GetAsync("/api/people", profiles, Ct)).StatusCode);

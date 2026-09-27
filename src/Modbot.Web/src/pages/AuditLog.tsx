@@ -21,7 +21,7 @@ import { useShortcuts } from '@/lib/shortcuts'
 import { openAccount, openDiscordPerson, openInstance, openPerson } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { cn } from '@/lib/utils'
-import { Empty } from '@/pages/Members'
+import { Empty } from '@/components/ListParts'
 
 /** A burst of facts -- a sweep, six clients reporting one join -- is one read, not one each. */
 const SETTLE_MS = 400
