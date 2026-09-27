@@ -29,7 +29,7 @@ import {
 import { cn } from '@/lib/utils'
 import { vrchatPermissionLabel, vrchatRolesPage } from '@/lib/vrchatPermissions'
 import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
-import { Empty } from './Members'
+import { Empty } from '@/components/ListParts'
 
 /**
  * What the gate and the producers would tell an operator about themselves (spec 4.2.3, 4.3.3).

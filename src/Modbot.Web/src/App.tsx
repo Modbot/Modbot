@@ -16,11 +16,12 @@ import { setVRChatImagesProxied } from '@/lib/vrchatMedia'
 import {
   CREDITS_PATH,
   GO_TO_KEYS,
+  MEMBERS_PATH,
   MOVED,
   NAV,
   goesByName,
   mayOpen,
-  oldMembersAddress,
+  membersAddress,
   titleWithCount,
   waitingTotal,
   type PageId,
@@ -51,7 +52,6 @@ import { Login } from '@/pages/Login'
 import { Connect } from '@/pages/Connect'
 import { Logs } from '@/pages/Logs'
 import { DiscordMembers } from '@/pages/DiscordMembers'
-import { Members } from '@/pages/Members'
 import { Now } from '@/pages/Now'
 import { Requests } from '@/pages/Requests'
 import { People } from '@/pages/People'
@@ -71,7 +71,8 @@ import { Setup } from '@/pages/setup/Setup'
 
 const TITLES: Record<PageId, string> = {
   now: 'Now',
-  members: 'Members',
+  // A view of People, which the sidebar lights while it is open.
+  members: 'People',
   requests: 'Requests',
   // Shown as the Members part of the Discord page, so it carries that page's name, as the sidebar does.
   'discord-members': 'Discord',
@@ -110,7 +111,7 @@ const FLAGGED_HERE_SETTLE_MS = 1_000
  */
 const PATHS: Record<PageId, string> = {
   now: '/',
-  members: '/members',
+  members: MEMBERS_PATH,
   requests: '/requests',
   'discord-members': '/discord/members',
   people: '/people',
@@ -159,6 +160,9 @@ function chatConversationId(path: string): string | null {
 function pageFor(path: string): PageId {
   if (caseFileId(path)) return 'cases'
   if (chatConversationId(path)) return 'chat'
+
+  // The member list's old address, on its way to People (`membersAddress`).
+  if (path === '/members') return 'people'
 
   // An address that moved may name a tab inside the page it moved to (`/settings#iam/users`),
   // and the router does not carry the hash: the page is whatever comes before the `#`, and the
@@ -340,14 +344,15 @@ function Shell({
     if (moved) navigate(moved, { replace: true })
   }, [route, navigate])
 
-  // The member list lived at `/` until Now took it. `/` still opens Now, but a `/` carrying the
-  // list's own filters or page was a link to the list, and is sent on to it.
+  // The member list lived at `/`, then at `/members`, and is now People narrowed to members. A
+  // `/members` link, and a `/` carrying the list's own filters or page, is sent on to that view;
+  // until it has gone, neither Now nor People is drawn for the old address.
   const [location] = useLocation()
   const search = location.search.toString()
+  const movingToMembers = membersAddress(route, search)
   useEffect(() => {
-    const members = oldMembersAddress(route, search)
-    if (members) navigate(members, { replace: true })
-  }, [route, search, navigate])
+    if (movingToMembers) navigate(movingToMembers, { replace: true })
+  }, [movingToMembers, navigate])
 
   // A page this person may not open shows the first one they may. The server refuses the data
   // regardless; this only keeps the shell from rendering an empty page with an error in it.
@@ -554,7 +559,7 @@ function Shell({
           onSignOut={signOut}
         />
         <div className="p-4 lg:p-5">
-          {page === 'now' && (
+          {page === 'now' && !movingToMembers && (
             <Now
               me={me}
               onOpenSubject={setSubject}
@@ -562,10 +567,9 @@ function Shell({
               onOpenHealth={(section) => go(section ? `${PATHS.health}#${section}` : PATHS.health)}
             />
           )}
-          {page === 'members' && <Members me={me} onOpenSubject={setSubject} />}
           {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} />}
           {page === 'discord-members' && <DiscordMembers me={me} pathOf={(id) => PATHS[id]} />}
-          {page === 'people' && <People />}
+          {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live />}
           {page === 'calendar' && <Calendar />}
           {page === 'giveaways' && <Giveaways />}

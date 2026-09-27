@@ -300,7 +300,7 @@ public static class MemberEndpoints
                 PlainName.Of(x.u?.DisplayName),
                 Picture(x.u),
                 ids,
-                ids.Select(id => roles.TryGetValue(id, out var name) ? name ?? id : id).ToList(),
+                RoleNames(ids, roles),
                 x.m.JoinedAt,
                 x.m.MembershipStatus,
                 x.m.Visibility,
@@ -320,12 +320,20 @@ public static class MemberEndpoints
             total,
             pageNumber,
             size,
-            roles
-                .Select(r => new RoleOption(r.Key, r.Value, held.GetValueOrDefault(r.Key)))
-                .OrderBy(r => r.Name ?? r.Id, StringComparer.OrdinalIgnoreCase)
-                .ToList(),
+            RoleOptions(roles, held),
             MemberCoverage(settings, clock.UtcNow));
     }
+
+    /// <summary>The group's roles as a filter offers them: by name, each with how many current members hold it.</summary>
+    internal static IReadOnlyList<RoleOption> RoleOptions(Dictionary<string, string?> roles, Dictionary<string, int> held)
+        => roles
+            .Select(r => new RoleOption(r.Key, r.Value, held.GetValueOrDefault(r.Key)))
+            .OrderBy(r => r.Name ?? r.Id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    /// <summary>Role ids as names; an id the group's roles have no name for is shown as the id.</summary>
+    internal static IReadOnlyList<string> RoleNames(IReadOnlyList<string> ids, Dictionary<string, string?> roles)
+        => ids.Select(id => roles.TryGetValue(id, out var name) ? name ?? id : id).ToList();
 
     /// <summary>
     /// How many current members hold each role.
@@ -335,7 +343,7 @@ public static class MemberEndpoints
     /// per member, a group is thousands of rows at most, and the count is read once per page of
     /// the list. The number is what lets a filter say what it will show before it is applied.
     /// </remarks>
-    private static async Task<Dictionary<string, int>> RoleCountsAsync(ModbotContext db, string groupId, CancellationToken ct)
+    internal static async Task<Dictionary<string, int>> RoleCountsAsync(ModbotContext db, string groupId, CancellationToken ct)
     {
         var rows = await db.GroupMembers.AsNoTracking()
             .Where(m => m.GroupId == groupId && m.LeftAt == null && m.Roles != "[]")
@@ -353,7 +361,7 @@ public static class MemberEndpoints
     }
 
     /// <summary>Repeated query values, trimmed, with blanks and repeats dropped. Null when none.</summary>
-    private static IReadOnlyList<string>? Ids(string[]? values)
+    internal static IReadOnlyList<string>? Ids(string[]? values)
     {
         var ids = (values ?? [])
             .Where(v => !string.IsNullOrWhiteSpace(v))
@@ -368,7 +376,7 @@ public static class MemberEndpoints
     /// The linked Discord account of each of these VRChat users that has one, with how the stored
     /// Discord member list has them, in two queries.
     /// </summary>
-    private static async Task<Dictionary<string, LinkedDiscordView>> LinkedDiscordAsync(
+    internal static async Task<Dictionary<string, LinkedDiscordView>> LinkedDiscordAsync(
         ModbotContext db, string? guildId, IReadOnlyList<string> vrchatUserIds, CancellationToken ct)
     {
         if (vrchatUserIds.Count == 0)
@@ -430,7 +438,7 @@ public static class MemberEndpoints
             Known: member is not null,
             IsMember: member is { LeftAt: null },
             ids,
-            ids.Select(r => roles.TryGetValue(r, out var name) ? name ?? r : r).ToList(),
+            RoleNames(ids, roles),
             member?.JoinedAt,
             member?.MembershipStatus,
             member?.Visibility,
@@ -515,7 +523,7 @@ public static class MemberEndpoints
             BanCoverage(settings, clock.UtcNow));
     }
 
-    private static MemberListCoverage MemberCoverage(SettingsRow? settings, DateTimeOffset now) => new(
+    internal static MemberListCoverage MemberCoverage(SettingsRow? settings, DateTimeOffset now) => new(
         settings?.MemberSweepCompletedAt is not null,
         settings?.MemberSweepCompletedAt,
         settings?.MemberSweepStartedAt is not null,
@@ -534,7 +542,7 @@ public static class MemberEndpoints
     /// polled once, in which case roles are shown by id -- honest, and it fixes itself within five
     /// minutes of the group being configured.
     /// </summary>
-    private static Dictionary<string, string?> RolesOf(SettingsRow? settings)
+    internal static Dictionary<string, string?> RolesOf(SettingsRow? settings)
     {
         var snapshot = GroupInfoSnapshot.Parse(settings?.GroupInfoSnapshot);
 

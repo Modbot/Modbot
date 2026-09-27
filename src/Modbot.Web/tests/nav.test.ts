@@ -7,8 +7,9 @@ import {
   MOVED,
   NAV,
   goesByName,
+  MEMBERS_PATH,
   mayOpen,
-  oldMembersAddress,
+  membersAddress,
   sidebarEntry,
   titleWithCount,
   waitingTotal,
@@ -83,9 +84,27 @@ test('Settings opens for somebody who may manage only users or only roles', () =
   assert.equal(mayOpen(person('ViewMembers'), 'settings'), false)
 })
 
-test('People is its own page and asks for See profiles, not See members', () => {
+test('People opens with See profiles, and with See members for the Members view', () => {
   assert.equal(mayOpen(person('ViewProfile'), 'people'), true)
-  assert.equal(mayOpen(person('ViewMembers'), 'people'), false)
+  assert.equal(mayOpen(person('ViewMembers'), 'people'), true)
+  assert.equal(mayOpen(person('ViewMembers'), 'members'), true)
+  assert.equal(mayOpen(person('ViewProfile'), 'members'), false)
+  assert.equal(mayOpen(person('ViewAnalytics'), 'people'), false)
+})
+
+test('Members is off the page list, a view of People, which the sidebar lights', () => {
+  const members = NAV.find((n) => n.id === 'members')
+
+  assert.ok(members && 'hidden' in members && members.hidden)
+  assert.equal(sidebarEntry('members'), 'people')
+  assert.equal(MEMBERS_PATH, '/people?f=membership%3Ais%3Amember')
+})
+
+test('Members is still offered by name and keeps its chord', () => {
+  const members = NAV.find((n) => n.id === 'members')
+
+  assert.ok(members && goesByName(members))
+  assert.equal(GO_TO_KEYS.members, 'm')
 })
 
 test('Requests asks for its own permission, not See members', () => {
@@ -124,7 +143,6 @@ test('Discord members is off the page list, shown as part of Discord, which the 
   assert.ok(discordMembers && 'hidden' in discordMembers && discordMembers.hidden)
   assert.equal(sidebarEntry('discord-members'), 'analytics-server')
   assert.equal(sidebarEntry('analytics-server'), 'analytics-server')
-  assert.equal(sidebarEntry('members'), 'members')
   assert.equal(mayOpen(person('ViewMembers'), 'discord-members'), true)
 })
 
@@ -163,16 +181,34 @@ test('Now is the first page and needs no permission of its own', () => {
   assert.equal(GO_TO_KEYS.now, 'k')
 })
 
-test('an old member list address with its filters goes on to /members, keeping them', () => {
-  assert.equal(oldMembersAddress('/', '?f=status:is:current'), '/members?f=status%3Ais%3Acurrent')
-  assert.equal(oldMembersAddress('/', '?page=3&subject=usr_1'), '/members?page=3&subject=usr_1')
+test('/members goes to the Members view of People, keeping the rest of the address', () => {
+  assert.equal(membersAddress('/members', ''), MEMBERS_PATH)
+  assert.equal(membersAddress('/members', '?page=3&subject=usr_1'), '/people?page=3&subject=usr_1&f=membership%3Ais%3Amember')
+})
+
+test("the member list's Status chip becomes People's Membership chip, and its other chips carry over", () => {
+  assert.equal(membersAddress('/members', '?f=status:is:current'), MEMBERS_PATH)
+  assert.equal(membersAddress('/members', '?f=status:is:left&f=role:is:grol_a'), '/people?f=membership%3Ais%3Aleft&f=role%3Ais%3Agrol_a')
+
+  // Its "everybody" is no Membership chip at all, and "no filters" stays "no filters".
+  assert.equal(membersAddress('/members', '?f=status:is:all&f=hasRole:yes:'), '/people?f=hasRole%3Ayes%3A')
+  assert.equal(membersAddress('/members', '?f='), '/people?f=')
+})
+
+test('an old member list address on / goes to People too, and so does an old alert', () => {
+  assert.equal(membersAddress('/', '?f=status:is:current'), MEMBERS_PATH)
+  assert.equal(membersAddress('/', '?page=3&subject=usr_1'), '/people?page=3&subject=usr_1&f=membership%3Ais%3Amember')
+  assert.equal(
+    membersAddress('/', '?joinedFrom=2026-03-10T12%3A00%3A00Z&joinedTo=2026-03-10T13%3A00%3A00Z'),
+    '/people?joinedFrom=2026-03-10T12%3A00%3A00Z&joinedTo=2026-03-10T13%3A00%3A00Z&f=membership%3Ais%3Amember',
+  )
 })
 
 test('a plain /, a person link on /, and every other address stay where they are', () => {
-  assert.equal(oldMembersAddress('/', ''), null)
-  assert.equal(oldMembersAddress('/', '?subject=usr_1'), null)
-  assert.equal(oldMembersAddress('/members', '?f=status:is:current'), null)
-  assert.equal(oldMembersAddress('/audit', '?f=type:is:x'), null)
+  assert.equal(membersAddress('/', ''), null)
+  assert.equal(membersAddress('/', '?subject=usr_1'), null)
+  assert.equal(membersAddress('/people', '?f=membership:is:member'), null)
+  assert.equal(membersAddress('/audit', '?f=type:is:x'), null)
 })
 
 test("Instances is off the page list, shown as the VRChat page's Instances tab, which lights VRChat", () => {

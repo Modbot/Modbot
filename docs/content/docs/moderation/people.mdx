@@ -1,10 +1,11 @@
 ---
 title: People
-description: The People page — everyone Modbot has ever seen, not only the members of your group — with its search, filters and columns.
+description: The People page — everyone Modbot has ever seen, and your group's member list as one view of it — with its search, filters and columns.
 ---
 
-The [Members](/moderation/members-and-bans) page is your group's roster. **People** is everybody
-else as well: every VRChat account Modbot has ever come across, whether or not they ever joined.
+**People** is every VRChat account Modbot has ever come across, whether or not they ever joined your
+group. Your group's member list is one view of it: **Members**, which is People with the
+**Membership** filter set to **Members**.
 
 That includes people it only ever saw once, standing in one of your instances, and people it only
 ever read about in your group's audit log. Modbot has been keeping a record of them all along —
@@ -16,32 +17,48 @@ The **People** page needs **See profiles**
 [person popup](/moderation/popups#person-popup) does not already show to the same permission; what
 it adds is the list.
 
+**See members** on its own opens the **Members** view and the **People who left** view, and nothing
+wider: no **Discord** column, and no **Discord** or **Has flags** filter, since both need See
+profiles.
+
 ## Opening it
 
-**People** is in the sidebar, under Members and Requests. `g` then `n` opens it from
-anywhere.
+**People** is in the sidebar. `g` then `n` opens it from anywhere.
 
-Above the list: how many people Modbot knows about in total, and how many of them are in your group
-right now.
+**Members** opens the same page with **Membership** set to **Members**. It is the **Members** tab on
+the [VRChat page](/analytics#the-groups-header-and-tabs), `g` then `m` from anywhere, and **Members** in the
+search (`Ctrl`+`K`). The sidebar lights **People** while it is open.
+
+The Members page was a page of its own until September 2026. Its old address, `/members`, and every
+link to it still work: they open the Members view, with the filters the link carried.
+
+Above the list, looking at everybody: how many people Modbot knows about in total, and how many of
+them are in your group right now. Looking at **Members** or **People who left**: when the member
+list was [last synced](/moderation/members-and-bans#what-as-last-swept-means), whether a new sweep is
+running now, and how many members the last complete read found.
 
 ## Search, filters and sorting
 
-Filters are chips above the list, the same as on [Members](/moderation/members-and-bans#search-filters-and-sorting).
-Press **Filter** (or `f`), pick what to filter by, then pick the values; click a chip's values to
-change them and **×** to remove it. Chips combine: a person must match every one. **Clear** removes
-them all. The filters are in the page address, so a copied link opens the same list, and the page
-remembers the filters you last used.
+Filters are chips above the list. Press **Filter** (or `f`), pick what to filter by, then pick the
+values; click a chip's middle word to switch **is** and **is not**, its values to change them, and
+**×** to remove it. Chips combine: a person must match every one. **Clear** removes them all. The
+filters are in the page address, so a copied link opens the same list, and the page remembers the
+filters you last used.
 
 | Filter | Values |
 |---|---|
 | **Membership** | **Members**, **Not members**, or **People who left**. Remove the chip for everybody. |
+| **Role** | Any of your group's roles, each with how many members hold it. **Is not** leaves those people out. |
+| **Has a role** | **Yes** or **No**. Somebody who was never a member has no role. |
 | **On the ban list** | **Yes** or **No**. The group's ban list as it stands now. |
 | **Ever banned** | **Yes** or **No**. Includes bans that have since been lifted. |
 | **Trust rank** | Any of VRChat's [trust ranks](/moderation/profiles#trust-ranks). |
 | **Platform** | **PC**, **Android** or **iOS** — the platform they last used. |
-| **Discord** | **Linked** (only people with a linked Discord account) or **Not linked**. |
+| **Discord** | **Linked** (only people with a linked Discord account) or **Not linked**. Needs **See profiles**. |
 | **18+ verified** | **Yes** or **No**. Modbot's [18+ mark](/moderation/profiles#the-18-verified-mark). |
-| **Has flags** | **Yes** or **No**. Anybody a [moderation rule](/moderation/flags) has ever flagged, dismissed or not. |
+| **Representing** | **Yes** or **No**. Whether they are representing your group. |
+| **Has flags** | **Yes** or **No**. Anybody a [moderation rule](/moderation/flags) has ever flagged, dismissed or not. Needs **See profiles**. |
+| **Joined** | A day, or a stretch of days: when they joined your group. |
 | **Last seen** | A day, or a stretch of days. |
 | **Profile** | **Fetched** or **Not fetched yet**. |
 
@@ -49,26 +66,49 @@ remembers the filters you last used.
 it has never fetched, so "every rank but Visitor" would silently leave out every one of those
 people, which is the opposite of what you would mean by it.
 
+An [unusual activity alert](/ai/alerts) about people joining opens the Members view narrowed to the
+hour it is about. That hour shows as a button beside the filters; press it to remove it.
+
 | Control | Options |
 |---|---|
 | **Search by name or id** | Matches any part of the display name or the VRChat id. Capital letters, accents and fancy lettering do not matter (see [Names](/moderation/names)). It waits a moment after you stop typing. |
-| Sort | **Most recently seen first**, **By name**, or **Known longest first**. |
+| Sort | **Most recently seen first**, **Newest joiner first**, **By name**, or **Known longest first**. |
 
-**By name** puts the people whose profile has not been fetched yet at the end, because they have no
-name to sort by.
+The Members and People who left views start on **Newest joiner first**; everybody else starts on
+**Most recently seen first**. **By name** puts the people whose profile has not been fetched yet at
+the end, because they have no name to sort by.
 
-50 people a page, with **Previous** and **Next** at the bottom and the total on the right. Changing
-a filter, the search or the sort takes you back to the first page.
+50 people a page, with the page numbers at the bottom and the total on the right. The page you are
+on is part of the address, along with your filters, so you can copy the link and send somebody the
+page you are looking at. Changing a filter, the search or the sort takes you back to the first page.
 
 ## Columns
 
+Looking at everybody, or narrowed any way other than to members or people who left:
+
 | Column | What it shows |
 |---|---|
-| **Person** | Picture and display name once Modbot has fetched their profile, otherwise their VRChat id. An **18+** mark if Modbot has ever seen them as 18+ verified, and their [trust rank](/moderation/profiles#trust-ranks). |
+| **Person** | Picture and display name once Modbot has fetched their profile, otherwise their VRChat id. An **18+** mark if Modbot has ever seen them as 18+ verified, their [trust rank](/moderation/profiles#trust-ranks), and "representing" if they are representing your group. |
 | **Standing** | **Member**, **Left**, **Banned**, or **—**. A person can have more than one; most people on this page have none. |
 | **Last seen by Modbot** | The latest time Modbot saw them in anything it recorded. |
 | **Known for** | How long ago Modbot first saw them. |
 | **Profile** | How long ago the stored profile was fetched, **Not fetched yet**, or **No such account**. |
+
+With **Membership** set to **Members** or **People who left**, the member list's columns:
+
+| Column | What it shows |
+|---|---|
+| **Person** | As above. |
+| **Discord** | Only with **See profiles**. Their linked Discord account, and **In server**, **Left** or **Not in server**. |
+| **Roles** | Their group roles. For people who left, the roles they held when they left. |
+| **Joined** | When they joined the group. |
+| **Left** | When a complete read stopped listing them. **People who left** only. |
+| **Last seen by Modbot** | The latest time Modbot saw them in anything it recorded. |
+| **Known for** | How long ago Modbot first saw them. **Members** only. |
+
+In those two views the last column on each row opens a menu with **Kick** and **Ban**, for anybody
+with either permission. See
+[Kicking, banning and unbanning](/moderation/members-and-bans#kicking-banning-and-unbanning).
 
 Click a row to open the [person popup](/moderation/popups#person-popup), the same one every other
 list in Modbot opens. Everything Modbot has about that person is in there: their profile, their
@@ -83,8 +123,11 @@ history, their case files and their figures.
 | `/` | Go to the search box. |
 | `f` | Add a filter. |
 | `g` then `n` | Open People from any page. |
+| `g` then `m` | Open the Members view from any page. |
 | `Ctrl`+`K` (`⌘`+`K` on a Mac) | Search people, worlds and pages, and run actions. |
 | `?` | Every shortcut that works on the open page. |
+
+Letters never fire while you are typing in a box.
 
 ## Why some profiles are old
 
@@ -96,3 +139,6 @@ asks about them — which is exactly what opening them here does. See
 So a person nobody has looked at for a year may show a name and a bio from a year ago for the
 second it takes the fresh copy to arrive. The **Profile** column always says how old what you are
 looking at is.
+
+Names and pictures come from Modbot's profile refresh, which works through people one at a time.
+In a big group, some members show only an id for a while after Modbot is first set up.

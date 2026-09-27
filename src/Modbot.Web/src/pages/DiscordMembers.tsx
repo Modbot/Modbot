@@ -30,7 +30,7 @@ import { can } from '@/lib/permissions'
 import { useShortcuts } from '@/lib/shortcuts'
 import { openDiscordPerson } from '@/lib/subject'
 import { cn } from '@/lib/utils'
-import { Empty, Marks } from '@/pages/Members'
+import { Empty, Marks } from '@/components/ListParts'
 import { ServerHeader } from '@/pages/analytics/ServerHeader'
 
 /**
