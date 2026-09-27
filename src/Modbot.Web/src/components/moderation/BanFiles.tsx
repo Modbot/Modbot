@@ -1,4 +1,4 @@
-import { useId, useRef } from 'react'
+import { useRef } from 'react'
 import { FileImage, FileVideo, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ProgressLine } from '@/components/EvidenceGallery'
@@ -48,29 +48,29 @@ export function AddFileButton({
   label: string
   onPick: (file: File) => void
 }) {
-  const id = useId()
   const input = useRef<HTMLInputElement>(null)
   const refused = !delivery.uploadsAllowed
 
+  // A real button that opens the picker, rather than a label styled as one: a label is not in the
+  // tab order, so a moderator on a keyboard could not reach it at all.
   return (
     <>
       <input
         ref={input}
-        id={id}
         type="file"
         multiple
         accept={delivery.acceptedTypes.join(',')}
         disabled={refused}
+        tabIndex={-1}
+        aria-hidden
         className="hidden"
         onChange={(e) => {
           for (const file of Array.from(e.target.files ?? [])) onPick(file)
           if (input.current) input.current.value = ''
         }}
       />
-      <Button asChild size="sm" variant="outline" disabled={refused}>
-        <label htmlFor={id} className={refused ? 'pointer-events-none opacity-50' : 'cursor-pointer'}>
-          {label}
-        </label>
+      <Button size="sm" variant="outline" disabled={refused} onClick={() => input.current?.click()}>
+        {label}
       </Button>
     </>
   )
