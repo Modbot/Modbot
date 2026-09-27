@@ -143,7 +143,12 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
                     byKind,
                     g.Max(r => r.Day));
             })
-            .OrderByDescending(m => m.Total)
+            // Most recently active first, then by name. Never by volume: a table sorted by count
+            // is a leaderboard, and the total mixes invites and role changes in with kicks and
+            // bans (accountability spec 3.4). Sorted this way, whoever has gone quiet sinks to
+            // the bottom, which is the question the table is here to answer.
+            .OrderByDescending(m => m.LastActiveDay)
+            .ThenBy(m => m.Who.Name ?? m.Who.Id, StringComparer.OrdinalIgnoreCase)
             .ThenBy(m => m.Who.Id, StringComparer.Ordinal)
             .ToList();
     }
