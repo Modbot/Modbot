@@ -43,7 +43,7 @@ export function SettingsSection({
  * `span` is the width on wide screens: 6 for most cards, 12 for the few that genuinely need the
  * instance (a chart, a form with many columns). Below 48rem of room there is one card per row. The
  * room is Settings' content column (`@container` in Settings.tsx), not the window: the topic list
- * beside it takes 12rem, and a desk window only just past `lg` left two cards of 17rem each.
+ * beside it takes 12rem or more, and a desk window only just past `lg` left two cards of 17rem each.
  * `footer` is where the card's buttons and their "Saved." / error text go, so every card puts its
  * actions in the same place.
  */

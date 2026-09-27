@@ -151,7 +151,7 @@ export function Settings({ me }: { me: CurrentUser }) {
   }
 
   return (
-    <div className="grid w-full max-w-[112rem] items-start gap-5 lg:grid-cols-[12rem_minmax(0,1fr)]">
+    <div className="grid w-full max-w-[112rem] items-start gap-5 lg:grid-cols-[minmax(12rem,max-content)_minmax(0,1fr)]">
       <TopicList
         tabs={listed}
         current={shown}
@@ -178,6 +178,9 @@ export function Settings({ me }: { me: CurrentUser }) {
  * The topics down the left, drawn like the sidebar's pages (console look §4.1): a heading with a
  * hairline, then entries a control high with a bar on the current one. On a phone it is the whole
  * screen and nothing is current, so each entry carries a chevron instead.
+ *
+ * At a desk the list is as wide as its longest name and never under 12rem. A fixed 12rem cut
+ * "Modbot's VRChat login" short in Headset, where the words are bigger.
  */
 function TopicList({
   tabs,
