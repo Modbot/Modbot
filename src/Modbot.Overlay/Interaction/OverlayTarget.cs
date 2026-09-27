@@ -132,6 +132,57 @@ public static class OverlayTargets
         return deepest;
     }
 
+    /// <summary>
+    /// Whether anything a moderator can see is drawn under a point: a card, a row, a tab, a chip,
+    /// or text. The panel is one square picture and most of it is usually clear ground; a ray on
+    /// the clear part is looking past the panel, not at it.
+    /// </summary>
+    /// <remarks>
+    /// Read off the laid-out tree rather than the pixels, because the pixels hold the cursor ring,
+    /// and a ray that counted the ring as the panel would drag the cursor with it into the empty
+    /// space and never let go — the bar stuck open, the cursor stuck on nothing. A surface counts
+    /// when it has a background that is not fully see-through and nothing above it has faded it to
+    /// nothing, which is also what leaves out a bar laid out at no opacity.
+    /// </remarks>
+    public static bool Drawn(Visual root, Point point)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        return DrawnAt(root, new Point(0, 0), 1.0, point);
+    }
+
+    private static bool DrawnAt(Visual visual, Point offset, double opacity, Point point)
+    {
+        if (!visual.IsVisible)
+            return false;
+
+        opacity *= visual.Opacity;
+        if (opacity <= 0)
+            return false;
+
+        var bounds = visual.Bounds;
+        var origin = new Point(offset.X + bounds.X, offset.Y + bounds.Y);
+        var box = new Rect(origin, bounds.Size);
+
+        var seen = visual switch
+        {
+            Border { Background: { } ground } => ground.Opacity > 0 && ground is not Avalonia.Media.ISolidColorBrush { Color.A: 0 },
+            Panel { Background: { } ground } => ground.Opacity > 0 && ground is not Avalonia.Media.ISolidColorBrush { Color.A: 0 },
+            TextBlock { Text.Length: > 0 } => true,
+            _ => false,
+        };
+
+        if (seen && box.Contains(point))
+            return true;
+
+        foreach (var child in visual.GetVisualChildren())
+        {
+            if (DrawnAt(child, origin, opacity, point))
+                return true;
+        }
+
+        return false;
+    }
+
     private static void Walk(Visual visual, Point offset, List<PlacedTarget> found)
     {
         var bounds = visual.Bounds;

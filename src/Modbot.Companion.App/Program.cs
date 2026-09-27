@@ -1861,6 +1861,8 @@ internal sealed class CompanionHost : IOverlayListener
             {
                 _overlayHost = OverlayHost.Create(placement: _state?.Settings.Overlay);
                 _overlayHost.KeepLastFrame = _state?.DebugMode is true;
+                _overlayHost.EditMode = _state?.Settings.OverlayEditMode is true;
+                _overlayHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
                 AttachOverlay();
             }
             catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
@@ -1958,6 +1960,8 @@ internal sealed class CompanionHost : IOverlayListener
         {
             _notifyHost = NotificationHost.Create(placement: settings.ToPlacement());
             _notifyHost.Home = settings.SpotPlacement();
+            _notifyHost.EditMode = _state?.Settings.OverlayEditMode is true;
+            _notifyHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
             _notifyHost.PlacementChanged += NotifyPlacementChanged;
             AttachNotifyOverlay();
         }
@@ -2129,6 +2133,60 @@ internal sealed class CompanionHost : IOverlayListener
     }
 
     /// <summary>
+    /// The SteamVR page's <strong>Push speed</strong> slider: how fast the thumbstick pushes and
+    /// pulls a carried panel. Saved, then acted on at once.
+    /// </summary>
+    private void SetOverlayPushSpeed(int speed)
+    {
+        speed = CompanionSettings.ClampPushSpeed(speed);
+        if (_state is null || _state.Settings.OverlayPushSpeed == speed)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayPushSpeed = speed };
+
+        if (!CompanionSettings.SaveNumber(_settingsPath, CompanionSettings.OverlayPushSpeedField, speed))
+            Log.Warning("Could not save the push speed to {Path}", _settingsPath);
+
+        if (_overlayHost is not null)
+            _overlayHost.PushStep = PushStep(speed);
+
+        if (_notifyHost is not null)
+            _notifyHost.PushStep = PushStep(speed);
+
+        Render();
+    }
+
+    /// <summary>The Push speed slider's 1 to 10 as metres per poll: a centimetre a step.</summary>
+    private static float PushStep(int? speed)
+        => CompanionSettings.ClampPushSpeed(speed ?? CompanionSettings.DefaultPushSpeed) * 0.01f;
+
+    /// <summary>
+    /// The SteamVR page's <strong>Edit mode</strong> switch: whether the lock and the hand show
+    /// under the headset panels and on the desktop overlay window. Saved, then acted on at once.
+    /// </summary>
+    private void SetOverlayEditMode(bool on)
+    {
+        if (_state is null || _state.Settings.OverlayEditMode == on)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayEditMode = on };
+
+        if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayEditModeField, on))
+            Log.Warning("Could not save the edit mode switch to {Path}", _settingsPath);
+
+        if (_overlayHost is not null)
+            _overlayHost.EditMode = on;
+
+        if (_notifyHost is not null)
+            _notifyHost.EditMode = on;
+
+        if (_desktopOverlay is not null)
+            _desktopOverlay.EditMode = on;
+
+        Render();
+    }
+
+    /// <summary>
     /// The SteamVR page's <strong>Overlay on</strong> switch: saved, then acted on at once rather
     /// than at the next restart.
     /// </summary>
@@ -2197,6 +2255,7 @@ internal sealed class CompanionHost : IOverlayListener
             // The group's picture out of the companion's own cache — the same one the window's
             // server cards draw from. The overlay fetches nothing.
             GroupIcon = url => Window.Pictures?.For(url),
+            EditMode = _state.Settings.OverlayEditMode,
         };
 
         _desktopOverlay.Apply(settings);
@@ -2853,6 +2912,8 @@ internal sealed class CompanionHost : IOverlayListener
             {
                 SetEventsFilters = SetEventsFilters,
                 SetOverlayOn = SetOverlayOn,
+                SetOverlayEditMode = SetOverlayEditMode,
+                SetOverlayPushSpeed = SetOverlayPushSpeed,
                 SetNotifications = SetNotifications,
                 SetNotificationFilters = SetNotificationFilters,
                 TestBleep = TestBleep,

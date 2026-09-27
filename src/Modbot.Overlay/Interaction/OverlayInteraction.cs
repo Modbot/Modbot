@@ -73,8 +73,20 @@ public sealed class OverlayInteraction
     /// <summary>Two grips on the panel this close together put it back in front of the head.</summary>
     public static readonly TimeSpan DoubleTap = TimeSpan.FromMilliseconds(500);
 
-    /// <summary>Metres per poll at full scroll, pushing or pulling.</summary>
-    public const float DistanceStep = 0.01f;
+    /// <summary>
+    /// Metres per poll at full push, pushing or pulling a carried panel, when nobody has said
+    /// otherwise: about 0.9 m a second at the thirty polls a second the host makes. It was a third
+    /// of that, which the owner found too slow to be worth reaching for.
+    /// </summary>
+    public const float DefaultPushStep = 0.03f;
+
+    /// <summary>The slowest and fastest the window's Push speed slider can set, in metres per poll.</summary>
+    public const float MinPushStep = 0.01f;
+
+    public const float MaxPushStep = 0.1f;
+
+    /// <summary>Metres per poll at full push, from the window's Push speed slider.</summary>
+    public float PushStep { get; set; } = DefaultPushStep;
 
     /// <summary>Metres of width per poll at full scroll.</summary>
     public const float WidthStep = 0.005f;
@@ -151,6 +163,13 @@ public sealed class OverlayInteraction
     /// which has the drawn frame to look in; without it nothing counts as the bar.
     /// </summary>
     public Func<float, float, bool>? IsOnBar { get; set; }
+
+    /// <summary>
+    /// Whether anything is drawn at a point across and down the panel, asked by the host that drew
+    /// it. A ray on the clear ground of the square counts as missing the panel, so the cursor and
+    /// the bar go the moment a hand moves off what can be seen. Null counts the whole square.
+    /// </summary>
+    public Func<float, float, bool>? IsDrawnAt { get; set; }
 
     /// <summary>
     /// The hand the panel is worn on, which is left out of pointing, tapping, scrolling and
@@ -315,7 +334,9 @@ public sealed class OverlayInteraction
             if (!hand.Tracked)
                 continue;
 
-            if (PanelGeometry.Hit(panel, _placement.Width, hand.Aim) is { IsOnPanel: true } hit && hit.Distance < nearest)
+            if (PanelGeometry.Hit(panel, _placement.Width, hand.Aim) is { IsOnPanel: true } hit
+                && hit.Distance < nearest
+                && (IsDrawnAt?.Invoke(hit.Across, hit.Down) ?? true))
             {
                 nearest = hit.Distance;
                 best = new Pointer(side, hit.Across, hit.Down);
@@ -364,7 +385,7 @@ public sealed class OverlayInteraction
         {
             var direction = Vector3.Normalize(_heldOffset.Position);
             var distance = Math.Clamp(
-                _heldOffset.Position.Length() + (stick.Y * DistanceStep),
+                _heldOffset.Position.Length() + (stick.Y * Math.Clamp(PushStep, MinPushStep, MaxPushStep)),
                 OverlayPlacement.MinDistance,
                 OverlayPlacement.MaxDistance);
             _heldOffset = _heldOffset with { Position = direction * distance };
@@ -383,8 +404,8 @@ public sealed class OverlayInteraction
     /// them together to make it smaller, the way XSOverlay's windows are sized.
     /// </summary>
     /// <remarks>
-    /// <para>The second hand takes hold the way the first did: a fresh squeeze while its ray is on
-    /// the panel. From then the width follows the ratio of the distance between the controllers to
+    /// <para>The second hand takes hold with a fresh squeeze while the first is carrying, wherever
+    /// it is pointing. From then the width follows the ratio of the distance between the controllers to
     /// what it was at that squeeze, so the panel keeps the size it had until the hands move, and a
     /// small hand movement is a small change. Letting go with the second hand keeps the new size
     /// and leaves the first still carrying; letting go with the first ends both.</para>
@@ -424,12 +445,9 @@ public sealed class OverlayInteraction
         if (!other.Tracked || !other.Grab || _last[otherSide].Grab)
             return;
 
-        if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel
-            || PanelGeometry.Hit(panel, _placement.Width, other.Aim) is not { IsOnPanel: true })
-        {
-            return;
-        }
-
+        // Anywhere: the ray does not have to be on the panel. Aiming the second hand at a panel
+        // the first is already carrying proved fiddly, and a fresh squeeze of the free hand while
+        // carrying is not something anybody does by accident.
         var start = Vector3.Distance(carrying.Device.Position, other.Device.Position);
 
         // Hands on top of each other give no distance to measure a stretch against.

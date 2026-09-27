@@ -226,6 +226,12 @@ public sealed record CompanionAppSnapshot(
     /// <summary>Whether this copy looks for updates, so the sidebar can offer a check now.</summary>
     public bool CanCheckForUpdates { get; init; }
 
+    /// <summary>Whether the lock and the hand show on the panels, for the SteamVR page's Edit mode switch.</summary>
+    public bool OverlayEditMode { get; init; }
+
+    /// <summary>The Push speed slider's value, 1 to 10.</summary>
+    public int OverlayPushSpeed { get; init; } = CompanionSettings.DefaultPushSpeed;
+
     /// <summary>The desktop overlay row, never null: <see cref="DesktopOverlayStatus.None"/> until the host has said.</summary>
     public DesktopOverlayStatus DesktopOverlayOrNone => DesktopOverlay ?? DesktopOverlayStatus.None;
 
@@ -519,6 +525,8 @@ public sealed class CompanionAppState
             UpdateFound = UpdateFound,
             UpdateReady = UpdateReady,
             CanCheckForUpdates = CanCheckForUpdates,
+            OverlayEditMode = Settings.OverlayEditMode,
+            OverlayPushSpeed = Settings.OverlayPushSpeed,
         };
     }
 

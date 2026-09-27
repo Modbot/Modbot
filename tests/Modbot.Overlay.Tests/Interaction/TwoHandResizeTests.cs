@@ -101,7 +101,7 @@ public class TwoHandResizeTests
         }
 
         Assert.Equal(Hand.Left, last!.Holding);
-        Assert.Equal(before + (10 * OverlayInteraction.DistanceStep), Pose.From(interaction.Placement.Offset).Position.Length(), 3);
+        Assert.Equal(before + (10 * OverlayInteraction.DefaultPushStep), Pose.From(interaction.Placement.Offset).Position.Length(), 3);
     }
 
     [Fact]
@@ -119,8 +119,10 @@ public class TwoHandResizeTests
     }
 
     [Fact]
-    public void AGripWithTheRayOffThePanelDoesNotStretch()
+    public void AGripWithTheRayOffThePanelStillStretches()
     {
+        // The owner found aiming the second hand at a panel already being carried fiddly; a fresh
+        // squeeze of the free hand while carrying is enough, wherever it points.
         var interaction = Carried();
         var away = Hands.AimingAt(new Vector3(-0.2f, 0, 0), new Vector3(-3f, 0, 0));
 
@@ -129,6 +131,6 @@ public class TwoHandResizeTests
             Hands.Both(Hands.Hand(away with { Position = new Vector3(-0.4f, 0, 0) }, grab: true), Hands.Hand(Right, grab: true)),
             At(66));
 
-        Assert.Equal(OverlayPlacement.Default.Width, moved.Placement.Width, 3);
+        Assert.Equal(OverlayPlacement.Default.Width * 2, moved.Placement.Width, 3);
     }
 }

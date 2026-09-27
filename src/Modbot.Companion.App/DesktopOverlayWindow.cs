@@ -71,6 +71,23 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private readonly Button _lockButton = SwitchButton();
     private readonly Button _throughButton = SwitchButton();
 
+    private bool _editMode;
+
+    /// <summary>
+    /// Whether the strip shows the lock and the hand. Off by default and set from the window's
+    /// Edit mode switch, as for the headset panels; what they were left at still holds.
+    /// </summary>
+    public bool EditMode
+    {
+        get => _editMode;
+        set
+        {
+            _editMode = value;
+            _lockButton.IsVisible = value;
+            _throughButton.IsVisible = value;
+        }
+    }
+
     // While click-through is on: where the mouse is, looked at often enough that reaching for the
     // strip finds it answering, and whether clicks are going through right now.
     private readonly DispatcherTimer _throughWatch = new() { Interval = TimeSpan.FromMilliseconds(50) };
@@ -204,6 +221,8 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         _lockButton.Click += (_, _) => SwitchPressed?.Invoke(_settings with { Locked = !_settings.Locked });
         _throughButton.Click += (_, _) => SwitchPressed?.Invoke(_settings with { ClickThrough = !_settings.ClickThrough });
         PaintSwitches();
+        _lockButton.IsVisible = _editMode;
+        _throughButton.IsVisible = _editMode;
 
         var switches = new StackPanel
         {

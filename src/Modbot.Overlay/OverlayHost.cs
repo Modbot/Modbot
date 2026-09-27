@@ -76,6 +76,41 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     // Whether a ray is on the panel, which is what puts the bar up under it.
     private bool _rayOnPanel;
 
+    private bool _editMode;
+
+    /// <summary>
+    /// Whether the bar under the panel — the lock and the hand — comes up at all. Off by
+    /// default, and set from the window's Edit mode switch.
+    /// </summary>
+    /// <remarks>
+    /// Off, the bar is never drawn and its buttons cannot be pressed, so a panel set up the way
+    /// its moderator wants it stays that way: nothing appears when a ray passes over it, a hidden
+    /// switch cannot be hit by accident, and a click-through panel lets every ray through. What
+    /// the switches were left at still holds.
+    /// </remarks>
+    /// <summary>
+    /// How fast the thumbstick pushes and pulls the panel while it is carried, in metres per poll
+    /// at full push. Set from the window's Push speed slider.
+    /// </summary>
+    public float PushStep
+    {
+        get => _interaction.PushStep;
+        set => _interaction.PushStep = value;
+    }
+
+    public bool EditMode
+    {
+        get => _editMode;
+        set
+        {
+            if (_editMode == value)
+                return;
+
+            _editMode = value;
+            Draw();
+        }
+    }
+
     /// <summary>Thumbstick travel, in full deflections per poll, that moves the roster one row.</summary>
     public const float ScrollPerRow = 6f;
 
@@ -93,7 +128,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Width = surface.Width;
         Height = surface.Height;
         _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar };
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -137,7 +172,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
         };
 
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar };
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -306,13 +341,15 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             switch (target)
             {
                 // The bar is this panel's own business, never the drive loop's.
-                case OverlayTarget.Lock:
+                case OverlayTarget.Lock when EditMode:
                     Switch(Placement with { Locked = !Placement.Locked });
                     break;
-                case OverlayTarget.ClickThrough:
+                case OverlayTarget.ClickThrough when EditMode:
                     Switch(Placement with { ClickThrough = !Placement.ClickThrough });
                     break;
-                case OverlayTarget.Bar:
+
+                // Out of edit mode the bar is not there to press, laid out or not.
+                case OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough:
                     break;
                 default:
                     Tapped?.Invoke(target);
@@ -373,8 +410,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     public OverlayTarget? TargetAt(float across, float down)
         => _root is null ? null : OverlayTargets.At(_root, new Point(across * Width, down * Height));
 
+    /// <summary>Whether a ray at this point is on the panel: on something drawn, or on the bar while it can be used.</summary>
+    private bool IsDrawnAt(float across, float down)
+        => IsOnBar(across, down)
+            || (_root is { } root && OverlayTargets.Drawn(root, new Point(across * Width, down * Height)));
+
     private bool IsOnBar(float across, float down)
-        => TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
+        => EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
 
     /// <summary>One of the bar's switches, pressed: applied, saved and drawn at once.</summary>
     private void Switch(OverlayPlacement placement)
@@ -573,7 +615,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             next = next with { Page = OverlayPage.Wrist };
 
         // Up while a ray is on the panel, used or let through; drawn as nothing otherwise.
-        var bar = PanelBar.For(_interaction.Placement, _rayOnPanel);
+        var bar = PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode);
 
         if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next) && _drawnBar == bar))
             return false;

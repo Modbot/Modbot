@@ -114,6 +114,9 @@ public class PanelBarInputTests
             using var host = new OverlayHost(runtime, new FakeSurface(MainSize), new AvaloniaFrameRenderer(MainSize, MainSize));
             runtime.Start();
             host.Start();
+
+            // The bar answers only in edit mode, which is off until the window's switch says so.
+            host.EditMode = true;
             host.Update(Roster());
 
             var saved = new List<OverlayPlacement>();
@@ -149,6 +152,9 @@ public class PanelBarInputTests
             using var host = new OverlayHost(runtime, new FakeSurface(MainSize), new AvaloniaFrameRenderer(MainSize, MainSize));
             runtime.Start();
             host.Start();
+
+            // The bar answers only in edit mode, which is off until the window's switch says so.
+            host.EditMode = true;
             host.Update(Roster());
 
             var (across, down) = Find(host.TargetAt, t => t is OverlayTarget.ClickThrough);
@@ -185,13 +191,20 @@ public class PanelBarInputTests
                 runtime, new FakeSurface(PopUpSize), new AvaloniaFrameRenderer(PopUpSize, PopUpSize), NotifyOverlaySettings.Default.ToPlacement());
             runtime.Start();
             host.Start();
+
+            // The bar answers only in edit mode, which is off until the window's switch says so.
+            host.EditMode = true;
             host.Update(NotificationScreen.Empty);
 
             var saved = new List<OverlayPlacement>();
             host.PlacementChanged += saved.Add;
 
             var start = host.Placement;
-            var centre = PointOn(start, 0.5f, 0.4f);
+
+            // An empty pop-up panel draws nothing but its bar, and a ray on clear ground is not on
+            // the panel; the bar is where it is picked up.
+            var (barAcross, barDown) = Find(host.TargetAt, t => t is OverlayTarget.Bar);
+            var centre = PointOn(start, barAcross, barDown);
 
             runtime.Tracking = Hands.RightOnly(Pointing(centre, grab: true));
             host.PollInput(TimeSpan.FromMilliseconds(0));
@@ -220,6 +233,9 @@ public class PanelBarInputTests
                 runtime, new FakeSurface(PopUpSize), new AvaloniaFrameRenderer(PopUpSize, PopUpSize), NotifyOverlaySettings.Default.ToPlacement());
             runtime.Start();
             host.Start();
+
+            // The bar answers only in edit mode, which is off until the window's switch says so.
+            host.EditMode = true;
             host.Update(NotificationScreen.Empty);
 
             var saved = new List<OverlayPlacement>();

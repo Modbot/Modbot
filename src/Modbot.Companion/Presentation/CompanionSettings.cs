@@ -108,6 +108,30 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     public bool OverlayOn { get; init; } = true;
 
     /// <summary>
+    /// Whether the headset panels and the desktop overlay window show the lock and the hand, which
+    /// is what the SteamVR page's <strong>Edit mode</strong> switch writes as
+    /// <c>"overlayEditMode"</c>. Off unless it says otherwise: once a panel is where its moderator
+    /// wants it, the bar is only in the way.
+    /// </summary>
+    public bool OverlayEditMode { get; init; }
+
+    /// <summary>
+    /// How fast a carried panel's thumbstick pushes and pulls it, 1 to 10, from the SteamVR page's
+    /// <strong>Push speed</strong> slider as <c>"overlayPushSpeed"</c>. Each step is a centimetre per
+    /// poll at full push; the default of 3 is three times what it was before it could be set.
+    /// </summary>
+    public int OverlayPushSpeed { get; init; } = DefaultPushSpeed;
+
+    public const int DefaultPushSpeed = 3;
+
+    public const int MinPushSpeed = 1;
+
+    public const int MaxPushSpeed = 10;
+
+    /// <summary>The push speed inside its bounds.</summary>
+    public static int ClampPushSpeed(int speed) => Math.Clamp(speed, MinPushSpeed, MaxPushSpeed);
+
+    /// <summary>
     /// Where the headset panel is and how big. Saved as the <c>overlay</c> object whenever a
     /// controller moves it or the settings page changes it, so it is where it was left.
     /// </summary>
@@ -179,6 +203,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
 
     public const string OverlayOnField = "overlayOn";
 
+    public const string OverlayEditModeField = "overlayEditMode";
+
+    public const string OverlayPushSpeedField = "overlayPushSpeed";
+
     public const string OverlayField = "overlay";
 
     public const string NotifyOverlayField = "notifyOverlay";
@@ -238,6 +266,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             VRChatLogFolder = string.IsNullOrWhiteSpace(shape?.VRChatLogFolder) ? null : shape.VRChatLogFolder.Trim(),
             Cloud = CloudSettings.Resolve(shape?.Cloud?.Endpoint, shape?.Cloud?.Disabled, environment),
             OverlayOn = shape?.OverlayOn ?? true,
+            OverlayEditMode = shape?.OverlayEditMode ?? false,
+            OverlayPushSpeed = ClampPushSpeed(shape?.OverlayPushSpeed ?? DefaultPushSpeed),
             Overlay = OverlayPlacement.FromJson(shape?.Overlay),
             NotifyOverlay = NotifyOverlaySettings.FromJson(shape?.NotifyOverlay),
             Voice = voice,
@@ -483,6 +513,10 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     /// nothing, when the file cannot be read as JSON or cannot be written: a hand-edited file with a
     /// typo is not overwritten.
     /// </summary>
+    /// <summary>Rewrites one whole-number field and leaves the rest of the file as it was.</summary>
+    public static bool SaveNumber(string path, string field, int value)
+        => SaveField(path, field, JsonValue.Create(value));
+
     public static bool SaveSwitch(string path, string field, bool value)
         => SaveField(path, field, JsonValue.Create(value));
 
@@ -560,7 +594,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
         [property: JsonPropertyName("notifications")] NotificationsShape? Notifications,
         [property: JsonPropertyName("clips")] ClipsShape? Clips,
         [property: JsonPropertyName("desktopNotifyOverlay")] JsonObject? DesktopNotifyOverlay,
-        [property: JsonPropertyName("listenForPhrase")] ListeningShape? Listening);
+        [property: JsonPropertyName("listenForPhrase")] ListeningShape? Listening,
+        [property: JsonPropertyName("overlayEditMode")] bool? OverlayEditMode = null,
+        [property: JsonPropertyName("overlayPushSpeed")] int? OverlayPushSpeed = null);
 
     private sealed record CloudShape(
         [property: JsonPropertyName("endpoint")] string? Endpoint,

@@ -120,6 +120,22 @@ public sealed partial class MainWindow : Window
     private Border? _startupCard;
 
     private readonly CheckBox _overlayOnBox;
+
+    /// <summary>Whether the lock and the hand show on the panels. Kept, like the Overlay on switch.</summary>
+    private readonly CheckBox _editModeBox = new();
+
+    /// <summary>How fast the thumbstick pushes and pulls a carried panel, 1 to 10. Kept, like the sliders under it.</summary>
+    private readonly Slider _pushSpeed = new()
+    {
+        Minimum = CompanionSettings.MinPushSpeed,
+        Maximum = CompanionSettings.MaxPushSpeed,
+        TickFrequency = 1,
+        IsSnapToTickEnabled = true,
+        Width = 220,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private readonly TextBlock _pushSpeedLabel = Ui.Dim("");
     private readonly TextBox _logFolderBox;
     private readonly TextBlock _logFolderWatching = Ui.Faint("");
 
@@ -180,6 +196,21 @@ public sealed partial class MainWindow : Window
         {
             if (!Quiet)
                 _actions.SetOverlayOn(_overlayOnBox.IsChecked == true);
+        };
+
+        _pushSpeed.ValueChanged += (_, e) =>
+        {
+            _pushSpeedLabel.Text = $"Push speed {(int)e.NewValue}";
+            if (!Quiet)
+                _actions.SetOverlayPushSpeed((int)e.NewValue);
+        };
+
+        _editModeBox.Content = Ui.Text("Edit mode", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _editModeBox.VerticalAlignment = VerticalAlignment.Center;
+        _editModeBox.IsCheckedChanged += (_, _) =>
+        {
+            if (!Quiet)
+                _actions.SetOverlayEditMode(_editModeBox.IsChecked == true);
         };
 
         _logFolderBox = Ui.Input();
@@ -1503,9 +1534,22 @@ public sealed partial class MainWindow : Window
     {
         var overlay = _snapshot.OverlayOrNone;
 
-        Quietly(() => _overlayOnBox.IsChecked = overlay.On);
+        Quietly(() =>
+        {
+            _overlayOnBox.IsChecked = overlay.On;
+            _editModeBox.IsChecked = _snapshot.OverlayEditMode;
+
+            // Not refilled under the pointer: a slider being dragged is not pulled back by a tick.
+            if (!_pushSpeed.IsPointerOver && !_pushSpeed.IsFocused)
+                _pushSpeed.Value = _snapshot.OverlayPushSpeed;
+
+            _pushSpeedLabel.Text = $"Push speed {(int)_pushSpeed.Value}";
+        });
 
         DetachFromParent(_overlayOnBox);
+        DetachFromParent(_editModeBox);
+        DetachFromParent(_pushSpeed);
+        DetachFromParent(_pushSpeedLabel);
 
         var pill = !overlay.On
             ? Ui.Pill("Off", Ui.T.Palette.TextFaint, Ui.T.Palette.Surface2)
@@ -1521,7 +1565,11 @@ public sealed partial class MainWindow : Window
         // The placement settings stay whichever way the switch is set: a moderator arranges where
         // the panel will sit and then turns it on, not the other way round. What goes away while
         // it is off is only what there is nothing to report on.
-        var top = new StackPanel { Spacing = 12, Children = { _overlayOnBox } };
+        var top = new StackPanel
+        {
+            Spacing = 12,
+            Children = { _overlayOnBox, _editModeBox, Ui.Field(_pushSpeedLabel, _pushSpeed) },
+        };
         Control header = pill;
 
         if (overlay.On)
@@ -1820,6 +1868,12 @@ public sealed record MainWindowActions(
 
     /// <summary>The SteamVR page's <strong>Overlay on</strong> switch. Added the same way.</summary>
     public Action<bool> SetOverlayOn { get; init; } = _ => { };
+
+    /// <summary>The SteamVR page's Edit mode switch: whether the lock and the hand show on the panels.</summary>
+    public Action<bool> SetOverlayEditMode { get; init; } = _ => { };
+
+    /// <summary>The SteamVR page's Push speed slider, 1 to 10.</summary>
+    public Action<int> SetOverlayPushSpeed { get; init; } = _ => { };
 
     /// <summary>The Notifications card changed: the sound's own switch and its own volume.</summary>
     public Action<NotificationSettings> SetNotifications { get; init; } = _ => { };

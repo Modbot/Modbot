@@ -50,6 +50,35 @@ public sealed class NotificationHost : IDisposable
     private PanelCursor? _cursor;
     private bool _rayOnPanel;
 
+    private bool _editMode;
+
+    /// <summary>
+    /// Whether the bar under the pop-ups — the lock and the hand — comes up at all. Off by
+    /// default, set from the window's Edit mode switch, as for the main panel.
+    /// </summary>
+    /// <summary>
+    /// How fast the thumbstick pushes and pulls the panel while it is carried, in metres per poll
+    /// at full push. Set from the window's Push speed slider.
+    /// </summary>
+    public float PushStep
+    {
+        get => _interaction.PushStep;
+        set => _interaction.PushStep = value;
+    }
+
+    public bool EditMode
+    {
+        get => _editMode;
+        set
+        {
+            if (_editMode == value)
+                return;
+
+            _editMode = value;
+            Redraw();
+        }
+    }
+
     // What the last frame showed besides the pop-ups, so a moved cursor or a bar coming up redraws
     // and nothing else does.
     private PanelCursor? _drawnCursor;
@@ -120,7 +149,13 @@ public sealed class NotificationHost : IDisposable
         home: NotifyOverlaySettings.Default.SpotPlacement(),
         keepOnHead: true)
     {
-        IsOnBar = (across, down) => TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
+        IsOnBar = (across, down) => EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
+
+        // A ray on the clear ground around the cards is looking past them; the bar still counts
+        // while it can be used.
+        IsDrawnAt = (across, down) =>
+            (EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough)
+            || (_root is { } root && OverlayTargets.Drawn(root, new Point(across * Width, down * Height))),
     };
 
     /// <summary>The ordinary construction, at the notification panel's own smaller resolution.</summary>
@@ -224,10 +259,10 @@ public sealed class NotificationHost : IDisposable
         {
             switch (TargetAt(click.Across, click.Down))
             {
-                case OverlayTarget.Lock:
+                case OverlayTarget.Lock when EditMode:
                     Switch(Placement with { Locked = !Placement.Locked });
                     break;
-                case OverlayTarget.ClickThrough:
+                case OverlayTarget.ClickThrough when EditMode:
                     Switch(Placement with { ClickThrough = !Placement.ClickThrough });
                     break;
             }
@@ -336,7 +371,7 @@ public sealed class NotificationHost : IDisposable
             Draw();
     }
 
-    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel);
+    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode);
 
     /// <summary>
     /// Draws the pop-ups as they stand and hands them over. Does nothing while there is no
