@@ -5,7 +5,7 @@ import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Kbd } from '@/components/ui/kbd'
 import { api, type CurrentUser, type SearchResults } from '@/lib/api'
-import { NAV, goesByName, mayOpen, type PageId } from '@/lib/nav'
+import { NAV, goesByName, matchRank, mayOpen, otherWords, type PageId } from '@/lib/nav'
 import { useModal, useShortcutList } from '@/lib/shortcuts'
 import { openDiscordPerson, openPerson, openWorld } from '@/lib/subject'
 import { cn } from '@/lib/utils'
@@ -27,8 +27,8 @@ type Item = {
  * The command palette, on `Ctrl/Cmd+K`: pages, the keys that work on this screen, and a search
  * over people, Discord people and worlds.
  *
- * Typing narrows the pages and actions by name at once; two characters or more also asks the
- * server. `↑`/`↓` move, `Enter` runs, `Esc` closes. Opening a person, a world or a Discord person
+ * Typing narrows the pages and actions by name at once, and pages by the other words they answer
+ * to (`words` in lib/nav.ts); two characters or more also asks the server. `↑`/`↓` move, `Enter` runs, `Esc` closes. Opening a person, a world or a Discord person
  * from here goes through the same popup every list uses.
  */
 export function CommandPalette({
@@ -102,10 +102,11 @@ function Palette({
   const goTo = useMemo(() => new Map(shortcuts.filter((s) => s.group === 'Go to').map((s) => [s.label, s.keys])), [shortcuts])
 
   const items = useMemo<Item[]>(() => {
-    const pages: Item[] = NAV.filter((n) => goesByName(n) && mayOpen(me, n.id)).map((n) => ({
+    const pages: (Item & { other: readonly string[] })[] = NAV.filter((n) => goesByName(n) && mayOpen(me, n.id)).map((n) => ({
       id: `page:${n.id}`,
       group: 'Go to',
       label: n.label,
+      other: otherWords(n),
       keys: goTo.get(n.label),
       run: () => onGoTo(n.id),
     }))
@@ -151,12 +152,18 @@ function Palette({
         ]
       : []
 
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean)
-    const matches = (item: Item) =>
-      words.every((w) => item.label.toLowerCase().includes(w) || item.group.toLowerCase().includes(w))
+    // Search hits are already narrowed by the server; the rest is narrowed by what was typed. A page
+    // that matches comes before them: "banned" is the Bans page before it is a person called
+    // BannedPrincess. Pages are ordered by how well they match, the rest keep their order so each
+    // group stays in one piece.
+    const ranked = pages
+      .map((item) => ({ item, rank: matchRank(query, item.label, [...item.other, item.group]) }))
+      .filter((r) => r.rank !== null)
+      .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+      .map((r) => r.item)
+    const rest = [...keys, ...extra].filter((item) => matchRank(query, item.label, [item.group]) !== null)
 
-    // Search hits are already narrowed by the server; the rest is narrowed by what was typed.
-    return [...found, ...[...pages, ...keys, ...extra].filter(matches)]
+    return [...ranked, ...found, ...rest]
   }, [me, goTo, shortcuts, actions, results, query, onGoTo])
 
   // The cursor belongs to one list: when the items change under it, it starts again at the top.
