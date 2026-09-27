@@ -350,7 +350,7 @@ internal sealed class CompanionHost : IOverlayListener
 
     /// <summary>
     /// What turns the log's observations into pop-ups and sounds, kept so the joins it holds for a
-    /// trust rank can be told from the timers.
+    /// trust rank and 18+ mark can be told from the timers.
     /// </summary>
     private EventNotifier? _notices;
     private Updates? _updates;
@@ -1654,13 +1654,14 @@ internal sealed class CompanionHost : IOverlayListener
 
             // The same observations, offered to the pop-up overlay and to the bleep. Both ask the
             // moderator's filters, and everything this adds is off until it is ticked on.
-            // A join waits a few seconds for the person's trust rank when a paired server covers
-            // the instance, since the server only learns of them from this client's own report.
+            // A join waits a few seconds for the person's trust rank and 18+ mark when a paired
+            // server covers the instance, since the server only learns of them from this client's
+            // own report.
             notices: _notices = new EventNotifier(
                 () => observer.ModeratorId,
                 (popUp, kind) => _popUps?.Show(popUp, kind),
                 (kind, about) => _bleep?.Ask(kind, about),
-                subjectId => _overlay?.RankOf(subjectId),
+                subjectId => _overlay?.InfoOf(subjectId),
                 _clock,
                 () => _overlay?.CurrentServer is not null));
 
@@ -1687,8 +1688,8 @@ internal sealed class CompanionHost : IOverlayListener
             var tick = await _engine.TickAsync();
             _consecutiveTickFailures = 0;
 
-            // Joins that were waiting for a trust rank, once a second even with every overlay off:
-            // the sound waits with the card, and a sound has no overlay to tick it.
+            // Joins that were waiting for a trust rank and 18+ mark, once a second even with every
+            // overlay off: the sound waits with the card, and a sound has no overlay to tick it.
             _notices?.TellWaiting();
             if (_state is not null)
                 _state.ReadingFault = null;
@@ -2498,12 +2499,12 @@ internal sealed class CompanionHost : IOverlayListener
             // seconds, because a moderator can want one to linger and the other to be brief.
             if (_popUps is not null)
             {
-                // Joins waiting for a trust rank go up the moment it is in, four times a second
-                // while an overlay runs. A card that went up without one, because the wait ran
-                // out, still has the rank written onto it if it comes while the card is up.
+                // Joins waiting for a trust rank and 18+ mark go up the moment they are in, four
+                // times a second while an overlay runs. A card that went up without them, because
+                // the wait ran out, still has them written onto it if they come while it is up.
                 _notices?.TellWaiting();
                 var overlay = _overlay;
-                EventNotifier.AddRanks(_popUps, subjectId => overlay.RankOf(subjectId));
+                EventNotifier.AddInfo(_popUps, subjectId => overlay.InfoOf(subjectId));
 
                 if (_notifyHost is not null)
                 {

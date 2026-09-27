@@ -220,6 +220,7 @@ public sealed record OverlayScreen(
                 || left.DisplayName != right.DisplayName
                 || left.PriorActions != right.PriorActions
                 || left.TrustRank != right.TrustRank
+                || left.EighteenPlus != right.EighteenPlus
                 || !left.Flags.SequenceEqual(right.Flags, StringComparer.Ordinal))
             {
                 return false;

@@ -23,13 +23,15 @@ public static class LiveEventKinds
 /// <param name="SubjectId">Opaque VRChat id. Never validated for shape.</param>
 /// <param name="DisplayName">User-controlled text; hostile input on a display surface.</param>
 /// <param name="TrustRank">VRChat's trust rank when the server knows it. Null until it does.</param>
+/// <param name="EighteenPlus">Whether they carry Modbot's 18+ mark. Null until the server has read their profile.</param>
 public sealed record LivePerson(
     [property: JsonPropertyName("id")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
     [property: JsonPropertyName("trustRank")] string? TrustRank,
     [property: JsonPropertyName("standing")] RosterStanding Standing,
     [property: JsonPropertyName("priorActions")] int PriorActions,
-    [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags);
+    [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
+    [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null);
 
 /// <summary>
 /// One live event from a paired server: somebody joined, left, was already here, or a watch ended.

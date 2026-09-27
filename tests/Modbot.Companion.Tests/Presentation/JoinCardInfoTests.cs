@@ -8,11 +8,11 @@ using Modbot.TestSupport;
 namespace Modbot.Companion.Tests.Presentation;
 
 /// <summary>
-/// A join pop-up carries the person's VRChat trust rank. The card goes up the moment the log says
-/// somebody arrived, which is usually before the server knows them, so a rank that arrives later
-/// is written onto the card where it stands.
+/// A join pop-up carries the person's VRChat trust rank and, when they have it, Modbot's 18+ mark.
+/// A join waits a few seconds for them, and a card that went up without them is filled in where it
+/// stands once they come.
 /// </summary>
-public class JoinCardRankTests
+public class JoinCardInfoTests
 {
     private readonly FakeClock _clock = new();
 
@@ -25,56 +25,98 @@ public class JoinCardRankTests
     private ObservedPresence Seen(PresenceKind kind, string id, string? name)
         => new(kind, _clock.UtcNow.DateTime, id, name, Instance());
 
+    private static PersonInfo Rank(TrustRank rank) => new(rank, null);
+
     [Fact]
     public void AJoinCardSaysTheRankWhenItIsKnown()
     {
-        var card = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, TrustRank.TrustedUser);
+        var card = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, Rank(TrustRank.TrustedUser));
 
         Assert.Equal("Rin", card.Body);
         Assert.Equal("Trusted User", card.Detail);
     }
 
     [Fact]
-    public void AJoinCardWithNoRankYetHasNoSmallLine()
+    public void AJoinCardSaysEighteenPlusAfterTheRank()
     {
-        var card = EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined);
+        var card = EventNotifier.Card(
+            Seen(PresenceKind.Joined, "usr_rin", "Rin"),
+            NotificationKind.Joined,
+            new PersonInfo(TrustRank.TrustedUser, true));
+
+        Assert.Equal("Trusted User · 18+", card.Detail);
+    }
+
+    [Fact]
+    public void SomebodyWithoutTheMarkGetsNoWordForIt()
+    {
+        var card = EventNotifier.Card(
+            Seen(PresenceKind.Joined, "usr_rin", "Rin"),
+            NotificationKind.Joined,
+            new PersonInfo(TrustRank.NewUser, false));
+
+        Assert.Equal("New User", card.Detail);
+    }
+
+    [Fact]
+    public void TheMarkWithNoRankIsStillSaid()
+    {
+        var card = EventNotifier.Card(
+            Seen(PresenceKind.Joined, "usr_rin", "Rin"),
+            NotificationKind.Joined,
+            new PersonInfo(null, true));
+
+        Assert.Equal("18+", card.Detail);
+    }
+
+    [Fact]
+    public void AJoinCardWithNothingKnownYetHasNoSmallLine()
+    {
+        Assert.Null(EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined).Detail);
+        Assert.Null(EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined, new PersonInfo(null, false)).Detail);
+    }
+
+    [Fact]
+    public void OnlyJoinCardsCarryTheInfo()
+    {
+        var card = EventNotifier.Card(Seen(PresenceKind.Left, "usr_rin", "Rin"), NotificationKind.Left, new PersonInfo(TrustRank.TrustedUser, true));
 
         Assert.Null(card.Detail);
     }
 
     [Fact]
-    public void OnlyJoinCardsCarryTheRank()
+    public void InfoIsNothingWhenTheServerHasSaidNeither()
     {
-        var card = EventNotifier.Card(Seen(PresenceKind.Left, "usr_rin", "Rin"), NotificationKind.Left, TrustRank.TrustedUser);
-
-        Assert.Null(card.Detail);
+        Assert.Null(PersonInfo.Of(null, null));
+        Assert.Equal(new PersonInfo(null, false), PersonInfo.Of(null, false));
+        Assert.Equal(new PersonInfo(TrustRank.User, null), PersonInfo.Of(TrustRank.User, null));
     }
 
     [Fact]
-    public void TheNotifierAsksForTheRankOfWhoeverJoined()
+    public void TheNotifierAsksForTheInfoOfWhoeverJoined()
     {
         var shown = new List<PopUp>();
         var notifier = new EventNotifier(
             () => "usr_me",
             (popUp, _) => shown.Add(popUp),
-            rankOf: id => id == "usr_rin" ? TrustRank.KnownUser : null);
+            infoOf: id => id == "usr_rin" ? new PersonInfo(TrustRank.KnownUser, true) : null);
 
         notifier.Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin"), Seen(PresenceKind.Joined, "usr_kai", "Kai")]);
 
-        Assert.Equal("Known User", shown[0].Detail);
+        Assert.Equal("Known User · 18+", shown[0].Detail);
         Assert.Null(shown[1].Detail);
     }
 
     [Fact]
-    public void ARankThatArrivesLaterIsWrittenOntoTheCardThatIsUp()
+    public void InfoThatArrivesLaterIsWrittenOntoTheCardThatIsUp()
     {
         var popUps = new PopUps(_clock) { Dwell = TimeSpan.FromSeconds(6) };
         popUps.Show(EventNotifier.Card(Seen(PresenceKind.Joined, "usr_rin", "Rin"), NotificationKind.Joined));
 
         _clock.Advance(TimeSpan.FromSeconds(4));
-        EventNotifier.AddRanks(popUps, id => id == "usr_rin" ? TrustRank.User : null);
+        EventNotifier.AddInfo(popUps, id => id == "usr_rin" ? new PersonInfo(TrustRank.User, true) : null);
 
-        Assert.Equal("User", Assert.Single(popUps.Current()).Detail);
+        Assert.Equal("User · 18+", Assert.Single(popUps.Current()).Detail);
 
         // Filling it in kept its time: it still goes when it would have.
         _clock.Advance(TimeSpan.FromSeconds(2));
@@ -90,7 +132,7 @@ public class JoinCardRankTests
         popUps.Show(left);
         popUps.Show(flagged);
 
-        EventNotifier.AddRanks(popUps, _ => TrustRank.TrustedUser);
+        EventNotifier.AddInfo(popUps, _ => new PersonInfo(TrustRank.TrustedUser, true));
 
         Assert.Equal([flagged, left], popUps.Current());
     }
@@ -99,7 +141,7 @@ public class JoinCardRankTests
     {
         public readonly List<PopUp> Shown = [];
         public readonly List<NotificationKind> Sounds = [];
-        public readonly Dictionary<string, TrustRank> Ranks = [];
+        public readonly Dictionary<string, PersonInfo> Info = [];
         public bool ServerCovers = true;
     }
 
@@ -107,12 +149,12 @@ public class JoinCardRankTests
         () => "usr_me",
         (popUp, _) => waits.Shown.Add(popUp),
         (kind, _) => waits.Sounds.Add(kind),
-        id => waits.Ranks.TryGetValue(id, out var rank) ? rank : null,
+        id => waits.Info.GetValueOrDefault(id),
         _clock,
         () => waits.ServerCovers);
 
     [Fact]
-    public void AJoinWaitsForTheRankAndGoesUpTheMomentItArrives()
+    public void AJoinWaitsForTheInfoAndGoesUpTheMomentItArrives()
     {
         var waits = new Waits();
         var notifier = Waiting(waits);
@@ -128,23 +170,39 @@ public class JoinCardRankTests
         notifier.TellWaiting();
         Assert.Empty(waits.Shown);
 
-        waits.Ranks["usr_rin"] = TrustRank.TrustedUser;
+        waits.Info["usr_rin"] = new PersonInfo(TrustRank.TrustedUser, true);
         notifier.TellWaiting();
 
-        Assert.Equal("Trusted User", Assert.Single(waits.Shown).Detail);
+        Assert.Equal("Trusted User · 18+", Assert.Single(waits.Shown).Detail);
         Assert.Equal(NotificationKind.Joined, Assert.Single(waits.Sounds));
         Assert.Equal(0, notifier.Waiting);
     }
 
     [Fact]
-    public void AJoinWhoseRankNeverComesGoesUpWithoutOneOnceTheWaitIsOver()
+    public void AnAnswerOfNotEighteenPlusEndsTheWaitToo()
+    {
+        // The server has read the profile and there is no mark: that is an answer, not a gap.
+        var waits = new Waits();
+        var notifier = Waiting(waits);
+
+        notifier.Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);
+        waits.Info["usr_rin"] = new PersonInfo(null, false);
+        notifier.TellWaiting();
+
+        var card = Assert.Single(waits.Shown);
+        Assert.Null(card.Detail);
+        Assert.Equal(0, notifier.Waiting);
+    }
+
+    [Fact]
+    public void AJoinWhoseInfoNeverComesGoesUpWithoutItOnceTheWaitIsOver()
     {
         var waits = new Waits();
         var notifier = Waiting(waits);
 
         notifier.Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);
 
-        _clock.Advance(EventNotifier.RankWait - TimeSpan.FromMilliseconds(1));
+        _clock.Advance(EventNotifier.InfoWait - TimeSpan.FromMilliseconds(1));
         notifier.TellWaiting();
         Assert.Empty(waits.Shown);
 
@@ -158,10 +216,10 @@ public class JoinCardRankTests
     }
 
     [Fact]
-    public void AJoinWhoseRankIsAlreadyKnownDoesNotWait()
+    public void AJoinWhoseInfoIsAlreadyKnownDoesNotWait()
     {
         var waits = new Waits();
-        waits.Ranks["usr_rin"] = TrustRank.User;
+        waits.Info["usr_rin"] = Rank(TrustRank.User);
 
         Waiting(waits).Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);
 
@@ -171,7 +229,7 @@ public class JoinCardRankTests
     [Fact]
     public void AJoinInAnInstanceNoPairedServerCoversDoesNotWait()
     {
-        // No server will ever send a rank for it, so waiting would only make it late.
+        // No server will ever send the info for it, so waiting would only make it late.
         var waits = new Waits { ServerCovers = false };
 
         Waiting(waits).Offer([Seen(PresenceKind.Joined, "usr_rin", "Rin")]);

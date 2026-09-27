@@ -308,6 +308,61 @@ public class OverlayReadTests
         Assert.Equal(TrustRank.KnownUser, summary.TrustRank);
     }
 
+    /// <summary>
+    /// The 18+ mark is Modbot's sticky one, off the stored profile row. Somebody whose age status
+    /// has never been read is sent as unknown, not as "not 18+", so the companion can tell the two
+    /// apart when deciding whether to keep waiting.
+    /// </summary>
+    [Fact]
+    public async Task ARosterRowCarriesTheEighteenPlusMarkOffTheStoredProfile()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var moderator = await host.PairModeratorAsync(ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.VRChatUsers.AddRange(
+                new VRChatUser
+                {
+                    // Hidden today, but seen as 18+ once: the mark stays.
+                    UserId = "usr_marked",
+                    DisplayName = "Marked",
+                    AgeVerificationStatus = "hidden",
+                    Is18PlusVerified = true,
+                    FirstSeenAt = Noon.AddDays(-1),
+                    LastSeenAt = Noon,
+                    LastRefreshedAt = Noon.AddDays(-1),
+                },
+                new VRChatUser
+                {
+                    UserId = "usr_plain",
+                    DisplayName = "Plain",
+                    AgeVerificationStatus = "hidden",
+                    FirstSeenAt = Noon.AddDays(-1),
+                    LastSeenAt = Noon,
+                    LastRefreshedAt = Noon.AddDays(-1),
+                });
+            await db.SaveChangesAsync(ct);
+        }
+
+        await WriteAsync(host,
+            Fact(FactType.InstanceJoined, moderator.VRChatUserId, Noon.AddMinutes(-10), device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_marked", Noon.AddMinutes(-6), "Marked", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_plain", Noon.AddMinutes(-5), "Plain", device: moderator.DeviceId),
+            Fact(FactType.InstanceJoined, "usr_unread", Noon.AddMinutes(-4), "Unread", device: moderator.DeviceId));
+
+        var roster = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}", ct);
+
+        Assert.True(Assert.Single(roster.Members, m => m.SubjectId == "usr_marked").EighteenPlus);
+        Assert.False(Assert.Single(roster.Members, m => m.SubjectId == "usr_plain").EighteenPlus);
+        Assert.Null(Assert.Single(roster.Members, m => m.SubjectId == "usr_unread").EighteenPlus);
+    }
+
     [Fact]
     public async Task AnInstanceNobodyHasReportedIsAnEmptyRosterRatherThanAnError()
     {

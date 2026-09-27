@@ -151,6 +151,27 @@ public class OverlayViewTests
     }
 
     [Fact]
+    public void TheEighteenPlusMarkIsDrawnOnTheRow()
+    {
+        OverlayScreen With(bool? eighteenPlus) => new(
+            "Cat Lounge",
+            new Cached<InstanceContext>(
+                new InstanceContext("39911",
+                [
+                    new RosterMember("usr_ord", "Ordinary Person", RosterStanding.Ordinary, 0, [], TrustRank.KnownUser, eighteenPlus),
+                ]),
+                Freshness.Fresh,
+                TimeSpan.Zero),
+            Freshness.Fresh);
+
+        Assert.False(Render(With(null)).AsSpan().SequenceEqual(Render(With(true))));
+        Assert.False(With(null).LooksTheSameAs(With(true)));
+
+        // Somebody without the mark gets nothing drawn for it.
+        Assert.True(Render(With(null)).AsSpan().SequenceEqual(Render(With(false))));
+    }
+
+    [Fact]
     public void TwoIdenticalScreensAreRecognisedAsIdenticalSoNoFrameIsDrawn()
     {
         Assert.True(Screen().LooksTheSameAs(Screen()));

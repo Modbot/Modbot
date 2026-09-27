@@ -975,6 +975,9 @@ public static class OverlayView
             line.Children.Add(mark);
         }
 
+        if (member.EighteenPlus == true)
+            line.Children.Add(EighteenPlusChip());
+
         if (member.Flags.Count > 0)
             line.Children.Add(FlagChip(string.Join(" · ", member.Flags)));
 
@@ -1060,6 +1063,27 @@ public static class OverlayView
             BorderThickness = new Thickness(T.Density.Hairline),
             CornerRadius = T.CornerRadius,
             Padding = new Thickness(8, 2),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = label,
+        };
+    }
+
+    /// <summary>
+    /// Modbot's 18+ mark on a roster row, in the green the website's Members list gives it. Shown
+    /// only on those who carry it, so somebody without it gets no mark at all.
+    /// </summary>
+    private static Control EighteenPlusChip()
+    {
+        var label = Text("18+", T.Density.TextSmall, T.OkBrush, FontWeight.SemiBold);
+        label.VerticalAlignment = VerticalAlignment.Center;
+
+        return new Border
+        {
+            Background = new SolidColorBrush(T.Palette.Ok, 0.16),
+            BorderBrush = T.OkBrush,
+            BorderThickness = new Thickness(T.Density.Hairline),
+            CornerRadius = T.CornerRadius,
+            Padding = new Thickness(6, 1),
             VerticalAlignment = VerticalAlignment.Center,
             Child = label,
         };

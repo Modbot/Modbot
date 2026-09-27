@@ -26889,6 +26889,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "eighteenPlus": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },

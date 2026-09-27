@@ -18,7 +18,8 @@ public sealed record RosterMemberDto(
     [property: JsonPropertyName("standing")] string Standing,
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
-    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
+    [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null);
 
 public sealed record InstanceContextDto(
     [property: JsonPropertyName("instanceId")] string InstanceId,
@@ -42,7 +43,7 @@ public sealed record UserSummaryDto(
 /// profile — an overlay card shows prior actions, roles, join date and current flags, and nothing
 /// that needs scrolling in a headset.</para>
 /// <para><strong>Everything here is derived from this deployment's own fact log</strong>, plus
-/// the trust rank off the stored profile row. No VRChat call is made to answer an overlay read: a
+/// the trust rank and the 18+ mark off the stored profile row. No VRChat call is made to answer an overlay read: a
 /// moderator glancing at a roster must not be able to spend the group's shared API budget, and
 /// the answer has to arrive in the time a glance takes.</para>
 /// <para><strong>A pairing sees exactly one group's context</strong>, which is the same boundary
@@ -118,10 +119,16 @@ public static class ContextHandler
         var priorActions = await CountPriorActionsAsync(database, subjects, ct);
         var members = await CurrentMembersAsync(database, subjects, ct);
         var ranks = await TrustRanksAsync(database, subjects, ct);
+        var eighteenPlus = await EighteenPlusAsync(database, subjects, ct);
 
         var roster = people.Here
             .Select(person => Describe(
-                person.UserId, person.DisplayName, priorActions, members, ranks.GetValueOrDefault(person.UserId)))
+                person.UserId,
+                person.DisplayName,
+                priorActions,
+                members,
+                ranks.GetValueOrDefault(person.UserId),
+                eighteenPlus.TryGetValue(person.UserId, out var marked) ? marked : null))
             .ToList();
 
         return Results.Ok(new InstanceContextDto(instanceId, roster));
@@ -228,6 +235,26 @@ public static class ContextHandler
             .Select(u => new { u.UserId, u.TrustRank })
             .ToDictionaryAsync(u => u.UserId, u => u.TrustRank, StringComparer.Ordinal, ct);
 
+    /// <summary>
+    /// Whether each of these people carries Modbot's 18+ mark, for everybody VRChat has told Modbot
+    /// the age status of, or who has been marked by hand. One query.
+    /// </summary>
+    /// <remarks>
+    /// The mark, not VRChat's own status as last seen: it is what the website and Discord show, and
+    /// it stays once seen even if the person hides it again (user profile sync design §4). Somebody
+    /// whose status has never been read is left out rather than sent as false, so a client can tell
+    /// "not 18+" from "not known yet".
+    /// </remarks>
+    internal static async Task<Dictionary<string, bool>> EighteenPlusAsync(
+        ModbotContext database,
+        IReadOnlyCollection<string> subjectIds,
+        CancellationToken ct)
+        => await database.VRChatUsers
+            .AsNoTracking()
+            .Where(u => subjectIds.Contains(u.UserId) && (u.AgeVerificationStatus != null || u.Is18PlusVerified))
+            .Select(u => new { u.UserId, u.Is18PlusVerified })
+            .ToDictionaryAsync(u => u.UserId, u => u.Is18PlusVerified, StringComparer.Ordinal, ct);
+
     /// <summary>Which of these people are group members, as the fact log last said.</summary>
     internal static async Task<HashSet<string>> CurrentMembersAsync(
         ModbotContext database,
@@ -260,7 +287,8 @@ public static class ContextHandler
         string? displayName,
         Dictionary<string, int> priorActions,
         HashSet<string> members,
-        TrustRank? trustRank = null)
+        TrustRank? trustRank = null,
+        bool? eighteenPlus = null)
     {
         var actions = priorActions.GetValueOrDefault(subjectId);
 
@@ -270,7 +298,8 @@ public static class ContextHandler
             Standing(actions, members.Contains(subjectId), isStaff: false),
             actions,
             Flags(actions),
-            trustRank);
+            trustRank,
+            eighteenPlus);
     }
 
     /// <summary>

@@ -142,6 +142,10 @@ public sealed class LiveReader
             ? new Dictionary<string, TrustRank?>(StringComparer.Ordinal)
             : await ContextHandler.TrustRanksAsync(_db, people, ct);
 
+        var eighteenPlus = people.Count == 0
+            ? new Dictionary<string, bool>(StringComparer.Ordinal)
+            : await ContextHandler.EighteenPlusAsync(_db, people, ct);
+
         var payloads = live.ToDictionary(x => x.Fact.Id, x => AuditJson.Parse(x.Fact.Data));
 
         // Anybody the facts carried no name for, named from the stored profiles in one lookup,
@@ -195,7 +199,8 @@ public sealed class LiveReader
                     ranks.GetValueOrDefault(fact.SubjectId)?.ToString(),
                     described.Standing,
                     described.PriorActions,
-                    described.Flags);
+                    described.Flags,
+                    eighteenPlus.TryGetValue(fact.SubjectId, out var marked) ? marked : null);
 
                 if (kind == LiveKinds.PersonJoined && described.PriorActions > 0)
                 {
