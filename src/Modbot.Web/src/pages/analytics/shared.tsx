@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { dayRange, longDay } from '@/components/charts'
@@ -131,22 +132,25 @@ export function Section({ title, children }: { title: string; children: React.Re
 /**
  * A row of links along the foot of a page's header, set like tabs: each leads to the Modbot page
  * that shows that part, and the page itself is marked. The caller leaves out what the person may
- * not open. Scrolls sideways on a narrow screen rather than wrapping, like the Tabs component.
+ * not open. Scrolls sideways on a narrow screen rather than wrapping, like the Tabs component,
+ * unless `wrap` asks for every tab to stay in sight on more than one line.
  */
 export function HeaderTabs({
   label,
   tabs,
   active,
   pathOf,
+  wrap = false,
 }: {
   label: string
-  tabs: readonly { id: PageId; label: string }[]
+  tabs: readonly { id: PageId; label: string; icon?: LucideIcon }[]
   active: PageId
   pathOf: (id: PageId) => string
+  wrap?: boolean
 }) {
   return (
     <nav aria-label={label} className="border-t border-t-(length:--hairline)">
-      <div className="flex items-stretch overflow-x-auto px-1 [scrollbar-width:thin]">
+      <div className={cn('flex items-stretch px-1', wrap ? 'flex-wrap' : 'overflow-x-auto [scrollbar-width:thin]')}>
         {tabs.map((tab) => {
           const current = tab.id === active
           const href = pathOf(tab.id)
@@ -158,11 +162,12 @@ export function HeaderTabs({
               onClick={followLink(href)}
               aria-current={current ? 'page' : undefined}
               className={cn(
-                'relative flex shrink-0 items-center px-3 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                'relative flex shrink-0 items-center gap-1.5 px-3 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
                 current ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
               style={{ fontSize: 'var(--text-base)', minHeight: 'var(--control-h)' }}
             >
+              {tab.icon && <tab.icon aria-hidden className="size-[1em] shrink-0" />}
               {tab.label}
               {current && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[calc(var(--hairline)*2)] bg-primary" />}
             </a>

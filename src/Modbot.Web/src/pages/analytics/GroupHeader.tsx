@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Check, Copy, Users } from 'lucide-react'
+import { Bell, CalendarDays, Check, Copy, Gavel, Images, Lightbulb, Mail, MapPin, Settings, Users, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import type { CurrentUser, GroupInfo } from '@/lib/api'
-import { groupCode, groupTabs } from '@/lib/groupOverview'
+import { groupCode, groupTabHref, groupTabs } from '@/lib/groupOverview'
 import type { PageId } from '@/lib/nav'
 import { useGroupInfo } from '@/lib/useGroupInfo'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -26,7 +26,8 @@ export function GroupHeaderFor({ me, pathOf, active }: { me: CurrentUser; pathOf
  * On a phone the icon sits over the banner and the name goes under it; from `sm` up the name moves
  * beside the icon, level with its lower half, as VRChat has it.
  *
- * Every tab of the page draws it, with its own tab marked, so they read as one page.
+ * Every tab of the page draws it, with its own tab marked, so they read as one page. The row wraps
+ * onto a second line on a narrow screen rather than hiding tabs off to the side.
  */
 export function GroupHeader({
   info,
@@ -95,9 +96,32 @@ export function GroupHeader({
         </div>
       </div>
 
-      <HeaderTabs label="Group" tabs={groupTabs(me)} active={active} pathOf={pathOf} />
+      <HeaderTabs
+        label="Group"
+        tabs={groupTabs(me).map((tab) => ({ ...tab, icon: TAB_ICONS[tab.id] }))}
+        active={active}
+        pathOf={(id) => groupTabHref(id, pathOf(id))}
+        wrap
+      />
     </Card>
   )
+}
+
+/**
+ * The icon vrchat.com puts beside each tab — bulb, bell, calendar, pin, pictures, people,
+ * envelope, gear, gavel — so a VRChat user finds a tab by its picture as they do there.
+ */
+const TAB_ICONS: Partial<Record<PageId, LucideIcon>> = {
+  'analytics-group': Lightbulb,
+  'group-posts': Bell,
+  calendar: CalendarDays,
+  'analytics-instances': MapPin,
+  'group-gallery': Images,
+  members: Users,
+  'group-invites': Mail,
+  'group-settings': Settings,
+  'group-roles': Settings,
+  bans: Gavel,
 }
 
 function count(n: number | null): string {

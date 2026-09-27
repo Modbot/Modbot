@@ -18,6 +18,7 @@ import {
   profileChanges,
   type ProfileDraft,
 } from '@/lib/groupProfile'
+import { groupTabHref } from '@/lib/groupOverview'
 import { mayOpen, type PageId } from '@/lib/nav'
 import { followLink } from '@/lib/router'
 import { cn } from '@/lib/utils'
@@ -53,8 +54,9 @@ export function GroupSettings({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pa
 }
 
 /**
- * General · Roles · Logs, the way VRChat's settings split. Logs is Modbot's audit log. Each is
- * offered only to somebody who may open it.
+ * General · Roles · Logs, the way VRChat's settings split. Logs is Modbot's audit log, opened with
+ * the group's header and this row above it (`groupTabHref`). Each is offered only to somebody who
+ * may open it.
  */
 export function SettingsTabs({
   me,
@@ -63,7 +65,7 @@ export function SettingsTabs({
 }: {
   me: CurrentUser
   pathOf: (id: PageId) => string
-  active: 'group-settings' | 'group-roles'
+  active: 'group-settings' | 'group-roles' | 'audit'
 }) {
   const tabs = (
     [
@@ -73,7 +75,7 @@ export function SettingsTabs({
     ] as const
   )
     .filter((tab) => mayOpen(me, tab.id))
-    .map((tab) => ({ label: tab.label, href: pathOf(tab.id), current: tab.id === active }))
+    .map((tab) => ({ label: tab.label, href: groupTabHref(tab.id, pathOf(tab.id)), current: tab.id === active }))
 
   return (
     <nav aria-label="Settings" className="flex items-stretch gap-1 overflow-x-auto border-b border-b-(length:--hairline)">

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardFooter } from '@/components/ui/card'
+import { RefreshCw } from 'lucide-react'
+import { Card, CardAction, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
@@ -40,6 +41,23 @@ const PAGE_SIZE = 50
  * a backlog costs one VRChat request per answer instead of two.
  */
 export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (id: string) => void }) {
+  return <JoinRequests me={me} onOpenSubject={onOpenSubject} />
+}
+
+/**
+ * The list itself, shared by the Requests page and the VRChat page's Invites tab, where vrchat.com
+ * puts a group's join requests. With a `title` it is one card with Refresh in its corner; without,
+ * the page's own layout, Refresh above the table.
+ */
+export function JoinRequests({
+  me,
+  onOpenSubject,
+  title,
+}: {
+  me: CurrentUser
+  onOpenSubject: (id: string) => void
+  title?: string
+}) {
   const [page, setPage] = useState(1)
   const [list, setList] = useState<JoinRequestList | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -103,13 +121,25 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
       {/* No "last synced" line: this list is not synced. It is read when the page is opened and
           again when Refresh is pressed, and saying so in a sentence would be explaining the
           screen rather than driving it. */}
-      <div className="flex items-center justify-end">
-        <Button variant="outline" onClick={() => setReload((n) => n + 1)} disabled={loading}>
-          Refresh
-        </Button>
-      </div>
+      {!title && (
+        <div className="flex items-center justify-end">
+          <Button variant="outline" onClick={() => setReload((n) => n + 1)} disabled={loading}>
+            Refresh
+          </Button>
+        </div>
+      )}
 
       <Card>
+        {title && (
+          <CardHeader>
+            <CardTitle>{title}</CardTitle>
+            <CardAction>
+              <Button size="xs" variant="outline" onClick={() => setReload((n) => n + 1)} disabled={loading} aria-label="Refresh join requests">
+                <RefreshCw className={loading ? 'animate-spin' : undefined} /> Refresh
+              </Button>
+            </CardAction>
+          </CardHeader>
+        )}
         {error ? (
           <EmptyRow tone="danger">{missing ? <VRChatPermissionMissing missing={missing} /> : error}</EmptyRow>
         ) : loading && !list ? (
