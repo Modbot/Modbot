@@ -227,7 +227,10 @@ export function PopupFrame({
       <aside className="flex flex-col md:overflow-auto md:border-r md:border-r-(length:--hairline)">
         {left}
       </aside>
-      <div className="flex min-h-0 flex-col">{children}</div>
+      {/* On a phone the tabs are at least a screen tall. Left to size themselves, they were
+          squeezed into whatever the left column left over -- a few rows under a long profile --
+          and the popup never scrolled, so the tab a reader had just opened stayed out of sight. */}
+      <div className="flex min-h-[calc(100dvh-6rem)] flex-col md:min-h-0">{children}</div>
     </DialogContent>
   )
 }

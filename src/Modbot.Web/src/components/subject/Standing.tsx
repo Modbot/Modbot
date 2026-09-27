@@ -155,7 +155,10 @@ export function StandingBar({
       )}
 
       {view && !view.banned && view.members.firstSweepComplete && (
-        <span className="text-muted-foreground">{view.isMember ? 'Member' : 'Not a member'}</span>
+        <span className="text-muted-foreground">
+          {chips.length > 0 || failed.length > 0 || !waiting ? '· ' : ''}
+          {view.isMember ? 'Member' : 'Not a member'}
+        </span>
       )}
     </div>
   )

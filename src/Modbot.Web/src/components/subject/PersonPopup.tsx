@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
@@ -132,7 +132,18 @@ function Resolved({
   const opening: Tab = message && discordId && readsMessages ? 'messages' : 'overview'
   const [tab, setTab] = useOpeningTab<Tab>(opening, TABS)
 
-  // Bumped after a kick, ban or unban, which remounts the cards that read what Modbot stores.
+  // On a phone the tabs come after the whole profile, so a tab opened from the row under the title
+  // or from the Note button at the foot would change somewhere the reader cannot see. Opening one
+  // from there brings the tabs up to the top of the screen as well.
+  const tabsAt = useRef<HTMLDivElement>(null)
+  const openFromAbove = (next: Tab) => {
+    setTab(next)
+    if (window.matchMedia('(max-width: 767px)').matches)
+      requestAnimationFrame(() => tabsAt.current?.scrollIntoView({ block: 'start' }))
+  }
+
+  // Bumped after a kick, ban or unban, or a note written or taken back, which remounts the cards
+  // that read what Modbot stores.
   // The server has already written the change, so this reads it back rather than guessing at it.
   const [acted, setActed] = useState(0)
 
@@ -188,7 +199,7 @@ function Resolved({
           // A chip only opens a tab this account has; the Banned chip needs only the member list,
           // and the Cases tab it points at needs the profile permission as well.
           onOpen={(next) => {
-            if (tabs.some((t) => t.value === next)) setTab(next)
+            if (tabs.some((t) => t.value === next)) openFromAbove(next)
           }}
         />
       }
@@ -199,7 +210,7 @@ function Resolved({
           name={person.vrChat?.name ?? null}
           membership={vrchatId && seesMembers ? membership.data : null}
           canNote={notesId !== null && readsNotes}
-          onNote={() => setTab('notes')}
+          onNote={() => openFromAbove('notes')}
           onActed={() => setActed((n) => n + 1)}
         />
       }
@@ -249,30 +260,33 @@ function Resolved({
         </>
       }
     >
-      <Tabs value={tab} onChange={setTab} tabs={tabs} className="flex-1">
-        {tab === 'overview' && (
-          <Overview key={fresh} person={person} me={me} stored={stored} onMore={setTab} />
-        )}
-        {tab === 'logs' && <Logs key={fresh} person={person} />}
-        {tab === 'notes' && notesId && (
-          <PersonNotes
-            key={`${notesId}-${live}`}
-            subjectId={notesId}
-            name={person.vrChat?.name ?? person.discord?.name}
-            platform={notesPlatform}
-          />
-        )}
-        {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
-        {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
-        {tab === 'flags' && (vrchatId || discordId) && (
-          <PersonFlags key={live} vrchatId={vrchatId} discordId={discordId} />
-        )}
-        {tab === 'discord' && discordId && <DiscordHistory key={live} id={discordId} read={member} />}
-        {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
-        {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
-        {tab === 'metrics' && <Metrics key={live} person={person} />}
-        {tab === 'json' && <Records key={fresh} person={person} me={me} />}
-      </Tabs>
+      <div ref={tabsAt} className="flex min-h-0 flex-1 flex-col">
+        <Tabs value={tab} onChange={setTab} tabs={tabs} className="flex-1">
+          {tab === 'overview' && (
+            <Overview key={fresh} person={person} me={me} stored={stored} onMore={setTab} />
+          )}
+          {tab === 'logs' && <Logs key={fresh} person={person} />}
+          {tab === 'notes' && notesId && (
+            <PersonNotes
+              key={`${notesId}-${live}`}
+              subjectId={notesId}
+              name={person.vrChat?.name ?? person.discord?.name}
+              platform={notesPlatform}
+              onChanged={() => setActed((n) => n + 1)}
+            />
+          )}
+          {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
+          {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
+          {tab === 'flags' && (vrchatId || discordId) && (
+            <PersonFlags key={live} vrchatId={vrchatId} discordId={discordId} />
+          )}
+          {tab === 'discord' && discordId && <DiscordHistory key={live} id={discordId} read={member} />}
+          {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
+          {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
+          {tab === 'metrics' && <Metrics key={live} person={person} />}
+          {tab === 'json' && <Records key={fresh} person={person} me={me} />}
+        </Tabs>
+      </div>
     </PopupFrame>
   )
 }

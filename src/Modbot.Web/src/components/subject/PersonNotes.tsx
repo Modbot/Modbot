@@ -30,12 +30,15 @@ export function PersonNotes({
   subjectId,
   name,
   platform,
+  onChanged,
 }: {
   subjectId: string
   /** The person's name, for the take-back confirmation. Falls back to the id. */
   name?: string | null
   /** `VRChat` or `Discord`. Which of the person's accounts these notes are filed under. */
   platform?: string
+  /** Called after a note is written or taken back, so a count shown elsewhere can be read again. */
+  onChanged?: () => void
 }) {
   // Bumped after a write or a take-back, which reloads the list from the server rather than
   // guessing at what it now says.
@@ -47,7 +50,10 @@ export function PersonNotes({
   )
   const { data, error } = useLoad<NoteList>(load, version)
 
-  const again = () => setVersion((n) => n + 1)
+  const again = () => {
+    setVersion((n) => n + 1)
+    onChanged?.()
+  }
 
   return (
     <div className="flex min-h-0 flex-col">
