@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, ApiError, type LivePerson, type LiveInstance, type LiveView, type LiveVoiceChannel } from '@/lib/api'
 import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
-import { clockTime } from '@/lib/format'
+import { ago, clockTime } from '@/lib/format'
 import { DOT, type Tone } from '@/lib/status'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
@@ -20,6 +20,9 @@ import { cn } from '@/lib/utils'
  * the server's syncs rather than from events, so the stream alone would not move them.
  */
 const REFRESH_MS = 30_000
+
+/** Older than two missed reads, the age turns to the warning colour. */
+const STALE_MS = 2 * REFRESH_MS
 
 /** A burst of joins is one redraw, not one per join. */
 const SETTLE_MS = 300
@@ -49,12 +52,23 @@ export function Live() {
   const [error, setError] = useState<string | null>(null)
   const settle = useRef<number | undefined>(undefined)
 
+  // When this page last heard from the server, and a clock that moves the age on every second.
+  // Both are this browser's own times, so a wrong system clock cannot make the age wrong.
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(tick)
+  }, [])
+
   const load = useCallback(() => {
     api
       .live()
       .then((view) => {
         setData(view)
         setError(null)
+        setUpdatedAt(Date.now())
       })
       .catch((e: unknown) => {
         setError(
@@ -79,23 +93,27 @@ export function Live() {
   useEffect(() => {
     let timer: number | undefined
 
-    const follow = () => {
+    const follow = (returning: boolean) => {
       window.clearInterval(timer)
       timer = undefined
 
       if (document.visibilityState !== 'visible') return
 
-      load()
+      if (returning) load()
       timer = window.setInterval(load, REFRESH_MS)
     }
 
-    follow()
-    document.addEventListener('visibilitychange', follow)
+    // Read once whatever the tab's state: a Live tab opened behind another one used to sit on
+    // "Loading…" until it was looked at. Only the repeating read waits for the tab to be seen.
+    load()
+    follow(false)
+    const onVisibility = () => follow(true)
+    document.addEventListener('visibilitychange', onVisibility)
 
     return () => {
       window.clearInterval(timer)
       window.clearTimeout(settle.current)
-      document.removeEventListener('visibilitychange', follow)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [load])
 
@@ -104,6 +122,11 @@ export function Live() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-end gap-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        {updatedAt !== null && (
+          <span className={cn('font-mono', now - updatedAt > STALE_MS && 'text-warn')}>
+            Updated {ago(new Date(updatedAt).toISOString(), new Date(Math.max(now, updatedAt)).toISOString())}
+          </span>
+        )}
         <span aria-hidden className={cn('size-1.5 shrink-0', DOT[STREAM_TONE[stream]])} />
         <span>{stateWord(stream)}</span>
       </div>
