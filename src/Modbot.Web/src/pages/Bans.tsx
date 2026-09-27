@@ -167,7 +167,7 @@ function GroupBans({
           }}
           aria-label="Status"
         >
-          <option value="current">Bans that stand</option>
+          <option value="current">Still banned</option>
           <option value="lifted">Bans that were lifted</option>
           <option value="all">Both</option>
         </Select>
@@ -190,7 +190,7 @@ function GroupBans({
             <>
               <Th>Person</Th>
               <Th>Banned on</Th>
-              <Th>Modbot first saw it</Th>
+              <Th>Seen by Modbot</Th>
               {status !== 'current' && <Th>Lifted</Th>}
               {showCases && <Th>Case file</Th>}
               {canAct && (
@@ -225,11 +225,6 @@ function GroupBans({
                     {ban.plainName && (
                       <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                         {ban.plainName}
-                      </div>
-                    )}
-                    {ban.displayName && (
-                      <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
-                        {ban.userId}
                       </div>
                     )}
                   </div>

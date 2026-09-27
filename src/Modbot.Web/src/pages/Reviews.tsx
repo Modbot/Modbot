@@ -106,10 +106,10 @@ export function Reviews({
           <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {list.lastRunAt ? (
               <>
-                Detection last ran <span className="font-mono">{ago(list.lastRunAt, list.now)}</span>
+                Last checked <span className="font-mono">{ago(list.lastRunAt, list.now)}</span>
               </>
             ) : (
-              'Detection has not run yet'
+              'Not checked yet'
             )}
           </span>
         )}
