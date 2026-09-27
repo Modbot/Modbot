@@ -136,8 +136,8 @@ public class ListFilteringTests
     [InlineData(null, "already here")]
     [InlineData(0.5, "<1 min")]
     [InlineData(5.2, "5 min")]
-    [InlineData(60, "1 h")]
-    [InlineData(75, "1 h 15 min")]
+    [InlineData(60.0, "1 h")]
+    [InlineData(75.0, "1 h 15 min")]
     public void JoinTimesAreSaidInFewWords(double? minutesAgo, string words)
     {
         DateTimeOffset? arrived = minutesAgo is { } m ? Now.AddMinutes(-m) : null;

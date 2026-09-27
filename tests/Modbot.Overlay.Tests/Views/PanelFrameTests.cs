@@ -52,7 +52,9 @@ public class PanelFrameTests
             t.Target is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.ClosePerson
                 or OverlayTarget.RefreshPerson or OverlayTarget.Roster or OverlayTarget.Events
                 or OverlayTarget.DismissAlert or OverlayTarget.SaveClip
-                or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
+                or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough
+                or OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters
+                or OverlayTarget.TypeName,
             $"Unexpected overlay target {t.Target.GetType().Name}."));
     }
 
