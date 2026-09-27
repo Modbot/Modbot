@@ -456,7 +456,8 @@
    A `title` shows only while a pointer rests on it, and a laser pointer does
    not rest. Text cut short to an ellipsis, whose title is the same text in
    full, is written out in full instead. Any other title is marked with a
-   dotted line, and a tap on it shows it (components/TitleOnTap.tsx).
+   dotted line, and a tap on it shows it (components/TitleOnTap.tsx) -- except
+   inside something a tap opens, which shows the detail itself.
    ─────────────────────────────────────────────────────────────────────────── */
 [data-place="headset"] .truncate[title] {
   overflow: visible;
@@ -465,7 +466,7 @@
   overflow-wrap: anywhere;
 }
 
-[data-place="headset"] :is(span, td, code, p)[title]:not(.truncate) {
+[data-place="headset"] :is(span, td, code, p)[title]:not(.truncate, :is(a, button, summary, label, [role="button"], [aria-expanded]) *) {
   text-decoration: underline dotted;
   text-underline-offset: 0.2em;
   cursor: help;
