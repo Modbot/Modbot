@@ -53,6 +53,17 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
         FactType.InstanceLeft,
     ];
 
+    /// <summary>
+    /// What this page draws from, and so where its "all time" starts: the opened and closed daily
+    /// totals, the audit log's instance facts and the presence reports it counts, the group's own
+    /// instances, and VRChat's head counts of them.
+    /// </summary>
+    public static readonly PageSources Sources = PageSources.Of(
+        [DailyTotalMetrics.InstancesOpened, DailyTotalMetrics.InstancesClosed],
+        InstanceTypes,
+        groupInstances: true,
+        headCounts: true);
+
     private readonly AnalyticsSql _sql = new(db);
 
     public async Task<InstancesAnalytics> RunAsync(
@@ -61,8 +72,7 @@ public sealed class InstancesAnalyticsQuery(ModbotContext db)
         DateTimeOffset now,
         CancellationToken ct = default)
     {
-        var totals = await _sql.DailyTotalsAsync(from, to,
-            [DailyTotalMetrics.InstancesOpened, DailyTotalMetrics.InstancesClosed], ct);
+        var totals = await _sql.DailyTotalsAsync(from, to, Sources.Metrics, ct);
 
         var lives = await LifetimesAsync(from, to, ct);
         var ended = await EndedAsync(from, to, ct);

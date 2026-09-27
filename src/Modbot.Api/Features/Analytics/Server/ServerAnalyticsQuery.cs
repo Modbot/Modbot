@@ -35,17 +35,13 @@ public sealed class ServerAnalyticsQuery(ModbotContext db)
         DailyTotalMetrics.DiscordMemberVoiceMinutes,
     ];
 
-    private readonly AnalyticsSql _sql = new(db);
-
-    public async Task<ServerAnalytics> RunAsync(DateOnly from, DateOnly to, DateTimeOffset now, CancellationToken ct = default)
-    {
-        var guildId = await db.Settings.AsNoTracking()
-            .Where(s => s.Id == 1)
-            .Select(s => s.DiscordGuildId)
-            .FirstOrDefaultAsync(ct);
-        guildId = string.IsNullOrWhiteSpace(guildId) ? null : guildId.Trim();
-
-        var totals = await _sql.DailyTotalsAsync(from, to,
+    /// <summary>
+    /// What this page draws from, and so where its "all time" starts: every Discord daily total it
+    /// charts, messages among them, and the join facts new members are followed from. Message
+    /// history the bot read back can reach years before the bot itself, and this page is where
+    /// those years belong.
+    /// </summary>
+    public static readonly PageSources Sources = PageSources.Of(
         [
             DailyTotalMetrics.DiscordMembersCount,
             DailyTotalMetrics.DiscordMembersJoined,
@@ -60,7 +56,20 @@ public sealed class ServerAnalyticsQuery(ModbotContext db)
             DailyTotalMetrics.DiscordMessagesByHour,
             DailyTotalMetrics.DiscordMemberMessages,
             DailyTotalMetrics.DiscordMemberVoiceMinutes,
-        ], ct);
+        ],
+        [FactType.DiscordMemberJoined]);
+
+    private readonly AnalyticsSql _sql = new(db);
+
+    public async Task<ServerAnalytics> RunAsync(DateOnly from, DateOnly to, DateTimeOffset now, CancellationToken ct = default)
+    {
+        var guildId = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.DiscordGuildId)
+            .FirstOrDefaultAsync(ct);
+        guildId = string.IsNullOrWhiteSpace(guildId) ? null : guildId.Trim();
+
+        var totals = await _sql.DailyTotalsAsync(from, to, Sources.Metrics, ct);
 
         var today = AnalyticsSql.DayOf(now);
 

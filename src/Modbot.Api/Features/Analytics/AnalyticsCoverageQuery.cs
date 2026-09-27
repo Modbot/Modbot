@@ -34,7 +34,79 @@ public static class AnalyticsCoverageQuery
     }
 
     /// <summary>
-    /// The first day either source knows about — what "all time" means for a window.
+    /// The first day one analytics page has anything for — what "all time" means on that page —
+    /// or null when it has nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// Every part is one index lookup: a first day per metric on the daily totals' metric index, a
+    /// first fact per type on the fact log's type index, and the first row of each table the page
+    /// keeps. Only the parts the page reads are asked for.
+    /// </remarks>
+    public static async Task<DateOnly?> FirstDayAsync(ModbotContext db, PageSources sources, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+
+        var parts = new List<string>
+        {
+            """
+            (SELECT MIN(f.first_day)
+             FROM unnest(@metrics) AS m(metric)
+             CROSS JOIN LATERAL (
+                 SELECT MIN(t.day) AS first_day
+                 FROM modbot_daily_total t
+                 WHERE t.metric = m.metric
+             ) f)
+            """,
+            """
+            (SELECT (MIN(f.first_at) AT TIME ZONE 'UTC')::date
+             FROM unnest(@types) AS ft(type)
+             CROSS JOIN LATERAL (
+                 SELECT MIN(e.occurred_at) AS first_at
+                 FROM modbot_event e
+                 WHERE e.type = ft.type
+             ) f)
+            """,
+        };
+
+        var parameters = new List<(string Name, object? Value)>
+        {
+            ("metrics", sources.Metrics.ToArray()),
+            ("types", sources.FactTypes.ToArray()),
+        };
+
+        if (sources.GroupInstances || sources.MemberCountReadings)
+        {
+            var group = await db.Settings.AsNoTracking()
+                .Where(s => s.Id == 1)
+                .Select(s => s.ManagedGroupId)
+                .FirstOrDefaultAsync(ct);
+
+            // No group set up: an empty id matches no row, which is the truth.
+            parameters.Add(("group", string.IsNullOrWhiteSpace(group) ? string.Empty : group));
+        }
+
+        if (sources.GroupInstances)
+            parts.Add("(SELECT (MIN(i.opened_at) AT TIME ZONE 'UTC')::date FROM vrchat_instance i WHERE i.group_id = @group)");
+
+        if (sources.HeadCounts)
+            parts.Add("(SELECT (MIN(h.counted_at) AT TIME ZONE 'UTC')::date FROM instance_head_count h)");
+
+        if (sources.MemberCountReadings)
+            parts.Add("(SELECT (MIN(c.counted_at) AT TIME ZONE 'UTC')::date FROM group_member_count c WHERE c.group_id = @group)");
+
+        var rows = await new AnalyticsSql(db).ReadAsync(
+            $"SELECT LEAST({string.Join(", ", parts)})",
+            r => r.IsDBNull(0) ? (DateOnly?)null : AnalyticsSql.DayOf(r, 0),
+            ct,
+            [.. parameters]);
+
+        return rows.Count > 0 ? rows[0] : null;
+    }
+
+    /// <summary>
+    /// The first day either source knows about, across the whole store — every page's data at
+    /// once. The analytics pages each start at their own first day instead (see
+    /// <see cref="PageSources"/>).
     /// </summary>
     public static async Task<DateOnly?> FirstDayAsync(ModbotContext db, CancellationToken ct)
     {
