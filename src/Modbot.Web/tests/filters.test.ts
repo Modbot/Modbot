@@ -5,7 +5,8 @@ import {
   AUDIT_DEFAULTS,
   auditQueryFrom,
   discordMemberQueryFrom,
-  memberQueryFrom,
+  MEMBERS_VIEW,
+  memberView,
   PEOPLE_DEFAULTS,
   peopleQueryFrom,
 } from '../src/lib/pageFilters.ts'
@@ -81,20 +82,42 @@ test('the audit log leaves Sync out by default and turns is-not into the rest of
   assert.equal(query.type, undefined)
 })
 
-test('a role chip is any-of or none-of, and status defaults to everybody once its chip is gone', () => {
-  const any = memberQueryFrom([{ property: 'role', operator: 'is', values: ['grol_a', 'grol_b'] }])
+test('a role chip is any-of or none-of, and membership is everybody once its chip is gone', () => {
+  const any = peopleQueryFrom([{ property: 'role', operator: 'is', values: ['grol_a', 'grol_b'] }])
   assert.deepEqual(any.roles, ['grol_a', 'grol_b'])
   assert.equal(any.notRoles, undefined)
-  assert.equal(any.status, 'all')
+  assert.equal(any.membership, 'all')
 
-  const none = memberQueryFrom([
+  const none = peopleQueryFrom([
     { property: 'role', operator: 'is-not', values: ['grol_a'] },
-    { property: 'status', operator: 'is', values: ['current'] },
+    { property: 'membership', operator: 'is', values: ['member'] },
     { property: 'eighteenPlus', operator: 'yes', values: [] },
   ])
   assert.deepEqual(none.notRoles, ['grol_a'])
-  assert.equal(none.status, 'current')
+  assert.equal(none.roles, undefined)
+  assert.equal(none.membership, 'member')
   assert.equal(none.eighteenPlus, true)
+})
+
+test("People reads the member list's filters: has a role, representing and joined", () => {
+  const query = peopleQueryFrom([
+    { property: 'hasRole', operator: 'no', values: [] },
+    { property: 'representing', operator: 'yes', values: [] },
+    { property: 'joined', operator: 'between', values: ['2026-03-10', '2026-03-11'] },
+  ])
+
+  assert.equal(query.hasRole, false)
+  assert.equal(query.representing, true)
+  assert.equal(query.joinedFrom, '2026-03-10T00:00:00Z')
+  assert.equal(query.joinedTo, '2026-03-12T00:00:00.000Z')
+})
+
+test("the Members view is People's Membership chip on Members, and people who left is the other member view", () => {
+  assert.equal(memberView(MEMBERS_VIEW), 'member')
+  assert.equal(peopleQueryFrom(MEMBERS_VIEW).membership, 'member')
+  assert.equal(memberView([{ property: 'membership', operator: 'is', values: ['left'] }]), 'left')
+  assert.equal(memberView([{ property: 'membership', operator: 'is', values: ['not-member'] }]), null)
+  assert.equal(memberView(PEOPLE_DEFAULTS), null)
 })
 
 test('the Discord list reads its yes/no chips', () => {

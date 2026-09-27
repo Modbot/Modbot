@@ -34,7 +34,7 @@ public class AlertCheckerTests : AlertTestBase
         Assert.Equal(Start.AddHours(-1), alert.WindowStart);
         Assert.Equal(Start, alert.WindowEnd);
         Assert.Equal(AlertSensitivities.Normal, alert.Sensitivity);
-        Assert.StartsWith("/?joinedFrom=", alert.Link, StringComparison.Ordinal);
+        Assert.StartsWith("/people?f=membership%3Ais%3Amember&joinedFrom=", alert.Link, StringComparison.Ordinal);
 
         var figures = AlertFigures.FromJson(alert.Figures);
         Assert.NotNull(figures);

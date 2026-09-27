@@ -26,7 +26,7 @@ import {
   type GroupBanQuery,
 } from '@/lib/api'
 import { Freshness } from '@/components/Freshness'
-import { Empty, Marks } from '@/pages/Members'
+import { Empty, Marks } from '@/components/ListParts'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 

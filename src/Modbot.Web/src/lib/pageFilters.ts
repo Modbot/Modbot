@@ -1,4 +1,4 @@
-import type { AuditRequest, DiscordMemberQuery, MemberQuery, PeopleQuery } from './api.ts'
+import type { AuditRequest, DiscordMemberQuery, PeopleQuery } from './api.ts'
 import { chipFor, dateRange, yesNo, type FilterChip } from './filters.ts'
 
 /**
@@ -51,41 +51,23 @@ export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' 
   }
 }
 
-/** The member list's default: current members. */
-export const MEMBER_DEFAULTS: FilterChip[] = [{ property: 'status', operator: 'is', values: ['current'] }]
-
-export function memberQueryFrom(chips: FilterChip[]): Omit<MemberQuery, 'search' | 'sort' | 'page' | 'pageSize'> {
-  const role = chipFor(chips, 'role')
-  const status = chipFor(chips, 'status')
-  const linked = chipFor(chips, 'linked')
-  const profile = chipFor(chips, 'profile')
-  const joined = dateRange(chips, 'joined')
-  const seen = dateRange(chips, 'seen')
-
-  return {
-    roles: role?.operator === 'is' && role.values.length ? role.values : undefined,
-    notRoles: role?.operator === 'is-not' && role.values.length ? role.values : undefined,
-    hasRole: yesNo(chips, 'hasRole'),
-    status: (status?.values[0] as MemberQuery['status']) ?? 'all',
-    linked: (linked?.values[0] as MemberQuery['linked']) ?? undefined,
-    eighteenPlus: yesNo(chips, 'eighteenPlus'),
-    representing: yesNo(chips, 'representing'),
-    profile: profile?.values[0] as MemberQuery['profile'],
-    joinedFrom: joined.from,
-    joinedTo: joined.to,
-    seenFrom: seen.from,
-    seenTo: seen.to,
-  }
-}
-
 /**
  * The People page's default: nothing narrowed.
  *
- * The member list opens on current members because that is what its page is about. This page is
- * about finding somebody in the whole record, so it opens on the whole record and every chip is
- * something a moderator chose to add.
+ * The page is about finding somebody in the whole record, so it opens on the whole record and
+ * every chip is something a moderator chose to add. The member list is this page with one chip,
+ * `MEMBERS_VIEW`, which every link to "Members" carries in its address.
  */
 export const PEOPLE_DEFAULTS: FilterChip[] = []
+
+/** The People page narrowed to the group's current members: what the Members page was. */
+export const MEMBERS_VIEW: FilterChip[] = [{ property: 'membership', operator: 'is', values: ['member'] }]
+
+/** Which of the member list's two views the chips ask for, if either: the views with its columns. */
+export function memberView(chips: FilterChip[]): 'member' | 'left' | null {
+  const membership = chipFor(chips, 'membership')?.values[0]
+  return membership === 'member' || membership === 'left' ? membership : null
+}
 
 export function peopleQueryFrom(chips: FilterChip[]): Omit<PeopleQuery, 'search' | 'sort' | 'page' | 'pageSize'> {
   const membership = chipFor(chips, 'membership')
@@ -93,7 +75,9 @@ export function peopleQueryFrom(chips: FilterChip[]): Omit<PeopleQuery, 'search'
   const linked = chipFor(chips, 'linked')
   const rank = chipFor(chips, 'trustRank')
   const platform = chipFor(chips, 'platform')
+  const role = chipFor(chips, 'role')
   const seen = dateRange(chips, 'seen')
+  const joined = dateRange(chips, 'joined')
 
   return {
     membership: (membership?.values[0] as PeopleQuery['membership']) ?? 'all',
@@ -107,6 +91,12 @@ export function peopleQueryFrom(chips: FilterChip[]): Omit<PeopleQuery, 'search'
     flagged: yesNo(chips, 'flagged'),
     seenFrom: seen.from,
     seenTo: seen.to,
+    roles: role?.operator === 'is' && role.values.length ? role.values : undefined,
+    notRoles: role?.operator === 'is-not' && role.values.length ? role.values : undefined,
+    hasRole: yesNo(chips, 'hasRole'),
+    representing: yesNo(chips, 'representing'),
+    joinedFrom: joined.from,
+    joinedTo: joined.to,
   }
 }
 

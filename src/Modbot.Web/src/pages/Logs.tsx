@@ -9,7 +9,7 @@ import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type LogFilters, type LogLevel, type LogLine, type LogPage } from '@/lib/api'
 import { wholeEntry } from '@/lib/logEntry'
 import { cn } from '@/lib/utils'
-import { Empty } from './Members'
+import { Empty } from '@/components/ListParts'
 
 const PAGE_SIZE = 100
 

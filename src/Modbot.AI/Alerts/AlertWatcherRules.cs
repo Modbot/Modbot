@@ -88,9 +88,10 @@ public static class AlertWatcherRules
     {
         ArgumentNullException.ThrowIfNull(windows);
 
-        // The members list takes the window as a filter, so "those joiners" is one click rather
-        // than a page of everybody sorted by join date.
-        var joined = $"/?joinedFrom={Uri.EscapeDataString(windows.Start.ToUniversalTime().ToString("o"))}"
+        // The People page's Members view takes the window as a filter, so "those joiners" is one
+        // click rather than a page of everybody sorted by join date. Alerts from before 2026-09-27
+        // link to `/?joinedFrom=`, which the web app still sends on to the same view.
+        var joined = $"/people?f=membership%3Ais%3Amember&joinedFrom={Uri.EscapeDataString(windows.Start.ToUniversalTime().ToString("o"))}"
             + $"&joinedTo={Uri.EscapeDataString(windows.End.ToUniversalTime().ToString("o"))}";
 
         return watcher switch

@@ -882,32 +882,6 @@ export type BanList = {
 /** One role the group defines, as last read by the group-info producer. */
 export type RoleOption = { id: string; name: string | null; members: number }
 
-/**
- * One row of the Members page. `displayName` and `avatarThumbnailUrl` come from the stored
- * profile and are null until the profile sync has fetched one -- the row shows the id then.
- */
-export type MemberRow = {
-  userId: string
-  displayName: string | null
-  /** The display name in plain letters, when that differs from it. */
-  plainName: string | null
-  avatarThumbnailUrl: string | null
-  roleIds: string[]
-  roleNames: string[]
-  joinedAt: string | null
-  membershipStatus: string | null
-  visibility: string | null
-  isRepresenting: boolean
-  eighteenPlus: boolean
-  /** Null until the profile's tags have been read. */
-  trustRank: TrustRank | null
-  lastSeenAt: string | null
-  profileRefreshedAt: string | null
-  leftAt: string | null
-  /** Null when they have not linked, and always null without See profiles. */
-  linkedDiscord: LinkedDiscord | null
-}
-
 /** A group member's linked Discord account, and how the stored Discord member list has them. */
 export type LinkedDiscord = {
   userId: string
@@ -933,39 +907,6 @@ export type SweepCoverage = {
 
 export type MemberListCoverage = SweepCoverage & { memberCount: number }
 
-export type MemberList = {
-  members: MemberRow[]
-  total: number
-  page: number
-  pageSize: number
-  roles: RoleOption[]
-  coverage: MemberListCoverage
-}
-
-export type MemberQuery = {
-  search?: string
-  /** People holding any of these roles. */
-  roles?: string[]
-  /** People holding none of these roles. */
-  notRoles?: string[]
-  /** True: people with at least one role; false: people with none. */
-  hasRole?: boolean
-  status?: 'current' | 'left' | 'all'
-  sort?: 'joined' | 'name' | 'seen'
-  linked?: LinkedFilter
-  eighteenPlus?: boolean
-  representing?: boolean
-  profile?: 'fetched' | 'not-fetched'
-  /** Only people who joined at or after this moment. */
-  joinedFrom?: string
-  /** Only people who joined before this moment. */
-  joinedTo?: string
-  seenFrom?: string
-  seenTo?: string
-  page?: number
-  pageSize?: number
-}
-
 /**
  * One row of the People page: somebody Modbot has a record of, member or not. `displayName` and
  * `avatarThumbnailUrl` come from the stored profile and are null until the profile sync has
@@ -988,6 +929,14 @@ export type PersonRow = {
   lastSeenAt: string
   profileRefreshedAt: string | null
   notFoundAt: string | null
+  /** The group roles they hold, or held when they left. Empty for somebody who was never a member. */
+  roleIds: string[]
+  roleNames: string[]
+  /** When they joined the group. Null for somebody who was never a member. */
+  joinedAt: string | null
+  isRepresenting: boolean
+  /** Null when they have not linked, and always null without See profiles. */
+  linkedDiscord: LinkedDiscord | null
 }
 
 export type PeopleList = {
@@ -995,7 +944,9 @@ export type PeopleList = {
   total: number
   page: number
   pageSize: number
-  coverage: { known: number; members: number; now: string }
+  /** The group's roles, with how many current members hold each. */
+  roles: RoleOption[]
+  coverage: { known: number; members: number; now: string; memberList: MemberListCoverage }
 }
 
 export type PeopleQuery = {
@@ -1016,7 +967,18 @@ export type PeopleQuery = {
   flagged?: boolean
   seenFrom?: string
   seenTo?: string
-  sort?: 'seen' | 'name' | 'known'
+  /** People holding any of these group roles. */
+  roles?: string[]
+  /** People holding none of these group roles. */
+  notRoles?: string[]
+  /** True: people with at least one role; false: people with none. */
+  hasRole?: boolean
+  representing?: boolean
+  /** Only people who joined the group at or after this moment. */
+  joinedFrom?: string
+  /** Only people who joined the group before this moment. */
+  joinedTo?: string
+  sort?: 'seen' | 'name' | 'known' | 'joined'
   page?: number
   pageSize?: number
 }
@@ -4406,32 +4368,6 @@ export const api = {
   },
 
   /**
-   * The group's member list as last swept, searched and paged on the server. Names and pictures
-   * are whatever the profile sync has fetched so far.
-   */
-  members: (query: MemberQuery = {}) => {
-    const q = new URLSearchParams()
-    if (query.search) q.set('search', query.search)
-    query.roles?.forEach((r) => q.append('role', r))
-    query.notRoles?.forEach((r) => q.append('notRole', r))
-    if (query.hasRole !== undefined) q.set('noRole', String(!query.hasRole))
-    if (query.status && query.status !== 'current') q.set('status', query.status)
-    if (query.sort && query.sort !== 'joined') q.set('sort', query.sort)
-    if (query.linked && query.linked !== 'all') q.set('linked', query.linked)
-    if (query.eighteenPlus !== undefined) q.set('eighteenPlus', String(query.eighteenPlus))
-    if (query.representing !== undefined) q.set('representing', String(query.representing))
-    if (query.profile) q.set('profile', query.profile)
-    if (query.joinedFrom) q.set('joinedFrom', query.joinedFrom)
-    if (query.joinedTo) q.set('joinedTo', query.joinedTo)
-    if (query.seenFrom) q.set('seenFrom', query.seenFrom)
-    if (query.seenTo) q.set('seenTo', query.seenTo)
-    if (query.page && query.page > 1) q.set('page', String(query.page))
-    if (query.pageSize) q.set('pageSize', String(query.pageSize))
-    const search = q.toString()
-    return request<MemberList>(`/api/members${search ? `?${search}` : ''}`)
-  },
-
-  /**
    * Everyone Modbot has a record of, member or not. The member list is the group's roster; this
    * is the whole table behind it, and most of it is people who were never members.
    */
@@ -4449,6 +4385,12 @@ export const api = {
     if (query.flagged !== undefined) q.set('flagged', String(query.flagged))
     if (query.seenFrom) q.set('seenFrom', query.seenFrom)
     if (query.seenTo) q.set('seenTo', query.seenTo)
+    query.roles?.forEach((r) => q.append('role', r))
+    query.notRoles?.forEach((r) => q.append('notRole', r))
+    if (query.hasRole !== undefined) q.set('noRole', String(!query.hasRole))
+    if (query.representing !== undefined) q.set('representing', String(query.representing))
+    if (query.joinedFrom) q.set('joinedFrom', query.joinedFrom)
+    if (query.joinedTo) q.set('joinedTo', query.joinedTo)
     if (query.sort && query.sort !== 'seen') q.set('sort', query.sort)
     if (query.page && query.page > 1) q.set('page', String(query.page))
     if (query.pageSize) q.set('pageSize', String(query.pageSize))

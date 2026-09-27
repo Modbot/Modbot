@@ -1,3 +1,4 @@
+using Modbot.Api.Features.Members;
 using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.People;
@@ -17,6 +18,14 @@ namespace Modbot.Api.Features.People;
 /// <param name="LastSeenAt">The most recent time this person did something Modbot recorded.</param>
 /// <param name="ProfileRefreshedAt">When the profile columns were last fetched. Null means the name and picture are not known yet.</param>
 /// <param name="NotFoundAt">Set when VRChat has no account with this id.</param>
+/// <param name="RoleIds">The group roles they hold, or held when they left. Empty for somebody who was never a member.</param>
+/// <param name="RoleNames">The role ids resolved against the group's roles; an id with no known name is shown as the id.</param>
+/// <param name="JoinedAt">When VRChat says they joined the group. Null for somebody who was never a member.</param>
+/// <param name="IsRepresenting">Representing the group, by the last sweep.</param>
+/// <param name="LinkedDiscord">
+/// Their linked Discord account. Null when they have not linked, and always null for a caller
+/// without See profiles, who may not see links (Discord account linking design §11).
+/// </param>
 public sealed record PersonRow(
     string UserId,
     string? DisplayName,
@@ -30,7 +39,12 @@ public sealed record PersonRow(
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,
     DateTimeOffset? ProfileRefreshedAt,
-    DateTimeOffset? NotFoundAt);
+    DateTimeOffset? NotFoundAt,
+    IReadOnlyList<string> RoleIds,
+    IReadOnlyList<string> RoleNames,
+    DateTimeOffset? JoinedAt,
+    bool IsRepresenting,
+    LinkedDiscordView? LinkedDiscord);
 
 /// <summary>
 /// How many people Modbot knows about in total, beside however many the filters left.
@@ -38,11 +52,14 @@ public sealed record PersonRow(
 /// <param name="Known">Every row in the table, whatever the filters say.</param>
 /// <param name="Members">How many of them are members of the group right now.</param>
 /// <param name="Now">The server's clock (spec 4.4), so ages are computed against it.</param>
-public sealed record PeopleCoverage(int Known, int Members, DateTimeOffset Now);
+/// <param name="MemberList">How fresh the member list is, which the Members view shows in place of the counts.</param>
+public sealed record PeopleCoverage(int Known, int Members, DateTimeOffset Now, MemberListCoverage MemberList);
 
+/// <param name="Roles">The group's roles with how many current members hold each, for the Role filter.</param>
 public sealed record PeopleListResponse(
     IReadOnlyList<PersonRow> People,
     int Total,
     int Page,
     int PageSize,
+    IReadOnlyList<RoleOption> Roles,
     PeopleCoverage Coverage);

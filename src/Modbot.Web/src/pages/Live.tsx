@@ -13,7 +13,7 @@ import { arrivedWithin, LIT_MS, NEW_MS, pinned, tallyCounts } from '@/lib/livePe
 import { DOT, type Tone } from '@/lib/status'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
-import { Marks } from '@/pages/Members'
+import { Marks } from '@/components/ListParts'
 import { cn } from '@/lib/utils'
 
 /**

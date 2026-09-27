@@ -17,9 +17,7 @@ export const NAV = [
   // group's instances, Modbot's health and what changed since this person last looked. Every part
   // is read under its own page's permission, so it needs none of its own.
   { id: 'now', label: 'Now' },
-  // At `/members` since Now took `/` on 2026-09-27; `/` with the list's own filters still opens it.
-  { id: 'members', label: 'Members', needs: 'ViewMembers' },
-  // The people asking to be let in, read from VRChat when the page is opened. Beside Members
+  // The people asking to be let in, read from VRChat when the page is opened. Near People
   // because it is the same roster one step earlier.
   { id: 'requests', label: 'Requests', needs: 'ViewJoinRequests' },
   // The Discord server's own member list. Separate from Members, because most people are on one
@@ -30,7 +28,13 @@ export const NAV = [
   // Everyone Modbot has a record of, not only the group's roster: the people it has seen in an
   // instance or read about in the audit log have a profile and a history too, and no list led to
   // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
-  { id: 'people', label: 'People', needs: 'ViewProfile' },
+  // See members opens it too, for the Members view alone (below).
+  { id: 'people', label: 'People', needsAny: ['ViewProfile', 'ViewMembers'] },
+  // Not a page since 2026-09-27: the member list became People narrowed to members, with its
+  // columns and filters (`MEMBERS_PATH`). It keeps its name so the VRChat page's Members tab, `g m`
+  // and the palette still go to it, and the sidebar lights People while it is open. `/members`
+  // and its old filters still open it (`membersAddress`).
+  { id: 'members', label: 'Members', needs: 'ViewMembers', hidden: true, under: 'people' },
   // The group's open instances right now and who is in each.
   { id: 'live', label: 'Live', needs: 'ViewLiveInstances' },
   // Planned events, where each is published, and the calendar feed (calendar design).
@@ -204,22 +208,54 @@ export function waitingTotal(badges: Partial<Record<PageId, number>>): number {
 }
 
 /**
- * Where an address that meant the member list goes now that `/` is Now.
- *
- * The member list writes its filters and its page into the address (`/?f=status:is:current`: the
- * `PARAM`s of lib/filters.ts and lib/listPage.ts, spelled out because neither loads in Node), and
- * those addresses were copied into messages and bookmarks for months. Now reads neither, so a `/`
- * carrying either one can only have meant the member list, and goes there with everything else in
- * the address kept. Null for every other address, including a plain `/` and a `/?subject=…`, which
- * are Now's.
+ * The Members view: People narrowed to the group's current members. The chip is `MEMBERS_VIEW` of
+ * lib/pageFilters.ts, spelled out because that file does not load in Node.
  */
-export function oldMembersAddress(path: string, search: string): string | null {
-  if (path !== '/') return null
+export const MEMBERS_PATH = '/people?f=membership%3Ais%3Amember'
 
+/**
+ * Where an address that meant the member list goes now that it is a view of People.
+ *
+ * The member list lived at `/` until Now took it, then at `/members` until People took it in, and
+ * wrote its filters and its page into the address (`/?f=status:is:current`: the `PARAM`s of
+ * lib/filters.ts and lib/listPage.ts, spelled out because neither loads in Node). Those addresses
+ * were copied into messages and bookmarks for months, and unusual-activity alerts linked to
+ * `/?joinedFrom=…`. So `/members` with anything after it, and a `/` carrying the list's filters,
+ * page or join stretch, go to People with everything else in the address kept.
+ *
+ * The member list's filters are People's under the same names, except its Status: "Members" and
+ * "People who left" are People's Membership chip, and its "all" is no Membership chip at all. An
+ * address with no filters opened the list on current members, and still does.
+ *
+ * Null for every other address, including a plain `/` and a `/?subject=…`, which are Now's.
+ */
+export function membersAddress(path: string, search: string): string | null {
   const params = new URLSearchParams(search)
-  if (!params.has('f') && !params.has('page')) return null
 
-  return `/members?${params.toString()}`
+  if (path === '/') {
+    if (!params.has('f') && !params.has('page') && !params.has('joinedFrom')) return null
+  } else if (path !== '/members') {
+    return null
+  }
+
+  const said = params.getAll('f')
+  params.delete('f')
+
+  const chips = said.length === 0 ? ['membership:is:member'] : said.filter((chip) => chip !== '').map(fromStatus).filter((chip) => chip !== null)
+
+  // "None" is written as one empty `f`, so the page does not fill in the filters it last used.
+  if (chips.length === 0) params.append('f', '')
+  for (const chip of chips) params.append('f', chip)
+
+  return `/people?${params.toString()}`
+}
+
+/** One member list chip as People's: its Status as Membership, "all" as nothing, the rest as they were. */
+function fromStatus(chip: string): string | null {
+  if (!chip.startsWith('status:')) return chip
+  if (chip === 'status:is:current') return 'membership:is:member'
+  if (chip === 'status:is:left') return 'membership:is:left'
+  return null
 }
 
 /** `(3) Modbot` while something is waiting, and the title as it was when nothing is. */

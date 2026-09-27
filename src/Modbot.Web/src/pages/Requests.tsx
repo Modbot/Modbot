@@ -25,7 +25,7 @@ import { confirmTitle, historyNote, mayAnswer, resultText, rowIsAnswered } from 
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { missingPermissionOf } from '@/lib/vrchatPermissions'
 import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
-import { Marks } from '@/pages/Members'
+import { Marks } from '@/components/ListParts'
 
 const PAGE_SIZE = 50
 

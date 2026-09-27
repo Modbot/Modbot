@@ -813,7 +813,7 @@
           "People"
         ],
         "summary": "List people",
-        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false for the group's ban list as it stands, `everBanned` true or false for a ban at any time, lifted or not; `profile` is `fetched` or `not-fetched`. `eighteenPlus` is true or false for Modbot's 18+ mark. `trustRank` is a trust rank name and may be repeated: people holding any of them, and never anybody whose tags have not been read. `platform` is the platform they last used, matched case-insensitively against whatever VRChat sent, and may be repeated. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without. `flagged` is true or false for having ever been flagged by a moderation rule, dismissed or not. `seenFrom` and `seenTo` narrow the list to people Modbot last saw inside that stretch. Sorted by when Modbot last saw them, most recent first, unless `sort=name` or `sort=known` (longest known first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet.\n\nNeeds the `ViewProfile` permission.",
+        "description": "Every VRChat account Modbot has ever seen: members, people who left, people it only ever saw in an instance or in the audit log. `search` matches the display name and the id, case-insensitively and literally. `membership` is `member`, `not-member`, `left` or `all` (the default); `banned` is true or false for the group's ban list as it stands, `everBanned` true or false for a ban at any time, lifted or not; `profile` is `fetched` or `not-fetched`. `eighteenPlus` is true or false for Modbot's 18+ mark. `trustRank` is a trust rank name and may be repeated: people holding any of them, and never anybody whose tags have not been read. `platform` is the platform they last used, matched case-insensitively against whatever VRChat sent, and may be repeated. `linked=linked` shows only people with a linked Discord account and `linked=not-linked` only people without. `flagged` is true or false for having ever been flagged by a moderation rule, dismissed or not. `seenFrom` and `seenTo` narrow the list to people Modbot last saw inside that stretch. `role` is a group role id and may be repeated: people holding any of them; `notRole`, also repeatable, leaves out people holding any of those; `noRole=true` keeps only people with no role. `representing` is true or false. `joinedFrom` and `joinedTo` narrow the list to people who joined the group inside that stretch, which is what an unusual-activity alert links to. Sorted by when Modbot last saw them, most recent first, unless `sort=name`, `sort=known` (longest known first) or `sort=joined` (newest joiner first). Names and pictures come from the profile sync and are null for anybody it has not fetched yet. Each row carries the member list's fields too: roles, when they joined, whether they are representing the group, and their linked Discord account. `roles` lists the group's roles with how many current members hold each.\n\nNeeds See profiles. See members alone is enough for `membership=member` or `membership=left`, without `flagged` or `linked`; the rows then carry no linked Discord account.",
         "operationId": "GetPeople",
         "parameters": [
           {
@@ -902,6 +902,56 @@
           },
           {
             "name": "seenTo",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "notRole",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "noRole",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "representing",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "joinedFrom",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "joinedTo",
             "in": "query",
             "schema": {
               "type": "string",
@@ -31537,7 +31587,8 @@
         "required": [
           "known",
           "members",
-          "now"
+          "now",
+          "memberList"
         ],
         "type": "object",
         "properties": {
@@ -31560,6 +31611,9 @@
           "now": {
             "type": "string",
             "format": "date-time"
+          },
+          "memberList": {
+            "$ref": "#/components/schemas/MemberListCoverage"
           }
         }
       },
@@ -31569,6 +31623,7 @@
           "total",
           "page",
           "pageSize",
+          "roles",
           "coverage"
         ],
         "type": "object",
@@ -31602,6 +31657,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleOption"
+            }
           },
           "coverage": {
             "$ref": "#/components/schemas/PeopleCoverage"
@@ -31810,7 +31871,12 @@
           "firstSeenAt",
           "lastSeenAt",
           "profileRefreshedAt",
-          "notFoundAt"
+          "notFoundAt",
+          "roleIds",
+          "roleNames",
+          "joinedAt",
+          "isRepresenting",
+          "linkedDiscord"
         ],
         "type": "object",
         "properties": {
@@ -31882,6 +31948,38 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "roleNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "joinedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "isRepresenting": {
+            "type": "boolean"
+          },
+          "linkedDiscord": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LinkedDiscordView"
+              }
+            ]
           }
         }
       },
