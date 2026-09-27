@@ -118,7 +118,7 @@ function PurgeCard() {
         </label>
 
         <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-          <span className="text-muted-foreground">Id</span>
+          <span className="text-muted-foreground">{platform} id</span>
           <Input
             className="font-mono"
             value={id}
@@ -157,7 +157,7 @@ function PurgeCard() {
 
 function Counts({ preview }: { preview: PurgePreview }) {
   return (
-    <div className="grid gap-x-8 gap-y-1 lg:grid-cols-2">
+    <div className="grid gap-x-8 gap-y-1 @3xl:grid-cols-2">
       <div>
         <Row label="Name" value={preview.name ?? 'Not known'} />
         <Row
@@ -199,7 +199,7 @@ function Counts({ preview }: { preview: PurgePreview }) {
 
 function Receipt({ receipt }: { receipt: PurgeReceipt }) {
   return (
-    <div className="grid max-w-3xl gap-x-8 gap-y-1 lg:grid-cols-2">
+    <div className="grid max-w-3xl gap-x-8 gap-y-1 @3xl:grid-cols-2">
       <div>
         <h3 className="font-medium" style={{ fontSize: 'var(--text-small)' }}>
           Removed

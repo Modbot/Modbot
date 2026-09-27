@@ -16,7 +16,7 @@ import {
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { CopyBox } from '@/pages/Users'
-import { Field, LongField, Outcome, Placeholder, Switch } from '../fields'
+import { ConfirmButton, Field, LongField, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { failure, when } from './shared'
 
@@ -175,10 +175,8 @@ function WebhookList({
                 >
                   Send test
                 </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() =>
+                <ConfirmButton
+                  onConfirm={() =>
                     api
                       .rollWebhookSecret(w.id)
                       .then((r) => onSecret(r.secret))
@@ -186,7 +184,7 @@ function WebhookList({
                   }
                 >
                   Roll secret
-                </Button>
+                </ConfirmButton>
               </>
             )}
             <Button size="xs" variant="ghost" onClick={() => onLog(w)}>
@@ -201,9 +199,9 @@ function WebhookList({
                 {w.enabled ? 'Turn off' : 'Turn on'}
               </Button>
             )}
-            <Button size="xs" variant="ghost" onClick={() => run(api.deleteWebhook(w.id), 'Could not delete it.')}>
+            <ConfirmButton onConfirm={() => run(api.deleteWebhook(w.id), 'Could not delete it.')}>
               Delete
-            </Button>
+            </ConfirmButton>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
             <span>Owner: {w.ownerName ?? '—'}</span>

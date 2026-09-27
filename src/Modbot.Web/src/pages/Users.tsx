@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils'
 import { Empty } from '@/pages/Members'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
+import { ConfirmButton } from '@/components/settings/fields'
 
 /**
  * The users page (accounts and access design §4, §8).
@@ -140,13 +141,9 @@ export function Users({ me }: { me: CurrentUser }) {
                   expires <span className="font-mono">{formatDay(i.expiresAt)}</span>
                 </span>
                 <div className="flex-1" />
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => void api.revokeInvite(i.id).then(refresh)}
-                >
+                <ConfirmButton onConfirm={() => void api.revokeInvite(i.id).then(refresh)}>
                   Take back
-                </Button>
+                </ConfirmButton>
               </div>
             ))}
           </div>
@@ -457,17 +454,16 @@ function UserDrawer({
               {busy === 'enable' ? 'Working…' : 'Enable this account'}
             </Button>
           ) : (
-            <Button
+            <ConfirmButton
               size="sm"
               variant="destructive"
               disabled={busy !== null || user.id === me.id}
               title={user.id === me.id ? 'You cannot disable your own account.' : undefined}
-              onClick={() => run('disable', () => api.disableUser(user.id))}
+              onConfirm={() => run('disable', () => api.disableUser(user.id))}
             >
               {busy === 'disable' ? 'Working…' : 'Disable this account'}
-            </Button>
+            </ConfirmButton>
           )}
-          {!user.isDisabled && <p className="text-muted-foreground">Disabling ends their sessions straight away.</p>}
           <Button
             variant="destructive"
             size="sm"

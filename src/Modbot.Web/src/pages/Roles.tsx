@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { Empty } from '@/pages/Members'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
+import { ConfirmButton } from '@/components/settings/fields'
 
 /**
  * Roles: a name and a checklist of what it allows (accounts and access design §3, §8).
@@ -246,15 +247,15 @@ function RoleEditor({
                   )}
                   <div className="flex-1" />
                   {role && !role.isBuiltIn && (
-                    <Button
+                    <ConfirmButton
                       size="sm"
                       variant="destructive"
-                      onClick={remove}
+                      onConfirm={remove}
                       disabled={busy || role.userCount > 0}
                       title={role.userCount > 0 ? 'Move the people who hold it to another role first.' : undefined}
                     >
                       Delete role
-                    </Button>
+                    </ConfirmButton>
                   )}
                 </div>
               </>

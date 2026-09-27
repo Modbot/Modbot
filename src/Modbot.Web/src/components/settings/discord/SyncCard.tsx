@@ -5,7 +5,7 @@ import { RolePicker } from '@/components/discord/RolePicker'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { api, ApiError, type DiscordSyncSettings, type PlannedChange, type RolePair, type SyncPreview } from '@/lib/api'
-import { Fact, Outcome, Switch } from '../fields'
+import { ConfirmButton, Fact, Outcome, Switch } from '../fields'
 import { SettingsCard } from '../SettingsCard'
 import { dateTime } from '@/components/charts/format'
 
@@ -65,6 +65,9 @@ function SyncForm({
   const [saved, setSaved] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const [preview, setPreview] = useState<SyncPreview | null>(null)
+  // "Copy what is different" bans, unbans and removes on both platforms, so its first press only
+  // shows what would change, and a second, red one copies it (settings review 2026-09-27 §4).
+  const [copying, setCopying] = useState(false)
 
   const after = (next: DiscordSyncSettings) => {
     onSaved(next)
@@ -118,9 +121,38 @@ function SyncForm({
           <Button type="button" size="xs" variant="outline" disabled={busy} onClick={() => look(false)}>
             Show what would change
           </Button>
-          <Button type="button" size="xs" variant="outline" disabled={busy} onClick={() => look(true)}>
-            Copy what is different
-          </Button>
+          {copying ? (
+            <>
+              <Button
+                type="button"
+                size="xs"
+                variant="destructive"
+                disabled={busy}
+                onClick={() => {
+                  setCopying(false)
+                  look(true)
+                }}
+              >
+                Copy it
+              </Button>
+              <Button type="button" size="xs" variant="ghost" onClick={() => setCopying(false)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                setCopying(true)
+                look(false)
+              }}
+            >
+              Copy what is different
+            </Button>
+          )}
           <Outcome tone="ok">{saved && 'Saved.'}</Outcome>
           <Outcome tone="problem">{problem}</Outcome>
         </>
@@ -294,9 +326,10 @@ function PairRow({
         On
       </Switch>
 
-      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={onDelete} aria-label="Remove pair">
+      <ConfirmButton size="sm" disabled={busy} onConfirm={onDelete} confirm="Remove">
         <Trash2 className="size-4" />
-      </Button>
+        <span className="sr-only">Remove pair</span>
+      </ConfirmButton>
 
       <Outcome tone="problem">{pair.problem}</Outcome>
       {!pair.botCanAssign && <Outcome tone="problem">The bot cannot assign that Discord role.</Outcome>}
@@ -345,12 +378,12 @@ function line(change: PlannedChange): string {
 
 function permissions(settings: DiscordSyncSettings): string {
   const held = [
-    settings.botCanManageRoles ? 'Manage Roles' : null,
-    settings.botCanBanMembers ? 'Ban Members' : null,
-    settings.botCanRemoveMembers ? 'Kick Members' : null,
+    settings.botCanManageRoles ? 'Manage roles' : null,
+    settings.botCanBanMembers ? 'Ban members' : null,
+    settings.botCanRemoveMembers ? 'Kick members' : null,
   ].filter(Boolean)
 
-  return held.length ? held.join(', ') : 'None of Manage Roles, Ban Members or Kick Members'
+  return held.length ? held.join(', ') : 'None of manage roles, ban members or kick members'
 }
 
 function when(at: string | null): string {

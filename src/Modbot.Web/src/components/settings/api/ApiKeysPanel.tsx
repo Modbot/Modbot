@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { api, type ApiKeysResponse, type ApiKeyView, type PermissionInfo } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { CopyBox } from '@/pages/Users'
-import { Checkbox, Field, Outcome, Placeholder } from '../fields'
+import { Checkbox, ConfirmButton, Field, Outcome, Placeholder } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { failure, when } from './shared'
 
@@ -119,9 +119,7 @@ function KeyList({ keys, onChanged }: { keys: ApiKeyView[]; onChanged: () => voi
             </Td>
             <Td className="text-right">
               {k.state !== 'revoked' && (
-                <Button size="xs" variant="ghost" onClick={() => revoke(k.id)}>
-                  Revoke
-                </Button>
+                <ConfirmButton onConfirm={() => revoke(k.id)}>Revoke</ConfirmButton>
               )}
             </Td>
           </Tr>

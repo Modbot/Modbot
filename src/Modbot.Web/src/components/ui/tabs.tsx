@@ -29,8 +29,8 @@ export function Tabs<T extends string>({
   return (
     <div className={cn('flex min-h-0 flex-col', className)}>
       {/*
-        The row scrolls sideways rather than wrapping or shrinking. Settings has twelve tabs, and
-        a dozen labels squeezed into a phone's width are twelve unreadable words; four readable
+        The row scrolls sideways rather than wrapping or shrinking. AI in Settings has seven tabs, and
+        seven labels squeezed into a phone's width are seven unreadable words; four readable
         ones and a swipe is the trade. `whitespace-nowrap` keeps a label on one line, and the
         thin scrollbar stays out of the way on a mouse.
       */}

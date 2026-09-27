@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { DiagnosisNote } from '@/pages/setup/DiagnosisNote'
 import { api, ApiError, type ConnectionDiagnosis, type OnboardingStatus } from '@/lib/api'
 import { refreshGateHealth } from '@/lib/useGateHealth'
-import { Fact, Field, Hint, Outcome, PasswordField, Placeholder, Switch } from './fields'
+import { ConfirmButton, Fact, Field, Hint, Outcome, PasswordField, Placeholder, Switch } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { dateTime } from '@/components/charts/format'
 
@@ -46,7 +46,7 @@ export function VRChatSection({
 function AccountCard({ status }: { status: OnboardingStatus }) {
   return (
     <SettingsCard span={12} title="Signed in as">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 @5xl:grid-cols-4">
         <Fact label="Username" value={status.vrChat.username ?? 'Not configured'} />
         <Fact label="Display name" value={status.vrChat.displayName ?? 'Unknown'} />
         <Fact
@@ -84,8 +84,17 @@ function CredentialsCard({
   const [error, setError] = useState<string | null>(null)
   const [verified, setVerified] = useState<string | null>(null)
 
+  // A different account in place of the one Modbot signs in as now asks first: every sync, ban and
+  // invite from then on is that account's (settings review 2026-09-27 §4). The same account with a
+  // new password does not.
+  const replacing = !!status.vrChat.username && username.trim() !== status.vrChat.username
+
   const reverify = (event: React.FormEvent) => {
     event.preventDefault()
+    if (!replacing) verify()
+  }
+
+  const verify = () => {
     setVerifying(true)
     setDiagnosis(null)
     setError(null)
@@ -113,14 +122,25 @@ function CredentialsCard({
       title="Change the login"
       footer={
         <>
-          <Button
-            type="submit"
-            form="vrchat-credentials"
-            size="xs"
-            disabled={verifying || !username || !password}
-          >
-            {verifying ? 'Checking with VRChat…' : 'Verify and store'}
-          </Button>
+          {replacing ? (
+            <ConfirmButton
+              variant="default"
+              confirm="Replace the login"
+              disabled={verifying || !username || !password}
+              onConfirm={verify}
+            >
+              {verifying ? 'Checking with VRChat…' : 'Verify and store'}
+            </ConfirmButton>
+          ) : (
+            <Button
+              type="submit"
+              form="vrchat-credentials"
+              size="xs"
+              disabled={verifying || !username || !password}
+            >
+              {verifying ? 'Checking with VRChat…' : 'Verify and store'}
+            </Button>
+          )}
           <Outcome tone="problem">{error}</Outcome>
           <Outcome tone="ok">
             {verified && `VRChat accepted these credentials as ${verified}.`}
@@ -132,7 +152,7 @@ function CredentialsCard({
         <div className="flex max-w-lg flex-col gap-3">
           <Field label="Email or username" value={username} onChange={setUsername} placeholder="" />
           <PasswordField label="Password" value={password} onChange={setPassword} />
-          <PasswordField label="Two-factor secret (optional)" mono value={totpSecret} onChange={setTotpSecret} />
+          <PasswordField label="Authenticator key (optional)" mono value={totpSecret} onChange={setTotpSecret} />
         </div>
 
         {diagnosis && <DiagnosisNote diagnosis={diagnosis} />}
@@ -208,13 +228,13 @@ function ProxyCard({
       }
     >
       <Switch checked={useProxy} onChange={setUseProxy}>
-        Use a SOCKS5 proxy
+        Go out through another address
       </Switch>
 
       {useProxy && (
         <div className="flex max-w-lg flex-col gap-3">
           <Field
-            label="Proxy URL"
+            label="Address"
             mono
             value={proxyUrl}
             onChange={setProxyUrl}

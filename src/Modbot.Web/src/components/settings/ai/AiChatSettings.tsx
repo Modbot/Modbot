@@ -110,7 +110,7 @@ function ChatForm({ settings, onSaved }: { settings: Settings; onSaved: (next: S
         <Switch checked={enabled} onChange={setEnabled}>
           Chat on
         </Switch>
-        {!settings.aiEnabled && <Outcome tone="problem">AI is off on Base.</Outcome>}
+        {!settings.aiEnabled && <Outcome tone="problem">AI is off.</Outcome>}
 
         <div className="flex max-w-lg flex-col gap-3">
           <ModelField feature="chat" value={model} placeholder={settings.baseModel ?? ''} onChange={setModel} />
@@ -126,7 +126,7 @@ function ChatForm({ settings, onSaved }: { settings: Settings; onSaved: (next: S
 
       <SettingsCard title="Limits" footer={footer}>
         <div className="flex max-w-lg flex-col gap-3">
-          <NumberField label="Tool calls per reply" value={maxToolCalls} min={0} max={50} onChange={setMaxToolCalls} />
+          <NumberField label="Steps per reply" value={maxToolCalls} min={0} max={50} onChange={setMaxToolCalls} />
           <NumberField label="Reply length (tokens)" value={maxReplyTokens} min={256} max={32000} onChange={setMaxReplyTokens} />
           <NumberField label="Time limit (seconds)" value={timeLimit} min={10} max={600} onChange={setTimeLimit} />
         </div>

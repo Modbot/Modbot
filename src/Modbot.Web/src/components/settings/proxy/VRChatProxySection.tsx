@@ -6,7 +6,7 @@ import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type VRChatProxyAnswer, type VRChatProxySettings as Settings } from '@/lib/api'
 import { CopyBox } from '@/pages/Users'
 import { failure } from '../api/shared'
-import { LongField, Outcome, Placeholder, Switch } from '../fields'
+import { ConfirmButton, LongField, Outcome, Placeholder, Switch } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 
 /**
@@ -105,7 +105,7 @@ function ProxyCard({ settings, onSaved }: { settings: Settings; onSaved: (next: 
       </Switch>
 
       <label className="flex max-w-lg flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-        <span className="text-muted-foreground">Base URL</span>
+        <span className="text-muted-foreground">Address</span>
         <CopyBox text={settings.baseUrl} />
       </label>
       {!settings.publicAddressSet && <Outcome tone="problem">Public address is not set.</Outcome>}
@@ -126,6 +126,9 @@ function Playground({ enabled }: { enabled: boolean }) {
   const [problem, setProblem] = useState<string | null>(null)
 
   const takesBody = method === 'POST' || method === 'PUT'
+  // Anything but GET can change or delete things on VRChat, as Modbot's own account, so it asks
+  // first (settings review 2026-09-27 §4). Enter sends a GET only.
+  const changes = method !== 'GET'
 
   const send = () => {
     setBusy(true)
@@ -145,9 +148,20 @@ function Playground({ enabled }: { enabled: boolean }) {
       span={12}
       footer={
         <>
-          <Button size="xs" disabled={busy || !enabled || !path.trim()} onClick={send}>
-            {busy ? 'Sending…' : 'Send'}
-          </Button>
+          {changes ? (
+            <ConfirmButton
+              variant="default"
+              confirm={`Send ${method}`}
+              disabled={busy || !enabled || !path.trim()}
+              onConfirm={send}
+            >
+              {busy ? 'Sending…' : 'Send'}
+            </ConfirmButton>
+          ) : (
+            <Button size="xs" disabled={busy || !enabled || !path.trim()} onClick={send}>
+              {busy ? 'Sending…' : 'Send'}
+            </Button>
+          )}
           <Outcome tone="problem">{problem}</Outcome>
         </>
       }
@@ -176,7 +190,7 @@ function Playground({ enabled }: { enabled: boolean }) {
             onChange={(e) => setPath(e.target.value)}
             className="font-mono"
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && enabled && path.trim() && !busy) send()
+              if (e.key === 'Enter' && !changes && enabled && path.trim() && !busy) send()
             }}
           />
         </label>

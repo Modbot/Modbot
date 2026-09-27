@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   api,
@@ -8,24 +9,27 @@ import {
   type LinkCodeView,
   type LogSettings,
   type PublicAddressView,
+  type PublicInstancesView,
   type ServerSettings,
   type UpdateView,
 } from '@/lib/api'
-import { CREDITS_PATH } from '@/lib/nav'
-import { followLink } from '@/lib/router'
-import { Notice } from '@/components/ui/notice'
-import { Fact, Field, Hint, Outcome, Placeholder, Row, Switch } from './fields'
+import { PanelGrid } from '@/components/PanelGrid'
+import { ConfirmButton, Fact, Field, Hint, Outcome, Placeholder, Row, Switch } from './fields'
 import { MachineUsageCard } from './MachineUsageCard'
+import { shortensAny } from './retention'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { StorageChart } from './StorageChart'
-import { GB, bytes, hasPlentyOfStorage, remember, remembered } from './units'
+import { SyncTimings } from './SyncTimings'
+import { GB, bytes, remember, remembered } from './units'
 import { dateTime } from '@/components/charts/format'
 
 /**
- * Data: what Modbot is keeping, what it costs, and for how long (spec 5.5).
+ * Server: what this install tells the world it is, how long it keeps things, and what it is.
  *
- * Modbot has no default retention window, so the storage card comes first and takes the full
- * width: "keep everything" is only a defensible default while the operator can see what it costs.
+ * The settings an owner changes come first: the public address and how long records are kept. What
+ * only whoever runs the machine reads (disk, processor, the sync timings) sits folded away below,
+ * opened on request. It used to be eight panels in a fixed order, the storage chart first (settings
+ * review 2026-09-27 §7).
  */
 export function DataSection() {
   const [data, setData] = useState<DataSettings | null>(null)
@@ -53,36 +57,70 @@ export function DataSection() {
   useEffect(() => load(), [load])
 
   return (
-    <SettingsSection id="data" title="Server">
-      {error ? (
-        <Placeholder tone="danger">{error}</Placeholder>
-      ) : !data ? (
-        <Placeholder>Loading…</Placeholder>
-      ) : (
-        <>
-          <StorageCard
-            storage={data.storage}
-            cost={cost}
-            capacity={capacity}
-            onCost={(v) => {
-              setCost(v)
-              remember('modbot.costPerGbMonth', v)
-            }}
-            onCapacity={(v) => {
-              setCapacity(v)
-              remember('modbot.capacityGb', v)
-            }}
-          />
-          <RetentionCard current={data.retention} onSaved={load} />
-          <LogsCard />
-          <DeploymentCard deployment={data.deployment} />
-          <UpdatesCard />
-          <PublicAddressCard />
-          <CloudCard />
-          <MachineUsageCard />
-        </>
+    <div className="flex flex-col gap-4">
+      <SettingsSection id="data" title="Server">
+        {error ? (
+          <Placeholder tone="danger">{error}</Placeholder>
+        ) : !data ? (
+          <Placeholder>Loading…</Placeholder>
+        ) : (
+          <>
+            <PublicAddressCard />
+            <KeepForCard current={data.retention} onSaved={load} />
+            <InstallCard deployment={data.deployment} />
+          </>
+        )}
+      </SettingsSection>
+
+      {data && (
+        <Disclosure label="Storage and machine usage">
+          <PanelGrid className="grid-cols-12">
+            <StorageCard
+              storage={data.storage}
+              cost={cost}
+              capacity={capacity}
+              onCost={(v) => {
+                setCost(v)
+                remember('modbot.costPerGbMonth', v)
+              }}
+              onCapacity={(v) => {
+                setCapacity(v)
+                remember('modbot.capacityGb', v)
+              }}
+            />
+            <MachineUsageCard />
+          </PanelGrid>
+        </Disclosure>
       )}
-    </SettingsSection>
+
+      <Disclosure label="Sync timings">
+        <SyncTimings />
+      </Disclosure>
+    </div>
+  )
+}
+
+/**
+ * Folded away until asked for (console look §11.6). What is inside is not drawn, and so not
+ * loaded, until it is opened.
+ */
+function Disclosure({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <details className="group" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary
+        className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
+        style={{ fontSize: 'var(--text-small)' }}
+      >
+        <ChevronRight
+          className="size-3.5 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+          aria-hidden
+        />
+        {label}
+      </summary>
+      {open && <div className="mt-3">{children}</div>}
+    </details>
   )
 }
 
@@ -103,13 +141,13 @@ function StorageCard({
 
   return (
     <SettingsCard span={12} title="Storage">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+      <div className="grid gap-6 @3xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <Fact label="Database" value={bytes(storage.bytes)} mono />
-            <Fact label="Facts recorded" value={storage.facts.toLocaleString()} mono />
+            <Fact label="Records" value={storage.facts.toLocaleString()} mono />
             <Fact
-              label="Per fact"
+              label="Per record"
               value={storage.facts > 0 ? `${Math.round(storage.bytesPerFact)} bytes` : '—'}
               mono={storage.facts > 0}
             />
@@ -117,7 +155,7 @@ function StorageCard({
               label="Arriving"
               value={
                 storage.observedDays >= 1
-                  ? `${Math.round(storage.factsPerDay).toLocaleString()} facts/day`
+                  ? `${Math.round(storage.factsPerDay).toLocaleString()} a day`
                   : 'Not measurable yet'
               }
               mono={storage.observedDays >= 1}
@@ -126,13 +164,9 @@ function StorageCard({
 
           {/* items-end: a label that wraps grows upward, and the two inputs stay on one line. */}
           <div className="grid max-w-sm grid-cols-2 items-end gap-3">
-            <Field label="Cost per GB/mo" placeholder="0.25" value={cost} onChange={onCost} />
+            <Field label="Cost per GB a month" placeholder="0.25" value={cost} onChange={onCost} />
             <Field label="Disk size (GB)" placeholder="500" value={capacity} onChange={onCapacity} />
           </div>
-
-          {hasPlentyOfStorage(storage, capacityBytes) && (
-            <Notice tone="ok" title="You have plenty of storage for the foreseeable future" />
-          )}
         </div>
 
         <div className="flex min-w-0 flex-col gap-3">
@@ -147,102 +181,15 @@ function StorageCard({
   )
 }
 
-function DeploymentCard({ deployment }: { deployment: DataSettings['deployment'] }) {
-  return (
-    <SettingsCard
-      title="Deployment"
-      footer={
-        <Button asChild size="xs" variant="outline">
-          <a href={CREDITS_PATH} onClick={followLink(CREDITS_PATH)}>
-            Credits
-          </a>
-        </Button>
-      }
-    >
-      <div className="max-w-lg">
-        <Row label="Version" value={deployment.version} mono />
-        <Row
-          label="Version commit"
-          value={deployment.commit ? deployment.commit.slice(0, 7) : 'Unknown'}
-          title={deployment.commit ?? undefined}
-          mono={!!deployment.commit}
-        />
-        <Row label="Release branch" value={deployment.branch ?? 'Unknown'} mono={!!deployment.branch} />
-        <Row label="Host" value={deployment.platform} />
-        <Row
-          label="Log files"
-          value={deployment.logFilesWritten ? 'Written to disk' : 'Console and Seq only'}
-        />
-      </div>
-    </SettingsCard>
-  )
-}
-
 /**
- * The newest Modbot release, and the switch that stops this server asking.
+ * Every "how long" in one panel with one Save: the three record windows and Modbot's own log. They
+ * are two settings on the server (spec 5.5 and the log settings), saved together here, because an
+ * owner thinks of them as one question.
  *
- * Modbot never updates itself and never pulls an image: the card names the version and what to
- * pull, and the operator decides. MODBOT_CLOUD_DISABLED does not reach this — the question sends
- * nothing about the deployment — so this switch is the only thing that turns it off.
+ * A save that shortens any window asks first: the records past the new end are destroyed for good
+ * (settings review 2026-09-27 §4).
  */
-function UpdatesCard() {
-  const [view, setView] = useState<UpdateView | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    api
-      .updateCheck()
-      .then(setView)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load.'))
-  }, [])
-
-  const choose = (on: boolean) => {
-    setSaving(true)
-    setError(null)
-    api
-      .setUpdateCheck(on)
-      .then(setView)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not save.'))
-      .finally(() => setSaving(false))
-  }
-
-  const newest = !view ? '…' : !view.on ? 'Not checked' : (view.newest ?? '—')
-
-  return (
-    <SettingsCard
-      title="Updates"
-      footer={
-        view?.newerAvailable && view.notesUrl ? (
-          <Button asChild size="xs" variant="outline">
-            <a href={view.notesUrl} target="_blank" rel="noreferrer noopener">
-              Release notes
-            </a>
-          </Button>
-        ) : undefined
-      }
-    >
-      <div className="max-w-lg">
-        <Row label="Running" value={view?.running ?? '…'} mono={!!view?.running} />
-        <Row label="Newest" value={newest} mono={!!view?.on && !!view.newest} />
-        {view?.newerAvailable && view.image && (
-          <Row label="Pull" value={`${view.image}:${view.tag ?? view.newest ?? ''}`} mono />
-        )}
-        <Row
-          label="Last checked"
-          value={view?.checkedAt ? dateTime(view.checkedAt) : '—'}
-          mono={!!view?.checkedAt}
-        />
-      </div>
-      <Switch checked={view?.on ?? false} disabled={saving || !view} onChange={choose}>
-        Check for updates
-      </Switch>
-      <Outcome tone="problem">{error ?? (view?.on ? view.problem : null)}</Outcome>
-    </SettingsCard>
-  )
-}
-
-function RetentionCard({
+function KeepForCard({
   current,
   onSaved,
 }: {
@@ -252,95 +199,21 @@ function RetentionCard({
   const [moderation, setModeration] = useState(String(current.moderationFactRetentionDays))
   const [presence, setPresence] = useState(String(current.presenceFactRetentionDays))
   const [messages, setMessages] = useState(String(current.discordMessageRetentionDays))
-  const [saving, setSaving] = useState(false)
-  const [problem, setProblem] = useState<string | null>(null)
-
-  const keepingEverything =
-    current.moderationFactRetentionDays === 0 &&
-    current.presenceFactRetentionDays === 0 &&
-    current.discordMessageRetentionDays === 0
-
-  const dirty =
-    moderation !== String(current.moderationFactRetentionDays) ||
-    presence !== String(current.presenceFactRetentionDays) ||
-    messages !== String(current.discordMessageRetentionDays)
-
-  const save = () => {
-    setSaving(true)
-    setProblem(null)
-    api
-      .setRetention({
-        moderationFactRetentionDays: Number(moderation) || 0,
-        presenceFactRetentionDays: Number(presence) || 0,
-        discordMessageRetentionDays: Number(messages) || 0,
-      })
-      .then(onSaved)
-      .catch((e: unknown) =>
-        setProblem(e instanceof ApiError ? e.message : 'Could not save.'),
-      )
-      .finally(() => setSaving(false))
-  }
-
-  return (
-    <SettingsCard
-      title="Retention"
-      footer={
-        <>
-          <Button size="xs" disabled={!dirty || saving} onClick={save}>
-            {saving ? 'Saving…' : 'Save retention'}
-          </Button>
-          <Outcome tone="problem">{problem}</Outcome>
-        </>
-      }
-    >
-      {!keepingEverything && <Hint>Facts past the retention window are destroyed permanently.</Hint>}
-      {/* items-end: a label that wraps grows upward, and the three inputs stay on one line. */}
-      <div className="grid max-w-lg grid-cols-3 items-end gap-3">
-        <Field
-          label="Moderation facts (days)"
-          placeholder="0"
-          value={moderation}
-          onChange={setModeration}
-        />
-        <Field
-          label="Presence facts (days)"
-          placeholder="0"
-          value={presence}
-          onChange={setPresence}
-        />
-        <Field
-          label="Discord messages (days)"
-          placeholder="0"
-          value={messages}
-          onChange={setMessages}
-        />
-      </div>
-      <Hint>0 keeps forever.</Hint>
-    </SettingsCard>
-  )
-}
-
-/**
- * How long Modbot's own log lines are kept in the database, and whether the same lines go to
- * Modbot Cloud. Here rather than on the Logs page so every retention window is edited in one
- * place; the Logs page reads, this writes.
- */
-function LogsCard() {
-  const [current, setCurrent] = useState<LogSettings | null>(null)
-  const [keepDays, setKeepDays] = useState('')
+  const [logs, setLogs] = useState<LogSettings | null>(null)
+  const [logDays, setLogDays] = useState('')
   const [sendToCloud, setSendToCloud] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
 
-  const load = useCallback(
+  const loadLogs = useCallback(
     () =>
       api
         .logSettings()
         .then((next) => {
-          setCurrent(next)
-          setKeepDays(String(next.keepDays))
+          setLogs(next)
+          setLogDays(String(next.keepDays))
           setSendToCloud(next.sendToCloud)
-          setProblem(null)
         })
         .catch((e: unknown) =>
           setProblem(e instanceof ApiError ? e.message : 'Could not load the log settings.'),
@@ -348,120 +221,231 @@ function LogsCard() {
     [],
   )
 
-  useEffect(() => void load(), [load])
+  useEffect(() => void loadLogs(), [loadLogs])
 
-  const dirty =
-    current !== null &&
-    (keepDays !== String(current.keepDays) || sendToCloud !== current.sendToCloud)
+  const recordsDirty =
+    moderation !== String(current.moderationFactRetentionDays) ||
+    presence !== String(current.presenceFactRetentionDays) ||
+    messages !== String(current.discordMessageRetentionDays)
+
+  const logsDirty =
+    logs !== null && (logDays !== String(logs.keepDays) || sendToCloud !== logs.sendToCloud)
+
+  const dirty = recordsDirty || logsDirty
+
+  const shortens = shortensAny(
+    [
+      current.moderationFactRetentionDays,
+      current.presenceFactRetentionDays,
+      current.discordMessageRetentionDays,
+      logs?.keepDays ?? 0,
+    ],
+    [Number(moderation) || 0, Number(presence) || 0, Number(messages) || 0, logs ? Number(logDays) || 0 : 0],
+  )
 
   const save = () => {
     setSaving(true)
+    setSaved(false)
     setProblem(null)
-    api
-      .setLogSettings({ keepDays: Number(keepDays) || 0, sendToCloud })
-      .then(() => load())
+
+    const writes: Promise<unknown>[] = []
+    if (recordsDirty)
+      writes.push(
+        api
+          .setRetention({
+            moderationFactRetentionDays: Number(moderation) || 0,
+            presenceFactRetentionDays: Number(presence) || 0,
+            discordMessageRetentionDays: Number(messages) || 0,
+          })
+          .then(onSaved),
+      )
+    if (logsDirty)
+      writes.push(api.setLogSettings({ keepDays: Number(logDays) || 0, sendToCloud }).then(loadLogs))
+
+    Promise.all(writes)
+      .then(() => setSaved(true))
       .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not save.'))
       .finally(() => setSaving(false))
   }
 
   return (
     <SettingsCard
-      title="Logs"
+      title="Keep for (days)"
       footer={
         <>
-          <Button size="xs" disabled={!dirty || saving} onClick={save}>
-            {saving ? 'Saving...' : 'Save logs'}
-          </Button>
+          {shortens ? (
+            <ConfirmButton
+              variant="default"
+              confirm="Delete older records"
+              disabled={!dirty || saving}
+              onConfirm={save}
+            >
+              Save
+            </ConfirmButton>
+          ) : (
+            <Button size="xs" disabled={!dirty || saving} onClick={save}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          )}
+          <Outcome tone="ok">{saved && !dirty && 'Saved.'}</Outcome>
           <Outcome tone="problem">{problem}</Outcome>
         </>
       }
     >
-      <div className="grid max-w-lg gap-3 sm:grid-cols-2">
-        <Field label="Keep for (days)" placeholder="180" value={keepDays} onChange={setKeepDays} />
+      {/* items-end: a label that wraps grows upward, and the inputs stay on one line. */}
+      <div className="grid max-w-lg items-end gap-3 sm:grid-cols-2">
+        <Field label="Moderation" placeholder="0" value={moderation} onChange={setModeration} />
+        <Field label="Who was where" placeholder="0" value={presence} onChange={setPresence} />
+        <Field label="Discord messages" placeholder="0" value={messages} onChange={setMessages} />
+        <Field label="Modbot's log" placeholder="180" value={logDays} onChange={setLogDays} />
       </div>
+      <Hint>0 keeps forever.</Hint>
       <Switch
         checked={sendToCloud}
-        disabled={current === null || !current.cloudAllowed}
+        disabled={logs === null || !logs.cloudAllowed}
         onChange={setSendToCloud}
       >
         Send logs to Modbot Cloud
       </Switch>
-      <Hint>0 keeps forever.</Hint>
     </SettingsCard>
   )
 }
 
 /**
- * Modbot Cloud: what this server last reported, and the code that claims it on a Cloud account
- * (Cloud accounts and registry spec 3.3).
+ * What this install is and how it talks to Modbot Cloud: the version and whether a newer one is
+ * out, whether it is linked to a Cloud account, and whether the group's public instances are listed
+ * on modbot.co. Three panels until 2026-09-27, one of them on another tab under the same name.
  *
- * The code is made by this server and typed into Cloud, never the other way round. Only somebody
- * who can already sign in here and change settings sees it, which is the proof of ownership.
+ * Modbot never updates itself and never pulls an image: the panel names the version and what to
+ * pull, and the operator decides. MODBOT_CLOUD_DISABLED does not reach the update check — the
+ * question sends nothing about the deployment — so its switch is the only thing that turns it off.
+ *
+ * The link code is made by this server and typed into Cloud, never the other way round (Cloud
+ * accounts and registry spec 3.3). Only somebody who can already sign in here and change settings
+ * sees it, which is the proof of ownership.
+ *
+ * The two switches save at once: each is one yes or no with nothing to save beside it.
  */
-function CloudCard() {
-  const [status, setStatus] = useState<CloudStatusView | null>(null)
+function InstallCard({ deployment }: { deployment: DataSettings['deployment'] }) {
+  const [update, setUpdate] = useState<UpdateView | null>(null)
+  const [cloud, setCloud] = useState<CloudStatusView | null>(null)
+  const [listing, setListing] = useState<PublicInstancesView | null>(null)
   const [code, setCode] = useState<LinkCodeView | null>(null)
-  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const fail = (fallback: string) => (e: unknown) =>
+    setError(e instanceof ApiError ? e.message : fallback)
+
   useEffect(() => {
-    api
-      .cloudStatus()
-      .then(setStatus)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not load.'))
+    api.updateCheck().then(setUpdate).catch(fail('Could not load.'))
+    api.cloudStatus().then(setCloud).catch(fail('Could not load.'))
+    api.publicInstances().then(setListing).catch(fail('Could not load.'))
   }, [])
 
-  const ask = () => {
-    setAsking(true)
+  const act = (work: Promise<void>) => {
+    setBusy(true)
     setError(null)
-
-    api
-      .cloudLinkCode()
-      .then(setCode)
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not get a code.'))
-      .finally(() => setAsking(false))
+    work.finally(() => setBusy(false))
   }
 
-  const reported = !status
+  const checkUpdates = (on: boolean) =>
+    act(api.setUpdateCheck(on).then(setUpdate).catch(fail('Could not save.')))
+
+  const list = (shared: boolean) =>
+    act(api.setPublicInstances(shared).then(setListing).catch(fail('Could not save.')))
+
+  const askCode = () => act(api.cloudLinkCode().then(setCode).catch(fail('Could not get a code.')))
+
+  const newest = !update ? '…' : !update.on ? 'Not checked' : (update.newest ?? '—')
+
+  const reported = !cloud
     ? '…'
-    : status.lastReportAt === null
+    : cloud.lastReportAt === null
       ? 'Not sent yet'
-      : status.lastReportOk
-        ? dateTime(status.lastReportAt)
-        : (status.lastReportProblem ?? 'Failed')
+      : cloud.lastReportOk
+        ? dateTime(cloud.lastReportAt)
+        : 'Failed'
+
+  const linked = !cloud ? '…' : cloud.disabled ? 'Turned off' : cloud.registered ? 'Linked' : 'Not linked'
 
   return (
     <SettingsCard
-      title="Modbot Cloud"
+      span={12}
+      title="This install"
       footer={
         <>
           <Button
             type="button"
             size="xs"
-            onClick={ask}
-            disabled={asking || !status || status.disabled}
+            variant="outline"
+            onClick={askCode}
+            disabled={busy || !cloud || cloud.disabled}
           >
-            {asking ? 'Working…' : 'Get link code'}
+            Get link code
           </Button>
+          {update?.newerAvailable && update.notesUrl && (
+            <Button asChild size="xs" variant="outline">
+              <a href={update.notesUrl} target="_blank" rel="noreferrer noopener">
+                Release notes
+              </a>
+            </Button>
+          )}
           <Outcome tone="problem">{error}</Outcome>
         </>
       }
     >
-      <div className="max-w-lg">
-        <Row
-          label="Cloud"
-          value={status ? (status.disabled ? 'Turned off' : status.endpoint) : '…'}
-          mono={!!status && !status.disabled}
-        />
-        <Row label="Registered" value={status ? (status.registered ? 'Yes' : 'No') : '…'} />
-        <Row label="Last report" value={reported} mono={!!status?.lastReportAt && !!status.lastReportOk} />
-        {code && (
-          <Row
-            label="Link code"
-            value={`${code.code} · ${code.expiresInMinutes} min`}
-            mono
-          />
-        )}
+      <div className="grid gap-x-8 gap-y-3 @3xl:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <div className="max-w-lg">
+            <Row
+              label="Version"
+              value={deployment.version}
+              title={deployment.commit ? `${deployment.commit}${deployment.branch ? ` · ${deployment.branch}` : ''}` : undefined}
+              mono
+            />
+            <Row label="Install" value={deployment.platform} />
+            <Row label="Newest" value={newest} mono={!!update?.on && !!update.newest} />
+            {update?.newerAvailable && update.image && (
+              <Row label="Pull" value={`${update.image}:${update.tag ?? update.newest ?? ''}`} mono />
+            )}
+          </div>
+          <Switch checked={update?.on ?? false} disabled={busy || !update} onChange={checkUpdates}>
+            Check for updates
+          </Switch>
+          {update?.on && update.problem && (
+            <span className="text-destructive" title={update.problem} style={{ fontSize: 'var(--text-small)' }}>
+              Could not check for updates.
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <div className="max-w-lg">
+            <Row label="Modbot Cloud" value={linked} />
+            <Row
+              label="Last report"
+              value={reported}
+              title={cloud?.lastReportOk === false ? (cloud.lastReportProblem ?? undefined) : undefined}
+              mono={!!cloud?.lastReportAt && !!cloud.lastReportOk}
+            />
+            {code && <Row label="Link code" value={`${code.code} · ${code.expiresInMinutes} min`} mono />}
+            {listing && (
+              <Row
+                label="Instances last sent"
+                value={listing.lastSentAt ? dateTime(listing.lastSentAt) : '—'}
+                mono={!!listing.lastSentAt}
+              />
+            )}
+          </div>
+          <Switch
+            checked={listing?.shared ?? false}
+            disabled={busy || !listing || listing.cloudDisabled}
+            onChange={list}
+          >
+            List this group&rsquo;s public instances on modbot.co
+          </Switch>
+        </div>
       </div>
     </SettingsCard>
   )
@@ -523,9 +507,8 @@ function PublicAddressCard() {
     >
       <form id="public-address-form" onSubmit={save} className="flex flex-col gap-3">
         <div className="flex max-w-lg flex-col gap-3">
-          <Row label="Address" value={view ? (view.publicAddress ?? 'Not set') : '…'} mono={!!view?.publicAddress} />
           <Field
-            label="Public address"
+            label="Address"
             mono
             value={value}
             onChange={setValue}

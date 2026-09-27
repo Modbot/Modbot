@@ -15,7 +15,7 @@ import { AiMcpSettings } from './AiMcpSettings'
  * gets its client from the settings on Base, so Base stays first.
  */
 const AI_TABS = [
-  { value: 'base', label: 'Base', panel: AiBaseSettings },
+  { value: 'base', label: 'Connection', panel: AiBaseSettings },
   { value: 'insights', label: 'Insights', panel: AiInsightsSettings },
   { value: 'alerts', label: 'Alerts', panel: AiAlertsSettings },
   { value: 'chat', label: 'Chat', panel: AiChatSettings },
