@@ -1,20 +1,24 @@
 import { useEffect, useState } from 'react'
-import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
+import { CartesianGrid, Line, LineChart, ReferenceArea, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts'
 import {
   ChartFrame,
+  ChartTooltip,
   MissingBands,
   Stripes,
   chartHeight,
   chartTheme,
   compactNumber,
-  rechartsTooltip,
   seriesColor,
   useStripeId,
 } from '@/components/charts'
 import { ApiError, api, type InstanceActivitySeries, type MemberCountRange } from '@/lib/api'
-import { activityChartRows, highest, wholeTicks } from './instanceActivitySeries'
+import { plural } from '@/lib/format'
+import { activityChartRows, highest, openStretches, wholeTicks, type ActivityChartRow } from './instanceActivitySeries'
 import { MEMBER_COUNT_RANGES, readingTime, timeLabel, timeTicks } from './memberCountSeries'
 import { Nothing, Panel, Toggle } from './shared'
+
+/** How strongly an open stretch is shaded: light for one instance, darker for two or more. */
+const OPEN_OPACITY = { one: 0.13, twoOrMore: 0.3 }
 
 /**
  * People in the group's instances, moment by moment.
@@ -25,14 +29,15 @@ import { Nothing, Panel, Toggle } from './shared'
  * reading and its last, so the line reaches every peak and each point is a total that was true at
  * the time shown.
  *
- * Two axes on one chart, against the charts' one-axis rule and for the same reason the member count
- * chart breaks it: the two lines are one thing at two magnitudes -- the same people, and how many
- * instances they were spread across -- and thirty people in one instance is a different evening
- * from thirty across six. The instance axis is on the right, in the instance line's colour, so a
- * value can only be read against the axis it belongs to.
+ * One scale, people. How many instances were open is shading behind the line rather than a second
+ * line on a second axis: with two axes, "1 instance" sat exactly where "30 people" did and read as
+ * thirty. The shading needs no scale -- light where one instance was open, darker where two or more
+ * were -- and the tooltip gives the exact count. The shading is drawn first, the stripes of missing
+ * days over it, and the two never meet anyway: a break in the line is never shaded
+ * (`openStretches`).
  *
- * Both scales count whole things from nought, and end on the tick just above their highest value
- * (`wholeTicks`): no half people, and a single instance drawn at full height rather than a quarter.
+ * The scale counts whole people from nought and ends on the tick just above the highest value
+ * (`wholeTicks`): no half people.
  *
  * `step` is a staircase and not a curve, because a head count is kept only when it changes and the
  * value between two readings is the earlier one's, right up to the next. A day an instance was open
@@ -71,12 +76,11 @@ export function InstanceActivityChart() {
   const stripeId = useStripeId()
   const chart = data ? activityChartRows(data) : { rows: [], bands: [] }
   const rows = chart.rows
+  const open = openStretches(rows)
   const from = data ? Date.parse(data.from) : 0
   const to = data ? Date.parse(data.to) : 0
   const span = to - from
-  const names = { people: 'people', instances: 'instances' }
   const peopleTicks = wholeTicks(highest(rows, 'people'))
-  const instanceTicks = wholeTicks(highest(rows, 'instances'))
 
   return (
     <Panel
@@ -99,8 +103,8 @@ export function InstanceActivityChart() {
           empty={!data || data.points.length === 0}
           emptyText="No head counts in this range."
           legend={[
-            { label: 'People', slot: 1 },
-            { label: 'Instances', color: chartTheme.ok },
+            { label: 'People', slot: 1, sample: 'line' },
+            { label: 'Instance open (darker: 2+)', color: chartTheme.ok, sample: 'band' },
           ]}
         >
           <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
@@ -117,7 +121,6 @@ export function InstanceActivityChart() {
               minTickGap={16}
             />
             <YAxis
-              yAxisId="people"
               width="auto"
               domain={[0, peopleTicks[peopleTicks.length - 1]]}
               ticks={peopleTicks}
@@ -126,25 +129,20 @@ export function InstanceActivityChart() {
               tickLine={false}
               axisLine={false}
             />
-            <YAxis
-              yAxisId="instances"
-              orientation="right"
-              width="auto"
-              domain={[0, instanceTicks[instanceTicks.length - 1]]}
-              ticks={instanceTicks}
-              allowDecimals={false}
-              tickFormatter={compactNumber}
-              tickLine={false}
-              axisLine={false}
-              tick={{ style: { fill: chartTheme.ok } }}
-            />
-            <MissingBands stripeId={stripeId} bands={chart.bands} yAxisId="people" />
-            <Tooltip
-              content={rechartsTooltip((label) => readingTime(Number(label)), names, undefined, { people: 'person', instances: 'instance' })}
-              cursor={{ stroke: 'var(--chart-grid)' }}
-            />
+            {open.map((s) => (
+              <ReferenceArea
+                key={`${s.x1}-${s.x2}`}
+                x1={s.x1}
+                x2={s.x2}
+                fill={chartTheme.ok}
+                fillOpacity={s.twoOrMore ? OPEN_OPACITY.twoOrMore : OPEN_OPACITY.one}
+                stroke="none"
+                ifOverflow="hidden"
+              />
+            ))}
+            <MissingBands stripeId={stripeId} bands={chart.bands} />
+            <Tooltip content={ReadingTooltip} cursor={{ stroke: 'var(--chart-grid)' }} />
             <Line
-              yAxisId="people"
               type="stepAfter"
               dataKey="people"
               name="people"
@@ -154,20 +152,30 @@ export function InstanceActivityChart() {
               activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
               isAnimationActive={false}
             />
-            <Line
-              yAxisId="instances"
-              type="stepAfter"
-              dataKey="instances"
-              name="instances"
-              stroke={chartTheme.ok}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
-              isAnimationActive={false}
-            />
           </LineChart>
         </ChartFrame>
       )}
     </Panel>
+  )
+}
+
+/** The reading under the pointer, both counts on one line: "46 people · 1 instance open". */
+function ReadingTooltip({ active, label, payload }: TooltipContentProps) {
+  const row = payload?.[0]?.payload as ActivityChartRow | undefined
+  if (!active || !row || row.people === null) return null
+
+  const instances = row.instances ?? 0
+
+  return (
+    <ChartTooltip
+      title={readingTime(Number(label))}
+      rows={[
+        {
+          value: compactNumber(row.people),
+          name: `${plural(row.people, 'person', 'people')} · ${instances} ${plural(instances, 'instance', 'instances')} open`,
+          color: payload?.[0]?.color,
+        },
+      ]}
+    />
   )
 }
