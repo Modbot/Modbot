@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Rows2, Rows3 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,12 +12,28 @@ import { registerLink } from '@/lib/myModbot'
 import { usernameProblem } from '@/lib/username'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
+import { SwitchBank } from '@/components/ui/switch-bank'
+import type { Density } from '@/lib/preferences'
 
 /**
  * The signed-in person's own account (accounts and access design §4, §8): username, password,
  * where a reset link can reach them, the linked VRChat account, and the way out of every session.
+ *
+ * Also a desk's spacing, which was a three-way switch in the top bar until the headset became a
+ * place of its own (UX review 2026-09-25, finding 17): people set it once, and it is kept per
+ * browser like the theme, not on the account.
  */
-export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) {
+export function Account({
+  me,
+  onChanged,
+  density,
+  setDensity,
+}: {
+  me: CurrentUser
+  onChanged: () => void
+  density: Density
+  setDensity: (d: Density) => void
+}) {
   return (
     <PanelGrid className="lg:grid-cols-2">
       <Card>
@@ -38,6 +54,23 @@ export function Account({ me, onChanged }: { me: CurrentUser; onChanged: () => v
               {me.roles.length === 0 && <span className="text-muted-foreground">No roles yet</span>}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Spacing at a desk</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SwitchBank
+            label="Spacing at a desk"
+            value={density}
+            onChange={setDensity}
+            options={[
+              { value: 'dense', label: 'Dense', icon: <Rows3 className="size-3.5" /> },
+              { value: 'comfortable', label: 'Comfortable', icon: <Rows2 className="size-3.5" /> },
+            ]}
+          />
         </CardContent>
       </Card>
 

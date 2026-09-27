@@ -62,8 +62,8 @@ function readTokens(): ChartTokens {
 }
 
 /**
- * The pixel values recharts needs as numbers, kept current across theme and density switches.
- * Both are applied as attributes on `<html>`, so one MutationObserver covers them.
+ * The pixel values recharts needs as numbers, kept current across theme, density and place switches.
+ * All three are applied as attributes on `<html>`, so one MutationObserver covers them.
  */
 export function useChartTokens(): ChartTokens {
   const [tokens, setTokens] = useState<ChartTokens>(readTokens)
@@ -72,7 +72,7 @@ export function useChartTokens(): ChartTokens {
     const observer = new MutationObserver(() => setTokens(readTokens()))
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class', 'data-density'],
+      attributeFilter: ['class', 'data-density', 'data-place'],
     })
     return () => observer.disconnect()
   }, [])

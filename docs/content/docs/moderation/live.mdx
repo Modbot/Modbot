@@ -25,12 +25,16 @@ Every open group instance gets a card, whether or not anybody from your team is 
 - **Last seen**, with a time. Only when nobody is watching now but somebody was earlier: who was
   there when the last moderator left. This is not who is there now.
 
+**Flagged** people, and anybody kicked or banned before, are listed first. Everybody else is in
+the order they came in.
+
 Next to a name you may see:
 
 | Mark | Meaning |
 |---|---|
 | **Flagged** | One of your group's [flag rules](#who-is-flagged) matches this person. What matched follows, such as "2 kicks or bans" or "Nuisance". |
 | **Member** | The person is in your group. |
+| **New** | A moderator's client saw them come in less than five minutes ago. For the first minute their whole row is lit as well. |
 | arrived 21:14 | A moderator's client saw them come in at that time. |
 | here before 21:02 | They were already there when watching started, so nobody saw them arrive. Modbot does not guess an earlier time. |
 
@@ -55,6 +59,20 @@ off, set the number of warns (1 to 99), and pick which AutoMod rules count inste
 A trust rank is known once Modbot has read the person's profile. For someone Modbot has never seen
 before, that can be a little after they join: their row turns red when the rank arrives, but no
 join card is sent that late.
+
+## Since the event started
+
+While any instance is open, a line at the top counts what has happened since the oldest of them
+opened, such as **Since 20:02: 212 arrivals · 4 warns · 3 kicks · 1 ban**.
+
+| Count | What it is |
+|---|---|
+| **Arrivals** | People a moderator's client saw walk into an open instance. Each person is counted once, however often they came back and however many moderators saw them. Nobody is counted while nobody is watching. |
+| **Warns** | Warns in an instance, from your group's audit log. |
+| **Kicks** | Kicks from an instance, from the audit log. Removing somebody from the group is not counted. |
+| **Bans** | Bans from the group, from the audit log. |
+
+The line is gone when no instance is open.
 
 ## Where the numbers come from
 

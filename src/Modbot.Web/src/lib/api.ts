@@ -1583,11 +1583,19 @@ export type LiveVoiceMember = { userId: string; displayName: string; avatarUrl: 
 /** A Discord voice channel with people in it right now. */
 export type LiveVoiceChannel = { channelId: string; name: string | null; people: LiveVoiceMember[] }
 
+/**
+ * What has happened since the oldest open instance opened. Arrivals are people a moderator's
+ * Companion App saw walk in, each counted once; the rest are from the group's audit log.
+ */
+export type LiveTally = { since: string; arrivals: number; warns: number; kicks: number; bans: number }
+
 export type LiveView = {
   instances: LiveInstance[]
   generatedAt: string
   /** The Discord server's voice channels with somebody in them, in the server's own order. */
   voice: LiveVoiceChannel[] | null
+  /** Null when no instance is open. */
+  tally?: LiveTally | null
 }
 
 /** People active on one day, and over the 7 and 30 days ending on it. Distinct people. */
