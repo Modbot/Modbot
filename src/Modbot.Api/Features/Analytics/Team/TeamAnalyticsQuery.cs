@@ -27,8 +27,10 @@ namespace Modbot.Api.Features.Analytics.Team;
 /// </para>
 /// <para>
 /// <strong>What it cannot see.</strong> A moderator without the client, in an instance no client
-/// is in, is invisible; an instance no client ever entered has no population at all. Both limits
-/// are stated on the page, and the second is reported as its own number.
+/// is in, is invisible; an instance no client ever entered has no population at all. Only the
+/// second shows on the page, as its own number ("Instances nobody watched"). The first is not
+/// written there, because screens carry no explanatory text; the Team section of the analytics
+/// docs page states it.
 /// </para>
 /// </remarks>
 public sealed class TeamAnalyticsQuery(ModbotContext db)
