@@ -10,17 +10,27 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Where Modbot is being read (lib/preferences.ts). `desk` is anywhere that is not a headset, so a
+   page drawn before the preference is applied is drawn for a desk. Stack it on a breakpoint for a
+   wide-screen layout a headset must not get: `desk:lg:flex`. */
+@custom-variant desk (&:where(:root:not([data-place="headset"]) *));
+@custom-variant headset (&:where([data-place="headset"] *));
+
 /* ───────────────────────────────────────────────────────────────────────────
    Modbot design tokens.
 
-   THREE densities from one token set, not three designs:
+   THREE sets of sizes from one token set, not three designs:
      dense        operational default -- scanning 14k-row member lists
      comfortable  lower information density, easier on long sessions
-     vr           the web UI viewed through a headset (see --vr note below)
+     headset      the web UI viewed through a headset (see the note below)
 
-   VR is not "comfortable, but more". Headset displays have low effective
+   Dense and comfortable are a desk's density (`data-density`). The headset is
+   a place (`data-place`), which also changes the layout, and it wins over
+   either density because its block comes later with the same specificity.
+
+   The headset is not "comfortable, but more". Headset displays have low effective
    pixels-per-degree, poor black levels and chromatic fringing, and a laser
-   pointer is far less precise than a mouse. So VR mode raises hit targets past
+   pointer is far less precise than a mouse. So the headset raises hit targets past
    the fat-finger threshold, lifts body text above the mush floor, thickens
    1px borders that otherwise vanish, and pulls pure black/white back from the
    extremes because both bloom.
@@ -89,7 +99,7 @@
   --hairline: 1px;
 
   /* Panel surfaces. Not new colours: each is a mix of two tokens above, so it follows the
-     VR panel values on its own. The strip is the thin band a panel's label, a table's column
+     headset panel values on its own. The strip is the thin band a panel's label, a table's column
      names and a list's footer sit on. Dark mixes its own, below. */
   --strip: color-mix(in oklab, var(--muted) 65%, var(--card));
 
@@ -153,8 +163,8 @@
   --scrollbar: 10px;
 }
 
-/* VR: every number here has a reason, not a multiplier. */
-[data-density="vr"] {
+/* Headset: every number here has a reason, not a multiplier. */
+[data-place="headset"] {
   --row-h: 3.5rem;        /* laser-pointer targets, not mouse targets */
   --control-h: 3rem;      /* >= 48px, the fat-finger floor */
   --text-base: 1.125rem;  /* below ~16px is mush at headset PPD */
@@ -167,7 +177,7 @@
 }
 /* Headset panels bloom at the extremes, so pull black and white inward and
    lift muted text -- low-contrast greys that read fine on a monitor vanish. */
-[data-density="vr"].dark {
+[data-place="headset"].dark {
   --background: #1a1824;
   --card: #211e2c;
   --foreground: #f2f2f6;
@@ -175,7 +185,7 @@
   --border: #3a3650;
   --chart-grid: #3a3650;
 }
-[data-density="vr"]:not(.dark) {
+[data-place="headset"]:not(.dark) {
   --background: #f1eff8;
   --foreground: #0f0e15;
   --muted-foreground: #4a5261;
@@ -183,17 +193,17 @@
   --chart-grid: #cfcbe0;
 }
 
-/* A phone, by the same reasoning as VR.
+/* A phone, by the same reasoning as the headset.
    A fingertip covers roughly 10mm of glass and cannot be aimed at a 30px
    button, so the floor here is 44px -- the smallest target a finger hits
-   reliably. VR's floor is 48px because a laser pointer wobbles over a
+   reliably. The headset's floor is 48px because a laser pointer wobbles over a
    distance; a finger touching the thing it is aiming at does not, so 44 is
    enough and 48 would cost a row of the list.
    A phone is picked out by a coarse pointer AND a narrow screen together:
    a touch laptop has a coarse pointer and a mouse, and an operator who chose
-   Dense on it meant it. VR keeps its own numbers, which are already larger. */
+   Dense on it meant it. A headset keeps its own numbers, which are already larger. */
 @media (pointer: coarse) and (max-width: 63.9375rem) {
-  :root:not([data-density="vr"]) {
+  :root:not([data-place="headset"]) {
     --row-h: 2.875rem;     /* a list row is a tap target too */
     --control-h: 2.75rem;  /* 44px, the fingertip floor */
     --text-base: 0.875rem; /* 13px is a scanning size for a mouse, not a phone */
@@ -255,17 +265,17 @@
    Two tall tiles across meant a strip of six filled the whole first screen of
    an analytics page before any chart. Three across, with the name and number
    smaller and the padding tighter, makes six tiles two short rows. The width
-   the tables use for a phone; not in VR, which keeps its own sizes. The tile
+   the tables use for a phone; not in a headset, which keeps its own sizes. The tile
    reads these properties with its desktop sizes as fallbacks (Stat, in
    pages/analytics/shared.tsx), and the column count wins over the strip's
    grid-cols classes because this rule is not in a layer.
    ─────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 47.9375rem) {
-  :root:not([data-density="vr"]) [data-slot="panel-grid"]:has(> [data-slot="stat"]) {
+  :root:not([data-place="headset"]) [data-slot="panel-grid"]:has(> [data-slot="stat"]) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  :root:not([data-density="vr"]) [data-slot="stat"] {
+  :root:not([data-place="headset"]) [data-slot="stat"] {
     --stat-label: 0.6875rem;  /* 11px */
     --stat-value: 1rem;       /* 16px */
     --stat-note: 0.6875rem;
@@ -494,7 +504,7 @@
      The platform ones are grey on grey in the light theme and bright white in
      the dark one, which on a page made of dark cards is the loudest thing on
      the screen. These are drawn from the same tokens as everything else, so
-     they follow the theme, the density and the VR palette without knowing
+     they follow the theme, the density and the headset palette without knowing
      about any of them.
 
      The thumb is the border colour at rest and lifts to muted-foreground when

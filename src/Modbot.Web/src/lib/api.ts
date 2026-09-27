@@ -1591,11 +1591,19 @@ export type LiveVoiceMember = { userId: string; displayName: string; avatarUrl: 
 /** A Discord voice channel with people in it right now. */
 export type LiveVoiceChannel = { channelId: string; name: string | null; people: LiveVoiceMember[] }
 
+/**
+ * What has happened since the oldest open instance opened. Arrivals are people a moderator's
+ * Companion App saw walk in, each counted once; the rest are from the group's audit log.
+ */
+export type LiveTally = { since: string; arrivals: number; warns: number; kicks: number; bans: number }
+
 export type LiveView = {
   instances: LiveInstance[]
   generatedAt: string
   /** The Discord server's voice channels with somebody in them, in the server's own order. */
   voice: LiveVoiceChannel[] | null
+  /** Null when no instance is open. */
+  tally?: LiveTally | null
 }
 
 /** People active on one day, and over the 7 and 30 days ending on it. Distinct people. */
@@ -4560,13 +4568,18 @@ export const api = {
   // ── Evidence uploads (evidence design §9.1). Phase 2, the bytes, is an XMLHttpRequest in the
   //    gallery so it can report progress; it is not here. ────────────────────────────────────
 
-  beginEvidenceUpload: (body: { fileName: string; contentType: string; length: number; reportId: string }) =>
+  /** `reportId` is null when the case file is not written yet; the commit names it then. */
+  beginEvidenceUpload: (body: { fileName: string; contentType: string; length: number; reportId: string | null }) =>
     post<EvidenceUploadTicket>('/api/evidence/uploads', body),
 
-  commitEvidenceUpload: (uploadId: string, expectedHash: string | null) =>
+  commitEvidenceUpload: (uploadId: string, expectedHash: string | null, reportId: string | null = null) =>
     post<EvidenceCommitted>(`/api/evidence/uploads/${encodeURIComponent(uploadId)}/commit`, {
       expectedHash,
+      reportId,
     }),
+
+  /** Upload limits for a screen with no case file yet — the ban dialog. */
+  evidenceDelivery: () => request<EvidenceDelivery>('/api/cases/evidence-delivery'),
 
   /** Where the bytes of a piece of evidence are served from. Same-origin, authenticated by the cookie. */
   evidenceUrl: (hash: string) => `/api/evidence/${encodeURIComponent(hash)}`,

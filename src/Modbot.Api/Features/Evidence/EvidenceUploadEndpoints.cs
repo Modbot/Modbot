@@ -153,7 +153,7 @@ public static class EvidenceUploadEndpoints
 
                 try
                 {
-                    var result = await uploads.CommitAsync(id, expected, ct);
+                    var result = await uploads.CommitAsync(id, expected, body.ReportId?.Trim(), ct);
 
                     // The outcome — whether these bytes were already in the store — is deliberately
                     // not returned. Telling a moderator "you have already uploaded this file" tells
@@ -175,11 +175,15 @@ public static class EvidenceUploadEndpoints
                 + "the bytes themselves — never from the filename and never from what the client "
                 + "claimed — checks the size that was actually stored, promotes the object to its "
                 + "content-addressed key and only then writes the metadata. SVG and HTML are "
-                + "refused outright. Idempotent on the upload id.")
+                + "refused outright. Idempotent on the upload id. "
+                + "reportId names the case file to attach to when the upload was begun without "
+                + "one, so a file can be sent before its case file is written; naming a different "
+                + "case file from the one the upload was begun for is refused with 409.")
             .Produces<EvidenceCommitResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict)
             .Produces(StatusCodes.Status413PayloadTooLarge)
             .Produces(StatusCodes.Status415UnsupportedMediaType)
             .Produces(StatusCodes.Status503ServiceUnavailable);
@@ -209,12 +213,14 @@ public static class EvidenceUploadEndpoints
 
         EvidenceStagingNotFoundException missing => Results.NotFound(new { error = missing.Message }),
 
+        EvidenceReportMismatchException mismatch => Results.Conflict(new { error = mismatch.Message }),
+
         EvidenceStoreUnavailableException unavailable => Results.Json(
             new { error = unavailable.Message },
             statusCode: StatusCodes.Status503ServiceUnavailable),
 
-        // Unreachable: the catch filters admit only the four above. Kept total so that adding a
-        // fifth cannot silently become a 500 with no message.
+        // Unreachable: the catch filters admit only the five above. Kept total so that adding a
+        // sixth cannot silently become a 500 with no message.
         _ => Results.Json(new { error = e.Message }, statusCode: StatusCodes.Status500InternalServerError),
     };
 
@@ -222,5 +228,6 @@ public static class EvidenceUploadEndpoints
         => e is EvidenceTooLargeException
             or EvidenceRejectedException
             or EvidenceStagingNotFoundException
+            or EvidenceReportMismatchException
             or EvidenceStoreUnavailableException;
 }

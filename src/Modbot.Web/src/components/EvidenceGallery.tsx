@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CardFooter } from '@/components/ui/card'
-import { api, ApiError, type EvidenceDelivery, type EvidenceItem } from '@/lib/api'
+import { api, type EvidenceDelivery, type EvidenceItem } from '@/lib/api'
+import { attach, busy, failure, send, tooLarge, type Progress } from '@/lib/evidenceUpload'
 import { formatDay } from '@/lib/format'
 import { bytes } from '@/components/settings/units'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
@@ -164,63 +165,24 @@ function Picture({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (h
   )
 }
 
-type Progress =
-  | { phase: 'idle' }
-  | { phase: 'hashing' }
-  | { phase: 'starting' }
-  | { phase: 'sending'; sent: number; total: number; bytesPerSecond: number }
-  | { phase: 'committing' }
-  | { phase: 'done'; name: string }
-  | { phase: 'failed'; message: string }
-
 function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: EvidenceDelivery; onChanged: () => void }) {
   const [progress, setProgress] = useState<Progress>({ phase: 'idle' })
   const input = useRef<HTMLInputElement>(null)
-  const busy = !['idle', 'done', 'failed'].includes(progress.phase)
+  const sending = busy(progress)
 
   const upload = async (file: File) => {
-    if (delivery.maxFileBytes > 0 && file.size > delivery.maxFileBytes) {
-      setProgress({ phase: 'failed', message: `${file.name} is ${bytes(file.size)}; the limit is ${bytes(delivery.maxFileBytes)} per file.` })
+    const refusal = tooLarge(file, delivery)
+    if (refusal) {
+      setProgress({ phase: 'failed', message: refusal })
       return
     }
 
     try {
-      // The hash is a claim the server checks against what it actually stored. Skipped for
-      // very large files rather than holding them whole in memory twice.
-      let expectedHash: string | null = null
-      if (file.size <= 64 * 1024 * 1024 && typeof crypto?.subtle?.digest === 'function') {
-        setProgress({ phase: 'hashing' })
-        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer())
-        expectedHash = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
-      }
-
-      setProgress({ phase: 'starting' })
-      const ticket = await api.beginEvidenceUpload({
-        fileName: file.name,
-        contentType: file.type || 'application/octet-stream',
-        length: file.size,
-        reportId: caseId,
-      })
-
-      await transfer(ticket.transferUrl, ticket.presigned, file, (sent, total, bytesPerSecond) =>
-        setProgress({ phase: 'sending', sent, total, bytesPerSecond }),
-      )
-
-      setProgress({ phase: 'committing' })
-      await api.commitEvidenceUpload(ticket.uploadId, expectedHash)
-
-      setProgress({ phase: 'done', name: file.name })
+      const sent = await send(file, caseId, setProgress)
+      await attach(sent, caseId, setProgress)
       onChanged()
     } catch (e: unknown) {
-      setProgress({
-        phase: 'failed',
-        message:
-          e instanceof ApiError && e.status === 403
-            ? 'You do not have permission to upload evidence.'
-            : e instanceof Error
-              ? e.message
-              : 'The upload failed.',
-      })
+      setProgress(failure(e))
     } finally {
       if (input.current) input.current.value = ''
     }
@@ -232,7 +194,7 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
         ref={input}
         type="file"
         accept={delivery.acceptedTypes.join(',')}
-        disabled={busy || !delivery.uploadsAllowed}
+        disabled={sending || !delivery.uploadsAllowed}
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) void upload(file)
@@ -240,9 +202,9 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
         className="hidden"
         id={`attach-${caseId}`}
       />
-      <Button asChild size="xs" variant="outline" disabled={busy || !delivery.uploadsAllowed}>
-        <label htmlFor={`attach-${caseId}`} className={busy || !delivery.uploadsAllowed ? 'pointer-events-none opacity-50' : 'cursor-pointer'}>
-          {busy ? 'Uploading…' : 'Attach a screenshot or video'}
+      <Button asChild size="xs" variant="outline" disabled={sending || !delivery.uploadsAllowed}>
+        <label htmlFor={`attach-${caseId}`} className={sending || !delivery.uploadsAllowed ? 'pointer-events-none opacity-50' : 'cursor-pointer'}>
+          {sending ? 'Uploading…' : 'Attach a screenshot or video'}
         </label>
       </Button>
       <span className="text-muted-foreground">
@@ -265,7 +227,7 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
   )
 }
 
-function ProgressLine({ progress }: { progress: Progress }) {
+export function ProgressLine({ progress }: { progress: Progress }) {
   if (progress.phase === 'idle') return null
 
   const small = { fontSize: 'var(--text-small)' } as const
@@ -290,6 +252,8 @@ function ProgressLine({ progress }: { progress: Progress }) {
         </div>
       )
     }
+    case 'ready':
+      return <p className="text-muted-foreground" style={small}>Ready</p>
     case 'committing':
       return <p className="text-muted-foreground" style={small}>Attaching…</p>
     case 'done':
@@ -297,58 +261,4 @@ function ProgressLine({ progress }: { progress: Progress }) {
     case 'failed':
       return <p className="text-destructive" style={small}>{progress.message}</p>
   }
-}
-
-/**
- * Phase 2: the file as a raw body, with progress.
- *
- * XMLHttpRequest rather than fetch because fetch has no upload progress, and a hundred megabytes
- * on a home connection is minutes -- long enough that a bar which does not move gets cancelled
- * by an impatient human (evidence design §9.6). A presigned target is another origin and gets no
- * cookie; Modbot's own endpoint gets the session.
- */
-function transfer(
-  url: string,
-  presigned: boolean,
-  file: File,
-  onProgress: (sent: number, total: number, bytesPerSecond: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    const startedAt = Date.now()
-
-    // Measured here rather than in the component: the clock is read when a progress event
-    // arrives, which is an event, not a render.
-    const rate = (sent: number) => {
-      const elapsed = (Date.now() - startedAt) / 1000
-      return elapsed > 0.5 ? sent / elapsed : 0
-    }
-
-    xhr.open('PUT', url)
-    xhr.withCredentials = !presigned
-    if (presigned && file.type) xhr.setRequestHeader('Content-Type', file.type)
-    else if (!presigned) xhr.setRequestHeader('Content-Type', 'application/octet-stream')
-
-    xhr.upload.onprogress = (e) =>
-      onProgress(e.loaded, e.lengthComputable ? e.total : file.size, rate(e.loaded))
-    xhr.onerror = () => reject(new Error('The connection dropped. Try again.'))
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress(file.size, file.size, rate(file.size))
-        resolve()
-        return
-      }
-
-      let message = `Sending the file failed (${xhr.status}).`
-      try {
-        const body: unknown = xhr.responseText ? JSON.parse(xhr.responseText) : null
-        if (typeof body === 'object' && body !== null && 'error' in body) message = String((body as { error: unknown }).error)
-      } catch {
-        // A bucket answers in XML; the status is the message then.
-      }
-      reject(new Error(message))
-    }
-
-    xhr.send(file)
-  })
 }

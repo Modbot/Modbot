@@ -52,6 +52,34 @@ public class TeamAnalyticsTests
     }
 
     /// <summary>
+    /// The table is not a leaderboard: whoever acted most recently comes first, whatever their
+    /// count, and moderators last active on the same day are in name order.
+    /// </summary>
+    [Fact]
+    public async Task Moderators_AreSortedByLastActive_ThenByName_NotByCount()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var yesterday = host.Clock.UtcNow.AddDays(-1);
+        var earlier = host.Clock.UtcNow.AddDays(-5);
+
+        // Zed has the most actions, but none since five days ago.
+        for (var i = 0; i < 5; i++)
+            await host.WriteFactAsync(AuditFact(FactType.MemberBanned, $"usr_z{i}", earlier.AddMinutes(i), actor: "usr_zed", actorName: "Zed"), ct);
+
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_b1", yesterday, actor: "usr_bob", actorName: "bob"), ct);
+        await host.WriteFactAsync(AuditFact(FactType.MemberBanned, "usr_a1", yesterday.AddMinutes(1), actor: "usr_amy", actorName: "Amy"), ct);
+        await host.RebuildDailyTotalsAsync(ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<TeamAnalytics>("/api/analytics/team?days=30", cookie, ct);
+
+        Assert.Equal(["usr_amy", "usr_bob", "usr_zed"], page.Moderators.Select(m => m.Who.Id));
+    }
+
+    /// <summary>
     /// The hand-built scenario: a busy instance, a moderator present, the moderator leaves, and
     /// the gap begins with the people who were still there. It ends when the moderator is back.
     /// </summary>

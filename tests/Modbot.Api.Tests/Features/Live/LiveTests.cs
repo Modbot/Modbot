@@ -342,4 +342,61 @@ public class LiveTests
         Assert.Equal("usr_ada", Assert.Single(instance.LastSeen).UserId);
         Assert.Equal(3, instance.HeadCount);
     }
+
+    /// <summary>
+    /// The running line counts from the oldest open instance's opening: each person seen arriving
+    /// once, however many moderators' apps saw them, and the warns, kicks and bans since. A kick
+    /// from the group is not a kick from an instance, and anything before the opening is left out.
+    /// </summary>
+    [Fact]
+    public async Task TheTally_CountsSinceTheOldestOpenInstanceOpened()
+    {
+        await using var host = await ReadyAsync(_db);
+        var t = host.Clock.UtcNow.AddHours(-2);
+
+        await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t, null, Ct);
+        var (device, moderator) = await ModeratorAsync(host);
+        var (other, _) = await ModeratorAsync(host);
+
+        await host.WriteFactAsync(Seen(FactType.InstanceJoined, moderator, t.AddMinutes(5), device), Ct);
+        await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_ada", t.AddMinutes(10), device, "Ada"), Ct);
+        await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_ada", t.AddMinutes(10), other, "Ada"), Ct);
+        await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_bob", t.AddMinutes(20), device, "Bob"), Ct);
+        await host.WriteFactAsync(Seen(FactType.InstanceJoined, "usr_old", t.AddMinutes(-30), device, "Old"), Ct);
+
+        await host.WriteFactAsync(Action(FactType.GroupInstanceWarn, "usr_bob", t.AddMinutes(25)), Ct);
+        await host.WriteFactAsync(Action(FactType.GroupInstanceKick, "usr_bob", t.AddMinutes(30)), Ct);
+        await host.WriteFactAsync(Action(FactType.MemberKicked, "usr_bob", t.AddMinutes(31)), Ct);
+        await host.WriteFactAsync(Action(FactType.MemberBanned, "usr_bob", t.AddMinutes(32)), Ct);
+        await host.WriteFactAsync(Action(FactType.MemberBanned, "usr_old", t.AddDays(-1)), Ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+        var tally = (await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Tally;
+
+        Assert.NotNull(tally);
+        Assert.Equal(t, tally.Since);
+        Assert.Equal(3, tally.Arrivals);
+        Assert.Equal(1, tally.Warns);
+        Assert.Equal(1, tally.Kicks);
+        Assert.Equal(1, tally.Bans);
+
+        FactRecord Action(string type, string subject, DateTimeOffset at) => new()
+        {
+            Type = type,
+            OccurredAt = at,
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = subject,
+            Source = FactSource.AuditLog,
+        };
+    }
+
+    [Fact]
+    public async Task WithNoInstanceOpen_ThereIsNoTally()
+    {
+        await using var host = await ReadyAsync(_db);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        Assert.Null((await host.GetJsonAsync<LiveView>("/api/live", cookie, Ct)).Tally);
+    }
 }

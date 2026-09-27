@@ -1,12 +1,13 @@
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { CaseFile } from '@/pages/CaseFile'
 import { InstancePopup } from '@/components/subject/InstancePopup'
 import { PersonPopup } from '@/components/subject/PersonPopup'
 import { WorldPopup } from '@/components/subject/WorldPopup'
 import type { CurrentUser } from '@/lib/api'
 import { useModal } from '@/lib/shortcuts'
-import { closeSubject, encodeSubject, isPerson, useSubjects, type Subject } from '@/lib/subject'
+import { closeSubject, encodeSubject, isPerson, openPerson, useSubjects, type Subject } from '@/lib/subject'
 
 /**
  * The popup: a person, a world or an instance, over whatever page is open.
@@ -65,7 +66,23 @@ function Open({ top, me, lead }: { top: Subject; me: CurrentUser; lead: React.Re
       {isPerson(top) && <PersonPopup subject={top} me={me} lead={lead} />}
       {top.kind === 'world' && <WorldPopup id={top.id} me={me} lead={lead} />}
       {top.kind === 'instance' && <InstancePopup id={top.id} me={me} lead={lead} />}
+      {top.kind === 'case' && <CasePopup id={top.id} lead={lead} />}
     </Dialog>
+  )
+}
+
+/** A case file, drawn the way its own page draws it, over the page rather than instead of it. */
+function CasePopup({ id, lead }: { id: string; lead: React.ReactNode }) {
+  return (
+    <DialogContent
+      title="Case file"
+      lead={lead}
+      aria-describedby={undefined}
+      className="top-0 left-0 h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 md:top-1/2 md:left-1/2 md:h-auto md:max-h-[calc(100dvh-2rem)] md:w-[calc(100vw-2rem)] md:max-w-4xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-sm md:border"
+      bodyClassName="p-0"
+    >
+      <CaseFile caseId={id} onOpenSubject={openPerson} />
+    </DialogContent>
   )
 }
 
@@ -77,6 +94,7 @@ const KIND_WORD: Record<Subject['kind'], string> = {
   instance: 'instance',
   'discord-person': 'person',
   account: 'person',
+  case: 'case file',
 }
 
 function Back({ below, depth }: { below: Subject; depth: number }) {

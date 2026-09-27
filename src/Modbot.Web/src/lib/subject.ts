@@ -22,6 +22,10 @@ import { useLocation, go } from './router.ts'
  *   moderator has already pasted somewhere still opens the same thing.
  * - `?subject=world:wrld_abc` — one world.
  * - `?subject=usr_abc&subject=instance:6f3e…` — a person, then an instance opened from inside it.
+ * - `?subject=usr_abc&subject=case:9b1d…` — a person, then one of their case files. A case file
+ *   still has its own page at `/cases/:id` for pasting; opened from a person or from the ban
+ *   dialog it goes on the stack instead, so closing it goes back to the person rather than to a
+ *   page whose only way out is "Back to bans" (UX review finding 2).
  *
  * ## Three of the kinds are one view
  *
@@ -52,7 +56,7 @@ import { useLocation, go } from './router.ts'
  * the URL rather than calling back — otherwise the first Escape would take them out of Modbot
  * altogether.
  */
-export type SubjectKind = 'person' | 'world' | 'instance' | 'discord-person' | 'account'
+export type SubjectKind = 'person' | 'world' | 'instance' | 'discord-person' | 'account' | 'case'
 
 export type Subject = { kind: SubjectKind; id: string }
 
@@ -84,7 +88,7 @@ export function encodeSubject(subject: Subject): string {
 export function decodeSubject(value: string): Subject | null {
   if (!value) return null
 
-  for (const kind of ['world', 'instance', 'discord-person', 'account', 'person'] as const) {
+  for (const kind of ['world', 'instance', 'discord-person', 'account', 'case', 'person'] as const) {
     const prefix = `${kind}:`
     if (value.startsWith(prefix) && value.length > prefix.length)
       return { kind, id: value.slice(prefix.length) }
@@ -228,6 +232,11 @@ export function openWorld(id: string): void {
 
 export function openInstance(id: string): void {
   openSubject({ kind: 'instance', id })
+}
+
+/** A case file, over the page and on top of whatever popup opened it. */
+export function openCase(id: string): void {
+  openSubject({ kind: 'case', id })
 }
 
 /**

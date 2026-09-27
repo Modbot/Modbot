@@ -1,47 +1,65 @@
 ---
 title: Appearance
-description: The light and dark themes, the three densities, what the VR density changes, and how Modbot works on a phone.
+description: The light and dark themes, Desk and Headset, the spacing at a desk, and how Modbot works on a phone.
 ---
 
 Modbot's appearance is set per browser, not per account. Change it on your laptop and your phone
 keeps its own setting. Nothing here is a permission and nothing here changes what anybody else
 sees.
 
-The controls are at the top right of every page: the density buttons and a button that swaps the
-theme. On a phone they are at the foot of the **Menu**.
+The controls are at the top right of every page: **Desk** and **Headset**, and a button that swaps
+the theme. On a phone and in a headset they are at the foot of the **Menu**. The spacing at a desk
+is in **Your account**.
 
-They are also in the command palette. Press **Ctrl + K** (or **⌘ K**) and type "theme" or
-"density".
+They are also in the command palette. Press **Ctrl + K** (or **⌘ K**) and type "theme",
+"headset", "desk" or "spacing".
 
 ## Theme
 
 **Dark** and **light**. Dark is the default.
 
-## Density
+## Desk and Headset
 
-Three settings, which change row heights, control sizes, text size and border weight together.
+Where you are reading Modbot. A phone is picked out on its own, so it is not one of the choices.
+
+| | |
+|---|---|
+| **Desk** | The default. The sidebar on the left, and your choice of spacing. |
+| **Headset** | For the web app seen through a VR headset, whichever theme you use. |
+
+## Spacing at a desk
+
+In **Your account**, under **Spacing at a desk**. It changes row heights, control sizes and text
+size together, and only at a desk: a headset and a phone have their own sizes.
 
 | | |
 |---|---|
 | **Dense** | The default. The most rows on screen at once, for scanning a member list of tens of thousands. |
 | **Comfortable** | Taller rows and larger text. Easier over a long session. |
-| **VR** | For the web app seen through a headset. |
 
-VR is not "Comfortable, but more". A headset shows your desktop through a virtual panel, and a laser
-pointer is far less precise than a mouse, so VR mode raises the size of everything you can click
-past the point where you can hit it with a pointer, lifts text above the size where it turns to
-mush, thickens the one-pixel borders that otherwise disappear entirely, and pulls the blacks and
-whites back from the extremes, because both bloom on a headset panel.
+Until September 2026 this was a three-way switch in the top bar, with **VR** as the third choice.
+A browser that had VR picked opens on **Headset**.
 
-Pick it when you are reading Modbot in VR, whichever theme you use.
+## What Headset changes
 
-## What VR changes
+Headset is not "Comfortable, but more". A headset shows a desktop through a virtual panel at a low
+effective resolution, and a laser pointer is much less precise than a mouse, so it changes the
+layout as well as the sizes.
 
-VR is not "Comfortable, but more". A headset shows a desktop through a virtual panel at a low effective
-resolution, and a laser pointer is much less precise than a mouse, so VR changes four things at
-once:
+The layout:
 
-| | Dense | VR |
+- **One column, and no sidebar.** The sidebar's labels do not fit at a headset's text size, so the
+  pages are behind **Menu** in a bar at the foot of the screen, as on a phone, whatever the size of
+  the window. The bar's buttons are larger than a phone's.
+- **No keyboard hints.** The keys beside each page and in the search box are left out, because in a
+  headset the keyboard is not to hand.
+- **Modbot opens on [Live](/moderation/live)**, which is what a moderator in VR is there to watch.
+  Members is still one tap away in the menu, and a link somebody pasted opens where it points.
+- **Live stacks each instance's picture above its list of people**, one instance under another.
+
+The sizes:
+
+| | Dense | Headset |
 |---|---|---|
 | Row height | 34px | 56px |
 | Height of a button or a box you type in | 30px | 48px |
@@ -57,13 +75,13 @@ Corners are rounded a little more, which is the one change that is only there to
 looking of a piece at the larger size.
 
 Nothing else changes. Every page, every column and every button is the same one; there is no
-separate VR version of a screen to get out of step.
+separate headset version of a screen to get out of step.
 
 ## If your choice does not stick
 
-Modbot remembers both in your browser's own storage. A private window, a browser set to clear site
+Modbot remembers all three in your browser's own storage. A private window, a browser set to clear site
 data when it closes, or one that blocks storage for the site, all forget it and start again at
-dark and Dense the next time. Nothing else about Modbot is affected.
+dark, Desk and Dense the next time. Nothing else about Modbot is affected.
 ## On a phone
 
 The whole app works on a phone. There is no separate mobile version and no page you can reach on a
@@ -72,11 +90,11 @@ laptop that you cannot reach on a phone.
 Three differences from a wide screen:
 
 - **The sidebar becomes a sheet.** Tap **Menu** at the foot of the screen for the pages, your
-  account, the theme and density controls, and sign out.
+  account, Desk and Headset, the theme, and sign out.
 - **There is a bar at the foot**, not more controls at the top, so the things you use most are
   where your thumb already is: **Menu**, **Search** and **Actions**.
-- **Tap targets are larger**, by the same reasoning as VR mode. Dense and Comfortable are both raised to
-  a size a fingertip can hit; VR keeps its own sizes, which are already larger.
+- **Tap targets are larger**, by the same reasoning as Headset. Dense and Comfortable are both raised to
+  a size a fingertip can hit; Headset keeps its own sizes, which are already larger.
 
 ### Actions
 

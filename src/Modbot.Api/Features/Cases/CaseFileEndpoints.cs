@@ -85,6 +85,25 @@ public static class CaseFileEndpoints
             .Produces<UnwrittenBanListResponse>()
             .Produces(StatusCodes.Status403Forbidden);
 
+        group.MapGet("/evidence-delivery", (
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                [FromServices] EvidenceOptions? evidenceOptions,
+                [FromServices] IEvidenceStore? store,
+                [FromServices] EvidenceStoreMonitor? monitor) =>
+                Results.Ok(new CaseFileService(db, clock, evidenceOptions: evidenceOptions, store: store, monitor: monitor)
+                    .DescribeEvidenceDelivery()))
+            .RequiresFlag(ModbotPermissions.ViewProfile)
+            .WithName("GetEvidenceDelivery")
+            .WithSummary("Get evidence upload limits")
+            .WithDescription(
+                "Whether uploads are open right now, the formats accepted and the size limit per "
+                + "file -- the same `evidenceDelivery` a case file carries, for a screen that "
+                + "attaches files before the case file exists. The ban dialog uses it: files are "
+                + "sent as soon as they are picked and committed to the case file the ban writes.")
+            .Produces<EvidenceDeliveryView>()
+            .Produces(StatusCodes.Status403Forbidden);
+
         group.MapGet("/lookup", async (
                 [FromQuery(Name = "userId")] string[]? userIds,
                 [FromServices] ModbotContext db,

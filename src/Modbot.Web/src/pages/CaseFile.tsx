@@ -48,7 +48,8 @@ export function CaseFile({
 }: {
   caseId: string
   onOpenSubject: (id: string) => void
-  onBack: () => void
+  /** The page's way back to the ban list. Left out in the popup, whose header has its own. */
+  onBack?: () => void
 }) {
   const [view, setView] = useState<CaseFileView | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -91,11 +92,13 @@ export function CaseFile({
     return (
       <Card>
         <EmptyRow tone="danger">{error}</EmptyRow>
-        <CardFooter>
-          <Button variant="outline" size="xs" onClick={onBack}>
-            Back to bans
-          </Button>
-        </CardFooter>
+        {onBack && (
+          <CardFooter>
+            <Button variant="outline" size="xs" onClick={onBack}>
+              Back to bans
+            </Button>
+          </CardFooter>
+        )}
       </Card>
     )
   }
@@ -208,7 +211,7 @@ function Header({
 }: {
   view: CaseFileView
   onOpenSubject: (id: string) => void
-  onBack: () => void
+  onBack?: () => void
 }) {
   return (
     <Card>
@@ -222,11 +225,13 @@ function Header({
             </span>
           )}
         </CardTitle>
-        <CardAction>
-          <Button variant="outline" size="xs" onClick={onBack}>
-            Back to bans
-          </Button>
-        </CardAction>
+        {onBack && (
+          <CardAction>
+            <Button variant="outline" size="xs" onClick={onBack}>
+              Back to bans
+            </Button>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
         {view.bannedAt ? <>Banned <span className="font-mono">{formatDay(view.bannedAt)}</span></> : <>No ban time recorded</>}

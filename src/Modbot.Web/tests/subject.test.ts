@@ -22,7 +22,7 @@ test('anything with no prefix is a person, whatever shape the id is', () => {
 })
 
 test('every other kind carries its own prefix', () => {
-  for (const kind of ['world', 'instance', 'discord-person', 'account'] as const) {
+  for (const kind of ['world', 'instance', 'discord-person', 'account', 'case'] as const) {
     const subject = { kind, id: 'x' }
     assert.equal(encodeSubject(subject), `${kind}:x`)
     assert.deepEqual(decodeSubject(`${kind}:x`), subject)
@@ -63,4 +63,11 @@ test('the same id under two kinds is two different subjects', () => {
 
 test('nothing decodes from an empty value', () => {
   assert.equal(decodeSubject(''), null)
+})
+
+test('a case file is on the stack but is not a person', () => {
+  // Opened from a person's Cases tab or from the ban dialog, it sits on top of the person and
+  // closing it goes back to them. It names a case file, not a human being.
+  assert.deepEqual(decodeSubject('case:9b1d'), { kind: 'case', id: '9b1d' })
+  assert.equal(isPerson({ kind: 'case', id: '9b1d' }), false)
 })

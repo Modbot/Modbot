@@ -436,7 +436,7 @@ public sealed class CaseFileService
                 canEdit && row.SnapshotRecapturedAt is null && newer,
                 ExplainSnapshot(row, newer, canEdit)),
             evidence,
-            DescribeDelivery(),
+            DescribeEvidenceDelivery(),
             canEdit,
             canEdit && caller.Has(ModbotPermissions.UploadEvidence),
             canViewEvidence,
@@ -774,7 +774,11 @@ public sealed class CaseFileService
                 .ToList());
     }
 
-    private EvidenceDeliveryView DescribeDelivery()
+    /// <summary>
+    /// How evidence travels, for an attach control with no case file yet: the ban dialog, which
+    /// sends a screenshot before the ban it belongs to has written one.
+    /// </summary>
+    public EvidenceDeliveryView DescribeEvidenceDelivery()
     {
         if (_evidenceOptions is null || _store is null || _monitor is null)
         {

@@ -5,11 +5,11 @@ import { IS_MAC, keyNames } from '@/lib/shortcuts'
  * A key, drawn as a key. `keys` is the registry's spelling: `mod+k`, `g m`, `?`.
  *
  * Sized from its own text, so it sits inside a button or a row of any height without setting it,
- * and hidden below `lg`: a phone has no keyboard to press it on.
+ * and hidden below `lg` and in a headset: neither has a keyboard to hand.
  */
 export function Kbd({ keys, className }: { keys: string; className?: string }) {
   return (
-    <span className={cn('hidden items-center gap-1 lg:inline-flex', className)} style={{ fontSize: 'var(--text-tiny)' }}>
+    <span className={cn('hidden items-center gap-1 desk:lg:inline-flex', className)} style={{ fontSize: 'var(--text-tiny)' }}>
       {keyNames(keys, IS_MAC).map((name, i) => (
         <span key={i} className="contents">
           {i > 0 && <span className="text-muted-foreground">then</span>}
