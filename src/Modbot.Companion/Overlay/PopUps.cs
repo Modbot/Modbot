@@ -96,6 +96,32 @@ public sealed class PopUps
         }
     }
 
+    /// <summary>
+    /// Changes the words on cards that are already up, keeping their place and their time. A
+    /// change that would give a card a different id is ignored.
+    /// </summary>
+    /// <remarks>
+    /// For something learned after the card went up — a person's trust rank, which the server
+    /// only knows once this client has reported them. Showing the card again would restart its
+    /// time and move it to the top; filling it in does neither.
+    /// </remarks>
+    public void Amend(Func<PopUp, PopUp> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        lock (_gate)
+        {
+            for (var i = 0; i < _shown.Count; i++)
+            {
+                var was = _shown[i].PopUp;
+                var now = change(was);
+
+                if (now != was && string.Equals(now.Id, was.Id, StringComparison.Ordinal))
+                    _shown[i] = _shown[i] with { PopUp = now };
+            }
+        }
+    }
+
     /// <summary>Takes one away early, by id.</summary>
     public void Clear(string id)
     {

@@ -55,7 +55,7 @@ public static class AnalyticsEndpoints
                 [FromQuery] DateOnly? to,
                 CancellationToken ct) =>
             {
-                var window = await WindowAsync(db, clock, days, all, from, to, ct);
+                var window = await WindowAsync(db, clock, GroupAnalyticsQuery.Sources, days, all, from, to, ct);
                 if (window.Error is not null) return window.Error;
 
                 return Results.Ok(await new GroupAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
@@ -114,7 +114,7 @@ public static class AnalyticsEndpoints
                 [FromQuery] DateOnly? to,
                 CancellationToken ct) =>
             {
-                var window = await WindowAsync(db, clock, days, all, from, to, ct);
+                var window = await WindowAsync(db, clock, ServerAnalyticsQuery.Sources, days, all, from, to, ct);
                 if (window.Error is not null) return window.Error;
 
                 return Results.Ok(await new ServerAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
@@ -143,7 +143,7 @@ public static class AnalyticsEndpoints
                 [FromQuery] DateOnly? to,
                 CancellationToken ct) =>
             {
-                var window = await WindowAsync(db, clock, days, all, from, to, ct);
+                var window = await WindowAsync(db, clock, TeamAnalyticsQuery.Sources, days, all, from, to, ct);
                 if (window.Error is not null) return window.Error;
 
                 return Results.Ok(await new TeamAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
@@ -172,7 +172,7 @@ public static class AnalyticsEndpoints
                 [FromQuery] DateOnly? to,
                 CancellationToken ct) =>
             {
-                var window = await WindowAsync(db, clock, days, all, from, to, ct);
+                var window = await WindowAsync(db, clock, WorldsAnalyticsQuery.Sources, days, all, from, to, ct);
                 if (window.Error is not null) return window.Error;
 
                 return Results.Ok(await new WorldsAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
@@ -198,7 +198,7 @@ public static class AnalyticsEndpoints
                 [FromQuery] DateOnly? to,
                 CancellationToken ct) =>
             {
-                var window = await WindowAsync(db, clock, days, all, from, to, ct);
+                var window = await WindowAsync(db, clock, InstancesAnalyticsQuery.Sources, days, all, from, to, ct);
                 if (window.Error is not null) return window.Error;
 
                 return Results.Ok(await new InstancesAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
@@ -263,12 +263,15 @@ public static class AnalyticsEndpoints
     /// </summary>
     /// <remarks>
     /// Never the machine clock (spec 4.4): "today" is a value this deployment agrees on, not
-    /// whatever the container thinks. <c>all=true</c> starts at the first day either source
-    /// knows about, so "all time" means all recorded time and not an arbitrary cap.
+    /// whatever the container thinks. <c>all=true</c> starts at the first day the page's own
+    /// sources have anything for, so "all time" means all of that page's recorded time and not an
+    /// arbitrary cap -- nor another page's, which on a server whose message history reaches back
+    /// years would open every VRChat page on years of nothing.
     /// </remarks>
     private static async Task<(DateOnly From, DateOnly To, IResult? Error)> WindowAsync(
         ModbotContext db,
         IModbotClock clock,
+        PageSources sources,
         int? days,
         bool? all,
         DateOnly? from,
@@ -282,7 +285,7 @@ public static class AnalyticsEndpoints
         if (from is not null)
             first = from.Value;
         else if (all == true)
-            first = await AnalyticsCoverageQuery.FirstDayAsync(db, ct) ?? last;
+            first = await AnalyticsCoverageQuery.FirstDayAsync(db, sources, ct) ?? last;
         else
             first = last.AddDays(-(Math.Clamp(days ?? DefaultDays, 1, MaxDays) - 1));
 

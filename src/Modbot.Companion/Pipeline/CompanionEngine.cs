@@ -111,6 +111,13 @@ public sealed class CompanionEngine
     /// <summary>The moderator's own VRChat id as the log last said, or null while unknown. See <see cref="PresenceObserver.ModeratorId"/>.</summary>
     public string? ModeratorId => _observer.ModeratorId;
 
+    /// <summary>
+    /// When each person in the moderator's instance got here, as the log said. Like
+    /// <see cref="CurrentInstance"/>, read by the overlay and never sent. See
+    /// <see cref="InstanceSessionTracker.ArrivedAt"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, DateTime?> ArrivedAt => _observer.ArrivedAt;
+
     public void Add(ServerConnection connection)
     {
         Connections.Add(connection);

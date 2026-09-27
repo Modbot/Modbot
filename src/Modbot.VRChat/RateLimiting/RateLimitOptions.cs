@@ -485,7 +485,9 @@ public static class VRChatRateLimits
             // Measured at 1 req/s by the maintainer on 2026-09-13, so these are findings rather
             // than spec 4.3.4 guesses -- but they still count against the global backstop, which
             // exists for the account-wide limit Modbot cannot see (spec 4.3.1). A world is read
-            // once and then never again. An instance page is read about once every thirty seconds
+            // once by the world sweep, and again every two minutes while the group has an instance
+            // open in it (WorldHeadCountSync, agreed with the maintainer on 2026-09-27), so its
+            // steady rate is the number of such worlds divided by 120. An instance page is read about once every thirty seconds
             // per open group instance, for its head count (InstanceHeadCountSync), so its steady rate is
             // the number of open instances divided by thirty -- which moves with the evening rather
             // than being a fixed schedule, and is capped by this bucket either way. Both are

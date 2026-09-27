@@ -40,15 +40,12 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
         ("Over a year", 365, null),
     ];
 
-    private readonly AnalyticsSql _sql = new(db);
-
-    public async Task<GroupAnalytics> RunAsync(
-        DateOnly from,
-        DateOnly to,
-        DateTimeOffset now,
-        CancellationToken ct = default)
-    {
-        var totals = await _sql.DailyTotalsAsync(from, to,
+    /// <summary>
+    /// What this page draws from, and so where its "all time" starts: the membership daily totals,
+    /// the group-info facts behind the headcount, the role changes, and the member count readings
+    /// behind the peaks.
+    /// </summary>
+    public static readonly PageSources Sources = PageSources.Of(
         [
             DailyTotalMetrics.MembersJoined,
             DailyTotalMetrics.MembersLeft,
@@ -57,7 +54,19 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
             DailyTotalMetrics.RequestsReceived,
             DailyTotalMetrics.ModeratorApprovals,
             DailyTotalMetrics.ModeratorRejections,
-        ], ct);
+        ],
+        [FactType.GroupInfoChanged, FactType.RoleGranted, FactType.RoleRevoked],
+        memberCountReadings: true);
+
+    private readonly AnalyticsSql _sql = new(db);
+
+    public async Task<GroupAnalytics> RunAsync(
+        DateOnly from,
+        DateOnly to,
+        DateTimeOffset now,
+        CancellationToken ct = default)
+    {
+        var totals = await _sql.DailyTotalsAsync(from, to, Sources.Metrics, ct);
 
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 

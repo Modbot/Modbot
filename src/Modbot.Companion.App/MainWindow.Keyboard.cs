@@ -127,15 +127,20 @@ public sealed partial class MainWindow
             new("?", "Keyboard shortcuts", ShortcutGroup.General, ToggleSheet),
             new("escape", "Close", ShortcutGroup.General, Escape),
             new("g s", "Servers", ShortcutGroup.GoTo, () => GoTo(Page.Servers)),
-            new("g e", "Events", ShortcutGroup.GoTo, () => GoTo(Page.Events)),
+            new("g a", "Audit Log", ShortcutGroup.GoTo, () => GoTo(Page.Events)),
+
+            // The page was called Events until 2026-09-26; the old keys still go there, unlisted.
+            new("g e", "Audit Log", ShortcutGroup.GoTo, () => GoTo(Page.Events), Hidden: true),
             new("g v", "SteamVR", ShortcutGroup.GoTo, () => GoTo(Page.SteamVr)),
             new("g l", "Log", ShortcutGroup.GoTo, () => GoTo(Page.Log)),
             new("g t", "Settings", ShortcutGroup.GoTo, () => GoTo(Page.Settings)),
-            new("g c", "Credits", ShortcutGroup.GoTo, () => GoTo(Page.Credits)),
         };
 
         if (_snapshot.DebugMode)
             keys.Add(new("g d", "Debug", ShortcutGroup.GoTo, () => GoTo(Page.Debug)));
+
+        // Last, as in the sidebar.
+        keys.Add(new("g c", "Credits", ShortcutGroup.GoTo, () => GoTo(Page.Credits)));
 
         _registry.Set("window", keys);
         _registry.Set("page", _page is Page.Events ? EventsPageKeys() : []);
@@ -330,12 +335,12 @@ public sealed partial class MainWindow
         foreach (var (page, label) in new[]
         {
             (Page.Servers, "Servers"),
-            (Page.Events, "Events"),
+            (Page.Events, "Audit Log"),
             (Page.SteamVr, "SteamVR"),
             (Page.Log, "Log"),
             (Page.Settings, "Settings"),
-            (Page.Credits, "Credits"),
             (Page.Debug, "Debug"),
+            (Page.Credits, "Credits"),
         })
         {
             if (page is Page.Debug && !_snapshot.DebugMode)
@@ -396,6 +401,8 @@ public sealed partial class MainWindow
                         Width = placement.Width,
                         Opacity = placement.Opacity,
                         Curve = placement.Curve,
+                        Locked = placement.Locked,
+                        ClickThrough = placement.ClickThrough,
                     });
                 });
                 break;

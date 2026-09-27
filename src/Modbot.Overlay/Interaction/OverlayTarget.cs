@@ -47,6 +47,52 @@ public abstract record OverlayTarget
     /// overlay has no recorder, no folder and no way to reach either (clips design spec §11).
     /// </remarks>
     public sealed record SaveClip : OverlayTarget;
+
+    /// <summary>The bar under a headset panel, between its buttons. A tap here does nothing.</summary>
+    /// <remarks>
+    /// A target so that the bar can be found under a ray at all: a panel letting rays through
+    /// still answers on its bar, and this is how the host tells the bar from the rest.
+    /// </remarks>
+    public sealed record Bar : OverlayTarget;
+
+    /// <summary>The bar's lock: the panel cannot be picked up, moved or resized while it is on.</summary>
+    /// <remarks>
+    /// Handled by the panel's own host, never by the drive loop: it changes where the panel may
+    /// go, not what it shows, and it is saved with the panel's placement.
+    /// </remarks>
+    public sealed record Lock : OverlayTarget;
+
+    /// <summary>The bar's hand: the panel lets rays through to VRChat while it is on.</summary>
+    /// <remarks>Handled by the panel's own host, like <see cref="Lock"/>.</remarks>
+    public sealed record ClickThrough : OverlayTarget;
+
+    /// <summary>
+    /// One of a list's filters in the row above it. Tapping it shows its choices under the row, or
+    /// hides them when they are showing.
+    /// </summary>
+    /// <param name="List">The list it filters: <see cref="Views.OverlayPage.Instance"/> or <see cref="Views.OverlayPage.Events"/>.</param>
+    public sealed record Filter(Views.OverlayPage List, Views.FilterPart Part) : OverlayTarget;
+
+    /// <summary>
+    /// One choice among an open filter's. A filter that takes one choice takes it and closes; a
+    /// filter that takes several ticks or unticks it and stays open.
+    /// </summary>
+    /// <param name="Choice">
+    /// Which choice: the enum's value for Who, the time and the order; the rank's value, or -1 for
+    /// "Not known"; the kind's place in <see cref="Views.KindPick.Offered"/>. For Name it is 0, and
+    /// clears the name.
+    /// </param>
+    public sealed record Pick(Views.OverlayPage List, Views.FilterPart Part, int Choice) : OverlayTarget;
+
+    /// <summary>Clear: every filter on a list back to showing everybody.</summary>
+    public sealed record ClearFilters(Views.OverlayPage List) : OverlayTarget;
+
+    /// <summary>
+    /// The box holding the name searched for. In a headset, tapping it brings up the runtime's
+    /// keyboard with <paramref name="Text"/> already in it; on the desktop window, typing goes
+    /// there while it is showing.
+    /// </summary>
+    public sealed record TypeName(Views.OverlayPage List, string Text) : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>
@@ -84,6 +130,57 @@ public static class OverlayTargets
         }
 
         return deepest;
+    }
+
+    /// <summary>
+    /// Whether anything a moderator can see is drawn under a point: a card, a row, a tab, a chip,
+    /// or text. The panel is one square picture and most of it is usually clear ground; a ray on
+    /// the clear part is looking past the panel, not at it.
+    /// </summary>
+    /// <remarks>
+    /// Read off the laid-out tree rather than the pixels, because the pixels hold the cursor ring,
+    /// and a ray that counted the ring as the panel would drag the cursor with it into the empty
+    /// space and never let go — the bar stuck open, the cursor stuck on nothing. A surface counts
+    /// when it has a background that is not fully see-through and nothing above it has faded it to
+    /// nothing, which is also what leaves out a bar laid out at no opacity.
+    /// </remarks>
+    public static bool Drawn(Visual root, Point point)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        return DrawnAt(root, new Point(0, 0), 1.0, point);
+    }
+
+    private static bool DrawnAt(Visual visual, Point offset, double opacity, Point point)
+    {
+        if (!visual.IsVisible)
+            return false;
+
+        opacity *= visual.Opacity;
+        if (opacity <= 0)
+            return false;
+
+        var bounds = visual.Bounds;
+        var origin = new Point(offset.X + bounds.X, offset.Y + bounds.Y);
+        var box = new Rect(origin, bounds.Size);
+
+        var seen = visual switch
+        {
+            Border { Background: { } ground } => ground.Opacity > 0 && ground is not Avalonia.Media.ISolidColorBrush { Color.A: 0 },
+            Panel { Background: { } ground } => ground.Opacity > 0 && ground is not Avalonia.Media.ISolidColorBrush { Color.A: 0 },
+            TextBlock { Text.Length: > 0 } => true,
+            _ => false,
+        };
+
+        if (seen && box.Contains(point))
+            return true;
+
+        foreach (var child in visual.GetVisualChildren())
+        {
+            if (DrawnAt(child, origin, opacity, point))
+                return true;
+        }
+
+        return false;
     }
 
     private static void Walk(Visual visual, Point offset, List<PlacedTarget> found)

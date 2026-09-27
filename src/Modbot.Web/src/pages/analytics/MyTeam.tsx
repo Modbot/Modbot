@@ -4,7 +4,7 @@ import { InstanceLink } from '@/components/facts'
 import { api, type CoverageGap } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
-import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
+import { CoverageLine, PageMessage, Panel, RangePicker, Stat, StatStrip, Toggle } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 
@@ -42,6 +42,8 @@ export function MyTeam({
 
       {data && (
         <PanelGrid className="grid-cols-1">
+          <CoverageLine coverage={data.coverage} generatedAt={data.generatedAt} />
+
           <StatStrip>
             <Stat label="Moderators active" value={compactNumber(data.moderators.length)} />
             <Stat label="Actions" value={compactNumber(totalActions)} />
@@ -180,7 +182,6 @@ export function MyTeam({
             </Panel>
           </PanelGrid>
 
-          <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
         </PanelGrid>
       )}
     </div>

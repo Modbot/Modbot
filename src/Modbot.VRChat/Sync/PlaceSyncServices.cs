@@ -186,6 +186,37 @@ public sealed class InstanceHeadCountSyncService : PlaceSyncService
 }
 
 /// <summary>
+/// Reads the page of each world the group has an instance open in, every two minutes.
+/// </summary>
+/// <remarks>
+/// Two minutes was agreed with the maintainer on 2026-09-27 (foundation 4.3.4). Every world with an
+/// open group instance is read once a pass, so the loop's own interval is the poll rate and nothing
+/// needs a timer per world. See <see cref="WorldHeadCountSync"/>.
+/// </remarks>
+public sealed class WorldHeadCountSyncService : PlaceSyncService
+{
+    public static readonly TimeSpan Interval = TimeSpan.FromMinutes(2);
+
+    public WorldHeadCountSyncService(
+        IServiceScopeFactory scopes,
+        IMonotonicClock? elapsed = null,
+        IDelayScheduler? delays = null,
+        ILogger? log = null)
+        : base(scopes, Interval, elapsed, delays, log)
+    {
+    }
+
+    protected override string What => "world head count read";
+
+    protected override async Task<SyncOutcome> RunOnceAsync(IServiceProvider scope, CancellationToken ct)
+    {
+        var sync = scope.GetRequiredService<WorldHeadCountSync>();
+        var result = await sync.RunOnceAsync(ct).ConfigureAwait(false);
+        return result.Outcome;
+    }
+}
+
+/// <summary>
 /// Puts names to worlds that have only ever been seen as an id, and closes instances that have gone
 /// quiet for long enough to count as finished.
 /// </summary>

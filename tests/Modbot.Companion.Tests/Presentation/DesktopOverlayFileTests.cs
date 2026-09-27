@@ -86,6 +86,28 @@ public class DesktopOverlayFileTests : IDisposable
     }
 
     [Fact]
+    public void TheLockAndTheHandAreKept()
+    {
+        var saved = new DesktopOverlaySettings(true, "mod+alt+m", 90, Locked: true, ClickThrough: true);
+
+        Assert.True(CompanionSettings.SaveDesktopOverlay(Path_, saved));
+
+        var read = CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay;
+        Assert.True(read.Locked);
+        Assert.True(read.ClickThrough);
+    }
+
+    [Fact]
+    public void AnOlderFileLeavesTheLockAndTheHandOff()
+    {
+        Write("""{ "desktopOverlay": { "on": true, "shortcut": "mod+alt+m", "opacity": 90 } }""");
+
+        var read = CompanionSettings.Load(Path_, NoEnvironment).DesktopOverlay;
+        Assert.False(read.Locked);
+        Assert.False(read.ClickThrough);
+    }
+
+    [Fact]
     public void AShortcutNobodyCouldRegisterIsNotWrittenToTheFile()
     {
         Assert.True(CompanionSettings.SaveDesktopOverlay(Path_, new DesktopOverlaySettings(true, "wibble", 90)));

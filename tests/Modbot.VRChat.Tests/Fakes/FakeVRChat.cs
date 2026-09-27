@@ -72,6 +72,7 @@ public sealed class FakeVRChat
         var groups = Groups.Build();
         var users = Users.Build();
         var instances = Instances.Build();
+        var worlds = Worlds.Build();
         var calendar = Calendar.Build();
 
         Client = Substitute.For<IVRChat>();
@@ -79,6 +80,7 @@ public sealed class FakeVRChat
         Client.Groups.Returns(groups);
         Client.Users.Returns(users);
         Client.Instances.Returns(instances);
+        Client.Worlds.Returns(worlds);
         Client.Calendar.Returns(calendar);
         Client.GetCookies().Returns(_ => Cookies);
     }
@@ -93,6 +95,9 @@ public sealed class FakeVRChat
 
     /// <summary>Instances' own pages, for their head counts.</summary>
     public FakeInstances Instances { get; } = new();
+
+    /// <summary>World pages, for the world head count read.</summary>
+    public FakeWorlds Worlds { get; } = new();
 
     /// <summary>The group calendar's writes.</summary>
     public FakeCalendar Calendar { get; } = new();

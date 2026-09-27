@@ -17,7 +17,9 @@ namespace Modbot.Companion.App;
 /// this line of text. Discord's sound is the second box and is off until somebody ticks it; there
 /// is no third box, and nothing else the machine is playing can be recorded at all.</para>
 /// <para>Built once, like the Voice and Notifications cards: the window redraws on a timer and a
-/// slider being dragged or a folder being typed into dies under a rebuild.</para>
+/// slider being dragged or a folder being typed into dies under a rebuild. Everything that changes
+/// reaches the card through <see cref="RefreshClipControls"/>, and the recorder's state is one of
+/// the parts the Settings page ignores when it decides whether to build itself again.</para>
 /// </remarks>
 public sealed partial class MainWindow
 {
@@ -75,7 +77,7 @@ public sealed partial class MainWindow
     /// <summary>What the Clips card's switch and slider say right now, as one settings record.</summary>
     private void ClipsChanged()
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         _actions.SetClips(_snapshot.ClipsOrNone.Settings with
@@ -103,21 +105,6 @@ public sealed partial class MainWindow
             _clipsFolderBox.Text = clips.Settings.Folder ?? "";
             _clipsFolderBox.Watermark = clips.Folder.Path;
         }
-    }
-
-    /// <summary>The Clips card: the switch, how many minutes, where clips go, and Save a clip.</summary>
-    private Control ClipsCard()
-    {
-        foreach (var control in new Control[]
-        {
-            _clipsOn, _clipsDiscordSound, _clipsMinutes, _clipsMinutesValue, _clipsFolderBox,
-            _clipsFolderSave, _clipsFolderReset, _clipsSave, _clipsLine, _clipsProblem,
-        })
-        {
-            DetachFromParent(control);
-        }
-
-        var clips = _snapshot.ClipsOrNone;
 
         _clipsSave.IsEnabled = clips.CanSave;
         _clipsLine.Text = Describe(clips);
@@ -133,7 +120,22 @@ public sealed partial class MainWindow
         // folder's problem, the last thing that went wrong, and why it cannot record here at all.
         _clipsProblem.Text = clips.Unsupported ?? clips.Folder.Problem ?? clips.LastProblem ?? "";
         _clipsProblem.IsVisible = _clipsProblem.Text.Length > 0;
+    }
 
+    /// <summary>The Clips card: the switch, how many minutes, where clips go, and Save a clip.</summary>
+    private Control ClipsCard()
+    {
+        foreach (var control in new Control[]
+        {
+            _clipsOn, _clipsDiscordSound, _clipsMinutes, _clipsMinutesValue, _clipsFolderBox,
+            _clipsFolderSave, _clipsFolderReset, _clipsSave, _clipsLine, _clipsProblem,
+        })
+        {
+            DetachFromParent(control);
+        }
+
+        // Everything that changes — the word beside the button, the problem line, what can be
+        // pressed — is put in by RefreshClipControls, which runs after every build as well.
         return new StackPanel
         {
             Spacing = 12,

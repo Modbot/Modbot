@@ -87,7 +87,7 @@ public sealed partial class MainWindow
     /// <summary>What the card's controls say right now, handed to the application as one record.</summary>
     private void DesktopOverlayChanged(Func<DesktopOverlaySettings, DesktopOverlaySettings> change)
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         _actions.SetDesktopOverlay(change(_snapshot.DesktopOverlayOrNone.Settings));
@@ -204,6 +204,11 @@ public sealed partial class MainWindow
         VerticalAlignment = VerticalAlignment.Center,
     };
 
+    private readonly TextBlock _desktopNotifySecondsLabel = Ui.Dim("");
+
+    /// <summary>One button per corner, built once and lit in place, so a click keeps its hover.</summary>
+    private readonly Dictionary<ScreenSpot, Button> _desktopNotifySpots = [];
+
     private bool _desktopNotifyWired;
 
     private DesktopNotifySettings DesktopNotifySettingsNow => _snapshot.DesktopNotifyOrDefault;
@@ -220,15 +225,23 @@ public sealed partial class MainWindow
 
         _desktopNotifyOn.IsCheckedChanged += (_, _) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { On = _desktopNotifyOn.IsChecked == true });
         };
 
         _desktopNotifySeconds.ValueChanged += (_, e) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { Seconds = (float)e.NewValue });
         };
+
+        foreach (var spot in Enum.GetValues<ScreenSpot>())
+        {
+            var button = Ui.Button(DesktopNotifySettings.Name(spot));
+            var picked = spot;
+            button.Click += (_, _) => _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { Spot = picked });
+            _desktopNotifySpots[spot] = button;
+        }
     }
 
     /// <summary>What the card says right now, put into the controls it keeps.</summary>
@@ -242,24 +255,30 @@ public sealed partial class MainWindow
 
         if (!_desktopNotifySeconds.IsPointerOver && !_desktopNotifySeconds.IsFocused)
             _desktopNotifySeconds.Value = settings.Clamped().Seconds;
+
+        _desktopNotifySecondsLabel.Text = $"Notification stays {settings.Seconds:0} s";
+
+        foreach (var (spot, button) in _desktopNotifySpots)
+            Ui.SetPrimary(button, spot == settings.Spot);
     }
 
     /// <summary>The card: the switch, which corner it sits in, and how long a notification stays.</summary>
+    /// <remarks>
+    /// Everything that changes — the lit corner, the seconds in the label — is put in by
+    /// <see cref="RefreshDesktopNotifyControls"/>, which runs after every build as well.
+    /// </remarks>
     private Control DesktopNotifyCard()
     {
         WireDesktopNotify();
 
-        var settings = DesktopNotifySettingsNow;
-
-        foreach (var control in new Control[] { _desktopNotifyOn, _desktopNotifySeconds })
+        foreach (var control in new Control[] { _desktopNotifyOn, _desktopNotifySeconds, _desktopNotifySecondsLabel })
             DetachFromParent(control);
 
         var corners = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         foreach (var spot in Enum.GetValues<ScreenSpot>())
         {
-            var button = Ui.Button(DesktopNotifySettings.Name(spot), primary: spot == settings.Spot);
-            var picked = spot;
-            button.Click += (_, _) => _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { Spot = picked });
+            var button = _desktopNotifySpots[spot];
+            DetachFromParent(button);
             corners.Children.Add(button);
         }
 
@@ -270,7 +289,7 @@ public sealed partial class MainWindow
             {
                 _desktopNotifyOn,
                 Ui.Field("Where on the screen", corners),
-                Ui.Field($"Notification stays {settings.Seconds:0} s", _desktopNotifySeconds),
+                Ui.Field(_desktopNotifySecondsLabel, _desktopNotifySeconds),
             },
         };
     }

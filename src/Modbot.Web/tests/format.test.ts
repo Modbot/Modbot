@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  accessInGame,
   ago,
   clockTime,
   duration,
@@ -10,6 +11,8 @@ import {
   howLong,
   lengthOfTime,
   needsYear,
+  timeOfDay,
+  whenRange,
   plural,
 } from '../src/lib/format.ts'
 
@@ -136,4 +139,29 @@ test('the question mark goes after the number however it is written', () => {
   const compact = (n: number) => (n >= 1000 ? `${n / 1000}K` : String(n))
   assert.equal(headCountText(12000, true, compact), '12K?')
   assert.equal(headCountText(12000, false, compact), '12K')
+})
+
+test('who may join is said in the words the game uses', () => {
+  assert.equal(accessInGame('public'), 'Group Public')
+  assert.equal(accessInGame('plus'), 'Group+')
+  assert.equal(accessInGame('members'), 'Group')
+  assert.equal(accessInGame('somethingNew'), 'somethingNew')
+  assert.equal(accessInGame(null), null)
+})
+
+test('a time of day has no leading zero on the hour', () => {
+  assert.ok(!/^0/.test(timeOfDay(`${thisYear}-03-05T08:04:00`)))
+})
+
+test('a range inside one day names the day once, and an open one ends with a dash', () => {
+  const inDay = whenRange(`${thisYear}-03-05T18:02:00`, `${thisYear}-03-05T19:21:00`)
+  assert.equal(inDay.split(formatDay(`${thisYear}-03-05T18:02:00`)).length, 2)
+  assert.ok(inDay.includes('–'))
+  assert.ok(whenRange(`${thisYear}-03-05T20:04:00`, null).endsWith('–'))
+})
+
+test('a range across midnight names both days', () => {
+  const across = whenRange(`${thisYear}-03-05T18:01:00`, `${thisYear}-03-06T00:11:00`)
+  assert.ok(across.includes(formatDay(`${thisYear}-03-05T18:01:00`)))
+  assert.ok(across.includes(formatDay(`${thisYear}-03-06T00:11:00`)))
 })

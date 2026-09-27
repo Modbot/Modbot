@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { openInstance } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { instanceNumber } from '@/lib/instanceName'
-import { headCountText } from '@/lib/format'
+import { headCountText, accessInGame } from '@/lib/format'
 import { HeadCount } from '@/components/HeadCount'
 
 /**
@@ -35,13 +35,6 @@ export function InstanceCards({ instances }: { instances: InstanceRow[] }) {
       ))}
     </div>
   )
-}
-
-/** The game's words for who may join a group instance. */
-const ACCESS_IN_GAME: Record<string, string> = {
-  members: 'Group',
-  plus: 'Group+',
-  public: 'Group Public',
 }
 
 /**
@@ -83,7 +76,7 @@ export function InstanceTile({
   const here = people ?? 0
   const unsure = people !== null && peopleUnsure
   const count = `${headCountText(here, unsure)}${capacity ? `/${capacity}` : ''}`
-  const access = groupAccessType ? (ACCESS_IN_GAME[groupAccessType] ?? groupAccessType) : null
+  const access = accessInGame(groupAccessType)
   const name = worldName ?? 'Unknown world'
   const named = instanceName?.trim() ? instanceNumber(number, instanceName) : null
 

@@ -80,6 +80,19 @@ public sealed partial class MainWindow : Window
     private Page? _drawnPage;
     private int _drawnPictures;
 
+    // True while the window is being drawn. A draw never starts inside another: one asked for in
+    // the middle waits here and runs once the first has finished. Two builds of one page at once
+    // each take the kept controls from the other, and the first then finds a control it has just
+    // detached already in the second's card and stops half way down the page.
+    private bool _drawing;
+    private (CompanionAppSnapshot Snapshot, MainWindowActions Actions)? _renderWaiting;
+    private bool _pageWaiting;
+
+    // How many draws and refreshes are under way. While any is, the kept controls do not answer
+    // back: a value put into a control, or one Avalonia settles on the first time the control is
+    // shown, is not somebody changing a setting.
+    private int _quietDepth;
+
     /// <summary>One sidebar row, kept so the sidebar is refreshed rather than built again.</summary>
     private readonly Dictionary<Page, NavRow> _navRows = [];
 
@@ -107,9 +120,24 @@ public sealed partial class MainWindow : Window
     private Border? _startupCard;
 
     private readonly CheckBox _overlayOnBox;
+
+    /// <summary>Whether the lock and the hand show on the panels. Kept, like the Overlay on switch.</summary>
+    private readonly CheckBox _editModeBox = new();
+
+    /// <summary>How fast the thumbstick pushes and pulls a carried panel, 1 to 10. Kept, like the sliders under it.</summary>
+    private readonly Slider _pushSpeed = new()
+    {
+        Minimum = CompanionSettings.MinPushSpeed,
+        Maximum = CompanionSettings.MaxPushSpeed,
+        TickFrequency = 1,
+        IsSnapToTickEnabled = true,
+        Width = 220,
+        VerticalAlignment = VerticalAlignment.Center,
+    };
+
+    private readonly TextBlock _pushSpeedLabel = Ui.Dim("");
     private readonly TextBox _logFolderBox;
     private readonly TextBlock _logFolderWatching = Ui.Faint("");
-    private bool _renderingSwitches;
 
     // The panel's size, opacity and curve: sliders, built once so a drag is not cut short by the
     // timer, and only refilled while nobody is on them.
@@ -158,7 +186,7 @@ public sealed partial class MainWindow : Window
         _startupBox = new CheckBox { Content = Ui.Text("Start Modbot Companion when my computer starts", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
         _startupBox.IsCheckedChanged += (_, _) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetStartWithWindows(_startupBox.IsChecked == true);
         };
 
@@ -166,8 +194,23 @@ public sealed partial class MainWindow : Window
         _overlayOnBox.VerticalAlignment = VerticalAlignment.Center;
         _overlayOnBox.IsCheckedChanged += (_, _) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetOverlayOn(_overlayOnBox.IsChecked == true);
+        };
+
+        _pushSpeed.ValueChanged += (_, e) =>
+        {
+            _pushSpeedLabel.Text = $"Push speed {(int)e.NewValue}";
+            if (!Quiet)
+                _actions.SetOverlayPushSpeed((int)e.NewValue);
+        };
+
+        _editModeBox.Content = Ui.Text("Edit mode", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _editModeBox.VerticalAlignment = VerticalAlignment.Center;
+        _editModeBox.IsCheckedChanged += (_, _) =>
+        {
+            if (!Quiet)
+                _actions.SetOverlayEditMode(_editModeBox.IsChecked == true);
         };
 
         _logFolderBox = Ui.Input();
@@ -220,6 +263,7 @@ public sealed partial class MainWindow : Window
         SetUpNotificationFilters();
         SetUpClips();
         SetUpListening();
+        SetUpVersion();
 
         // The palette and the shortcut sheet open over the page, inside this window, so the
         // window's own keys still reach them and nothing else appears in the taskbar.
@@ -267,7 +311,7 @@ public sealed partial class MainWindow : Window
     /// <summary>What the Voice card's controls say right now, handed to the application as one settings record.</summary>
     private void VoiceChanged()
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         var index = _voiceDevice.SelectedIndex;
@@ -321,21 +365,95 @@ public sealed partial class MainWindow : Window
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(actions);
 
-        _snapshot = snapshot;
-        _actions = actions;
-
-        if (_drawnPage == _page
-            && _drawnPictures == PicturesArrived
-            && _drawnFrom is { } drawn
-            && drawn.LooksTheSameAs(snapshot))
+        // Asked for in the middle of a draw — by a setting written while the page was being built,
+        // say. The snapshot the draw under way is reading from is left alone, and this one is drawn
+        // when that has finished.
+        if (_drawing)
         {
+            _renderWaiting = (snapshot, actions);
             return;
         }
 
-        RenderIdentity();
-        RenderHealth();
-        RenderNav();
-        DrawPage();
+        Draw(() =>
+        {
+            _snapshot = snapshot;
+            _actions = actions;
+
+            if (_drawnPage == _page
+                && _drawnPictures == PicturesArrived
+                && _drawnFrom is { } drawn
+                && drawn.LooksTheSameAs(snapshot))
+            {
+                return;
+            }
+
+            RenderIdentity();
+            RenderHealth();
+            RenderVersion();
+            RenderNav();
+            DrawPage();
+        });
+    }
+
+    /// <summary>
+    /// Runs one draw of the window with the kept controls quiet, then whatever was asked for while
+    /// it ran.
+    /// </summary>
+    /// <remarks>
+    /// Quiet because building a page moves controls in and out of the window, and a control can
+    /// change its own value on the way: the first time a slider is shown, Avalonia pulls its value
+    /// up to its minimum. Heard as a person moving it, that wrote the minimum into the settings
+    /// file and drew the page again from inside the build.
+    /// </remarks>
+    private void Draw(Action draw)
+    {
+        _drawing = true;
+        _quietDepth++;
+        try
+        {
+            draw();
+        }
+        catch
+        {
+            // What waited was asked for by a draw that did not finish; the next tick asks again.
+            _renderWaiting = null;
+            _pageWaiting = false;
+            throw;
+        }
+        finally
+        {
+            _quietDepth--;
+            _drawing = false;
+        }
+
+        if (_renderWaiting is { } waiting)
+        {
+            _renderWaiting = null;
+            Render(waiting.Snapshot, waiting.Actions);
+        }
+
+        if (_pageWaiting)
+        {
+            _pageWaiting = false;
+            RenderPage();
+        }
+    }
+
+    /// <summary>Whether a draw or a refresh is putting values into the kept controls right now.</summary>
+    private bool Quiet => _quietDepth > 0;
+
+    /// <summary>Puts values into kept controls without any of them answering back as a change.</summary>
+    private void Quietly(Action fill)
+    {
+        _quietDepth++;
+        try
+        {
+            fill();
+        }
+        finally
+        {
+            _quietDepth--;
+        }
     }
 
     /// <summary>How many group pictures have landed, so a page drawn before one arrived is drawn again.</summary>
@@ -356,6 +474,7 @@ public sealed partial class MainWindow : Window
         panel.Children.Add(Dock(SearchButton(), Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(_nav, Avalonia.Controls.Dock.Top));
         panel.Children.Add(Dock(health, Avalonia.Controls.Dock.Bottom));
+        panel.Children.Add(Dock(VersionFoot(), Avalonia.Controls.Dock.Bottom));
         panel.Children.Add(Dock(_brandFoot, Avalonia.Controls.Dock.Bottom));
         panel.Children.Add(new Panel());
 
@@ -452,7 +571,7 @@ public sealed partial class MainWindow : Window
     private void RenderNav()
     {
         NavItem(Page.Servers, "Servers", _snapshot.Servers.Count == 0 ? null : $"{_snapshot.Servers.Count}");
-        NavItem(Page.Events, "Events", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}");
+        NavItem(Page.Events, "Audit Log", _snapshot.Events.Count == 0 ? null : $"{_snapshot.Events.Count}");
 
         // "on" is the panel actually up in a headset; "off" is the switch. Between them sits the
         // ordinary case -- switched on, SteamVR not running -- which says nothing, because it is
@@ -461,10 +580,12 @@ public sealed partial class MainWindow : Window
         NavItem(Page.SteamVr, "SteamVR", !overlay.On ? "off" : overlay.Attached ? "on" : null);
         NavItem(Page.Log, "Log", null);
         NavItem(Page.Settings, "Settings", null);
-        NavItem(Page.Credits, "Credits", null);
 
         if (_snapshot.DebugMode)
             NavItem(Page.Debug, "Debug", null);
+
+        // Last, whatever else is shown: the thank-yous are not a page anybody works in.
+        NavItem(Page.Credits, "Credits", null);
 
         RegisterWindowKeys();
     }
@@ -535,7 +656,6 @@ public sealed partial class MainWindow : Window
             return;
 
         _page = page;
-        RenderNav();
         RenderPage();
     }
 
@@ -547,7 +667,7 @@ public sealed partial class MainWindow : Window
     {
         if (!PageAlreadyDrawn())
         {
-            RenderPage();
+            BuildPage();
             return;
         }
 
@@ -650,6 +770,10 @@ public sealed partial class MainWindow : Window
                 NotificationFilters = drawn.NotificationFilters,
                 LogFolder = drawn.LogFolder,
                 LogFolderConfigured = drawn.LogFolderConfigured,
+                DesktopNotifyOverlay = drawn.DesktopNotifyOverlay,
+                Clips = drawn.Clips,
+                Listening = drawn.Listening,
+                SoundProblem = drawn.SoundProblem,
             };
         }
 
@@ -695,8 +819,27 @@ public sealed partial class MainWindow : Window
         _warnings.IsVisible = _warnings.Children.Count > 0;
     }
 
-    /// <summary>Builds the page again from the ground up. Every way into the page but the timer's.</summary>
+    /// <summary>
+    /// Builds the page again from the ground up, with the sidebar lit for it. Every way into the
+    /// page but the timer's. Asked for during a draw, it waits for that draw to finish.
+    /// </summary>
     private void RenderPage()
+    {
+        if (_drawing)
+        {
+            _pageWaiting = true;
+            return;
+        }
+
+        Draw(() =>
+        {
+            RenderNav();
+            BuildPage();
+        });
+    }
+
+    /// <summary>Builds the page again from the ground up. Only ever called inside a draw.</summary>
+    private void BuildPage()
     {
         RenderWarnings();
         _body.Children.Clear();
@@ -840,6 +983,7 @@ public sealed partial class MainWindow : Window
             Children = { back },
         });
 
+        DetachFromParent(_pairingCard);
         _body.Children.Add(_pairingCard);
     }
 
@@ -1166,7 +1310,6 @@ public sealed partial class MainWindow : Window
     private void RenderSettings()
     {
         DetachFromParent(_startupBox);
-        DetachFromParent(_logFolderBox);
 
         _startupCard = Ui.Card(
             new StackPanel { Spacing = 6, Children = { _startupBox } },
@@ -1194,39 +1337,31 @@ public sealed partial class MainWindow : Window
     /// What the Settings page says right now, put into the controls it keeps, with none of them
     /// answering back. Run on every tick, whether or not the page was built again.
     /// </summary>
-    private void RefreshSettings()
+    private void RefreshSettings() => Quietly(() =>
     {
-        _renderingSwitches = true;
-        try
-        {
-            // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
-            // and cannot be turned back on from here. The card goes with it: the switch is all it
-            // holds, and a heading over nothing reads as a screen that failed to draw. Decided here
-            // rather than where the card is built, because the page is built once and refreshed
-            // after that, and the first build can happen before the host has said.
-            var startup = _snapshot.Startup;
-            _startupBox.IsVisible = _snapshot.ShowStartupCard;
+        // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
+        // and cannot be turned back on from here. The card goes with it: the switch is all it
+        // holds, and a heading over nothing reads as a screen that failed to draw. Decided here
+        // rather than where the card is built, because the page is built once and refreshed
+        // after that, and the first build can happen before the host has said.
+        var startup = _snapshot.Startup;
+        _startupBox.IsVisible = _snapshot.ShowStartupCard;
 
-            if (_startupCard is not null)
-                _startupCard.IsVisible = _snapshot.ShowStartupCard;
+        if (_startupCard is not null)
+            _startupCard.IsVisible = _snapshot.ShowStartupCard;
 
-            _startupBox.IsChecked = startup is { On: true };
-            _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
+        _startupBox.IsChecked = startup is { On: true };
+        _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
 
-            RefreshDesktopOverlayControls();
-            RefreshDesktopNotifyControls();
-            RefreshVoiceControls(_snapshot.VoiceOrNone);
-            RefreshNotificationControls(_snapshot.NotificationsOrDefault);
-            RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
-            RefreshClipControls(_snapshot.ClipsOrNone);
-            RefreshListeningControls(_snapshot.ListeningOrNone);
-            RefreshLogFolderControls();
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
-    }
+        RefreshDesktopOverlayControls();
+        RefreshDesktopNotifyControls();
+        RefreshVoiceControls(_snapshot.VoiceOrNone);
+        RefreshNotificationControls(_snapshot.NotificationsOrDefault);
+        RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
+        RefreshClipControls(_snapshot.ClipsOrNone);
+        RefreshListeningControls(_snapshot.ListeningOrNone);
+        RefreshLogFolderControls();
+    });
 
     /// <summary>
     /// Puts the snapshot into the Voice card's controls without any of them answering back.
@@ -1349,6 +1484,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private Control LogFolderSettings()
     {
+        DetachFromParent(_logFolderBox);
         DetachFromParent(_logFolderWatching);
 
         var save = Ui.Button("Save", primary: true);
@@ -1398,17 +1534,22 @@ public sealed partial class MainWindow : Window
     {
         var overlay = _snapshot.OverlayOrNone;
 
-        _renderingSwitches = true;
-        try
+        Quietly(() =>
         {
             _overlayOnBox.IsChecked = overlay.On;
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
+            _editModeBox.IsChecked = _snapshot.OverlayEditMode;
+
+            // Not refilled under the pointer: a slider being dragged is not pulled back by a tick.
+            if (!_pushSpeed.IsPointerOver && !_pushSpeed.IsFocused)
+                _pushSpeed.Value = _snapshot.OverlayPushSpeed;
+
+            _pushSpeedLabel.Text = $"Push speed {(int)_pushSpeed.Value}";
+        });
 
         DetachFromParent(_overlayOnBox);
+        DetachFromParent(_editModeBox);
+        DetachFromParent(_pushSpeed);
+        DetachFromParent(_pushSpeedLabel);
 
         var pill = !overlay.On
             ? Ui.Pill("Off", Ui.T.Palette.TextFaint, Ui.T.Palette.Surface2)
@@ -1424,7 +1565,11 @@ public sealed partial class MainWindow : Window
         // The placement settings stay whichever way the switch is set: a moderator arranges where
         // the panel will sit and then turns it on, not the other way round. What goes away while
         // it is off is only what there is nothing to report on.
-        var top = new StackPanel { Spacing = 12, Children = { _overlayOnBox } };
+        var top = new StackPanel
+        {
+            Spacing = 12,
+            Children = { _overlayOnBox, _editModeBox, Ui.Field(_pushSpeedLabel, _pushSpeed) },
+        };
         Control header = pill;
 
         if (overlay.On)
@@ -1492,17 +1637,12 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private Control PlacementControls(OverlayPlacement placement, string? holding)
     {
-        _renderingSwitches = true;
-        try
+        Quietly(() =>
         {
             Refill(_widthSlider, placement.Width);
             Refill(_opacitySlider, placement.Opacity);
             Refill(_curveSlider, placement.Curve);
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
+        });
 
         DetachFromParent(_widthSlider);
         DetachFromParent(_opacitySlider);
@@ -1529,6 +1669,8 @@ public sealed partial class MainWindow : Window
             Width = placement.Width,
             Opacity = placement.Opacity,
             Curve = placement.Curve,
+            Locked = placement.Locked,
+            ClickThrough = placement.ClickThrough,
         });
 
         var offset = placement.Offset;
@@ -1605,7 +1747,7 @@ public sealed partial class MainWindow : Window
 
         slider.ValueChanged += (_, e) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.PlaceOverlay(change(_snapshot.OverlayOrNone.PlacementOrDefault, e.NewValue));
         };
 
@@ -1727,6 +1869,12 @@ public sealed record MainWindowActions(
     /// <summary>The SteamVR page's <strong>Overlay on</strong> switch. Added the same way.</summary>
     public Action<bool> SetOverlayOn { get; init; } = _ => { };
 
+    /// <summary>The SteamVR page's Edit mode switch: whether the lock and the hand show on the panels.</summary>
+    public Action<bool> SetOverlayEditMode { get; init; } = _ => { };
+
+    /// <summary>The SteamVR page's Push speed slider, 1 to 10.</summary>
+    public Action<int> SetOverlayPushSpeed { get; init; } = _ => { };
+
     /// <summary>The Notifications card changed: the sound's own switch and its own volume.</summary>
     public Action<NotificationSettings> SetNotifications { get; init; } = _ => { };
 
@@ -1750,6 +1898,10 @@ public sealed record MainWindowActions(
     /// going; false when no copy could be started, in which case nothing has been stopped.
     /// </summary>
     public Func<Task<bool>> RestartAsync { get; init; } = () => Task.FromResult(false);
+
+    /// <summary>The sidebar's Check for updates button: one check now, and what came of it.</summary>
+    public Func<Task<UpdateCheckOutcome>> CheckForUpdatesAsync { get; init; } =
+        () => Task.FromResult(UpdateCheckOutcome.CannotCheck);
 
     /// <summary>
     /// The Settings page's Desktop overlay card changed: the whole record as the controls now

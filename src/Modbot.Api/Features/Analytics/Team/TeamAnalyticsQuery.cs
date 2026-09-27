@@ -64,6 +64,15 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
     private static readonly IReadOnlySet<string> KindMetrics =
         Kinds.Select(k => k.Metric).ToHashSet(StringComparer.Ordinal);
 
+    /// <summary>
+    /// What this page draws from, and so where its "all time" starts: the per-moderator daily
+    /// totals and the facts behind them, the presence reports the coverage gaps are worked out
+    /// from, and the instance openings and closes the gaps are measured against.
+    /// </summary>
+    public static readonly PageSources Sources = PageSources.Of(
+        Kinds.Select(k => k.Metric).ToList(),
+        [.. AnalyticsSql.PresenceTypes, FactType.GroupInstanceCreated, FactType.GroupInstanceClosed]);
+
     private readonly AnalyticsSql _sql = new(db);
 
     public async Task<TeamAnalytics> RunAsync(

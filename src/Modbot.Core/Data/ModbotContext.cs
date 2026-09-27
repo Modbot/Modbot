@@ -132,6 +132,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Every change in an instance's head count, keyed on Modbot's own instance id.</summary>
     public DbSet<InstanceHeadCount> InstanceHeadCounts => Set<InstanceHeadCount>();
 
+    /// <summary>A world's page, read every two minutes while the group has an instance open in it.</summary>
+    public DbSet<WorldHeadCount> WorldHeadCounts => Set<WorldHeadCount>();
+
     /// <summary>The group's member count and online member count, one row per poll.</summary>
     public DbSet<GroupMemberCount> GroupMemberCounts => Set<GroupMemberCount>();
 
@@ -802,6 +805,23 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // instance forever, so that read must be an index range and never a scan.
             entity.HasIndex(e => e.CountedAt)
                 .HasDatabaseName("ix_instance_head_count_time");
+        });
+
+        builder.Entity<WorldHeadCount>(entity =>
+        {
+            entity.ToTable("world_head_count");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).UseIdentityAlwaysColumn();
+
+            // VRChat's ids are opaque text here, as everywhere else Modbot stores one.
+            entity.Property(e => e.WorldId).HasColumnType("text");
+
+            // Kept exactly as VRChat sent it; jsonb so a query can take it apart where it lies.
+            entity.Property(e => e.Instances).HasColumnType("jsonb");
+
+            // "Every read of this world while this instance was open" -- the popup's one question.
+            entity.HasIndex(e => new { e.WorldId, e.CountedAt })
+                .HasDatabaseName("ix_world_head_count_world");
         });
 
         builder.Entity<GroupMemberCount>(entity =>
@@ -1656,6 +1676,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // asked before every flag is written. Also the per-rule dismissal rate.
             entity.HasIndex(e => new { e.RuleId, e.TermKey, e.SubjectPlatform, e.SubjectId })
                 .HasDatabaseName("ix_automod_flag_rule_person");
+
+            // "Which rules have flags standing against these people?" -- asked for every roster
+            // read and every page of the live stream (flagged rules design §4).
+            entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId })
+                .HasDatabaseName("ix_automod_flag_person");
 
             entity.HasIndex(e => e.MessageId)
                 .HasDatabaseName("ix_ai_flag_message")

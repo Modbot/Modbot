@@ -66,6 +66,20 @@ public enum OverlayPage
 /// own cache — the same one the window's server cards draw from, so the overlay asks for nothing
 /// the client was not already holding.
 /// </param>
+/// <param name="RosterFilters">What the Instance list is cut down to, and which of its filters is open.</param>
+/// <param name="EventFilters">The same for the Audit Log, kept apart from the Instance list's.</param>
+/// <param name="Arrivals">
+/// When each person in the instance got here, from this PC's own copy of VRChat's log: a time, or
+/// null for somebody already here when the moderator arrived. Only people on the roster.
+/// </param>
+/// <param name="Now">
+/// The drive loop's clock when the screen was made. Join times and the time filters are measured
+/// against it; only its minute decides whether the panel is drawn again.
+/// </param>
+/// <param name="NoKeyboard">
+/// The panel this is drawn on has no way to type: a headset whose runtime offers no keyboard. The
+/// Name filter is left off there unless a name is already set somewhere that can type.
+/// </param>
 public sealed record OverlayScreen(
     string? GroupLabel,
     Cached<InstanceContext> Roster,
@@ -79,10 +93,34 @@ public sealed record OverlayScreen(
     OverlayPage Page = OverlayPage.Instance,
     IReadOnlyList<LiveEvent>? Events = null,
     ClipButton Clips = default,
-    string? GroupIconUrl = null)
+    string? GroupIconUrl = null,
+    ListFilters? RosterFilters = null,
+    ListFilters? EventFilters = null,
+    IReadOnlyDictionary<string, DateTimeOffset?>? Arrivals = null,
+    DateTimeOffset Now = default,
+    bool NoKeyboard = false)
 {
+    private static readonly IReadOnlyDictionary<string, DateTimeOffset?> NoArrivals = new Dictionary<string, DateTimeOffset?>();
+
     /// <summary>What the live link has heard, never null.</summary>
     public IReadOnlyList<LiveEvent> EventsOrNone => Events ?? [];
+
+    /// <summary>The Instance list's filters, never null.</summary>
+    public ListFilters RosterFiltersOrNone => RosterFilters ?? ListFilters.None;
+
+    /// <summary>The Audit Log's filters, never null.</summary>
+    public ListFilters EventFiltersOrNone => EventFilters ?? ListFilters.None;
+
+    /// <summary>When each person got here, never null.</summary>
+    public IReadOnlyDictionary<string, DateTimeOffset?> ArrivalsOrNone => Arrivals ?? NoArrivals;
+
+    /// <summary>The filters of the list showing now, or null on a screen with no list.</summary>
+    public ListFilters? ShownFilters => Page switch
+    {
+        OverlayPage.Instance => RosterFiltersOrNone,
+        OverlayPage.Events => EventFiltersOrNone,
+        _ => null,
+    };
 
     /// <summary>
     /// Nothing to say: no group, no roster, no alert, no problem. Drawn as nothing at all unless
@@ -114,6 +152,11 @@ public sealed record OverlayScreen(
             && RosterSkip == other.RosterSkip
             && Cursor == other.Cursor
             && Page == other.Page
+            && NoKeyboard == other.NoKeyboard
+            && RosterFiltersOrNone == other.RosterFiltersOrNone
+            && EventFiltersOrNone == other.EventFiltersOrNone
+            && SameMinute(other)
+            && SameArrivals(ArrivalsOrNone, other.ArrivalsOrNone)
             && SameEvents(EventsOrNone, other.EventsOrNone)
             && Person?.SubjectId == other.Person?.SubjectId
             && Person?.DisplayName == other.Person?.DisplayName
@@ -123,6 +166,35 @@ public sealed record OverlayScreen(
             && Alert?.AlertId == other.Alert?.AlertId
             && Roster.Describe() == other.Roster.Describe()
             && SameRoster(Roster.Value, other.Roster.Value);
+    }
+
+    /// <summary>
+    /// Whether the clock has moved on far enough to change what is drawn. Only the two lists show
+    /// anything measured against it, and nothing they show is finer than a minute.
+    /// </summary>
+    private bool SameMinute(OverlayScreen other)
+    {
+        if (Page is not (OverlayPage.Instance or OverlayPage.Events))
+            return true;
+
+        return Now.UtcTicks / TimeSpan.TicksPerMinute == other.Now.UtcTicks / TimeSpan.TicksPerMinute;
+    }
+
+    private static bool SameArrivals(IReadOnlyDictionary<string, DateTimeOffset?> a, IReadOnlyDictionary<string, DateTimeOffset?> b)
+    {
+        if (ReferenceEquals(a, b))
+            return true;
+
+        if (a.Count != b.Count)
+            return false;
+
+        foreach (var (subject, at) in a)
+        {
+            if (!b.TryGetValue(subject, out var other) || at != other)
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -148,6 +220,7 @@ public sealed record OverlayScreen(
                 || left.DisplayName != right.DisplayName
                 || left.PriorActions != right.PriorActions
                 || left.TrustRank != right.TrustRank
+                || left.EighteenPlus != right.EighteenPlus
                 || !left.Flags.SequenceEqual(right.Flags, StringComparer.Ordinal))
             {
                 return false;

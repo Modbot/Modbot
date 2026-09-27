@@ -27,6 +27,14 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
     /// <summary>How many worlds get a per-day line. More than this on one chart is unreadable.</summary>
     public const int ChartedWorlds = 5;
 
+    /// <summary>
+    /// What this page draws from, and so where its "all time" starts: the per-world daily totals,
+    /// the instance openings they count, and the presence reports time and visitors come from.
+    /// </summary>
+    public static readonly PageSources Sources = PageSources.Of(
+        [DailyTotalMetrics.WorldInstances, DailyTotalMetrics.WorldVisitors],
+        AnalyticsSql.PresenceTypes);
+
     private readonly AnalyticsSql _sql = new(db);
 
     public async Task<WorldsAnalytics> RunAsync(
@@ -35,8 +43,7 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
         DateTimeOffset now,
         CancellationToken ct = default)
     {
-        var totals = await _sql.DailyTotalsAsync(from, to,
-            [DailyTotalMetrics.WorldInstances, DailyTotalMetrics.WorldVisitors], ct);
+        var totals = await _sql.DailyTotalsAsync(from, to, Sources.Metrics, ct);
 
         var counts = new PresenceCounts(db);
         var seen = await counts.PerWorldAsync(from, to, ct);

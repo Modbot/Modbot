@@ -30,13 +30,15 @@ public enum RosterStanding
 /// <param name="PriorActions">How many moderation actions this group has previously taken.</param>
 /// <param name="Flags">Short labels, already resolved server-side. Shown verbatim, never parsed.</param>
 /// <param name="TrustRank">Their VRChat trust rank as the server last stored it. Null when the server does not know it yet, or is too old to send it.</param>
+/// <param name="EighteenPlus">Whether they carry Modbot's 18+ mark. Null when the server has not read their profile yet, or is too old to send it.</param>
 public sealed record RosterMember(
     [property: JsonPropertyName("subjectId")] string SubjectId,
     [property: JsonPropertyName("displayName")] string? DisplayName,
     [property: JsonPropertyName("standing")] RosterStanding Standing,
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
-    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
+    [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null);
 
 /// <summary>
 /// What one server knows about the instance the moderator is standing in.

@@ -174,15 +174,16 @@ internal sealed class Updates
     }
 
     /// <summary>Starts checking: once shortly after launch, then every few hours.</summary>
-    public void Start()
+    /// <returns>Whether this copy checks at all: false when it is not an installed copy.</returns>
+    public bool Start()
     {
         if (_manager is null)
-            return;
+            return false;
 
         if (!_manager.IsInstalled)
         {
             Log.Information("Not an installed copy of the companion (run from source or a plain folder), so not checking for updates");
-            return;
+            return false;
         }
 
         Log.Information("Installed as Modbot {Version}; checking {Feed} for newer versions every {Hours} hours",
@@ -194,6 +195,7 @@ internal sealed class Updates
             await CheckAsync();
         };
         _timer.Start();
+        return true;
     }
 
     public void Stop() => _timer.Stop();
@@ -203,10 +205,20 @@ internal sealed class Updates
     /// later, never a dialog: a feed that is unreachable, private or empty is an ordinary
     /// condition for a client that works offline and must not interrupt anybody.
     /// </summary>
-    private async Task CheckAsync()
+    /// <summary>
+    /// One check now, as the sidebar's Check for updates button asks for one: the same check the
+    /// timer makes, with what came of it. A newer version is downloaded here too, and installs on
+    /// the next start or through the sidebar's Restart to update.
+    /// </summary>
+    public Task<UpdateCheckOutcome> CheckNowAsync() => CheckAsync();
+
+    private async Task<UpdateCheckOutcome> CheckAsync()
     {
-        if (_manager is null || _checking)
-            return;
+        if (_manager is null || !_manager.IsInstalled)
+            return UpdateCheckOutcome.CannotCheck;
+
+        if (_checking)
+            return UpdateCheckOutcome.AlreadyChecking;
 
         _checking = true;
         try
@@ -215,25 +227,31 @@ internal sealed class Updates
             if (update is null)
             {
                 Log.Debug("Checked for updates: {Version} is the newest", _manager.CurrentVersion);
-                return;
+                return UpdateCheckOutcome.UpToDate;
             }
 
             var version = update.TargetFullRelease.Version.ToString();
             if (string.Equals(_state.UpdateReady, version, StringComparison.Ordinal))
-                return;
+                return UpdateCheckOutcome.Downloaded;
 
             Log.Information("Modbot {Version} is available; downloading it in the background", version);
+            _state.UpdateFound = version;
             await _manager.DownloadUpdatesAsync(update);
 
+            _state.UpdateFound = null;
             _state.UpdateReady = version;
             Log.Information("Modbot {Version} is downloaded and will be installed the next time Modbot starts", version);
+            return UpdateCheckOutcome.Downloaded;
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "Could not check for updates at {Feed}; trying again in {Hours} hours", Feed, CheckEvery.TotalHours);
+            return UpdateCheckOutcome.Failed;
         }
         finally
         {
+            // A download that failed is not a version being downloaded any more.
+            _state.UpdateFound = null;
             _checking = false;
         }
     }
@@ -266,4 +284,23 @@ internal sealed class Updates
             return null;
         }
     }
+}
+
+/// <summary>What came of one check for updates.</summary>
+public enum UpdateCheckOutcome
+{
+    /// <summary>Not an installed copy, or update checks are turned off: nothing was asked.</summary>
+    CannotCheck,
+
+    /// <summary>A check was already running; its answer is the one that counts.</summary>
+    AlreadyChecking,
+
+    /// <summary>This is the newest version.</summary>
+    UpToDate,
+
+    /// <summary>A newer version is downloaded and waiting for a restart.</summary>
+    Downloaded,
+
+    /// <summary>The feed could not be read, or the download did not finish.</summary>
+    Failed,
 }

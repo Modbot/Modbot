@@ -325,6 +325,18 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IMonotonicClock>()));
 
+        // The page of each world the group has an instance open in, every two minutes, for the
+        // popup's comparison with the world's other instances. worlds.read, shared with the world
+        // sweep; its own service, so its schedule is its own.
+        services.AddScoped<WorldHeadCountSync>(provider => new WorldHeadCountSync(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
+
+        services.AddHostedService(provider => new WorldHeadCountSyncService(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IMonotonicClock>()));
+
         // The one sign-in attempt after a wait (spec 4.1.2), made on time even when nothing else is
         // asking VRChat for anything.
         services.AddHostedService(provider => new SignInResumeService(

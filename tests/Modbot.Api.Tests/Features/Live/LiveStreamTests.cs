@@ -6,6 +6,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Live.Stream;
+using Modbot.Api.Tests.Features.Companion;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -171,10 +173,69 @@ public class LiveStreamTests
         Assert.Equal("Rin", person.GetProperty("displayName").GetString());
         Assert.Equal("Ordinary", person.GetProperty("standing").GetString());
         Assert.Equal(JsonValueKind.Null, person.GetProperty("trustRank").ValueKind);
+        Assert.Equal(JsonValueKind.Null, person.GetProperty("eighteenPlus").ValueKind);
 
         var second = await NextEventAsync(socket);
         Assert.Equal(leave.ToString(System.Globalization.CultureInfo.InvariantCulture), second.GetProperty("id").GetString());
         Assert.Equal(LiveKinds.PersonLeft, second.GetProperty("kind").GetString());
+    }
+
+    /// <summary>
+    /// The stream describes people the way the roster does, from the group's member list. Long-time
+    /// members and staff have no join on record, and must not arrive as nobody in particular.
+    /// </summary>
+    [Fact]
+    public async Task AJoinByAListedMemberOrStaff_SaysSo_WithNoJoinOnRecord()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        const string group = "grp_live_roster";
+        string? groupBefore;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            var settings = await db.GetSettingsAsync(Ct);
+            groupBefore = settings.ManagedGroupId;
+            settings.ManagedGroupId = group;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var member = Subject();
+        var staff = Subject();
+        var swept = host.Clock.UtcNow.AddHours(-1);
+
+        try
+        {
+            await MemberListFixtures.GroupAsync(host.Services, "usr_live_owner", swept, Ct);
+            await MemberListFixtures.ListAsync(host.Services, Ct,
+                MemberListFixtures.Listed(group, member, swept),
+                MemberListFixtures.Listed(group, staff, swept, "member", null, MemberListFixtures.ModeratorRole));
+
+            using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
+            await NextOfKindAsync(socket, "hello");
+
+            await WriteAsync(host, FactType.InstanceJoined, member, displayName: "Mei");
+            await WriteAsync(host, FactType.InstanceJoined, staff, displayName: "Kai");
+
+            var first = await NextEventAsync(socket);
+            Assert.Equal(member, first.GetProperty("person").GetProperty("id").GetString());
+            Assert.Equal("Member", first.GetProperty("person").GetProperty("standing").GetString());
+
+            var second = await NextEventAsync(socket);
+            Assert.Equal(staff, second.GetProperty("person").GetProperty("id").GetString());
+            Assert.Equal("Staff", second.GetProperty("person").GetProperty("standing").GetString());
+        }
+        finally
+        {
+            await MemberListFixtures.ClearAsync(host.Services, group, Ct);
+
+            using var scope = host.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            (await db.GetSettingsAsync(Ct)).ManagedGroupId = groupBefore;
+            await db.SaveChangesAsync(Ct);
+        }
     }
 
     [Fact]
@@ -195,10 +256,84 @@ public class LiveStreamTests
         var @event = await NextEventAsync(socket);
         Assert.Equal(LiveKinds.FlaggedJoin, @event.GetProperty("kind").GetString());
         Assert.True(@event.GetProperty("flagged").GetBoolean());
-        Assert.Equal("2 prior moderation actions", @event.GetProperty("reason").GetString());
+        Assert.Equal("2 kicks or bans", @event.GetProperty("reason").GetString());
         Assert.Equal("Flagged", @event.GetProperty("person").GetProperty("standing").GetString());
         Assert.Equal(2, @event.GetProperty("person").GetProperty("priorActions").GetInt32());
         Assert.False(@event.GetProperty("byThisDevice").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AJoinCarriesTheEighteenPlusMarkOffTheStoredProfile()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        var subject = Subject();
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            db.VRChatUsers.Add(new VRChatUser
+            {
+                UserId = subject,
+                DisplayName = "Rin",
+                AgeVerificationStatus = "18+",
+                Is18PlusVerified = true,
+                FirstSeenAt = host.Clock.UtcNow,
+                LastSeenAt = host.Clock.UtcNow,
+                LastRefreshedAt = host.Clock.UtcNow,
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
+        await NextOfKindAsync(socket, "hello");
+
+        await WriteAsync(host, FactType.InstanceJoined, subject, displayName: "Rin");
+
+        var @event = await NextEventAsync(socket);
+        Assert.True(@event.GetProperty("person").GetProperty("eighteenPlus").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AJoinByANuisanceWithFiveWarns_ArrivesAsAFlaggedJoin_NamingBothRules()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        var subject = Subject();
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<Modbot.Core.Data.ModbotContext>();
+            db.VRChatUsers.Add(new VRChatUser
+            {
+                UserId = subject,
+                DisplayName = "Trouble",
+                Tags = """["system_troll"]""",
+                TrustRank = Modbot.Core.Users.TrustRank.Nuisance,
+                FirstSeenAt = host.Clock.UtcNow.AddDays(-1),
+                LastSeenAt = host.Clock.UtcNow,
+                LastUserReadAt = host.Clock.UtcNow.AddDays(-1),
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        // A minute apart, so five warns are five facts and not one reported five times.
+        for (var i = 0; i < 5; i++)
+        {
+            await WriteAsync(host, FactType.GroupInstanceWarn, subject, instance: null);
+            host.Clock.Advance(TimeSpan.FromMinutes(1));
+        }
+
+        using var socket = await ConnectAsync(host, await TicketAsync(host, cookie));
+        await NextOfKindAsync(socket, "hello");
+
+        await WriteAsync(host, FactType.InstanceJoined, subject, displayName: "Trouble");
+
+        var @event = await NextEventAsync(socket);
+        Assert.Equal(LiveKinds.FlaggedJoin, @event.GetProperty("kind").GetString());
+        Assert.Equal("5 warns · Nuisance", @event.GetProperty("reason").GetString());
+        Assert.Equal(0, @event.GetProperty("person").GetProperty("priorActions").GetInt32());
     }
 
     [Fact]

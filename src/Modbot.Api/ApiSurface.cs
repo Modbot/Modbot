@@ -302,6 +302,7 @@ public static class ApiSurface
         app.MapPublicInstancesSettings();
         app.MapAutoInviteSettings();
         app.MapRepeatOffenderSettings();
+        app.MapFlagRuleSettings();
         app.MapCloudSettings();
         app.MapUpdateSettings();
         app.MapEmailSettings();

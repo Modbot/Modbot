@@ -39,11 +39,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     public const int DefaultResolution = 1024;
 
     /// <summary>
-    /// The notification panel's texture. A quarter of the main panel's across, because a pop-up
-    /// is three lines and a megabyte of texture to say one name would be a poor trade on a
-    /// machine that is also running VRChat.
+    /// The notification panel's texture. Under a third of the main panel's across, because a
+    /// pop-up is three lines and a megabyte of texture to say one name would be a poor trade on a
+    /// machine that is also running VRChat: the 256-pixel box the pop-ups stack in, and the bar
+    /// under it.
     /// </summary>
-    public const int DefaultNotificationResolution = 256;
+    public const int DefaultNotificationResolution = NotifyOverlaySettings.PanelPixels;
 
     private readonly IOverlayRuntime _runtime;
 
@@ -61,6 +62,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private OverlayScreen? _live;
     private OverlayScreen? _pinned;
     private OverlayScreen? _drawn;
+    private PanelBar _drawnBar;
     private byte[]? _lastFrame;
 
     // The controllers' side: the rules for holding the panel, the tree that drew the current
@@ -70,6 +72,44 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private PanelCursor? _cursor;
     private float _scroll;
     private OverlayTracking _lastTracking = OverlayTracking.None;
+
+    // Whether a ray is on the panel, which is what puts the bar up under it.
+    private bool _rayOnPanel;
+
+    private bool _editMode;
+
+    /// <summary>
+    /// Whether the bar under the panel — the lock and the hand — comes up at all. Off by
+    /// default, and set from the window's Edit mode switch.
+    /// </summary>
+    /// <remarks>
+    /// Off, the bar is never drawn and its buttons cannot be pressed, so a panel set up the way
+    /// its moderator wants it stays that way: nothing appears when a ray passes over it, a hidden
+    /// switch cannot be hit by accident, and a click-through panel lets every ray through. What
+    /// the switches were left at still holds.
+    /// </remarks>
+    /// <summary>
+    /// How fast the thumbstick pushes and pulls the panel while it is carried, in metres per poll
+    /// at full push. Set from the window's Push speed slider.
+    /// </summary>
+    public float PushStep
+    {
+        get => _interaction.PushStep;
+        set => _interaction.PushStep = value;
+    }
+
+    public bool EditMode
+    {
+        get => _editMode;
+        set
+        {
+            if (_editMode == value)
+                return;
+
+            _editMode = value;
+            Draw();
+        }
+    }
 
     /// <summary>Thumbstick travel, in full deflections per poll, that moves the roster one row.</summary>
     public const float ScrollPerRow = 6f;
@@ -88,7 +128,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Width = surface.Width;
         Height = surface.Height;
         _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default);
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -132,7 +172,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
         };
 
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default);
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar, IsDrawnAt = IsDrawnAt };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -163,6 +203,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>The hand holding the panel, or null.</summary>
     public Hand? Holding { get; private set; }
 
+    /// <summary>
+    /// The hand this panel is using right now — pointing at it, clicking its bar, or carrying it —
+    /// or null. A ray this panel lets through is not using it.
+    /// </summary>
+    public Hand? Busy { get; private set; }
+
     /// <summary>Raised whenever the placement changes, by a controller or by <see cref="Place"/>, so it can be saved.</summary>
     public event Action<OverlayPlacement>? PlacementChanged;
 
@@ -171,6 +217,15 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     /// <summary>Scrolling on the roster, in whole rows; negative is up.</summary>
     public event Action<int>? RosterScrolled;
+
+    /// <summary>A name typed on the runtime's keyboard, with the list it searches.</summary>
+    public event Action<OverlayPage, string>? NameTyped;
+
+    /// <summary>Whether the attached runtime can put a keyboard up. SteamVR can; OpenXR cannot.</summary>
+    public bool CanType => _runtime is IOverlayKeyboard { CanType: true };
+
+    /// <summary>The list the keyboard that is up is typing a name for, or null.</summary>
+    private OverlayPage? _typingFor;
 
     /// <summary>
     /// The group's picture for an address, from the companion's own cache, or null while there is
@@ -235,19 +290,31 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// taps and scrolls. Cheap when nothing is attached. UI thread only, because a moved cursor
     /// redraws the frame.
     /// </summary>
-    public void PollInput(TimeSpan now)
+    /// <param name="elsewhere">A hand another panel over this one is using, left out here.</param>
+    public void PollInput(TimeSpan now, Hand? elsewhere = null)
     {
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
         {
-            SetCursor(null);
+            Busy = null;
+            var barWasShowing = _rayOnPanel;
+            _rayOnPanel = false;
+            if (_cursor is not null || barWasShowing)
+            {
+                _cursor = null;
+                Draw();
+            }
+
             return;
         }
 
         _lastTracking = _runtime.ReadTracking();
-        var result = _interaction.Update(_lastTracking, now);
+        var result = _interaction.Update(_lastTracking, now, elsewhere);
 
         var wasHolding = Holding;
         Holding = result.Holding;
+        Busy = result.Holding ?? result.Pointer?.Hand;
+        var barWasUp = _rayOnPanel;
+        _rayOnPanel = result.RayOnPanel;
 
         if (result.PlacementChanged)
         {
@@ -255,13 +322,41 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             PlacementChanged?.Invoke(result.Placement);
         }
 
+        var cursor = result.Pointer is { } p
+            ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
+            : (PanelCursor?)null;
+
         // Picking the panel up and putting it down change which screen is drawn without changing
-        // the screen itself, so nothing else would redraw it.
-        if (result.PlacementChanged || wasHolding != Holding)
+        // the screen itself, and so does the bar coming up or going, so nothing else would redraw
+        // it. One frame for all of it, however many changed at once.
+        if (result.PlacementChanged || wasHolding != Holding || barWasUp != _rayOnPanel || cursor != _cursor)
+        {
+            _cursor = cursor;
             Draw();
+        }
 
         foreach (var click in result.Clicks)
-            Tapped?.Invoke(TargetAt(click.Across, click.Down));
+        {
+            var target = TargetAt(click.Across, click.Down);
+            switch (target)
+            {
+                // The bar is this panel's own business, never the drive loop's.
+                case OverlayTarget.Lock when EditMode:
+                    Switch(Placement with { Locked = !Placement.Locked });
+                    break;
+                case OverlayTarget.ClickThrough when EditMode:
+                    Switch(Placement with { ClickThrough = !Placement.ClickThrough });
+                    break;
+
+                // Out of edit mode the bar is not there to press, laid out or not.
+                case OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough:
+                    break;
+                default:
+                    Tapped?.Invoke(target);
+                    AskForName(target);
+                    break;
+            }
+        }
 
         if (result.Pointer is { } pointer && result.Scroll.Y != 0f
             && TargetAt(pointer.Across, pointer.Down) is OverlayTarget.Roster or OverlayTarget.Person or OverlayTarget.Events)
@@ -279,22 +374,57 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         {
             _scroll = 0f;
         }
-
-        SetCursor(result.Pointer is { } p
-            ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
-            : null);
     }
+
+    /// <summary>
+    /// Puts the runtime's keyboard up for a tap that means typing a name: the Name filter being
+    /// opened, or its box tapped. One tap, rather than opening the filter and then aiming at the
+    /// box as well.
+    /// </summary>
+    private void AskForName(OverlayTarget? target)
+    {
+        if (_runtime is not IOverlayKeyboard { CanType: true } keyboard)
+            return;
+
+        if (target is OverlayTarget.TypeName box)
+        {
+            if (keyboard.ShowKeyboard(box.Text))
+                _typingFor = box.List;
+        }
+        else if (target is OverlayTarget.Filter { Part: FilterPart.Name } chip
+            && FiltersOf(chip.List) is { } filters
+            && filters.Open != FilterPart.Name
+            && keyboard.ShowKeyboard(filters.Name ?? string.Empty))
+        {
+            _typingFor = chip.List;
+        }
+    }
+
+    private ListFilters? FiltersOf(OverlayPage list) => _drawn is not { } drawn ? null : list switch
+    {
+        OverlayPage.Events => drawn.EventFiltersOrNone,
+        _ => drawn.RosterFiltersOrNone,
+    };
 
     /// <summary>What is drawn under a point on the panel, from the tree that drew the current frame.</summary>
     public OverlayTarget? TargetAt(float across, float down)
         => _root is null ? null : OverlayTargets.At(_root, new Point(across * Width, down * Height));
 
-    private void SetCursor(PanelCursor? cursor)
-    {
-        if (_cursor == cursor)
-            return;
+    /// <summary>Whether a ray at this point is on the panel: on something drawn, or on the bar while it can be used.</summary>
+    private bool IsDrawnAt(float across, float down)
+        => IsOnBar(across, down)
+            || (_root is { } root && OverlayTargets.Drawn(root, new Point(across * Width, down * Height)));
 
-        _cursor = cursor;
+    private bool IsOnBar(float across, float down)
+        => EditMode && TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
+
+    /// <summary>One of the bar's switches, pressed: applied, saved and drawn at once.</summary>
+    private void Switch(OverlayPlacement placement)
+    {
+        _interaction.Place(placement);
+        Holding = null;
+        _runtime.Place(_interaction.Placement);
+        PlacementChanged?.Invoke(_interaction.Placement);
         Draw();
     }
 
@@ -388,6 +518,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     {
         _runtime.Poll();
 
+        // Done pressed on the keyboard: the name goes to the list it was put up for.
+        if (_runtime is IOverlayKeyboard keyboard && keyboard.TakeTyped() is { } typed && _typingFor is { } list)
+        {
+            _typingFor = null;
+            NameTyped?.Invoke(list, typed);
+        }
+
         if (_runtime.Status.State is not OverlayRuntimeState.Running && !KeepLastFrame)
             LetGo();
     }
@@ -468,18 +605,28 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
         var next = (_pinned ?? _live)?.WithCursor(_cursor);
 
+        // A runtime with no keyboard: the Name filter has nothing to type with here.
+        if (next is not null && !CanType)
+            next = next with { NoKeyboard = true };
+
         // Worn on a wrist, the panel is a sixth of the width it is in front of the head, and the
         // roster at that size is a grey smear. The wrist screen is what it shows there instead.
         if (next is not null && OnWrist)
             next = next with { Page = OverlayPage.Wrist };
 
-        if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next)))
+        // Up while a ray is on the panel, used or let through; drawn as nothing otherwise.
+        var bar = PanelBar.For(_interaction.Placement, _rayOnPanel && EditMode);
+
+        if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next) && _drawnBar == bar))
             return false;
 
         _drawn = next;
+        _drawnBar = bar;
         _compositor.Invalidate();
 
-        var root = OverlayView.Build(next, GroupIcon);
+        // The cursor is drawn over the bar as well as the cards, so the frame draws it rather
+        // than the view.
+        var root = PanelFrame.Main(OverlayView.Build(next with { Cursor = null }, GroupIcon), bar, next.Cursor, Height);
         if (!_compositor.DrawIfChanged(root))
             return false;
 

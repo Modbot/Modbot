@@ -139,7 +139,9 @@ public static class DesktopOverlayKeys
 /// <param name="On">Whether the overlay window exists and its shortcut is registered.</param>
 /// <param name="Shortcut">The combination, in <see cref="KeyTokens"/> spelling.</param>
 /// <param name="Opacity">How solid the panel's background is, from 20 to 100.</param>
-public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacity)
+/// <param name="Locked">The window cannot be dragged by its strip.</param>
+/// <param name="ClickThrough">Clicks on the panel go through to the game; the strip still answers.</param>
+public sealed record DesktopOverlaySettings(bool On, string Shortcut, int Opacity, bool Locked = false, bool ClickThrough = false)
 {
     /// <summary>
     /// Ctrl+Alt+M. VRChat's desktop keys are bare letters and function keys, Windows keeps the

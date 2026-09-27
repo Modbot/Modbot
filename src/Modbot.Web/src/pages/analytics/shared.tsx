@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { dayRange, longDay } from '@/components/charts'
@@ -193,6 +194,39 @@ export function Toggle<T extends string>({
  * describe quietly wrong. And the daily totals are only as fresh as their last run, which a panel
  * of round numbers does nothing to reveal.
  */
+/**
+ * What the page's numbers rest on, in one line: "Recording since Aug 13", with the full account
+ * (daily totals, the fact log, what is kept) a click away. The full block at the top of a page was
+ * three rows of words a moderator had to get past -- "fact log", "daily totals" -- before any answer.
+ */
+export function CoverageLine({ coverage, generatedAt }: { coverage: AnalyticsCoverage; generatedAt: string }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        {coverage.factFirstDay ? (
+          <span>
+            Recording since <span className="font-mono text-foreground">{longDay(coverage.factFirstDay)}</span>
+          </span>
+        ) : (
+          <span>Nothing recorded yet</span>
+        )}
+        <span aria-hidden>·</span>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="rounded-sm underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {open ? 'Hide details' : 'Details'}
+        </button>
+      </div>
+      {open && <CoverageNote coverage={coverage} generatedAt={generatedAt} />}
+    </div>
+  )
+}
+
 export function CoverageNote({ coverage, generatedAt }: { coverage: AnalyticsCoverage; generatedAt: string }) {
   // Both ends of a span carry the year, or neither does.
   const span = (from: string | null, to: string | null) => {

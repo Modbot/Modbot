@@ -197,3 +197,105 @@ public sealed record PersonMetrics(
     PersonCounts Counts,
     IReadOnlyList<InstanceRow> RecentInstances,
     DateTimeOffset Now);
+
+/// <summary>
+/// How one instance compared with the other instances in its world while it was open, from the
+/// world's page as Modbot read it every two minutes (<c>world_head_count</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// Empty for an instance that closed before the world was being read, which is every instance
+/// before 2026-09-27, and for stretches when <c>worlds.read</c> was cold-stopped. Nothing here calls
+/// VRChat; the readings were taken while the instance was open.
+/// </para>
+/// <para>
+/// The other instances' numbers are the world page's list, and so is this instance's whenever the
+/// list carries it, so a rank compares like with like. When the list leaves it out -- VRChat may
+/// list only instances anyone can see -- its own head count at that moment stands in, and
+/// <see cref="WorldReading.Listed"/> is false.
+/// </para>
+/// </remarks>
+/// <param name="From">When the instance opened.</param>
+/// <param name="To">When it closed, or now while it is open.</param>
+/// <param name="Readings">Every read of the world's page while it was open, oldest first.</param>
+/// <param name="Others">
+/// The busiest of the other instances seen in the world while it was open, busiest first: at most
+/// <see cref="InstanceWorldView.OthersShown"/>.
+/// </param>
+/// <param name="OthersTotal">How many other instances the world's list carried at any read, however many are shown.</param>
+/// <param name="AtPeak">The read at which this instance held the most people, first such read on a tie.</param>
+/// <param name="BusiestMinutes">
+/// How long it held more people than every other instance in the world, from one read to the next,
+/// each read counting for at most <see cref="InstanceWorldView.ReadingCoversAtMost"/>.
+/// </param>
+/// <param name="Truncated">True when there were more reads than <see cref="InstanceWorldView.ReadingsMost"/>; the newest are kept.</param>
+public sealed record InstanceWorldView(
+    Guid InstanceId,
+    string WorldId,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    IReadOnlyList<WorldReading> Readings,
+    IReadOnlyList<OtherInstance> Others,
+    int OthersTotal,
+    WorldReading? AtPeak,
+    decimal BusiestMinutes,
+    bool Truncated)
+{
+    /// <summary>How many other instances are shown. Enough to see the busy ones; the rest are a crowd.</summary>
+    public const int OthersShown = 8;
+
+    /// <summary>How many reads one answer carries: about two and a half days at one every two minutes.</summary>
+    public const int ReadingsMost = 1800;
+
+    /// <summary>
+    /// The longest one read speaks for. Two and a half reads' worth, so a missed read or a cold stop
+    /// is a gap rather than a stretch in which nothing was known being counted as busiest.
+    /// </summary>
+    public static readonly TimeSpan ReadingCoversAtMost = TimeSpan.FromMinutes(5);
+}
+
+/// <summary>One read of the world's page, and where this instance stood in it.</summary>
+/// <param name="Occupants">The page's <c>occupants</c>: everyone in the world. Null when the body had none.</param>
+/// <param name="People">
+/// This instance's head count at the read: the world list's number when it carries the instance,
+/// otherwise its own head count at that moment. Null when neither is known.
+/// </param>
+/// <param name="Unsure">True when <paramref name="People"/> is its own head count and that count is unsure ("80?").</param>
+/// <param name="Listed">Whether the world's list carried this instance at this read.</param>
+/// <param name="Rank">1 for the busiest instance in the world at this read. Null when <paramref name="People"/> is.</param>
+/// <param name="Of">How many instances were ranked: the list's, with this one counted once.</param>
+public sealed record WorldReading(
+    DateTimeOffset At,
+    int? Occupants,
+    int? PublicOccupants,
+    int? PrivateOccupants,
+    int? People,
+    bool Unsure,
+    bool Listed,
+    int? Rank,
+    int Of);
+
+/// <summary>Another instance in the same world, as the world's list showed it.</summary>
+/// <param name="InstanceId">The instance id exactly as the list carried it, qualifiers and all.</param>
+/// <param name="Number">VRChat's number: the part before the first <c>~</c>.</param>
+/// <param name="OwnGroup">True when it belongs to the managed group.</param>
+/// <param name="ModbotInstanceId">Modbot's own id for it when Modbot has a row for it, so a screen can open it.</param>
+/// <param name="Name">The name it was opened with, when Modbot has a row for it and it had one.</param>
+/// <param name="Peak">The most people the list showed in it while this instance was open.</param>
+/// <param name="Readings">Its head count at each read that carried it, oldest first.</param>
+public sealed record OtherInstance(
+    string InstanceId,
+    string? Number,
+    string? GroupId,
+    string? GroupAccessType,
+    string? Region,
+    bool OwnGroup,
+    Guid? ModbotInstanceId,
+    string? Name,
+    int Peak,
+    DateTimeOffset FirstSeenAt,
+    DateTimeOffset LastSeenAt,
+    IReadOnlyList<OtherReading> Readings);
+
+/// <summary>Another instance's head count at one read of the world's page.</summary>
+public sealed record OtherReading(DateTimeOffset At, int People);

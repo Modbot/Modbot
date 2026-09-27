@@ -121,7 +121,7 @@ The window has six pages:
 | Page | What it shows |
 |---|---|
 | **Servers** | Each paired server, whether it is reporting, and the pairing controls. See [Pairing](/companion/pairing). |
-| **Events** | Every event the client has handled, newest first — one line each, with the group it was for and whether it was **sent**, **waiting**, **withheld** or **failed**. Events held back, for example while paused, are listed too, along with notes such as "Paused" or "Resumed reporting". An event that was for no paired server has the time and the sentence and nothing else. It shows the latest 200 events and keeps 1,500 lines on disk. |
+| **Audit Log** | Every event the client has handled, newest first — one line each, with the group it was for and whether it was **sent**, **waiting**, **withheld** or **failed**. Events held back, for example while paused, are listed too, along with notes such as "Paused" or "Resumed reporting". An event that was for no paired server has the time and the sentence and nothing else. It shows the latest 200 events and keeps 1,500 lines on disk. |
 | **SteamVR** | Whether the [overlay](/companion/overlay) is attached to SteamVR, what it is showing, how many frames it has drawn, and where the panel sits. **Look for SteamVR now** attaches without waiting for the next ten-second look. |
 | **Log** | What the client makes of VRChat's log: **lines seen**, **lines Modbot looks at** and **recognised**. You can open the same file in Notepad and check the counts. |
 | **Settings** | The client's switches, the voice and the VRChat log folder. See [Client settings](/companion/settings). |
@@ -141,15 +141,15 @@ Press `?` in the window for the list. Letters only work when you are not typing 
 | `Ctrl` `K` | Search and commands: every page, and the buttons on the open page, by name |
 | `?` | Keyboard shortcuts |
 | `Esc` | Close what is open: the palette, the filter picker, an opened row, the selection |
-| `G` then `S` / `E` / `V` / `L` / `T` | Go to Servers, Events, SteamVR, Log, Settings (`G` then `D` for Debug when it is on) |
-| `J` / `K`, `↓` / `↑` | Next or previous row on Events |
+| `G` then `S` / `A` / `V` / `L` / `T` | Go to Servers, Audit Log, SteamVR, Log, Settings (`G` then `D` for Debug when it is on) |
+| `J` / `K`, `↓` / `↑` | Next or previous row on Audit Log |
 | `Enter` | Open the selected row: every field it holds, and the row as JSON |
-| `F` | Add a filter on Events (`Shift` `F` removes the last one) |
-| `/` | Filter Events by text |
+| `F` | Add a filter on Audit Log (`Shift` `F` removes the last one) |
+| `/` | Filter Audit Log by text |
 
-### Filters on Events
+### Filters on Audit Log
 
-**Filter** on the Events page adds a chip: **Kind** (joined, already there, left, changed avatar,
+**Filter** on the Audit Log page adds a chip: **Kind** (joined, already there, left, changed avatar,
 log stopped, seen, note), **State** (sent, waiting, withheld, failed), **Group**, or **Text**.
 Values inside a chip are "any of"; chips combine. Each value shows how many rows it would leave.
 The chips are kept in `settings.json` under `eventsFilters`, so the page opens the way you left it.
@@ -258,7 +258,7 @@ The client also talks to a paired server in these ways:
 - While you are in that group's instance, the [overlay](/companion/overlay) asks for the
   instance's roster (which tells the server the instance id) and waits for flagged-user alerts.
 
-Everything the client sent to a server is listed on **Events**.
+Everything the client sent to a server is listed on **Audit Log**.
 
 ### What it sends to Modbot Cloud
 
@@ -268,7 +268,7 @@ friends-only and private instances, where the group is left empty. It works the 
 after you pair, and a paired server has no say in it. It never sends VRChat's raw log, and never
 the secret part of an instance's address.
 
-The backup is not shown in the window. **Events** lists what the client handled and how each
+The backup is not shown in the window. **Audit Log** lists what the client handled and how each
 event's own group's server took it; it does not list the backup, does not report its state, and
 does not let you filter by it. Pausing a paired server does not stop the backup either — it is a
 separate flow, and only that PC's settings file or environment turns it off. How the backup works,
@@ -327,7 +327,7 @@ checks for updates.
 | Paired servers and their tokens (tokens encrypted to your Windows account) | `%APPDATA%\Modbot\pairings.json` |
 | Settings | `%APPDATA%\Modbot\settings.json` |
 | Events waiting to go to each server | `%APPDATA%\Modbot\queue` |
-| The **Events** list | `%APPDATA%\Modbot\sent.jsonl` |
+| The **Audit Log** list | `%APPDATA%\Modbot\sent.jsonl` |
 | The client's own log, one file a day, last seven kept | `%APPDATA%\Modbot\logs` (`companion-YYYYMMDD.log`) |
 | Events waiting to go to Modbot Cloud (up to 20 MB) | `%APPDATA%\Modbot\cloud` |
 | The client's Modbot Cloud install id (secret encrypted) | `%APPDATA%\Modbot\cloud-installs.json` |

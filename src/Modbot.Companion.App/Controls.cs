@@ -185,6 +185,23 @@ internal static class Ui
         return button;
     }
 
+    /// <summary>
+    /// Makes a plain button from <see cref="Button"/> the primary one, or plain again, in place.
+    /// </summary>
+    /// <remarks>
+    /// For a row of choices whose chosen one is drawn as primary, on a page that keeps its
+    /// controls: the row is built once and lit here, rather than built again every time the
+    /// choice changes and taking the pointer's hover with it.
+    /// </remarks>
+    internal static void SetPrimary(Button button, bool primary)
+    {
+        button.Background = primary ? T.AccentBrush : T.Surface2Brush;
+        button.BorderBrush = primary ? T.AccentBrush : T.Border2Brush;
+
+        if (button.Content is TextBlock caption)
+            caption.Foreground = primary ? T.AccentForegroundBrush : T.TextBrush;
+    }
+
     internal static TextBox Input(string? watermark = null) => new()
     {
         Height = T.Density.ControlHeight,
@@ -204,6 +221,16 @@ internal static class Ui
     {
         Spacing = 4,
         Children = { Dim(label), input },
+    };
+
+    /// <summary>
+    /// <see cref="Field(string, Control)"/> with a label the caller keeps, for a label that says a
+    /// value and is changed in place.
+    /// </summary>
+    internal static Control Field(TextBlock label, Control input) => new StackPanel
+    {
+        Spacing = 4,
+        Children = { label, input },
     };
 
     /// <summary>A hairline between two things, the web app's <c>--hairline</c> border.</summary>

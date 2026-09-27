@@ -73,7 +73,11 @@ public class OverlayTransparencyTests
         });
 
         // Thirty rows and a banner reach the bottom of a 256-pixel frame; the idle card does not.
-        Assert.Equal(255, Alpha(tall, Size / 2, Size - 8));
-        Assert.Equal(0, Alpha(idle, Size / 2, Size - 8));
+        // Checked across the whole row rather than at one spot: what sits at the bottom of the
+        // tall screen is laid out on clear ground (the filter row's chips have gaps between them),
+        // and the point is that something is there, not what.
+        var bottom = Enumerable.Range(0, Size).ToList();
+        Assert.Contains(bottom, x => Alpha(tall, x, Size - 8) == 255);
+        Assert.All(bottom, x => Assert.Equal(0, Alpha(idle, x, Size - 8)));
     }
 }

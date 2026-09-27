@@ -24,7 +24,7 @@ public sealed record LivePage(IReadOnlyList<LiveEvent> Events, long Cursor, bool
 /// general stream would have sent it.
 /// </para>
 /// <para>
-/// <strong>One lookup per page, not per event.</strong> A person's standing -- prior actions,
+/// <strong>One lookup per page, not per event.</strong> A person's standing -- the flag rules,
 /// membership, a name when the fact carried none -- is what the roster and the Live page show,
 /// and it is read for every person in a page at once, the way the roster reads it.
 /// </para>
@@ -130,17 +130,17 @@ public sealed class LiveReader
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        var priorActions = people.Count == 0
-            ? new Dictionary<string, int>(StringComparer.Ordinal)
-            : await ContextHandler.CountPriorActionsAsync(_db, people, ct);
-
-        var members = people.Count == 0
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : await ContextHandler.CurrentMembersAsync(_db, people, ct);
+        var members = await MembersAndStaff.ReadAsync(_db, people, ct);
 
         var ranks = people.Count == 0
             ? new Dictionary<string, TrustRank?>(StringComparer.Ordinal)
             : await ContextHandler.TrustRanksAsync(_db, people, ct);
+
+        var eighteenPlus = people.Count == 0
+            ? new Dictionary<string, bool>(StringComparer.Ordinal)
+            : await ContextHandler.EighteenPlusAsync(_db, people, ct);
+
+        var flaggedPeople = await FlagRules.ReadAsync(_db, people, ranks, ct);
 
         var payloads = live.ToDictionary(x => x.Fact.Id, x => AuditJson.Parse(x.Fact.Data));
 
@@ -187,7 +187,7 @@ public sealed class LiveReader
             if (LiveKinds.IsPresence(kind))
             {
                 var name = AuditJson.Text(data, "displayName") ?? names.GetValueOrDefault(fact.SubjectId);
-                var described = ContextHandler.Describe(fact.SubjectId, name, priorActions, members);
+                var described = ContextHandler.Describe(fact.SubjectId, name, flaggedPeople, members);
 
                 person = new LivePerson(
                     fact.SubjectId,
@@ -195,15 +195,15 @@ public sealed class LiveReader
                     ranks.GetValueOrDefault(fact.SubjectId)?.ToString(),
                     described.Standing,
                     described.PriorActions,
-                    described.Flags);
+                    described.Flags,
+                    eighteenPlus.TryGetValue(fact.SubjectId, out var marked) ? marked : null);
 
-                if (kind == LiveKinds.PersonJoined && described.PriorActions > 0)
+                if (kind == LiveKinds.PersonJoined
+                    && flaggedPeople.GetValueOrDefault(fact.SubjectId) is { IsFlagged: true } match)
                 {
                     finalKind = LiveKinds.FlaggedJoin;
                     flagged = true;
-                    reason = described.PriorActions == 1
-                        ? "1 prior moderation action"
-                        : $"{described.PriorActions} prior moderation actions";
+                    reason = match.Reason;
                 }
             }
 

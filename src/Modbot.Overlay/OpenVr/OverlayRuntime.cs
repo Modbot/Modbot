@@ -64,6 +64,28 @@ public interface IOverlayRuntime : IDisposable
 }
 
 /// <summary>
+/// A runtime that can put its own keyboard up for a panel, so a name can be typed in a headset.
+/// </summary>
+/// <remarks>
+/// SteamVR has one. OpenXR has none an overlay can ask for, so the WiVRn and Monado runtime does
+/// not implement this, and a panel there offers no typing.
+/// </remarks>
+public interface IOverlayKeyboard
+{
+    /// <summary>Whether a keyboard can be put up right now.</summary>
+    bool CanType { get; }
+
+    /// <summary>Puts the keyboard up with <paramref name="text"/> in it. False when it could not.</summary>
+    bool ShowKeyboard(string text);
+
+    /// <summary>
+    /// What was typed, once Done has been pressed; null when nothing has been since the last
+    /// call. Heard by <see cref="IOverlayRuntime.Poll"/>, so it is asked after that.
+    /// </summary>
+    string? TakeTyped();
+}
+
+/// <summary>
 /// One overlay in SteamVR, through OpenVR's overlay interface.
 /// </summary>
 /// <remarks>
@@ -92,7 +114,7 @@ public interface IOverlayRuntime : IDisposable
 /// moderator acting on what they see here goes through the normal authenticated API as themselves
 /// — the device token is ingest-scoped and cannot ban anybody.</para>
 /// </remarks>
-public sealed class OpenVrOverlayRuntime : IOverlayRuntime
+public sealed class OpenVrOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
 {
     /// <summary>
     /// Stable for the life of the product. SteamVR keys overlay settings — position, curvature,
@@ -129,6 +151,15 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
     private bool _holdsSession;
     private byte[]? _rgba;
     private OverlayPlacement _placement;
+
+    /// <summary>The device the panel was last hung on, or null while it is fixed in the room.</summary>
+    private uint? _hungOn;
+
+    /// <summary>What was typed on SteamVR's keyboard and not yet asked for.</summary>
+    private string? _typed;
+
+    /// <summary>The most a name typed on the keyboard can hold, in characters.</summary>
+    private const uint LongestTyped = 32;
 
     /// <param name="kind">Which panel this is; it decides the key, the name and the sort order.</param>
     /// <param name="overlayName">What SteamVR calls it in its own lists. Null takes the kind's name.</param>
@@ -219,8 +250,72 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
                     Status = new(OverlayRuntimeState.NotStarted, Detail: "SteamVR closed.");
                     return;
                 }
+
+                if (vrEvent.EventType is OpenVrInterop.EventKeyboardDone)
+                    _typed = KeyboardText();
             }
         }
+
+        FollowTheHand();
+    }
+
+    /// <summary>The main panel can type; the notification panel has nothing to type into.</summary>
+    public bool CanType => _handle != 0 && _kind is OverlayKind.Main;
+
+    /// <summary>
+    /// SteamVR's own keyboard, for this overlay, with <paramref name="text"/> already in it.
+    /// </summary>
+    /// <remarks>
+    /// Buffered rather than key by key: SteamVR keeps the text while it is typed and says Done
+    /// once, and <see cref="Poll"/> reads the whole of it then. The description is empty, because
+    /// the box on the panel already names what is being typed.
+    /// </remarks>
+    public unsafe bool ShowKeyboard(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (!CanType)
+            return false;
+
+        var existing = System.Text.Encoding.UTF8.GetBytes(text + "\0");
+        var description = new byte[] { 0 };
+
+        fixed (byte* existingText = existing)
+        fixed (byte* describe = description)
+        {
+            var show = (delegate* unmanaged[Stdcall]<ulong, int, int, uint, byte*, uint, byte*, ulong, int>)Slot(OverlaySlot.ShowKeyboardForOverlay);
+            return show(
+                _handle,
+                OpenVrInterop.KeyboardNormalSingleLine,
+                OpenVrInterop.KeyboardNormalSingleLine,
+                OpenVrInterop.KeyboardModal,
+                describe,
+                LongestTyped,
+                existingText,
+                0) == 0;
+        }
+    }
+
+    public string? TakeTyped()
+    {
+        var typed = _typed;
+        _typed = null;
+        return typed;
+    }
+
+    /// <summary>The keyboard's text, as SteamVR holds it after Done.</summary>
+    private unsafe string KeyboardText()
+    {
+        // Four bytes a character is the most UTF-8 needs, and one more for the end.
+        var buffer = new byte[(LongestTyped * 4) + 1];
+        fixed (byte* text = buffer)
+        {
+            var get = (delegate* unmanaged[Stdcall]<byte*, uint, uint>)Slot(OverlaySlot.GetKeyboardText);
+            get(text, (uint)buffer.Length);
+        }
+
+        var end = Array.IndexOf(buffer, (byte)0);
+        return System.Text.Encoding.UTF8.GetString(buffer, 0, end < 0 ? buffer.Length : end);
     }
 
     public bool Submit(IOverlaySurface surface)
@@ -306,27 +401,67 @@ public sealed class OpenVrOverlayRuntime : IOverlayRuntime
         ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayAlpha))(_handle, placement.Opacity);
         ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayCurvature))(_handle, placement.Curve);
 
-        var transform = HmdPoses.ToMatrix(Pose.From(placement.Offset));
-
-        uint? device = placement.Anchor switch
-        {
-            OverlayAnchor.Head => OpenVrInterop.TrackedDeviceIndexHmd,
-            OverlayAnchor.LeftHand => _session.DeviceIndex(Interaction.Hand.Left),
-            OverlayAnchor.RightHand => _session.DeviceIndex(Interaction.Hand.Right),
-            _ => null,
-        };
-
         if (placement.Anchor is OverlayAnchor.World)
         {
+            _hungOn = null;
+            var fixedInRoom = HmdPoses.ToMatrix(Pose.From(placement.Offset));
             ((delegate* unmanaged[Stdcall]<ulong, int, HmdMatrix34*, int>)Slot(OverlaySlot.SetOverlayTransformAbsolute))(
-                _handle, OpenVrInterop.TrackingUniverseStanding, &transform);
+                _handle, OpenVrInterop.TrackingUniverseStanding, &fixedInRoom);
             return;
         }
 
-        // A hand that is not there right now: the panel waits on the headset, at its offset, and
-        // is put on the hand the next time the placement is applied.
+        // A hand whose controller is not tracked right now: the panel waits in front of the head,
+        // where it can be read, and Poll puts it back on the hand once a controller is tracked
+        // there again.
+        var hand = HandDevice(placement.Anchor);
+        var drawn = placement.Anchor is OverlayAnchor.Head || hand is not null
+            ? placement
+            : placement.WhileTheHandIsGone();
+
+        _hungOn = hand ?? OpenVrInterop.TrackedDeviceIndexHmd;
+
+        // The width can differ from the placement's while the panel waits on the head.
+        ((delegate* unmanaged[Stdcall]<ulong, float, int>)Slot(OverlaySlot.SetOverlayWidthInMeters))(_handle, drawn.Width);
+
+        var transform = HmdPoses.ToMatrix(Pose.From(drawn.Offset));
         ((delegate* unmanaged[Stdcall]<ulong, uint, HmdMatrix34*, int>)Slot(OverlaySlot.SetOverlayTransformTrackedDeviceRelative))(
-            _handle, device ?? OpenVrInterop.TrackedDeviceIndexHmd, &transform);
+            _handle, _hungOn.Value, &transform);
+    }
+
+    /// <summary>
+    /// The tracked controller a hand anchor hangs on right now, or null for the head, the room,
+    /// or a hand with no tracked controller.
+    /// </summary>
+    private uint? HandDevice(OverlayAnchor anchor) => anchor switch
+    {
+        OverlayAnchor.LeftHand => _session.TrackedDeviceIndex(Interaction.Hand.Left),
+        OverlayAnchor.RightHand => _session.TrackedDeviceIndex(Interaction.Hand.Right),
+        _ => null,
+    };
+
+    /// <summary>
+    /// Puts a hand-anchored panel back where it belongs when the hand's controller has changed
+    /// since it was placed: gone, back, or a different device.
+    /// </summary>
+    /// <remarks>
+    /// <para>SteamVR hangs an overlay on a device index, not on "the left hand". A Quest's
+    /// controllers drop out when they are put down — during a world load, say — and over Steam
+    /// Link the left hand can pass to the hand-tracking device and back. Placed once and left, a
+    /// wrist panel stayed wherever the first answer put it: in the moderator's face while the
+    /// controller was gone, and, placed again while SteamVR had a left hand it could not see, on
+    /// the floor. So the hand is asked again on every poll, and a changed answer places the panel
+    /// again.</para>
+    /// <para>Asking is one index and one read of the poses, four times a second, and nothing is
+    /// set unless the answer changed.</para>
+    /// </remarks>
+    private void FollowTheHand()
+    {
+        if (_placement.Anchor is not (OverlayAnchor.LeftHand or OverlayAnchor.RightHand))
+            return;
+
+        var now = HandDevice(_placement.Anchor) ?? OpenVrInterop.TrackedDeviceIndexHmd;
+        if (now != _hungOn)
+            Apply(_placement);
     }
 
     public void Dispose()

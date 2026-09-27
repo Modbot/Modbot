@@ -1779,6 +1779,58 @@ export type InstanceView = {
   }[]
 }
 
+/**
+ * How one instance compared with the other instances in its world while it was open, from the
+ * world's page read every two minutes. Empty `readings` for an instance that closed before those
+ * reads began.
+ */
+export type InstanceWorldView = {
+  instanceId: string
+  worldId: string
+  from: string
+  to: string
+  readings: WorldReading[]
+  /** The busiest of the others, busiest first. At most eight. */
+  others: OtherInstance[]
+  othersTotal: number
+  atPeak: WorldReading | null
+  busiestMinutes: number
+  truncated: boolean
+}
+
+/** One read of the world's page, and where this instance stood in it. */
+export type WorldReading = {
+  at: string
+  occupants: number | null
+  publicOccupants: number | null
+  privateOccupants: number | null
+  /** The world list's number when it carries this instance (`listed`), its own head count otherwise. */
+  people: number | null
+  unsure: boolean
+  listed: boolean
+  /** 1 for the busiest in the world. */
+  rank: number | null
+  of: number
+}
+
+/** Another instance in the same world, as the world's list showed it. */
+export type OtherInstance = {
+  /** As the list carried it, qualifiers and all. */
+  instanceId: string
+  number: string | null
+  groupId: string | null
+  groupAccessType: string | null
+  region: string | null
+  ownGroup: boolean
+  /** Modbot's own id, when it has a row for this instance: what opens its popup. */
+  modbotInstanceId: string | null
+  name: string | null
+  peak: number
+  firstSeenAt: string
+  lastSeenAt: string
+  readings: { at: string; people: number }[]
+}
+
 export type PersonMetrics = {
   userId: string
   /** False when no presence report has ever mentioned them. Not the same as never having been anywhere. */
@@ -2359,6 +2411,22 @@ export type RepeatOffenderRules = {
   types: RepeatOffenderTypeOption[]
   lastRunAt: string | null
 }
+
+export type FlagRuleAutoModOption = { id: string; kind: 'termList' | 'topic'; name: string; counts: boolean }
+
+/** Settings → Moderation → Flagged: which rules make a person Flagged on the companion and Live. */
+export type FlagRules = {
+  kicksAndBans: boolean
+  warns: boolean
+  warnsAtLeast: number
+  nuisance: boolean
+  autoMod: boolean
+  /** Every AutoMod rule counts, including ones added later. */
+  everyAutoModRule: boolean
+  autoModRules: FlagRuleAutoModOption[]
+}
+
+export type FlagRulesInput = Omit<FlagRules, 'autoModRules'> & { autoModRules: string[] }
 
 /** Settings → Auto-invites. `rules` is the same tree the giveaway rule builder reads and writes. */
 export type AutoInvites = {
@@ -4218,6 +4286,7 @@ export const api = {
   world: (id: string) => request<WorldView>(`/api/worlds?id=${encodeURIComponent(id)}`),
 
   instance: (id: string) => request<InstanceView>(`/api/instances/${encodeURIComponent(id)}`),
+  instanceWorld: (id: string) => request<InstanceWorldView>(`/api/instances/${encodeURIComponent(id)}/world`),
 
   live: () => request<LiveView>('/api/live'),
 
@@ -4354,6 +4423,10 @@ export const api = {
   /** Rebuilds every person's counts before it answers, because both are rules they are computed under. */
   setRepeatOffenderRules: (threshold: number, types: string[]) =>
     put<RepeatOffenderRules>('/api/settings/repeat-offenders', { threshold, types }),
+
+  flagRules: () => request<FlagRules>('/api/settings/flag-rules'),
+
+  setFlagRules: (body: FlagRulesInput) => put<FlagRules>('/api/settings/flag-rules', body),
 
   autoInvites: () => request<AutoInvites>('/api/settings/auto-invites'),
 

@@ -88,7 +88,7 @@ public sealed partial class MainWindow
     /// <summary>What the Notifications card's controls say right now, as one settings record.</summary>
     private void NotificationsChanged()
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         _actions.SetNotifications(_snapshot.NotificationsOrDefault with
@@ -114,6 +114,10 @@ public sealed partial class MainWindow
         // Only refilled while nobody is typing in it: the window redraws on a timer.
         if (!_bleepFileBox.IsFocused)
             _bleepFileBox.Text = notifications.Sound ?? "";
+
+        // An error says what failed, and nothing else on this card needs a sentence.
+        _bleepFileProblem.Text = _snapshot.SoundProblem ?? "";
+        _bleepFileProblem.IsVisible = _bleepFileProblem.Text.Length > 0;
     }
 
     /// <summary>The Notifications card: the sound, how loud, a Test button and a sound of your own.</summary>
@@ -134,10 +138,6 @@ public sealed partial class MainWindow
             DetachFromParent(button);
             tests.Children.Add(button);
         }
-
-        // An error says what failed, and nothing else on this card needs a sentence.
-        _bleepFileProblem.Text = _snapshot.SoundProblem ?? "";
-        _bleepFileProblem.IsVisible = _bleepFileProblem.Text.Length > 0;
 
         return new StackPanel
         {

@@ -176,6 +176,44 @@ problem line when there is no problem, and the desktop overlay card hides its ow
 still hold a switch, so none of them can empty out. The SteamVR page's "Showing" card is built only
 when the overlay is on, which is the same answer reached a different way.
 
+### 4.2 One draw at a time, and quiet while it runs — added 2026-09-26
+
+Reported on 2026.9.3-preview.1: Settings, opened right after the companion started, stopped after
+the Listening card. "VRChat log folder" and "Restart" were missing, and the log said the log
+folder box "already has a visual parent". Going to another page and back built it fully.
+
+**The cause, seen in the log's stack trace of 2026-09-25 and done again offscreen.** The first
+time a slider is put in the window, Avalonia pulls its value up to its minimum: the desktop
+overlay's opacity from 0 to 20, the notification seconds to 2, the clip minutes to 2. The slider
+reports that as a change. Only the refresh kept the controls quiet, not the build, so the window
+took the change for a person moving the slider and saved it. The client draws the window again
+after every save, and that draw started **inside the build that was still going**. It emptied the
+page, built the whole of it, and put the log folder box in its own card. The build underneath then
+carried on and stopped when it tried to put that box into a second card. The two builds also took
+kept controls from each other's cards along the way.
+
+It was also a bug in the settings, not only on the screen. The first visit to Settings after a
+start saved the desktop overlay's opacity as 20 and the notification overlay's time as 2 s. It also
+saved the Clips card as its unfilled controls read, which **turned clips off** (the log of
+2026-09-25 says "Keeping the last few minutes is off" 12 ms before the error).
+
+**The rules now:**
+
+- **A draw never starts inside another.** `Render` and `RenderPage` both go through `Draw`. One
+  asked for while a draw is running is remembered and run after it, with the newest snapshot. It
+  does not get mixed into the draw that is already running.
+- **The kept controls are quiet for the whole of a draw**, not just the refresh. That includes the
+  build, because moving a control into the window is what makes it change its own value. `Quiet` is
+  a count rather than an on-off switch, so a refresh inside a draw cannot switch it off early.
+- **Every card detaches each kept control it adds**, in the method that adds it. The log folder
+  box was detached at the top of `RenderSettings` and added nine cards later, which was fine only
+  as long as nothing ran in between.
+
+`tests/Modbot.Companion.App.Tests` opens the window offscreen with the real theme and fonts. It
+presses the sidebar the way a person does, and checks that the first visit writes nothing, builds
+every card and shows what is saved. It also checks that a slider moved by hand is still saved
+afterwards.
+
 ## 5. The custom select
 
 There is not one yet. The Settings page's two lists are Avalonia's own `ComboBox`, styled to the

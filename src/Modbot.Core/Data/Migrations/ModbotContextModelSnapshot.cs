@@ -4347,6 +4347,9 @@ namespace Modbot.Core.Data.Migrations
                     b.HasIndex("State", "FlaggedAt")
                         .HasDatabaseName("ix_automod_flag_state");
 
+                    b.HasIndex("SubjectPlatform", "SubjectId")
+                        .HasDatabaseName("ix_automod_flag_person");
+
                     b.HasIndex("RuleId", "TermKey", "SubjectPlatform", "SubjectId")
                         .HasDatabaseName("ix_automod_flag_rule_person");
 
@@ -5844,6 +5847,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("evidence_store_id");
 
+                    b.Property<string>("FlagRules")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("flag_rules");
+
                     b.Property<int>("GroupAutoInviteAgainAfterDays")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -6741,6 +6748,49 @@ namespace Modbot.Core.Data.Migrations
                         .HasDatabaseName("ix_api_webhook_delivery_webhook_id_id");
 
                     b.ToTable("api_webhook_delivery", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldHeadCount", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CountedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("counted_at");
+
+                    b.Property<string>("Instances")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("instances");
+
+                    b.Property<int?>("Occupants")
+                        .HasColumnType("integer")
+                        .HasColumnName("occupants");
+
+                    b.Property<int?>("PrivateOccupants")
+                        .HasColumnType("integer")
+                        .HasColumnName("private_occupants");
+
+                    b.Property<int?>("PublicOccupants")
+                        .HasColumnType("integer")
+                        .HasColumnName("public_occupants");
+
+                    b.Property<string>("WorldId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("world_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_world_head_count");
+
+                    b.HasIndex("WorldId", "CountedAt")
+                        .HasDatabaseName("ix_world_head_count_world");
+
+                    b.ToTable("world_head_count", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>

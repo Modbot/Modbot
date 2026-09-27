@@ -29,15 +29,32 @@ Next to a name you may see:
 
 | Mark | Meaning |
 |---|---|
-| **Flagged** | Modbot has recorded this person being removed from the group or banned before. A line such as "2 prior actions" follows. |
+| **Flagged** | One of your group's [flag rules](#who-is-flagged) matches this person. What matched follows, such as "2 kicks or bans" or "Nuisance". |
 | **Member** | The person is in your group. |
 | arrived 21:14 | A moderator's client saw them come in at that time. |
 | here before 21:02 | They were already there when watching started, so nobody saw them arrive. Modbot does not guess an earlier time. |
 
-<Callout type="info" title="Flagged here is not the Flags page">
-The **Flagged** mark on Live only counts past removals from the group and bans. It has nothing to
-do with [Flags](/moderation/flags), which come from moderation rules.
-</Callout>
+### Who is flagged
+
+A person is **Flagged** when any rule that is switched on matches them. The same rules decide the
+red row and the **Flagged user joined** card on the [companion overlay](/companion/overlay).
+
+| Rule | Matches | Shown as |
+|---|---|---|
+| **Kicks and bans** | They have been removed from the group or banned at least once. | `2 kicks or bans` |
+| **Warns** | They have been warned in an instance at least this many times. 5 unless you change it. | `5 warns` |
+| **Nuisance rank** | VRChat marks the account as a nuisance. | `Nuisance` |
+| **AutoMod** | An [AutoMod](/moderation/flags) flag on them, or on a Discord account linked to them, that nobody dismissed. Flags from a rule still on trial do not count. | `AutoMod: Slurs` |
+
+When several match, all of them are listed, such as `2 kicks or bans · Nuisance`.
+
+All four are on to start with. To change them: **Settings**, **Moderation**, **Flagged**, for anyone
+with [**Change settings**](/accounts/roles-and-permissions#change-settings). You can turn each rule
+off, set the number of warns (1 to 99), and pick which AutoMod rules count instead of every rule.
+
+A trust rank is known once Modbot has read the person's profile. For someone Modbot has never seen
+before, that can be a little after they join: their row turns red when the rank arrives, but no
+join card is sent that late.
 
 ## Where the numbers come from
 

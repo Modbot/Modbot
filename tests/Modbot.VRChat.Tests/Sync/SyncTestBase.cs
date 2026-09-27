@@ -174,6 +174,13 @@ public abstract class SyncTestBase : IAsyncLifetime
         return await new InstanceHeadCountSync(_gate, context, Clock).RunOnceAsync(Ct);
     }
 
+    /// <summary>One pass of the world head count read, in its own scope.</summary>
+    protected async Task<WorldHeadCountRunResult> RunWorldHeadCountsAsync()
+    {
+        await using var context = Database.NewContext();
+        return await new WorldHeadCountSync(_gate, context, Clock).RunOnceAsync(Ct);
+    }
+
     /// <summary>The member sweep's options for this test. Unpaced page overlap and size as shipped unless a test says otherwise.</summary>
     protected GroupMemberSyncOptions MemberOptions { get; set; } = new();
 

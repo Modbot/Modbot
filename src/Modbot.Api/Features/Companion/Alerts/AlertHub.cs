@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
+using Modbot.Api.Features.Companion.Context;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
 
@@ -157,24 +158,26 @@ public sealed class AlertHub
     }
 
     /// <summary>
-    /// Builds the alert for somebody with prior actions walking into an instance.
+    /// Builds the alert for somebody the flag rules match walking into an instance.
     /// </summary>
     public static FlaggedJoinAlertDto ForFlaggedJoin(
         IModbotClock clock,
         string subjectId,
         string? displayName,
         string instanceId,
-        int priorActions,
+        FlagMatch match,
         TrustRank? trustRank = null)
-        => new(
+    {
+        ArgumentNullException.ThrowIfNull(match);
+
+        return new(
             Guid.NewGuid().ToString("n"),
             subjectId,
             displayName,
             instanceId,
-            priorActions == 1
-                ? "1 prior moderation action"
-                : $"{priorActions} prior moderation actions",
-            priorActions,
+            match.Reason ?? string.Empty,
+            match.PriorActions,
             clock.UtcNow,
             trustRank);
+    }
 }

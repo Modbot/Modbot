@@ -23,7 +23,7 @@ kinds are named, because a screen does something particular with them; everythin
 | `kind` | From | What it means |
 |---|---|---|
 | `person_joined` | `vrchat.instance.join` | Somebody walked into an instance. |
-| `flagged_join` | the same, by somebody kicked or banned before | Sent instead of `person_joined`, with a `reason`. |
+| `flagged_join` | the same, by somebody one of the [flag rules](/moderation/live#who-is-flagged) matches | Sent instead of `person_joined`, with a `reason`. |
 | `person_left` | `vrchat.instance.leave` | Somebody left. |
 | `person_here` | `vrchat.instance.presence` | Somebody was already there when a moderator started watching. |
 | `watch_stopped` | `vrchat.instance.log-stopped` | A moderator's client stopped seeing the instance. |
@@ -59,10 +59,10 @@ Until 2026-09-17 the three group instance kinds were `room_opened`, `room_closed
     "trustRank": "KnownUser",
     "standing": "Flagged",
     "priorActions": 2,
-    "flags": ["2 prior actions"]
+    "flags": ["2 kicks or bans", "Nuisance"]
   },
   "flagged": true,
-  "reason": "2 prior moderation actions",
+  "reason": "2 kicks or bans · Nuisance",
   "byThisDevice": false,
   "data": { }
 }

@@ -3842,6 +3842,96 @@
         ]
       }
     },
+    "/api/settings/flag-rules": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Get flag rules",
+        "description": "The rules that make a person Flagged on the companion and the Live page.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "GetFlagRules",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagRulesView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Update flag rules",
+        "description": "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. With `everyAutoModRule` false, only the flags of the rules in `autoModRules` count.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetFlagRules",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFlagRulesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlagRulesView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/cloud": {
       "get": {
         "tags": [
@@ -10894,6 +10984,63 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/InstanceView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/instances/{id}/world": {
+      "get": {
+        "tags": [
+          "Places"
+        ],
+        "summary": "Get how an instance compared with its world",
+        "description": "How one instance compared with the other instances in its world while it was open: where it ranked by head count at each read of the world's page, the busiest of the others, and how many people were in the world. Read from Modbot's own tables; nothing here calls VRChat. The world's page is read every two minutes while the group has an instance open in that world, so an instance that closed before those reads began has no readings. The other instances' numbers are the world page's list; this instance's is the list's when the list carries it (`listed`), and its own head count otherwise.\n\nNeeds the `ViewAnalytics` permission.",
+        "operationId": "GetInstanceWorld",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceWorldView"
                 }
               }
             }
@@ -23182,6 +23329,73 @@
           }
         }
       },
+      "FlagRuleAutoModOption": {
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "counts"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FlagRulesView": {
+        "required": [
+          "kicksAndBans",
+          "warns",
+          "warnsAtLeast",
+          "nuisance",
+          "autoMod",
+          "everyAutoModRule",
+          "autoModRules"
+        ],
+        "type": "object",
+        "properties": {
+          "kicksAndBans": {
+            "type": "boolean"
+          },
+          "warns": {
+            "type": "boolean"
+          },
+          "warnsAtLeast": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nuisance": {
+            "type": "boolean"
+          },
+          "autoMod": {
+            "type": "boolean"
+          },
+          "everyAutoModRule": {
+            "type": "boolean"
+          },
+          "autoModRules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FlagRuleAutoModOption"
+            }
+          }
+        }
+      },
       "FlagView": {
         "required": [
           "id",
@@ -25913,6 +26127,79 @@
           }
         }
       },
+      "InstanceWorldView": {
+        "required": [
+          "instanceId",
+          "worldId",
+          "from",
+          "to",
+          "readings",
+          "others",
+          "othersTotal",
+          "atPeak",
+          "busiestMinutes",
+          "truncated"
+        ],
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "worldId": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorldReading"
+            }
+          },
+          "others": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OtherInstance"
+            }
+          },
+          "othersTotal": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "atPeak": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorldReading"
+              }
+            ]
+          },
+          "busiestMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
       "InstancesAnalytics": {
         "required": [
           "from",
@@ -26889,6 +27176,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "eighteenPlus": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -28595,6 +28888,111 @@
         "type": "object",
         "properties": {
           "open": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "OtherInstance": {
+        "required": [
+          "instanceId",
+          "number",
+          "groupId",
+          "groupAccessType",
+          "region",
+          "ownGroup",
+          "modbotInstanceId",
+          "name",
+          "peak",
+          "firstSeenAt",
+          "lastSeenAt",
+          "readings"
+        ],
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": "string"
+          },
+          "number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupAccessType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ownGroup": {
+            "type": "boolean"
+          },
+          "modbotInstanceId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "peak": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "firstSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "readings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OtherReading"
+            }
+          }
+        }
+      },
+      "OtherReading": {
+        "required": [
+          "at",
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "people": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -31424,6 +31822,53 @@
           }
         }
       },
+      "SetFlagRulesRequest": {
+        "required": [
+          "kicksAndBans",
+          "warns",
+          "warnsAtLeast",
+          "nuisance",
+          "autoMod",
+          "everyAutoModRule",
+          "autoModRules"
+        ],
+        "type": "object",
+        "properties": {
+          "kicksAndBans": {
+            "type": "boolean"
+          },
+          "warns": {
+            "type": "boolean"
+          },
+          "warnsAtLeast": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nuisance": {
+            "type": "boolean"
+          },
+          "autoMod": {
+            "type": "boolean"
+          },
+          "everyAutoModRule": {
+            "type": "boolean"
+          },
+          "autoModRules": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "SetPublicAddressRequest": {
         "required": [
           "publicAddress"
@@ -33926,6 +34371,85 @@
         "properties": {
           "note": {
             "type": "string"
+          }
+        }
+      },
+      "WorldReading": {
+        "required": [
+          "at",
+          "occupants",
+          "publicOccupants",
+          "privateOccupants",
+          "people",
+          "unsure",
+          "listed",
+          "rank",
+          "of"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "occupants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "publicOccupants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "privateOccupants": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unsure": {
+            "type": "boolean"
+          },
+          "listed": {
+            "type": "boolean"
+          },
+          "rank": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "of": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

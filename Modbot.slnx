@@ -22,6 +22,7 @@
     <Project Path="tests/Modbot.AI.Tests/Modbot.AI.Tests.csproj" />
     <Project Path="tests/Modbot.Analytics.Tests/Modbot.Analytics.Tests.csproj" />
     <Project Path="tests/Modbot.Api.Tests/Modbot.Api.Tests.csproj" />
+    <Project Path="tests/Modbot.Companion.App.Tests/Modbot.Companion.App.Tests.csproj" />
     <Project Path="tests/Modbot.Companion.Tests/Modbot.Companion.Tests.csproj" />
     <Project Path="tests/Modbot.Cloud.Tests/Modbot.Cloud.Tests.csproj" />
     <Project Path="tests/Modbot.Core.Tests/Modbot.Core.Tests.csproj" />

@@ -738,8 +738,9 @@ DrawPage  MW:546-556
 - **Kept controls**: anything a person may be in the middle of using (sliders, lists, text boxes,
   checkboxes, the pairing card) is created once as a field and moved into the new container on a
   rebuild with `DetachFromParent` (`MW:1678`). Refills skip a slider under the pointer or focused,
-  a list that is open, a box that has focus. `_renderingSwitches` stops a refill from echoing back
-  as a save.
+  a list that is open, a box that has focus. `Quiet` — true for the whole of every draw and every
+  refill — stops a control from echoing back as a save, and a draw asked for during another waits
+  for it to finish (`MW.Draw`; render-in-place spec §4.2, added after this survey).
 - **Rebuilt every time**: labels, pills, rows, chips, buttons, tiles, spot buttons.
 - Ignore table (`MW:616-667`):
 
@@ -978,8 +979,9 @@ There are no companion plans in `.agent/plans/`.
 ### 8.2 Where it is expensive
 
 - **Anything that changes when a page rebuilds.** The render-in-place rules are subtle and silent:
-  forget `Parts.Settings`, `DetachFromParent`, `_renderingSwitches` or the refill guards and you get
-  a closing drop-down, a slider that jumps mid-drag, or a save that echoes. Nothing tests the window.
+  forget `Parts.Settings`, `DetachFromParent`, `Quiet` or the refill guards and you get
+  a closing drop-down, a slider that jumps mid-drag, or a save that echoes. Only
+  `tests/Modbot.Companion.App.Tests` (the Settings page) tests the window.
 - **Anything touching Program.cs** (3,176 lines): it is the composition root *and* the controller for
   every card. Each new action threads through `MainWindowActions` (27 delegates, rebuilt every
   second).

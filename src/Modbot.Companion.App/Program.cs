@@ -289,6 +289,9 @@ internal sealed class CompanionHost : IOverlayListener
     /// <summary>Writes the panel's placement half a second after it last changed.</summary>
     private readonly DispatcherTimer _placementSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
 
+    /// <summary>The same for the notification panel, which a controller can now move too.</summary>
+    private readonly DispatcherTimer _notifyPlacementSave = new() { Interval = TimeSpan.FromMilliseconds(500) };
+
     /// <summary>
     /// How often the reading half is given a turn.
     /// </summary>
@@ -347,6 +350,12 @@ internal sealed class CompanionHost : IOverlayListener
     /// is one.
     /// </summary>
     private PopUps? _popUps;
+
+    /// <summary>
+    /// What turns the log's observations into pop-ups and sounds, kept so the joins it holds for a
+    /// trust rank and 18+ mark can be told from the timers.
+    /// </summary>
+    private EventNotifier? _notices;
     private Updates? _updates;
     private CloudCredits? _credits;
     private CloudEventBackup? _cloudBackup;
@@ -1648,10 +1657,16 @@ internal sealed class CompanionHost : IOverlayListener
 
             // The same observations, offered to the pop-up overlay and to the bleep. Both ask the
             // moderator's filters, and everything this adds is off until it is ticked on.
-            notices: new EventNotifier(
+            // A join waits a few seconds for the person's trust rank and 18+ mark when a paired
+            // server covers the instance, since the server only learns of them from this client's
+            // own report.
+            notices: _notices = new EventNotifier(
                 () => observer.ModeratorId,
                 (popUp, kind) => _popUps?.Show(popUp, kind),
-                (kind, about) => _bleep?.Ask(kind, about)));
+                (kind, about) => _bleep?.Ask(kind, about),
+                subjectId => _overlay?.InfoOf(subjectId),
+                _clock,
+                () => _overlay?.CurrentServer is not null));
 
         _engineLoop.Tick += async (_, _) => await CrashGuard.RunAsync("reading VRChat's log", EngineTickAsync);
         _engineLoop.Start();
@@ -1675,6 +1690,10 @@ internal sealed class CompanionHost : IOverlayListener
         {
             var tick = await _engine.TickAsync();
             _consecutiveTickFailures = 0;
+
+            // Joins that were waiting for a trust rank and 18+ mark, once a second even with every
+            // overlay off: the sound waits with the card, and a sound has no overlay to tick it.
+            _notices?.TellWaiting();
             if (_state is not null)
                 _state.ReadingFault = null;
 
@@ -1842,6 +1861,8 @@ internal sealed class CompanionHost : IOverlayListener
             {
                 _overlayHost = OverlayHost.Create(placement: _state?.Settings.Overlay);
                 _overlayHost.KeepLastFrame = _state?.DebugMode is true;
+                _overlayHost.EditMode = _state?.Settings.OverlayEditMode is true;
+                _overlayHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
                 AttachOverlay();
             }
             catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
@@ -1863,6 +1884,7 @@ internal sealed class CompanionHost : IOverlayListener
             // the panel was left), so it is where it was left next time.
             _overlayHost.Tapped += target => _overlay?.Tap(target);
             _overlayHost.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+            _overlayHost.NameTyped += (list, name) => _overlay?.SetName(list, name);
             // Saved once a change has settled rather than on every tick of a drag or a held grip: a
             // panel being moved changes thirty times a second, and the file needs the last one.
             _overlayHost.PlacementChanged += placement =>
@@ -1895,7 +1917,10 @@ internal sealed class CompanionHost : IOverlayListener
     /// </remarks>
     private void StopOverlay()
     {
-        _inputLoop.Stop();
+        // The notification panel is held with the same controllers, so the loop stays while it is up.
+        if (_notifyHost is null)
+            _inputLoop.Stop();
+
         _placementSave.Stop();
 
         _preview?.Close();
@@ -1920,8 +1945,9 @@ internal sealed class CompanionHost : IOverlayListener
     /// </summary>
     /// <remarks>
     /// <para>Its own host, its own texture and its own placement, worked out from the screen spot
-    /// the moderator chose. It takes no controller input at all — it is never pointed at, so the
-    /// controllers are not read for it and no cursor is drawn on it.</para>
+    /// the moderator chose or from where they last put it by hand. The controllers are read for it
+    /// as for the main panel, so it can be picked up, placed and locked, and where it is let go is
+    /// saved.</para>
     /// <para>It shares the drive loop with the main panel, because it is fed by the same reads and
     /// the same live link, and it goes on working when the main panel is switched off — which is
     /// the point of having two (two overlay modes design §1).</para>
@@ -1933,6 +1959,10 @@ internal sealed class CompanionHost : IOverlayListener
         try
         {
             _notifyHost = NotificationHost.Create(placement: settings.ToPlacement());
+            _notifyHost.Home = settings.SpotPlacement();
+            _notifyHost.EditMode = _state?.Settings.OverlayEditMode is true;
+            _notifyHost.PushStep = PushStep(_state?.Settings.OverlayPushSpeed);
+            _notifyHost.PlacementChanged += NotifyPlacementChanged;
             AttachNotifyOverlay();
         }
         catch (Exception ex) when (ex is DllNotFoundException or InvalidOperationException or NotSupportedException)
@@ -1947,11 +1977,46 @@ internal sealed class CompanionHost : IOverlayListener
 
         StartDriver();
         WireOverlayLoops();
+        _inputLoop.Start();
+    }
+
+    /// <summary>
+    /// A controller moved the notification panel or pressed a switch on its bar: kept in the
+    /// settings, and saved once it settles.
+    /// </summary>
+    /// <remarks>
+    /// While it is being carried only the switches are taken, since a panel in a hand is on its way
+    /// somewhere; where it is let go, back on the head, is what is kept. The host already has the
+    /// placement, so it is not placed again from here, which would drop the panel out of the hand.
+    /// </remarks>
+    private void NotifyPlacementChanged(OverlayPlacement placement)
+    {
+        if (_state is null)
+            return;
+
+        var next = _state.Settings.NotifyOverlay.WithPlacement(placement);
+        if (next == _state.Settings.NotifyOverlay)
+            return;
+
+        _state.Settings = _state.Settings with { NotifyOverlay = next };
+        _notifyPlacementSave.Stop();
+        _notifyPlacementSave.Start();
     }
 
     /// <summary>Takes the notification overlay down, leaving the main panel as it was.</summary>
     private void StopNotifyOverlay()
     {
+        if (_overlayHost is null)
+            _inputLoop.Stop();
+
+        // A move not yet written is written now, so switching the panel off does not lose it.
+        if (_notifyPlacementSave.IsEnabled)
+        {
+            _notifyPlacementSave.Stop();
+            if (_state is not null && !CompanionSettings.SaveNotifyOverlay(_settingsPath, _state.Settings.NotifyOverlay))
+                Log.Warning("The notification overlay's settings could not be saved to {Path}", _settingsPath);
+        }
+
         _notifyHost?.Dispose();
         _notifyHost = null;
 
@@ -2045,9 +2110,80 @@ internal sealed class CompanionHost : IOverlayListener
             if (!CompanionSettings.SaveOverlay(_settingsPath, _state.Settings.Overlay))
                 Log.Warning("The panel's placement could not be saved to {Path}", _settingsPath);
         };
+        _notifyPlacementSave.Tick += (_, _) =>
+        {
+            _notifyPlacementSave.Stop();
+            if (_state is null)
+                return;
+
+            if (!CompanionSettings.SaveNotifyOverlay(_settingsPath, _state.Settings.NotifyOverlay))
+                Log.Warning("The notification overlay's settings could not be saved to {Path}", _settingsPath);
+        };
+
+        // The notification panel first: it is drawn over the main one, so a hand it is using is
+        // left out of the main panel's turn and one press does not land on both.
         _inputLoop.Tick += (_, _) => CrashGuard.Run(
             "reading the controllers",
-            () => _overlayHost?.PollInput(TimeSpan.FromMilliseconds(Environment.TickCount64)));
+            () =>
+            {
+                var now = TimeSpan.FromMilliseconds(Environment.TickCount64);
+                _notifyHost?.PollInput(now);
+                _overlayHost?.PollInput(now, _notifyHost?.Busy);
+            });
+    }
+
+    /// <summary>
+    /// The SteamVR page's <strong>Push speed</strong> slider: how fast the thumbstick pushes and
+    /// pulls a carried panel. Saved, then acted on at once.
+    /// </summary>
+    private void SetOverlayPushSpeed(int speed)
+    {
+        speed = CompanionSettings.ClampPushSpeed(speed);
+        if (_state is null || _state.Settings.OverlayPushSpeed == speed)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayPushSpeed = speed };
+
+        if (!CompanionSettings.SaveNumber(_settingsPath, CompanionSettings.OverlayPushSpeedField, speed))
+            Log.Warning("Could not save the push speed to {Path}", _settingsPath);
+
+        if (_overlayHost is not null)
+            _overlayHost.PushStep = PushStep(speed);
+
+        if (_notifyHost is not null)
+            _notifyHost.PushStep = PushStep(speed);
+
+        Render();
+    }
+
+    /// <summary>The Push speed slider's 1 to 10 as metres per poll: a centimetre a step.</summary>
+    private static float PushStep(int? speed)
+        => CompanionSettings.ClampPushSpeed(speed ?? CompanionSettings.DefaultPushSpeed) * 0.01f;
+
+    /// <summary>
+    /// The SteamVR page's <strong>Edit mode</strong> switch: whether the lock and the hand show
+    /// under the headset panels and on the desktop overlay window. Saved, then acted on at once.
+    /// </summary>
+    private void SetOverlayEditMode(bool on)
+    {
+        if (_state is null || _state.Settings.OverlayEditMode == on)
+            return;
+
+        _state.Settings = _state.Settings with { OverlayEditMode = on };
+
+        if (!CompanionSettings.SaveSwitch(_settingsPath, CompanionSettings.OverlayEditModeField, on))
+            Log.Warning("Could not save the edit mode switch to {Path}", _settingsPath);
+
+        if (_overlayHost is not null)
+            _overlayHost.EditMode = on;
+
+        if (_notifyHost is not null)
+            _notifyHost.EditMode = on;
+
+        if (_desktopOverlay is not null)
+            _desktopOverlay.EditMode = on;
+
+        Render();
     }
 
     /// <summary>
@@ -2119,11 +2255,16 @@ internal sealed class CompanionHost : IOverlayListener
             // The group's picture out of the companion's own cache — the same one the window's
             // server cards draw from. The overlay fetches nothing.
             GroupIcon = url => Window.Pictures?.For(url),
+            EditMode = _state.Settings.OverlayEditMode,
         };
 
         _desktopOverlay.Apply(settings);
         _desktopOverlay.PanelTapped += target => _overlay?.Tap(target);
+
+        // The strip's lock and hand: saved and applied like any other change to the window.
+        _desktopOverlay.SwitchPressed += SetDesktopOverlay;
         _desktopOverlay.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+        _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
 
         _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
         _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
@@ -2304,7 +2445,11 @@ internal sealed class CompanionHost : IOverlayListener
         if (_popUps is not null)
             _popUps.Dwell = LongestPopUp();
 
-        _notifyHost?.Place(clamped.ToPlacement());
+        if (_notifyHost is not null)
+        {
+            _notifyHost.Home = clamped.SpotPlacement();
+            _notifyHost.Place(clamped.ToPlacement());
+        }
 
         if (wasOn != clamped.On)
             _notifySwitch?.Set(clamped.On);
@@ -2470,6 +2615,10 @@ internal sealed class CompanionHost : IOverlayListener
             // The instance the log reader last understood. The overlay follows the moderator: the
             // server that manages this instance is the only one it reads from or speaks for.
             _overlay.EnteredInstance(CurrentInstance);
+
+            // When each person got here, from the same read of the same log. The panel shows it
+            // on the Instance list and filters by it; it is never sent.
+            _overlay.ArrivedAt = _engine?.ArrivedAt;
             await _overlay.TickAsync();
 
             // The pop-ups, after the tick that may have made one: what is still within its time,
@@ -2477,6 +2626,13 @@ internal sealed class CompanionHost : IOverlayListener
             // seconds, because a moderator can want one to linger and the other to be brief.
             if (_popUps is not null)
             {
+                // Joins waiting for a trust rank and 18+ mark go up the moment they are in, four
+                // times a second while an overlay runs. A card that went up without them, because
+                // the wait ran out, still has them written onto it if they come while it is up.
+                _notices?.TellWaiting();
+                var overlay = _overlay;
+                EventNotifier.AddInfo(_popUps, subjectId => overlay.InfoOf(subjectId));
+
                 if (_notifyHost is not null)
                 {
                     _notifyHost.Update(new NotificationScreen(
@@ -2638,7 +2794,7 @@ internal sealed class CompanionHost : IOverlayListener
         }
 
         _updates = new Updates(_state);
-        _updates.Start();
+        _state.CanCheckForUpdates = _updates.Start();
     }
 
     /// <summary>
@@ -2756,11 +2912,14 @@ internal sealed class CompanionHost : IOverlayListener
             {
                 SetEventsFilters = SetEventsFilters,
                 SetOverlayOn = SetOverlayOn,
+                SetOverlayEditMode = SetOverlayEditMode,
+                SetOverlayPushSpeed = SetOverlayPushSpeed,
                 SetNotifications = SetNotifications,
                 SetNotificationFilters = SetNotificationFilters,
                 TestBleep = TestBleep,
                 ClosedToTray = ClosedToTray,
                 RestartAsync = RestartAsync,
+                CheckForUpdatesAsync = () => _updates?.CheckNowAsync() ?? Task.FromResult(UpdateCheckOutcome.CannotCheck),
                 SetDesktopOverlay = SetDesktopOverlay,
                 ShowDesktopOverlay = ShowDesktopOverlay,
                 SetNotifyOverlay = SetNotifyOverlay,

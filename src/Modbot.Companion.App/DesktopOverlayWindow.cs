@@ -1,8 +1,10 @@
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Modbot.Companion.Presentation;
 using Modbot.Overlay;
 using Modbot.Overlay.Driving;
@@ -35,6 +37,12 @@ namespace Modbot.Companion.App;
 /// pinned under it, which made the window tall, made the panel small, and told a moderator about
 /// things after the moment had passed. Being told as it happens is the notification overlay's job
 /// now — its own window, in a corner, which this one neither owns nor summons (§7).</para>
+/// <para><strong>The lock and the hand.</strong> The strip carries the same two switches as the bar
+/// under a headset panel. Locked, the strip no longer drags the window. Click-through, a click on
+/// the panel goes to the game underneath instead; the strip itself goes on answering, so the
+/// switch can be turned back off. Windows decides where a click goes before this program hears
+/// of it, so the window watches where the mouse is and lets clicks through everywhere but the
+/// strip.</para>
 /// </remarks>
 internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 {
@@ -58,11 +66,54 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     private OverlayScreen? _drawn;
     private DesktopOverlaySettings _settings = DesktopOverlaySettings.Default;
 
+    // The strip, and its two switches, repainted whenever the settings change.
+    private Control? _head;
+    private readonly Button _lockButton = SwitchButton();
+    private readonly Button _throughButton = SwitchButton();
+
+    private bool _editMode;
+
+    /// <summary>
+    /// Whether the strip shows the lock and the hand. Off by default and set from the window's
+    /// Edit mode switch, as for the headset panels; what they were left at still holds.
+    /// </summary>
+    public bool EditMode
+    {
+        get => _editMode;
+        set
+        {
+            _editMode = value;
+            _lockButton.IsVisible = value;
+            _throughButton.IsVisible = value;
+        }
+    }
+
+    // While click-through is on: where the mouse is, looked at often enough that reaching for the
+    // strip finds it answering, and whether clicks are going through right now.
+    private readonly DispatcherTimer _throughWatch = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    private bool _passingClicks;
+
     /// <summary>A click on the panel, as the target under it. Null is a click on nothing.</summary>
     public event Action<OverlayTarget?>? PanelTapped;
 
+    /// <summary>The lock or the hand on the strip, pressed: the settings as they should now be.</summary>
+    public event Action<DesktopOverlaySettings>? SwitchPressed;
+
     /// <summary>The wheel, or j and k, as whole roster rows.</summary>
     public event Action<int>? RosterScrolled;
+
+    /// <summary>The name searched for, as typed here while the Name filter is open, with its list.</summary>
+    public event Action<OverlayPage, string>? NameTyped;
+
+    /// <summary>
+    /// The name being typed, kept here rather than read back off the drawn screen: the drive
+    /// loop draws four times a second, and two keys pressed between draws would otherwise each
+    /// start from the same old text. Null while no Name filter is open.
+    /// </summary>
+    private string? _typing;
+
+    /// <summary>The list <see cref="_typing"/> belongs to.</summary>
+    private OverlayPage? _typingFor;
 
     public DesktopOverlayWindow()
     {
@@ -102,6 +153,7 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         };
 
         var head = Head();
+        _head = head;
         DockPanel.SetDock(head, Dock.Top);
 
         Content = new DockPanel { Children = { head, body } };
@@ -120,6 +172,31 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         };
 
         KeyDown += OnKeyDown;
+        TextInput += OnTextInput;
+
+        _throughWatch.Tick += (_, _) => WatchTheMouse();
+    }
+
+    /// <summary>The list whose Name filter is open on the screen drawn now, or null.</summary>
+    private OverlayPage? TypingFor
+        => _drawn is { ShownFilters.Open: FilterPart.Name } drawn ? drawn.Page : null;
+
+    /// <summary>Letters go into the name while its filter is open, and are the list's keys otherwise.</summary>
+    private void OnTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (TypingFor is not { } list || string.IsNullOrEmpty(e.Text))
+            return;
+
+        // Control characters are keys, not text; Backspace and Enter are handled as keys.
+        var typed = new string(e.Text.Where(c => !char.IsControl(c)).ToArray());
+        if (typed.Length == 0)
+            return;
+
+        var next = (_typing ?? string.Empty) + typed;
+        _typing = next.Length > ListFilters.LongestName ? next[..ListFilters.LongestName] : next;
+
+        NameTyped?.Invoke(list, _typing);
+        e.Handled = true;
     }
 
     /// <summary>
@@ -141,6 +218,20 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         var close = Ui.Button("Close");
         close.Click += (_, _) => Dismiss();
 
+        _lockButton.Click += (_, _) => SwitchPressed?.Invoke(_settings with { Locked = !_settings.Locked });
+        _throughButton.Click += (_, _) => SwitchPressed?.Invoke(_settings with { ClickThrough = !_settings.ClickThrough });
+        PaintSwitches();
+        _lockButton.IsVisible = _editMode;
+        _throughButton.IsVisible = _editMode;
+
+        var switches = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            Margin = new Thickness(0, 0, 8, 0),
+            Children = { _lockButton, _throughButton },
+        };
+
         var handle = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -151,13 +242,15 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
 
         handle.PointerPressed += (_, e) =>
         {
-            if (e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed)
+            if (!_settings.Locked && e.GetCurrentPoint(handle).Properties.IsLeftButtonPressed)
                 BeginMoveDrag(e);
         };
 
         var row = new DockPanel { LastChildFill = true };
         DockPanel.SetDock(close, Dock.Right);
+        DockPanel.SetDock(switches, Dock.Right);
         row.Children.Add(close);
+        row.Children.Add(switches);
         row.Children.Add(handle);
 
         return new Border
@@ -182,6 +275,15 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
             return false;
 
         _drawn = screen;
+
+        // The name being typed starts from what the list already holds whenever its filter opens,
+        // and is let go when it closes.
+        if (TypingFor != _typingFor)
+        {
+            _typingFor = TypingFor;
+            _typing = _typingFor is null ? null : screen.ShownFilters?.Name ?? string.Empty;
+        }
+
         _groupName.Text = screen.GroupLabel ?? "Not in a group instance";
         _groupName.Foreground = screen.GroupLabel is null ? Ui.T.TextDimBrush : Ui.T.TextBrush;
 
@@ -222,17 +324,119 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     {
     }
 
-    /// <summary>The opacity, and whether the window may be up at all.</summary>
+    /// <summary>The opacity, the lock and the hand, and whether the window may be up at all.</summary>
     public void Apply(DesktopOverlaySettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
         _settings = settings;
         Background = GroundBrush();
+        PaintSwitches();
+        WatchTheMouseWhileNeeded();
 
         if (!settings.On)
             Dismiss();
     }
+
+    private static Button SwitchButton() => new()
+    {
+        Width = Ui.T.Density.ControlHeight,
+        Height = Ui.T.Density.ControlHeight,
+        Padding = new Thickness(6),
+        CornerRadius = new CornerRadius(Ui.T.Density.Radius),
+        BorderThickness = new Thickness(Ui.T.Density.Hairline),
+        HorizontalContentAlignment = HorizontalAlignment.Center,
+        VerticalContentAlignment = VerticalAlignment.Center,
+    };
+
+    /// <summary>The two switches drawn as they stand: the accent colour while on.</summary>
+    private void PaintSwitches()
+    {
+        Paint(_lockButton, _settings.Locked, on => PanelFrame.LockIcon(on, Foreground(on)));
+        Paint(_throughButton, _settings.ClickThrough, on => PanelFrame.HandIcon(on, Foreground(on), Background(on)));
+
+        static IBrush Foreground(bool on) => on ? Ui.T.AccentForegroundBrush : Ui.T.TextBrush;
+
+        static IBrush Background(bool on) => on ? Ui.T.AccentBrush : Ui.T.Surface2Brush;
+
+        static void Paint(Button button, bool on, Func<bool, Control> icon)
+        {
+            button.Background = Background(on);
+            button.BorderBrush = on ? Ui.T.AccentBrush : Ui.T.Border2Brush;
+            button.Content = new Viewbox { Child = icon(on) };
+        }
+    }
+
+    /// <summary>Starts or stops watching the mouse, and lets clicks through again only when it should.</summary>
+    private void WatchTheMouseWhileNeeded()
+    {
+        if (_settings.ClickThrough && IsVisible && OperatingSystem.IsWindows())
+        {
+            _throughWatch.Start();
+            WatchTheMouse();
+            return;
+        }
+
+        _throughWatch.Stop();
+        PassClicks(false);
+    }
+
+    /// <summary>
+    /// Clicks go through everywhere but the strip: over the strip the window takes them, so the
+    /// hand can be pressed again, and anywhere else the game gets them.
+    /// </summary>
+    private void WatchTheMouse()
+    {
+        if (_head is null || !GetCursorPos(out var mouse))
+            return;
+
+        var topLeft = _head.PointToScreen(new Point(0, 0));
+        var bottomRight = _head.PointToScreen(new Point(_head.Bounds.Width, _head.Bounds.Height));
+        var overStrip = mouse.X >= topLeft.X && mouse.X < bottomRight.X && mouse.Y >= topLeft.Y && mouse.Y < bottomRight.Y;
+
+        PassClicks(!overStrip);
+    }
+
+    private void PassClicks(bool pass)
+    {
+        if (_passingClicks == pass || !OperatingSystem.IsWindows())
+            return;
+
+        if (TryGetPlatformHandle()?.Handle is not { } handle || handle == IntPtr.Zero)
+            return;
+
+        try
+        {
+            var style = (long)GetWindowLongPtrW(handle, GwlExStyle);
+            style = pass ? style | WsExTransparent : style & ~WsExTransparent;
+            SetWindowLongPtrW(handle, GwlExStyle, (IntPtr)style);
+            _passingClicks = pass;
+        }
+        catch (EntryPointNotFoundException)
+        {
+            // A Windows without the 64-bit entry points: the panel keeps its clicks.
+        }
+    }
+
+    private const int GwlExStyle = -20;
+    private const long WsExTransparent = 0x00000020;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MousePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out MousePoint point);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtrW(IntPtr window, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtrW(IntPtr window, int index, IntPtr value);
 
     /// <summary>
     /// The shortcut: the window goes by the rule on the settings record, which is where it is
@@ -266,12 +470,15 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
         Show();
         Activate();
         Focus();
+        WatchTheMouseWhileNeeded();
     }
 
     public void Dismiss()
     {
         if (IsVisible)
             Hide();
+
+        WatchTheMouseWhileNeeded();
     }
 
     /// <summary>
@@ -321,6 +528,31 @@ internal sealed class DesktopOverlayWindow : Window, IOverlayPresenter
     /// </remarks>
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        // While a name is being typed, letters are letters: j and k go into it rather than
+        // scrolling. Backspace takes the last character off, and Enter closes the filter.
+        if (TypingFor is { } list)
+        {
+            switch (e.Key)
+            {
+                case Key.Back:
+                    if (_typing is { Length: > 0 } typing)
+                    {
+                        var shorter = new System.Globalization.StringInfo(typing);
+                        _typing = shorter.LengthInTextElements > 1 ? shorter.SubstringByTextElements(0, shorter.LengthInTextElements - 1) : string.Empty;
+                        NameTyped?.Invoke(list, _typing);
+                    }
+
+                    e.Handled = true;
+                    return;
+                case Key.Enter:
+                    PanelTapped?.Invoke(new OverlayTarget.Filter(list, FilterPart.Name));
+                    e.Handled = true;
+                    return;
+                case Key.J or Key.K:
+                    return;
+            }
+        }
+
         switch (e.Key)
         {
             case Key.J or Key.Down:

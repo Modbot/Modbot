@@ -618,6 +618,14 @@ public class Settings
     [Column(TypeName = "jsonb")]
     public string? ReviewThresholds { get; set; }
 
+    /// <summary>
+    /// Which rules make a person Flagged on the companion and the Live page, as a sparse JSON
+    /// document (flagged rules design §3). Null means every default. See <c>FlagRuleSettings</c> in
+    /// <c>Modbot.Api</c> for the fields.
+    /// </summary>
+    [Column(TypeName = "jsonb")]
+    public string? FlagRules { get; set; }
+
     // --- Sync pacing (spec 4.2.1) ---
 
     /// <summary>

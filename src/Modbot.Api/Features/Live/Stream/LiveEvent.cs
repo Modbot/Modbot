@@ -79,13 +79,18 @@ public static class LiveKinds
 /// the shape now so clients do not change again when it does.
 /// </param>
 /// <param name="Standing"><c>Flagged</c>, <c>Staff</c>, <c>Member</c> or <c>Ordinary</c>, as the roster says it.</param>
+/// <param name="EighteenPlus">
+/// Whether they carry Modbot's 18+ mark. Null while their profile has not been read, so "not 18+"
+/// and "not known yet" are told apart.
+/// </param>
 public sealed record LivePerson(
     string Id,
     string? DisplayName,
     string? TrustRank,
     string Standing,
     int PriorActions,
-    IReadOnlyList<string> Flags);
+    IReadOnlyList<string> Flags,
+    bool? EighteenPlus = null);
 
 /// <param name="Platform"><c>VRChat</c>, <c>Discord</c> or <c>Modbot</c>.</param>
 /// <param name="Id">Opaque. Never parsed, never validated (foundation §3.1.1).</param>

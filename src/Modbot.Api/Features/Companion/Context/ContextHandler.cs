@@ -18,7 +18,8 @@ public sealed record RosterMemberDto(
     [property: JsonPropertyName("standing")] string Standing,
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("flags")] IReadOnlyList<string> Flags,
-    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
+    [property: JsonPropertyName("eighteenPlus")] bool? EighteenPlus = null);
 
 public sealed record InstanceContextDto(
     [property: JsonPropertyName("instanceId")] string InstanceId,
@@ -41,8 +42,9 @@ public sealed record UserSummaryDto(
 /// <para><strong>Small on purpose.</strong> The profile summary is deliberately not the full web
 /// profile — an overlay card shows prior actions, roles, join date and current flags, and nothing
 /// that needs scrolling in a headset.</para>
-/// <para><strong>Everything here is derived from this deployment's own fact log</strong>, plus
-/// the trust rank off the stored profile row. No VRChat call is made to answer an overlay read: a
+/// <para><strong>Everything here is derived from this deployment's own records</strong>: the fact
+/// log, the trust rank and the 18+ mark off the stored profile row, and the member list and roles
+/// the syncs keep (<see cref="MembersAndStaff"/>). No VRChat call is made to answer an overlay read: a
 /// moderator glancing at a roster must not be able to spend the group's shared API budget, and
 /// the answer has to arrive in the time a glance takes.</para>
 /// <para><strong>A pairing sees exactly one group's context</strong>, which is the same boundary
@@ -62,10 +64,6 @@ public static class ContextHandler
     /// than this is not a roster any more.
     /// </summary>
     public static readonly TimeSpan RosterWindow = TimeSpan.FromHours(12);
-
-    /// <summary>The fact types that count as a moderation action against somebody.</summary>
-    private static readonly string[] ModerationActions =
-        [FactType.MemberKicked, FactType.MemberBanned];
 
     public static async Task<IResult> ContextAsync(
         int apiVersion,
@@ -115,13 +113,19 @@ public static class ContextHandler
             return Results.Ok(new InstanceContextDto(instanceId, []));
 
         var subjects = people.Here.Select(p => p.UserId).ToList();
-        var priorActions = await CountPriorActionsAsync(database, subjects, ct);
-        var members = await CurrentMembersAsync(database, subjects, ct);
+        var members = await MembersAndStaff.ReadAsync(database, subjects, ct);
         var ranks = await TrustRanksAsync(database, subjects, ct);
+        var eighteenPlus = await EighteenPlusAsync(database, subjects, ct);
+        var flagged = await FlagRules.ReadAsync(database, subjects, ranks, ct);
 
         var roster = people.Here
             .Select(person => Describe(
-                person.UserId, person.DisplayName, priorActions, members, ranks.GetValueOrDefault(person.UserId)))
+                person.UserId,
+                person.DisplayName,
+                flagged,
+                members,
+                ranks.GetValueOrDefault(person.UserId),
+                eighteenPlus.TryGetValue(person.UserId, out var marked) ? marked : null))
             .ToList();
 
         return Results.Ok(new InstanceContextDto(instanceId, roster));
@@ -161,14 +165,25 @@ public static class ContextHandler
             .Select(e => new { e.Type, e.OccurredAt, e.Data })
             .ToListAsync(ct);
 
+        // Read even with no facts on record: a Nuisance rank or a flag on a linked Discord account
+        // still makes somebody Flagged.
+        var match = (await FlagRules.ReadAsync(
+                database, [subjectId], new Dictionary<string, TrustRank?> { [subjectId] = trustRank }, ct))
+            .GetValueOrDefault(subjectId) ?? FlagMatch.None;
+
+        // Asked the way the roster asks, so the card and the row it opened from never disagree.
+        var belonging = await MembersAndStaff.ReadAsync(database, [subjectId], ct);
+        var standing = Standing(match, belonging.IsMember(subjectId), belonging.IsStaff(subjectId));
+
         if (facts.Count == 0)
         {
             // Nothing on record is a perfectly good answer, and saying so is better than a 404 the
             // overlay would have to translate.
-            return Results.Ok(new UserSummaryDto(subjectId, null, "Ordinary", 0, null, [], [], trustRank));
+            return Results.Ok(new UserSummaryDto(
+                subjectId, null, standing, match.PriorActions, null,
+                match.Reasons, [], trustRank));
         }
 
-        var priorActions = facts.Count(f => ModerationActions.Contains(f.Type));
         var joinedAt = facts.FirstOrDefault(f => f.Type == FactType.MemberJoined)?.OccurredAt;
         var displayName = facts.LastOrDefault(f => ReadDisplayName(f.Data) is not null) is { } named
             ? ReadDisplayName(named.Data)
@@ -186,36 +201,16 @@ public static class ContextHandler
                 roles.Remove(role);
         }
 
-        var isMember = facts.LastOrDefault(f => f.Type is FactType.MemberJoined or FactType.MemberLeft)
-            is { Type: FactType.MemberJoined };
-
         return Results.Ok(new UserSummaryDto(
             subjectId,
             displayName,
-            Standing(priorActions, isMember, roles.Count > 0),
-            priorActions,
+            standing,
+            match.PriorActions,
             joinedAt,
-            Flags(priorActions),
+            match.Reasons,
             roles,
             trustRank));
     }
-
-    /// <summary>
-    /// How many moderation actions each of these people already has against them. One grouped
-    /// query rather than one per person: an instance can hold two hundred and forty.
-    /// </summary>
-    public static async Task<Dictionary<string, int>> CountPriorActionsAsync(
-        ModbotContext database,
-        IReadOnlyCollection<string> subjectIds,
-        CancellationToken ct)
-        => await database.Events
-            .AsNoTracking()
-            .Where(e => e.SubjectPlatform == FactPlatform.VRChat
-                     && subjectIds.Contains(e.SubjectId)
-                     && (e.Type == FactType.MemberKicked || e.Type == FactType.MemberBanned))
-            .GroupBy(e => e.SubjectId)
-            .Select(g => new { SubjectId = g.Key, Count = g.Count() })
-            .ToDictionaryAsync(g => g.SubjectId, g => g.Count, StringComparer.Ordinal, ct);
 
     /// <summary>The stored trust rank of each of these people whose tags have been read. One query.</summary>
     internal static async Task<Dictionary<string, TrustRank?>> TrustRanksAsync(
@@ -228,68 +223,58 @@ public static class ContextHandler
             .Select(u => new { u.UserId, u.TrustRank })
             .ToDictionaryAsync(u => u.UserId, u => u.TrustRank, StringComparer.Ordinal, ct);
 
-    /// <summary>Which of these people are group members, as the fact log last said.</summary>
-    internal static async Task<HashSet<string>> CurrentMembersAsync(
+    /// <summary>
+    /// Whether each of these people carries Modbot's 18+ mark, for everybody VRChat has told Modbot
+    /// the age status of, or who has been marked by hand. One query.
+    /// </summary>
+    /// <remarks>
+    /// The mark, not VRChat's own status as last seen: it is what the website and Discord show, and
+    /// it stays once seen even if the person hides it again (user profile sync design §4). Somebody
+    /// whose status has never been read is left out rather than sent as false, so a client can tell
+    /// "not 18+" from "not known yet".
+    /// </remarks>
+    internal static async Task<Dictionary<string, bool>> EighteenPlusAsync(
         ModbotContext database,
         IReadOnlyCollection<string> subjectIds,
         CancellationToken ct)
-    {
-        var membership = await database.Events
+        => await database.VRChatUsers
             .AsNoTracking()
-            .Where(e => e.SubjectPlatform == FactPlatform.VRChat
-                     && subjectIds.Contains(e.SubjectId)
-                     && (e.Type == FactType.MemberJoined || e.Type == FactType.MemberLeft))
-            .OrderBy(e => e.OccurredAt)
-            .Select(e => new { e.SubjectId, e.Type })
-            .ToListAsync(ct);
+            .Where(u => subjectIds.Contains(u.UserId) && (u.AgeVerificationStatus != null || u.Is18PlusVerified))
+            .Select(u => new { u.UserId, u.Is18PlusVerified })
+            .ToDictionaryAsync(u => u.UserId, u => u.Is18PlusVerified, StringComparer.Ordinal, ct);
 
-        var members = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var fact in membership)
-        {
-            if (fact.Type == FactType.MemberJoined)
-                members.Add(fact.SubjectId);
-            else
-                members.Remove(fact.SubjectId);
-        }
-
-        return members;
-    }
-
+    /// <param name="flagged">What <see cref="FlagRules"/> decided for everybody being described.</param>
+    /// <param name="belonging">What <see cref="MembersAndStaff"/> read for everybody being described.</param>
     internal static RosterMemberDto Describe(
         string subjectId,
         string? displayName,
-        Dictionary<string, int> priorActions,
-        HashSet<string> members,
-        TrustRank? trustRank = null)
+        IReadOnlyDictionary<string, FlagMatch> flagged,
+        MembersAndStaff belonging,
+        TrustRank? trustRank = null,
+        bool? eighteenPlus = null)
     {
-        var actions = priorActions.GetValueOrDefault(subjectId);
+        var match = flagged.GetValueOrDefault(subjectId) ?? FlagMatch.None;
 
         return new RosterMemberDto(
             subjectId,
             displayName,
-            Standing(actions, members.Contains(subjectId), isStaff: false),
-            actions,
-            Flags(actions),
-            trustRank);
+            Standing(match, belonging.IsMember(subjectId), belonging.IsStaff(subjectId)),
+            match.PriorActions,
+            match.Reasons,
+            trustRank,
+            eighteenPlus);
     }
 
     /// <summary>
     /// Flagged beats everything: a moderator glancing at a roster needs the row that matters, and
-    /// somebody with prior actions who is also a member is still the row that matters.
+    /// somebody a rule flags who is also a member is still the row that matters.
     /// </summary>
-    private static string Standing(int priorActions, bool isMember, bool isStaff) => (priorActions, isStaff, isMember) switch
+    private static string Standing(FlagMatch match, bool isMember, bool isStaff) => (match.IsFlagged, isStaff, isMember) switch
     {
-        ( > 0, _, _) => "Flagged",
+        (true, _, _) => "Flagged",
         (_, true, _) => "Staff",
         (_, _, true) => "Member",
         _ => "Ordinary",
-    };
-
-    private static IReadOnlyList<string> Flags(int priorActions) => priorActions switch
-    {
-        0 => [],
-        1 => ["1 prior action"],
-        _ => [$"{priorActions} prior actions"],
     };
 
     /// <summary>

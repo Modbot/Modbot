@@ -3,7 +3,7 @@ import { DailyLine, compactNumber, dateTime, minutes, nextSlot } from '@/compone
 import { WorldLink } from '@/components/facts'
 import { api } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
-import { CoverageNote, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
+import { CoverageLine, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -40,6 +40,8 @@ export function Worlds() {
 
       {data && (
         <PanelGrid className="grid-cols-1">
+          <CoverageLine coverage={data.coverage} generatedAt={data.generatedAt} />
+
           {data.presenceReports === 0 ? (
             <PageMessage>No presence reports in this range.</PageMessage>
           ) : data.presenceReports < THIN ? (
@@ -134,7 +136,6 @@ export function Worlds() {
             />
           </Panel>
 
-          <CoverageNote coverage={data.coverage} generatedAt={data.generatedAt} />
         </PanelGrid>
       )}
     </div>

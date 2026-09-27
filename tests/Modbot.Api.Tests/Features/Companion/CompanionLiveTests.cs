@@ -182,7 +182,7 @@ public class CompanionLiveTests
 
         var @event = await NextEventAsync(socket);
         Assert.Equal(LiveKinds.FlaggedJoin, @event.GetProperty("kind").GetString());
-        Assert.Equal("1 prior moderation action", @event.GetProperty("reason").GetString());
+        Assert.Equal("1 kick or ban", @event.GetProperty("reason").GetString());
         Assert.Equal("Flagged", @event.GetProperty("person").GetProperty("standing").GetString());
     }
 

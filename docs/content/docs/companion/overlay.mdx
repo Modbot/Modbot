@@ -82,7 +82,7 @@ People are sorted so the rows that matter come first:
 
 | Dot | Who |
 |---|---|
-| Red | Flagged: someone your group has kicked or banned before. The row shows the count, such as `2 prior actions`. |
+| Red | Flagged: one of your group's [flag rules](/moderation/live#who-is-flagged) matches them. The row shows what matched, such as `2 kicks or bans` or `Nuisance`. |
 | Green | A member of the group. |
 | Grey | Everyone else. |
 
@@ -94,12 +94,14 @@ yet, it says **No roster loaded for this instance.**
 
 ### Flagged user card
 
-When someone your group has kicked or banned before joins the instance you are in, a card appears
-above the roster: **Flagged user joined**, followed by your group's name, then the person's display
-name and a line such as `1 prior moderation action`.
+When someone one of your group's [flag rules](/moderation/live#who-is-flagged) matches joins the
+instance you are in, a card appears above the roster: **Flagged user joined**, followed by your
+group's name, then the person's display name and a line saying what matched, such as
+`1 kick or ban · 5 warns`.
 
-The server sends this card to the other paired moderators in that instance, not to the moderator
-whose client reported the join first.
+Every paired moderator in that instance gets the card, including the one whose client reported the
+join. VRChat's log only says that someone joined; whether your group has kicked or banned them
+before is something only the server knows, so your own client is warned too.
 
 ### Problem banner
 
@@ -138,7 +140,8 @@ The panel can be moved with a controller:
 | Point at the panel | A ring shows where you are pointing. |
 | Squeeze the grip while pointing | The panel comes with your hand. An ordinary hold is enough; you do not have to squeeze hard. Let go and it stays where you left it in the room, or on your wrist if you brought it to your hand. |
 | Thumbstick up or down while holding | Pushes the panel away or pulls it closer. |
-| Thumbstick left or right while holding | Makes it narrower or wider. |
+| Thumbstick left or right while holding | Makes it narrower or wider. Either hand's thumbstick works while one hand holds it. |
+| Squeeze the other grip on the panel while holding | Pull your hands apart to make it bigger, bring them together to make it smaller. |
 | Grip twice quickly on the panel | Puts it back in front of your head, at a readable size. |
 | Any of the above, with the hand the panel is [worn on](#on-your-wrist) | Nothing. That hand ignores the panel it is carrying; use the other one. |
 | Pull the trigger on the panel | Taps what you are pointing at: the alert card to dismiss it, a person's row to open their card, the card to close it, **Save a clip** to keep the last few minutes. |
@@ -146,6 +149,18 @@ The panel can be moved with a controller:
 
 Where you leave the panel, its size, opacity and curve are saved and used next time. The
 **SteamVR** page has the same settings, and **Put it back in front of me**.
+
+### The bar under the panel
+
+While you point at the panel a small bar comes up under it with two buttons:
+
+| Button | What it does |
+|---|---|
+| Lock | The panel can no longer be picked up, moved or resized. Tapping and scrolling still work. Press it again to unlock. The padlock is shut and purple while locked. |
+| Hand | Click-through: the panel ignores your pointer, so pointing and clicking go to VRChat behind it. The bar still answers, so you can press the hand again to turn it off. The hand is struck through and purple while it is on. |
+
+Both are saved with the panel and kept when you restart. The notification panel has the same bar,
+and so does the [desktop overlay](/companion/settings#desktop-overlay), in the strip along its top.
 
 ## On your wrist
 

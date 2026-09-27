@@ -40,8 +40,7 @@ public sealed partial class MainWindow
 
         WireNotifyControls();
 
-        _renderingSwitches = true;
-        try
+        Quietly(() =>
         {
             _notifyOnBox.IsChecked = settings.On;
             Refill(_notifyAcross, settings.Across);
@@ -50,11 +49,7 @@ public sealed partial class MainWindow
             Refill(_notifyWidth, settings.Width);
             Refill(_notifyOpacity, settings.Opacity);
             Refill(_notifySeconds, settings.Seconds);
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
+        });
 
         foreach (var control in new Control[]
             { _notifyOnBox, _notifyAcross, _notifyDown, _notifyDistance, _notifyWidth, _notifyOpacity, _notifySeconds })
@@ -95,7 +90,7 @@ public sealed partial class MainWindow
             lines.Children.Add(stats);
         }
 
-        lines.Children.Add(Ui.Field("Where on the screen", Spots(settings.Spot)));
+        lines.Children.Add(Ui.Field("Where on the screen", Spots(settings.Spot, settings.Placed is not null)));
         lines.Children.Add(Ui.Field($"Across {settings.Across:0.00} m", Stepper(_notifyAcross, 0.02)));
         lines.Children.Add(Ui.Field($"Down {settings.Down:0.00} m", Stepper(_notifyDown, 0.02)));
         lines.Children.Add(Ui.Field($"Distance {settings.Distance:0.00} m", Stepper(_notifyDistance, 0.05)));
@@ -110,15 +105,19 @@ public sealed partial class MainWindow
         _body.Children.Add(Ui.Card(lines, "Notification overlay", pill));
     }
 
-    private Control Spots(ScreenSpot chosen)
+    /// <param name="placedByHand">
+    /// The panel was put somewhere with a controller, so no spot is where it is; choosing one puts
+    /// it back on that spot.
+    /// </param>
+    private Control Spots(ScreenSpot chosen, bool placedByHand)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
 
         foreach (var spot in Enum.GetValues<ScreenSpot>())
         {
-            var button = Ui.Button(NotifyOverlaySettings.Name(spot), primary: spot == chosen);
+            var button = Ui.Button(NotifyOverlaySettings.Name(spot), primary: spot == chosen && !placedByHand);
             var picked = spot;
-            button.Click += (_, _) => _actions.SetNotifyOverlay(NotifySettings with { Spot = picked });
+            button.Click += (_, _) => _actions.SetNotifyOverlay(NotifySettings with { Spot = picked, Placed = null });
             row.Children.Add(button);
         }
 
@@ -143,7 +142,7 @@ public sealed partial class MainWindow
         _notifyOnBox.VerticalAlignment = VerticalAlignment.Center;
         _notifyOnBox.IsCheckedChanged += (_, _) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetNotifyOverlay(NotifySettings with { On = _notifyOnBox.IsChecked == true });
         };
     }
@@ -164,7 +163,7 @@ public sealed partial class MainWindow
 
         slider.ValueChanged += (_, e) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetNotifyOverlay(change(NotifySettings, e.NewValue));
         };
 

@@ -3,7 +3,8 @@ using Modbot.VRChat.Sync;
 namespace Modbot.Api.Features.Analytics;
 
 /// <summary>
-/// Which group roles count as moderation roles.
+/// Which group roles count as moderation roles. The Team page's moderator list and the roster's
+/// Staff rows both read this, so the two never disagree about who is staff.
 /// </summary>
 /// <remarks>
 /// <para>
