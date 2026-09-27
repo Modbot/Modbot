@@ -3,7 +3,9 @@ import { Popover } from 'radix-ui'
 import { MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { ReasonButtons } from '@/components/CaseFileForm'
+import { ReasonButtons, WrittenReasonBox } from '@/components/CaseFileForm'
+import { AddFileButton, BanFileList } from '@/components/moderation/BanFiles'
+import { useBanFiles } from '@/components/moderation/useBanFiles'
 import { NotesBeforeActing } from '@/components/subject/PersonNotes'
 import { Outcome } from '@/components/settings/fields'
 import { Textarea } from '@/components/ui/textarea'
@@ -12,6 +14,7 @@ import {
   ApiError,
   type BanReasonView,
   type CurrentUser,
+  type EvidenceDelivery,
   type ModerationActionName,
   type ModerationActionResult,
 } from '@/lib/api'
@@ -22,7 +25,8 @@ import {
   resultText,
   type PersonStanding,
 } from '@/lib/moderationActions'
-import { go } from '@/lib/router'
+import { can } from '@/lib/permissions'
+import { openCase } from '@/lib/subject'
 
 const SEND: Record<ModerationActionName, (body: Parameters<typeof api.kickPerson>[0]) => Promise<ModerationActionResult>> = {
   kick: api.kickPerson,
@@ -108,6 +112,7 @@ export function ModerationActions({
       <Dialog open={open !== null} onOpenChange={(next) => !next && setOpen(null)}>
         {open !== null && (
           <ConfirmAction
+            me={me}
             action={open}
             userId={person.userId ?? ''}
             name={name ?? person.userId ?? ''}
@@ -122,6 +127,7 @@ export function ModerationActions({
 }
 
 function ConfirmAction({
+  me,
   action,
   userId,
   name,
@@ -129,6 +135,7 @@ function ConfirmAction({
   onClose,
   onDone,
 }: {
+  me: CurrentUser
   action: ModerationActionName
   userId: string
   name: string
@@ -149,12 +156,30 @@ function ConfirmAction({
   const [problem, setProblem] = useState<string | null>(null)
   const [result, setResult] = useState<ModerationActionResult | null>(null)
 
+  // A ban is the write-up: its note is the case file's "What happened", and screenshots picked
+  // here are attached to the case file the ban writes (UX review finding 2). Kick and unban write
+  // no case file, so they have nothing to attach to.
+  const writesCaseFile = action === 'ban'
+  const [delivery, setDelivery] = useState<EvidenceDelivery | null>(null)
+  const files = useBanFiles()
+
   useEffect(() => {
     api
       .banReasons()
       .then((list) => setReasons(list.reasons.filter((r) => r.isActive)))
       .catch(() => setReasons([]))
   }, [])
+
+  useEffect(() => {
+    if (!writesCaseFile || !can(me, 'UploadEvidence')) return
+    api
+      .evidenceDelivery()
+      .then(setDelivery)
+      .catch(() => setDelivery(null))
+  }, [writesCaseFile, me])
+
+  // A store that is not set up has nothing to offer; one that is refusing says why beside the button.
+  const attachable = delivery?.configured ? delivery : null
 
   // The server decides both of these too; the browser only knows whether a ban is in front of it.
   // A group that requires a reason on kicks gets the server's 400 and the message with it.
@@ -169,6 +194,12 @@ function ConfirmAction({
     SEND[action]({ userId, key, reasonIds: picked, note })
       .then((r) => {
         setResult(r)
+        if (writesCaseFile)
+          files.settle(
+            r.done && r.caseId
+              ? { caseId: r.caseId }
+              : { message: r.done ? 'Not attached: no case file was written.' : 'Not attached: nothing was banned.' },
+          )
         if (r.done) onDone?.(r)
       })
       .catch((e: unknown) =>
@@ -201,14 +232,36 @@ function ConfirmAction({
               <ReasonButtons reasons={reasons} picked={picked} onChange={setPicked} />
             )}
 
-            <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-              <span className="text-muted-foreground">Note {needsNote ? '(required)' : '(optional)'}</span>
-              <Textarea
-                rows={3}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </label>
+            {writesCaseFile ? (
+              <WrittenReasonBox reasons={reasons ?? []} picked={picked} value={note} onChange={setNote} rows={3} />
+            ) : (
+              <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+                <span className="text-muted-foreground">Note {needsNote ? '(required)' : '(optional)'}</span>
+                <Textarea
+                  rows={3}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </label>
+            )}
+
+            {attachable && (
+              <div className="flex flex-col gap-2">
+                <BanFileList items={files.items} onRemove={sending ? undefined : files.remove} />
+                <div>
+                  <AddFileButton
+                    delivery={attachable}
+                    label="Add screenshot or video"
+                    onPick={(file) => files.add(file, attachable)}
+                  />
+                </div>
+                {!attachable.uploadsAllowed && (
+                  <p className="text-warn" style={{ fontSize: 'var(--text-small)' }}>
+                    Uploads are refused right now: {attachable.storeExplanation}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center justify-end gap-2">
               <Button size="sm" variant="outline" onClick={onClose} disabled={sending}>
@@ -230,11 +283,24 @@ function ConfirmAction({
 
         {result !== null && (
           <>
-            <p className={result.done ? '' : 'text-destructive'}>{resultText(action, result)}</p>
+            <p className={result.done ? '' : 'text-destructive'}>
+              {resultText(action, result)}
+              {writesCaseFile && result.done && result.caseId ? ' Case file written.' : ''}
+            </p>
+
+            {writesCaseFile && <BanFileList items={files.items} />}
 
             <div className="flex flex-wrap justify-end gap-2">
-              {/* A ban writes a case file and the server hands back its id. Offered here, so the
-                  screenshot can be attached without searching for the person all over again. */}
+              {/* A ban writes a case file and the server hands back its id. Offered here, so another
+                  screenshot can be attached without searching for the person all over again, and
+                  the case file opens over the page rather than instead of it. */}
+              {result.done && result.caseId && attachable && (
+                <AddFileButton
+                  delivery={attachable}
+                  label="Add another screenshot"
+                  onPick={(file) => files.add(file, attachable)}
+                />
+              )}
               {result.done && result.caseId && (
                 <Button
                   size="sm"
@@ -242,14 +308,14 @@ function ConfirmAction({
                   onClick={() => {
                     const caseId = result.caseId!
                     onClose()
-                    go(`/cases/${encodeURIComponent(caseId)}`)
+                    openCase(caseId)
                   }}
                 >
                   Open the case file
                 </Button>
               )}
               <Button size="sm" onClick={onClose}>
-                Close
+                {writesCaseFile && result.done ? 'Done' : 'Close'}
               </Button>
             </div>
           </>
