@@ -1052,6 +1052,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("failed_fingerprint");
 
+                    b.Property<string>("MissingGroupPermission")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("missing_group_permission");
+
                     b.Property<DateTimeOffset?>("OccurrenceStartsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurrence_starts_at");
@@ -6091,6 +6096,14 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<DateTimeOffset?>("UserProfilePolledAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("user_profile_polled_at");
+
+                    b.PrimitiveCollection<string>("VRChatAccountPermissions")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("vr_chat_account_permissions");
+
+                    b.PrimitiveCollection<string>("VRChatAccountRoleIds")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("vr_chat_account_role_ids");
 
                     b.Property<string>("VRChatAuthCookieEncrypted")
                         .HasColumnType("text")

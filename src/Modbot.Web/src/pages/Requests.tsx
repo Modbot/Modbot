@@ -17,11 +17,14 @@ import {
   type JoinRequestAnswer,
   type JoinRequestList,
   type JoinRequestRow,
+  type MissingGroupPermission,
   type ModerationActionResult,
 } from '@/lib/api'
 import { formatDay } from '@/lib/format'
 import { confirmTitle, historyNote, mayAnswer, resultText, rowIsAnswered } from '@/lib/joinRequests'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { missingPermissionOf } from '@/lib/vrchatPermissions'
+import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { Marks } from '@/pages/Members'
 
 const PAGE_SIZE = 50
@@ -40,6 +43,7 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
   const [page, setPage] = useState(1)
   const [list, setList] = useState<JoinRequestList | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [missing, setMissing] = useState<MissingGroupPermission | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Bumped by Refresh. The queue changes underneath a moderator whenever anybody answers one in
@@ -62,10 +66,12 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
         setList(next)
         setAnswered([])
         setError(null)
+        setMissing(null)
       })
       .catch((e: unknown) => {
         if (cancelled) return
         setList(null)
+        setMissing(e instanceof ApiError ? missingPermissionOf(e.detail) : null)
         setError(
           e instanceof ApiError
             ? e.status === 403
@@ -105,7 +111,7 @@ export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject
 
       <Card>
         {error ? (
-          <EmptyRow tone="danger">{error}</EmptyRow>
+          <EmptyRow tone="danger">{missing ? <VRChatPermissionMissing missing={missing} /> : error}</EmptyRow>
         ) : loading && !list ? (
           <EmptyRow>Loading…</EmptyRow>
         ) : rows.length === 0 ? (
@@ -259,7 +265,13 @@ function ConfirmAnswer({
         if (rowIsAnswered(r)) onAnswered(row.userId)
       })
       .catch((e: unknown) =>
-        setProblem(e instanceof ApiError ? e.message : 'Modbot could not reach VRChat.'),
+        setProblem(
+          e instanceof ApiError
+            ? e.status === 403
+              ? "You don't have permission to answer join requests."
+              : e.message
+            : 'Modbot could not reach VRChat.',
+        ),
       )
       .finally(() => setSending(false))
   }
@@ -322,9 +334,13 @@ function ConfirmAnswer({
 
         {result !== null && (
           <>
-            <p className={result.done || result.gone ? '' : 'text-destructive'}>
-              {resultText(answer, result)}
-            </p>
+            {!result.done && result.missingGroupPermission ? (
+              <VRChatPermissionMissing missing={result.missingGroupPermission} className="text-destructive" />
+            ) : (
+              <p className={result.done || result.gone ? '' : 'text-destructive'}>
+                {resultText(answer, result)}
+              </p>
+            )}
 
             <div className="flex justify-end">
               <Button size="sm" onClick={onClose}>

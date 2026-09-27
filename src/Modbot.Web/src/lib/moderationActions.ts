@@ -112,3 +112,12 @@ export function resultText(
 function at(action: ModerationActionName): OfferedAction {
   return { action, label: LABELS[action], destructive: action !== 'unban' }
 }
+
+/**
+ * What a 403 from Modbot itself says: the person lacks the Modbot permission for this action. Not
+ * VRChat refusing, which comes back as a result instead.
+ */
+export function noPermissionText(action: ModerationActionName): string {
+  const verb: Record<ModerationActionName, string> = { kick: 'kick', ban: 'ban', unban: 'unban' }
+  return `You don't have permission to ${verb[action]} people.`
+}

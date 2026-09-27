@@ -1519,6 +1519,8 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb");
             entity.Property(e => e.ManagedGroupLanguages).HasColumnType("jsonb");
             entity.Property(e => e.ManagedGroupLinks).HasColumnType("jsonb");
+            entity.Property(e => e.VRChatAccountRoleIds).HasColumnType("jsonb");
+            entity.Property(e => e.VRChatAccountPermissions).HasColumnType("jsonb");
 
             // Written out rather than left to the CLR default, so a row that existed before this
             // feature reads as "everybody who gets past the checks that are not rules" rather
@@ -2032,6 +2034,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.SentFingerprint).HasMaxLength(64);
             entity.Property(e => e.FailedFingerprint).HasMaxLength(64);
             entity.Property(e => e.Error).HasMaxLength(1024);
+            entity.Property(e => e.MissingGroupPermission).HasMaxLength(64);
 
             entity.HasOne<CalendarEvent>()
                 .WithMany()

@@ -113,6 +113,10 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         // The join queue and the two answers to one of it, over the same scripted gate.
         builder.Services.AddSingleton<Modbot.VRChat.Moderation.GroupJoinRequests>();
 
+        // The group's own page: its profile and its posts, over the same scripted gate.
+        builder.Services.AddSingleton<Modbot.VRChat.GroupPage.GroupProfile>();
+        builder.Services.AddSingleton<Modbot.VRChat.GroupPage.GroupPosts>();
+
         builder.Services.AddSingleton<ISecretProtector>(services =>
         {
             using var scope = services.CreateScope();

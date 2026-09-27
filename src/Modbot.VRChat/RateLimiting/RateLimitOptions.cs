@@ -231,6 +231,15 @@ public static class VRChatRateLimits
     /// </summary>
     public const string GroupInvitesLane = "groups.invites";
 
+    /// <summary>Changing the group's own page (<see cref="VRChatEndpointClass.GroupsEdit"/>).</summary>
+    public const string GroupsEditLane = "groups.edit";
+
+    /// <summary>Reading the group's posts (<see cref="VRChatEndpointClass.GroupsPosts"/>).</summary>
+    public const string GroupsPostsLane = "groups.posts";
+
+    /// <summary>Posting, changing and deleting a post (<see cref="VRChatEndpointClass.GroupsPostsWrite"/>).</summary>
+    public const string GroupsPostsWriteLane = "groups.posts.write";
+
     /// <summary>
     /// The backstop for what a moderator presses. Never entered as a queue -- a backstop is only
     /// ever an ancestor -- but every class names a lane, and this one names its own so nothing
@@ -409,6 +418,34 @@ public static class VRChatRateLimits
                 VRChatEndpointClass.GroupsRequestsAnswer, GroupsRequestsAnswerLane,
                 HardMaxPerSecond: PerSeconds(2), DefaultCeilingPerSecond: CeilingFor(PerSeconds(2)),
                 Backstop: VRChatEndpointClass.Interactive,
+                ResourceScoped: true),
+
+            // NOT MEASURED -- changing the group's own page, PUT /groups/{groupId}. One per ten
+            // seconds: a guess meant to be too low, sent only when somebody presses Save. Its own
+            // lane; scoped to the group; on the global backstop rather than the interactive one,
+            // because the room spec 4.3.5 keeps for what a moderator presses is for moderation,
+            // and a new description can wait a moment behind a sweep where a ban cannot.
+            [VRChatEndpointClass.GroupsEdit] = new(
+                VRChatEndpointClass.GroupsEdit, GroupsEditLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
+                ResourceScoped: true),
+
+            // NOT MEASURED -- reading the group's posts, GET /groups/{groupId}/posts. groups.read's
+            // 0.2 req/s, the conservative reading spec 4.3.4.1 gives an unmeasured endpoint that
+            // returns group data. One request when the Posts tab opens, per page and per Refresh;
+            // nothing polls it. Interactive backstop, like the join queue: somebody opened a page.
+            [VRChatEndpointClass.GroupsPosts] = new(
+                VRChatEndpointClass.GroupsPosts, GroupsPostsLane,
+                HardMaxPerSecond: 0.2, DefaultCeilingPerSecond: CeilingFor(0.2),
+                Backstop: VRChatEndpointClass.Interactive,
+                ResourceScoped: true),
+
+            // NOT MEASURED -- posting, changing and deleting a post. One per ten seconds, shared by
+            // the three; global backstop for the reason groups.edit gives. Apart from the read, so
+            // a Refresh never holds up a Post, and a 429 on either leaves the other working.
+            [VRChatEndpointClass.GroupsPostsWrite] = new(
+                VRChatEndpointClass.GroupsPostsWrite, GroupsPostsWriteLane,
+                HardMaxPerSecond: PerSeconds(10), DefaultCeilingPerSecond: CeilingFor(PerSeconds(10)),
                 ResourceScoped: true),
 
             // A request forwarded as it was written (VRChat proxy design). The limiter cannot see

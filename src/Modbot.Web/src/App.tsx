@@ -42,6 +42,8 @@ import { DiscordMembers } from '@/pages/DiscordMembers'
 import { Members } from '@/pages/Members'
 import { Requests } from '@/pages/Requests'
 import { People } from '@/pages/People'
+import { GroupPosts } from '@/pages/analytics/GroupPosts'
+import { GroupSettings } from '@/pages/analytics/GroupSettings'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
 import { MyServer } from '@/pages/analytics/MyServer'
@@ -71,7 +73,10 @@ const TITLES: Record<PageId, string> = {
   'analytics-server': 'Discord',
   'analytics-team': 'Team',
   'analytics-worlds': 'Worlds',
-  'analytics-instances': 'Instances',
+  // Tabs of the VRChat page, so they carry its name, as the sidebar does.
+  'analytics-instances': 'VRChat',
+  'group-posts': 'VRChat',
+  'group-settings': 'VRChat',
   reviews: 'Reviews',
   health: 'Health',
   logs: "Modbot's log",
@@ -103,6 +108,8 @@ const PATHS: Record<PageId, string> = {
   'analytics-team': '/analytics/team',
   'analytics-worlds': '/analytics/worlds',
   'analytics-instances': '/analytics/instances',
+  'group-posts': '/analytics/group/posts',
+  'group-settings': '/analytics/group/settings',
   reviews: '/reviews',
   health: '/health',
   logs: '/logs',
@@ -523,7 +530,9 @@ function Shell({
             <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
           )}
           {page === 'analytics-worlds' && <Worlds />}
-          {page === 'analytics-instances' && <Instances />}
+          {page === 'analytics-instances' && <Instances me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-posts' && <GroupPosts me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-settings' && <GroupSettings me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
           {page === 'health' && <Health />}
           {page === 'logs' && <Logs />}

@@ -1151,6 +1151,20 @@ export type ModerationActionResult = {
    * say. Nothing failed; the row was out of date.
    */
   gone: boolean
+  /** Set when VRChat refused because Modbot's own VRChat account lacks a group permission. */
+  missingGroupPermission?: MissingGroupPermission | null
+}
+
+/**
+ * VRChat refused a group action because Modbot's own VRChat account lacks a group permission.
+ * `permission` is VRChat's id for it, or null when Modbot does not know which one; `roles` are the
+ * account's group roles by name, or null when Modbot has not read them.
+ */
+export type MissingGroupPermission = {
+  permission: string | null
+  groupId: string
+  roles: string[] | null
+  said: string | null
 }
 
 /**
@@ -1368,6 +1382,62 @@ export type GroupAnalytics = {
 }
 
 /** The group as its own VRChat page shows it, from what the group-info sync last read. */
+/** Who can join the group, in VRChat's words. */
+export type JoinState = 'open' | 'request' | 'invite' | 'closed'
+
+/** A change to the group's profile on VRChat. A field left out is kept as it is. */
+export type GroupProfileEdit = {
+  name?: string
+  description?: string
+  rules?: string
+  languages?: string[]
+  links?: string[]
+  joinState?: JoinState
+}
+
+/** Who can see a post: the group's members, or everyone. */
+export type PostVisibility = 'group' | 'public'
+
+/** One of the group's posts on VRChat. */
+export type GroupPostRow = {
+  id: string
+  title: string | null
+  text: string | null
+  authorId: string | null
+  /** From the profiles Modbot has already read; null when it has none for the author. */
+  authorName: string | null
+  imageUrl: string | null
+  /** Sent back with an edit so the picture stays. */
+  imageId: string | null
+  visibility: PostVisibility
+  /** Only these roles see it. Empty means every member. */
+  roleIds: string[]
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+export type GroupRoleChoice = { id: string; name: string }
+
+export type GroupPostList = {
+  posts: GroupPostRow[]
+  total: number
+  page: number
+  pageSize: number
+  roles: GroupRoleChoice[]
+  readAt: string
+}
+
+/** A new post, or the whole of a post being changed (`id` set). */
+export type GroupPostBody = {
+  id?: string | null
+  title: string
+  text: string
+  visibility: PostVisibility
+  roleIds: string[]
+  notify?: boolean
+  imageId?: string | null
+}
+
 export type GroupInfo = {
   id: string | null
   name: string | null
@@ -1383,6 +1453,8 @@ export type GroupInfo = {
   languages: string[]
   /** Absolute `http` or `https` addresses only. */
   links: string[]
+  /** Who can join, in VRChat's words. Null before the first read. */
+  joinState: JoinState | null
   /** The newest reading's member count, or null before the first. */
   members: number | null
   online: number | null
@@ -2098,6 +2170,8 @@ export type SyncHealth = {
   logs?: LogHealth | null
   /** The last report to Modbot Cloud. Null when this server is set not to talk to Cloud. */
   cloudReport?: CloudReportHealth | null
+  /** Null until the group-info poll has read the account's permissions. */
+  vrChatGroupPermissions?: VRChatGroupPermissionsHealth | null
   now: string
 }
 
@@ -2243,7 +2317,21 @@ export type AiCallsHealth = {
 
 export type CalendarHealth = {
   missingManageEvents: boolean
-  problems: { eventId: string; title: string; place: string; error: string; at: string | null }[]
+  problems: {
+    eventId: string
+    title: string
+    place: string
+    error: string
+    at: string | null
+    missingGroupPermission?: MissingGroupPermission | null
+  }[]
+}
+
+/** The VRChat group permissions Modbot uses that its own VRChat account lacks. */
+export type VRChatGroupPermissionsHealth = {
+  groupId: string
+  missing: string[]
+  roles: string[] | null
 }
 
 export type EmailHealth = {
@@ -4327,6 +4415,17 @@ export const api = {
   groupMemberCount: (range: MemberCountRange) =>
     request<GroupMemberCountSeries>(`/api/analytics/group/member-count?range=${range}`),
   groupInfo: () => request<GroupInfo>('/api/analytics/group/info'),
+  // The group's own page on VRChat. Each is one request to VRChat, made because somebody pressed
+  // something; nothing here is called on a timer.
+  updateGroupProfile: (edit: GroupProfileEdit) =>
+    request<GroupInfo>('/api/group/profile', { method: 'PUT', body: JSON.stringify(edit) }),
+  groupPosts: (page = 1) => request<GroupPostList>(`/api/group/posts?page=${page}`),
+  createGroupPost: (body: GroupPostBody) =>
+    request<{ post: GroupPostRow }>('/api/group/posts', { method: 'POST', body: JSON.stringify(body) }),
+  updateGroupPost: (body: GroupPostBody) =>
+    request<{ post: GroupPostRow }>('/api/group/posts', { method: 'PUT', body: JSON.stringify(body) }),
+  deleteGroupPost: (id: string, title: string | null) =>
+    request<void>('/api/group/posts/delete', { method: 'POST', body: JSON.stringify({ id, title }) }),
   teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),

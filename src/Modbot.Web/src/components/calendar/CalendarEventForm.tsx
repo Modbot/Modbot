@@ -24,18 +24,21 @@ const OTHER_WORLD = '__other__'
 /** The create and edit form for one event (calendar design §2). */
 export function CalendarEventForm({
   event,
+  initial,
   categories,
   platforms,
   onClose,
   onSaved,
 }: {
   event: CalendarEvent | null
+  /** What a new event starts with: a time drawn on the calendar, or a copy of another event. */
+  initial?: CalendarEventInput
   categories: string[]
   platforms: string[]
   onClose: () => void
   onSaved: (saved: CalendarEvent) => void
 }) {
-  const [input, setInput] = useState<CalendarEventInput>(() => (event ? inputFrom(event) : blankEvent(new Date())))
+  const [input, setInput] = useState<CalendarEventInput>(() => initial ?? (event ? inputFrom(event) : blankEvent(new Date())))
   const [worlds, setWorlds] = useState<CalendarWorld[]>([])
   const [typedWorld, setTypedWorld] = useState(false)
   // Kept as typed, so a comma can be typed; split when saving.

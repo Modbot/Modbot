@@ -62,6 +62,13 @@ public static class AuditVisibility
         [FactType.GroupAutoInviteFailed] = AuditCategory.Moderation,
         [FactType.GroupInfoChanged] = AuditCategory.Moderation,
 
+        // The group's page changed from Modbot, beside VRChat's own record of the same change:
+        // the moderation log is where "who changed the rules" is looked for.
+        [FactType.GroupProfileChanged] = AuditCategory.Moderation,
+        [FactType.GroupPostPosted] = AuditCategory.Moderation,
+        [FactType.GroupPostChanged] = AuditCategory.Moderation,
+        [FactType.GroupPostRemoved] = AuditCategory.Moderation,
+
         // The first read of each list: a headcount with a date on it, which is membership
         // history in the same sense the group-info baseline is.
         [FactType.MembersSnapshot] = AuditCategory.Moderation,

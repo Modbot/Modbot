@@ -128,6 +128,7 @@ Name: `ViewAnalytics`
 
 - The analytics pages: **Team**, **VRChat**, **Worlds**, **Instances** and **Discord**. See
   [Analytics](/analytics).
+- The group's posts, on the **VRChat** page's **Posts** tab.
 - The world and instance popups.
 - [Insights](/ai/insights) on the **VRChat** analytics page.
 
@@ -351,6 +352,32 @@ A sync can set the mark but never clears it, so clearing it is always a person's
 recorded with their name.
 
 ## Administration
+
+### Edit the group's profile
+
+Name: `EditGroupProfile`
+
+- Changes the group's **Languages**, **Links** and **About this group** in place on the **VRChat**
+  page's **Overview**.
+- Opens the **VRChat** page's **Settings** tab and changes everything on it: the group's name,
+  description, rules, languages, links and who can join. See
+  [Analytics](/analytics#settings).
+
+Each change goes to VRChat as Modbot's VRChat account, which needs the matching group permission in
+the group's roles on VRChat. Every change is written to the audit log with who made it.
+
+Needs **See analytics** as well, to open the page.
+
+Not in the built-in Moderator or Viewer roles.
+
+### Manage group posts
+
+Name: `ManageGroupPosts`
+
+- Posts in the group on VRChat, changes a post and deletes one, from the **VRChat** page's
+  **Posts** tab. See [Analytics](/analytics#posts).
+
+Reading the posts needs only **See analytics**. Not in the built-in Moderator or Viewer roles.
 
 ### Manage calendar
 

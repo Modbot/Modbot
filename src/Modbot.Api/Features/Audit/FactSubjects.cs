@@ -37,6 +37,10 @@ public static class FactSubjects
 
         // About the managed group as a whole, not about anybody in it.
         [FactType.GroupInfoChanged] = SubjectKind.Group,
+        [FactType.GroupProfileChanged] = SubjectKind.Group,
+        [FactType.GroupPostPosted] = SubjectKind.Group,
+        [FactType.GroupPostChanged] = SubjectKind.Group,
+        [FactType.GroupPostRemoved] = SubjectKind.Group,
         [FactType.MembersSnapshot] = SubjectKind.Group,
         [FactType.BansSnapshot] = SubjectKind.Group,
         [FactType.GroupPostCreated] = SubjectKind.Group,

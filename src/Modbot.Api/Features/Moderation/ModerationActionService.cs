@@ -167,9 +167,9 @@ public sealed class ModerationActionService
         var (row, alreadyRan) = await ClaimAsync(action, key, userId, groupId, caller, reasons, note, ct);
 
         if (alreadyRan)
-            return Describe(row, repeat: true);
+            return Describe(row, repeat: true, MissingPermissionOf(row, settings));
 
-        return await SendAsync(row, action, userId, groupId, caller, reasons, note, ct);
+        return await SendAsync(row, action, userId, groupId, caller, reasons, note, settings, ct);
     }
 
     // ── The outbound call, and everything that follows from its answer ──────────────────────
@@ -182,9 +182,10 @@ public sealed class ModerationActionService
         Caller caller,
         IReadOnlyList<BanReason> reasons,
         string note,
+        Modbot.Core.Data.Entities.Settings settings,
         CancellationToken ct)
     {
-        var (accepted, statusCode, message, rateLimited) = await AskVRChatAsync(action, groupId, userId, ct);
+        var (accepted, statusCode, message, rateLimited, missing) = await AskVRChatAsync(action, groupId, userId, settings, ct);
 
         var now = _clock.UtcNow;
 
@@ -197,7 +198,7 @@ public sealed class ModerationActionService
         if (!accepted)
         {
             await RecordFailureAsync(row, action, userId, caller, reasons, note, message, statusCode, now, ct);
-            return Describe(row, repeat: false);
+            return Describe(row, repeat: false, missing);
         }
 
         var factId = await RecordSuccessAsync(row, action, userId, groupId, caller, reasons, note, now, ct);
@@ -214,30 +215,30 @@ public sealed class ModerationActionService
 
         await _db.SaveChangesAsync(ct);
 
-        return Describe(row, repeat: false);
+        return Describe(row, repeat: false, missing: null);
     }
 
-    private async Task<(bool Accepted, int StatusCode, string? Message, bool RateLimited)> AskVRChatAsync(
-        string action, string groupId, string userId, CancellationToken ct)
+    private async Task<(bool Accepted, int StatusCode, string? Message, bool RateLimited, MissingGroupPermission? Missing)> AskVRChatAsync(
+        string action, string groupId, string userId, Modbot.Core.Data.Entities.Settings settings, CancellationToken ct)
     {
         switch (action)
         {
             case Kick:
             {
                 var result = await _vrchat.KickAsync(groupId, userId, ct);
-                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind);
+                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind, result.RawResponse);
             }
 
             case Ban:
             {
                 var result = await _vrchat.BanAsync(groupId, userId, ct);
-                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind);
+                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind, result.RawResponse);
             }
 
             case Unban:
             {
                 var result = await _vrchat.UnbanAsync(groupId, userId, ct);
-                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind);
+                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind, result.RawResponse);
             }
 
             case Approve or Reject:
@@ -254,24 +255,54 @@ public sealed class ModerationActionService
                 // button being pressed. Said in words, because "Not Found" in front of a
                 // moderator reads as a bug in Modbot (join requests design §5).
                 if (!result.Success && result.StatusCode == 404)
-                    return (false, 404, Gone, false);
+                    return (false, 404, Gone, false, null);
 
-                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind);
+                return Read(result.Success, result.StatusCode, result.ErrorMessage, result.IsRateLimited, result.Kind, result.RawResponse);
             }
 
             default:
                 throw new ModerationRefused(400, $"'{action}' is not something Modbot can do.");
         }
 
-        (bool, int, string?, bool) Read(
-            bool success, int statusCode, string? error, bool rateLimited, VRChatFailureKind kind)
+        (bool, int, string?, bool, MissingGroupPermission?) Read(
+            bool success, int statusCode, string? error, bool rateLimited, VRChatFailureKind kind, string? body)
         {
             var waiting = rateLimited || kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting;
-            var said = PlainRefusal(action, statusCode) ?? error ?? "VRChat did not say why.";
 
-            return (success, statusCode, success ? null : said, waiting);
+            // VRChat's own words before the gate's, which for a refusal is only the status line
+            // ("Forbidden"). Never for a Cloudflare block, whose body is not VRChat's.
+            var own = kind == VRChatFailureKind.WafBlocked ? null : VRChatRefusal.MessageOf(body);
+            var said = PlainRefusal(action, statusCode) ?? own ?? error ?? "VRChat did not say why.";
+
+            var missing = success
+                ? null
+                : VRChatGroupPermissions.Refusal(statusCode, kind, OperationOf(action), groupId, body, settings);
+
+            return (success, statusCode, success ? null : said, waiting, missing);
         }
     }
+
+    /// <summary>The operation name each action's VRChat call gives its endpoint.</summary>
+    internal static string OperationOf(string action) => action switch
+    {
+        Kick => "KickGroupMember",
+        Ban => "BanGroupMember",
+        Unban => "UnbanGroupMember",
+        _ => "RespondGroupJoinRequest",
+    };
+
+    /// <summary>
+    /// The missing permission for a row answered earlier, for a second press of the same key. Read
+    /// off the row, with what VRChat said kept there; the account's roles are as they are now.
+    /// </summary>
+    private static MissingGroupPermission? MissingPermissionOf(ModerationAction row, Modbot.Core.Data.Entities.Settings settings) =>
+        row.Succeeded == false
+            ? VRChatGroupPermissions.Refusal(
+                row.StatusCode, VRChatFailureKind.Other, OperationOf(row.Action), row.GroupId, null, settings)
+                is { } missing
+                ? missing with { Said = row.FailureMessage }
+                : null
+            : null;
 
     /// <summary>
     /// The sentence for the one refusal VRChat cannot word for a moderator: a 404.
@@ -671,7 +702,7 @@ public sealed class ModerationActionService
         return $"{verb} by {username} from Modbot{why}";
     }
 
-    private static ModerationActionResult Describe(ModerationAction row, bool repeat)
+    private static ModerationActionResult Describe(ModerationAction row, bool repeat, MissingGroupPermission? missing)
     {
         // Three states, not two. A key claimed a moment ago whose call has not come back yet is
         // neither done nor refused, and telling a moderator "VRChat refused it" when it is still
@@ -694,6 +725,7 @@ public sealed class ModerationActionService
             repeat,
             // Read off the row rather than held in a column of its own, so a second press of the
             // same key is told the same thing the first one was.
-            Gone: row.Succeeded == false && row.StatusCode == 404);
+            Gone: row.Succeeded == false && row.StatusCode == 404,
+            MissingGroupPermission: missing);
     }
 }

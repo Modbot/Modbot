@@ -335,6 +335,21 @@ public enum ModbotPermissions : long
     /// </remarks>
     ManageAutoInvites = 1L << 37,
 
+    // --- The group's own VRChat page (the VRChat page's Overview, Posts and Settings tabs) ---
+    //
+    // Bits 38 and 39. Bit 34 has never been assigned, but the notes above say it was spoken for
+    // once, so these carry on from 37 rather than filling it.
+
+    /// <summary>
+    /// Change the group's page on VRChat: name, description, rules, languages, links and who can
+    /// join. Every change is sent to VRChat as Modbot's account and written to the audit log with
+    /// who made it.
+    /// </summary>
+    EditGroupProfile = 1L << 38,
+
+    /// <summary>Post in the group on VRChat, change a post, and delete one.</summary>
+    ManageGroupPosts = 1L << 39,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

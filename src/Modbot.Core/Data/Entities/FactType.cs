@@ -426,6 +426,34 @@ public static class FactType
     /// </summary>
     public const string GroupAutoInviteFailed = "modbot.group.auto-invite.failed";
 
+    // ── The group's own page, changed from Modbot ──────────────────────────────────────────
+    //
+    // The subject is the managed group, on the VRChat platform; the actor is the Modbot account
+    // that pressed Save, Post or Delete. VRChat's own audit log records the same change as
+    // `vrchat.group.update` or `vrchat.group.post.*` under Modbot's VRChat account and cannot say
+    // which person asked for it; these are the half that can (§5.9.1). Written only once VRChat
+    // has accepted. Moderation retention, which is what an unprefixed `modbot.group.` type falls to.
+
+    /// <summary>
+    /// Somebody changed the group's profile. Payload: <c>changed</c>, each field with its
+    /// <c>old</c> and <c>new</c> value.
+    /// </summary>
+    public const string GroupProfileChanged = "modbot.group.profile.change";
+
+    /// <summary>
+    /// Somebody posted in the group. Payload: the post's id, title, text, audience and whether
+    /// members were notified.
+    /// </summary>
+    public const string GroupPostPosted = "modbot.group.post.create";
+
+    /// <summary>Somebody changed a post. Payload: the post's id and what it says now.</summary>
+    public const string GroupPostChanged = "modbot.group.post.change";
+
+    /// <summary>
+    /// Somebody deleted a post. Payload: the post's id and its title as the page showed it.
+    /// </summary>
+    public const string GroupPostRemoved = "modbot.group.post.delete";
+
     // ── Modbot's own calendar (calendar design §8). The subject is the event's id. ──────────
     //
     // "Planned event" in the names, because the CalendarEvent* names above are VRChat's own

@@ -94,7 +94,12 @@ public static class RequestEndpoints
                     // Modbot could not read look identical on a screen, and only one of them means
                     // there is nothing to do.
                     return Results.Json(
-                        new { error = answer.ErrorMessage ?? "VRChat did not answer." },
+                        new
+                        {
+                            error = answer.ErrorMessage ?? "VRChat did not answer.",
+                            missingGroupPermission = VRChatGroupPermissions.Refusal(
+                                answer.StatusCode, answer.Kind, "GetGroupRequests", groupId, answer.RawResponse, settings),
+                        },
                         statusCode: answer.IsRateLimited
                             ? StatusCodes.Status429TooManyRequests
                             : StatusCodes.Status502BadGateway);

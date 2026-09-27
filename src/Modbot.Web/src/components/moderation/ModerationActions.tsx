@@ -9,6 +9,7 @@ import { useBanFiles } from '@/components/moderation/useBanFiles'
 import { NotesBeforeActing } from '@/components/subject/PersonNotes'
 import { Outcome } from '@/components/settings/fields'
 import { Textarea } from '@/components/ui/textarea'
+import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import {
   api,
   ApiError,
@@ -21,6 +22,7 @@ import {
 import {
   actionsFor,
   confirmTitle,
+  noPermissionText,
   reasonRequired,
   resultText,
   type PersonStanding,
@@ -203,7 +205,13 @@ function ConfirmAction({
         if (r.done) onDone?.(r)
       })
       .catch((e: unknown) =>
-        setProblem(e instanceof ApiError ? e.message : 'Modbot could not reach VRChat.'),
+        setProblem(
+          e instanceof ApiError
+            ? e.status === 403
+              ? noPermissionText(action)
+              : e.message
+            : 'Modbot could not reach VRChat.',
+        ),
       )
       .finally(() => setSending(false))
   }
@@ -283,10 +291,14 @@ function ConfirmAction({
 
         {result !== null && (
           <>
-            <p className={result.done ? '' : 'text-destructive'}>
-              {resultText(action, result)}
-              {writesCaseFile && result.done && result.caseId ? ' Case file written.' : ''}
-            </p>
+            {!result.done && result.missingGroupPermission ? (
+              <VRChatPermissionMissing missing={result.missingGroupPermission} className="text-destructive" />
+            ) : (
+              <p className={result.done ? '' : 'text-destructive'}>
+                {resultText(action, result)}
+                {writesCaseFile && result.done && result.caseId ? ' Case file written.' : ''}
+              </p>
+            )}
 
             {writesCaseFile && <BanFileList items={files.items} />}
 

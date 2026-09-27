@@ -192,7 +192,7 @@ public sealed class CalendarVRChatPublisher
             return new CalendarPublishResult(CalendarPublishOutcome.NothingToDo);
         }
 
-        var outcome = await WriteAsync(work.Event, work.Place, work.Action, work.Fingerprint, groupId, now, ct)
+        var outcome = await WriteAsync(work.Event, work.Place, work.Action, work.Fingerprint, groupId, settings, now, ct)
             .ConfigureAwait(false);
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -249,6 +249,7 @@ public sealed class CalendarVRChatPublisher
         string action,
         string fingerprint,
         string groupId,
+        Settings settings,
         DateTimeOffset now,
         CancellationToken ct)
     {
@@ -284,6 +285,7 @@ public sealed class CalendarVRChatPublisher
                 place.State = CalendarPlaceStates.Waiting;
                 place.FailedFingerprint = null;
                 place.Error = null;
+                place.MissingGroupPermission = null;
                 place.ErrorAt = null;
                 place.UpdatedAt = now;
 
@@ -300,6 +302,7 @@ public sealed class CalendarVRChatPublisher
                 place.State = CalendarPlaceStates.Removed;
                 place.FailedFingerprint = null;
                 place.Error = null;
+                place.MissingGroupPermission = null;
                 place.ErrorAt = null;
                 place.UpdatedAt = now;
                 return CalendarPublishOutcome.NothingToDo;
@@ -392,6 +395,7 @@ public sealed class CalendarVRChatPublisher
 
             place.FailedFingerprint = null;
             place.Error = null;
+            place.MissingGroupPermission = null;
             place.ErrorAt = null;
 
             _log.Information("VRChat calendar {Action} for the event {EventId}", action, calendarEvent.Id);
@@ -412,6 +416,11 @@ public sealed class CalendarVRChatPublisher
         place.State = CalendarPlaceStates.Failed;
         place.Error = Trim(Reason(kind, body, error, status));
         place.ErrorAt = now;
+
+        // A 403 because Modbot's VRChat account lacks Manage Group Calendar: kept apart from the
+        // text, so the page can say which permission and link to where it is given.
+        place.MissingGroupPermission =
+            VRChatGroupPermissions.Refusal(status, kind, endpoint.Operation, groupId, body, settings)?.Permission;
 
         // Nothing came back, or VRChat's own trouble: try again later. Anything else is a refusal of
         // this content, and sending it again would get the same answer.
@@ -483,6 +492,7 @@ public sealed class CalendarVRChatPublisher
         place.FailedFingerprint = null;
         _couldNotCheck = Trim(Reason(result.Kind, result.RawResponse, result.ErrorMessage, result.StatusCode));
         place.Error = Trim("Could not check VRChat's calendar for an earlier copy: " + _couldNotCheck);
+        place.MissingGroupPermission = null;
         place.ErrorAt = now;
 
         _log.Warning(

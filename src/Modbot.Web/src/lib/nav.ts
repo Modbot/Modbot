@@ -45,12 +45,20 @@ export const NAV = [
   { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'] },
   // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
   // feature (spec 10.3) and has no entry until it exists. Named by what each is about: the team,
-  // then each platform. Worlds and Instances are VRChat's, so they sit indented under it; the ids
-  // and addresses keep their old names, so links and bookmarks still open the same pages.
+  // then each platform. Worlds is VRChat's, so it sits indented under it; the ids and addresses
+  // keep their old names, so links and bookmarks still open the same pages.
   { id: 'analytics-team', label: 'Team', group: 'Analytics', needs: 'ViewAnalytics' },
   { id: 'analytics-group', label: 'VRChat', needs: 'ViewAnalytics' },
   { id: 'analytics-worlds', label: 'Worlds', indent: true, needs: 'ViewAnalytics' },
-  { id: 'analytics-instances', label: 'Instances', indent: true, needs: 'ViewAnalytics' },
+  // Not in the page list since 2026-09-27: it is the Instances tab of the VRChat page, the way
+  // vrchat.com shows a group's instances, so the sidebar lights VRChat while it is open. The
+  // palette and `g i` still reach it, and its address is unchanged.
+  { id: 'analytics-instances', label: 'Instances', needs: 'ViewAnalytics', hidden: true, under: 'analytics-group' },
+  // The VRChat page's Posts and Settings tabs, at addresses of their own under the page's
+  // (`/analytics/group/posts`) so a tab can be linked to. Reading posts is part of reading the
+  // page; Settings is only for changing the group, so it needs the permission that does.
+  { id: 'group-posts', label: 'VRChat posts', needs: 'ViewAnalytics', hidden: true, under: 'analytics-group' },
+  { id: 'group-settings', label: 'VRChat settings', needs: 'EditGroupProfile', hidden: true, under: 'analytics-group' },
   // The Discord server, beside the group: its own members, messages and voice (M5 spec §6).
   { id: 'analytics-server', label: 'Discord', needs: 'ViewAnalytics' },
   // Not in the page list: the status rows at the foot of the sidebar say what it says, and each
@@ -127,6 +135,8 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   'analytics-team': 't',
   'analytics-worlds': 'w',
   'analytics-instances': 'i',
+  'group-posts': '',
+  'group-settings': '',
   reviews: 'r',
   health: 'h',
   logs: 'o',
@@ -139,7 +149,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
 /**
  * The sidebar entry lit while a page is open: the page's own, or, for a page shown as part of
  * another (`under`), that one's. Discord members is the Members link on the Discord page, so
- * Discord stays lit.
+ * Discord stays lit; the VRChat page's Instances, Posts and Settings tabs light VRChat.
  */
 export function sidebarEntry(id: PageId): PageId {
   const item = NAV.find((n) => n.id === id)

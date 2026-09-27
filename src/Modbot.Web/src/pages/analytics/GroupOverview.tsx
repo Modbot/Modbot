@@ -1,53 +1,56 @@
-import { useEffect, useState } from 'react'
-import { Check, Copy, ExternalLink, Users } from 'lucide-react'
+import { useEffect, useId, useState } from 'react'
+import { ChevronDown, ExternalLink } from 'lucide-react'
 import { WorldLink } from '@/components/facts'
+import { EditButton, FieldRow, LanguagePicker, LinkListEditor, LongBox, SaveCancel } from '@/components/group/ProfileEditors'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
+import { useSave } from '@/lib/useSave'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { api, ApiError, type CurrentUser, type GroupInfo } from '@/lib/api'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { api, type CurrentUser, type GroupInfo, type GroupProfileEdit } from '@/lib/api'
 import { calendarApi } from '@/lib/calendar'
 import { whenRange } from '@/lib/format'
-import { groupCode, groupTabs, isWebLink, languageName, linkLabel, nextEvent, type NextEvent } from '@/lib/groupOverview'
+import { isWebLink, languageName, linkLabel, nextEvent, type NextEvent } from '@/lib/groupOverview'
+import {
+  LIMITS,
+  descriptionProblem,
+  isEmptyEdit,
+  languagesProblem,
+  linksProblem,
+  profileChanges,
+  draftFrom,
+  readFolded,
+  writeFolded,
+} from '@/lib/groupProfile'
 import type { PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { useGroupInfo } from '@/lib/useGroupInfo'
+import { GroupHeader } from './GroupHeader'
 import { PageMessage } from './shared'
 
 /**
- * The top of the VRChat analytics page, laid out the way the group's own page on vrchat.com is:
- * the banner with the icon over its edge, the name and counts, a row of tabs, then the overview
- * cards. Modbot's own look throughout; only the arrangement is VRChat's.
+ * The VRChat page's Overview, laid out the way the group's own page on vrchat.com is: the header
+ * (`GroupHeader`), then the overview cards.
  *
  * Everything about the group comes from `/api/analytics/group/info`, which reads what the
  * group-info sync already keeps, so opening the page asks VRChat nothing. The upcoming event is
  * Modbot's own calendar.
+ *
+ * Languages, Links and About can be changed in place, as on vrchat.com, by anyone who may edit the
+ * group's profile: a pencil opens the card's editor, and Save sends that one field to VRChat in one
+ * request. The card then shows the group as VRChat answered, with no second read.
  */
 export function GroupOverview({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
-  const [info, setInfo] = useState<GroupInfo | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    api
-      .groupInfo()
-      .then((i) => {
-        if (!cancelled) setInfo(i)
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : 'Could not load the group.')
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { info, error, setInfo } = useGroupInfo()
 
   if (error) return <PageMessage tone="danger">{error}</PageMessage>
   if (!info) return <PageMessage>Loading…</PageMessage>
+
+  const editable = can(me, 'EditGroupProfile')
+  const save = (edit: GroupProfileEdit) => api.updateGroupProfile(edit).then(setInfo)
 
   return (
     <>
@@ -57,154 +60,13 @@ export function GroupOverview({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pa
         {can(me, 'ViewCalendar') && <UpcomingEvent me={me} pathOf={pathOf} />}
 
         <PanelGrid className="md:grid-cols-2">
-          <Languages codes={info.languages} />
-          <Links urls={info.links} />
+          <Languages info={info} onSave={editable ? save : undefined} />
+          <Links info={info} onSave={editable ? save : undefined} />
         </PanelGrid>
 
-        <About description={info.description} rules={info.rules} />
+        <About info={info} onSave={editable ? save : undefined} />
       </PanelGrid>
     </>
-  )
-}
-
-/**
- * The banner, the icon over its lower edge, the name and one line of counts, then the tabs.
- *
- * On a phone the icon sits over the banner and the name goes under it; from `sm` up the name moves
- * beside the icon, level with its lower half, as VRChat has it.
- */
-function GroupHeader({ info, me, pathOf }: { info: GroupInfo; me: CurrentUser; pathOf: (id: PageId) => string }) {
-  const banner = vrchatMedia(info.bannerUrl)
-  const icon = vrchatMedia(info.iconUrl)
-  const code = groupCode(info.shortCode, info.discriminator)
-
-  return (
-    <Card className="overflow-hidden">
-      {banner ? (
-        <img
-          src={banner}
-          alt=""
-          referrerPolicy="no-referrer"
-          className="aspect-[3/1] max-h-64 w-full border-b border-b-(length:--hairline) bg-muted object-cover sm:aspect-[4/1]"
-        />
-      ) : (
-        <div className="h-16 border-b border-b-(length:--hairline) bg-strip sm:h-20" />
-      )}
-
-      <div className="flex flex-col gap-2 px-(--panel-pad) pb-(--panel-pad) sm:flex-row sm:items-end sm:gap-4">
-        {/* Cut out of the card by a ring of the card's own colour, over the banner's edge. */}
-        {icon ? (
-          <img
-            src={icon}
-            alt=""
-            referrerPolicy="no-referrer"
-            className="-mt-10 size-20 shrink-0 rounded-full bg-muted object-cover ring-4 ring-card sm:-mt-12 sm:size-24"
-          />
-        ) : (
-          <div className="-mt-10 size-20 shrink-0 rounded-full bg-muted ring-4 ring-card sm:-mt-12 sm:size-24" />
-        )}
-
-        <div className="flex min-w-0 flex-1 flex-col gap-1 sm:pb-1">
-          <h2
-            className="font-display leading-tight break-words"
-            style={{ fontSize: 'calc(var(--text-base) * 1.85)' }}
-          >
-            {info.name ?? <span className="font-mono text-muted-foreground">{info.id ?? 'No group'}</span>}
-          </h2>
-
-          <div
-            className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground"
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            <span className="flex items-center gap-1.5">
-              <span aria-hidden className="size-[0.6em] shrink-0 rounded-full bg-ok" />
-              <span className="font-mono text-foreground">{count(info.online)}</span> online
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Users aria-hidden className="size-[1.1em] shrink-0" />
-              <span className="font-mono text-foreground">{count(info.members)}</span> members
-            </span>
-            {code && <GroupCode code={code} />}
-          </div>
-        </div>
-      </div>
-
-      <GroupTabs me={me} pathOf={pathOf} />
-    </Card>
-  )
-}
-
-function count(n: number | null): string {
-  return n === null ? '—' : n.toLocaleString()
-}
-
-/** `TESTIN.4698` and a button that copies it. A browser that refuses the clipboard says so. */
-function GroupCode({ code }: { code: string }) {
-  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
-
-  useEffect(() => {
-    if (state === 'idle') return
-    const timer = window.setTimeout(() => setState('idle'), 2000)
-    return () => window.clearTimeout(timer)
-  }, [state])
-
-  const copy = () => {
-    const write = navigator.clipboard?.writeText(code)
-    if (!write) {
-      setState('failed')
-      return
-    }
-    write.then(
-      () => setState('copied'),
-      () => setState('failed'),
-    )
-  }
-
-  return (
-    <span className="flex items-center gap-1">
-      <span className="font-mono text-foreground">{code}</span>
-      <Button variant="ghost" size="icon-xs" aria-label="Copy group code" title="Copy group code" onClick={copy}>
-        {state === 'copied' ? <Check className="text-ok" /> : <Copy />}
-      </Button>
-      {state === 'failed' && <span className="text-destructive">Could not copy</span>}
-    </span>
-  )
-}
-
-/**
- * VRChat's row of group tabs, as links to the Modbot pages that show each part. A page this person
- * may not open is left out, as the sidebar leaves it out.
- */
-function GroupTabs({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
-  const tabs = groupTabs(me)
-
-  return (
-    <nav aria-label="Group" className="border-t border-t-(length:--hairline)">
-      {/* Scrolls sideways on a narrow screen rather than wrapping, like the Tabs component. */}
-      <div className="flex items-stretch overflow-x-auto px-1 [scrollbar-width:thin]">
-        {tabs.map((tab) => {
-          const active = tab.id === 'analytics-group'
-          const href = pathOf(tab.id)
-
-          return (
-            <a
-              key={tab.id}
-              href={href}
-              onClick={followLink(href)}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                'relative flex shrink-0 items-center px-3 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
-                active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-              style={{ fontSize: 'var(--text-base)', minHeight: 'var(--control-h)' }}
-            >
-              {tab.label}
-              {active && <span aria-hidden className="absolute inset-x-0 bottom-0 h-[calc(var(--hairline)*2)] bg-primary" />}
-            </a>
-          )
-        })}
-      </div>
-    </nav>
   )
 }
 
@@ -296,17 +158,48 @@ function EventRow({ next, href }: { next: NextEvent; href: string }) {
   )
 }
 
-function Languages({ codes }: { codes: string[] }) {
+/** A card's Save: the edit, sent; undefined when this person may not change the group. */
+type OnSave = ((edit: GroupProfileEdit) => Promise<unknown>) | undefined
+
+function Languages({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
+  const [draft, setDraft] = useState<string[] | null>(null)
+  const { saving, problem, run, clear } = useSave()
+
+  const close = () => {
+    setDraft(null)
+    clear()
+  }
+
+  const changes = draft ? profileChanges(info, { ...draftFrom(info), languages: draft }) : {}
+  const invalid = draft ? languagesProblem(draft) : null
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Languages</CardTitle>
+        {onSave && !draft && (
+          <CardAction>
+            <EditButton label="Edit languages" onClick={() => setDraft([...info.languages])} />
+          </CardAction>
+        )}
       </CardHeader>
-      {codes.length === 0 ? (
+
+      {draft ? (
+        <CardContent className="flex flex-col gap-3">
+          <LanguagePicker value={draft} onChange={setDraft} />
+          <SaveCancel
+            saving={saving}
+            disabled={isEmptyEdit(changes) || invalid !== null}
+            problem={problem ?? invalid}
+            onCancel={close}
+            onSave={() => void run(() => onSave!(changes)).then((ok) => ok && close())}
+          />
+        </CardContent>
+      ) : info.languages.length === 0 ? (
         <EmptyRow>None added</EmptyRow>
       ) : (
         <CardContent className="flex flex-wrap gap-1.5">
-          {codes.map((code) => (
+          {info.languages.map((code) => (
             <Badge key={code} variant="secondary" title={code}>
               {languageName(code)}
             </Badge>
@@ -317,15 +210,42 @@ function Languages({ codes }: { codes: string[] }) {
   )
 }
 
-function Links({ urls }: { urls: string[] }) {
-  const links = urls.filter(isWebLink)
+function Links({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
+  const [draft, setDraft] = useState<string[] | null>(null)
+  const { saving, problem, run, clear } = useSave()
+  const links = info.links.filter(isWebLink)
+
+  const close = () => {
+    setDraft(null)
+    clear()
+  }
+
+  const changes = draft ? profileChanges(info, { ...draftFrom(info), links: draft }) : {}
+  const invalid = draft ? linksProblem(draft) : null
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Links</CardTitle>
+        {onSave && !draft && (
+          <CardAction>
+            <EditButton label="Edit links" onClick={() => setDraft(info.links.length > 0 ? [...info.links] : [''])} />
+          </CardAction>
+        )}
       </CardHeader>
-      {links.length === 0 ? (
+
+      {draft ? (
+        <CardContent className="flex flex-col gap-3">
+          <LinkListEditor value={draft} onChange={setDraft} />
+          <SaveCancel
+            saving={saving}
+            disabled={isEmptyEdit(changes) || invalid !== null}
+            problem={problem ?? invalid}
+            onCancel={close}
+            onSave={() => void run(() => onSave!(changes)).then((ok) => ok && close())}
+          />
+        </CardContent>
+      ) : links.length === 0 ? (
         <EmptyRow>None added</EmptyRow>
       ) : (
         <ul className="divide-y-(--hairline) divide-border">
@@ -349,25 +269,109 @@ function Links({ urls }: { urls: string[] }) {
   )
 }
 
-function About({ description, rules }: { description: string | null; rules: string | null }) {
+/** The browser's own store, or none when it refuses to hand one over (a private window, say). */
+function localStore(): Storage | null {
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The description and the rules, under a heading that folds them away. The fold is remembered per
+ * browser and starts unfolded; the pencil is there whenever the card is open.
+ */
+function About({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
+  const [folded, setFolded] = useState(() => readFolded(localStore()))
+  const [draft, setDraft] = useState<{ description: string; rules: string } | null>(null)
+  const { saving, problem, run, clear } = useSave()
+  const bodyId = useId()
+
+  const toggle = () => {
+    const next = !folded
+    setFolded(next)
+    writeFolded(localStore(), next)
+  }
+
+  const close = () => {
+    setDraft(null)
+    clear()
+  }
+
+  const { description, rules } = info
+  const changes = draft ? profileChanges(info, { ...draftFrom(info), ...draft }) : {}
+  const tooLong = draft ? descriptionProblem(draft.description) : null
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>About this group</CardTitle>
+        <CardTitle>
+          <h3>
+            <button
+              type="button"
+              aria-expanded={!folded}
+              aria-controls={bodyId}
+              onClick={toggle}
+              className="-mx-1 flex min-h-(--control-h) items-center gap-1.5 rounded-xs px-1 text-left focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <ChevronDown aria-hidden className={cn('size-[1.1em] shrink-0 transition-transform', folded && '-rotate-90')} />
+              About this group
+            </button>
+          </h3>
+        </CardTitle>
+        {onSave && !folded && !draft && (
+          <CardAction>
+            <EditButton
+              label="Edit description and rules"
+              onClick={() => setDraft({ description: description ?? '', rules: rules ?? '' })}
+            />
+          </CardAction>
+        )}
       </CardHeader>
-      {!description && !rules ? (
-        <EmptyRow>None added</EmptyRow>
-      ) : (
-        <CardContent className="flex flex-col gap-3">
-          {description && <p className="break-words whitespace-pre-wrap">{description}</p>}
-          {rules && (
-            <div className="flex flex-col gap-1">
-              <h3 className="font-label">Rules</h3>
-              <p className="break-words whitespace-pre-wrap">{rules}</p>
-            </div>
-          )}
-        </CardContent>
-      )}
+
+      <div id={bodyId} hidden={folded}>
+        {draft ? (
+          <CardContent className="flex flex-col gap-3">
+            <FieldRow
+              label="Description"
+              problem={tooLong}
+              count={`${draft.description.trim().length}/${LIMITS.descriptionMax}`}
+            >
+              {(id) => (
+                <LongBox
+                  id={id}
+                  value={draft.description}
+                  invalid={tooLong !== null}
+                  onChange={(v) => setDraft({ ...draft, description: v })}
+                />
+              )}
+            </FieldRow>
+            <FieldRow label="Rules">
+              {(id) => <LongBox id={id} rows={8} value={draft.rules} onChange={(v) => setDraft({ ...draft, rules: v })} />}
+            </FieldRow>
+            <SaveCancel
+              saving={saving}
+              disabled={isEmptyEdit(changes) || tooLong !== null}
+              problem={problem}
+              onCancel={close}
+              onSave={() => void run(() => onSave!(changes)).then((ok) => ok && close())}
+            />
+          </CardContent>
+        ) : !description && !rules ? (
+          <EmptyRow>None added</EmptyRow>
+        ) : (
+          <CardContent className="flex flex-col gap-3">
+            {description && <p className="break-words whitespace-pre-wrap">{description}</p>}
+            {rules && (
+              <div className="flex flex-col gap-1">
+                <h4 className="font-label">Rules</h4>
+                <p className="break-words whitespace-pre-wrap">{rules}</p>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </div>
     </Card>
   )
 }

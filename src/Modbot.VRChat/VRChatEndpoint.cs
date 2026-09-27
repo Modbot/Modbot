@@ -259,6 +259,46 @@ public static class VRChatEndpointClass
     public const string GroupsRequestsAnswer = "groups.requests.answer";
 
     /// <summary>
+    /// Changing the group's own page — <c>PUT /groups/{groupId}</c>: its name, description,
+    /// rules, languages, links and who can join.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Not measured.</strong> Nobody has asked VRChat what this allows (spec 4.3.4), so it
+    /// is one request every ten seconds: a guess meant to be too low. Only ever sent when a person
+    /// presses Save; nothing polls it and nothing retries it.
+    /// </para>
+    /// <para>
+    /// Counted against <see cref="Global"/>, not <see cref="Interactive"/>, on purpose. Somebody is
+    /// waiting on a save, but a ban matters more than a new description, and the room spec 4.3.5
+    /// keeps for the moderator is kept for moderation. Its own lane and class, so a 429 here stops
+    /// profile edits and nothing else.
+    /// </para>
+    /// </remarks>
+    public const string GroupsEdit = "groups.edit";
+
+    /// <summary>
+    /// Reading the group's posts — <c>GET /groups/{groupId}/posts</c>. One request when the Posts
+    /// tab opens, one per page, one per Refresh; nothing polls it.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> Budgeted at <see cref="GroupsRead"/>'s 0.2 req/s, the
+    /// conservative reading spec 4.3.4.1 applies to an unmeasured endpoint returning group data.
+    /// </remarks>
+    public const string GroupsPosts = "groups.posts";
+
+    /// <summary>
+    /// Posting, changing and deleting one of the group's posts —
+    /// <c>POST /groups/{groupId}/posts</c>, <c>PUT</c> and <c>DELETE /groups/{groupId}/posts/{postId}</c>.
+    /// </summary>
+    /// <remarks>
+    /// <strong>Not measured.</strong> One request every ten seconds, shared by all three, on the
+    /// <see cref="Global"/> backstop for the reason <see cref="GroupsEdit"/> is: below moderation.
+    /// Apart from <see cref="GroupsPosts"/>, so a Refresh never holds up a Post.
+    /// </remarks>
+    public const string GroupsPostsWrite = "groups.posts.write";
+
+    /// <summary>
     /// A request forwarded to VRChat as it was written, on the service account's session --
     /// <c>/api/proxy/vrchat/…</c> (VRChat proxy design). Any endpoint, any method.
     /// </summary>

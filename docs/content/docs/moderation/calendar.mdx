@@ -26,8 +26,8 @@ Each of these is a tick box on the event. Leave any of them off and Modbot does 
 
 Without **See calendar**, **Calendar** does not appear in the sidebar. **Manage calendar** on its own
 is not enough to open the page. Without **Manage calendar**, the page is read-only: there is no
-**New event** button, no feed link, and an event shows no **Edit**, **Cancel event** or **Delete**
-buttons.
+**New event** button, no feed link, an event shows no **Edit**, **Duplicate**, **Cancel event** or
+**Delete** buttons, and nothing can be dragged or drawn on the calendar.
 
 Neither permission is in the built-in **Moderator** or **Viewer** roles. **Administrator** holds
 both. Give them on purpose: an event can open an instance by itself, and it posts to VRChat and
@@ -35,14 +35,25 @@ Discord in your group's name.
 
 ## The page
 
-At the top, switch between **Month** and **Agenda**.
+The page works like Google Calendar. At the top are **Today**, the arrows for back and forward, the
+dates on screen (for example **September 2026** or **Sep 21 – 27, 2026**), and a switch between four
+views:
 
-- **Month** shows six weeks, Monday first. Use the arrows to move a month back or forward, and
-  **Today** to come back to this month. Each day lists the events that start on it, with the start
-  time. An event that is open right now is shown in green.
-- **Agenda** is a list from yesterday to about two months ahead. Each row shows the date and time,
+- **Day** and **Week** show the hours down the side, in your own clock, and one column a day, Monday
+  first. The page opens scrolled to an hour before the first event on screen, or to 8 AM when there
+  is none. A red line marks the time it is now. Events that overlap sit side by side. An event that
+  lasts a day or longer is shown in a row across the top instead. Click a date at the top of a
+  column to see that day on its own.
+- **Month** shows six weeks. Each day lists the events that start on it, with the start time, up to
+  three; **+2 more** (or however many) opens that day. Click a date to see that day.
+- **Schedule** is a list from the day on screen to about two months ahead. Each row shows the time,
   the title, the event's status, the world, and a badge for each place it is published, such as
   **VRChat calendar: Published** or **Discord event: Failed**.
+
+**Week** is the view the page opens on. On a phone it opens on **Day**.
+
+On a wide screen a small month sits beside the calendar. Click a date in it to jump there; its own
+arrows page through months without moving the calendar. It is hidden on phones.
 
 A repeating event appears once for every time it happens.
 
@@ -51,8 +62,32 @@ set in the form (see [When](#when)).
 
 Below the calendar, a **Drafts** box lists events saved as drafts, when there are any.
 
-The page asks the Modbot server for fresh data every 20 seconds, so a place changing from
-**Waiting** to **Published** shows up by itself.
+The page updates by itself when an event changes, so a place changing from **Waiting** to
+**Published** shows up without reloading.
+
+### Colours
+
+An event's colour says where it stands:
+
+| Colour | Meaning |
+|---|---|
+| The accent colour | **Scheduled**, and nothing has failed. |
+| Green | **Open** right now. |
+| Red edge | **Scheduled** or **Open**, and at least one place it is published has **Failed**. Open the event to see the error. |
+| Dashed outline | A **Draft**. |
+| Faded | **Finished**. |
+
+### Keyboard shortcuts
+
+| Key | Does |
+|---|---|
+| <kbd>D</kbd>, <kbd>W</kbd>, <kbd>M</kbd>, <kbd>A</kbd> | **Day**, **Week**, **Month**, **Schedule** |
+| <kbd>T</kbd> | **Today** |
+| <kbd>J</kbd> or <kbd>→</kbd> | Forward a day, a week or a month |
+| <kbd>K</kbd> or <kbd>←</kbd> | Back a day, a week or a month |
+| <kbd>C</kbd> | **New event** (with **Manage calendar**) |
+
+They are also listed under **Calendar** when you press <kbd>?</kbd>.
 
 ### An event's status
 
@@ -69,9 +104,9 @@ becomes **Finished** after the last one.
 
 ### Opening an event
 
-Click an event in either view to open it. You see:
+Click an event in any view. It opens in a small box beside it, showing:
 
-- when it starts and ends (for a repeating event, the time it happens next, or the one running now);
+- when it starts and ends (the time you clicked, for a repeating event), and how it repeats;
 - the description;
 - **World**, which opens the [world popup](/moderation/popups#world-popup);
 - **Instance**, once Modbot has tried to open one: **Opening** while it waits for VRChat, **Open**
@@ -79,7 +114,50 @@ Click an event in either view to open it. You see:
   **Join** link while it is open. If VRChat refused, VRChat's error is shown here instead, in red;
 - one line per place it is published, with its state and, if it failed, VRChat's or Discord's error.
 
-With **Manage calendar** you also get the **Edit**, **Cancel event** and **Delete** buttons.
+With **Manage calendar** you also get **Edit**, **Duplicate**, **Cancel event** and **Delete**.
+**Duplicate** opens the form for a new event filled in with this one's details; nothing is saved
+until you save it.
+
+A link to one event (for example from a Chat answer) opens it in the middle of the page instead.
+
+## Moving events by dragging
+
+With **Manage calendar** you can change the calendar by dragging, the way you would in Google
+Calendar. Without it, events open when clicked, but nothing can be dragged and no new event can be
+drawn.
+
+- **Move an event:** drag it to another time, or to another day in **Week**. In **Month**, drag it to
+  another day; it keeps its time of day. An event in the row across the top of **Week** can be dragged
+  to another day the same way.
+- **Change when it ends:** drag its bottom edge.
+- **Draw a new event:** press on empty time and drag down. A single click on empty time draws one
+  hour. In **Month**, click empty space in a day. A small form opens with the time filled in: type a
+  title and click **Save draft**, or click **More options** for the full form. The small form only
+  saves drafts, so nothing is published until you open the draft and click **Schedule**.
+
+Everything snaps to 15 minutes. On a phone, hold your finger on an event (or on empty time) for a
+moment until it picks up, then drag. A finger that moves straight away scrolls the page instead.
+
+A drag is saved once, when you let go. It is the same as opening the event, changing its times in the
+form and clicking **Save**: the change reaches VRChat's calendar, the Discord event and the channel
+post the same way, and the audit log records it, for example *moved the event “Movie night” from
+Sat 26 Sep, 08:00 PM–10:00 PM to Sun 27 Sep, 09:00 PM–11:00 PM*.
+
+After a drag, **Event moved · Undo** shows at the bottom of the screen for a few seconds. **Undo**
+puts the event back where it was, through the same save. Because Modbot waits 20 seconds without a
+change before writing to VRChat's calendar, an undo straight away usually means VRChat is never
+sent the move at all. If the save fails, the bottom of the screen says why instead, for example
+**That event has already ended.**
+
+### Repeating events
+
+A repeating event is saved as one rule (for example, *every Tuesday at 8 PM*), with no exceptions for
+single dates. So **dragging one date of a repeating event moves every date**, by the same amount.
+Before it saves, Modbot asks **Move every date of “…”?** and shows the date you dragged and where it
+is going; click **Move all events** or **Cancel**. The days of the week and the **Last date** move
+with it: a Monday and Wednesday event dragged one day later becomes Tuesday and Thursday.
+
+To change only one date, [cancel](#cancel) the event and plan the dates separately.
 
 ## Planning an event
 
@@ -87,8 +165,10 @@ With **Manage calendar** you also get the **Edit**, **Cancel event** and **Delet
 <Step>
 ### Open the form
 
-Click **New event**. The form starts with the next whole hour, two hours long, in your browser's time
-zone.
+Click **New event** (or press <kbd>C</kbd>). The form starts with the next whole hour, two hours long,
+in your browser's time zone. You can also draw the event on the calendar and click **More options**
+(see [Moving events by dragging](#moving-events-by-dragging)); the form then starts with the time you
+drew.
 </Step>
 <Step>
 ### Fill it in
@@ -326,7 +406,7 @@ Modbot opens at most one instance every 5 seconds, which is well within what an 
 
 The calendar feed is a link people add to their own calendar app (Google Calendar, Outlook, Apple
 Calendar and others) to see your group's events there. It is only on the page for people with
-**Manage calendar**, in the **Calendar feed** row above the calendar.
+**Manage calendar**, in the **Calendar feed** row below the calendar.
 
 - **Make link** creates the link the first time.
 - **Copy** copies it.
@@ -390,10 +470,10 @@ changes, Discord on its next check.
 - takes it out of the calendar feed;
 - stops any future instance from opening.
 
-A cancelled event no longer appears in the month or agenda view, and cannot be un-cancelled. To run
-it again, plan a new event.
+A cancelled event no longer appears on the calendar, and cannot be un-cancelled. To run it again,
+plan a new event.
 
-There is no "are you sure?" step.
+Modbot asks **Cancel “…”?** first; click **Cancel event** to go ahead.
 
 ### Delete
 
@@ -401,8 +481,8 @@ There is no "are you sure?" step.
 **Open**, deleting does everything cancelling does, and also hides it from the Calendar page. A
 deleted **Finished** event is also removed from VRChat's calendar.
 
-There is no "are you sure?" step, and there is no way to bring a deleted event back from the page.
-Its history stays in the [audit log](#in-the-audit-log).
+Modbot asks **Delete “…”?** first; click **Delete** to go ahead. There is no way to bring a deleted
+event back from the page. Its history stays in the [audit log](#in-the-audit-log).
 
 ## On Health
 
@@ -426,7 +506,7 @@ entries (you need **See the operational log** to see them):
 | Entry | When |
 |---|---|
 | **Event planned** | Someone created an event, as a draft or scheduled. |
-| **Planned event changed** | Someone edited it. Shows before and after. |
+| **Planned event changed** | Someone edited or dragged it. Shows what changed; a change of time alone reads as *moved the event … from … to …*. |
 | **Planned event cancelled** | Someone cancelled it. |
 | **Planned event deleted** | Someone deleted it. |
 | **Planned event opened** | One of its times started (or its instance opening time came). |

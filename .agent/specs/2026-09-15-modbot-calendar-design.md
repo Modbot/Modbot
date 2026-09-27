@@ -226,3 +226,32 @@ Two loops, both on `IModbotClock`, never the system clock:
   `recurrence` keeps or removes a series.
 - Whether `CreateInstance` for a group needs anything beyond owner, type, access and region.
 - Discord's handling of external event covers fetched from arbitrary picture links.
+
+## 11. The page (added 2026-09-27)
+
+The calendar page works like Google Calendar: Day, Week (the default; Day on a phone), Month and
+Schedule views, a small month to jump with on wide screens, and events moved by dragging them.
+
+- **Built by hand on pointer events**, not a calendar library. The app has no drag library.
+  FullCalendar's day, time-grid and drag parts are MIT (its resource and timeline views are not),
+  but they bring their own markup and styles to restyle into the Console look, for a grid that is a
+  few hundred lines by hand. The pure parts (snapping, overlap
+  layout, week and month maths, drag to time, the move written in the event's zone) are in
+  `lib/calendarGrid.ts` with their own tests.
+- **A drag is an edit.** It saves once, on let-go, through `PUT /api/calendar/events/{id}` with the
+  whole event as the form would send it, so it is checked, recorded as `modbot.calendar.event.change`
+  and published exactly as an edit is. No new VRChat or Discord request exists for it.
+- **The move is measured in the viewer's zone and written in the event's.** The difference in the
+  event's own wall clock between the old and new date is applied to its first start and end, so a
+  one-off event lands exactly where it was dropped and a weekly 20:00 stays on the wall clock across
+  daylight saving.
+- **A repeating event moves as a whole.** §2 stores one rule and no exceptions, so "this date only"
+  or "this and following" cannot be expressed without splitting the event into two, which would make
+  a second VRChat series and Discord events nobody asked for. The page says so and asks before it
+  moves every date; weekly days and the last date shift with the start.
+- **Undo** is the same update with the event as it was before the drag. Because VRChat writes wait
+  20 s for edits to settle (§3.1), an undo straight away usually costs no VRChat write at all.
+- **The quick form saves drafts only.** A scheduled event is published at once and VRChat refuses one
+  without a description, so the two-field form cannot schedule; **More options** opens the full form.
+- **Colour is publish state:** scheduled, open, draft, finished, or failed somewhere (§3).
+- Only `ManageCalendar` can drag, draw or edit; `ViewCalendar` alone opens events and moves nothing.
