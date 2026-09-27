@@ -232,7 +232,7 @@ function Actions({ children }: { children: React.ReactNode }) {
     <div
       className={cn(
         'flex flex-wrap items-center gap-1 opacity-0 transition-opacity motion-reduce:transition-none',
-        'focus-within:opacity-100 group-hover/turn:opacity-100 [@media(hover:none)]:opacity-100',
+        'focus-within:opacity-100 group-hover/turn:opacity-100 [@media(hover:none)]:opacity-100 headset:opacity-100',
       )}
     >
       {children}

@@ -128,6 +128,7 @@ function RowCells({
             aria-label={`${label} ${ci}: ${v}`}
             title={`${v}`}
             onMouseEnter={() => onHover({ r: ri, c: ci })}
+            onClick={() => onHover({ r: ri, c: ci })}
             className="bg-secondary"
             style={{ height: cellHeight, outline: active ? `2px solid ${color}` : undefined, outlineOffset: -1 }}
           >

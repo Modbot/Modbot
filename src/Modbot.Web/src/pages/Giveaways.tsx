@@ -397,6 +397,7 @@ function DrawPanel({ giveaway, draw }: { giveaway: Giveaway; draw: GiveawayDraw 
       {open && entrants && (
         <Card>
           <Table
+            nameColumn={1}
             head={
               <>
                 <Th>#</Th>

@@ -5,6 +5,7 @@ import { ShortcutSheet } from '@/components/ShortcutSheet'
 import { SignInWaitBanner } from '@/components/SignInWaitBanner'
 import { WaitingAlertsBanner } from '@/components/WaitingAlertsBanner'
 import { SubjectPopup } from '@/components/subject/SubjectPopup'
+import { TitleOnTap } from '@/components/TitleOnTap'
 import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { moderationApi } from '@/lib/autoMod'
 import { DemoContext } from '@/lib/demo'
@@ -615,6 +616,7 @@ function Shell({
       {/* Over the page, never instead of it: the page stays mounted with its scroll position and
           filters, so closing the popup puts the moderator back exactly where they were. */}
       <SubjectPopup me={me} />
+      <TitleOnTap />
 
       <CommandPalette
         open={paletteOpen}

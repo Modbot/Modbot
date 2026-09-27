@@ -176,7 +176,7 @@ function Row({
             aria-label="More"
             className={cn(
               'absolute right-1 rounded-sm p-1 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground',
-              'focus-visible:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100',
+              'focus-visible:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100 headset:opacity-100',
               menu && 'opacity-100',
             )}
           >

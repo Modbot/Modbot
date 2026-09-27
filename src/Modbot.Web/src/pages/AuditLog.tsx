@@ -383,6 +383,7 @@ export function AuditLog() {
             <EmptyRow>No entries match these filters.</EmptyRow>
           ) : (
             <Table
+              nameColumn={3}
               head={
                 <>
                   <Th className="w-0 pr-0" />
@@ -492,7 +493,7 @@ function Row({
         aria-expanded={open}
         className={cn('cursor-pointer hover:bg-muted/40 data-[selected]:bg-accent/60', marked && 'bg-accent')}
       >
-        <Td className="pr-0">
+        <Td className="pr-0" data-only-desk>
           <ChevronRight
             className={cn('size-3.5 text-muted-foreground transition-transform', open && 'rotate-90')}
             aria-hidden

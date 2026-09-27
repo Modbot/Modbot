@@ -191,7 +191,8 @@ function Identity({ profile, mark }: { profile: VRChatUserProfile; mark: React.R
  * that made it.
  *
  * **Three ways in, because the card holds a control.** A pointer opens it by hovering. A tap
- * opens it, since a touch screen has no hover to give. From the keyboard, Enter or Space on the
+ * opens it, since a touch screen has no hover to give. In a headset a laser pointer sweeps across
+ * the badge on its way elsewhere and says it is a mouse, so there only a press opens it. From the keyboard, Enter or Space on the
  * badge opens it and moves the focus into the card, so Clear flag is the next thing Tab reaches
  * and Escape closes the card and gives the focus back. A hover never takes the focus, or the page
  * would move under whoever was typing somewhere else.
@@ -231,7 +232,7 @@ function AgeMark({
   }
 
   const openOnHover = (event: React.PointerEvent) => {
-    if (event.pointerType !== 'mouse') return
+    if (event.pointerType !== 'mouse' || document.documentElement.dataset.place === 'headset') return
     stopClosing()
     openedBy.current = 'hover'
     setOpen(true)

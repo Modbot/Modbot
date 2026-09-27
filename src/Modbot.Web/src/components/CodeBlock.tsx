@@ -32,7 +32,7 @@ export function CodeBlock({ children, className }: { children: ReactNode; classN
               window.setTimeout(() => setCopied(false), 1500)
             })
           }}
-          className="opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+          className="opacity-0 group-hover/code:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 headset:opacity-100"
         >
           {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
         </Button>

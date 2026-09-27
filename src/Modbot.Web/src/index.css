@@ -301,9 +301,11 @@
    first column is what names the row -- pinning a chevron would cost a third
    of the screen and say nothing. The cell repeats the row's own background,
    because a see-through cell would show the row sliding underneath it.
+
+   Not in a headset, where a table does not scroll at all (below).
    ─────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 47.9375rem) {
-  [data-pin-first] tr > :first-child {
+  :root:not([data-place="headset"]) [data-pin-first] tr > :first-child {
     position: sticky;
     left: 0;
     z-index: 1;
@@ -320,17 +322,17 @@
     max-width: min(14rem, 48vw);
   }
 
-  [data-pin-first] tr:hover > :first-child {
+  :root:not([data-place="headset"]) [data-pin-first] tr:hover > :first-child {
     background: color-mix(in oklab, var(--muted) 40%, var(--card));
   }
 
-  [data-pin-first] tr[data-selected] > :first-child {
+  :root:not([data-place="headset"]) [data-pin-first] tr[data-selected] > :first-child {
     background: color-mix(in oklab, var(--accent) 60%, var(--card));
   }
 
   /* Column names on the strip keep the strip under the pinned one too. A header with no strip
      keeps the card surface above, so the pinned cell never paints half a strip on its own. */
-  [data-pin-first] thead.bg-strip tr > :first-child {
+  :root:not([data-place="headset"]) [data-pin-first] thead.bg-strip tr > :first-child {
     background: var(--strip);
   }
 }
@@ -366,6 +368,107 @@
 
 [data-place="headset"] [data-layout="narrow"] {
   display: block;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Tables in a headset.
+
+   A table that scrolls sideways asks a laser pointer to catch a scrollbar, and
+   at headset text sizes most tables are wider than the panel. So in a headset
+   a row is drawn as a small block: the cell that names the row across the top,
+   then every other cell beside its column's name, as many to a line as fit.
+   Nothing is dropped, not even a column a narrow desk hides (`hidden
+   md:table-cell`), which is why these rules sit outside the utility layer.
+
+   The column names come from `data-label`, copied onto each cell by the table
+   (components/ui/data-table.tsx). A cell spanning several columns (a detail
+   row, an empty row) runs the whole width, and a cell marked
+   `data-only-desk` holds no field, only a picture of one (a chevron), and is
+   left out. The header row is left out too, unless it holds a control, such
+   as a sort button, which then stays as a row of its own.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-place="headset"] [data-slot="table"],
+[data-place="headset"] [data-slot="table"] > tbody {
+  display: block;
+}
+
+[data-place="headset"] [data-slot="table"] > thead:not(:has(button, input, select)) {
+  display: none;
+}
+
+[data-place="headset"] [data-slot="table"] > thead {
+  display: block;
+}
+
+[data-place="headset"] [data-slot="table"] > thead > tr {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+}
+
+[data-place="headset"] [data-slot="table"] > tbody > tr {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 0.375rem 1.5rem;
+  height: auto;
+  padding: 0.75rem var(--panel-pad);
+}
+
+[data-place="headset"] [data-slot="table"] > tbody > tr > td {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.625rem;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+[data-place="headset"] [data-slot="table"] > tbody > tr > td[data-label]::before {
+  content: attr(data-label);
+  flex: none;
+  color: var(--muted-foreground);
+}
+
+[data-place="headset"] [data-slot="table"] > tbody > tr > td[data-label]:empty,
+[data-place="headset"] [data-slot="table"] > tbody > tr > td[data-only-desk] {
+  display: none;
+}
+
+[data-place="headset"] [data-slot="table"] > tbody > tr > td[data-name] {
+  grid-column: 1 / -1;
+  order: -1;
+  font-size: var(--text-base);
+  font-weight: 500;
+}
+
+[data-place="headset"] [data-slot="table"] > tbody > tr > td[data-wide] {
+  display: block;
+  grid-column: 1 / -1;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Hover-only details in a headset.
+
+   A `title` shows only while a pointer rests on it, and a laser pointer does
+   not rest. Text cut short to an ellipsis, whose title is the same text in
+   full, is written out in full instead. Any other title is marked with a
+   dotted line, and a tap on it shows it (components/TitleOnTap.tsx).
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-place="headset"] .truncate[title] {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+[data-place="headset"] :is(span, td, code, p)[title]:not(.truncate) {
+  text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
+  cursor: help;
 }
 
 @theme inline {
