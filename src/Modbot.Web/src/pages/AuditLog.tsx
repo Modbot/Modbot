@@ -10,7 +10,7 @@ import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, SourceBadge } from '@/components/facts'
 import { formatDay, sourceLabel } from '@/lib/format'
-import { useFilters, type FilterOption, type FilterProperty } from '@/lib/filters'
+import { useFilters, type FilterChip, type FilterOption, type FilterProperty } from '@/lib/filters'
 import { useListSelection } from '@/lib/listSelection'
 import { auditMatches } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
@@ -69,6 +69,8 @@ const newestFirst = (a: AuditEntry, b: AuditEntry) =>
 // it are still findable (import design §5.1).
 const SOURCES = ['AuditLog', 'SyncDiff', 'Companion', 'Discord', 'Manual', 'Modbot', 'Import']
 
+const NO_FILTERS: FilterChip[] = []
+
 export function AuditLog() {
   const [location] = useLocation()
 
@@ -89,7 +91,9 @@ export function AuditLog() {
   // New facts waiting above the top row while the list is scrolled (see below).
   const [pending, setPending] = useState(0)
 
-  const [chips, setChips] = useFilters('audit', AUDIT_DEFAULTS)
+  // Opened at one entry, by a link that says nothing about filters: none, so that entry is on the
+  // list whatever it is. A case file's link to its ban, a Chat answer's source chip.
+  const [chips, setChips] = useFilters('audit', AUDIT_DEFAULTS, factId ? NO_FILTERS : undefined)
 
   useEffect(() => {
     if (!factId) return
@@ -113,9 +117,11 @@ export function AuditLog() {
     const from = auditQueryFrom(chips)
     return {
       ...from,
-      // Opened at one entry: a second past it, so the entry itself is the first row rather than
-      // the one above it. A day picked in the filter still wins.
-      to: from.to ?? (openAt ? new Date(Date.parse(openAt.occurredAt) + 1000).toISOString() : undefined),
+      // Opened at one entry: a minute past it, so the entry is near the top rather than a page
+      // down, and the row is brought into view (see Row). A minute and not a second, because the
+      // entry may be the second fact of a decision whose row is VRChat's record of it, which lands
+      // seconds after Modbot's own. A day picked in the filter still wins.
+      to: from.to ?? (openAt ? new Date(Date.parse(openAt.occurredAt) + 60_000).toISOString() : undefined),
       limit: 50,
     }
   }, [chips, openAt])
@@ -225,7 +231,7 @@ export function AuditLog() {
   // Rows open on click into everything the entry holds. The entry the address names opens too,
   // because whoever followed that link came for that one.
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
-  const isOpen = (entry: AuditEntry) => expanded.has(entry.id) || String(entry.id) === factId
+  const isOpen = (entry: AuditEntry) => expanded.has(entry.id) || isNamed(entry, factId)
   const toggle = (entry: AuditEntry) =>
     setExpanded((current) => {
       const next = new Set(current)
@@ -390,7 +396,7 @@ export function AuditLog() {
                 <Row
                   key={entry.id}
                   entry={entry}
-                  marked={String(entry.id) === factId}
+                  marked={isNamed(entry, factId)}
                   open={isOpen(entry)}
                   onToggle={() => toggle(entry)}
                   {...rowProps(i)}
@@ -413,6 +419,16 @@ export function AuditLog() {
       </Card>
     </div>
   )
+}
+
+/**
+ * Whether a row is the entry the address names. A decision's second fact is shown inside the row
+ * for the decision rather than on its own (spec 5.3.2), so a link to it -- a case file's to the ban
+ * pressed in Modbot -- names the row that holds it.
+ */
+function isNamed(entry: AuditEntry, factId: string | null): boolean {
+  if (!factId) return false
+  return String(entry.id) === factId || (entry.linked ?? []).some((fact) => String(fact.id) === factId)
 }
 
 /** The command palette's search, narrowed to people: VRChat and Discord, since either can be what an entry is about. */

@@ -203,12 +203,24 @@ export function recallChips(page: string): FilterChip[] | null {
  * Whichever it was, the answer is written into the address at once, so what a moderator copies
  * out is the view they are looking at and not a link that opens differently for somebody else.
  */
-export function useFilters(page: string, defaults: FilterChip[]): [FilterChip[], (next: FilterChip[]) => void] {
+export function useFilters(
+  page: string,
+  defaults: FilterChip[],
+  /**
+   * What an address with no filters in it opens with, in place of the remembered set. A link to one
+   * entry passes none at all: opened with the filters last used for something else, the entry it
+   * names could be filtered out of the very page it opens.
+   */
+  linked?: FilterChip[],
+): [FilterChip[], (next: FilterChip[]) => void] {
   const [location, navigate] = useLocation()
 
   const fromAddress = useMemo(() => readChips(location.search), [location.search])
 
-  const chips = useMemo(() => fromAddress ?? recallChips(page) ?? defaults, [fromAddress, page, defaults])
+  const chips = useMemo(
+    () => fromAddress ?? linked ?? recallChips(page) ?? defaults,
+    [fromAddress, linked, page, defaults],
+  )
 
   useEffect(() => {
     if (fromAddress !== null) return
