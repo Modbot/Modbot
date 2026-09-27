@@ -7,9 +7,11 @@ import {
   MOVED,
   NAV,
   goesByName,
+  matchRank,
   MEMBERS_PATH,
   mayOpen,
   membersAddress,
+  otherWords,
   sidebarEntry,
   titleWithCount,
   waitingTotal,
@@ -254,4 +256,43 @@ test("the VRChat page's Roles, Gallery and Invites tabs light VRChat and ask for
 
   assert.equal(mayOpen(person('ViewAnalytics'), 'group-invites'), false)
   assert.equal(mayOpen(person('ManageGroupInvites'), 'group-invites'), true)
+})
+
+/** The pages the palette offers for what was typed, best match first, as the palette orders them. */
+function palette(typed: string): string[] {
+  return NAV.filter(goesByName)
+    .map((n) => ({ label: n.label, rank: matchRank(typed, n.label, [...otherWords(n), 'Go to']) }))
+    .filter((r) => r.rank !== null)
+    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+    .map((r) => r.label)
+}
+
+test('the words a moderator types find the page they mean', () => {
+  assert.equal(palette('join')[0], 'Requests')
+  assert.equal(palette('events')[0], 'Calendar')
+  assert.equal(palette('banned')[0], 'Bans')
+  assert.equal(palette('kick')[0], 'Audit log')
+  assert.equal(palette('voice')[0], 'Live')
+})
+
+test("the group's Members comes before Discord members", () => {
+  assert.deepEqual(palette('members'), ['Members', 'Discord members'])
+})
+
+test('a page named by what was typed comes before one that only answers to it', () => {
+  assert.deepEqual(palette('instances').slice(0, 2), ['Instances', 'Live'])
+})
+
+test('a match on the label ranks exact, then start, then anywhere, then other words', () => {
+  assert.equal(matchRank('audit log', 'Audit log'), 0)
+  assert.equal(matchRank('aud', 'Audit log'), 1)
+  assert.equal(matchRank('log', 'Audit log'), 2)
+  assert.equal(matchRank('history', 'Audit log', ['kick', 'history']), 3)
+  assert.equal(matchRank('ban list', 'Bans', ['ban list']), 3)
+  assert.equal(matchRank('voice', 'Bans', ['banned']), null)
+})
+
+test('case and extra spaces do not matter, and nothing typed matches everything', () => {
+  assert.equal(matchRank('  MEMBERS ', 'Members'), 0)
+  assert.equal(matchRank('', 'Bans'), 0)
 })
