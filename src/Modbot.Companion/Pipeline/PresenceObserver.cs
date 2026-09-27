@@ -142,6 +142,9 @@ public sealed class PresenceObserver
     /// <summary>Who is in it. Used by the overlay, which renders from local state only.</summary>
     public IReadOnlyCollection<string> Roster => _tracker.Roster;
 
+    /// <summary>When each person in the instance got here. See <see cref="InstanceSessionTracker.ArrivedAt"/>.</summary>
+    public IReadOnlyDictionary<string, DateTime?> ArrivedAt => _tracker.ArrivedAt;
+
     public LogHealth Health => new(
         _tail.LinesRead,
         _behaviourLines,

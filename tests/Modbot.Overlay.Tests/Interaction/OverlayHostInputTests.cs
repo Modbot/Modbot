@@ -14,7 +14,11 @@ namespace Modbot.Overlay.Tests.Interaction;
 /// </summary>
 public class OverlayHostInputTests
 {
-    private const int Size = 256;
+    /// <summary>
+    /// Big enough for the group line, the tabs, the list's filter row and three rows, all drawn at
+    /// the headset's sizes; at 256 the filter row pushed the rows off the bottom.
+    /// </summary>
+    private const int Size = 512;
 
     private static readonly Vector3 Centre = new(0.35f, -0.28f, -1.0f);
 

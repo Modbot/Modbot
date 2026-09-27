@@ -105,6 +105,18 @@ internal static partial class OpenVrInterop
     /// <summary><c>VREvent_ProcessQuit</c>: the same request, for this process in particular.</summary>
     internal const uint EventProcessQuit = 701;
 
+    /// <summary><c>VREvent_KeyboardDone</c>: Done was pressed on the keyboard shown for this overlay.</summary>
+    internal const uint EventKeyboardDone = 1202;
+
+    /// <summary><c>k_EGamepadTextInputModeNormal</c> and <c>k_EGamepadTextInputLineModeSingleLine</c>: plain text, one line.</summary>
+    internal const int KeyboardNormalSingleLine = 0;
+
+    /// <summary>
+    /// <c>KeyboardFlag_Modal</c>: the keyboard takes the controllers while it is up and goes away
+    /// when a ray lands off it, as Valve's header recommends for an overlay's keyboard.
+    /// </summary>
+    internal const uint KeyboardModal = 1 << 1;
+
     [LibraryImport("openvr_api", EntryPoint = "VR_InitInternal")]
     internal static partial nint InitInternal(out VrInitError error, int applicationType);
 
@@ -151,6 +163,8 @@ internal static class OverlaySlot
     internal const int SetOverlayTexture = 60;
     internal const int ClearOverlayTexture = 61;
     internal const int SetOverlayRaw = 62;
+    internal const int ShowKeyboardForOverlay = 75;
+    internal const int GetKeyboardText = 76;
 }
 
 /// <summary>

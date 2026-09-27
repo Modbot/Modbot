@@ -172,6 +172,15 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// <summary>Scrolling on the roster, in whole rows; negative is up.</summary>
     public event Action<int>? RosterScrolled;
 
+    /// <summary>A name typed on the runtime's keyboard, with the list it searches.</summary>
+    public event Action<OverlayPage, string>? NameTyped;
+
+    /// <summary>Whether the attached runtime can put a keyboard up. SteamVR can; OpenXR cannot.</summary>
+    public bool CanType => _runtime is IOverlayKeyboard { CanType: true };
+
+    /// <summary>The list the keyboard that is up is typing a name for, or null.</summary>
+    private OverlayPage? _typingFor;
+
     /// <summary>
     /// The group's picture for an address, from the companion's own cache, or null while there is
     /// none. Nothing here fetches anything: the panel asks for what the client is already holding,
@@ -261,7 +270,11 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             Draw();
 
         foreach (var click in result.Clicks)
-            Tapped?.Invoke(TargetAt(click.Across, click.Down));
+        {
+            var target = TargetAt(click.Across, click.Down);
+            Tapped?.Invoke(target);
+            AskForName(target);
+        }
 
         if (result.Pointer is { } pointer && result.Scroll.Y != 0f
             && TargetAt(pointer.Across, pointer.Down) is OverlayTarget.Roster or OverlayTarget.Person or OverlayTarget.Events)
@@ -284,6 +297,36 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
             : null);
     }
+
+    /// <summary>
+    /// Puts the runtime's keyboard up for a tap that means typing a name: the Name filter being
+    /// opened, or its box tapped. One tap, rather than opening the filter and then aiming at the
+    /// box as well.
+    /// </summary>
+    private void AskForName(OverlayTarget? target)
+    {
+        if (_runtime is not IOverlayKeyboard { CanType: true } keyboard)
+            return;
+
+        if (target is OverlayTarget.TypeName box)
+        {
+            if (keyboard.ShowKeyboard(box.Text))
+                _typingFor = box.List;
+        }
+        else if (target is OverlayTarget.Filter { Part: FilterPart.Name } chip
+            && FiltersOf(chip.List) is { } filters
+            && filters.Open != FilterPart.Name
+            && keyboard.ShowKeyboard(filters.Name ?? string.Empty))
+        {
+            _typingFor = chip.List;
+        }
+    }
+
+    private ListFilters? FiltersOf(OverlayPage list) => _drawn is not { } drawn ? null : list switch
+    {
+        OverlayPage.Events => drawn.EventFiltersOrNone,
+        _ => drawn.RosterFiltersOrNone,
+    };
 
     /// <summary>What is drawn under a point on the panel, from the tree that drew the current frame.</summary>
     public OverlayTarget? TargetAt(float across, float down)
@@ -388,6 +431,13 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     {
         _runtime.Poll();
 
+        // Done pressed on the keyboard: the name goes to the list it was put up for.
+        if (_runtime is IOverlayKeyboard keyboard && keyboard.TakeTyped() is { } typed && _typingFor is { } list)
+        {
+            _typingFor = null;
+            NameTyped?.Invoke(list, typed);
+        }
+
         if (_runtime.Status.State is not OverlayRuntimeState.Running && !KeepLastFrame)
             LetGo();
     }
@@ -467,6 +517,10 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             return false;
 
         var next = (_pinned ?? _live)?.WithCursor(_cursor);
+
+        // A runtime with no keyboard: the Name filter has nothing to type with here.
+        if (next is not null && !CanType)
+            next = next with { NoKeyboard = true };
 
         // Worn on a wrist, the panel is a sixth of the width it is in front of the head, and the
         // roster at that size is a grey smear. The wrist screen is what it shows there instead.

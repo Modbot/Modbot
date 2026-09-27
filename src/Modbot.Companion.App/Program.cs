@@ -1878,6 +1878,7 @@ internal sealed class CompanionHost : IOverlayListener
             // the panel was left), so it is where it was left next time.
             _overlayHost.Tapped += target => _overlay?.Tap(target);
             _overlayHost.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+            _overlayHost.NameTyped += (list, name) => _overlay?.SetName(list, name);
             // Saved once a change has settled rather than on every tick of a drag or a held grip: a
             // panel being moved changes thirty times a second, and the file needs the last one.
             _overlayHost.PlacementChanged += placement =>
@@ -2139,6 +2140,7 @@ internal sealed class CompanionHost : IOverlayListener
         _desktopOverlay.Apply(settings);
         _desktopOverlay.PanelTapped += target => _overlay?.Tap(target);
         _desktopOverlay.RosterScrolled += rows => _overlay?.ScrollRoster(rows);
+        _desktopOverlay.NameTyped += (list, name) => _overlay?.SetName(list, name);
 
         _desktopOverlayShortcut = new DesktopOverlayShortcut(ToggleDesktopOverlay);
         _desktopOverlayShortcut.Ask(settings.ShortcutOrDefault);
@@ -2485,6 +2487,10 @@ internal sealed class CompanionHost : IOverlayListener
             // The instance the log reader last understood. The overlay follows the moderator: the
             // server that manages this instance is the only one it reads from or speaks for.
             _overlay.EnteredInstance(CurrentInstance);
+
+            // When each person got here, from the same read of the same log. The panel shows it
+            // on the Instance list and filters by it; it is never sent.
+            _overlay.ArrivedAt = _engine?.ArrivedAt;
             await _overlay.TickAsync();
 
             // The pop-ups, after the tick that may have made one: what is still within its time,

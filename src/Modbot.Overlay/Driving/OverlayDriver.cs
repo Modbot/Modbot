@@ -3,6 +3,7 @@ using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Overlay;
 using Modbot.Companion.Sounds;
+using Modbot.Companion.Time;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
 using Modbot.Overlay.Interaction;
@@ -117,6 +118,14 @@ public sealed class OverlayDriver : IDisposable
     private int _rosterSkip;
     private OverlayPage _page = OverlayPage.Instance;
 
+    // What each list is cut down to. Kept apart, so neither list looks empty for a reason set on
+    // the other, and gone with the instance.
+    private ListFilters _rosterFilters = ListFilters.None;
+    private ListFilters _eventFilters = ListFilters.None;
+
+    /// <summary>Reads VRChat's timestamps, which carry no zone, as instants on this PC's clock.</summary>
+    private readonly LogTimestampConverter _timestamps = new();
+
     /// <summary>Which problem the notification overlay was last told about, so it is said once.</summary>
     private string? _problemShown;
 
@@ -230,6 +239,8 @@ public sealed class OverlayDriver : IDisposable
         _personWanted = null;
         _rosterSkip = 0;
         _page = OverlayPage.Instance;
+        _rosterFilters = ListFilters.None;
+        _eventFilters = ListFilters.None;
         _events.Clear();
         _problemShown = null;
         _popUps?.ClearAll();
@@ -253,6 +264,86 @@ public sealed class OverlayDriver : IDisposable
 
     /// <summary>What the live link has heard here, newest first.</summary>
     public IReadOnlyList<LiveEvent> Events => _events;
+
+    /// <summary>What the Instance list is cut down to.</summary>
+    public ListFilters RosterFilters => _rosterFilters;
+
+    /// <summary>What the Audit Log is cut down to.</summary>
+    public ListFilters EventFilters => _eventFilters;
+
+    /// <summary>
+    /// When each person in the moderator's instance got here, as this PC's copy of VRChat's log
+    /// says: VRChat's own timestamp, or null for somebody who was already here when the moderator
+    /// arrived. Set by the companion, which reads the log; the overlay has no log of its own.
+    /// </summary>
+    /// <remarks>
+    /// Read, never sent. It puts a join time on each roster row and is what the Joined filter
+    /// measures, and nothing else.
+    /// </remarks>
+    public IReadOnlyDictionary<string, DateTime?>? ArrivedAt { get; set; }
+
+    /// <summary>
+    /// The name a list is searched for, as typed on SteamVR's keyboard or the desktop window.
+    /// Blank clears it. The list goes back to its top, because the rows above are different rows.
+    /// </summary>
+    public void SetName(OverlayPage list, string? name)
+    {
+        var clean = ListFilters.CleanName(name);
+        Change(list, filters => filters with { Name = clean });
+    }
+
+    private void Change(OverlayPage list, Func<ListFilters, ListFilters> change)
+    {
+        if (list is OverlayPage.Events)
+        {
+            _eventFilters = change(_eventFilters);
+        }
+        else
+        {
+            var before = _rosterFilters;
+            _rosterFilters = change(_rosterFilters);
+
+            if (before with { Open = null } != _rosterFilters with { Open = null })
+                _rosterSkip = 0;
+        }
+    }
+
+    /// <summary>
+    /// A tap on a list's filter row: open or close a filter, take a choice, or clear the lot.
+    /// </summary>
+    private void Filter(OverlayTarget target)
+    {
+        switch (target)
+        {
+            case OverlayTarget.Filter chip:
+                Change(chip.List, filters => filters with { Open = filters.Open == chip.Part ? null : chip.Part });
+                break;
+
+            case OverlayTarget.ClearFilters clear:
+                Change(clear.List, _ => ListFilters.None);
+                break;
+
+            case OverlayTarget.Pick pick:
+                Change(pick.List, filters => Picked(filters, pick));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// A choice taken. One-choice filters close once it is taken, so the list is in view again;
+    /// rank and kind stay open for the next tick.
+    /// </summary>
+    private static ListFilters Picked(ListFilters filters, OverlayTarget.Pick pick) => pick.Part switch
+    {
+        FilterPart.Who when Enum.IsDefined((Who)pick.Choice) => filters with { Who = (Who)pick.Choice, Open = null },
+        FilterPart.Time when Enum.IsDefined((TimeWindow)pick.Choice) => filters with { Time = (TimeWindow)pick.Choice, Open = null },
+        FilterPart.Sort when Enum.IsDefined((RosterOrder)pick.Choice) => filters with { Order = (RosterOrder)pick.Choice, Open = null },
+        FilterPart.Rank => filters with { Ranks = filters.Ranks.Toggle(pick.Choice < 0 ? null : (TrustRank)pick.Choice) },
+        FilterPart.Kind when pick.Choice >= 0 && pick.Choice < KindPick.Offered.Count
+            => filters with { Kinds = filters.Kinds.Toggle(KindPick.Offered[pick.Choice]) },
+        FilterPart.Name => filters with { Name = null, Open = null },
+        _ => filters,
+    };
 
     /// <summary>Shows one of the panel's screens, as a tab does.</summary>
     public void GoTo(OverlayPage page)
@@ -293,19 +384,43 @@ public sealed class OverlayDriver : IDisposable
                 _personWanted = null;
                 _page = OverlayPage.Instance;
                 break;
+            case OverlayTarget.Filter or OverlayTarget.Pick or OverlayTarget.ClearFilters:
+                Filter(target);
+                break;
             default:
                 break;
         }
     }
 
-    /// <summary>Scrolls the roster by whole rows; the view keeps it inside the list.</summary>
+    /// <summary>Scrolls the roster by whole rows, inside what the filters leave of it.</summary>
     public void ScrollRoster(int rows)
     {
         var count = Current() is { } server && _instance is not null
-            ? server.Cache.Context(_instance.InstanceId).Value?.Members.Count ?? 0
+            && server.Cache.Context(_instance.InstanceId).Value is { } context
+            ? ListFiltering.Roster(context.Members, _rosterFilters, Arrivals(context), _clock.UtcNow).Count
             : 0;
 
         _rosterSkip = Math.Clamp(_rosterSkip + rows, 0, Math.Max(0, count - 1));
+    }
+
+    /// <summary>
+    /// When each person on the roster got here, as instants, for the people the log has
+    /// mentioned. A person on the server's roster whose arrival this PC never saw is left out,
+    /// and their row says nothing about when they came.
+    /// </summary>
+    private Dictionary<string, DateTimeOffset?> Arrivals(InstanceContext context)
+    {
+        var arrivals = new Dictionary<string, DateTimeOffset?>(StringComparer.Ordinal);
+        if (ArrivedAt is not { Count: > 0 } arrived)
+            return arrivals;
+
+        foreach (var member in context.Members)
+        {
+            if (arrived.TryGetValue(member.SubjectId, out var at))
+                arrivals[member.SubjectId] = at is { } local ? _timestamps.ToInstant(local) : null;
+        }
+
+        return arrivals;
     }
 
     /// <summary>
@@ -639,7 +754,11 @@ public sealed class OverlayDriver : IDisposable
 
             // The address the server gave at pairing. The panel draws the picture the companion
             // already holds for it; nothing here fetches anything.
-            GroupIconUrl: server.Pairing.ManagedGroupIconUrl);
+            GroupIconUrl: server.Pairing.ManagedGroupIconUrl,
+            RosterFilters: _rosterFilters,
+            EventFilters: _eventFilters,
+            Arrivals: roster.Value is { } context ? Arrivals(context) : null,
+            Now: _clock.UtcNow);
     }
 
     /// <summary>

@@ -26,7 +26,7 @@ namespace Modbot.Overlay;
 /// where both are reached OpenXR is the one that could have worked (overlay-on-OpenXR spec,
 /// 3.1).</para>
 /// </remarks>
-public sealed class FallbackOverlayRuntime : IOverlayRuntime
+public sealed class FallbackOverlayRuntime : IOverlayRuntime, IOverlayKeyboard
 {
     private readonly IOverlayRuntime _openVr;
     private readonly IOverlayRuntime _openXr;
@@ -163,6 +163,13 @@ public sealed class FallbackOverlayRuntime : IOverlayRuntime
     public void Hide() => _attached?.Hide();
 
     public OverlayTracking ReadTracking() => _attached?.ReadTracking() ?? OverlayTracking.None;
+
+    /// <summary>Whether the attached runtime has a keyboard: SteamVR's does, OpenXR has none.</summary>
+    public bool CanType => _attached is IOverlayKeyboard { CanType: true };
+
+    public bool ShowKeyboard(string text) => _attached is IOverlayKeyboard keyboard && keyboard.ShowKeyboard(text);
+
+    public string? TakeTyped() => (_attached as IOverlayKeyboard)?.TakeTyped();
 
     /// <summary>Kept here too, so whichever runtime attaches next is placed the same way.</summary>
     public void Place(OverlayPlacement placement)
