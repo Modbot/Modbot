@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  ABOUT_FOLDED_KEY,
   LIMITS,
   descriptionProblem,
   draftFrom,
@@ -13,10 +12,8 @@ import {
   linksProblem,
   nameProblem,
   profileChanges,
-  readFolded,
   tidyLinks,
   webLink,
-  writeFolded,
 } from '../src/lib/groupProfile.ts'
 import type { GroupInfo } from '../src/lib/api.ts'
 
@@ -109,40 +106,4 @@ test('a draft is checked field by field before it can be sent', () => {
 test('who can join reads in words', () => {
   assert.equal(joinStateLabel('invite'), 'Invite only')
   assert.equal(joinStateLabel(null), '—')
-})
-
-function memoryStore() {
-  const values = new Map<string, string>()
-  return {
-    values,
-    getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => void values.set(key, value),
-  }
-}
-
-test('the About card starts unfolded and remembers being folded', () => {
-  const store = memoryStore()
-
-  assert.equal(readFolded(store), false)
-  writeFolded(store, true)
-  assert.equal(store.values.get(ABOUT_FOLDED_KEY), '1')
-  assert.equal(readFolded(store), true)
-  writeFolded(store, false)
-  assert.equal(readFolded(store), false)
-})
-
-test('a store that refuses, or none at all, reads as unfolded and never throws', () => {
-  const refusing = {
-    getItem: () => {
-      throw new Error('denied')
-    },
-    setItem: () => {
-      throw new Error('denied')
-    },
-  }
-
-  assert.equal(readFolded(refusing), false)
-  assert.doesNotThrow(() => writeFolded(refusing, true))
-  assert.equal(readFolded(null), false)
-  assert.doesNotThrow(() => writeFolded(undefined, true))
 })

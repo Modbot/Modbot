@@ -46,6 +46,33 @@ export function settingsTab(me: CurrentUser): PageId {
   return mayOpen(me, 'group-settings') ? 'group-settings' : 'group-roles'
 }
 
+/**
+ * The tabs that lead to a Modbot page of its own rather than to the VRChat page (Events, Members,
+ * Banned Users, and Settings' Logs). Opened from the tab row, their address carries `from=group`, and
+ * that page then draws the group's header above itself so the person has not left the group's page.
+ * Opened from the sidebar, the same page looks as it always has.
+ */
+const OWN_PAGES: readonly PageId[] = ['calendar', 'members', 'bans', 'audit']
+
+/** The address a tab of the row leads to: `path` itself, or `path?from=group` for a page of its own. */
+export function groupTabHref(id: PageId, path: string): string {
+  return OWN_PAGES.includes(id) ? `${path}${path.includes('?') ? '&' : '?'}from=group` : path
+}
+
+/**
+ * The tab to mark when `page` was opened from the group's tab row, or null when it was not, or is
+ * not one of the pages the row leads out to. Members opens as People narrowed to members, so People
+ * reached that way is the Members tab; Logs is inside Settings.
+ */
+export function groupTabFrom(page: PageId, search: URLSearchParams, me: CurrentUser): PageId | null {
+  if (search.get('from') !== 'group') return null
+
+  if (page === 'calendar' || page === 'bans') return page
+  if (page === 'people') return 'members'
+  if (page === 'audit') return settingsTab(me)
+  return null
+}
+
 /** `TESTIN.4698`, the way VRChat writes a group's code; the code alone without the digits. */
 export function groupCode(shortCode: string | null, discriminator: string | null): string | null {
   const code = shortCode?.trim()

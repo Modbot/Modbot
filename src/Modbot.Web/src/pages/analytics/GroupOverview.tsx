@@ -1,13 +1,14 @@
-import { useEffect, useId, useState } from 'react'
-import { ChevronDown, ExternalLink } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ExternalLink } from 'lucide-react'
 import { WorldLink } from '@/components/facts'
+import { InstanceTile } from '@/components/InstanceCards'
 import { EditButton, FieldRow, LanguagePicker, LinkListEditor, LongBox, SaveCancel } from '@/components/group/ProfileEditors'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { useSave } from '@/lib/useSave'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { api, type CurrentUser, type GroupInfo, type GroupProfileEdit } from '@/lib/api'
+import { api, type CurrentUser, type GroupInfo, type GroupProfileEdit, type LiveInstance } from '@/lib/api'
 import { calendarApi } from '@/lib/calendar'
 import { whenRange } from '@/lib/format'
 import { isWebLink, languageName, linkLabel, nextEvent, type NextEvent } from '@/lib/groupOverview'
@@ -19,13 +20,10 @@ import {
   linksProblem,
   profileChanges,
   draftFrom,
-  readFolded,
-  writeFolded,
 } from '@/lib/groupProfile'
 import type { PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
-import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { useGroupInfo } from '@/lib/useGroupInfo'
 import { GroupHeader } from './GroupHeader'
@@ -39,7 +37,9 @@ import { PageMessage } from './shared'
  * group-info sync already keeps, so opening the page asks VRChat nothing. The upcoming event is
  * Modbot's own calendar.
  *
- * Languages, Links and About can be changed in place, as on vrchat.com, by anyone who may edit the
+ * Right now lists the group's open instances from what Modbot keeps, so it asks VRChat nothing either.
+ *
+ * Languages, Links, About and Rules can be changed in place, as on vrchat.com, by anyone who may edit the
  * group's profile: a pencil opens the card's editor, and Save sends that one field to VRChat in one
  * request. The card then shows the group as VRChat answered, with no second read.
  */
@@ -57,6 +57,8 @@ export function GroupOverview({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pa
       <GroupHeader info={info} me={me} pathOf={pathOf} />
 
       <PanelGrid className="grid-cols-1">
+        {can(me, 'ViewLiveInstances') && <RightNow />}
+
         {can(me, 'ViewCalendar') && <UpcomingEvent me={me} pathOf={pathOf} />}
 
         <PanelGrid className="md:grid-cols-2">
@@ -64,9 +66,73 @@ export function GroupOverview({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pa
           <Links info={info} onSave={editable ? save : undefined} />
         </PanelGrid>
 
-        <About info={info} onSave={editable ? save : undefined} />
+        <PanelGrid className="md:grid-cols-2">
+          <About info={info} onSave={editable ? save : undefined} />
+          <Rules info={info} onSave={editable ? save : undefined} />
+        </PanelGrid>
       </PanelGrid>
     </>
+  )
+}
+
+/**
+ * The group's instances open right now, as tiles the way the game draws them, each opening its
+ * instance. Read once from what Modbot already keeps (`/api/live`), so it asks VRChat nothing.
+ */
+function RightNow() {
+  const [open, setOpen] = useState<LiveInstance[] | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    api
+      .live()
+      .then((view) => {
+        if (!cancelled) setOpen(view.instances)
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Right now</CardTitle>
+      </CardHeader>
+
+      {failed ? (
+        <EmptyRow tone="danger">Could not load the open instances.</EmptyRow>
+      ) : open === null ? (
+        <EmptyRow>Loading…</EmptyRow>
+      ) : open.length === 0 ? (
+        <EmptyRow>No group instances open</EmptyRow>
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3 p-3">
+          {open.map((instance) => (
+            <InstanceTile
+              key={instance.id}
+              instanceId={instance.id}
+              worldName={instance.worldName}
+              instanceName={instance.instanceName}
+              number={instance.vrChatInstanceId}
+              imageUrl={instance.worldImageUrl}
+              people={instance.headCount}
+              peopleUnsure={instance.headCountUnsure}
+              capacity={instance.worldCapacity}
+              groupAccessType={instance.groupAccessType}
+              region={instance.region}
+              platforms={instance.worldPlatforms}
+            />
+          ))}
+        </div>
+      )}
+    </Card>
   )
 }
 
@@ -271,110 +337,100 @@ function Links({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
   )
 }
 
-/** The browser's own store, or none when it refuses to hand one over (a private window, say). */
-function localStore(): Storage | null {
-  try {
-    return window.localStorage
-  } catch {
-    return null
-  }
-}
-
 /**
- * The description and the rules, under a heading that folds them away. The fold is remembered per
- * browser and starts unfolded; the pencil is there whenever the card is open.
+ * The description, as vrchat.com's About This Group card shows it, with a pencil of its own.
+ * Rules sit in the card beside it, as they do there.
  */
 function About({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
-  const [folded, setFolded] = useState(() => readFolded(localStore()))
-  const [draft, setDraft] = useState<{ description: string; rules: string } | null>(null)
+  const [draft, setDraft] = useState<string | null>(null)
   const { saving, problem, missing, run, clear } = useSave()
-  const bodyId = useId()
-
-  const toggle = () => {
-    const next = !folded
-    setFolded(next)
-    writeFolded(localStore(), next)
-  }
 
   const close = () => {
     setDraft(null)
     clear()
   }
 
-  const { description, rules } = info
-  const changes = draft ? profileChanges(info, { ...draftFrom(info), ...draft }) : {}
-  const tooLong = draft ? descriptionProblem(draft.description) : null
+  const changes = draft !== null ? profileChanges(info, { ...draftFrom(info), description: draft }) : {}
+  const tooLong = draft !== null ? descriptionProblem(draft) : null
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          <h3>
-            <button
-              type="button"
-              aria-expanded={!folded}
-              aria-controls={bodyId}
-              onClick={toggle}
-              className="-mx-1 flex min-h-(--control-h) items-center gap-1.5 rounded-xs px-1 text-left focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              <ChevronDown aria-hidden className={cn('size-[1.1em] shrink-0 transition-transform', folded && '-rotate-90')} />
-              About this group
-            </button>
-          </h3>
-        </CardTitle>
-        {onSave && !folded && !draft && (
+        <CardTitle>About this group</CardTitle>
+        {onSave && draft === null && (
           <CardAction>
-            <EditButton
-              label="Edit description and rules"
-              onClick={() => setDraft({ description: description ?? '', rules: rules ?? '' })}
-            />
+            <EditButton label="Edit description" onClick={() => setDraft(info.description ?? '')} />
           </CardAction>
         )}
       </CardHeader>
 
-      <div id={bodyId} hidden={folded}>
-        {draft ? (
-          <CardContent className="flex flex-col gap-3">
-            <FieldRow
-              label="Description"
-              problem={tooLong}
-              count={`${draft.description.trim().length}/${LIMITS.descriptionMax}`}
-            >
-              {(id) => (
-                <LongBox
-                  id={id}
-                  value={draft.description}
-                  invalid={tooLong !== null}
-                  onChange={(v) => setDraft({ ...draft, description: v })}
-                />
-              )}
-            </FieldRow>
-            <FieldRow label="Rules">
-              {(id) => <LongBox id={id} rows={8} value={draft.rules} onChange={(v) => setDraft({ ...draft, rules: v })} />}
-            </FieldRow>
-            <SaveCancel
-              saving={saving}
-              missing={missing}
-              disabled={isEmptyEdit(changes) || tooLong !== null}
-              problem={problem}
-              onCancel={close}
-              onSave={() => void run(() => onSave!(changes)).then((ok) => ok && close())}
-            />
-          </CardContent>
-        ) : !description && !rules ? (
-          <EmptyRow>None added</EmptyRow>
-        ) : (
-          <CardContent className="flex flex-col gap-3">
-            {description && <p className="break-words whitespace-pre-wrap">{description}</p>}
-            {rules && (
-              <div className="flex flex-col gap-1">
-                <h4 className="font-label">Rules</h4>
-                <p className="break-words whitespace-pre-wrap">{rules}</p>
-              </div>
-            )}
-          </CardContent>
+      {draft !== null ? (
+        <CardContent className="flex flex-col gap-3">
+          <FieldRow label="Description" problem={tooLong} count={`${draft.trim().length}/${LIMITS.descriptionMax}`}>
+            {(id) => <LongBox id={id} value={draft} invalid={tooLong !== null} onChange={setDraft} />}
+          </FieldRow>
+          <SaveCancel
+            saving={saving}
+            missing={missing}
+            disabled={isEmptyEdit(changes) || tooLong !== null}
+            problem={problem}
+            onCancel={close}
+            onSave={() => void run(() => onSave!(changes)).then((ok) => ok && close())}
+          />
+        </CardContent>
+      ) : !info.description ? (
+        <EmptyRow>None added</EmptyRow>
+      ) : (
+        <CardContent>
+          <p className="break-words whitespace-pre-wrap">{info.description}</p>
+        </CardContent>
+      )}
+    </Card>
+  )
+}
+
+/** The group's rules, in a card of their own beside About, as on vrchat.com. */
+function Rules({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const { saving, problem, missing, run, clear } = useSave()
+
+  const close = () => {
+    setDraft(null)
+    clear()
+  }
+
+  const changes = draft !== null ? profileChanges(info, { ...draftFrom(info), rules: draft }) : {}
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Rules</CardTitle>
+        {onSave && draft === null && (
+          <CardAction>
+            <EditButton label="Edit rules" onClick={() => setDraft(info.rules ?? '')} />
+          </CardAction>
         )}
-      </div>
+      </CardHeader>
+
+      {draft !== null ? (
+        <CardContent className="flex flex-col gap-3">
+          <FieldRow label="Rules">{(id) => <LongBox id={id} rows={8} value={draft} onChange={setDraft} />}</FieldRow>
+          <SaveCancel
+            saving={saving}
+            missing={missing}
+            disabled={isEmptyEdit(changes)}
+            problem={problem}
+            onCancel={close}
+            onSave={() => void run(() => onSave!(changes)).then((ok) => ok && close())}
+          />
+        </CardContent>
+      ) : !info.rules ? (
+        <EmptyRow>None added</EmptyRow>
+      ) : (
+        <CardContent>
+          <p className="break-words whitespace-pre-wrap">{info.rules}</p>
+        </CardContent>
+      )}
     </Card>
   )
 }

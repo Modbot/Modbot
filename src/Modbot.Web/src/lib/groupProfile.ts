@@ -139,29 +139,3 @@ export function draftProblem(draft: ProfileDraft): string | null {
     linksProblem(draft.links)
   )
 }
-
-/** Where the About card remembers being folded, per browser. */
-export const ABOUT_FOLDED_KEY = 'modbot.group.about.folded'
-
-type Store = Pick<Storage, 'getItem' | 'setItem'>
-
-/**
- * Whether the About card was left folded. Unfolded unless this browser folded it: a store that is
- * missing, full or refused (a private window) reads as unfolded rather than as an error.
- */
-export function readFolded(store: Store | null | undefined): boolean {
-  try {
-    return store?.getItem(ABOUT_FOLDED_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-/** Remembers the fold. A store that refuses is ignored; the card still folds for this visit. */
-export function writeFolded(store: Store | null | undefined, folded: boolean): void {
-  try {
-    store?.setItem(ABOUT_FOLDED_KEY, folded ? '1' : '0')
-  } catch {
-    // Nowhere to remember it. The choice holds until the page is left.
-  }
-}

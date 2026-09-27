@@ -8,17 +8,20 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, ApiError, type CurrentUser, type GroupInviteList, type GroupInviteRow, type MissingGroupPermission } from '@/lib/api'
 import { formatDay } from '@/lib/format'
-import type { PageId } from '@/lib/nav'
+import { mayOpen, type PageId } from '@/lib/nav'
+import { openPerson } from '@/lib/subject'
+import { JoinRequests } from '@/pages/Requests'
 import { missingPermissionOf } from '@/lib/vrchatPermissions'
 import { GroupHeaderFor } from './GroupHeader'
 
 /**
- * The VRChat page's Invites tab: the people the group has invited who have not answered yet, as
- * vrchat.com lists them, newest first, each with a Cancel that asks first.
+ * The VRChat page's Invites tab, in vrchat.com's order: the join requests first (the Requests
+ * page's list, for somebody who may see it), then the people the group has invited who have not
+ * answered yet, newest first, each with a Cancel that asks first.
  *
- * **Every request to VRChat here is one somebody asked for.** The list is read once when the tab
- * opens, once per page turned and once per Refresh; a Cancel is one request. VRChat sends no total,
- * so paging is Previous and Next.
+ * **Every request to VRChat here is one somebody asked for.** Each list is read once when the tab
+ * opens, once per page turned and once per Refresh, so opening the tab costs two; a Cancel, an
+ * Approve or a Reject is one. VRChat sends no total, so paging is Previous and Next.
  */
 export function GroupInvites({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const [page, setPage] = useState(1)
@@ -69,6 +72,8 @@ export function GroupInvites({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pag
   return (
     <div className="flex flex-col gap-3">
       <GroupHeaderFor me={me} pathOf={pathOf} active="group-invites" />
+
+      {mayOpen(me, 'requests') && <JoinRequests me={me} onOpenSubject={openPerson} title="Join requests" />}
 
       <PanelGrid className="grid-cols-1">
         <Card>

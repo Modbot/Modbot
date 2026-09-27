@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { groupCode, groupTabs, isWebLink, languageName, linkLabel, nextEvent, settingsTab } from '../src/lib/groupOverview.ts'
+import {
+  groupCode,
+  groupTabFrom,
+  groupTabHref,
+  groupTabs,
+  isWebLink,
+  languageName,
+  linkLabel,
+  nextEvent,
+  settingsTab,
+} from '../src/lib/groupOverview.ts'
+import { membersAddress } from '../src/lib/nav.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
 import type { CalendarEvent } from '../src/lib/calendar.ts'
 
@@ -142,4 +153,35 @@ test('drafts, cancelled and finished events are never the next one', () => {
 
 test('no events, no next event', () => {
   assert.equal(nextEvent([], '2026-09-26T12:00:00Z'), null)
+})
+
+test("a tab that leads to a page of its own says it came from the group; the VRChat page's own tabs do not", () => {
+  assert.equal(groupTabHref('calendar', '/calendar'), '/calendar?from=group')
+  assert.equal(groupTabHref('members', '/members'), '/members?from=group')
+  assert.equal(groupTabHref('bans', '/bans'), '/bans?from=group')
+  assert.equal(groupTabHref('audit', '/audit'), '/audit?from=group')
+  assert.equal(groupTabHref('audit', '/audit?type=ban'), '/audit?type=ban&from=group')
+  assert.equal(groupTabHref('group-posts', '/analytics/group/posts'), '/analytics/group/posts')
+  assert.equal(groupTabHref('analytics-group', '/analytics/group'), '/analytics/group')
+})
+
+test('a page opened from the tab row marks its tab; opened any other way it marks nothing', () => {
+  const admin = person('Administrator')
+  const from = new URLSearchParams('from=group')
+
+  assert.equal(groupTabFrom('calendar', from, admin), 'calendar')
+  assert.equal(groupTabFrom('bans', from, admin), 'bans')
+  assert.equal(groupTabFrom('people', from, admin), 'members')
+  assert.equal(groupTabFrom('audit', from, admin), 'group-settings')
+  assert.equal(groupTabFrom('audit', from, person('ViewAuditLog', 'ManageGroupRoles')), 'group-roles')
+
+  assert.equal(groupTabFrom('bans', new URLSearchParams(''), admin), null)
+  assert.equal(groupTabFrom('bans', new URLSearchParams('from=elsewhere'), admin), null)
+  assert.equal(groupTabFrom('live', from, admin), null)
+})
+
+test('the Members tab still says where it came from after /members moves on to People', () => {
+  const moved = membersAddress('/members', '?from=group')
+  assert.ok(moved?.startsWith('/people?'))
+  assert.equal(new URLSearchParams(moved!.slice('/people'.length)).get('from'), 'group')
 })

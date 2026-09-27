@@ -26,6 +26,7 @@ import {
   waitingTotal,
   type PageId,
 } from '@/lib/nav'
+import { groupTabFrom } from '@/lib/groupOverview'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density, type Place } from '@/lib/preferences'
 import { go, useLocation, useRoute } from '@/lib/router'
@@ -59,6 +60,7 @@ import { GroupPosts } from '@/pages/analytics/GroupPosts'
 import { GroupSettings } from '@/pages/analytics/GroupSettings'
 import { GroupRoles } from '@/pages/analytics/GroupRoles'
 import { GroupInvites } from '@/pages/analytics/GroupInvites'
+import { GroupPageTop } from '@/pages/analytics/GroupPageTop'
 import { GroupGallery } from '@/pages/analytics/GroupGallery'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
@@ -368,6 +370,9 @@ function Shell({
   const page = mayOpen(me, requested)
     ? requested
     : (NAV.find((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id))?.id ?? 'account')
+
+  // Events, Members, Banned Users and Logs opened from the VRChat page's tab row keep its header.
+  const fromGroup = groupTabFrom(page, location.search, me)
   const title = TITLES[page]
 
   // A headset opens on Live, which is what a moderator in VR is there to watch. Once, as the app
@@ -568,6 +573,7 @@ function Shell({
           onSignOut={signOut}
         />
         <div className="p-4 lg:p-5">
+          {fromGroup && <GroupPageTop me={me} page={page} tab={fromGroup} pathOf={(id) => PATHS[id]} />}
           {page === 'now' && !movingToMembers && (
             <Now
               me={me}
