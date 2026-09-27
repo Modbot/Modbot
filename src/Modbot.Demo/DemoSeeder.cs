@@ -97,6 +97,7 @@ public sealed class DemoSeeder
         await _db.StorageDays.ExecuteDeleteAsync(ct);
 
         await _db.InstanceHeadCounts.ExecuteDeleteAsync(ct);
+        await _db.WorldHeadCounts.ExecuteDeleteAsync(ct);
         await _db.GroupMemberCounts.ExecuteDeleteAsync(ct);
         await _db.VRChatInstances.ExecuteDeleteAsync(ct);
         await _db.VRChatWorlds.ExecuteDeleteAsync(ct);
@@ -491,6 +492,92 @@ public sealed class DemoSeeder
         }
 
         await _db.SaveChangesAsync(ct);
+
+        await WorldReadingsAsync(plan, ct);
+    }
+
+    /// <summary>How far back the demo's world readings go. The real ones start on the day they were built.</summary>
+    private const int WorldReadingDays = 30;
+
+    /// <summary>
+    /// The world pages an instance's popup compares it against: one read every ten minutes while any
+    /// of the group's instances was open in the world, over the last month.
+    /// </summary>
+    /// <remarks>
+    /// The group's own instances are members-only, so, as VRChat is believed to, the world's list
+    /// leaves them out and the popup ranks them by their own head counts. The others are a handful of
+    /// made-up public instances per world whose counts rise and fall on a slow wave, worked out from
+    /// the time and the world's id rather than drawn from the plan's random numbers, so adding them
+    /// changes nothing else the demo makes.
+    /// </remarks>
+    private async Task WorldReadingsAsync(DemoPlan plan, CancellationToken ct)
+    {
+        var since = plan.Now.AddDays(-WorldReadingDays);
+        var step = TimeSpan.FromMinutes(10);
+        var written = 0;
+
+        foreach (var world in plan.Instances.Where(i => (i.ClosedAt ?? plan.Now) > since).GroupBy(i => i.World.WorldId))
+        {
+            var seed = StableHash(world.Key);
+            var times = new SortedSet<DateTimeOffset>();
+
+            foreach (var instance in world)
+            {
+                var from = instance.OpenedAt > since ? instance.OpenedAt : since;
+                var until = instance.ClosedAt ?? plan.Now;
+
+                for (var at = from; at < until; at += step)
+                    times.Add(at);
+            }
+
+            foreach (var at in times)
+            {
+                var ours = world
+                    .Where(i => i.OpenedAt <= at && (i.ClosedAt ?? plan.Now) > at)
+                    .Sum(i => i.Visits.Count(v => v.Arrived <= at && (v.Left is null || v.Left > at)));
+
+                var hours = (at - since).TotalHours;
+                var entries = new List<object[]>();
+
+                for (var k = 0; k < 6; k++)
+                {
+                    var wave = Math.Sin(hours / (3 + k) + (seed % 97) / 13.0 + k * 1.7);
+                    var people = (int)Math.Round(3 + 4 * k + (5 + 3 * k) * wave);
+
+                    if (people <= 0)
+                        continue;
+
+                    var number = 10000 + (seed + k * 7919) % 89999;
+                    entries.Add([$"{number}~region({(k % 2 == 0 ? "us" : "eu")})", people]);
+                }
+
+                var theirs = entries.Sum(e => (int)e[1]);
+
+                _db.WorldHeadCounts.Add(new WorldHeadCount
+                {
+                    WorldId = world.Key,
+                    CountedAt = at,
+                    Occupants = theirs + ours + theirs / 10,
+                    PublicOccupants = theirs,
+                    PrivateOccupants = ours + theirs / 10,
+                    Instances = JsonSerializer.Serialize(entries),
+                });
+
+                if (++written % 500 == 0)
+                    await _db.SaveChangesAsync(ct);
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>A hash that is the same on every run, unlike <see cref="string.GetHashCode()"/>.</summary>
+    private static int StableHash(string text)
+    {
+        var hash = 17;
+        foreach (var c in text)
+            hash = unchecked(hash * 31 + c);
+        return hash & int.MaxValue;
     }
 
     // --- moderation ---------------------------------------------------------------------------

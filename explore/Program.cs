@@ -127,6 +127,14 @@ try
                 arg1!.Split(':')[0], arg1.Split(':', 2)[1]));
             break;
 
+        case "world":
+            // Instance comparison (2026-09-27): which instances does the world page's `instances`
+            // list carry -- public only, or group-public too -- and does a group instance's count
+            // there match its own page's userCount? Also whether `occupants` moves between reads.
+            Require(arg1, "<wrld_id>");
+            Dump("GetWorld", await vrchat.Worlds.GetWorldWithHttpInfoAsync(arg1!));
+            break;
+
         case "user":
             // Confirms the status line, the join date, the tag list and the platform are here, and
             // that the bio and the pictures are not: they left this call in specification v1.21.0
@@ -310,6 +318,7 @@ static void PrintHelp() => Console.WriteLine("""
       auditlog                last 10 audit log entries        (VRCHAT_GROUP_ID)
       instances               live group instances             (VRCHAT_GROUP_ID)
       instance <location>     instance detail  -- does it include Users?
+      world <wrld_id>         world page -- instances list and occupants
       user <usr_id>           full user object -- status line, join date, tags
       profile <usr_id>        public profile   -- bio, pronouns, age verification
       search <query>          user search      -- HEAVY RATE LIMIT, 1 req / 3.5s

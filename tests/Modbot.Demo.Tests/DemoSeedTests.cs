@@ -57,6 +57,7 @@ public class DemoSeedTests
         Assert.Equal(12, await host.Db.VRChatWorlds.CountAsync(ct));
         Assert.True(await host.Db.VRChatInstances.CountAsync(ct) > 100);
         Assert.True(await host.Db.InstanceHeadCounts.AnyAsync(ct));
+        Assert.True(await host.Db.WorldHeadCounts.AnyAsync(ct));
         Assert.True(await host.Db.CaseFiles.AnyAsync(ct));
         Assert.Equal(6, await host.Db.CalendarEvents.CountAsync(ct));
         Assert.Equal(1, await host.Db.ApiKeys.CountAsync(ct));

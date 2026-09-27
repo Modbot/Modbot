@@ -70,6 +70,13 @@ export function plural(n: number, one: string, many: string = `${one}s`): string
   return n === 1 ? one : many
 }
 
+/** A place in an order, the way people say it: "1st", "2nd", "3rd", "11th", "22nd". */
+export function ordinal(n: number): string {
+  const tens = n % 100
+  if (tens >= 11 && tens <= 13) return `${n}th`
+  return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`
+}
+
 /**
  * A time of day, "03:41 PM" or "15:41" as the viewer's locale writes it, in their own clock.
  *

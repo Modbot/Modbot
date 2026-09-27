@@ -106,6 +106,33 @@ public static class PlacesEndpoints
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
+        instances.MapGet("/{id:guid}/world", async (
+                [FromRoute] Guid id,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                var settings = await db.GetSettingsAsync(ct);
+                var view = await InstanceWorldQuery.ReadAsync(db, id, settings.ManagedGroupId, clock.UtcNow, ct);
+
+                return view is null ? Results.NotFound() : Results.Ok(view);
+            })
+            .RequiresFlag(ModbotPermissions.ViewAnalytics)
+            .WithName("GetInstanceWorld")
+            .WithSummary("Get how an instance compared with its world")
+            .WithDescription(
+                "How one instance compared with the other instances in its world while it was open: "
+                + "where it ranked by head count at each read of the world's page, the busiest of the "
+                + "others, and how many people were in the world. "
+                + "Read from Modbot's own tables; nothing here calls VRChat. The world's page is read "
+                + "every two minutes while the group has an instance open in that world, so an instance "
+                + "that closed before those reads began has no readings. The other instances' numbers "
+                + "are the world page's list; this instance's is the list's when the list carries it "
+                + "(`listed`), and its own head count otherwise.")
+            .Produces<InstanceWorldView>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         return app;
     }
 

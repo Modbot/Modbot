@@ -3,6 +3,7 @@ import { Tabs } from '@/components/ui/tabs'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts'
 import { ChartFrame, ChartTooltip, chartHeight, compactNumber, dateTime, minutes, seriesColor } from '@/components/charts'
 import { HeadCount } from '@/components/HeadCount'
+import { InstanceWorld } from '@/components/subject/InstanceWorld'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
@@ -81,7 +82,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
           { value: 'json', label: 'JSON' },
         ]}
       >
-        {data && tab === 'overview' && <Overview view={data} onMore={setTab} />}
+        {data && tab === 'overview' && <Overview view={data} live={live} onMore={setTab} />}
         {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
           <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
             <EmptyRow>You do not have permission to see this.</EmptyRow>
@@ -185,7 +186,7 @@ function Details({ view }: { view: InstanceView }) {
 }
 
 /** The glance: where and when, the figures, the people seen longest, the newest facts. */
-function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => void }) {
+function Overview({ view, live, onMore }: { view: InstanceView; live: number; onMore: (tab: Tab) => void }) {
   const instance = view.instance
   const longest = [...view.people].sort((a, b) => b.minutesSeen - a.minutesSeen).slice(0, 6)
 
@@ -204,6 +205,8 @@ function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => 
       </StatStrip>
 
       <PeopleOverTime view={view} />
+
+      <InstanceWorld id={view.instance.id} live={live} />
 
       {view.canSeeWhoWasThere ? (
         <>
