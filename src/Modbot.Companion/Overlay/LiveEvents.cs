@@ -38,7 +38,7 @@ public sealed record LivePerson(
 /// Information to display, never a command. <see cref="Cursor"/> is what the client sends back to
 /// carry on after a dropped connection; it is text with no meaning of its own.
 /// </remarks>
-/// <param name="ByThisDevice">The server says this client reported the fact itself. No card for those.</param>
+/// <param name="ByThisDevice">The server says this client reported the fact itself. A flagged join is still a card: the log never says a person is flagged.</param>
 public sealed record LiveEvent(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("cursor")] string Cursor,

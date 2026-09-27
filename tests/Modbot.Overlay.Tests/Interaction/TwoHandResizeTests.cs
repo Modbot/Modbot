@@ -83,6 +83,28 @@ public class TwoHandResizeTests
     }
 
     [Fact]
+    public void TheOtherHandsStickPushesAPanelCarriedInTheLeftHand()
+    {
+        // Carried in the left hand, pushed away with the right stick: the owner's own way of
+        // holding it, which used to do nothing because only the carrying hand's stick counted.
+        var interaction = new OverlayInteraction(OverlayPlacement.Default);
+        var left = Hands.AimingAt(Vector3.Zero, Centre);
+        interaction.Update(Hands.Both(Hands.Hand(left, grab: true), Hands.Hand(Right)), At(0));
+        var before = Pose.From(interaction.Placement.Offset).Position.Length();
+
+        InteractionResult? last = null;
+        for (var i = 1; i <= 10; i++)
+        {
+            last = interaction.Update(
+                Hands.Both(Hands.Hand(left, grab: true), Hands.Hand(Right, scroll: new Vector2(0, 1))),
+                At(i * 33));
+        }
+
+        Assert.Equal(Hand.Left, last!.Holding);
+        Assert.Equal(before + (10 * OverlayInteraction.DistanceStep), Pose.From(interaction.Placement.Offset).Position.Length(), 3);
+    }
+
+    [Fact]
     public void AGripThatWasAlreadyClosedDoesNotStretch()
     {
         // The left hand was squeezing before the right picked the panel up: that squeeze is about

@@ -171,7 +171,7 @@ public sealed class OverlayInteraction
             }
             else
             {
-                Hold(hand);
+                Hold(hand, tracking[holding == Hand.Left ? Hand.Right : Hand.Left]);
                 Stretch(holding, tracking);
             }
         }
@@ -277,9 +277,16 @@ public sealed class OverlayInteraction
         };
     }
 
-    private void Hold(HandState hand)
+    /// <remarks>
+    /// Either stick drives it: the carrying hand's first, and the other hand's when that one is
+    /// at rest. A moderator carrying the panel in the left hand reaches for the right stick to
+    /// push it away, and a panel that only listened to the carrying hand did nothing for them.
+    /// </remarks>
+    private void Hold(HandState hand, HandState other)
     {
         var stick = Stick(hand.Scroll);
+        if (stick == Vector2.Zero && other.Tracked)
+            stick = Stick(other.Scroll);
 
         // Pushing and pulling slide the panel along the line from the hand to it, never through
         // the hand: the distance changes and the direction stays.

@@ -528,11 +528,12 @@ public sealed class OverlayDriver : IDisposable
                     _events.RemoveRange(MostEventsKept, _events.Count - MostEventsKept);
             }
 
-            // The reporting client already knows: it read the join out of its own log a moment
-            // ago, and a card would be in front of the one moderator who does not need it.
-            if (@event.ByThisDevice)
-                continue;
-
+            // A flagged join is a card here even when this client reported the join itself. It
+            // used to be skipped on the grounds that the reporting client "already knows", but
+            // what it read out of its own log is that somebody joined, not that the group has
+            // kicked or banned them: the moderator alone in an instance, whose client is always
+            // the one reporting, was the one moderator never warned. The cooldown in Accept still
+            // keeps it to one card per person.
             if (@event.ToAlert() is { } alert && Accept(alert))
                 raised = true;
         }

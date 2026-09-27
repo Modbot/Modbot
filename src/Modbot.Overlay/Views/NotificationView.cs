@@ -38,7 +38,10 @@ public static class NotificationView
         if (screen.IsEmpty)
             return new Border { Background = Brushes.Transparent };
 
-        var stack = new StackPanel { Spacing = 10 };
+        // Slim, because a panel in the corner of an eye has no room to spare: the cards run to the
+        // panel's edge and sit close together, with only enough inside each for the text not to
+        // touch its border. With the old margins a 256-pixel panel held two of its three cards.
+        var stack = new StackPanel { Spacing = 4 };
         foreach (var popUp in screen.PopUps)
             stack.Children.Add(Card(popUp, t));
 
@@ -47,14 +50,13 @@ public static class NotificationView
             // Nothing behind the cards: each paints its own surface and the rest of the panel
             // lets the world through, so an empty corner is not a dark slab in the view.
             Background = Brushes.Transparent,
-            Padding = new Thickness(16),
             Child = stack,
         };
     }
 
     private static Control Card(PopUp popUp, DesignTokens t)
     {
-        var lines = new StackPanel { Spacing = 4 };
+        var lines = new StackPanel { Spacing = 0 };
 
         lines.Children.Add(Text(popUp.Heading, t.Density.TextSmall, t.TextDimBrush, FontWeight.SemiBold));
         lines.Children.Add(Text(popUp.Body, t.Density.TextBase * 1.3, t.TextBrush, FontWeight.SemiBold));
@@ -69,9 +71,9 @@ public static class NotificationView
 
             // A thicker left edge rather than a full border: the eye finds it at a glance without
             // the card becoming a box inside a box.
-            BorderThickness = new Thickness(6, t.Density.Hairline, t.Density.Hairline, t.Density.Hairline),
+            BorderThickness = new Thickness(5, t.Density.Hairline, t.Density.Hairline, t.Density.Hairline),
             CornerRadius = t.CornerRadius,
-            Padding = new Thickness(16, 12),
+            Padding = new Thickness(8, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Child = lines,
         };

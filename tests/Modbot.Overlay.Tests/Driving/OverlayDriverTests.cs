@@ -443,8 +443,11 @@ public class OverlayDriverTests
     }
 
     [Fact]
-    public async Task AFlaggedJoinThisClientReportedItselfIsNotACard()
+    public async Task AFlaggedJoinThisClientReportedItselfIsStillACard()
     {
+        // The log says somebody joined; only the server knows the group has kicked or banned
+        // them. A moderator alone in an instance always reports the join themselves, and must
+        // still be warned.
         var (driver, presenter, reads, _) = Build();
         reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
         reads.Live.Enqueue(Page(Alert() with { ByThisDevice = true }));
@@ -452,8 +455,8 @@ public class OverlayDriverTests
         await driver.TickAsync(Ct);
         var tick = await driver.TickAsync(Ct);
 
-        Assert.False(tick.AlertShown);
-        Assert.Null(presenter.Last.Alert);
+        Assert.True(tick.AlertShown);
+        Assert.NotNull(presenter.Last.Alert);
     }
 
     [Fact]
