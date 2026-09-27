@@ -1757,7 +1757,7 @@ export type InstanceView = {
   logTruncated: boolean
   now: string
   /** How many were in it each time the count changed, oldest first. The most recent 2000. */
-  headCounts: { at: string; people: number }[]
+  headCounts: { at: string; people: number; userCount: number | null; memberCount: number | null; source: string }[]
 }
 
 export type PersonMetrics = {

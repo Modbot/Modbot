@@ -162,7 +162,15 @@ public sealed record InstanceView(
 /// <summary>An instance's head count from one moment until it next changed.</summary>
 /// <param name="At">When the count was read.</param>
 /// <param name="People">How many were in it: the instance page's count, or the group list's before that was read.</param>
-public sealed record HeadCountPoint(DateTimeOffset At, int People)
+/// <param name="UserCount">
+/// The instance page's other count, <c>userCount</c>, beside <c>n_users</c> which <paramref name="People"/>
+/// is taken from. Null when the reading came from the group list. Sent so the two can be compared on a
+/// live group: one reading of a club said 80, the world's capacity, when it was nowhere near full,
+/// and only the stored rows can say whether <c>userCount</c> agreed.
+/// </param>
+/// <param name="MemberCount">The group list's count of group members in it at the time.</param>
+/// <param name="Source"><c>page</c> or <c>list</c>: which read the reading came from.</param>
+public sealed record HeadCountPoint(DateTimeOffset At, int People, int? UserCount, int? MemberCount, string Source)
 {
     /// <summary>How many changes one popup carries. A day's busy instance changes about this often.</summary>
     public const int Most = 2000;
