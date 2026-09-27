@@ -331,14 +331,16 @@ function Shell({
 
   // A headset opens on Live, which is what a moderator in VR is there to watch. Once, as the app
   // opens, and only at the bare address: Members is still one tap away in the menu, and a pasted
-  // link with a person in it is left alone.
+  // link with a person in it is left alone. The address is read while the shell first draws,
+  // because the Members page writes its filter into the query from its own effect, which runs
+  // before this one.
+  const [openedBare] = useState(() => route === PATHS.members && !window.location.search)
   const opened = useRef(false)
   useEffect(() => {
     if (opened.current) return
     opened.current = true
-    if (prefs.place === 'headset' && route === PATHS.members && !window.location.search && mayOpen(me, 'live'))
-      navigate(PATHS.live, { replace: true })
-  }, [prefs.place, route, me, navigate])
+    if (prefs.place === 'headset' && openedBare && mayOpen(me, 'live')) navigate(PATHS.live, { replace: true })
+  }, [prefs.place, openedBare, me, navigate])
 
   // The popup lives in the query string rather than in component state, so it is linkable, survives
   // a refresh, and stacks (spec 10.2, lib/subject.ts). Every list that renders a person opens it the
