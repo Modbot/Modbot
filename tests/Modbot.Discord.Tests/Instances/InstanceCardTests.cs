@@ -262,4 +262,40 @@ public class InstanceCardTests
         Assert.Equal("32", InstanceCard.For(Instance(), world, Now).Fields.Single(f => f.Name == "Capacity").Value);
         Assert.DoesNotContain(InstanceCard.For(Instance(), null, Now).Fields, f => f.Name == "Capacity");
     }
+
+    [Fact]
+    public void AnUnsureCount_AndAnUnsurePeak_CarryAQuestionMark()
+    {
+        var instance = Instance(headCount: 51);
+        instance.HeadCountUnsure = true;
+        instance.PeakUserCount = 80;
+        instance.PeakUnsure = true;
+
+        var card = InstanceCard.For(instance, null, Now);
+
+        Assert.Equal("51? people", card.Fields.Single(f => f.Name == "People here now").Value);
+        Assert.Equal("80?", card.Fields.Single(f => f.Name == "Most at once").Value);
+    }
+
+    [Fact]
+    public void ASureCount_AndASurePeak_HaveNoQuestionMark()
+    {
+        var instance = Instance(headCount: 51);
+        instance.PeakUserCount = 80;
+
+        var card = InstanceCard.For(instance, null, Now);
+
+        Assert.Equal("51 people", card.Fields.Single(f => f.Name == "People here now").Value);
+        Assert.Equal("80", card.Fields.Single(f => f.Name == "Most at once").Value);
+    }
+
+    [Fact]
+    public void TheListsCount_IsNeverMarkedUnsure()
+    {
+        // Before any page read: no head count, so the list's number shows, and it means group members.
+        var instance = Instance(headCount: null, listCount: 2);
+        instance.HeadCountUnsure = true;
+
+        Assert.Equal("2 people", InstanceCard.For(instance, null, Now).Fields.Single(f => f.Name == "People here now").Value);
+    }
 }

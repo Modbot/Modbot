@@ -1,9 +1,11 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using Serilog;
+using VRChat.API.Model;
 
 namespace Modbot.VRChat.Sync;
 
@@ -13,10 +15,15 @@ namespace Modbot.VRChat.Sync;
 /// <remarks>
 /// <para>
 /// <strong>Why the instance's page and not the group's list.</strong> The list's <c>memberCount</c>
-/// read 2 in the one live probe while the instance's own page said <c>n_users</c> 3, so the list's
-/// number may count group members only (research: vrchat-instance-findings.md section 3). The
-/// instance's page is read for the head count; the list's number stays as the fallback
-/// (<see cref="HeadCounts"/>).
+/// read 2 in the first live probe while the instance's own page said 3, so the list's number may
+/// count group members only (research: vrchat-instance-findings.md section 3). The instance's page
+/// is read for the head count; the list's number stays as the fallback (<see cref="HeadCounts"/>).
+/// </para>
+/// <para>
+/// <strong>Which of the page's numbers.</strong> <c>userCount</c>, with <c>n_users</c> kept beside
+/// it. <c>n_users</c> ran up to about thirty above the real count on a busy club, reading 80 in a
+/// world that holds 80 while <c>userCount</c> said 51 (<see cref="HeadCounts"/>). A body with no
+/// <c>userCount</c> falls back to <c>n_users</c>, and that count is unsure.
 /// </para>
 /// <para>
 /// <strong>Only instances the group's list carries right now.</strong>
@@ -143,24 +150,59 @@ public sealed class InstanceHeadCountSync
                 continue;
             }
 
-            // n_users is taken as the head count because it was the larger of the two and matched
-            // the instance's population in the one probe made (research section 3: n_users 3, userCount
-            // 2, memberCount 2). That n_users counts everybody present is a reading of that single
-            // probe, not a confirmed fact, so userCount is kept beside it rather than thrown away.
+            // userCount is the head count; n_users read up to about thirty higher on a busy evening
+            // (HeadCounts). n_users stands in only when the body has no userCount, and is then unsure.
+            var userCount = UserCountIn(instance, result.RawResponse);
+            var (headCount, _) = HeadCounts.FromPageRead(instance.NUsers, userCount);
+
             row.PageReadAt = at;
-            row.PageUserCount = instance.UserCount;
+            row.PageUserCount = userCount;
 
             // The name the instance was opened with comes in the same body, so it is kept at no cost.
             // Every good read overwrites it, so a rename shows and a cleared name goes back to the
             // number.
             row.Name = VRChatInstance.NameFrom(instance.DisplayName, row.VRChatInstanceId);
-            HeadCounts.Record(_db, row, instance.NUsers, HeadCounts.FromPage, at, instance.UserCount);
+            HeadCounts.Record(_db, row, headCount, HeadCounts.FromPage, at, userCount, instance.NUsers);
             read++;
         }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         return new InstanceHeadCountRunResult(SyncOutcome.Produced, read, failed);
+    }
+
+    /// <summary>
+    /// The page's <c>userCount</c>, or null when the body did not carry one.
+    /// </summary>
+    /// <remarks>
+    /// The SDK's model holds <c>userCount</c> as a plain number, so a missing one and a nought look the
+    /// same there. The body as it arrived tells them apart: no <c>userCount</c>, or a null one, is
+    /// missing. Without a body to look at, the model's number is taken.
+    /// </remarks>
+    internal static int? UserCountIn(Instance instance, string? body)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+
+        if (string.IsNullOrWhiteSpace(body))
+            return instance.UserCount;
+
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+                return instance.UserCount;
+
+            return document.RootElement.TryGetProperty("userCount", out var value)
+                   && value.ValueKind == JsonValueKind.Number
+                   && value.TryGetInt32(out var people)
+                ? people
+                : null;
+        }
+        catch (JsonException)
+        {
+            return instance.UserCount;
+        }
     }
 }
 

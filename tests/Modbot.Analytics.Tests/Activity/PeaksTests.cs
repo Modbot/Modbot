@@ -58,6 +58,25 @@ public class PeaksTests
     }
 
     /// <summary>
+    /// A day whose peak rests on a head count taken from n_users says so, and the peaks picked from it
+    /// carry that along; the days that are not picked do not leak theirs in.
+    /// </summary>
+    [Fact]
+    public void ThePickedDaysUnsureFlags_AreCarriedIntoThePeaks()
+    {
+        var days = new[]
+        {
+            Day(Day1, mostPeople: 12, peopleAtHour: 20, peopleMinutes: 300m) with { MostPeopleUnsure = false, BestHourUnsure = true },
+            Day(Day2, mostPeople: 48, peopleAtHour: 21, peopleMinutes: 900m) with { MostPeopleUnsure = true, BestHourUnsure = false },
+        };
+
+        Assert.True(Peaks.MostPeople(days)!.Unsure);
+        Assert.True(Peaks.Busiest(days)!.Unsure);
+        Assert.False(Peaks.BusiestHour(days)!.Unsure);
+        Assert.False(Peaks.MostInstances(days)!.Unsure);
+    }
+
+    /// <summary>
     /// Two evenings that both reached the same height are ordinary. Without a rule the page would
     /// name whichever the database happened to return first, and move between two loads with no new
     /// data behind it.

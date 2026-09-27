@@ -9191,7 +9191,7 @@
           "Analytics"
         ],
         "summary": "Get instance activity",
-        "description": "How many people were in the group's instances, moment by moment, over the last `day`, `week` (the default), `month` or `all` recorded time. Built from VRChat's own head counts -- `n_users` from each open group instance's page, read about every thirty seconds -- so it covers instances no moderator's companion was in. A count is kept only when it changes, so the series is a staircase and each point holds until the next. Long ranges are thinned to at most about 500 points: the window is cut into equal steps and the last reading in each is kept. `instances` is how many instances had a count at that moment.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "How many people were in the group's instances, moment by moment, over the last `day`, `week` (the default), `month` or `all` recorded time. Built from VRChat's own head counts -- `userCount` from each open group instance's page, read about every thirty seconds -- so it covers instances no moderator's companion was in. A count is kept only when it changes, so the series is a staircase and each point holds until the next. Long ranges are thinned to at most about 500 points: the window is cut into equal steps and the last reading in each is kept. `instances` is how many instances had a count at that moment.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetInstanceActivity",
         "parameters": [
           {
@@ -18633,6 +18633,10 @@
               "string"
             ],
             "format": "int32"
+          },
+          "unsure": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -18663,6 +18667,10 @@
               "string"
             ],
             "format": "int32"
+          },
+          "unsure": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -18712,6 +18720,10 @@
           "at": {
             "type": "string",
             "format": "date-time"
+          },
+          "unsure": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -24656,6 +24668,19 @@
           },
           "source": {
             "type": "string"
+          },
+          "nUsers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unsure": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -25777,6 +25802,14 @@
           "closedByModerator": {
             "type": "boolean",
             "default": false
+          },
+          "peopleNowUnsure": {
+            "type": "boolean",
+            "default": false
+          },
+          "peakPeopleUnsure": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -26788,6 +26821,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "headCountUnsure": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -28585,6 +28622,10 @@
           "at": {
             "type": "string",
             "format": "date-time"
+          },
+          "unsure": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

@@ -46,6 +46,10 @@ public sealed record LivePersonView(
 /// Modbot has read the world. Never a limit: exemptions raise real capacity above it.
 /// </param>
 /// <param name="WorldPlatforms">The platforms the world has a build for, for the game's PC, Android and iOS badges.</param>
+/// <param name="HeadCountUnsure">
+/// True when <paramref name="HeadCount"/> came from the page's <c>n_users</c> because it had no
+/// <c>userCount</c>. Shown as "80?".
+/// </param>
 public sealed record LiveInstanceView(
     Guid Id,
     string WorldId,
@@ -62,7 +66,8 @@ public sealed record LiveInstanceView(
     DateTimeOffset? LastWatchedAt,
     IReadOnlyList<LivePersonView> LastSeen,
     int? WorldCapacity = null,
-    IReadOnlyList<string>? WorldPlatforms = null);
+    IReadOnlyList<string>? WorldPlatforms = null,
+    bool HeadCountUnsure = false);
 
 /// <param name="Voice">
 /// The Discord server's voice channels with somebody in them, in the server's own order. Empty when
@@ -226,7 +231,8 @@ public static class LiveEndpoints
                 inInstance.LastWatchedAt,
                 inInstance.LastSeen.Select(Person).ToList(),
                 world?.Capacity,
-                Places.InstanceRows.PlatformsOf(world?.Platforms));
+                Places.InstanceRows.PlatformsOf(world?.Platforms),
+                HeadCounts.ShownUnsure(instance));
         }).ToList();
 
         return new LiveView(views, now, await VoiceAsync(db, ct));

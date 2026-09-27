@@ -798,9 +798,11 @@ so the analytics count time exactly as before.
 
 Every open group room is on the Live page whether or not anyone has the client open. The room comes
 from the group's instance list and its **head count** from `GET /instances/{location}`, read about
-every thirty seconds per open room (`RoomHeadCountSync`, `instances.read`). `n_users` is used as the
-head count with `userCount` kept beside it; that `n_users` counts everybody is a reading of one probe
-(research: vrchat-instance-findings.md §3), not a confirmed fact. Only rooms the list currently
+every thirty seconds per open room (`RoomHeadCountSync`, `instances.read`). `userCount` is the head
+count, with `n_users` kept beside it. This was the other way round until 2026-09-26, on the strength
+of one probe; a live club then read `n_users` 80 against `userCount` 51 with about 52 people there,
+and the two differed on 229 of that evening's 281 readings (research: vrchat-instance-findings.md
+§3.1). A body with no `userCount` falls back to `n_users`, and that count is shown as "80?". Only rooms the list currently
 carries are read, and a body saying `active: false` is not believed, because that endpoint answers
 200 for rooms that never existed. When a read fails, is inactive, or goes stale (for example a 429,
 which is never retried), the list's `memberCount` stands in.

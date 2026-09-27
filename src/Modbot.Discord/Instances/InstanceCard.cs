@@ -101,14 +101,17 @@ public static class InstanceCard
 
         var fields = new List<DiscordEmbedField>();
 
-        // The live number, and the word that goes with it. "1 person", not "1 people".
+        // The live number, and the word that goes with it. "1 person", not "1 people". A count taken
+        // from n_users because the page had no userCount carries a "?", as it does in Modbot.
+        var count = Count(people, HeadCounts.ShownUnsure(instance));
+
         fields.Add(new DiscordEmbedField(
             closed ? "People at the end" : "People here now",
-            people == 1 ? "1 person" : $"{people} people",
+            people == 1 ? $"{count} person" : $"{count} people",
             Inline: true));
 
         if (instance.PeakUserCount is { } peak && peak > people)
-            fields.Add(new DiscordEmbedField("Most at once", peak.ToString(CultureInfo.InvariantCulture), Inline: true));
+            fields.Add(new DiscordEmbedField("Most at once", Count(peak, instance.PeakUnsure), Inline: true));
 
         fields.Add(new DiscordEmbedField(
             closed ? "Ran for" : "Open for",
@@ -154,6 +157,10 @@ public static class InstanceCard
             AuthorName: style.GroupName is { Length: > 0 } group ? CardText.Plain(group, 256) : null,
             AuthorIconUrl: picture.AuthorIcon);
     }
+
+    /// <summary>A count as the card prints it: "52", or "80?" when it is unsure.</summary>
+    private static string Count(int value, bool unsure)
+        => value.ToString(CultureInfo.InvariantCulture) + (unsure ? "?" : string.Empty);
 
     /// <summary>The world's picture, as the row holds it. Null for a world Modbot has not read.</summary>
     public static string? PictureOf(VRChatWorld? world)

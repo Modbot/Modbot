@@ -153,16 +153,32 @@ public class VRChatInstance
     public int? PeakUserCount { get; set; }
 
     /// <summary>
-    /// How many people are in the instance right now, as best Modbot knows: <c>n_users</c> from the
-    /// instance's own page, or the group list's count when the page cannot be read. Every change is
-    /// kept in <see cref="InstanceHeadCount"/>. Set only through <c>HeadCounts.Record</c>.
+    /// True when <see cref="PeakUserCount"/> rests only on readings whose head count came from
+    /// <c>n_users</c> because the page had no <c>userCount</c>. Screens show it as "80?".
+    /// </summary>
+    public bool PeakUnsure { get; set; }
+
+    /// <summary>
+    /// How many people are in the instance right now, as best Modbot knows: <c>userCount</c> from the
+    /// instance's own page (<c>n_users</c> when the body has none), or the group list's count when the
+    /// page cannot be read. Every change is kept in <see cref="InstanceHeadCount"/>. Set only through
+    /// <c>HeadCounts.Record</c>.
     /// </summary>
     public int? HeadCount { get; set; }
+
+    /// <summary>
+    /// True when <see cref="HeadCount"/> came from <c>n_users</c> because the page had no
+    /// <c>userCount</c>. Screens show it as "80?". Never true for a count from the group's list.
+    /// </summary>
+    public bool HeadCountUnsure { get; set; }
 
     /// <summary><c>page</c> or <c>list</c>: where <see cref="HeadCount"/> came from — the instance's own page, or the group's list.</summary>
     public string? HeadCountSource { get; set; }
 
-    /// <summary>The instance page's <c>userCount</c> at the last good read, kept beside <c>n_users</c>.</summary>
+    /// <summary>
+    /// The instance page's <c>userCount</c> at the last good read. The head count while the page is
+    /// fresh; null when the last good read's body had none.
+    /// </summary>
     public int? PageUserCount { get; set; }
 
     /// <summary>When the instance's own page was last read successfully.</summary>

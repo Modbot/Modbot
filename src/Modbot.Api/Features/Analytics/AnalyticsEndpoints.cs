@@ -245,7 +245,7 @@ public static class AnalyticsEndpoints
             .WithDescription(
                 "How many people were in the group's instances, moment by moment, over the last "
                 + "`day`, `week` (the default), `month` or `all` recorded time. Built from VRChat's "
-                + "own head counts -- `n_users` from each open group instance's page, read about "
+                + "own head counts -- `userCount` from each open group instance's page, read about "
                 + "every thirty seconds -- so it covers instances no moderator's companion was in. "
                 + "A count is kept only when it changes, so the series is a staircase and each "
                 + "point holds until the next. Long ranges are thinned to at most about 500 points: "

@@ -6,6 +6,7 @@ import { access } from '@/lib/format'
 import { instanceEnd, instanceNumber } from '@/lib/instanceName'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { cn } from '@/lib/utils'
+import { HeadCount } from '@/components/HeadCount'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 
 /**
@@ -80,8 +81,12 @@ export function InstanceTable({
               {[access(r.groupAccessType), r.region?.toUpperCase()].filter(Boolean).join(' · ') || '—'}
             </div>
           </Td>
-          <Td className="text-right font-mono">{r.closedAt ? '—' : (r.peopleNow ?? 0)}</Td>
-          <Td className="text-right font-mono">{r.peakPeople ?? '—'}</Td>
+          <Td className="text-right font-mono">
+            {r.closedAt ? '—' : <HeadCount count={r.peopleNow ?? 0} unsure={r.peopleNow !== null && r.peopleNowUnsure} />}
+          </Td>
+          <Td className="text-right font-mono">
+            {r.peakPeople === null ? '—' : <HeadCount count={r.peakPeople} unsure={r.peakPeopleUnsure} />}
+          </Td>
           <Td className="text-right font-mono">{minutes(r.minutesOpen)}</Td>
           <Td className="whitespace-nowrap text-muted-foreground">
             <div className="font-mono">{dateTime(r.openedAt)}</div>

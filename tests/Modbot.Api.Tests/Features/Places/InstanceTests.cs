@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Places;
 using Modbot.Api.Tests.Features.Audit;
@@ -155,6 +156,53 @@ public class InstanceTests
 
         Assert.Equal([1, 4], view.HeadCounts.Select(h => h.People));
         Assert.Equal([t.AddMinutes(1), t.AddMinutes(30)], view.HeadCounts.Select(h => h.At));
+    }
+
+    /// <summary>
+    /// A page reading with no userCount took n_users as its count, and is sent as unsure so the popup
+    /// can show "80?". A list reading is never unsure. The instance's own current count and peak say
+    /// the same about themselves.
+    /// </summary>
+    [Fact]
+    public async Task AReadingWithNoUserCount_IsSentAsUnsure_AndSoAreTheInstancesOwnCounts()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var t = host.Clock.UtcNow.AddHours(-4);
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(2), null, ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            db.InstanceHeadCounts.AddRange(
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(1), HeadCount = 2, MemberCount = 2, Source = "list" },
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(10), HeadCount = 51, UserCount = 51, NUsers = 80, Source = "page" },
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(20), HeadCount = 70, NUsers = 70, Source = "page" });
+
+            var row = await db.VRChatInstances.SingleAsync(i => i.Id == instance.Id, ct);
+            row.HeadCount = 70;
+            row.HeadCountUnsure = true;
+            row.HeadCountSource = "page";
+            row.PeakUserCount = 70;
+            row.PeakUnsure = true;
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{instance.Id}", cookie, ct);
+
+        Assert.Equal([2, 51, 70], view.HeadCounts.Select(h => h.People));
+        Assert.Equal([false, false, true], view.HeadCounts.Select(h => h.Unsure));
+        Assert.Equal([null, 80, 70], view.HeadCounts.Select(h => h.NUsers));
+
+        Assert.Equal(70, view.Instance.PeopleNow);
+        Assert.True(view.Instance.PeopleNowUnsure);
+        Assert.Equal(70, view.Instance.PeakPeople);
+        Assert.True(view.Instance.PeakPeopleUnsure);
     }
 
     [Fact]

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { Tabs } from '@/components/ui/tabs'
-import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from 'recharts'
-import { ChartFrame, chartHeight, compactNumber, dateTime, minutes, rechartsTooltip, seriesColor } from '@/components/charts'
+import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts'
+import { ChartFrame, ChartTooltip, chartHeight, compactNumber, dateTime, minutes, seriesColor } from '@/components/charts'
+import { HeadCount } from '@/components/HeadCount'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
@@ -15,7 +16,7 @@ import { api, type CurrentUser, type InstanceView } from '@/lib/api'
 import { concernsInstance } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
 import { useLiveVersion } from '@/lib/useLiveVersion'
-import { access } from '@/lib/format'
+import { access, headCountText, plural } from '@/lib/format'
 import { instanceEnd, instanceName } from '@/lib/instanceName'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
@@ -160,7 +161,9 @@ function Details({ view }: { view: InstanceView }) {
         </Field>
         {!instance.closedAt && (
           <Field label="People now">
-            <span className="font-mono">{instance.peopleNow ?? 0}</span>
+            <span className="font-mono">
+              <HeadCount count={instance.peopleNow ?? 0} unsure={instance.peopleNow !== null && instance.peopleNowUnsure} />
+            </span>
           </Field>
         )}
 
@@ -192,7 +195,10 @@ function Overview({ view, onMore }: { view: InstanceView; onMore: (tab: Tab) => 
 
       <StatStrip className="m-0 shrink-0">
         <Stat label={instance.closedAt ? 'Ran for' : 'Open for'} value={minutes(instance.minutesOpen)} />
-        <Stat label="Most at once" value={instance.peakPeople === null ? '—' : String(instance.peakPeople)} />
+        <Stat
+          label="Most at once"
+          value={instance.peakPeople === null ? '—' : <HeadCount count={instance.peakPeople} unsure={instance.peakPeopleUnsure} />}
+        />
         <Stat label="People seen" value={compactNumber(view.counts.visitors)} />
         <Stat label="Arrivals" value={compactNumber(view.counts.arrivals)} />
       </StatStrip>
@@ -245,8 +251,8 @@ function PeopleOverTime({ view }: { view: InstanceView }) {
   const to = Date.parse(view.instance.closedAt ?? view.now)
   const span = to - from
 
-  const rows = view.headCounts.map((p) => ({ at: Date.parse(p.at), people: p.people }))
-  if (rows.length > 0 && rows[rows.length - 1].at < to) rows.push({ at: to, people: rows[rows.length - 1].people })
+  const rows = view.headCounts.map((p) => ({ at: Date.parse(p.at), people: p.people, unsure: p.unsure }))
+  if (rows.length > 0 && rows[rows.length - 1].at < to) rows.push({ ...rows[rows.length - 1], at: to })
 
   return (
     <Panel title="People over time">
@@ -264,10 +270,7 @@ function PeopleOverTime({ view }: { view: InstanceView }) {
             minTickGap={16}
           />
           <YAxis width="auto" domain={[0, 'auto']} allowDecimals={false} tickLine={false} axisLine={false} />
-          <Tooltip
-            content={rechartsTooltip((label) => readingTime(Number(label)), { people: 'people' }, undefined, { people: 'person' })}
-            cursor={{ stroke: 'var(--chart-grid)' }}
-          />
+          <Tooltip content={ReadingTooltip} cursor={{ stroke: 'var(--chart-grid)' }} />
           <Line
             type="stepAfter"
             dataKey="people"
@@ -281,6 +284,25 @@ function PeopleOverTime({ view }: { view: InstanceView }) {
         </LineChart>
       </ChartFrame>
     </Panel>
+  )
+}
+
+/** One reading under the pointer: when, and how many -- "80?" when the count is unsure. */
+function ReadingTooltip({ active, label, payload }: TooltipContentProps) {
+  const reading = payload?.[0]?.payload as { people: number; unsure: boolean } | undefined
+  if (!active || !reading) return null
+
+  return (
+    <ChartTooltip
+      title={readingTime(Number(label))}
+      rows={[
+        {
+          name: plural(reading.people, 'person', 'people'),
+          value: headCountText(reading.people, reading.unsure),
+          color: payload?.[0]?.color,
+        },
+      ]}
+    />
   )
 }
 

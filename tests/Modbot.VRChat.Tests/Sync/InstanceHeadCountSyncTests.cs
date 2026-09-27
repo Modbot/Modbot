@@ -9,8 +9,9 @@ using Modbot.VRChat.Tests.Fakes;
 namespace Modbot.VRChat.Tests.Sync;
 
 /// <summary>
-/// An instance's head count: the instance's own page when it can be read and believed, the group list's
-/// number when it cannot, and one change-log row each time the number moves.
+/// An instance's head count: the instance's own page when it can be read and believed -- its
+/// <c>userCount</c>, or <c>n_users</c> marked unsure when the body has none -- the group list's number
+/// when it cannot, and one change-log row each time the number moves.
 /// </summary>
 [Collection(nameof(PostgresCollection))]
 public class InstanceHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(fixture)
@@ -52,11 +53,15 @@ public class InstanceHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(
         Assert.Equal(instance.Id, change.InstanceId);
     }
 
+    /// <summary>
+    /// The club as it read on a live group: n_users at the world's capacity, userCount at the number
+    /// actually there. userCount is the head count, and n_users is kept beside it.
+    /// </summary>
     [Fact]
-    public async Task TheInstancesOwnPage_SetsTheHeadCount_WithUserCountKeptBeside()
+    public async Task TheInstancesOwnPage_SetsTheHeadCountFromUserCount_WithNUsersKeptBeside()
     {
         await ListedAsync(memberCount: 2);
-        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2);
+        VRChat.Instances.Page(Instance, nUsers: 80, userCount: 51);
 
         var run = await RunInstanceHeadCountsAsync();
 
@@ -64,14 +69,139 @@ public class InstanceHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(
         Assert.Equal(Instance, Assert.Single(VRChat.Instances.Requests));
 
         var instance = await InstanceAsync();
-        Assert.Equal(3, instance.HeadCount);
+        Assert.Equal(51, instance.HeadCount);
+        Assert.False(instance.HeadCountUnsure);
         Assert.Equal(HeadCounts.FromPage, instance.HeadCountSource);
-        Assert.Equal(2, instance.PageUserCount);
+        Assert.Equal(51, instance.PageUserCount);
         Assert.Equal(Now, instance.PageReadAt);
+        Assert.Equal(51, instance.PeakUserCount);
+        Assert.False(instance.PeakUnsure);
 
         var changes = await ChangesAsync();
         Assert.Equal(2, changes.Count);
-        Assert.Equal((3, 2, 2, HeadCounts.FromPage), (changes[1].HeadCount, changes[1].UserCount, changes[1].MemberCount, changes[1].Source));
+        Assert.Equal(
+            (51, (int?)51, (int?)80, (int?)2, HeadCounts.FromPage),
+            (changes[1].HeadCount, changes[1].UserCount, changes[1].NUsers, changes[1].MemberCount, changes[1].Source));
+
+        // The list's reading keeps neither of the page's numbers.
+        Assert.Null(changes[0].UserCount);
+        Assert.Null(changes[0].NUsers);
+    }
+
+    [Fact]
+    public async Task ABodyWithNoUserCount_FallsBackToNUsers_AndTheCountIsUnsure()
+    {
+        await ListedAsync(memberCount: 2);
+        VRChat.Instances.Page(Instance, nUsers: 80, userCount: null);
+
+        await RunInstanceHeadCountsAsync();
+
+        var instance = await InstanceAsync();
+        Assert.Equal(80, instance.HeadCount);
+        Assert.True(instance.HeadCountUnsure);
+        Assert.Null(instance.PageUserCount);
+        Assert.Equal(80, instance.PeakUserCount);
+        Assert.True(instance.PeakUnsure);
+
+        var change = (await ChangesAsync())[^1];
+        Assert.Equal(
+            (80, (int?)null, (int?)80, HeadCounts.FromPage),
+            (change.HeadCount, change.UserCount, change.NUsers, change.Source));
+    }
+
+    [Fact]
+    public async Task ASureCountAtTheSameNumber_IsANewReading_AndConfirmsThePeak()
+    {
+        await ListedAsync(memberCount: 2);
+        VRChat.Instances.Page(Instance, nUsers: 40, userCount: null);
+        await RunInstanceHeadCountsAsync();
+
+        Clock.Advance(InstanceHeadCountSync.ReadEvery);
+        VRChat.Instances.Page(Instance, nUsers: 55, userCount: 40);
+        await RunInstanceHeadCountsAsync();
+
+        var changes = await ChangesAsync();
+        Assert.Equal([2, 40, 40], changes.Select(c => c.HeadCount));
+        Assert.Equal([null, null, 40], changes.Select(c => c.UserCount));
+
+        var instance = await InstanceAsync();
+        Assert.False(instance.HeadCountUnsure);
+        Assert.Equal(40, instance.PeakUserCount);
+        Assert.False(instance.PeakUnsure);
+    }
+
+    [Fact]
+    public async Task AnUnsurePeak_StaysUnsure_UntilASureCountReachesIt()
+    {
+        await ListedAsync(memberCount: 2);
+        VRChat.Instances.Page(Instance, nUsers: 80, userCount: null);
+        await RunInstanceHeadCountsAsync();
+
+        Clock.Advance(InstanceHeadCountSync.ReadEvery);
+        VRChat.Instances.Page(Instance, nUsers: 70, userCount: 51);
+        await RunInstanceHeadCountsAsync();
+
+        var instance = await InstanceAsync();
+        Assert.Equal(51, instance.HeadCount);
+        Assert.False(instance.HeadCountUnsure);
+        Assert.Equal(80, instance.PeakUserCount);
+        Assert.True(instance.PeakUnsure);
+
+        Clock.Advance(InstanceHeadCountSync.ReadEvery);
+        VRChat.Instances.Page(Instance, nUsers: 95, userCount: 82);
+        await RunInstanceHeadCountsAsync();
+
+        instance = await InstanceAsync();
+        Assert.Equal(82, instance.PeakUserCount);
+        Assert.False(instance.PeakUnsure);
+    }
+
+    [Fact]
+    public async Task TheListsCount_IsNeverUnsure_EvenAfterAnUnsurePageCount()
+    {
+        await ListedAsync(memberCount: 2);
+        VRChat.Instances.Page(Instance, nUsers: 80, userCount: null);
+        await RunInstanceHeadCountsAsync();
+
+        VRChat.Instances.Status(Instance, HttpStatusCode.InternalServerError);
+        Clock.Advance(InstanceHeadCountSync.ReadEvery);
+        await RunInstanceHeadCountsAsync();
+
+        var instance = await InstanceAsync();
+        Assert.Equal(2, instance.HeadCount);
+        Assert.Equal(HeadCounts.FromList, instance.HeadCountSource);
+        Assert.False(instance.HeadCountUnsure);
+    }
+
+    [Theory]
+    [InlineData("{\"n_users\":80}")]
+    [InlineData("{\"n_users\":80,\"userCount\":null}")]
+    public void UserCountIn_IsNull_WhenTheBodyHasNone(string body)
+    {
+        var instance = FakeInstances.Body(active: true, nUsers: 80, userCount: 0);
+
+        Assert.Null(InstanceHeadCountSync.UserCountIn(instance, body));
+    }
+
+    [Fact]
+    public void UserCountIn_ReadsTheBodysNumber_EvenANought()
+    {
+        var instance = FakeInstances.Body(active: true, nUsers: 3, userCount: 0);
+
+        Assert.Equal(0, InstanceHeadCountSync.UserCountIn(instance, "{\"n_users\":3,\"userCount\":0}"));
+        Assert.Equal(51, InstanceHeadCountSync.UserCountIn(instance, "{\"n_users\":80,\"userCount\":51}"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not json")]
+    [InlineData("[]")]
+    public void UserCountIn_TakesTheModelsNumber_WithNoBodyToLookAt(string? body)
+    {
+        var instance = FakeInstances.Body(active: true, nUsers: 80, userCount: 51);
+
+        Assert.Equal(51, InstanceHeadCountSync.UserCountIn(instance, body));
     }
 
     [Fact]
@@ -117,7 +247,7 @@ public class InstanceHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(
     public async Task AFailedRead_FallsBackToTheListsCount()
     {
         await ListedAsync(memberCount: 2);
-        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2);
+        VRChat.Instances.Page(Instance, nUsers: 4, userCount: 3);
         await RunInstanceHeadCountsAsync();
 
         VRChat.Instances.Status(Instance, HttpStatusCode.InternalServerError);
@@ -133,7 +263,7 @@ public class InstanceHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(
     public async Task AFreshPageRead_WinsOverTheList_UntilItGoesStale()
     {
         await ListedAsync(memberCount: 2);
-        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2);
+        VRChat.Instances.Page(Instance, nUsers: 4, userCount: 3);
         await RunInstanceHeadCountsAsync();
 
         Clock.Advance(TimeSpan.FromSeconds(10));
@@ -168,14 +298,14 @@ public class InstanceHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(
     {
         await ListedAsync(memberCount: 2);
 
-        VRChat.Instances.Page(Instance, nUsers: 3, userCount: 2);
+        VRChat.Instances.Page(Instance, nUsers: 4, userCount: 3);
         await RunInstanceHeadCountsAsync();
 
         Clock.Advance(InstanceHeadCountSync.ReadEvery);
         await RunInstanceHeadCountsAsync();
 
         Clock.Advance(InstanceHeadCountSync.ReadEvery);
-        VRChat.Instances.Page(Instance, nUsers: 5, userCount: 3);
+        VRChat.Instances.Page(Instance, nUsers: 6, userCount: 5);
         await RunInstanceHeadCountsAsync();
 
         Assert.Equal([2, 3, 5], (await ChangesAsync()).Select(c => c.HeadCount));
@@ -209,7 +339,7 @@ public class InstanceHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(
 
         var instance = await InstanceAsync();
         Assert.Null(instance.Name);
-        Assert.Equal(3, instance.HeadCount);
+        Assert.Equal(2, instance.HeadCount);
     }
 
     [Fact]

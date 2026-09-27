@@ -31,7 +31,7 @@ public static class Peaks
 
         var best = Best(days, d => d.MostPeopleAtOnce, d => d.MostPeopleAt);
 
-        return best is null ? null : new PeakCount(best.MostPeopleAtOnce, best.MostPeopleAt);
+        return best is null ? null : new PeakCount(best.MostPeopleAtOnce, best.MostPeopleAt, best.MostPeopleUnsure);
     }
 
     /// <summary>The most instances counted at one moment, and when.</summary>
@@ -70,7 +70,9 @@ public static class Peaks
                 best = day;
         }
 
-        return best is null ? null : new BusiestDay(best.Day, best.PeopleMinutes, best.MostPeopleAtOnce);
+        return best is null
+            ? null
+            : new BusiestDay(best.Day, best.PeopleMinutes, best.MostPeopleAtOnce, best.MostPeopleUnsure);
     }
 
     /// <summary>
@@ -101,7 +103,8 @@ public static class Peaks
 
         return best is null
             ? null
-            : new BusiestHour(best.BestHourStartedAt, best.BestHourPeopleMinutes, best.BestHourMostPeopleAtOnce);
+            : new BusiestHour(
+                best.BestHourStartedAt, best.BestHourPeopleMinutes, best.BestHourMostPeopleAtOnce, best.BestHourUnsure);
     }
 
     /// <summary>

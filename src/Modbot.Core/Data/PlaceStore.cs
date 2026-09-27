@@ -125,8 +125,9 @@ public sealed class PlaceStore
         {
             instance.LastUserCount = count;
 
-            if (instance.PeakUserCount is null || count > instance.PeakUserCount)
-                instance.PeakUserCount = count;
+            // The one count that arrives here is the group list's, which counts group members only
+            // and so is never more people than were there: a peak it reaches is sure.
+            HeadCounts.RaisePeak(instance, count, unsure: false);
         }
 
         return instance;

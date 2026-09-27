@@ -240,7 +240,14 @@ public static class PlacesEndpoints
             .Where(h => h.InstanceId == id)
             .OrderByDescending(h => h.CountedAt)
             .Take(HeadCountPoint.Most)
-            .Select(h => new HeadCountPoint(h.CountedAt, h.HeadCount, h.UserCount, h.MemberCount, h.Source))
+            .Select(h => new HeadCountPoint(
+                h.CountedAt,
+                h.HeadCount,
+                h.UserCount,
+                h.MemberCount,
+                h.Source,
+                h.NUsers,
+                h.Source == HeadCounts.FromPage && h.UserCount == null))
             .ToListAsync(ct);
 
         headCounts.Reverse();

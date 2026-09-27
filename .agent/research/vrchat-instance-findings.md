@@ -109,6 +109,20 @@ From the two responses for the same room, at the same moment:
 `n_users` counts everybody present and `userCount` counts something narrower — group members, or
 people not in a queue — but this is **one observation, and the difference is not explained.**
 
+### 3.1 Later evidence: `userCount` is the head count (2026-09-26)
+
+The reading above was wrong, and Modbot's head count was built on it. On a live group, a club
+instance in a world that holds 80 read `n_users` **80** while `userCount` said **51**. The Companion
+App saw about 52 people in it, and the instance was not full. Across the 281 page readings Modbot
+stored that evening the two numbers differed 229 times, with `n_users` up to about thirty higher
+while the instance was busy; they came together again as it emptied.
+
+So `userCount` counts the people in the instance, and `n_users` runs ahead of it under load. What
+`n_users` counts is still not explained. Modbot now takes `userCount` as the head count and keeps
+`n_users` beside every page reading; a body with no `userCount` falls back to `n_users`, and that
+count is shown as unconfirmed ("80?"). Page readings stored before the change were corrected the
+same way (migration `ReadTheHeadCountFromUserCount`).
+
 Modbot records `memberCount` from the list, because that is the number it polls every ten seconds
 and the only one available for a room nobody is standing in. Any screen showing it should say what
 it counts rather than calling it "users".
@@ -128,7 +142,8 @@ still does not exist.
 
 1. **Whether an empty group instance stays in the list** (§2.1) — the one that would change a
    design decision.
-2. **What `n_users` counts** that `userCount` does not (§3).
+2. **What `n_users` counts** that `userCount` does not (§3). Which of the two is the head count is
+   settled (§3.1): `userCount`.
 3. **Whether `active` is ever `true` for a room with nobody in it**, which would make it a usable
    liveness test after all.
 4. **The real rate limit on `/instances` and `/worlds`.** Both are set to 1 req/s on the

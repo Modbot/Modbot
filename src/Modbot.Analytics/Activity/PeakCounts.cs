@@ -13,7 +13,11 @@ namespace Modbot.Analytics.Activity;
 /// The first moment it was that high. Where a count sits at its highest for a stretch, or reaches the
 /// same height twice, the earliest moment wins — see <see cref="Peaks"/> for why the rule matters.
 /// </param>
-public sealed record PeakCount(int Value, DateTimeOffset At);
+/// <param name="Unsure">
+/// True when an instance head count in it at that moment took <c>n_users</c> because the page had no
+/// <c>userCount</c>. Shown as "80?". Always false for a count that is not a head count.
+/// </param>
+public sealed record PeakCount(int Value, DateTimeOffset At, bool Unsure = false);
 
 /// <summary>
 /// The day the group's instances held the most people-time, and how busy it was.
@@ -25,7 +29,8 @@ public sealed record PeakCount(int Value, DateTimeOffset At);
 /// a day with one short rush is not a busy day.
 /// </param>
 /// <param name="MostPeopleAtOnce">The highest the day got, so a busy day and a peaky one can be told apart.</param>
-public sealed record BusiestDay(DateOnly Day, decimal PeopleMinutes, int MostPeopleAtOnce);
+/// <param name="Unsure">True when <paramref name="MostPeopleAtOnce"/> rests on an unsure head count.</param>
+public sealed record BusiestDay(DateOnly Day, decimal PeopleMinutes, int MostPeopleAtOnce, bool Unsure = false);
 
 /// <summary>
 /// The single clock hour the group's instances held the most people-time.
@@ -33,7 +38,8 @@ public sealed record BusiestDay(DateOnly Day, decimal PeopleMinutes, int MostPeo
 /// <param name="StartedAt">The hour's first moment, in UTC. One real hour on one real date, not "Saturdays at 8".</param>
 /// <param name="PeopleMinutes">People added up over the minutes of that hour.</param>
 /// <param name="MostPeopleAtOnce">The highest that hour got.</param>
-public sealed record BusiestHour(DateTimeOffset StartedAt, decimal PeopleMinutes, int MostPeopleAtOnce);
+/// <param name="Unsure">True when an unsure head count was in effect at any time in the hour.</param>
+public sealed record BusiestHour(DateTimeOffset StartedAt, decimal PeopleMinutes, int MostPeopleAtOnce, bool Unsure = false);
 
 /// <summary>
 /// One UTC day of instance activity, as the database aggregates it.
@@ -48,6 +54,11 @@ public sealed record BusiestHour(DateTimeOffset StartedAt, decimal PeopleMinutes
 /// <param name="BestHourStartedAt">The first moment of the day's own busiest hour.</param>
 /// <param name="BestHourPeopleMinutes">That hour's people-minutes.</param>
 /// <param name="BestHourMostPeopleAtOnce">The highest that hour got.</param>
+/// <param name="MostPeopleUnsure">
+/// True when an unsure head count -- <c>n_users</c> taken because the page had no <c>userCount</c> --
+/// was part of the total at <paramref name="MostPeopleAt"/>.
+/// </param>
+/// <param name="BestHourUnsure">True when an unsure head count was part of the total at any time in the day's busiest hour.</param>
 public sealed record ActivityDay(
     DateOnly Day,
     int MostPeopleAtOnce,
@@ -57,4 +68,6 @@ public sealed record ActivityDay(
     decimal PeopleMinutes,
     DateTimeOffset BestHourStartedAt,
     decimal BestHourPeopleMinutes,
-    int BestHourMostPeopleAtOnce);
+    int BestHourMostPeopleAtOnce,
+    bool MostPeopleUnsure = false,
+    bool BestHourUnsure = false);
