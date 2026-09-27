@@ -335,6 +335,39 @@
   }
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   A list with two forms: a table where there is room, two-line rows where
+   there is not.
+
+   Worlds' table is eleven columns. On a phone, and in a headset where the text is
+   larger, only the name and two numbers fit; the rest ran off the side behind
+   a scrollbar a laser pointer cannot catch. So the page draws both and shows
+   one: `data-layout="wide"` on the table, `data-layout="narrow"` on the rows.
+   The rows say the few numbers that answer the page's question; the world's
+   popup has the rest.
+   ─────────────────────────────────────────────────────────────────────────── */
+[data-layout="narrow"] {
+  display: none;
+}
+
+@media (max-width: 47.9375rem) {
+  [data-layout="wide"] {
+    display: none;
+  }
+
+  [data-layout="narrow"] {
+    display: block;
+  }
+}
+
+[data-place="headset"] [data-layout="wide"] {
+  display: none;
+}
+
+[data-place="headset"] [data-layout="narrow"] {
+  display: block;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

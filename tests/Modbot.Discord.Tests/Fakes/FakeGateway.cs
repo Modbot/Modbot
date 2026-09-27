@@ -573,6 +573,16 @@ public sealed class FakeGateway : IDiscordGateway
 
     public int? ReadMemberCount(string guildId) => Members?.Count;
 
+    public int? Online { get; set; }
+
+    public int OnlineReads { get; private set; }
+
+    public Task<int?> ReadOnlineCountAsync(string guildId, CancellationToken ct)
+    {
+        OnlineReads++;
+        return Task.FromResult(Online);
+    }
+
     public Task RaiseMemberJoinedAsync(string guildId, DiscordMemberSnapshot member)
     {
         Members?.Add(member);

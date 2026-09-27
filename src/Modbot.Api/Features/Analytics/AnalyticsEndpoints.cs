@@ -11,6 +11,7 @@ using Modbot.Api.Features.Analytics.Team;
 using Modbot.Api.Features.Analytics.Worlds;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Analytics;
@@ -126,6 +127,7 @@ public static class AnalyticsEndpoints
         group.MapGet("/server", async (
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                [FromServices] IDiscordOnlineCount online,
                 [FromQuery] int? days,
                 [FromQuery] bool? all,
                 [FromQuery] DateOnly? from,
@@ -135,7 +137,7 @@ public static class AnalyticsEndpoints
                 var window = await WindowAsync(db, clock, ServerAnalyticsQuery.Sources, days, all, from, to, ct);
                 if (window.Error is not null) return window.Error;
 
-                return Results.Ok(await new ServerAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
+                return Results.Ok(await new ServerAnalyticsQuery(db, online).RunAsync(window.From, window.To, clock.UtcNow, ct));
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetServerAnalytics")
@@ -200,9 +202,11 @@ public static class AnalyticsEndpoints
             .WithSummary("Get world analytics")
             .WithDescription(
                 "Worlds: which of our worlds actually get used? "
-                + "Time people were seen in each world, distinct visitors and instances opened, plus "
-                + "visitors per day per world from daily totals. Time and visitors come from presence "
-                + "reports, which exist only while a moderator's companion is in the instance.")
+                + "For each world: the group instances Modbot saw opened, how long at least one was "
+                + "open, and the most people VRChat counted in one, longest time open first. Beside "
+                + "them, time people were seen, distinct visitors and audit-log instance creates, plus "
+                + "visitors per day per world from daily totals. Time seen and visitors come from "
+                + "presence reports, which exist only while a moderator's companion is in the instance.")
             .Produces<WorldsAnalytics>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

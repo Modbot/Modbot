@@ -701,6 +701,12 @@ public interface IDiscordGateway : IAsyncDisposable
     /// <summary>How many members the server has, as the session last heard. Null when not known.</summary>
     int? ReadMemberCount(string guildId);
 
+    /// <summary>
+    /// How many of the server's members Discord counts as online: one REST request for the server
+    /// with its counts. Null when the bot is not in the server or Discord did not answer.
+    /// </summary>
+    Task<int?> ReadOnlineCountAsync(string guildId, CancellationToken ct);
+
     Task DisconnectAsync();
 }
 

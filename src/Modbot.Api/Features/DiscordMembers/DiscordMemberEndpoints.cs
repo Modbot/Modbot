@@ -220,8 +220,9 @@ public static class DiscordMemberEndpoints
         // the whole analytics page; gated like the list it sits over, not on See analytics.
         app.MapGet("/api/discord/server", async (
                 [FromServices] ModbotContext db,
+                [FromServices] IDiscordOnlineCount online,
                 CancellationToken ct) =>
-                Results.Ok(await new ServerProfileQuery(db).RunAsync(await GuildIdAsync(db, ct), ct)))
+                Results.Ok(await new ServerProfileQuery(db, online).RunAsync(await GuildIdAsync(db, ct), ct)))
             .WithTags("Discord")
             .RequireAuthorization()
             .RequiresFlag(ModbotPermissions.ViewMembers)
@@ -230,8 +231,10 @@ public static class DiscordMemberEndpoints
             .WithDescription(
                 "The Discord server in settings as its own server profile shows it: name, icon and "
                 + "banner, the day it was made (read from its id), Discord's member count from the "
-                + "newest reading, and its boosts and boost level. All of it is what the bot last "
-                + "stored; asking asks Discord nothing. Every field is null when no server is set.")
+                + "newest reading, how many members Discord counts as online, and its boosts and boost "
+                + "level. All but the online count is what the bot last stored. The online count is "
+                + "asked of Discord and kept five minutes, and is null when the bot is not connected. "
+                + "Every field is null when no server is set.")
             .Produces<ServerProfile>()
             .Produces(StatusCodes.Status403Forbidden);
 

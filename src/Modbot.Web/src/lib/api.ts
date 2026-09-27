@@ -1556,6 +1556,14 @@ export type WorldSummary = {
   visits: number
   instancesOpened: number
   lastSeenAt: string | null
+  /** The group's instances of this world Modbot saw opened in the range: the rows the Instances page lists. */
+  instances: number
+  /** Minutes with at least one of them open, overlaps counted once. */
+  minutesOpen: number
+  /** The most people VRChat counted in any one of them; null when none was counted. */
+  mostAtOnce: number | null
+  mostAtOnceUnsure: boolean
+  lastOpenedAt: string | null
 }
 
 export type WorldSeries = { worldId: string; points: DayValue[] }
@@ -1715,6 +1723,8 @@ export type ServerProfile = {
   createdAt: string | null
   /** Discord's own member count, bots included, from the newest reading. */
   members: number | null
+  /** How many members Discord counts as online, asked of Discord and kept five minutes. Null when the bot is not connected. */
+  online: number | null
   boostCount: number | null
   /** 0 to 3, as Discord gives it. */
   boostLevel: number | null

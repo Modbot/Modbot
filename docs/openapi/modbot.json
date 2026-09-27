@@ -233,7 +233,7 @@
           "Discord"
         ],
         "summary": "Get Discord server",
-        "description": "The Discord server in settings as its own server profile shows it: name, icon and banner, the day it was made (read from its id), Discord's member count from the newest reading, and its boosts and boost level. All of it is what the bot last stored; asking asks Discord nothing. Every field is null when no server is set.\n\nNeeds the `ViewMembers` permission.",
+        "description": "The Discord server in settings as its own server profile shows it: name, icon and banner, the day it was made (read from its id), Discord's member count from the newest reading, how many members Discord counts as online, and its boosts and boost level. All but the online count is what the bot last stored. The online count is asked of Discord and kept five minutes, and is null when the bot is not connected. Every field is null when no server is set.\n\nNeeds the `ViewMembers` permission.",
         "operationId": "GetDiscordServer",
         "responses": {
           "200": {
@@ -9259,7 +9259,7 @@
           "Analytics"
         ],
         "summary": "Get world analytics",
-        "description": "Worlds: which of our worlds actually get used? Time people were seen in each world, distinct visitors and instances opened, plus visitors per day per world from daily totals. Time and visitors come from presence reports, which exist only while a moderator's companion is in the instance.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "Worlds: which of our worlds actually get used? For each world: the group instances Modbot saw opened, how long at least one was open, and the most people VRChat counted in one, longest time open first. Beside them, time people were seen, distinct visitors and audit-log instance creates, plus visitors per day per world from daily totals. Time seen and visitors come from presence reports, which exist only while a moderator's companion is in the instance.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetWorldsAnalytics",
         "parameters": [
           {
@@ -33033,6 +33033,7 @@
           "bannerUrl",
           "createdAt",
           "members",
+          "online",
           "boostCount",
           "boostLevel"
         ],
@@ -33070,6 +33071,15 @@
             "format": "date-time"
           },
           "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "online": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
@@ -35908,7 +35918,12 @@
           "visitors",
           "visits",
           "instancesOpened",
-          "lastSeenAt"
+          "lastSeenAt",
+          "instances",
+          "minutesOpen",
+          "mostAtOnce",
+          "mostAtOnceUnsure",
+          "lastOpenedAt"
         ],
         "type": "object",
         "properties": {
@@ -35975,6 +35990,41 @@
             "format": "double"
           },
           "lastSeenAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "instances": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "minutesOpen": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "mostAtOnce": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "mostAtOnceUnsure": {
+            "type": "boolean"
+          },
+          "lastOpenedAt": {
             "type": [
               "null",
               "string"

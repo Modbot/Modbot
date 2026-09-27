@@ -13,8 +13,14 @@ namespace Modbot.Api.Features.Analytics.Worlds;
 /// <para>
 /// Time and visitors come from the companion's presence reports, which exist only while a
 /// moderator's client is in the instance. A world nobody with the client visited reads as empty
-/// however busy it was, and the page says so. Instances opened per world come from the audit log
-/// and are complete.
+/// however busy it was, and the page says so. Instances opened per world come from the audit log.
+/// </para>
+/// <para>
+/// Instances, time open and most at once come from <c>vrchat_instance</c>, which covers every group
+/// instance whether anybody from the team was in it or not, so they decide the order. Ranked by
+/// presence, a world that held twelve people for four hours read as unused because no companion was
+/// there (2026-09-27 review, finding 1). The audit-log count stays beside them: it counts creates
+/// Modbot never saw as an instance, and on an older install creates with no world at all.
 /// </para>
 /// <para>
 /// The per-world time is computed live from facts, because a session is two facts about one
@@ -53,7 +59,31 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
             .GroupBy(r => r.Dimension, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.Sum(r => r.Value), StringComparer.Ordinal);
 
-        var worldIds = seen.Keys.Concat(instancesByWorld.Keys).Distinct(StringComparer.Ordinal).ToList();
+        // The group's own instances Modbot saw, opened in the window by the same rule the Instances
+        // page lists them by. These are complete, so they decide the order; presence only fills in
+        // who. Public instances a moderator wandered into are in the same table and are not ours.
+        var group = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.ManagedGroupId)
+            .FirstOrDefaultAsync(ct);
+
+        var start = AnalyticsSql.DayStart(from);
+        var end = AnalyticsSql.DayEnd(to);
+        var managed = !string.IsNullOrWhiteSpace(group);
+        var opened = await db.VRChatInstances
+            .AsNoTracking()
+            .Where(i => managed && i.GroupId == group && i.OpenedAt >= start && i.OpenedAt < end)
+            .Select(i => new { i.WorldId, i.OpenedAt, i.ClosedAt, i.PeakUserCount, i.PeakUnsure })
+            .ToListAsync(ct);
+
+        var used = opened
+            .GroupBy(i => i.WorldId, StringComparer.Ordinal)
+            .ToDictionary(
+                g => g.Key,
+                g => WorldUse.Of(g.Select(i => new WorldInstance(i.OpenedAt, i.ClosedAt, i.PeakUserCount, i.PeakUnsure)).ToList(), now),
+                StringComparer.Ordinal);
+
+        var worldIds = seen.Keys.Concat(instancesByWorld.Keys).Concat(used.Keys).Distinct(StringComparer.Ordinal).ToList();
 
         // The names, in one round trip. A world Modbot has only ever seen as an id has no row
         // here yet and keeps its id on screen, which is the truth about what is known.
@@ -68,6 +98,7 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
             {
                 var s = seen.GetValueOrDefault(id) ?? PlaceCounts.Nothing;
                 var world = named.GetValueOrDefault(id);
+                var use = used.GetValueOrDefault(id) ?? WorldUse.Nothing;
 
                 return new WorldSummary(
                     id,
@@ -79,9 +110,16 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
                     s.Visitors,
                     s.Arrivals,
                     instancesByWorld.GetValueOrDefault(id),
-                    s.LastSeenAt);
+                    s.LastSeenAt,
+                    use.Instances,
+                    use.MinutesOpen,
+                    use.MostAtOnce,
+                    use.MostAtOnceUnsure,
+                    use.LastOpenedAt);
             })
-            .OrderByDescending(w => w.MinutesSeen)
+            .OrderByDescending(w => w.MinutesOpen)
+            .ThenByDescending(w => w.Instances)
+            .ThenByDescending(w => w.MinutesSeen)
             .ThenByDescending(w => w.Visitors)
             .ThenByDescending(w => w.InstancesOpened)
             .ThenBy(w => w.Name ?? w.WorldId, StringComparer.OrdinalIgnoreCase)

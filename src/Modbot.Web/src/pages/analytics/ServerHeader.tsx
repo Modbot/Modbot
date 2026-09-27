@@ -10,8 +10,9 @@ import { HeaderTabs } from './shared'
  * banner, the icon over its edge as Discord's rounded square, the name and one line of counts, the
  * boost bar, then a row of links. Modbot's own look throughout; only the arrangement is Discord's.
  *
- * Everything here is what the bot already stored, so opening the page asks Discord nothing. There
- * is no online count: that needs Discord's presence intent, which the bot does not ask for.
+ * Everything but the online count is what the bot already stored. The online count is the one thing
+ * asked of Discord, when the page opens, and the server keeps each answer five minutes; the bot has
+ * no presence intent, so it cannot count it itself. With the bot offline the count is left out.
  *
  * On a phone the icon sits over the banner and the name goes under it; from `sm` up the name moves
  * beside the icon, level with its lower half, as on the VRChat page.
@@ -59,6 +60,12 @@ export function ServerHeader({
             className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground"
             style={{ fontSize: 'var(--text-small)' }}
           >
+            {server.online !== null && (
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className="size-[0.6em] shrink-0 rounded-full bg-ok" />
+                <span className="font-mono text-foreground">{count(server.online)}</span> Online
+              </span>
+            )}
             <span className="flex items-center gap-1.5">
               <span aria-hidden className="size-[0.6em] shrink-0 rounded-full bg-muted-foreground" />
               <span className="font-mono text-foreground">{count(server.members)}</span> Members

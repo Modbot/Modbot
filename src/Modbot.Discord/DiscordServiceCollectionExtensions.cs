@@ -97,6 +97,9 @@ public static class DiscordServiceCollectionExtensions
         // What an AI moderation rule set to act does on Discord (M8 §2), through the live session.
         services.AddSingleton<IDiscordModerationActions, DiscordModerationActions>();
 
+        // Discord's online count for the server header, asked on page open and kept five minutes.
+        services.AddSingleton<IDiscordOnlineCount, DiscordOnlineCount>();
+
         // Messages, stored in full (M5 spec §5.1), and checked by AI moderation. The checker that
         // checks nothing stands in when AI moderation is not registered; when it is, it wins.
         services.AddScoped<DiscordMessageStore>();

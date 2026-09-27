@@ -97,6 +97,7 @@ public static class ApiSurface
         // A host with the bot registers the real one first and wins; a host without it answers
         // that there is no bot rather than pretending there is nothing to sync.
         services.TryAddSingleton<IDiscordSyncRunner, NoDiscordSyncRunner>();
+        services.TryAddSingleton<IDiscordOnlineCount, NoDiscordOnlineCount>();
 
         // Whether this is a demo. The host decides it during startup and registers the decided one
         // before this runs; these are the fallbacks for a host that maps the API without demo mode,
