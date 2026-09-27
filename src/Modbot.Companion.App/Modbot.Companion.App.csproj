@@ -91,6 +91,11 @@
     <AvaloniaResource Include="Assets\Fonts\BricolageGrotesque-Wordmark.ttf" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The window's tests register the brand's fonts, which are internal, before they draw it. -->
+    <InternalsVisibleTo Include="Modbot.Companion.App.Tests" />
+  </ItemGroup>
+
   <!-- The overlay project ships OpenVR for both platforms, so a plain build and the tests have
        both beside them. A published folder is for one kind of machine, and the other platform's
        library stays out of it. -->

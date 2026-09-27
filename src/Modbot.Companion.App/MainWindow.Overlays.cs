@@ -40,8 +40,7 @@ public sealed partial class MainWindow
 
         WireNotifyControls();
 
-        _renderingSwitches = true;
-        try
+        Quietly(() =>
         {
             _notifyOnBox.IsChecked = settings.On;
             Refill(_notifyAcross, settings.Across);
@@ -50,11 +49,7 @@ public sealed partial class MainWindow
             Refill(_notifyWidth, settings.Width);
             Refill(_notifyOpacity, settings.Opacity);
             Refill(_notifySeconds, settings.Seconds);
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
+        });
 
         foreach (var control in new Control[]
             { _notifyOnBox, _notifyAcross, _notifyDown, _notifyDistance, _notifyWidth, _notifyOpacity, _notifySeconds })
@@ -147,7 +142,7 @@ public sealed partial class MainWindow
         _notifyOnBox.VerticalAlignment = VerticalAlignment.Center;
         _notifyOnBox.IsCheckedChanged += (_, _) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetNotifyOverlay(NotifySettings with { On = _notifyOnBox.IsChecked == true });
         };
     }
@@ -168,7 +163,7 @@ public sealed partial class MainWindow
 
         slider.ValueChanged += (_, e) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetNotifyOverlay(change(NotifySettings, e.NewValue));
         };
 

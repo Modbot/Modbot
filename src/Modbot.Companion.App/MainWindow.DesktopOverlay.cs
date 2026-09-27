@@ -87,7 +87,7 @@ public sealed partial class MainWindow
     /// <summary>What the card's controls say right now, handed to the application as one record.</summary>
     private void DesktopOverlayChanged(Func<DesktopOverlaySettings, DesktopOverlaySettings> change)
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         _actions.SetDesktopOverlay(change(_snapshot.DesktopOverlayOrNone.Settings));
@@ -225,13 +225,13 @@ public sealed partial class MainWindow
 
         _desktopNotifyOn.IsCheckedChanged += (_, _) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { On = _desktopNotifyOn.IsChecked == true });
         };
 
         _desktopNotifySeconds.ValueChanged += (_, e) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetDesktopNotifyOverlay(DesktopNotifySettingsNow with { Seconds = (float)e.NewValue });
         };
 

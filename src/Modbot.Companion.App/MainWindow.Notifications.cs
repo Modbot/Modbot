@@ -88,7 +88,7 @@ public sealed partial class MainWindow
     /// <summary>What the Notifications card's controls say right now, as one settings record.</summary>
     private void NotificationsChanged()
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         _actions.SetNotifications(_snapshot.NotificationsOrDefault with

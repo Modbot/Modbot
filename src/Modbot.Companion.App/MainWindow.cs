@@ -80,6 +80,19 @@ public sealed partial class MainWindow : Window
     private Page? _drawnPage;
     private int _drawnPictures;
 
+    // True while the window is being drawn. A draw never starts inside another: one asked for in
+    // the middle waits here and runs once the first has finished. Two builds of one page at once
+    // each take the kept controls from the other, and the first then finds a control it has just
+    // detached already in the second's card and stops half way down the page.
+    private bool _drawing;
+    private (CompanionAppSnapshot Snapshot, MainWindowActions Actions)? _renderWaiting;
+    private bool _pageWaiting;
+
+    // How many draws and refreshes are under way. While any is, the kept controls do not answer
+    // back: a value put into a control, or one Avalonia settles on the first time the control is
+    // shown, is not somebody changing a setting.
+    private int _quietDepth;
+
     /// <summary>One sidebar row, kept so the sidebar is refreshed rather than built again.</summary>
     private readonly Dictionary<Page, NavRow> _navRows = [];
 
@@ -109,7 +122,6 @@ public sealed partial class MainWindow : Window
     private readonly CheckBox _overlayOnBox;
     private readonly TextBox _logFolderBox;
     private readonly TextBlock _logFolderWatching = Ui.Faint("");
-    private bool _renderingSwitches;
 
     // The panel's size, opacity and curve: sliders, built once so a drag is not cut short by the
     // timer, and only refilled while nobody is on them.
@@ -158,7 +170,7 @@ public sealed partial class MainWindow : Window
         _startupBox = new CheckBox { Content = Ui.Text("Start Modbot Companion when my computer starts", Ui.T.Density.TextSmall, Ui.T.TextBrush) };
         _startupBox.IsCheckedChanged += (_, _) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetStartWithWindows(_startupBox.IsChecked == true);
         };
 
@@ -166,7 +178,7 @@ public sealed partial class MainWindow : Window
         _overlayOnBox.VerticalAlignment = VerticalAlignment.Center;
         _overlayOnBox.IsCheckedChanged += (_, _) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.SetOverlayOn(_overlayOnBox.IsChecked == true);
         };
 
@@ -268,7 +280,7 @@ public sealed partial class MainWindow : Window
     /// <summary>What the Voice card's controls say right now, handed to the application as one settings record.</summary>
     private void VoiceChanged()
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         var index = _voiceDevice.SelectedIndex;
@@ -322,22 +334,95 @@ public sealed partial class MainWindow : Window
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(actions);
 
-        _snapshot = snapshot;
-        _actions = actions;
-
-        if (_drawnPage == _page
-            && _drawnPictures == PicturesArrived
-            && _drawnFrom is { } drawn
-            && drawn.LooksTheSameAs(snapshot))
+        // Asked for in the middle of a draw — by a setting written while the page was being built,
+        // say. The snapshot the draw under way is reading from is left alone, and this one is drawn
+        // when that has finished.
+        if (_drawing)
         {
+            _renderWaiting = (snapshot, actions);
             return;
         }
 
-        RenderIdentity();
-        RenderHealth();
-        RenderVersion();
-        RenderNav();
-        DrawPage();
+        Draw(() =>
+        {
+            _snapshot = snapshot;
+            _actions = actions;
+
+            if (_drawnPage == _page
+                && _drawnPictures == PicturesArrived
+                && _drawnFrom is { } drawn
+                && drawn.LooksTheSameAs(snapshot))
+            {
+                return;
+            }
+
+            RenderIdentity();
+            RenderHealth();
+            RenderVersion();
+            RenderNav();
+            DrawPage();
+        });
+    }
+
+    /// <summary>
+    /// Runs one draw of the window with the kept controls quiet, then whatever was asked for while
+    /// it ran.
+    /// </summary>
+    /// <remarks>
+    /// Quiet because building a page moves controls in and out of the window, and a control can
+    /// change its own value on the way: the first time a slider is shown, Avalonia pulls its value
+    /// up to its minimum. Heard as a person moving it, that wrote the minimum into the settings
+    /// file and drew the page again from inside the build.
+    /// </remarks>
+    private void Draw(Action draw)
+    {
+        _drawing = true;
+        _quietDepth++;
+        try
+        {
+            draw();
+        }
+        catch
+        {
+            // What waited was asked for by a draw that did not finish; the next tick asks again.
+            _renderWaiting = null;
+            _pageWaiting = false;
+            throw;
+        }
+        finally
+        {
+            _quietDepth--;
+            _drawing = false;
+        }
+
+        if (_renderWaiting is { } waiting)
+        {
+            _renderWaiting = null;
+            Render(waiting.Snapshot, waiting.Actions);
+        }
+
+        if (_pageWaiting)
+        {
+            _pageWaiting = false;
+            RenderPage();
+        }
+    }
+
+    /// <summary>Whether a draw or a refresh is putting values into the kept controls right now.</summary>
+    private bool Quiet => _quietDepth > 0;
+
+    /// <summary>Puts values into kept controls without any of them answering back as a change.</summary>
+    private void Quietly(Action fill)
+    {
+        _quietDepth++;
+        try
+        {
+            fill();
+        }
+        finally
+        {
+            _quietDepth--;
+        }
     }
 
     /// <summary>How many group pictures have landed, so a page drawn before one arrived is drawn again.</summary>
@@ -540,7 +625,6 @@ public sealed partial class MainWindow : Window
             return;
 
         _page = page;
-        RenderNav();
         RenderPage();
     }
 
@@ -552,7 +636,7 @@ public sealed partial class MainWindow : Window
     {
         if (!PageAlreadyDrawn())
         {
-            RenderPage();
+            BuildPage();
             return;
         }
 
@@ -704,8 +788,27 @@ public sealed partial class MainWindow : Window
         _warnings.IsVisible = _warnings.Children.Count > 0;
     }
 
-    /// <summary>Builds the page again from the ground up. Every way into the page but the timer's.</summary>
+    /// <summary>
+    /// Builds the page again from the ground up, with the sidebar lit for it. Every way into the
+    /// page but the timer's. Asked for during a draw, it waits for that draw to finish.
+    /// </summary>
     private void RenderPage()
+    {
+        if (_drawing)
+        {
+            _pageWaiting = true;
+            return;
+        }
+
+        Draw(() =>
+        {
+            RenderNav();
+            BuildPage();
+        });
+    }
+
+    /// <summary>Builds the page again from the ground up. Only ever called inside a draw.</summary>
+    private void BuildPage()
     {
         RenderWarnings();
         _body.Children.Clear();
@@ -849,6 +952,7 @@ public sealed partial class MainWindow : Window
             Children = { back },
         });
 
+        DetachFromParent(_pairingCard);
         _body.Children.Add(_pairingCard);
     }
 
@@ -1175,7 +1279,6 @@ public sealed partial class MainWindow : Window
     private void RenderSettings()
     {
         DetachFromParent(_startupBox);
-        DetachFromParent(_logFolderBox);
 
         _startupCard = Ui.Card(
             new StackPanel { Spacing = 6, Children = { _startupBox } },
@@ -1203,39 +1306,31 @@ public sealed partial class MainWindow : Window
     /// What the Settings page says right now, put into the controls it keeps, with none of them
     /// answering back. Run on every tick, whether or not the page was built again.
     /// </summary>
-    private void RefreshSettings()
+    private void RefreshSettings() => Quietly(() =>
     {
-        _renderingSwitches = true;
-        try
-        {
-            // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
-            // and cannot be turned back on from here. The card goes with it: the switch is all it
-            // holds, and a heading over nothing reads as a screen that failed to draw. Decided here
-            // rather than where the card is built, because the page is built once and refreshed
-            // after that, and the first build can happen before the host has said.
-            var startup = _snapshot.Startup;
-            _startupBox.IsVisible = _snapshot.ShowStartupCard;
+        // Shown only in an installed copy. Turned off in Windows' own Startup apps list shows off,
+        // and cannot be turned back on from here. The card goes with it: the switch is all it
+        // holds, and a heading over nothing reads as a screen that failed to draw. Decided here
+        // rather than where the card is built, because the page is built once and refreshed
+        // after that, and the first build can happen before the host has said.
+        var startup = _snapshot.Startup;
+        _startupBox.IsVisible = _snapshot.ShowStartupCard;
 
-            if (_startupCard is not null)
-                _startupCard.IsVisible = _snapshot.ShowStartupCard;
+        if (_startupCard is not null)
+            _startupCard.IsVisible = _snapshot.ShowStartupCard;
 
-            _startupBox.IsChecked = startup is { On: true };
-            _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
+        _startupBox.IsChecked = startup is { On: true };
+        _startupBox.IsEnabled = startup is { TurnedOffInWindows: false };
 
-            RefreshDesktopOverlayControls();
-            RefreshDesktopNotifyControls();
-            RefreshVoiceControls(_snapshot.VoiceOrNone);
-            RefreshNotificationControls(_snapshot.NotificationsOrDefault);
-            RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
-            RefreshClipControls(_snapshot.ClipsOrNone);
-            RefreshListeningControls(_snapshot.ListeningOrNone);
-            RefreshLogFolderControls();
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
-    }
+        RefreshDesktopOverlayControls();
+        RefreshDesktopNotifyControls();
+        RefreshVoiceControls(_snapshot.VoiceOrNone);
+        RefreshNotificationControls(_snapshot.NotificationsOrDefault);
+        RefreshNotificationFilterControls(_snapshot.NotificationFiltersOrDefault);
+        RefreshClipControls(_snapshot.ClipsOrNone);
+        RefreshListeningControls(_snapshot.ListeningOrNone);
+        RefreshLogFolderControls();
+    });
 
     /// <summary>
     /// Puts the snapshot into the Voice card's controls without any of them answering back.
@@ -1358,6 +1453,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private Control LogFolderSettings()
     {
+        DetachFromParent(_logFolderBox);
         DetachFromParent(_logFolderWatching);
 
         var save = Ui.Button("Save", primary: true);
@@ -1407,15 +1503,7 @@ public sealed partial class MainWindow : Window
     {
         var overlay = _snapshot.OverlayOrNone;
 
-        _renderingSwitches = true;
-        try
-        {
-            _overlayOnBox.IsChecked = overlay.On;
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
+        Quietly(() => _overlayOnBox.IsChecked = overlay.On);
 
         DetachFromParent(_overlayOnBox);
 
@@ -1501,17 +1589,12 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private Control PlacementControls(OverlayPlacement placement, string? holding)
     {
-        _renderingSwitches = true;
-        try
+        Quietly(() =>
         {
             Refill(_widthSlider, placement.Width);
             Refill(_opacitySlider, placement.Opacity);
             Refill(_curveSlider, placement.Curve);
-        }
-        finally
-        {
-            _renderingSwitches = false;
-        }
+        });
 
         DetachFromParent(_widthSlider);
         DetachFromParent(_opacitySlider);
@@ -1616,7 +1699,7 @@ public sealed partial class MainWindow : Window
 
         slider.ValueChanged += (_, e) =>
         {
-            if (!_renderingSwitches)
+            if (!Quiet)
                 _actions.PlaceOverlay(change(_snapshot.OverlayOrNone.PlacementOrDefault, e.NewValue));
         };
 

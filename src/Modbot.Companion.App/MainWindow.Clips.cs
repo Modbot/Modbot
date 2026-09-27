@@ -77,7 +77,7 @@ public sealed partial class MainWindow
     /// <summary>What the Clips card's switch and slider say right now, as one settings record.</summary>
     private void ClipsChanged()
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         _actions.SetClips(_snapshot.ClipsOrNone.Settings with

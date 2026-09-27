@@ -61,7 +61,7 @@ public sealed partial class MainWindow
     /// <summary>What the Listening card's switch says right now, as one settings record.</summary>
     private void ListeningChanged()
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         var index = _listeningMicrophone.SelectedIndex;

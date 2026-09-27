@@ -40,7 +40,7 @@ public sealed partial class MainWindow
     /// <summary>One tick changed. The whole list goes back, as one record.</summary>
     private void NotificationFiltersChanged(NotificationWay way, NotificationKind kind, bool on)
     {
-        if (_renderingSwitches)
+        if (Quiet)
             return;
 
         _actions.SetNotificationFilters(_snapshot.NotificationFiltersOrDefault.With(way, kind, on));
