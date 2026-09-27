@@ -218,7 +218,7 @@ public static class OverlayView
     }
 
     /// <summary>A ring where a controller points, placed by fractions of the panel.</summary>
-    private sealed class CursorLayer : Panel
+    internal sealed class CursorLayer : Panel
     {
         private const double Radius = 14;
         private readonly PanelCursor _cursor;

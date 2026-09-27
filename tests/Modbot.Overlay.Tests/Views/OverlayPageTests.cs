@@ -148,11 +148,13 @@ public class OverlayPageTests
         Assert.Contains(targets, t => t is OverlayTarget.RefreshPerson);
 
         // The whole list of target kinds the panel has. Anything new has to be added here on
-        // purpose, which is the point.
+        // purpose, which is the point. The last three are the bar's, which the headset draws under
+        // the panel (PanelFrameTests); none of them acts on a person either.
         Assert.All(targets, t => Assert.True(
             t is OverlayTarget.GoTo or OverlayTarget.Person or OverlayTarget.ClosePerson
                 or OverlayTarget.RefreshPerson or OverlayTarget.Roster or OverlayTarget.Events
-                or OverlayTarget.DismissAlert,
+                or OverlayTarget.DismissAlert
+                or OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
             $"Unexpected overlay target {t.GetType().Name}."));
     }
 

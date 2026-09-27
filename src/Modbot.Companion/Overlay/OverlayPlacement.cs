@@ -39,13 +39,20 @@ public sealed record OverlayPose(float X, float Y, float Z, float QX = 0f, float
 /// interaction design §4.2).</para>
 /// <para>The default is a panel 0.35 m to the right, 0.28 m down and 1 m ahead of the head,
 /// 0.45 m wide, which is where the OpenVR runtime always put it before placement was a setting.</para>
+/// <para><strong>The bar's two switches travel with it.</strong> Locked and click-through are
+/// about where the panel may go and what may reach it, so they are kept and saved beside where it
+/// is, and a restart finds the panel as it was left in both.</para>
 /// </remarks>
+/// <param name="Locked">The panel cannot be picked up, moved or resized; taps still work.</param>
+/// <param name="ClickThrough">The panel lets controller rays through to VRChat; only its bar answers.</param>
 public sealed record OverlayPlacement(
     OverlayAnchor Anchor,
     OverlayPose Offset,
     float Width,
     float Opacity = 1f,
-    float Curve = 0f)
+    float Curve = 0f,
+    bool Locked = false,
+    bool ClickThrough = false)
 {
     /// <summary>
     /// Narrow enough for the wrist. It used to be 0.2 m, which is wider than a panel worn on the
@@ -140,6 +147,8 @@ public sealed record OverlayPlacement(
         ["width"] = Width,
         ["opacity"] = Opacity,
         ["curve"] = Curve,
+        ["locked"] = Locked,
+        ["clickThrough"] = ClickThrough,
     };
 
     /// <summary>
@@ -169,8 +178,13 @@ public sealed record OverlayPlacement(
             offset,
             Number(json, "width", Default.Width),
             Number(json, "opacity", Default.Opacity),
-            Number(json, "curve", Default.Curve)).Clamped();
+            Number(json, "curve", Default.Curve),
+            Flag(json, "locked"),
+            Flag(json, "clickThrough")).Clamped();
     }
+
+    private static bool Flag(JsonObject json, string field)
+        => json[field] is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
 
     private static string? Text(JsonObject json, string field)
         => json[field] is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;

@@ -39,11 +39,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     public const int DefaultResolution = 1024;
 
     /// <summary>
-    /// The notification panel's texture. A quarter of the main panel's across, because a pop-up
-    /// is three lines and a megabyte of texture to say one name would be a poor trade on a
-    /// machine that is also running VRChat.
+    /// The notification panel's texture. Under a third of the main panel's across, because a
+    /// pop-up is three lines and a megabyte of texture to say one name would be a poor trade on a
+    /// machine that is also running VRChat: the 256-pixel box the pop-ups stack in, and the bar
+    /// under it.
     /// </summary>
-    public const int DefaultNotificationResolution = 256;
+    public const int DefaultNotificationResolution = NotifyOverlaySettings.PanelPixels;
 
     private readonly IOverlayRuntime _runtime;
 
@@ -61,6 +62,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private OverlayScreen? _live;
     private OverlayScreen? _pinned;
     private OverlayScreen? _drawn;
+    private PanelBar _drawnBar;
     private byte[]? _lastFrame;
 
     // The controllers' side: the rules for holding the panel, the tree that drew the current
@@ -70,6 +72,9 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     private PanelCursor? _cursor;
     private float _scroll;
     private OverlayTracking _lastTracking = OverlayTracking.None;
+
+    // Whether a ray is on the panel, which is what puts the bar up under it.
+    private bool _rayOnPanel;
 
     /// <summary>Thumbstick travel, in full deflections per poll, that moves the roster one row.</summary>
     public const float ScrollPerRow = 6f;
@@ -88,7 +93,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         Width = surface.Width;
         Height = surface.Height;
         _compositor = new OverlayCompositor(new FrameKeeper(renderer, this), surface);
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default);
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -132,7 +137,7 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             }
         };
 
-        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default);
+        _interaction = new OverlayInteraction(placement ?? OverlayPlacement.Default) { IsOnBar = IsOnBar };
         _runtime.Place(_interaction.Placement);
     }
 
@@ -162,6 +167,12 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
 
     /// <summary>The hand holding the panel, or null.</summary>
     public Hand? Holding { get; private set; }
+
+    /// <summary>
+    /// The hand this panel is using right now — pointing at it, clicking its bar, or carrying it —
+    /// or null. A ray this panel lets through is not using it.
+    /// </summary>
+    public Hand? Busy { get; private set; }
 
     /// <summary>Raised whenever the placement changes, by a controller or by <see cref="Place"/>, so it can be saved.</summary>
     public event Action<OverlayPlacement>? PlacementChanged;
@@ -235,19 +246,31 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
     /// taps and scrolls. Cheap when nothing is attached. UI thread only, because a moved cursor
     /// redraws the frame.
     /// </summary>
-    public void PollInput(TimeSpan now)
+    /// <param name="elsewhere">A hand another panel over this one is using, left out here.</param>
+    public void PollInput(TimeSpan now, Hand? elsewhere = null)
     {
         if (_runtime.Status.State is not OverlayRuntimeState.Running)
         {
-            SetCursor(null);
+            Busy = null;
+            var barWasShowing = _rayOnPanel;
+            _rayOnPanel = false;
+            if (_cursor is not null || barWasShowing)
+            {
+                _cursor = null;
+                Draw();
+            }
+
             return;
         }
 
         _lastTracking = _runtime.ReadTracking();
-        var result = _interaction.Update(_lastTracking, now);
+        var result = _interaction.Update(_lastTracking, now, elsewhere);
 
         var wasHolding = Holding;
         Holding = result.Holding;
+        Busy = result.Holding ?? result.Pointer?.Hand;
+        var barWasUp = _rayOnPanel;
+        _rayOnPanel = result.RayOnPanel;
 
         if (result.PlacementChanged)
         {
@@ -255,13 +278,37 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
             PlacementChanged?.Invoke(result.Placement);
         }
 
+        var cursor = result.Pointer is { } p
+            ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
+            : (PanelCursor?)null;
+
         // Picking the panel up and putting it down change which screen is drawn without changing
-        // the screen itself, so nothing else would redraw it.
-        if (result.PlacementChanged || wasHolding != Holding)
+        // the screen itself, and so does the bar coming up or going, so nothing else would redraw
+        // it. One frame for all of it, however many changed at once.
+        if (result.PlacementChanged || wasHolding != Holding || barWasUp != _rayOnPanel || cursor != _cursor)
+        {
+            _cursor = cursor;
             Draw();
+        }
 
         foreach (var click in result.Clicks)
-            Tapped?.Invoke(TargetAt(click.Across, click.Down));
+        {
+            switch (TargetAt(click.Across, click.Down))
+            {
+                // The bar is this panel's own business, never the drive loop's.
+                case OverlayTarget.Lock:
+                    Switch(Placement with { Locked = !Placement.Locked });
+                    break;
+                case OverlayTarget.ClickThrough:
+                    Switch(Placement with { ClickThrough = !Placement.ClickThrough });
+                    break;
+                case OverlayTarget.Bar:
+                    break;
+                case var target:
+                    Tapped?.Invoke(target);
+                    break;
+            }
+        }
 
         if (result.Pointer is { } pointer && result.Scroll.Y != 0f
             && TargetAt(pointer.Across, pointer.Down) is OverlayTarget.Roster or OverlayTarget.Person or OverlayTarget.Events)
@@ -279,22 +326,22 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         {
             _scroll = 0f;
         }
-
-        SetCursor(result.Pointer is { } p
-            ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
-            : null);
     }
 
     /// <summary>What is drawn under a point on the panel, from the tree that drew the current frame.</summary>
     public OverlayTarget? TargetAt(float across, float down)
         => _root is null ? null : OverlayTargets.At(_root, new Point(across * Width, down * Height));
 
-    private void SetCursor(PanelCursor? cursor)
-    {
-        if (_cursor == cursor)
-            return;
+    private bool IsOnBar(float across, float down)
+        => TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough;
 
-        _cursor = cursor;
+    /// <summary>One of the bar's switches, pressed: applied, saved and drawn at once.</summary>
+    private void Switch(OverlayPlacement placement)
+    {
+        _interaction.Place(placement);
+        Holding = null;
+        _runtime.Place(_interaction.Placement);
+        PlacementChanged?.Invoke(_interaction.Placement);
         Draw();
     }
 
@@ -473,13 +520,19 @@ public sealed class OverlayHost : IOverlayPresenter, IDisposable
         if (next is not null && OnWrist)
             next = next with { Page = OverlayPage.Wrist };
 
-        if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next)))
+        // Up while a ray is on the panel, used or let through; drawn as nothing otherwise.
+        var bar = PanelBar.For(_interaction.Placement, _rayOnPanel);
+
+        if (next is null || (_drawn is not null && _drawn.LooksTheSameAs(next) && _drawnBar == bar))
             return false;
 
         _drawn = next;
+        _drawnBar = bar;
         _compositor.Invalidate();
 
-        var root = OverlayView.Build(next, GroupIcon);
+        // The cursor is drawn over the bar as well as the cards, so the frame draws it rather
+        // than the view.
+        var root = PanelFrame.Main(OverlayView.Build(next with { Cursor = null }, GroupIcon), bar, next.Cursor, Height);
         if (!_compositor.DrawIfChanged(root))
             return false;
 

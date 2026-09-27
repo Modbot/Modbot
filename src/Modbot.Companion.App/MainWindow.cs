@@ -1538,6 +1538,8 @@ public sealed partial class MainWindow : Window
             Width = placement.Width,
             Opacity = placement.Opacity,
             Curve = placement.Curve,
+            Locked = placement.Locked,
+            ClickThrough = placement.ClickThrough,
         });
 
         var offset = placement.Offset;

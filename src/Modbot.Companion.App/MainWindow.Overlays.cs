@@ -95,7 +95,7 @@ public sealed partial class MainWindow
             lines.Children.Add(stats);
         }
 
-        lines.Children.Add(Ui.Field("Where on the screen", Spots(settings.Spot)));
+        lines.Children.Add(Ui.Field("Where on the screen", Spots(settings.Spot, settings.Placed is not null)));
         lines.Children.Add(Ui.Field($"Across {settings.Across:0.00} m", Stepper(_notifyAcross, 0.02)));
         lines.Children.Add(Ui.Field($"Down {settings.Down:0.00} m", Stepper(_notifyDown, 0.02)));
         lines.Children.Add(Ui.Field($"Distance {settings.Distance:0.00} m", Stepper(_notifyDistance, 0.05)));
@@ -110,15 +110,19 @@ public sealed partial class MainWindow
         _body.Children.Add(Ui.Card(lines, "Notification overlay", pill));
     }
 
-    private Control Spots(ScreenSpot chosen)
+    /// <param name="placedByHand">
+    /// The panel was put somewhere with a controller, so no spot is where it is; choosing one puts
+    /// it back on that spot.
+    /// </param>
+    private Control Spots(ScreenSpot chosen, bool placedByHand)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
 
         foreach (var spot in Enum.GetValues<ScreenSpot>())
         {
-            var button = Ui.Button(NotifyOverlaySettings.Name(spot), primary: spot == chosen);
+            var button = Ui.Button(NotifyOverlaySettings.Name(spot), primary: spot == chosen && !placedByHand);
             var picked = spot;
-            button.Click += (_, _) => _actions.SetNotifyOverlay(NotifySettings with { Spot = picked });
+            button.Click += (_, _) => _actions.SetNotifyOverlay(NotifySettings with { Spot = picked, Placed = null });
             row.Children.Add(button);
         }
 

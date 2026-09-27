@@ -361,6 +361,8 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             ["on"] = desktopOverlay.On,
             ["shortcut"] = desktopOverlay.ShortcutOrDefault,
             ["opacity"] = DesktopOverlaySettings.ClampOpacity(desktopOverlay.Opacity),
+            ["locked"] = desktopOverlay.Locked,
+            ["clickThrough"] = desktopOverlay.ClickThrough,
         });
     }
 
@@ -371,7 +373,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
             string.IsNullOrWhiteSpace(desktopOverlay.Shortcut)
                 ? DesktopOverlaySettings.DefaultShortcut
                 : desktopOverlay.Shortcut.Trim(),
-            DesktopOverlaySettings.ClampOpacity(desktopOverlay.Opacity ?? DesktopOverlaySettings.DefaultOpacity));
+            DesktopOverlaySettings.ClampOpacity(desktopOverlay.Opacity ?? DesktopOverlaySettings.DefaultOpacity),
+            desktopOverlay.Locked ?? false,
+            desktopOverlay.ClickThrough ?? false);
 
     /// <summary>
     /// Writes the whole <c>notifyOverlay</c> object, keeping every other field in the file. The
@@ -574,7 +578,9 @@ public sealed record CompanionSettings(Uri PairingPage, bool CheckForUpdates = t
     private sealed record DesktopOverlayShape(
         [property: JsonPropertyName("on")] bool? On,
         [property: JsonPropertyName("shortcut")] string? Shortcut,
-        [property: JsonPropertyName("opacity")] int? Opacity);
+        [property: JsonPropertyName("opacity")] int? Opacity,
+        [property: JsonPropertyName("locked")] bool? Locked,
+        [property: JsonPropertyName("clickThrough")] bool? ClickThrough);
 
     private sealed record NotificationsShape(
         [property: JsonPropertyName("bleep")] bool? Bleep,

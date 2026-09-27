@@ -51,9 +51,17 @@ public enum ScreenSpot
 /// <param name="Across">Fine offset in metres on top of the spot; positive is right.</param>
 /// <param name="Down">Fine offset in metres on top of the spot; positive is down.</param>
 /// <param name="Distance">Metres ahead of the head.</param>
-/// <param name="Width">Metres across. Being square, it is as tall.</param>
+/// <param name="Width">Metres across the pop-ups' box. Being square, it is as tall.</param>
 /// <param name="Opacity">1 is solid.</param>
 /// <param name="Seconds">How long one pop-up stays before it clears itself.</param>
+/// <param name="Placed">
+/// Where the panel was put by hand in the headset, relative to the head, or null while it sits on
+/// its spot. Once there is one it is where the panel goes instead of the spot: the distance moves
+/// it along the line from the head to it, and across and down nudge it from there. Choosing a
+/// spot, or putting it back, clears it.
+/// </param>
+/// <param name="Locked">The panel cannot be picked up, moved or resized.</param>
+/// <param name="ClickThrough">The panel lets controller rays through; only its bar answers.</param>
 public sealed record NotifyOverlaySettings(
     bool On = true,
     ScreenSpot Spot = ScreenSpot.TopRight,
@@ -62,7 +70,10 @@ public sealed record NotifyOverlaySettings(
     float Distance = NotifyOverlaySettings.DefaultDistance,
     float Width = NotifyOverlaySettings.DefaultWidth,
     float Opacity = NotifyOverlaySettings.DefaultOpacity,
-    float Seconds = NotifyOverlaySettings.DefaultSeconds)
+    float Seconds = NotifyOverlaySettings.DefaultSeconds,
+    OverlayPose? Placed = null,
+    bool Locked = false,
+    bool ClickThrough = false)
 {
     public const float DefaultDistance = 1.0f;
 
@@ -74,7 +85,8 @@ public sealed record NotifyOverlaySettings(
 
     public const float MinWidth = 0.1f;
 
-    public const float MaxWidth = 1.0f;
+    /// <summary>The main panel's own limit, since two hands can now stretch this one as far.</summary>
+    public const float MaxWidth = OverlayPlacement.MaxWidth;
 
     public const float MinDistance = 0.3f;
 
@@ -101,6 +113,22 @@ public sealed record NotifyOverlaySettings(
 
     /// <summary>At most this many pop-ups are drawn at once; older ones fall off the bottom.</summary>
     public const int MostPopUpsAtOnce = 3;
+
+    /// <summary>The square box the pop-ups stack in, in the panel's pixels.</summary>
+    public const int BoxPixels = 256;
+
+    /// <summary>
+    /// The whole panel, in pixels: the box, and the bar under it. Square, like every panel, so it
+    /// is a little wider than the box as well as taller.
+    /// </summary>
+    public const int PanelPixels = 300;
+
+    /// <summary>
+    /// How much wider the panel is than the box. <see cref="Width"/> is the box's width, as it was
+    /// before there was a bar, so the pop-ups stay the size a moderator set them to; the panel the
+    /// headset is told about is this much wider.
+    /// </summary>
+    public const float PanelPerBox = PanelPixels / (float)BoxPixels;
 
     public static NotifyOverlaySettings Default { get; } = new();
 
@@ -146,11 +174,30 @@ public sealed record NotifyOverlaySettings(
 
     /// <summary>
     /// Where the panel goes, as the runtime understands it: fixed to the head, at the spot's
-    /// angle from straight ahead, with the fine offset on top.
+    /// angle from straight ahead with the fine offset on top, or where it was put by hand.
     /// </summary>
     public OverlayPlacement ToPlacement()
     {
         var settings = Clamped();
+
+        if (settings.Placed is { } placed && Length(placed) > 0.001f)
+        {
+            // Along the line from the head to where it was left, at the distance asked for, then
+            // nudged; the turn it was left at stays.
+            var scale = settings.Distance / Length(placed);
+            return new OverlayPlacement(
+                OverlayAnchor.Head,
+                placed with
+                {
+                    X = (placed.X * scale) + settings.Across,
+                    Y = (placed.Y * scale) - settings.Down,
+                    Z = placed.Z * scale,
+                },
+                settings.Width * PanelPerBox,
+                settings.Opacity,
+                Locked: settings.Locked,
+                ClickThrough: settings.ClickThrough);
+        }
 
         var x = (AcrossOf(settings.Spot) * AcrossFraction * settings.Distance) + settings.Across;
         var y = (DownOf(settings.Spot) * DownFraction * settings.Distance) - settings.Down;
@@ -158,16 +205,56 @@ public sealed record NotifyOverlaySettings(
         return new OverlayPlacement(
             OverlayAnchor.Head,
             new OverlayPose(x, y, -settings.Distance),
-            settings.Width,
-            settings.Opacity);
+            settings.Width * PanelPerBox,
+            settings.Opacity,
+            Locked: settings.Locked,
+            ClickThrough: settings.ClickThrough);
     }
+
+    /// <summary>
+    /// Where the spot alone puts the panel, at the default distance and ignoring where it was put
+    /// by hand: where two quick grips send it home to.
+    /// </summary>
+    public OverlayPlacement SpotPlacement()
+        => (this with { Placed = null, Across = 0f, Down = 0f, Distance = DefaultDistance }).ToPlacement();
+
+    /// <summary>
+    /// These settings with the panel where a hand left it: a head-fixed placement becomes the
+    /// placed pose, its width and the bar's two switches. The fine offset is spent on the new
+    /// place, so it starts again from nothing, and the distance is how far away it was left.
+    /// </summary>
+    /// <remarks>
+    /// A placement fixed to anything but the head is not a place this panel can stay, only one it
+    /// passes through while being carried; only the switches are taken from it.
+    /// </remarks>
+    public NotifyOverlaySettings WithPlacement(OverlayPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+
+        var switched = this with { Locked = placement.Locked, ClickThrough = placement.ClickThrough };
+        if (placement.Anchor is not OverlayAnchor.Head)
+            return switched;
+
+        var offset = placement.Offset;
+        return (switched with
+        {
+            Placed = offset,
+            Across = 0f,
+            Down = 0f,
+            Distance = Length(offset),
+            Width = placement.Width / PanelPerBox,
+        }).Clamped();
+    }
+
+    private static float Length(OverlayPose pose)
+        => MathF.Sqrt((pose.X * pose.X) + (pose.Y * pose.Y) + (pose.Z * pose.Z));
 
     /// <summary>The <c>notifyOverlay</c> object as it is written to the file.</summary>
     public JsonObject ToJson()
     {
         var settings = Clamped();
 
-        return new JsonObject
+        var json = new JsonObject
         {
             ["on"] = settings.On,
             ["spot"] = settings.Spot.ToString().ToLowerInvariant(),
@@ -177,7 +264,25 @@ public sealed record NotifyOverlaySettings(
             ["width"] = settings.Width,
             ["opacity"] = settings.Opacity,
             ["seconds"] = settings.Seconds,
+            ["locked"] = settings.Locked,
+            ["clickThrough"] = settings.ClickThrough,
         };
+
+        if (settings.Placed is { } placed)
+        {
+            json["placed"] = new JsonObject
+            {
+                ["x"] = placed.X,
+                ["y"] = placed.Y,
+                ["z"] = placed.Z,
+                ["qx"] = placed.QX,
+                ["qy"] = placed.QY,
+                ["qz"] = placed.QZ,
+                ["qw"] = placed.QW,
+            };
+        }
+
+        return json;
     }
 
     /// <summary>
@@ -202,7 +307,28 @@ public sealed record NotifyOverlaySettings(
             Number(json, "distance", Default.Distance),
             Number(json, "width", Default.Width),
             Number(json, "opacity", Default.Opacity),
-            Number(json, "seconds", Default.Seconds)).Clamped();
+            Number(json, "seconds", Default.Seconds),
+            PlacedFrom(json["placed"]),
+            Flag(json, "locked", false),
+            Flag(json, "clickThrough", false)).Clamped();
+    }
+
+    /// <summary>The placed pose, or null when there is none or it is not a pose at all.</summary>
+    private static OverlayPose? PlacedFrom(JsonNode? node)
+    {
+        if (node is not JsonObject o || o["x"] is null || o["y"] is null || o["z"] is null)
+            return null;
+
+        var pose = new OverlayPose(
+            Number(o, "x", 0f),
+            Number(o, "y", 0f),
+            Number(o, "z", 0f),
+            Number(o, "qx", 0f),
+            Number(o, "qy", 0f),
+            Number(o, "qz", 0f),
+            Number(o, "qw", 1f));
+
+        return Length(pose) > 0.001f ? pose : null;
     }
 
     private static float Clamp(float value, float low, float high)

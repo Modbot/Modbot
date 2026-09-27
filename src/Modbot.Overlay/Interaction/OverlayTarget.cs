@@ -47,6 +47,24 @@ public abstract record OverlayTarget
     /// overlay has no recorder, no folder and no way to reach either (clips design spec §11).
     /// </remarks>
     public sealed record SaveClip : OverlayTarget;
+
+    /// <summary>The bar under a headset panel, between its buttons. A tap here does nothing.</summary>
+    /// <remarks>
+    /// A target so that the bar can be found under a ray at all: a panel letting rays through
+    /// still answers on its bar, and this is how the host tells the bar from the rest.
+    /// </remarks>
+    public sealed record Bar : OverlayTarget;
+
+    /// <summary>The bar's lock: the panel cannot be picked up, moved or resized while it is on.</summary>
+    /// <remarks>
+    /// Handled by the panel's own host, never by the drive loop: it changes where the panel may
+    /// go, not what it shows, and it is saved with the panel's placement.
+    /// </remarks>
+    public sealed record Lock : OverlayTarget;
+
+    /// <summary>The bar's hand: the panel lets rays through to VRChat while it is on.</summary>
+    /// <remarks>Handled by the panel's own host, like <see cref="Lock"/>.</remarks>
+    public sealed record ClickThrough : OverlayTarget;
 }
 
 /// <summary>A target and where it was drawn, in panel pixels.</summary>

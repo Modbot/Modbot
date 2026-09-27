@@ -215,12 +215,17 @@ the file:
 | `notifyOverlay.across` | `0` | Fine adjustment left or right, in metres, -1 to 1. |
 | `notifyOverlay.down` | `0` | Fine adjustment up or down, in metres, -1 to 1. |
 | `notifyOverlay.distance` | `1.0` | How far ahead of your head it sits, in metres, 0.3 to 3. |
-| `notifyOverlay.width` | `0.35` | How wide, in metres, 0.1 to 1. |
+| `notifyOverlay.width` | `0.35` | How wide the pop-ups are, in metres, 0.1 to 1.5. |
 | `notifyOverlay.opacity` | `0.95` | 0.1 to 1. |
 | `notifyOverlay.seconds` | `6` | How long one pop-up stays, 2 to 30. |
+| `notifyOverlay.placed` | absent | Where you put it with a controller, relative to your head. Absent means it sits on its `spot`. |
+| `notifyOverlay.locked` | `false` | The lock on its bar. |
+| `notifyOverlay.clickThrough` | `false` | The hand on its bar. |
 | `desktopOverlay.on` | `false` | Whether the window over VRChat is available. See [Desktop overlay](#desktop-overlay). |
 | `desktopOverlay.shortcut` | `mod+alt+m` | The keys that bring it up, `mod` meaning Ctrl. A combination the client cannot ask Windows for falls back to the default. |
 | `desktopOverlay.opacity` | `90` | 20 to 100. |
+| `desktopOverlay.locked` | `false` | The lock in its strip: the window cannot be dragged. |
+| `desktopOverlay.clickThrough` | `false` | The hand in its strip: clicks on the panel go to VRChat. |
 | `desktopNotifyOverlay.on` | `true` on a new install, `false` if you already had a settings file | Whether notifications appear in a corner of your screen. See [Notification overlay on a monitor](#notification-overlay-on-a-monitor). |
 | `desktopNotifyOverlay.spot` | `bottomright` | Which corner: `topleft`, `topmiddle`, `topright`, `bottomleft`, `bottommiddle` or `bottomright`. |
 | `desktopNotifyOverlay.seconds` | `6` | How long one notification stays, 2 to 30. |
@@ -354,11 +359,17 @@ which is kept.
 
 A second headset panel, fixed in your view, where pop-ups appear: a flagged arrival, a Modbot
 fault. It has its own switch and its own placement, and it is drawn whether or not the main panel
-is. Nothing on it can be tapped.
+is. Nothing on it can be tapped except the [bar under it](/companion/overlay#the-bar-under-the-panel).
 
 `spot` names the corner or edge it sits in; `across` and `down` move it from there by a few
 centimetres; `distance` is how far ahead of you it floats. `seconds` is how long one pop-up stays
 before it fades. At most three pop-ups are drawn at once; older ones fall off the bottom.
+
+You can also place it with a controller, the same way as the main panel: squeeze the grip on it,
+carry it, push, pull and resize it, then let go. It stays where you let go of it, still fixed to
+your view. While it is unlocked a dashed box shows where it is, even with no pop-ups up, so there
+is something to take hold of; lock it and the box goes. Choosing a spot on the **SteamVR** page puts
+it back on that spot, and two quick grips on it send it back to its spot too.
 
 ```json
 "notifyOverlay": {
@@ -391,9 +402,15 @@ written for a key that prints a character.
 "desktopOverlay": {
   "on": false,
   "shortcut": "mod+alt+m",
-  "opacity": 90
+  "opacity": 90,
+  "locked": false,
+  "clickThrough": false
 }
 ```
+
+The lock and the hand in the window's top strip work like the ones under the headset panel: locked,
+the strip no longer drags the window; with the hand on, clicks on the panel go through to VRChat,
+while the strip itself still takes clicks so you can turn it back off.
 
 VRChat in exclusive fullscreen will hide the window. Run VRChat in borderless windowed mode if you
 want the overlay over it.

@@ -16,13 +16,22 @@ public readonly record struct Pointer(Hand Hand, float Across, float Down);
 /// <param name="Clicks">Trigger presses on the panel, as fractions across and down.</param>
 /// <param name="Scroll">Scrolling while pointing and not holding, for the roster; zero otherwise.</param>
 /// <param name="Holding">The hand holding the panel, or null.</param>
+/// <param name="Passing">
+/// A ray on a panel that lets rays through, away from its bar: nothing happens on the panel, but
+/// the bar is shown so it can be switched back. Null otherwise.
+/// </param>
 public sealed record InteractionResult(
     Pointer? Pointer,
     OverlayPlacement Placement,
     bool PlacementChanged,
     IReadOnlyList<Pointer> Clicks,
     Vector2 Scroll,
-    Hand? Holding);
+    Hand? Holding,
+    Pointer? Passing = null)
+{
+    /// <summary>Whether any ray is on the panel, used or let through: while one is, the bar is up.</summary>
+    public bool RayOnPanel => Pointer is not null || Passing is not null;
+}
 
 /// <summary>
 /// The rules for holding the panel, from controller state in to placement and clicks out.
@@ -48,6 +57,12 @@ public sealed record InteractionResult(
 /// <item><strong>Click.</strong> The trigger while pointing is a click at that spot.</item>
 /// <item><strong>The hand wearing the panel is left out of all of it.</strong> See
 /// <see cref="Ignoring"/>.</item>
+/// <item><strong>Locked.</strong> A locked panel cannot be taken, so nothing that needs it held —
+/// carrying, either stick pushing, pulling or resizing, the second hand's stretch, the double grip
+/// home — can happen. Pointing, clicking and scrolling go on as before.</item>
+/// <item><strong>Click-through.</strong> A panel letting rays through does nothing at all for a ray
+/// that lands on it, except on its bar (<see cref="IsOnBar"/>), where a click still lands so the
+/// switch can be turned back off. It is never picked up while it lets rays through.</item>
 /// </list>
 /// </remarks>
 public sealed class OverlayInteraction
@@ -103,13 +118,39 @@ public sealed class OverlayInteraction
     private sealed record Stretching(float Distance, float Width);
     private readonly Dictionary<Hand, TimeSpan> _lastGrip = new();
 
-    public OverlayInteraction(OverlayPlacement placement)
+    /// <summary>Where the panel was before it was taken, for a head-fixed panel whose hand vanishes.</summary>
+    private OverlayPlacement _beforeTake;
+
+    private readonly bool _keepOnHead;
+
+    /// <param name="placement">Where the panel starts.</param>
+    /// <param name="home">
+    /// Where two quick grips send it. Null is the main panel's own home in front of the head.
+    /// </param>
+    /// <param name="keepOnHead">
+    /// A panel that is only ever fixed to the head, as the notification panel is: let go, it stays
+    /// where it was left <em>relative to the head</em> rather than in the room, and it never goes on
+    /// a wrist.
+    /// </param>
+    public OverlayInteraction(OverlayPlacement placement, OverlayPlacement? home = null, bool keepOnHead = false)
     {
         ArgumentNullException.ThrowIfNull(placement);
         _placement = placement.Clamped();
+        _beforeTake = _placement;
+        Home = home;
+        _keepOnHead = keepOnHead;
     }
 
     public OverlayPlacement Placement => _placement;
+
+    /// <summary>Where two quick grips send the panel; null is in front of the head at the default offset.</summary>
+    public OverlayPlacement? Home { get; set; }
+
+    /// <summary>
+    /// Whether a point on the panel, as fractions across and down, is on its bar. Set by the host,
+    /// which has the drawn frame to look in; without it nothing counts as the bar.
+    /// </summary>
+    public Func<float, float, bool>? IsOnBar { get; set; }
 
     /// <summary>
     /// The hand the panel is worn on, which is left out of pointing, tapping, scrolling and
@@ -154,20 +195,25 @@ public sealed class OverlayInteraction
     }
 
     /// <param name="now">Any steadily rising clock; only differences are used.</param>
-    public InteractionResult Update(OverlayTracking tracking, TimeSpan now)
+    /// <param name="elsewhere">
+    /// A hand busy with another panel drawn over this one, left out of pointing here so one press
+    /// does not land on both. Null leaves both hands in.
+    /// </param>
+    public InteractionResult Update(OverlayTracking tracking, TimeSpan now, Hand? elsewhere = null)
     {
         var before = _placement;
         var clicks = new List<Pointer>();
         var scroll = Vector2.Zero;
         Pointer? pointer = null;
+        Pointer? passing = null;
 
         if (_holding is { } holding)
         {
             var hand = tracking[holding];
 
-            if (!hand.Tracked || !hand.Grab)
+            if (!hand.Tracked || !hand.Grab || _placement.Locked)
             {
-                LetGo(holding, hand);
+                LetGo(holding, hand, tracking.Head);
             }
             else
             {
@@ -176,27 +222,28 @@ public sealed class OverlayInteraction
             }
         }
 
-        if (_holding is null)
+        if (_holding is null && Point(tracking, elsewhere) is { } pointing)
         {
-            pointer = Point(tracking);
+            var onBar = IsOnBar?.Invoke(pointing.Across, pointing.Down) ?? false;
 
-            if (pointer is { } pointing)
+            if (_placement.ClickThrough && !onBar)
             {
+                // Through to VRChat: no cursor, no click, no grip. Only the bar comes up.
+                passing = pointing;
+            }
+            else
+            {
+                pointer = pointing;
+
                 var hand = tracking[pointing.Hand];
                 var was = _last[pointing.Hand];
+                var canMove = !_placement.Locked && !_placement.ClickThrough;
 
-                if (hand.Grab && !was.Grab)
+                if (hand.Grab && !was.Grab && canMove)
                 {
                     if (_lastGrip.TryGetValue(pointing.Hand, out var previous) && now - previous <= DoubleTap)
                     {
-                        // Off the wrist and back in front of the head, at a width somebody can
-                        // read a roster on again rather than the wrist size it was wearing.
-                        _placement = OverlayPlacement.Default with
-                        {
-                            Width = OverlayPlacement.WidthFor(OverlayAnchor.Head, _placement.Width),
-                            Opacity = _placement.Opacity,
-                            Curve = _placement.Curve,
-                        };
+                        GoHome();
                         _lastGrip.Remove(pointing.Hand);
                         pointer = null;
                     }
@@ -210,7 +257,7 @@ public sealed class OverlayInteraction
                 {
                     clicks.Add(pointing);
                 }
-                else
+                else if (!_placement.ClickThrough)
                 {
                     scroll = Stick(hand.Scroll);
                 }
@@ -225,7 +272,24 @@ public sealed class OverlayInteraction
         _last = tracking;
         _placement = _placement.Clamped();
 
-        return new InteractionResult(pointer, _placement, _placement != before, clicks, scroll, _holding);
+        return new InteractionResult(pointer, _placement, _placement != before, clicks, scroll, _holding, passing);
+    }
+
+    /// <summary>
+    /// Back to where the panel lives: for the main panel, off the wrist and in front of the head at
+    /// a width somebody can read a roster on again rather than the wrist size it was wearing.
+    /// </summary>
+    private void GoHome()
+    {
+        var home = Home ?? OverlayPlacement.Default;
+        _placement = home with
+        {
+            Width = _keepOnHead ? _placement.Width : OverlayPlacement.WidthFor(OverlayAnchor.Head, _placement.Width),
+            Opacity = _placement.Opacity,
+            Curve = _placement.Curve,
+            Locked = _placement.Locked,
+            ClickThrough = _placement.ClickThrough,
+        };
     }
 
     /// <remarks>
@@ -233,7 +297,7 @@ public sealed class OverlayInteraction
     /// sends it home — is reached through being the pointer, so leaving the worn hand out here
     /// leaves it out of all of them, and there is no second place for the rule to be got wrong.
     /// </remarks>
-    private Pointer? Point(OverlayTracking tracking)
+    private Pointer? Point(OverlayTracking tracking, Hand? elsewhere)
     {
         if (PanelGeometry.PanelPose(_placement, tracking) is not { } panel)
             return null;
@@ -244,7 +308,7 @@ public sealed class OverlayInteraction
 
         foreach (var side in new[] { Hand.Left, Hand.Right })
         {
-            if (side == ignoring)
+            if (side == ignoring || side == elsewhere)
                 continue;
 
             var hand = tracking[side];
@@ -268,6 +332,7 @@ public sealed class OverlayInteraction
 
         // Held against the controller itself rather than against where it points, because that is
         // what a hand anchor means to both runtimes: the panel has to end up where it was carried.
+        _beforeTake = _placement;
         _holding = side;
         _heldOffset = panel.RelativeTo(hand.Device);
         _placement = _placement with
@@ -284,6 +349,11 @@ public sealed class OverlayInteraction
     /// </remarks>
     private void Hold(HandState hand, HandState other)
     {
+        // Never reached while locked, since a locked panel is let go of before this; said here too
+        // because this is where the sticks move it.
+        if (_placement.Locked)
+            return;
+
         var stick = Stick(hand.Scroll);
         if (stick == Vector2.Zero && other.Tracked)
             stick = Stick(other.Scroll);
@@ -323,6 +393,9 @@ public sealed class OverlayInteraction
     /// </remarks>
     private void Stretch(Hand holding, OverlayTracking tracking)
     {
+        if (_placement.Locked)
+            return;
+
         var otherSide = holding == Hand.Left ? Hand.Right : Hand.Left;
         var other = tracking[otherSide];
         var carrying = tracking[holding];
@@ -367,10 +440,21 @@ public sealed class OverlayInteraction
     /// <summary>How far apart the two controllers must be when the second one takes hold.</summary>
     public const float MinStretchDistance = 0.05f;
 
-    private void LetGo(Hand side, HandState hand)
+    private void LetGo(Hand side, HandState hand, Pose head)
     {
         _holding = null;
         _stretching = null;
+
+        if (_keepOnHead)
+        {
+            // A head panel goes back on the head, where the hand left it as seen from the eyes. A
+            // hand that vanished mid-carry leaves nothing to measure, so it goes back to where it
+            // was picked up from, at the size it has been given.
+            _placement = hand.Tracked
+                ? _placement with { Anchor = OverlayAnchor.Head, Offset = hand.Device.Then(_heldOffset).RelativeTo(head).ToOverlayPose() }
+                : _beforeTake with { Width = _placement.Width };
+            return;
+        }
 
         if (!hand.Tracked)
         {

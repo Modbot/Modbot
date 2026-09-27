@@ -1,4 +1,7 @@
+using Avalonia;
+using Avalonia.Controls;
 using Modbot.Companion.Overlay;
+using Modbot.Overlay.Interaction;
 using Modbot.Overlay.OpenVr;
 using Modbot.Overlay.Rendering;
 using Modbot.Overlay.Views;
@@ -10,10 +13,16 @@ namespace Modbot.Overlay;
 /// headset runtime.
 /// </summary>
 /// <remarks>
-/// <para><strong>The same three pieces as the main panel, minus the controllers.</strong> This
-/// panel is never pointed at, never grabbed and never tapped, so there is no interaction, no
-/// cursor and no hit testing here at all. What it has instead is a placement worked out from the
-/// moderator's chosen screen position (two overlay modes design §2).</para>
+/// <para><strong>The same three pieces as the main panel, and the same hands.</strong> It is picked
+/// up with the grip, carried, pushed and pulled with either stick and sized with two hands, exactly
+/// as the main panel is, and it has the same bar under it with the same lock and click-through.
+/// The one difference is where it goes when it is let go: back onto the head, where the hand left
+/// it as seen from the eyes, because a pop-up belongs in the corner of the view wherever the
+/// moderator looks. Nothing on it but the bar can be tapped.</para>
+/// <para><strong>A box to take hold of.</strong> It used to draw nothing at all while there were
+/// no pop-ups, which left nothing to grab. It now draws a dashed outline of itself while it can be
+/// moved; locked, the outline goes and an empty panel draws nothing again until a ray lands on it
+/// and the bar comes up.</para>
 /// <para><strong>Nothing here makes a network request</strong>, and nothing here can be told what
 /// to do by a server: it draws pop-ups the client made out of what it already holds.</para>
 /// <para><strong>It works without a headset.</strong> With no SteamVR, and no WiVRn or Monado
@@ -33,7 +42,21 @@ public sealed class NotificationHost : IDisposable
 
     private NotificationScreen _drawn = NotificationScreen.Empty;
     private bool _everDrawn;
-    private OverlayPlacement _placement;
+
+    // The controllers' side, as on the main panel: the rules for holding it, the tree that drew
+    // the current frame (for finding the bar under a ray), the cursor and whether the bar is up.
+    private readonly OverlayInteraction _interaction;
+    private Control? _root;
+    private PanelCursor? _cursor;
+    private bool _rayOnPanel;
+
+    // What the last frame showed besides the pop-ups, so a moved cursor or a bar coming up redraws
+    // and nothing else does.
+    private PanelCursor? _drawnCursor;
+    private PanelBar _drawnBar;
+
+    /// <summary>The cursor is placed to this fraction, so a trembling hand does not redraw every poll.</summary>
+    private const float CursorStep = 1f / 128f;
 
     /// <summary>A panel drawing into a surface that already exists, and starts drawing at once.</summary>
     public NotificationHost(
@@ -48,8 +71,10 @@ public sealed class NotificationHost : IDisposable
 
         _runtime = runtime;
         _compositor = new OverlayCompositor(renderer, surface);
-        _placement = (placement ?? NotifyOverlaySettings.Default.ToPlacement()).Clamped();
-        _runtime.Place(_placement);
+        Width = surface.Width;
+        Height = surface.Height;
+        _interaction = Interaction(placement);
+        _runtime.Place(_interaction.Placement);
     }
 
     /// <summary>
@@ -60,7 +85,8 @@ public sealed class NotificationHost : IDisposable
         IOverlayRuntime runtime,
         Func<IFrameRenderer> renderer,
         Func<IOverlaySurface> surface,
-        OverlayPlacement? placement = null)
+        OverlayPlacement? placement = null,
+        int resolution = OverlayHost.DefaultNotificationResolution)
     {
         ArgumentNullException.ThrowIfNull(runtime);
         ArgumentNullException.ThrowIfNull(renderer);
@@ -83,9 +109,19 @@ public sealed class NotificationHost : IDisposable
             }
         };
 
-        _placement = (placement ?? NotifyOverlaySettings.Default.ToPlacement()).Clamped();
-        _runtime.Place(_placement);
+        Width = resolution;
+        Height = resolution;
+        _interaction = Interaction(placement);
+        _runtime.Place(_interaction.Placement);
     }
+
+    private OverlayInteraction Interaction(OverlayPlacement? placement) => new(
+        placement ?? NotifyOverlaySettings.Default.ToPlacement(),
+        home: NotifyOverlaySettings.Default.SpotPlacement(),
+        keepOnHead: true)
+    {
+        IsOnBar = (across, down) => TargetAt(across, down) is OverlayTarget.Bar or OverlayTarget.Lock or OverlayTarget.ClickThrough,
+    };
 
     /// <summary>The ordinary construction, at the notification panel's own smaller resolution.</summary>
     /// <remarks>
@@ -102,7 +138,8 @@ public sealed class NotificationHost : IDisposable
             () => OperatingSystem.IsWindows()
                 ? D3D11OverlaySurface.Create(resolution, resolution)
                 : new MemoryOverlaySurface(resolution, resolution),
-            placement);
+            placement,
+            resolution);
 
     public OverlayRuntimeStatus Status => _runtime.Status;
 
@@ -111,19 +148,103 @@ public sealed class NotificationHost : IDisposable
     /// <summary>Whether the renderer and the texture exist right now.</summary>
     public bool IsDrawing => _compositor is not null;
 
-    /// <summary>Where the panel is, as the settings page last decided.</summary>
-    public OverlayPlacement Placement => _placement;
+    public int Width { get; }
+
+    public int Height { get; }
+
+    /// <summary>Where the panel is, as a controller or the settings page last decided.</summary>
+    public OverlayPlacement Placement => _interaction.Placement;
 
     /// <summary>What the panel shows right now.</summary>
     public NotificationScreen Showing => _drawn;
+
+    /// <summary>The hand holding the panel, or null.</summary>
+    public Hand? Holding { get; private set; }
+
+    /// <summary>The hand this panel is using right now, pointing at it or carrying it, or null.</summary>
+    public Hand? Busy { get; private set; }
+
+    /// <summary>Where two quick grips on the panel send it: the chosen spot, at the default distance.</summary>
+    public OverlayPlacement? Home
+    {
+        get => _interaction.Home;
+        set => _interaction.Home = value;
+    }
+
+    /// <summary>
+    /// Raised whenever a controller changes the placement or a switch on the bar, so it can be
+    /// saved. Not raised by <see cref="Place"/>, whose caller already has what it placed.
+    /// </summary>
+    public event Action<OverlayPlacement>? PlacementChanged;
 
     /// <summary>Puts the panel where the settings say. UI thread only.</summary>
     public void Place(OverlayPlacement placement)
     {
         ArgumentNullException.ThrowIfNull(placement);
 
-        _placement = placement.Clamped();
-        _runtime.Place(_placement);
+        _interaction.Place(placement);
+        Holding = null;
+        _runtime.Place(_interaction.Placement);
+        Redraw();
+    }
+
+    /// <summary>
+    /// One look at the controllers: moves the cursor, holds or lets go of the panel, and presses
+    /// the bar's switches. Cheap when nothing is attached. UI thread only.
+    /// </summary>
+    public void PollInput(TimeSpan now)
+    {
+        if (_runtime.Status.State is not OverlayRuntimeState.Running)
+        {
+            Busy = null;
+            Holding = null;
+            _rayOnPanel = false;
+            _cursor = null;
+            Redraw();
+            return;
+        }
+
+        var result = _interaction.Update(_runtime.ReadTracking(), now);
+
+        Holding = result.Holding;
+        Busy = result.Holding ?? result.Pointer?.Hand;
+        _rayOnPanel = result.RayOnPanel;
+        _cursor = result.Pointer is { } p
+            ? new PanelCursor(MathF.Round(p.Across / CursorStep) * CursorStep, MathF.Round(p.Down / CursorStep) * CursorStep)
+            : null;
+
+        if (result.PlacementChanged)
+        {
+            _runtime.Place(result.Placement);
+            PlacementChanged?.Invoke(result.Placement);
+        }
+
+        // The bar is the only thing on this panel a click can land on.
+        foreach (var click in result.Clicks)
+        {
+            switch (TargetAt(click.Across, click.Down))
+            {
+                case OverlayTarget.Lock:
+                    Switch(Placement with { Locked = !Placement.Locked });
+                    break;
+                case OverlayTarget.ClickThrough:
+                    Switch(Placement with { ClickThrough = !Placement.ClickThrough });
+                    break;
+            }
+        }
+
+        Redraw();
+    }
+
+    /// <summary>What is drawn under a point on the panel, from the tree that drew the current frame.</summary>
+    public OverlayTarget? TargetAt(float across, float down)
+        => _root is null ? null : OverlayTargets.At(_root, new Point(across * Width, down * Height));
+
+    private void Switch(OverlayPlacement placement)
+    {
+        _interaction.Place(placement);
+        _runtime.Place(_interaction.Placement);
+        PlacementChanged?.Invoke(_interaction.Placement);
     }
 
     public OverlayRuntimeStatus Start()
@@ -133,16 +254,16 @@ public sealed class NotificationHost : IDisposable
         if (status.State is not OverlayRuntimeState.Running)
             return status;
 
-        _runtime.Place(_placement);
+        _runtime.Place(_interaction.Placement);
         var fresh = Open();
 
         // Freshly attached: whatever was drawn last is handed over again, so the panel comes back
         // as it was rather than blank until something changes. A texture that was only just made
-        // holds nothing, so there the pop-ups are drawn again instead.
+        // holds nothing, so there the panel is drawn again instead, pop-ups or not, since an
+        // unlocked panel shows its outline either way.
         if (fresh)
         {
-            if (_everDrawn)
-                Draw();
+            Draw();
         }
         else if (_compositor is { FramesDrawn: > 0 } compositor)
         {
@@ -176,6 +297,7 @@ public sealed class NotificationHost : IDisposable
 
         _compositor.Dispose();
         _compositor = null;
+        _root = null;
     }
 
     /// <summary>
@@ -204,9 +326,17 @@ public sealed class NotificationHost : IDisposable
             return false;
 
         _drawn = screen;
-        _everDrawn = true;
         return Draw();
     }
+
+    /// <summary>Draws again if the cursor, the bar or the lock would change what is on the panel.</summary>
+    private void Redraw()
+    {
+        if (_cursor != _drawnCursor || Bar() != _drawnBar)
+            Draw();
+    }
+
+    private PanelBar Bar() => PanelBar.For(_interaction.Placement, _rayOnPanel);
 
     /// <summary>
     /// Draws the pop-ups as they stand and hands them over. Does nothing while there is no
@@ -220,9 +350,17 @@ public sealed class NotificationHost : IDisposable
 
         _compositor.Invalidate();
 
-        if (!_compositor.DrawIfChanged(NotificationView.Build(_drawn)))
+        var bar = Bar();
+        var root = PanelFrame.Notification(NotificationView.Build(_drawn), bar, _cursor, Height);
+        _drawnBar = bar;
+        _drawnCursor = _cursor;
+        _everDrawn = true;
+
+        if (!_compositor.DrawIfChanged(root))
             return false;
 
+        // Kept laid out, so a ray can be matched against where the bar actually is.
+        _root = root;
         _runtime.Submit(_compositor.Surface);
         return true;
     }

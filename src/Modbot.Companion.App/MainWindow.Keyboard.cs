@@ -401,6 +401,8 @@ public sealed partial class MainWindow
                         Width = placement.Width,
                         Opacity = placement.Opacity,
                         Curve = placement.Curve,
+                        Locked = placement.Locked,
+                        ClickThrough = placement.ClickThrough,
                     });
                 });
                 break;
