@@ -99,7 +99,7 @@ public sealed class GroupMemberSync
             {
                 return await RecordPollAsync(
                     settings,
-                    new SweepRunResult(SyncOutcome.Quiet, RestUntil: done + _options.RestBetweenSweeps, Message: "resting between sweeps"),
+                    new SweepRunResult(SyncOutcome.Quiet, RestUntil: done + _options.RestBetweenSweeps, Message: "resting between syncs"),
                     ct).ConfigureAwait(false);
             }
 

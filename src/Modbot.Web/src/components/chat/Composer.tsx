@@ -13,7 +13,6 @@ export function Composer({
   onStop,
   busy,
   disabledReason,
-  model,
   maxLength,
   inputRef,
 }: {
@@ -24,7 +23,6 @@ export function Composer({
   busy: boolean
   /** What to say instead of taking a message: Chat off, conversation full, a spend limit. */
   disabledReason: string | null
-  model: string | null
   maxLength: number
   inputRef: RefObject<HTMLTextAreaElement | null>
 }) {
@@ -82,12 +80,6 @@ export function Composer({
           </Button>
         )}
       </div>
-
-      {model && (
-        <span className="px-1.5 font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          {model}
-        </span>
-      )}
     </form>
   )
 }
