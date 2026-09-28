@@ -6,7 +6,7 @@ import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, sidebarEntry, type NavItem, typ
 import { countText } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import type { StatusRowId } from '@/lib/status'
-import { IS_MAC, hasPageActions, keyNames, useShortcutList } from '@/lib/shortcuts'
+import { hasPageActions, useShortcutList } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
 import type { Place, Theme } from '@/lib/preferences'
@@ -134,12 +134,8 @@ export function Sidebar({
                 keys side by side with no "then" between, which the palette's boxes have room for
                 and a VR row with a long name does not. */}
             {GO_TO_KEYS[item.id] && (
-              <span
-                aria-hidden
-                className="hidden shrink-0 font-mono text-muted-foreground desk:lg:inline"
-                style={{ fontSize: 'var(--text-tiny)' }}
-              >
-                {keyNames(`g ${GO_TO_KEYS[item.id]}`, IS_MAC).join(' ')}
+              <span aria-hidden className="contents">
+                <Kbd keys={`g ${GO_TO_KEYS[item.id]}`} compact className="shrink-0" />
               </span>
             )}
           </button>
