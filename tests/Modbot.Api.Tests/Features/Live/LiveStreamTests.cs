@@ -102,7 +102,7 @@ public class LiveStreamTests
     private static async Task<JsonElement> NextEventAsync(WebSocket socket)
         => (await NextOfKindAsync(socket, "event")).GetProperty("event");
 
-    private static async Task<long> WriteAsync(ApiTestHost host, string type, string subject, string? instance = Instance, string? displayName = null, JsonObject? data = null)
+    private static async Task<long> WriteAsync(ApiTestHost host, string type, string subject, string? instance = Instance, string? displayName = null, JsonObject? data = null, FactPlatform? platform = null)
     {
         using var scope = host.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<EventPartitionMaintainer>().EnsureForAsync(host.Clock.UtcNow, Ct);
@@ -115,7 +115,7 @@ public class LiveStreamTests
         {
             Type = type,
             OccurredAt = host.Clock.UtcNow,
-            SubjectPlatform = type == FactType.InsightAlert ? FactPlatform.Modbot : FactPlatform.VRChat,
+            SubjectPlatform = platform ?? (type == FactType.InsightAlert ? FactPlatform.Modbot : FactPlatform.VRChat),
             SubjectId = subject,
             WorldId = instance is null ? null : "wrld_4b34",
             InstanceId = instance,
@@ -403,6 +403,40 @@ public class LiveStreamTests
         Assert.Single(events);
         Assert.Equal(join.ToString(System.Globalization.CultureInfo.InvariantCulture), events[0].GetProperty("id").GetString());
         Assert.Equal(LiveKinds.PersonJoined, events[0].GetProperty("kind").GetString());
+    }
+
+    [Fact]
+    public async Task AModeratorWhoMaySeeLiveInstancesButNotTheLog_IsSentDiscordVoiceChanges()
+    {
+        await using var host = await StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ViewLiveInstances, Ct);
+
+        var start = await WriteAsync(host, FactType.InstanceJoined, Subject());
+        var joined = await WriteAsync(host, FactType.DiscordVoiceJoined, "111", instance: null, platform: FactPlatform.Discord);
+        var moved = await WriteAsync(host, FactType.DiscordVoiceMoved, "111", instance: null, platform: FactPlatform.Discord);
+        var left = await WriteAsync(host, FactType.DiscordVoiceLeft, "111", instance: null, platform: FactPlatform.Discord);
+
+        var response = await host.Client.SendAsync(
+            host.Authenticated(HttpMethod.Get, $"{LiveStreamEndpoints.PollPath}?after={start}&wait=0", cookie), Ct);
+        var body = await ApiTestHost.BodyOf(response, Ct);
+
+        var events = body.GetProperty("events").EnumerateArray().ToList();
+        Assert.Equal(
+            new[] { joined, moved, left }.Select(id => id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            events.Select(e => e.GetProperty("id").GetString()));
+        Assert.All(events, e => Assert.Equal(LiveKinds.VoiceChanged, e.GetProperty("kind").GetString()));
+        Assert.Equal(
+            new[] { FactType.DiscordVoiceJoined, FactType.DiscordVoiceMoved, FactType.DiscordVoiceLeft },
+            events.Select(e => e.GetProperty("type").GetString()));
+        Assert.All(events, e => Assert.Equal(JsonValueKind.Null, e.GetProperty("person").ValueKind));
+    }
+
+    [Fact]
+    public void DiscordVoiceChanges_NeedSeeLiveInstances_AndAreNeverSentToACompanion()
+    {
+        Assert.True(LiveScope.ForPerson(ModbotPermissions.ViewLiveInstances).CanSee(LiveKinds.VoiceChanged, FactType.DiscordVoiceJoined));
+        Assert.False(LiveScope.ForPerson(ModbotPermissions.ViewAnalytics).CanSee(LiveKinds.VoiceChanged, FactType.DiscordVoiceJoined));
+        Assert.False(LiveScope.ForDevice(Guid.NewGuid(), Instance).CanSee(LiveKinds.VoiceChanged, FactType.DiscordVoiceJoined));
     }
 
     [Fact]

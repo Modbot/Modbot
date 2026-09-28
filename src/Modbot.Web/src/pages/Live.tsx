@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DiscordPersonLink, SourceBadge, SubjectLink } from '@/components/facts'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { InstanceTile } from '@/components/InstanceCards'
@@ -7,10 +7,11 @@ import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, ApiError, type LivePerson, type LiveInstance, type LiveTally, type LiveView, type LiveVoiceChannel } from '@/lib/api'
-import { PRESENCE_KINDS, INSTANCE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
+import { PRESENCE_KINDS, INSTANCE_KINDS, VOICE_GAP_MS, VOICE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
 import { ago, clockTime } from '@/lib/format'
 import { arrivedWithin, LIT_MS, NEW_MS, pinned, tallyCounts } from '@/lib/livePeople'
 import { DOT, type Tone } from '@/lib/status'
+import { throttle } from '@/lib/throttle'
 import { useLiveStream } from '@/lib/useLiveStream'
 import { PageMessage } from '@/pages/analytics/shared'
 import { Marks } from '@/components/ListParts'
@@ -44,9 +45,10 @@ const STREAM_TONE: Record<LiveState, Tone> = {
  * count come from VRChat through the server's own syncs. Only the list of people needs a
  * moderator watching, because VRChat's instance API does not say who is inside.
  *
- * Redraws when the live stream says somebody joined or left or an instance opened or closed, and
- * asks again every half minute on its own while the tab is visible. The stream itself stops
- * while the tab is hidden, so a tab left open in the background costs the server nothing.
+ * Redraws when the live stream says somebody joined or left, an instance opened or closed, or
+ * somebody joined, moved or left Discord voice, and asks again every half minute on its own while
+ * the tab is visible. The stream itself stops while the tab is hidden, so a tab left open in the
+ * background costs the server nothing.
  */
 export function Live() {
   const [data, setData] = useState<LiveView | null>(null)
@@ -80,14 +82,21 @@ export function Live() {
       })
   }, [])
 
+  const voiceChanged = useMemo(() => throttle(load, VOICE_GAP_MS), [load])
+
   const stream = useLiveStream(
     useCallback(
       (event: LiveEvent) => {
+        if (VOICE_KINDS.has(event.kind)) {
+          voiceChanged()
+          return
+        }
+
         if (!PRESENCE_KINDS.has(event.kind) && !INSTANCE_KINDS.has(event.kind)) return
         window.clearTimeout(settle.current)
         settle.current = window.setTimeout(load, SETTLE_MS)
       },
-      [load],
+      [load, voiceChanged],
     ),
   )
 
@@ -114,9 +123,10 @@ export function Live() {
     return () => {
       window.clearInterval(timer)
       window.clearTimeout(settle.current)
+      voiceChanged.cancel()
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [load])
+  }, [load, voiceChanged])
 
   if (!data) return <PageMessage tone={error ? 'danger' : undefined}>{error ?? 'Loading…'}</PageMessage>
 
