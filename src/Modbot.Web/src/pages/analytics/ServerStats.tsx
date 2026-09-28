@@ -18,7 +18,7 @@ import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
-import { channelLook, type ChannelLook } from '@/lib/serverOverview'
+import { channelLook, serverTabHref, type ChannelLook } from '@/lib/serverOverview'
 import { CoverageLine, Panel, Stat, StatStrip, Toggle } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { plural } from '@/lib/format'
@@ -267,16 +267,18 @@ export function ServerActivity({ data }: { data: ServerAnalytics }) {
   )
 }
 
-/** What the server's moderators did, with a link to the ban list. */
+/** What the server's moderators did, with a link to the server's own ban list. */
 export function ServerModeration({ data, me, pathOf }: { data: ServerAnalytics } & Links) {
+  const bans = serverTabHref('bans', pathOf('bans'))
+
   return (
     <Panel
       title="Moderation actions per day"
       right={
         mayOpen(me, 'bans') ? (
           <a
-            href={pathOf('bans')}
-            onClick={followLink(pathOf('bans'))}
+            href={bans}
+            onClick={followLink(bans)}
             className="rounded-sm text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
             style={{ fontSize: 'var(--text-small)' }}
           >

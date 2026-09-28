@@ -102,6 +102,12 @@ public class DiscordServer
     /// a new join -- they were there all along.
     /// </summary>
     public DateTimeOffset? MembersListedAt { get; set; }
+
+    /// <summary>
+    /// When the whole ban list was last read from Discord. Null until the bot has read it, which
+    /// needs Ban Members. Read on sign-in and again once a day (<see cref="DiscordBan"/>).
+    /// </summary>
+    public DateTimeOffset? BansListedAt { get; set; }
 }
 
 /// <summary>

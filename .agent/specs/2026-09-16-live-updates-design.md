@@ -41,6 +41,7 @@ The kinds, and the fact each comes from:
 | `person_here` | `vrchat.instance.presence` (already there when watching started) | the person |
 | `watch_stopped` | `vrchat.instance.log-stopped` | the moderator whose watch ended |
 | `room_opened`, `room_closed`, `room_changed` | `vrchat.group.instance.create` / `.close` / `.update` | the room's ids and payload |
+| `voice_changed` | `discord.voice.join` / `.move` / `.leave` | the Discord member as the subject, and the channels in the payload |
 | `alert` | `modbot.insight.alert` | the alert's figures, as the fact carries them |
 | `review_opened`, `review_closed` | `modbot.review.opened` / `.closed` | the review's payload |
 | `fact` | **any other fact** | its type, subject, actor and payload |
@@ -54,6 +55,18 @@ and the notifications to every screen): a fact without a named kind is a `fact` 
 what it is. The named kinds are the ones a client does something particular with; everything else
 a screen matches on `type` -- `vrchat.group.member.*` for the member list, `modbot.review.*` for
 the reviews page, and so on (`src/Modbot.Web/src/lib/liveRules.ts`).
+
+**Discord voice got a named kind** (2026-09-27). Voice changes were on the stream from the start, as
+`fact`, but a `fact` follows the audit log's rules, so a moderator who could open Live without
+seeing the audit log was never sent them, and the Live page's voice list and the Discord page's
+"In voice" list waited for their half-minute read. `voice_changed` is seen with **See live
+instances**, the permission of the screens that list who is in voice. It is not presence: a
+companion is not sent it, and it describes no VRChat person.
+
+A voice server can be busy, so the web reads the list again at once on the first change and then
+at most once every two seconds while changes keep coming (`src/Modbot.Web/src/lib/throttle.ts`),
+rather than waiting for a quiet moment that a steady stream of changes would keep putting off. Each
+change is a fact written anyway; the stream adds one message per open tab, and the tab one read.
 
 The shape, camelCase like the rest of the web API and the companion protocol:
 
@@ -91,7 +104,7 @@ heartbeat -- a permission removed mid-connection stops the next event.
 
 | Caller | Sees |
 |---|---|
-| A person with **See live instances** | presence and rooms (the Live page's own permission, M3 §7.4) |
+| A person with **See live instances** | presence, rooms and Discord voice (the Live page's own permission, M3 §7.4) |
 | A person with **See analytics** | alerts (the card's own permission) |
 | A person with **Review tickets** | reviews (the sidebar count's) |
 | A person with **See the audit log** / **See the operational log** | every fact of that log, by the audit log's own rules (API keys design §4.3) -- presence still needs **See live instances** |
@@ -234,6 +247,7 @@ its own reconnect and its own message framing on top of one that exists.
 | Where | Was | Now |
 |---|---|---|
 | Live page | every 5 s | on events, and every 30 s (head counts come from syncs) |
+| Discord page's "In voice" | every 30 s | on `voice_changed`, at most every 2 s, and every 30 s |
 | Audit log, members, Discord members, bans, reviews, flags, case files, repeat offenders, the popups | once, or on the page's own actions | on the events that change them (§6.1) |
 | Calendar | every 20 s | on calendar events |
 | Alerts card | once | on `alert` |

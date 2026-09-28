@@ -9,7 +9,10 @@ import {
   discordPicture,
   seesVoice,
   serverInitials,
+  serverTabFrom,
+  serverTabHref,
   serverTabs,
+  timeAgo,
   weekChange,
 } from '../src/lib/serverOverview.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
@@ -18,13 +21,13 @@ function person(...permissionNames: string[]): CurrentUser {
   return { permissionNames } as CurrentUser
 }
 
-test('the links are named the way Discord names them, and lead to the matching pages', () => {
+test('the links are named and ordered the way Discord’s server column has them, and lead to the matching pages', () => {
   assert.deepEqual(
     serverTabs(person('Administrator')).map((t) => [t.label, t.id]),
     [
       ['Overview', 'analytics-server'],
-      ['Members', 'discord-members'],
       ['Events', 'calendar'],
+      ['Members', 'discord-members'],
       ['Bans', 'bans'],
     ],
   )
@@ -36,6 +39,35 @@ test('a link the person may not open is not offered, the same as in the sidebar'
     serverTabs(person('ViewAnalytics', 'ViewMembers', 'ViewAuditLog')).map((t) => t.label),
     ['Overview', 'Members', 'Bans'],
   )
+})
+
+test('Bans opens the Discord ban list under the server’s header; the other links are left as they are', () => {
+  assert.equal(serverTabHref('bans', '/bans'), '/bans?platform=discord&from=server')
+  assert.equal(serverTabHref('bans', '/bans?page=2'), '/bans?page=2&platform=discord&from=server')
+  assert.equal(serverTabHref('calendar', '/calendar'), '/calendar')
+  assert.equal(serverTabHref('discord-members', '/discord/members'), '/discord/members')
+})
+
+test('only Bans opened from the server’s row draws the server’s header', () => {
+  assert.equal(serverTabFrom('bans', new URLSearchParams('platform=discord&from=server')), 'bans')
+  assert.equal(serverTabFrom('bans', new URLSearchParams('platform=discord')), null)
+  assert.equal(serverTabFrom('bans', new URLSearchParams('from=group')), null)
+  assert.equal(serverTabFrom('calendar', new URLSearchParams('from=server')), null)
+})
+
+test('a time ago is written the way Discord’s Members page writes it', () => {
+  const now = '2026-09-27T12:00:00Z'
+  assert.equal(timeAgo('2026-09-27T01:00:00Z', now), 'today')
+  assert.equal(timeAgo('2026-09-26T11:00:00Z', now), '1 day ago')
+  assert.equal(timeAgo('2026-09-16T12:00:00Z', now), '11 days ago')
+  assert.equal(timeAgo('2026-02-27T12:00:00Z', now), '7 months ago')
+  assert.equal(timeAgo('2022-09-01T12:00:00Z', now), '4 years ago')
+  assert.equal(timeAgo('2025-09-01T12:00:00Z', now), '1 year ago')
+  assert.equal(timeAgo('not a time', now), null)
+})
+
+test('a time in the future reads as today, not a negative number', () => {
+  assert.equal(timeAgo('2026-09-28T12:00:00Z', '2026-09-27T12:00:00Z'), 'today')
 })
 
 test('who is in voice is drawn only for someone who may open Live, whose answer it is read from', () => {

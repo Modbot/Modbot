@@ -123,6 +123,13 @@ behind the bucket the sweeps keep empty.
 ceiling so an operator can see the room left. These are what the room left is *for*, not part of
 what consumes it.
 
+**Who reads the list (2026-09-27).** The Requests page and the VRChat page's Invites tab, when they
+open, a page turns or Refresh is pressed; and Now, once each time it opens, so that "Nothing
+waiting" counts join requests too (site review 2026-09-27, finding 2). The user approved Now's read
+at that rate: one request per open, nothing on a timer, nothing on a live event. All three draw on
+`groups.requests`, so opening Now and then Requests straight away can make the second read wait up
+to five seconds for its turn.
+
 A 429 on either is a cold stop of that class alone and is **never retried** (§4.3.1). On the list,
 the screen says it could not read the queue. On an answer, the answer did not happen and the
 moderator is told so, in the same words a rate-limited ban uses.
@@ -204,5 +211,10 @@ pass exactly as it lists anybody else who joined.
   a button.
 - **Blocking.** See §2.
 - **Fetching the profile of everybody in the queue.** See §3.
-- **A count beside the sidebar label.** VRChat sends no total, and a number Modbot made up beside
-  a page label is indistinguishable from one it read.
+- **A made-up count beside the sidebar label.** VRChat sends no total, and a number Modbot made up
+  beside a page label is indistinguishable from one it read. *Narrowed 2026-09-27:* this first
+  left out any count at all, which left Now saying "Nothing waiting" while a request from before
+  Modbot's recording began sat in the queue. The sidebar, Now and the tab title now show the rows
+  the first page of the queue held when Now or Requests last read it, less the ones answered there,
+  and `50+` when that page came back full. It is a number that was read, never an estimate, and it
+  is only as fresh as the last read.

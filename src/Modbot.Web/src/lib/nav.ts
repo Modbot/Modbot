@@ -302,7 +302,10 @@ function fromStatus(chip: string): string | null {
   return null
 }
 
-/** `(3) Modbot` while something is waiting, and the title as it was when nothing is. */
-export function titleWithCount(title: string, count: number): string {
-  return count > 0 ? `(${count}) ${title}` : title
+/**
+ * `(3) Modbot` while something is waiting, and the title as it was when nothing is. `more` when a
+ * count in it came from a full page of a list with no total, the join requests: `(50+) Modbot`.
+ */
+export function titleWithCount(title: string, count: number, more = false): string {
+  return count > 0 ? `(${count}${more ? '+' : ''}) ${title}` : title
 }

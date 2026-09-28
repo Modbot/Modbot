@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Volume2 } from 'lucide-react'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink } from '@/components/facts'
 import { Card } from '@/components/ui/card'
 import { api, type LiveVoiceChannel } from '@/lib/api'
+import { VOICE_GAP_MS, VOICE_KINDS, type LiveEvent } from '@/lib/liveStream'
+import { throttle, type Throttle } from '@/lib/throttle'
+import { useLiveStream } from '@/lib/useLiveStream'
 import { Section } from './shared'
 
-/** How often the list is read again while the page is on screen: as often as Live reads it. */
+/** How often the list is read again on its own while the page is on screen: as often as Live reads it. */
 const REFRESH_MS = 30_000
 
 /**
@@ -16,9 +19,10 @@ const REFRESH_MS = 30_000
  * with nobody in voice there is nothing to draw.
  *
  * Read from Live's own answer, which the server builds from the member rows the bot keeps, so it
- * asks nothing of Discord. The live stream is not used: it carries VRChat's comings and goings,
- * not Discord voice, so the list is read again every half minute while the tab is on screen, and
- * at once when the tab comes back into view. A tab in the background reads nothing.
+ * asks nothing of Discord. Read again when the live stream says somebody joined, moved or left
+ * voice -- at once, then at most every two seconds while a busy server keeps changing -- and every
+ * half minute on its own in case an event was missed, and at once when the tab comes back into
+ * view. A tab in the background reads nothing.
  */
 export function ServerVoice() {
   const voice = useVoiceNow()
@@ -65,6 +69,13 @@ function VoiceChannel({ channel }: { channel: LiveVoiceChannel }) {
 /** The voice part of Live's answer, kept current while the tab is on screen. Null until the first read. */
 function useVoiceNow(): LiveVoiceChannel[] | null {
   const [voice, setVoice] = useState<LiveVoiceChannel[] | null>(null)
+  const changed = useRef<Throttle | null>(null)
+
+  useLiveStream(
+    useCallback((event: LiveEvent) => {
+      if (VOICE_KINDS.has(event.kind)) changed.current?.()
+    }, []),
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -79,6 +90,9 @@ function useVoiceNow(): LiveVoiceChannel[] | null {
         })
         .catch(() => undefined)
     }
+
+    const redraw = throttle(load, VOICE_GAP_MS)
+    changed.current = redraw
 
     const follow = (returning: boolean) => {
       window.clearInterval(timer)
@@ -98,6 +112,8 @@ function useVoiceNow(): LiveVoiceChannel[] | null {
     return () => {
       cancelled = true
       window.clearInterval(timer)
+      redraw.cancel()
+      changed.current = null
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [])

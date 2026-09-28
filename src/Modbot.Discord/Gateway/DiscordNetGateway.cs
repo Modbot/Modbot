@@ -527,7 +527,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         }
     }
 
-    public async Task<IReadOnlyList<string>?> ReadBansAsync(string guildId, CancellationToken ct)
+    public async Task<IReadOnlyList<DiscordBanSnapshot>?> ReadBansAsync(string guildId, CancellationToken ct)
     {
         if (!ulong.TryParse(guildId, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
             || _client.GetGuild(id) is not { } guild)
@@ -537,12 +537,17 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
         try
         {
-            var banned = new List<string>();
+            var banned = new List<DiscordBanSnapshot>();
 
             await foreach (var page in guild.GetBansAsync(options: new RequestOptions { CancelToken = ct })
                                .WithCancellation(ct).ConfigureAwait(false))
             {
-                banned.AddRange(page.Select(b => Text(b.User.Id)));
+                banned.AddRange(page.Select(b => new DiscordBanSnapshot(
+                    Text(b.User.Id),
+                    b.User.Username ?? string.Empty,
+                    b.User.GlobalName,
+                    b.User.GetAvatarUrl() ?? b.User.GetDefaultAvatarUrl(),
+                    string.IsNullOrWhiteSpace(b.Reason) ? null : b.Reason)));
             }
 
             return banned;

@@ -230,3 +230,25 @@ All of A–F were taken, with two changes to what is written above:
 
 Not taken up here: the raw id in Top contributors, "Read 12d ago" above the member list, an events count
 in the header.
+
+### Second round: "The Discord section should remind them of Discord" (2026-09-27)
+
+From the whole-site review (`2026-09-27-site-adversarial-review.md`, finding 7 and the Discord half of
+finding 1), decided with the user one at a time:
+
+- **Bans (A):** the Discord row's Bans link opened VRChat's ban list (1,180 VRChat accounts). Not
+  dropped: Discord bans get a list of their own, reached two ways. The Bans page has **VRChat** and
+  **Discord** tabs (`platform=discord` in the address), and the Discord row's Bans link, and the
+  moderation panel's, open the Discord tab with the server's header above it (`from=server`).
+- **Where the list comes from:** Modbot keeps it (`discord_ban`). The whole list is read from Discord
+  on every fresh sign-in and once a day; a ban or unban event changes its one row with no request.
+  Reading needs Ban Members. On the live install the bot does not hold it, and no Discord ban has been
+  recorded since Aug 13, so the tab says it cannot read the list until the owner grants it.
+  Discord's list carries a reason but no date, so a ban found already in place has no "Banned on".
+- **Icons (B):** the row takes Discord's icons and order: chart Overview, calendar Events, people
+  Members, gavel Bans. **"Events" has no count:** Modbot's calendar had 2 upcoming
+  events where Discord's own column said 5, and the bot does not read Discord's event list.
+- **Voice channels under the header (C):** its own task; it landed separately and took the Voice now
+  link out of the row.
+- **Discord members' Joined (D):** relative now ("11 days ago", "4 years ago"), the day on hover. This
+  replaces finding 3's "Joined stays a date".
