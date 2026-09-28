@@ -280,7 +280,7 @@ public sealed class BanSync
                 : "The bot could not read the Discord ban list. It needs Ban Members.");
         }
 
-        var inDiscord = bannedInDiscord.ToHashSet(StringComparer.Ordinal);
+        var inDiscord = bannedInDiscord.Select(b => b.UserId).ToHashSet(StringComparer.Ordinal);
 
         var links = await _db.DiscordAccountLinks.AsNoTracking()
             .Where(l => l.UnlinkedAt == null)

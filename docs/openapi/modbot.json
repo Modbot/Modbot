@@ -263,6 +263,92 @@
         ]
       }
     },
+    "/api/discord/bans": {
+      "get": {
+        "tags": [
+          "Discord"
+        ],
+        "summary": "List Discord bans",
+        "description": "The Discord server's bans as the bot last saw them. Bans that stand by default; `status=lifted` shows bans that were lifted, `status=all` both. `search` matches the name, username and id, case-insensitively. Newest first.\n\nThe whole list is read from Discord when the bot signs in and once a day, which needs Ban Members (`coverage.canRead`); bans and unbans seen as they happen change the list between reads. `bannedAt` is null for a ban that was already in place when it was found, because Discord's list carries no date. `coverage.listedAt` is null until the whole list has been read once.\n\nNeeds the `ViewAuditLog` permission.",
+        "operationId": "GetDiscordBans",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordBanListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/search": {
       "get": {
         "tags": [
@@ -22367,6 +22453,151 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "DiscordBanListCoverage": {
+        "required": [
+          "guildId",
+          "listedAt",
+          "canRead",
+          "standing",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "guildId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "listedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "canRead": {
+            "type": "boolean"
+          },
+          "standing": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DiscordBanListResponse": {
+        "required": [
+          "bans",
+          "total",
+          "page",
+          "pageSize",
+          "coverage"
+        ],
+        "type": "object",
+        "properties": {
+          "bans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordBanView"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "page": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/DiscordBanListCoverage"
+          }
+        }
+      },
+      "DiscordBanView": {
+        "required": [
+          "userId",
+          "username",
+          "displayName",
+          "avatarUrl",
+          "reason",
+          "bannedAt",
+          "firstSeenAt",
+          "liftedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "avatarUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "firstSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "liftedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },

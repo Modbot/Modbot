@@ -24,6 +24,16 @@ public sealed record DiscordMemberSnapshot(
     bool IsPending = false,
     DateTimeOffset? BoostingSince = null);
 
+/// <summary>One entry of the server's ban list, as Discord gives it: the person and the reason, no date.</summary>
+/// <param name="GlobalName">The name they chose for all of Discord, or null. Untrusted text.</param>
+/// <param name="Reason">The reason given when they were banned, or null. Untrusted text.</param>
+public sealed record DiscordBanSnapshot(
+    string UserId,
+    string Username,
+    string? GlobalName = null,
+    string? AvatarUrl = null,
+    string? Reason = null);
+
 /// <summary>Somebody connected to a voice channel right now.</summary>
 public sealed record DiscordVoiceState(string UserId, string ChannelId);
 

@@ -22,7 +22,7 @@ import {
 } from '@/lib/api'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { formatDay } from '@/lib/format'
-import { accountAge } from '@/lib/serverOverview'
+import { accountAge, timeAgo } from '@/lib/serverOverview'
 import { useListPage } from '@/lib/listPage'
 import { useListSelection } from '@/lib/listSelection'
 import type { PageId } from '@/lib/nav'
@@ -329,8 +329,15 @@ function MemberList({ me }: { me: CurrentUser }) {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </Td>
+                  {/* Relative, the way Discord's Members page writes it; the day itself on hover. */}
                   <Td className="font-mono">
-                    {m.joinedAt ? formatDay(m.joinedAt) : <span className="text-muted-foreground">—</span>}
+                    {m.joinedAt ? (
+                      <span title={formatDay(m.joinedAt, true)}>
+                        {timeAgo(m.joinedAt, list.coverage.now) ?? formatDay(m.joinedAt)}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </Td>
                   {showLeft && <Td className="font-mono">{m.leftAt ? formatDay(m.leftAt) : ''}</Td>}
                   <Td className={cn('font-mono', age?.fresh && 'text-warn')}>

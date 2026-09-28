@@ -27,6 +27,9 @@ export const DISCORD_MEMBER_TYPES = ['discord.member.', 'discord.members.', 'dis
 /** The ban list. */
 export const BAN_TYPES = ['vrchat.group.member.ban', 'vrchat.group.member.unban', 'vrchat.group.bans.'] as const
 
+/** Bans and unbans in the Discord server, for the Bans page's Discord list. */
+export const DISCORD_BAN_TYPES = ['discord.member.ban', 'discord.member.unban'] as const
+
 /** Case files and the reports in them. */
 export const CASE_TYPES = ['modbot.report.', 'modbot.evidence.'] as const
 
@@ -43,6 +46,7 @@ export const changesLive = (e: LiveEvent) => startsWithAny(e.type, PRESENCE_TYPE
 export const changesMembers = (e: LiveEvent) => startsWithAny(e.type, MEMBER_TYPES)
 export const changesDiscordMembers = (e: LiveEvent) => startsWithAny(e.type, DISCORD_MEMBER_TYPES)
 export const changesBans = (e: LiveEvent) => startsWithAny(e.type, BAN_TYPES)
+export const changesDiscordBans = (e: LiveEvent) => startsWithAny(e.type, DISCORD_BAN_TYPES)
 export const changesCases = (e: LiveEvent) => startsWithAny(e.type, CASE_TYPES)
 export const changesFlags = (e: LiveEvent) => startsWithAny(e.type, FLAG_TYPES)
 export const changesReviews = (e: LiveEvent) => startsWithAny(e.type, REVIEW_TYPES)

@@ -28,7 +28,7 @@ import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
-import { channelLook, weekChange, type ChannelLook } from '@/lib/serverOverview'
+import { channelLook, serverTabHref, weekChange, type ChannelLook } from '@/lib/serverOverview'
 import { CoverageLine, PageMessage, Panel, RangePicker, Section, Stat, StatStrip, Toggle } from './shared'
 import { ServerHeader } from './ServerHeader'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
@@ -302,8 +302,8 @@ export function MyServer({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId)
               right={
                 mayOpen(me, 'bans') ? (
                   <a
-                    href={pathOf('bans')}
-                    onClick={followLink(pathOf('bans'))}
+                    href={serverTabHref('bans', pathOf('bans'))}
+                    onClick={followLink(serverTabHref('bans', pathOf('bans')))}
                     className="rounded-sm text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                     style={{ fontSize: 'var(--text-small)' }}
                   >

@@ -324,6 +324,9 @@ public static class ApiSurface
         // The Discord server's members, current and past, as the bot keeps them.
         app.MapDiscordMembers();
 
+        // The Discord server's bans, standing and lifted, as the bot keeps them.
+        app.MapDiscordBans();
+
         // AI insights: reading them, and when they are written (AI insights design).
         app.MapInsights();
 

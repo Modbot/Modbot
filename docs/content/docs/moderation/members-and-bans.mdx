@@ -71,12 +71,13 @@ link to it still work: they open this view, with the filters the link carried.
 
 The **Bans** page needs **See the audit log**.
 
-There are two tabs, because they answer two different questions.
+There are three tabs: the two ban lists, **VRChat** and **Discord**, and **People acted on more than
+once**.
 
-### Ban list
+### VRChat
 
 Everyone VRChat says is banned from your group right now, however long ago the ban was issued.
-**This is the list to check before deciding somebody is not banned.**
+**This is the list to check before deciding somebody is not banned in VRChat.**
 
 Above it: when it was last synced and how many bans the last complete read found.
 
@@ -91,6 +92,21 @@ The columns are **Person**, **Banned on**, **Modbot first saw it**, **Lifted** (
 looking at lifted bans), and **Case file** (with **See profiles**). 50 bans a page, with the page
 numbers at the bottom and the page you are on in the address. With **Unban**, each standing ban also
 has an **Unban** button.
+
+### Discord
+
+Everyone banned from your Discord server. The **Bans** link under the Discord page's header opens this
+tab, with the server's header above it.
+
+The bot reads the whole list from Discord when it signs in and again once a day. A ban or unban in
+Discord changes the list straight away. Reading the list needs the **Ban Members** permission for the
+bot's role in Discord; without it the tab says **Cannot read the Discord ban list: the bot needs Ban
+Members.** and shows only the bans the bot saw happen.
+
+Search and **Status** work as on the VRChat tab. The columns are **Person**, **Reason** (the reason
+given in Discord, when there was one), **Banned on**, **Modbot first saw it** and **Lifted** (when you
+are looking at lifted bans). Discord's list has no dates, so a ban that was already there when the
+bot first read the list has no **Banned on**. Click a row to open the person popup.
 
 ### People acted on more than once
 

@@ -105,6 +105,7 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<DiscordMessageStore>();
         services.AddScoped<DiscordMessageHandler>();
         services.AddScoped<DiscordEventRecorder>();
+        services.AddScoped<DiscordBanList>();
         services.TryAddScoped<IModerationChecker, NoModerationChecker>();
 
         return services;

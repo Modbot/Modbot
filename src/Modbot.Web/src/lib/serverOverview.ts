@@ -10,20 +10,42 @@ import { mayOpen, type PageId } from './nav.ts'
  */
 
 /**
- * The row under the server's header, named the way Discord's own server menu names its parts,
- * each leading to the Modbot page that shows that part. Overview is the page itself.
+ * The row under the server's header, named and ordered the way Discord's own server column names
+ * its parts -- Events above Members, the voice channels below -- each leading to the Modbot page
+ * that shows that part. Overview is the page itself.
+ *
+ * "Events" has no count. Discord's column says "5 Events" from Discord's own event list, which the
+ * bot does not read; a count from Modbot's calendar would sit beside Discord's and disagree with it
+ * (Discord page review, 2026-09-27 decisions).
  */
 export const SERVER_TABS: readonly { id: PageId; label: string }[] = [
   { id: 'analytics-server', label: 'Overview' },
+  { id: 'calendar', label: 'Events' },
   { id: 'discord-members', label: 'Members' },
   { id: 'live', label: 'Voice now' },
-  { id: 'calendar', label: 'Events' },
   { id: 'bans', label: 'Bans' },
 ]
 
 /** The links this person may open, in order: a page the sidebar hides is not offered here either. */
 export function serverTabs(me: CurrentUser): { id: PageId; label: string }[] {
   return SERVER_TABS.filter((tab) => mayOpen(me, tab.id))
+}
+
+/**
+ * The address a link of the row leads to. Bans opens the Bans page on its Discord list, with
+ * `from=server` so that page draws this header over itself and the person has not left the Discord
+ * page; everything else is `path` as it is.
+ */
+export function serverTabHref(id: PageId, path: string): string {
+  return id === 'bans' ? `${path}${path.includes('?') ? '&' : '?'}platform=discord&from=server` : path
+}
+
+/**
+ * The link to mark when `page` was opened from the server's row, or null when it was not. Only
+ * Bans is drawn under the server's header that way.
+ */
+export function serverTabFrom(page: PageId, search: URLSearchParams): PageId | null {
+  return search.get('from') === 'server' && page === 'bans' ? 'bans' : null
 }
 
 /** The boosts each level needs: level 1 at 2, level 2 at 7, level 3 at 14. Discord's own numbers. */
@@ -135,15 +157,31 @@ export function accountAge(id: string, nowIso: string): { text: string; fresh: b
   if (made === null || !Number.isFinite(now)) return null
 
   const days = Math.max(0, Math.floor((now - made) / 86_400_000))
+  return { text: days < 1 ? 'today' : span(days), fresh: days < NEW_ACCOUNT_DAYS }
+}
 
-  if (days < 1) return { text: 'today', fresh: true }
-  if (days < 60) return { text: `${days} ${days === 1 ? 'day' : 'days'}`, fresh: days < NEW_ACCOUNT_DAYS }
+/**
+ * How long ago something was, the way Discord's Members page writes it: "today", "11 days ago",
+ * "7 months ago", "4 years ago". Against the server's clock. Null when either time is unreadable.
+ */
+export function timeAgo(iso: string, nowIso: string): string | null {
+  const at = Date.parse(iso)
+  const now = Date.parse(nowIso)
+  if (!Number.isFinite(at) || !Number.isFinite(now)) return null
+
+  const days = Math.max(0, Math.floor((now - at) / 86_400_000))
+  return days < 1 ? 'today' : `${span(days)} ago`
+}
+
+/** A number of whole days in the largest unit that reads well: days under two months, then months, then years. */
+function span(days: number): string {
+  if (days < 60) return `${days} ${days === 1 ? 'day' : 'days'}`
 
   const months = Math.floor(days / 30.44)
-  if (months < 12) return { text: `${months} months`, fresh: false }
+  if (months < 12) return `${months} months`
 
   const years = Math.floor(days / 365.25)
-  return { text: `${years} ${years === 1 ? 'year' : 'years'}`, fresh: false }
+  return `${years} ${years === 1 ? 'year' : 'years'}`
 }
 
 /** Which of Discord's channel pictures a stored channel kind is drawn with. */
