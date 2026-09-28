@@ -18,17 +18,23 @@ import { useEffect, useRef, useSyncExternalStore } from 'react'
  *
  * Every page registers its own keys and unregisters them when it unmounts, so the sheet lists
  * exactly what works on the screen that is open.
+ *
+ * The same registry is the page's list of actions for the Actions sheet on a phone or in a
+ * headset, so an action can be registered without a key: Refresh, Clear filters, a sort order.
+ * The other way round, a key that only means something at a keyboard, such as moving a row
+ * selection, is marked `keyboardOnly` and left out of that sheet (review 2026-09-27, idea 8).
  */
 
-export type ShortcutGroup = 'General' | 'Go to' | 'Lists' | 'Filters' | 'Calendar' | 'Popups'
+export type ShortcutGroup = 'General' | 'Go to' | 'Page' | 'Lists' | 'Filters' | 'Sort' | 'Calendar' | 'Popups'
 
 export type Shortcut = {
   /**
    * The keys, lower case, modifiers first: `mod+k`, `?`, `j`, `escape`, `enter`, or a chord
    * such as `g m` (press `g`, then `m` within a second). `mod` is Ctrl on Windows and Linux and
-   * Cmd on a Mac.
+   * Cmd on a Mac. Left out for an action with no key, which only the Actions sheet and the command
+   * palette offer.
    */
-  keys: string
+  keys?: string
   /** What it does, for the sheet and the palette. */
   label: string
   group: ShortcutGroup
@@ -36,6 +42,14 @@ export type Shortcut = {
   page?: boolean
   /** Left out of the sheet and the palette: a key that only makes sense with the mouse on a row. */
   hidden?: boolean
+  /**
+   * Left out of the Actions sheet on a phone or in a headset: a key that only means something at
+   * a keyboard, such as moving the row selection, or one that stands for a control already in
+   * reach there, such as the page's search box.
+   */
+  keyboardOnly?: boolean
+  /** One of a set of choices, such as a sort order, and the one in use. The sheet marks it. */
+  checked?: boolean
   run: (event: KeyboardEvent) => void
 }
 
@@ -93,7 +107,11 @@ export function useShortcuts(shortcuts: Shortcut[]): void {
     latest.current = shortcuts
   })
 
-  const signature = shortcuts.map((s) => `${s.keys}\t${s.label}\t${s.group}\t${s.page ? 1 : 0}\t${s.hidden ? 1 : 0}`).join('\n')
+  const signature = shortcuts
+    .map((s) =>
+      [s.keys ?? '', s.label, s.group, s.page ? 1 : 0, s.hidden ? 1 : 0, s.keyboardOnly ? 1 : 0, s.checked ? 1 : 0].join('\t'),
+    )
+    .join('\n')
 
   useEffect(() => {
     const away = latest.current.map((s, i) =>
@@ -138,12 +156,26 @@ export function isModalOpen(): boolean {
 export const APP_GROUPS: readonly ShortcutGroup[] = ['General', 'Go to']
 
 /**
- * Whether the screen that is open has anything of its own to do. The bar at the foot of a phone
- * shows Actions only when it does: on a page with none, the sheet would list nothing but the app's
- * own keys (review 2026-09-27, finding 8).
+ * What the Actions sheet on a phone or in a headset offers: the page's own actions, without the
+ * app's (the bar has Menu and Search for those) and without the keys that only mean something at a
+ * keyboard. Row moves were all it held on a list page, and with a finger or a laser pointer you
+ * point at the row (review 2026-09-27, idea 8).
  */
-export function hasPageActions(shortcuts: readonly Pick<Shortcut, 'group' | 'hidden'>[]): boolean {
-  return shortcuts.some((s) => !s.hidden && !APP_GROUPS.includes(s.group))
+export function isPageAction(shortcut: Pick<Shortcut, 'group' | 'hidden' | 'keyboardOnly'>): boolean {
+  return !shortcut.hidden && !shortcut.keyboardOnly && !APP_GROUPS.includes(shortcut.group)
+}
+
+/**
+ * Whether the screen that is open has anything of its own to do. The bar at the foot of a phone
+ * shows Actions only when it does (review 2026-09-27, finding 8).
+ */
+export function hasPageActions(shortcuts: readonly Pick<Shortcut, 'group' | 'hidden' | 'keyboardOnly'>[]): boolean {
+  return shortcuts.some(isPageAction)
+}
+
+/** What the `?` sheet lists: every key, and nothing that has no key. */
+export function isListedKey(shortcut: Pick<Shortcut, 'keys' | 'hidden'>): boolean {
+  return !shortcut.hidden && shortcut.keys !== undefined
 }
 
 /** Whether typing into this element is what a key press means. */
@@ -251,8 +283,36 @@ export function describeKeys(keys: string, mac: boolean): string {
 
 let pendingChord: string | null = null
 let chordTimer: ReturnType<typeof setTimeout> | null = null
+const chordListeners = new Set<() => void>()
 
-function onKeyDown(event: KeyboardEvent) {
+function holdChord(chord: string | null) {
+  if (chord === pendingChord) return
+  pendingChord = chord
+  for (const l of chordListeners) l()
+}
+
+/** The first key of a chord still waiting for its second, such as `g`, or null. */
+export function waitingChord(): string | null {
+  return pendingChord
+}
+
+/**
+ * The waiting chord key as React state. The sidebar shows every go-to key while `g` waits, and for
+ * exactly as long: a key still on screen after the second press stopped working would be wrong.
+ */
+export function useWaitingChord(): string | null {
+  return useSyncExternalStore(
+    (cb) => {
+      chordListeners.add(cb)
+      return () => chordListeners.delete(cb)
+    },
+    waitingChord,
+    waitingChord,
+  )
+}
+
+/** The one keydown listener. Exported for the tests, which press keys without a browser. */
+export function onKeyDown(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'target' | 'defaultPrevented' | 'isComposing' | 'preventDefault'>) {
   if (event.defaultPrevented || event.isComposing) return
 
   const token = keyToken(event)
@@ -261,7 +321,8 @@ function onKeyDown(event: KeyboardEvent) {
   const typing = isTyping(event.target as HTMLElement | null)
   const modal = isModalOpen()
 
-  const candidates = registered.filter((s) => {
+  const candidates = registered.filter((s): s is Shortcut & { keys: string } => {
+    if (s.keys === undefined) return false
     if (typing && !s.keys.includes('mod+') && s.keys !== 'escape') return false
     if (modal && s.page) return false
     return true
@@ -277,13 +338,12 @@ function onKeyDown(event: KeyboardEvent) {
     clearTimeout(chordTimer)
     chordTimer = null
   }
-  pendingChord = null
+  holdChord(outcome.pending ?? null)
 
   if (outcome.pending) {
-    pendingChord = outcome.pending
     chordTimer = setTimeout(() => {
-      pendingChord = null
       chordTimer = null
+      holdChord(null)
     }, CHORD_TIMEOUT_MS)
     event.preventDefault()
     return
@@ -296,7 +356,7 @@ function onKeyDown(event: KeyboardEvent) {
   if (!shortcut) return
 
   event.preventDefault()
-  shortcut.run(event)
+  shortcut.run(event as KeyboardEvent)
 }
 
 let installed = false

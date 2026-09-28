@@ -114,10 +114,20 @@ have had its turn first. The rule:
 
 > A change the sweep notices — a join, a leave, a role assigned or taken away, a ban, an unban —
 > is put on the row as a **waiting change**, with the moment it was noticed. It is written as a
-> fact only once the audit log has polled at least two minutes *after* that moment, and only if
-> the audit log holds no fact of the same kind about the same person from around the time the
-> change happened. If the audit log has never polled, or has been silent for an hour, the sweep
-> does not wait for it.
+> fact only once the audit log has read to its newest entry in a pass that started at least two
+> minutes *after* that moment, and only if the audit log holds no fact of the same kind about the
+> same person from around the time the change happened. If the audit log has never polled, the
+> sweep does not wait for it; if it has not read to the end for an hour, counted from the later
+> of the moment noticed and the moment Modbot started, the sweep stops waiting.
+
+> **Revised 2026-09-28.** The rule said "polled" and "silent for an hour", and measured the hour
+> from the audit log's last poll. After Modbot had been off for five and a half hours, the first
+> member sweep saw a join, found a last poll far more than an hour old, took the audit log for
+> dead, and wrote the join; the audit log caught up five seconds later and wrote it again. A
+> restart is not silence, so the hour now counts only time Modbot has been running. And a poll is
+> not a read: one that is rate-limited, fails, or stops at its page budget partway through a
+> backlog still stamps its time, so the sweep now waits on the start of the last pass that read
+> all the way to the newest entry (`audit_log_read_to_end_at` on the settings row).
 
 "Around the time" is an hour of slack before the earliest the event could have happened: VRChat's
 `joinedAt` when it stated one, otherwise the start of the window. A leave is also matched by an

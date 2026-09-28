@@ -6,7 +6,6 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
-import { dateTime } from '@/components/charts/format'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { Freshness } from '@/components/Freshness'
@@ -16,7 +15,7 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type PeopleList, type PeopleQuery } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
-import { ago, clockTime, formatDay } from '@/lib/format'
+import { ago, dateTime, formatDay, timeOfDay } from '@/lib/format'
 import { changesMembers } from '@/lib/liveRules'
 import { Pager } from '@/components/Pager'
 import { useListPage } from '@/lib/listPage'
@@ -62,6 +61,14 @@ const RANKS: TrustRank[] = ['Visitor', 'NewUser', 'User', 'KnownUser', 'TrustedU
 
 /** The filters somebody with See members and not See profiles may use: the member list's own. */
 const MEMBER_LIST_FILTERS = new Set(['membership', 'role', 'hasRole', 'banned', 'everBanned', 'trustRank', 'platform', 'eighteenPlus', 'representing', 'joined', 'seen', 'profile'])
+
+// One list for the sort box and the Actions sheet, so the two never name a sort differently.
+const SORTS: { value: NonNullable<PeopleQuery['sort']>; label: string }[] = [
+  { value: 'seen', label: 'Most recently seen first' },
+  { value: 'joined', label: 'Newest joiner first' },
+  { value: 'name', label: 'By name' },
+  { value: 'known', label: 'First seen longest ago' },
+]
 
 export function People({ me }: { me: CurrentUser }) {
   // See members alone opens the member list's two views and nothing wider; the server refuses the
@@ -252,7 +259,14 @@ export function People({ me }: { me: CurrentUser }) {
   )
 
   const searchBox = useRef<HTMLInputElement>(null)
-  useShortcuts([{ keys: '/', label: 'Search', group: 'Filters', page: true, run: () => searchBox.current?.select() }])
+  const sortBy = (next: typeof sort) => {
+    setSort(next)
+    restart()
+  }
+  useShortcuts([
+    { keys: '/', label: 'Search', group: 'Filters', page: true, keyboardOnly: true, run: () => searchBox.current?.select() },
+    ...SORTS.map((s) => ({ label: s.label, group: 'Sort' as const, page: true, checked: s.value === sort, run: () => sortBy(s.value) })),
+  ])
   const { rowProps } = useListSelection(list?.people.length ?? 0, (i) => {
     const person = list?.people[i]
     if (person) openPerson(person.userId)
@@ -278,7 +292,7 @@ export function People({ me }: { me: CurrentUser }) {
               restart()
             }}
           >
-            {`Joined ${dateTime(joined.from)} – ${clockTime(joined.to)} ×`}
+            {`Joined ${dateTime(joined.from)} – ${timeOfDay(joined.to)} ×`}
           </Button>
         )}
 
@@ -293,16 +307,14 @@ export function People({ me }: { me: CurrentUser }) {
 
         <Select
           value={sort}
-          onChange={(v) => {
-            setSort(v as typeof sort)
-            restart()
-          }}
+          onChange={(v) => sortBy(v as typeof sort)}
           aria-label="Sort"
         >
-          <option value="seen">Most recently seen first</option>
-          <option value="joined">Newest joiner first</option>
-          <option value="name">By name</option>
-          <option value="known">First seen longest ago</option>
+          {SORTS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
         </Select>
       </FilterBar>
 
@@ -323,6 +335,14 @@ export function People({ me }: { me: CurrentUser }) {
         {list.people.length === 0 ? (
           <EmptyRow>{search || chips.length > 0 || joined ? 'Nobody matches' : 'Nobody seen yet'}</EmptyRow>
         ) : (
+          <>
+          {/*
+            Two-line rows on a phone and in VR, where the table ran off the side and a headset wrote
+            every column's name out on every row. The member list's views keep their table: their
+            kick and ban menu has no place in a row that is one button.
+          */}
+          {!view && <PeopleRows people={list.people} now={now} />}
+          <div data-layout={view ? undefined : 'wide'}>
           <Table
             pinFirst
             head={
@@ -343,7 +363,6 @@ export function People({ me }: { me: CurrentUser }) {
                   <Th>Standing</Th>
                   <Th>Last seen by Modbot</Th>
                   <Th className="text-right">First seen</Th>
-                  <Th>Profile read</Th>
                 </>
               )
             }
@@ -411,18 +430,13 @@ export function People({ me }: { me: CurrentUser }) {
                     </Td>
                     <Td className="font-mono text-muted-foreground">{ago(person.lastSeenAt, now)}</Td>
                     <Td className="text-right font-mono text-muted-foreground">{ago(person.firstSeenAt, now)}</Td>
-                    <Td className="text-muted-foreground">
-                      {person.notFoundAt
-                        ? 'No such account'
-                        : person.profileRefreshedAt
-                          ? <span className="font-mono">{ago(person.profileRefreshedAt, now)}</span>
-                          : 'Not read yet'}
-                    </Td>
                   </>
                 )}
               </Tr>
             ))}
           </Table>
+          </div>
+          </>
         )}
 
         <Pager at={at} pages={pages} />
@@ -477,15 +491,79 @@ function PersonCell({ person }: { person: Person }) {
   )
 }
 
-/** Where this person stands with the group: a member, somebody who left, on the ban list, or none of those. */
-function Standing({ person }: { person: Person }) {
+/**
+ * Where this person stands with the group: a member, somebody who left, on the ban list, or none of
+ * those. An account VRChat says does not exist says so here, now that the list has no column for
+ * when the profile was read. The two-line rows leave a person with none of these blank rather
+ * than writing a dash beside every visitor.
+ */
+function Standing({ person, blank = false }: { person: Person; blank?: boolean }) {
+  const none = !person.isMember && !person.leftAt && !person.banned && !person.notFoundAt
+  if (none && blank) return null
+
   return (
     <div className="flex items-center gap-1 whitespace-nowrap">
       {person.isMember && <Badge variant="secondary">Member</Badge>}
       {person.leftAt && !person.isMember && <Badge variant="outline">Left</Badge>}
       {person.banned && <Badge variant="destructive">Banned</Badge>}
-      {!person.isMember && !person.leftAt && !person.banned && <span className="text-muted-foreground">—</span>}
+      {person.notFoundAt && <Badge variant="outline">No such account</Badge>}
+      {none && <span className="text-muted-foreground">—</span>}
     </div>
+  )
+}
+
+/**
+ * The list on a phone and in a headset: a row is the name, its marks and where they stand, then
+ * the trust rank and when Modbot last saw them. The popup a row opens has everything else.
+ */
+function PeopleRows({ people, now }: { people: Person[]; now: string }) {
+  return (
+    <ul data-layout="narrow">
+      {people.map((person) => (
+        <li key={person.userId} className="border-t border-(length:--hairline) first:border-t-0">
+          <button
+            type="button"
+            onClick={() => openPerson(person.userId)}
+            className={cn(
+              'flex w-full items-center gap-2 px-(--panel-pad) py-2 text-left hover:bg-muted/40',
+              person.notFoundAt && 'text-muted-foreground',
+            )}
+            style={{ minHeight: 'var(--row-h)' }}
+          >
+            {person.avatarThumbnailUrl ? (
+              <img
+                src={vrchatMedia(person.avatarThumbnailUrl)}
+                alt=""
+                loading="lazy"
+                className="size-8 shrink-0 rounded-full bg-muted object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="size-8 shrink-0 rounded-full bg-muted" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate font-medium">{person.displayName ?? person.userId}</span>
+                {person.eighteenPlus && (
+                  <Badge variant="ok" className="shrink-0 font-mono" title="18+ verified">
+                    18+
+                  </Badge>
+                )}
+                <span className="ml-auto shrink-0">
+                  <Standing person={person} blank />
+                </span>
+              </div>
+              <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                {person.plainName && <span className="truncate">{person.plainName}</span>}
+                <TrustRankBadge rank={person.trustRank} className="shrink-0" />
+                {person.isRepresenting && <span className="shrink-0">representing</span>}
+                <span className="shrink-0 whitespace-nowrap">seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span></span>
+              </div>
+            </div>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 

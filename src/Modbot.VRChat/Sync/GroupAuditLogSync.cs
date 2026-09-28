@@ -362,6 +362,7 @@ public sealed class GroupAuditLogSync
             ? (cursor - _options.Overlap).UtcDateTime
             : (DateTime?)null;
 
+        var passStartedAt = _clock.UtcNow;
         var totals = new RecordTotals();
         var pages = 0;
         var drained = false;
@@ -419,6 +420,7 @@ public sealed class GroupAuditLogSync
         {
             settings.AuditLogSyncedThrough = newest;
             settings.AuditLogBacklogOffset = 0;
+            settings.AuditLogReadToEndAt = passStartedAt;
         }
         else
         {

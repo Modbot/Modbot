@@ -532,7 +532,17 @@ export type RawProfile = {
 
 /** What the command palette's search found: one list per kind, empty for a kind this account may not see. */
 export type SearchResults = {
-  people: { userId: string; displayName: string | null; avatarUrl: string | null }[]
+  people: {
+    userId: string
+    displayName: string | null
+    avatarUrl: string | null
+    /** On the group's member list now. */
+    isMember: boolean
+    /** Was on the member list and has left it. */
+    left: boolean
+    /** On the group's ban list now. */
+    banned: boolean
+  }[]
   discordPeople: { userId: string; displayName: string; username: string; avatarUrl: string | null; inServer: boolean }[]
   worlds: { worldId: string; name: string | null; thumbnailImageUrl: string | null }[]
 }
@@ -761,6 +771,8 @@ export type AuditPage = {
   entries: AuditEntry[]
   next: AuditCursor | null
   coverage: AuditCoverage
+  /** The server's clock when the page was read, for "Today" and "Yesterday". */
+  now: string
 }
 
 export type AuditActor = { platform: string; id: string; name: string | null; actions: number }

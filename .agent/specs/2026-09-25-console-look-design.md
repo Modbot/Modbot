@@ -779,10 +779,11 @@ word "never" in the sentence's own face when there is no time.
 |---|---|---|
 | A day | `formatDay` (`lib/format.ts`), in the viewer's time zone | Sep 25, 2026 |
 | A day of a chart or a range | `longDay`, or `shortDay` on an axis (`components/charts/format.ts`), in UTC like the data | Sep 25, 2026; Sep 25 |
-| An instant in a list | `dateTime` (`components/charts/format.ts`) | Sep 25, 03:41 PM |
-| When a fact happened | `FactTime` (`components/facts.tsx`): the time, or a window written with a tilde, the full date in `title` | 03:41 PM, ~03:30 PM–03:45 PM |
-| An age | `ago`, against the `now` the server sent, never the browser's clock | 3h ago, just now |
-| How long | `howLong`, `duration`, `minutes` | 300d, 12 minutes |
+| A time of day | `timeOfDay` (`lib/format.ts`), no leading zero, 24-hour where the viewer's locale is | 3:41 PM |
+| An instant in a list | `dateTime` (`lib/format.ts`): the day first, then the time | Sep 25, 3:41 PM |
+| When a fact happened | `FactTime` (`components/facts.tsx`): the time, or a window written with a tilde, the full date in `title`; `withDay` puts the day in front, as the audit log does | 3:41 PM, ~3:30 PM–3:45 PM, Sep 25, 3:41 PM |
+| An age | `ago`, against the `now` the server sent, never the browser's clock; days up to 45, then whole months, then whole years | 3h ago, 30d ago, 6 mo ago, 1 yr ago |
+| How long | `howLong` (the steps of `ago`), `duration`, `minutes` | 1 yr, 12 minutes |
 | A range of days | the two days, each in mono, joined by a spaced en dash | Sep 23, 2026 – Sep 25, 2026 |
 
 Every one of them is mono.

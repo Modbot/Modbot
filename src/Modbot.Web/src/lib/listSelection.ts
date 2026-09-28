@@ -39,15 +39,16 @@ export function useListSelection(
   }
 
   useShortcuts([
-    { keys: 'j', label: 'Next row', group: 'Lists', page: true, run: () => move(1) },
+    { keys: 'j', label: 'Next row', group: 'Lists', page: true, keyboardOnly: true, run: () => move(1) },
     { keys: 'arrowdown', label: 'Next row', group: 'Lists', page: true, hidden: true, run: () => move(1) },
-    { keys: 'k', label: 'Previous row', group: 'Lists', page: true, run: () => move(-1) },
+    { keys: 'k', label: 'Previous row', group: 'Lists', page: true, keyboardOnly: true, run: () => move(-1) },
     { keys: 'arrowup', label: 'Previous row', group: 'Lists', page: true, hidden: true, run: () => move(-1) },
     {
       keys: 'enter',
       label: 'Open the selected row',
       group: 'Lists',
       page: true,
+      keyboardOnly: true,
       run: () => {
         if (selected !== null) open(selected)
       },

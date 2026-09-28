@@ -8,7 +8,7 @@ import { Empty, FactList, Field, Note, Panel } from '@/components/subject/shared
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { api, type DiscordMember } from '@/lib/api'
 import type { DiscordMemberRead } from '@/lib/useDiscordMember'
-import { clockTime, formatDay, needsYear } from '@/lib/format'
+import { formatDay, needsYear } from '@/lib/format'
 import { usePageState, type ListPage } from '@/lib/listPage'
 import { cn } from '@/lib/utils'
 import { useLoad } from '@/lib/useLoad'
@@ -121,8 +121,21 @@ function DiscordDetails({ member, timedOut }: { member: DiscordMember; timedOut:
   )
 }
 
-/** Coming, going, renames, roles, timeouts and links: this account's own history in the server. */
-export function DiscordHistory({ id, read }: { id: string; read: DiscordMemberRead }) {
+/**
+ * Coming, going, renames, roles, timeouts and links: this account's own history in the server.
+ *
+ * @param children Drawn between the details and the history -- the activity charts, which need a
+ *   different permission from this and so are handed in by the caller that checked it.
+ */
+export function DiscordHistory({
+  id,
+  read,
+  children,
+}: {
+  id: string
+  read: DiscordMemberRead
+  children?: React.ReactNode
+}) {
   const live = useLiveVersion(useCallback((event: LiveEvent) => concernsPerson(event, id, 'Discord'), [id]))
   const load = useCallback(
     () => api.audit({ subject: id, subjectPlatform: 'Discord', type: HISTORY_TYPES, limit: 100 }),
@@ -134,10 +147,12 @@ export function DiscordHistory({ id, read }: { id: string; read: DiscordMemberRe
     <div className="flex min-h-0 flex-col">
       {read.data?.member && <DiscordDetails member={read.data.member} timedOut={read.data.timedOut} />}
 
+      {children}
+
       <Panel title="In the server" flush>
         {error && <EmptyRow tone="danger">{error}</EmptyRow>}
         {!error && !data && <EmptyRow>Loading…</EmptyRow>}
-        {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+        {data && <FactList entries={data.entries} empty="Nothing recorded yet." now={data.now} />}
       </Panel>
     </div>
   )
@@ -204,7 +219,7 @@ export function DiscordMessages({ id, at }: { id: string; at?: string | null }) 
                   </Badge>
                 )}
                 <span className="flex-1" />
-                <span className="font-mono text-muted-foreground" title={`${formatDay(m.sentAt)}, ${clockTime(m.sentAt)}`}>
+                <span className="font-mono text-muted-foreground">
                   {dateTime(m.sentAt)}
                 </span>
               </div>

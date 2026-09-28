@@ -254,7 +254,7 @@ function History({ id }: { id: string }) {
     <Panel title="What happened in this world" flush>
       {error && <EmptyRow tone="danger">{error}</EmptyRow>}
       {!error && !data && <EmptyRow>Loading…</EmptyRow>}
-      {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+      {data && <FactList entries={data.entries} empty="Nothing recorded yet." now={data.now} />}
     </Panel>
   )
 }

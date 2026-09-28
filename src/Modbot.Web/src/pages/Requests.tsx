@@ -34,6 +34,7 @@ import {
 } from '@/lib/joinRequests'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { missingPermissionOf } from '@/lib/vrchatPermissions'
+import { useShortcuts } from '@/lib/shortcuts'
 import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { Marks } from '@/components/ListParts'
 
@@ -137,6 +138,10 @@ export function JoinRequests({
   }, [list, answered, onWaitingCount])
 
   const canAnswer = mayAnswer(me)
+
+  useShortcuts([
+    { label: title ? 'Refresh join requests' : 'Refresh', group: 'Page', page: true, run: () => setReload((n) => n + 1) },
+  ])
 
   return (
     <div className="flex flex-col gap-3">

@@ -91,7 +91,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
         {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
         {data?.canSeeWhoWasThere && tab === 'logs' && (
           <Panel title="What happened in this instance" flush>
-            <FactList entries={data.log} empty="Nothing recorded yet." />
+            <FactList entries={data.log} empty="Nothing recorded yet." now={data.now} />
             {data.logTruncated && (
               <Footer>Showing the newest {data.log.length}.</Footer>
             )}
@@ -232,7 +232,7 @@ function Overview({ view, live, onMore }: { view: InstanceView; live: number; on
           </Panel>
 
           <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
-            <FactList entries={view.log.slice(0, 8)} empty="Nothing recorded yet." />
+            <FactList entries={view.log.slice(0, 8)} empty="Nothing recorded yet." now={view.now} />
           </Panel>
         </>
       ) : (

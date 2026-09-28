@@ -29,7 +29,8 @@ public class CalendarVRChatReaderTests(PostgresFixture fixture) : CalendarTestBa
         Assert.Equal("Watch Party", e.Title);
         Assert.Equal(CalendarEventStates.Scheduled, e.State);
         Assert.True(e.PublishToVRChat);
-        Assert.False(e.PublishToDiscord);
+        Assert.True(e.PublishToDiscord);
+        Assert.False(e.PostToChannel);
         Assert.False(e.AutoOpen);
         Assert.Equal("public", e.Visibility);
         Assert.Equal("film_media", e.Category);

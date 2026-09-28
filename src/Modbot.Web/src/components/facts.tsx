@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { clockTime, formatDay, needsYear, sourceLabel } from '@/lib/format'
+import { dateTime, formatDay, needsYear, sourceLabel, timeOfDay } from '@/lib/format'
 import { instanceName, instanceNumber } from '@/lib/instanceName'
 import { reporterNames } from '@/lib/reporters'
 import { openAccount, openDiscordPerson, openInstance, openPerson, openWorld } from '@/lib/subject'
@@ -66,9 +66,6 @@ export function ReportedBy({
   )
 }
 
-/** The whole instant for a `title`: the row shows only the time, and the day is one hover away. */
-const wholeInstant = (iso: string, withYear?: boolean) => `${formatDay(iso, withYear)}, ${clockTime(iso)}`
-
 /**
  * When a fact happened — as an instant when that is known, and as a range when it is not.
  *
@@ -76,25 +73,36 @@ const wholeInstant = (iso: string, withYear?: boolean) => `${formatDay(iso, with
  * the lower bound invents precision Modbot does not have, and the invention is invisible — the
  * timestamp looks exactly like one VRChat stated. So a windowed fact is rendered as a window, with
  * the tilde carrying the claim even when the row is scanned rather than read.
+ *
+ * The time alone by default, with the whole instant one hover away. `withDay` writes the day in
+ * front, "Sep 27, 2:57 AM", the order `dateTime` uses everywhere else.
  */
-export function FactTime({ entry }: { entry: Pick<AuditEntry, 'occurredAt' | 'occurredBefore'> }) {
+export function FactTime({
+  entry,
+  withDay = false,
+}: {
+  entry: Pick<AuditEntry, 'occurredAt' | 'occurredBefore'>
+  withDay?: boolean
+}) {
+  // Both ends carry the year, or neither does.
+  const withYear = needsYear(entry.occurredAt, ...(entry.occurredBefore ? [entry.occurredBefore] : []))
+  const day = withDay ? `${formatDay(entry.occurredAt, withYear)}, ` : ''
+
   if (!entry.occurredBefore) {
     return (
-      <span className="font-mono text-muted-foreground" title={wholeInstant(entry.occurredAt)}>
-        {clockTime(entry.occurredAt)}
+      <span className="font-mono text-muted-foreground" title={dateTime(entry.occurredAt)}>
+        {day}
+        {timeOfDay(entry.occurredAt)}
       </span>
     )
   }
 
-  // Both ends carry the year, or neither does.
-  const withYear = needsYear(entry.occurredAt, entry.occurredBefore)
-
   return (
     <span
       className="font-mono text-muted-foreground"
-      title={`Between ${wholeInstant(entry.occurredAt, withYear)} and ${wholeInstant(entry.occurredBefore, withYear)}`}
+      title={`Between ${dateTime(entry.occurredAt, withYear)} and ${dateTime(entry.occurredBefore, withYear)}`}
     >
-      ~{clockTime(entry.occurredAt)}–{clockTime(entry.occurredBefore)}
+      {day}~{timeOfDay(entry.occurredAt)}–{timeOfDay(entry.occurredBefore)}
     </span>
   )
 }

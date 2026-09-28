@@ -128,7 +128,19 @@ public sealed class SyncDiagnostics
     {
         ArgumentNullException.ThrowIfNull(clock);
         _clock = clock;
+        StartedAt = clock.UtcNow;
     }
+
+    /// <summary>
+    /// When this process started, near enough: one of these is made per process, as the syncs start.
+    /// </summary>
+    /// <remarks>
+    /// The member and ban sweeps give the audit log an hour to catch up before they stop waiting for
+    /// it, and that hour has to be counted from here as well as from the change. A Modbot that was
+    /// off for six hours comes back to a last audit-log poll six hours old. That is not an audit log
+    /// that has gone quiet; it has not had a chance to run yet.
+    /// </remarks>
+    public DateTimeOffset StartedAt { get; }
 
     /// <summary>The audit-log producer's current interval and the reason it chose it.</summary>
     public PollRateDecision? AuditLogPollRate

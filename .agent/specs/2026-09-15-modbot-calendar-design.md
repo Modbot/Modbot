@@ -40,7 +40,7 @@ the access the event names — never public by default, and never for an event n
 | Instance access, region | `members`, `plus` or `public`; `us`, `use`, `eu` or `jp`. |
 | Image | A picture link for Discord, and optionally a VRChat file id for VRChat's calendar. Modbot does not upload files to VRChat — that endpoint has no rate limit set. |
 | VRChat calendar fields | Category, languages, platforms, tags, who can see it (`group` or `public`), and whether VRChat notifies group members. Exactly the fields `CreateCalendarEventRequest` has that make sense to set. |
-| Where it goes | VRChat calendar, Discord event, channel post (with the channel), open the instance and how many minutes early (default 10). |
+| Where it goes | VRChat calendar, Discord event, channel post (with the channel), open the instance and how many minutes early (default 10). A new event starts with VRChat calendar and Discord event ticked (changed 2026-09-27: with only VRChat ticked, events reached one side unless someone remembered the second box). The channel post starts off, since it needs a channel picked. |
 
 ### 2.1 States
 
@@ -300,8 +300,11 @@ in September, a weekly series, none from Modbot).
   it; an edit updates that same VRChat event, never a copy.
 - A repeating event is keyed by its **series id**; its dates in the list are matched to it by
   `seriesId`.
-- It arrives with VRChat on and Discord, the channel post and opening the instance off. No world:
-  VRChat's calendar has none.
+- It arrives with VRChat and the Discord event on, and the channel post and opening the instance off.
+  No world: VRChat's calendar has none. (Changed 2026-09-27: it used to arrive with Discord off,
+  so an event made on VRChat never reached the Discord server unless a moderator opened it and ticked
+  the box. The first read of a group with many upcoming VRChat events makes a Discord event for each,
+  five Discord calls a pass at most.)
 - **VRChat's settings the form does not have** -- featured, host and guest early join, closing the
   instance after the end, roles, instance overflow -- are kept on the event and sent back with every
   create and update. The SDK's update body sends `featured` and `usesInstanceOverflow` as false when

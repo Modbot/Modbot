@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { dateTime } from '@/components/charts/format'
 import { api, type Alert } from '@/lib/api'
-import { clockTime, formatDayRange } from '@/lib/format'
+import { timeOfDay, formatDayRange } from '@/lib/format'
 import { type LiveEvent } from '@/lib/liveStream'
 import { followLink } from '@/lib/router'
 import { useLiveStream } from '@/lib/useLiveStream'
@@ -122,5 +122,5 @@ function stretch(alert: Alert): string {
 
   return days >= 1
     ? formatDayRange(alert.windowStart, alert.windowEnd)
-    : `${clockTime(alert.windowStart)} – ${clockTime(alert.windowEnd)}`
+    : `${timeOfDay(alert.windowStart)} – ${timeOfDay(alert.windowEnd)}`
 }

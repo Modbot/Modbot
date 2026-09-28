@@ -78,6 +78,12 @@ export const MESSAGE = 'message'
 export const TAB = 'tab'
 export const VERSION = 'version'
 
+/**
+ * The kick, ban or unban whose confirmation the person popup opens with (`?act=ban`), when the
+ * palette's "Ban X…" opened it. Only the confirmation: nothing is sent until its button is pressed.
+ */
+export const ACT = 'act'
+
 /** Marks a history entry this module pushed, so closing knows whether back is safe. */
 const PUSHED = { modbotSubject: true }
 
@@ -118,7 +124,7 @@ export function useSubjects(): Subject[] {
  * Re-opening the thing already on top does nothing, so a list where the same world appears twice
  * does not build a stack of identical popups.
  */
-export function openSubject(subject: Subject, at?: { tab?: string; version?: number }): void {
+export function openSubject(subject: Subject, at?: { tab?: string; version?: number; act?: string }): void {
   const params = new URLSearchParams(window.location.search)
   const stack = params.getAll(PARAM)
 
@@ -130,8 +136,10 @@ export function openSubject(subject: Subject, at?: { tab?: string; version?: num
   // The tab and the version belong to the popup being opened, never to the one underneath.
   params.delete(TAB)
   params.delete(VERSION)
+  params.delete(ACT)
   if (at?.tab) params.set(TAB, at.tab)
   if (at?.version !== undefined) params.set(VERSION, String(at.version))
+  if (at?.act) params.set(ACT, at.act)
 
   go(`${window.location.pathname}?${params.toString()}`, { state: PUSHED })
 }
@@ -162,13 +170,43 @@ export function useMessageAt(): string | null {
  * History and the audit log can send a moderator to one version (`?version=`).
  *
  * Read from the address but held in state once the popup is open: switching tabs by hand should
- * not rewrite a link somebody is about to copy into something that opens on the wrong tab.
+ * not rewrite a link somebody is about to copy into something that opens on the wrong tab. A new
+ * `?tab=` while it is open is followed, though: the palette's "Add a note to X…" on the person
+ * already open has to land on their Notes.
+ *
+ * @param moved Tabs a popup no longer has, each with the tab its content went to, so a link
+ *   pasted before the tab was taken out still opens on what it pointed at.
  */
-export function useOpeningTab<T extends string>(fallback: T, allowed: readonly T[]): [T, (next: T) => void] {
+export function useOpeningTab<T extends string>(
+  fallback: T,
+  allowed: readonly T[],
+  moved?: Readonly<Record<string, T>>,
+): [T, (next: T) => void] {
   const [location] = useLocation()
   const asked = location.search.get(TAB)
-  const [tab, setTab] = useState<T>(() => (allowed.includes(asked as T) ? (asked as T) : fallback))
+  const [tab, setTab] = useState<T>(() => openingTab(asked, fallback, allowed, moved))
+
+  // A tab the popup does not know leaves it where it is, which is what the current tab as the
+  // fallback says.
+  const [followed, setFollowed] = useState(asked)
+  if (asked !== followed) {
+    setFollowed(asked)
+    setTab(openingTab(asked, tab, allowed, moved))
+  }
+
   return [tab, setTab]
+}
+
+/** Which tab `?tab=<asked>` opens: an allowed tab as it is, a moved one where it went, else the fallback. */
+export function openingTab<T extends string>(
+  asked: string | null,
+  fallback: T,
+  allowed: readonly T[],
+  moved: Readonly<Record<string, T>> = {},
+): T {
+  if (asked === null) return fallback
+  if (allowed.includes(asked as T)) return asked as T
+  return Object.hasOwn(moved, asked) ? moved[asked] : fallback
 }
 
 /** The version the popup was opened at, when it was opened at one (`?version=<fact id>`). */
@@ -177,6 +215,27 @@ export function useOpeningVersion(): number | null {
   const value = location.search.get(VERSION)
   const parsed = value ? Number(value) : NaN
   return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * The confirmation the popup was opened with (`?act=`), and the way to put it away.
+ *
+ * Read straight from the address rather than held in state, unlike the tab: a person popup already
+ * open when the palette asks for a ban has to open the confirmation too. Putting it away takes it
+ * out of the address in place, so a reload does not ask again and the next "Ban X…" is a change.
+ */
+export function useOpeningAction(): [string | null, () => void] {
+  const [location] = useLocation()
+  const asked = location.search.get(ACT)
+
+  const done = () => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has(ACT)) return
+    params.delete(ACT)
+    go(`${window.location.pathname}?${params.toString()}`, { replace: true, state: window.history.state })
+  }
+
+  return [asked, done]
 }
 
 /** Closes the top popup, returning to the one underneath. */
@@ -197,6 +256,7 @@ export function closeSubject(): void {
   params.delete(MESSAGE)
   params.delete(TAB)
   params.delete(VERSION)
+  params.delete(ACT)
   for (const value of stack.slice(0, -1)) params.append(PARAM, value)
 
   const query = params.toString()
@@ -212,6 +272,7 @@ export function closeAllSubjects(): void {
   params.delete(MESSAGE)
   params.delete(TAB)
   params.delete(VERSION)
+  params.delete(ACT)
   const query = params.toString()
   go(window.location.pathname + (query ? `?${query}` : ''), { replace: true })
 }

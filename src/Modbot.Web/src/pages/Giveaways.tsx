@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { PageMessage } from '@/pages/analytics/shared'
 import { dateTime } from '@/components/charts/format'
 import { formatDay } from '@/lib/format'
+import { useShortcuts } from '@/lib/shortcuts'
 
 type Filter = 'all' | GiveawayState
 
@@ -56,6 +57,8 @@ export function Giveaways() {
   const [error, setError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(() => location.search.get('giveaway'))
   const [editing, setEditing] = useState<Giveaway | 'new' | null>(null)
+
+  useShortcuts(data?.canRun ? [{ label: 'New giveaway', group: 'Page', page: true, run: () => setEditing('new') }] : [])
 
   const load = useCallback(() => {
     giveawayApi

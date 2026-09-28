@@ -49,6 +49,7 @@ public sealed class GroupMemberSync
     private readonly VRChatUserProfiles _profiles;
     private readonly ListDiffFacts _diff;
     private readonly IModbotClock _clock;
+    private readonly SyncDiagnostics _diagnostics;
     private readonly GroupMemberSyncOptions _options;
     private readonly ILogger _log;
 
@@ -59,6 +60,7 @@ public sealed class GroupMemberSync
         ModbotContext db,
         VRChatUserProfiles profiles,
         IModbotClock clock,
+        SyncDiagnostics diagnostics,
         GroupMemberSyncOptions? options = null,
         ILogger? log = null)
     {
@@ -68,11 +70,13 @@ public sealed class GroupMemberSync
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(profiles);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(diagnostics);
 
         _gate = gate;
         _db = db;
         _profiles = profiles;
         _clock = clock;
+        _diagnostics = diagnostics;
         _options = (options ?? new GroupMemberSyncOptions()).Clamped();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
         _diff = new ListDiffFacts(db, facts, partitions, clock, _log);
@@ -438,7 +442,7 @@ public sealed class GroupMemberSync
         {
             var settled = await _diff.SettleAsync(
                 groupId, row.UserId, row.WaitingFacts, settings, now,
-                _options.WaitForAuditLog, _options.AuditLogSilentAfter, ct).ConfigureAwait(false);
+                _options.WaitForAuditLog, _options.AuditLogSilentAfter, _diagnostics.StartedAt, ct).ConfigureAwait(false);
 
             row.WaitingFacts = settled.Remaining;
             written += settled.Written;

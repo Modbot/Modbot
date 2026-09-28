@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { decodeSubject, encodeSubject, isPerson, sameSubject } from '../src/lib/subject.ts'
+import { decodeSubject, encodeSubject, isPerson, openingTab, sameSubject } from '../src/lib/subject.ts'
 
 /**
  * The address vocabulary: which kinds exist, how a link writes one, and what a link written
@@ -70,4 +70,24 @@ test('a case file is on the stack but is not a person', () => {
   // closing it goes back to them. It names a case file, not a human being.
   assert.deepEqual(decodeSubject('case:9b1d'), { kind: 'case', id: '9b1d' })
   assert.equal(isPerson({ kind: 'case', id: '9b1d' }), false)
+})
+
+test('a tab that was taken out still opens where its content went', () => {
+  const tabs = ['overview', 'logs', 'json'] as const
+  const moved = { metrics: 'overview' } as const
+
+  // A person link pasted before Metrics folded into Overview.
+  assert.equal(openingTab('metrics', 'logs', tabs, moved), 'overview')
+  // Raw data is still a tab, only no longer in the row, so its old link opens it as it is.
+  assert.equal(openingTab('json', 'overview', tabs, moved), 'json')
+  assert.equal(openingTab('logs', 'overview', tabs, moved), 'logs')
+})
+
+test('a tab nobody knows opens on the fallback, not on whatever the link said', () => {
+  const tabs = ['overview', 'logs'] as const
+
+  assert.equal(openingTab(null, 'overview', tabs), 'overview')
+  assert.equal(openingTab('nonsense', 'overview', tabs, { metrics: 'overview' }), 'overview')
+  // Not one of the object's own keys, so not a moved tab.
+  assert.equal(openingTab('toString', 'logs', tabs, { metrics: 'overview' }), 'logs')
 })

@@ -23,6 +23,7 @@ import {
 import type { PageId } from '@/lib/nav'
 import { useSave } from '@/lib/useSave'
 import { missingPermissionOf } from '@/lib/vrchatPermissions'
+import { useShortcuts } from '@/lib/shortcuts'
 import { GroupHeaderFor } from './GroupHeader'
 import { SettingsTabs } from './GroupSettings'
 
@@ -49,6 +50,11 @@ export function GroupRoles({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageI
   const missing = read?.key === asked ? read.missing : null
 
   const [editing, setEditing] = useState<GroupRoleRow | 'new' | null>(null)
+
+  useShortcuts([
+    { label: 'Refresh roles', group: 'Page', page: true, run: () => setAsked((n) => n + 1) },
+    ...(roles ? [{ label: 'New role', group: 'Page' as const, page: true, run: () => setEditing('new') }] : []),
+  ])
   const [deleting, setDeleting] = useState<GroupRoleRow | null>(null)
 
   useEffect(() => {

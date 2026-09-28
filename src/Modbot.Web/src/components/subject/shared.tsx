@@ -6,6 +6,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, ReportedBy, SourceBadge } from '@/components/facts'
 import type { AuditEntry } from '@/lib/api'
+import { factDays } from '@/lib/factRows'
 import { cn } from '@/lib/utils'
 
 /**
@@ -134,36 +135,59 @@ export function More({ onClick, children }: { onClick: () => void; children: Rea
  * person's VRChat account, their Discord account and their Modbot account are three histories in
  * one timeline, and a row that does not say which one it came from would be claiming the merge
  * proves more than it does (one view per person design §4).
+ *
+ * Rows sit under a heading per day, and one thing two sources both recorded is one row with both
+ * badges (`lib/factRows`). `now` is the server's clock, for "Today" and "Yesterday".
  */
 export function FactList({
   entries,
   empty,
+  now,
   from,
 }: {
   entries: AuditEntry[]
   empty: string
+  now: string
   from?: (entry: AuditEntry) => string | undefined
 }) {
   if (entries.length === 0) return <EmptyRow>{empty}</EmptyRow>
 
   return (
     <ol className="flex flex-col">
-      {entries.map((entry) => (
-        <li
-          key={entry.id}
-          className="border-t border-t-(length:--hairline) px-(--panel-pad) py-2 first:border-t-0"
-          style={{ fontSize: 'var(--text-small)' }}
-        >
-          <div className="flex items-center gap-2">
-            <SourceBadge source={entry.source} />
-            {from?.(entry) && <span className="text-muted-foreground">{from(entry)}</span>}
-            <span className="flex-1" />
-            <FactTime entry={entry} />
-          </div>
-          <div className="mt-1">
-            <FactSentence entry={entry} />
-          </div>
-          <ReportedBy entry={entry} />
+      {factDays(entries, now).map((day, i) => (
+        <li key={`${day.key}:${i}`} className="border-t border-t-(length:--hairline) first:border-t-0">
+          <h3
+            className="bg-muted/40 px-(--panel-pad) py-1 font-medium text-muted-foreground"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            {day.heading}
+          </h3>
+          <ol className="flex flex-col">
+            {day.rows.map(({ entry, also }) => (
+              <li
+                key={entry.id}
+                className="border-t border-t-(length:--hairline) px-(--panel-pad) py-2"
+                style={{ fontSize: 'var(--text-small)' }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex flex-wrap items-center gap-1">
+                    {[entry, ...also].map((seen) => (
+                      <SourceBadge key={seen.id} source={seen.source} />
+                    ))}
+                  </span>
+                  {from?.(entry) && <span className="text-muted-foreground">{from(entry)}</span>}
+                  <span className="flex-1" />
+                  <FactTime entry={entry} />
+                </div>
+                <div className="mt-1">
+                  <FactSentence entry={entry} />
+                </div>
+                {[entry, ...also].map((seen) => (
+                  <ReportedBy key={seen.id} entry={seen} />
+                ))}
+              </li>
+            ))}
+          </ol>
         </li>
       ))}
     </ol>

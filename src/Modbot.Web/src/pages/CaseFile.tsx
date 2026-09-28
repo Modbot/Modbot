@@ -408,17 +408,27 @@ function Snapshot({ view, onCaptured }: { view: CaseFileView; onCaptured: (next:
 
         {snapshot.banListEntry && (
           <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            On the group's ban list
-            {snapshot.banListEntry.bannedAt && (
+            {snapshot.banListEntry.liftedAt ? (
+              // Worded as the person popup words it, so one lifted ban reads the same in both.
               <>
-                {' since '}
-                <span className="font-mono">{formatDay(snapshot.banListEntry.bannedAt)}</span>
-              </>
-            )}
-            {snapshot.banListEntry.liftedAt && (
-              <>
-                {'; lifted by '}
+                {snapshot.banListEntry.bannedAt ? (
+                  <>
+                    Banned <span className="font-mono">{formatDay(snapshot.banListEntry.bannedAt)}</span>, lifted
+                  </>
+                ) : (
+                  'Ban lifted'
+                )}{' '}
                 <span className="font-mono">{formatDay(snapshot.banListEntry.liftedAt)}</span>
+              </>
+            ) : (
+              <>
+                On the group's ban list
+                {snapshot.banListEntry.bannedAt && (
+                  <>
+                    {' since '}
+                    <span className="font-mono">{formatDay(snapshot.banListEntry.bannedAt)}</span>
+                  </>
+                )}
               </>
             )}
             .
