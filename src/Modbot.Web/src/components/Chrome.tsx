@@ -350,9 +350,11 @@ export function NavSheet({
   const small = usePhoneLayout()
   const grid = sheet && small && appearance.place !== 'headset'
 
-  if (grid)
-    return (
-      <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+  // One Root for both, so crossing from one to the other with Menu open (a window resized past a
+  // tablet's width) swaps what is drawn rather than taking the dialog down and building it again.
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      {grid ? (
         <PageGrid
           nav={nav}
           appearance={appearance}
@@ -361,69 +363,66 @@ export function NavSheet({
           onSignOut={onSignOut}
           close={close}
         />
-      </DialogPrimitive.Root>
-    )
-
-  return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 dark:bg-background/70 desk:lg:hidden" />
-        <DialogPrimitive.Content
-          aria-describedby={undefined}
-          className="fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[85vw] flex-col border-r border-r-(length:--hairline) bg-background outline-none desk:lg:hidden"
-        >
-          <DialogPrimitive.Title className="sr-only">Pages</DialogPrimitive.Title>
-          <DialogPrimitive.Close
-            className="absolute top-3 right-3 z-10 grid place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-            style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
-            aria-label="Close"
+      ) : (
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 dark:bg-background/70 desk:lg:hidden" />
+          <DialogPrimitive.Content
+            aria-describedby={undefined}
+            className="fixed inset-y-0 left-0 z-50 flex w-[17rem] max-w-[85vw] flex-col border-r border-r-(length:--hairline) bg-background outline-none desk:lg:hidden"
           >
-            <X className="size-5" />
-          </DialogPrimitive.Close>
+            <DialogPrimitive.Title className="sr-only">Pages</DialogPrimitive.Title>
+            <DialogPrimitive.Close
+              className="absolute top-3 right-3 z-10 grid place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
+              aria-label="Close"
+            >
+              <X className="size-5" />
+            </DialogPrimitive.Close>
 
-          <Sidebar
-            {...nav}
-            className="min-h-0 flex-1 border-r-0 pb-[max(1rem,env(safe-area-inset-bottom))]"
-            onNavigate={(p) => {
-              close()
-              nav.onNavigate(p)
-            }}
-            onSearch={() => {
-              close()
-              nav.onSearch()
-            }}
-            onOpenHealth={(section) => {
-              close()
-              nav.onOpenHealth(section)
-            }}
-            footer={
-              <div className="flex flex-col items-start gap-2 border-t border-t-(length:--hairline) pt-4">
-                <AppearanceControls {...appearance} />
-                <IssuesButton />
-                {onAccount && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      close()
-                      onAccount()
-                    }}
-                  >
-                    <UserRound className="size-4" />
-                    <span className="max-w-[9rem] truncate">{username ?? 'Your account'}</span>
-                  </Button>
-                )}
-                {onSignOut && (
-                  <Button variant="ghost" size="sm" onClick={onSignOut}>
-                    <LogOut className="size-4" />
-                    Sign out
-                  </Button>
-                )}
-              </div>
-            }
-          />
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
+            <Sidebar
+              {...nav}
+              className="min-h-0 flex-1 border-r-0 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              onNavigate={(p) => {
+                close()
+                nav.onNavigate(p)
+              }}
+              onSearch={() => {
+                close()
+                nav.onSearch()
+              }}
+              onOpenHealth={(section) => {
+                close()
+                nav.onOpenHealth(section)
+              }}
+              footer={
+                <div className="flex flex-col items-start gap-2 border-t border-t-(length:--hairline) pt-4">
+                  <AppearanceControls {...appearance} />
+                  <IssuesButton />
+                  {onAccount && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        close()
+                        onAccount()
+                      }}
+                    >
+                      <UserRound className="size-4" />
+                      <span className="max-w-[9rem] truncate">{username ?? 'Your account'}</span>
+                    </Button>
+                  )}
+                  {onSignOut && (
+                    <Button variant="ghost" size="sm" onClick={onSignOut}>
+                      <LogOut className="size-4" />
+                      Sign out
+                    </Button>
+                  )}
+                </div>
+              }
+            />
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      )}
     </DialogPrimitive.Root>
   )
 }
@@ -477,7 +476,7 @@ function PageGrid({
   const { me, group, badges, alarms, more } = nav
   const lit = sidebarEntry(nav.page)
   const { theme, setTheme } = appearance
-  const then = (run: () => void) => () => {
+  const closeThen = (run: () => void) => () => {
     close()
     run()
   }
@@ -519,7 +518,7 @@ function PageGrid({
             </a>
           </Button>
           {onAccount && (
-            <Button variant="ghost" size="icon" onClick={then(onAccount)} aria-label={username ?? 'Your account'}>
+            <Button variant="ghost" size="icon" onClick={closeThen(onAccount)} aria-label={username ?? 'Your account'}>
               <UserRound className="size-5" />
             </Button>
           )}
@@ -531,35 +530,40 @@ function PageGrid({
         </div>
       }
     >
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
+      {/* A phone on its side is under 400px tall, and a tile standing up is 60px: the tiles lie
+          down there, the icon beside the label, so three rows of them still fit on one screen. */}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1 short:grid-cols-[repeat(auto-fill,minmax(8rem,1fr))]">
         {listedPages(me).map((item) => {
           const Icon = PAGE_ICONS[item.id] ?? Circle
           const here = lit === item.id
+          const count = { count: badges?.[item.id], alarm: alarms?.[item.id], more: more?.[item.id] }
           return (
             <li key={item.id}>
               <button
                 type="button"
-                onClick={then(() => nav.onNavigate(item.id))}
+                onClick={closeThen(() => nav.onNavigate(item.id))}
                 aria-current={here ? 'page' : undefined}
                 className={cn(
-                  'relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-sm px-1 py-2',
+                  'relative flex min-h-[calc(var(--control-h)+0.75rem)] w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-sm px-1 py-2',
+                  'short:min-h-(--control-h) short:flex-row short:justify-start short:gap-2 short:px-2 short:py-1',
+                  'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
                   here ? 'bg-background font-medium text-foreground' : 'text-muted-foreground active:bg-muted',
                 )}
-                style={{ minHeight: 'calc(var(--control-h) + 0.75rem)' }}
               >
-                {here && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-primary" />}
-                <span className="relative">
+                {/* At the foot, clear of the count on the icon's corner. */}
+                {here && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />}
+                <span className="relative shrink-0">
                   <Icon className="size-5" />
-                  <CountMark
-                    count={badges?.[item.id]}
-                    alarm={alarms?.[item.id]}
-                    more={more?.[item.id]}
-                    className="absolute -top-2 left-[calc(100%-0.25rem)]"
-                  />
+                  <CountMark {...count} className="absolute -top-2 left-[calc(100%-0.25rem)] short:hidden" />
                 </span>
-                <span className="w-full truncate text-center" style={{ fontSize: 'var(--text-small)' }}>
+                <span
+                  className="w-full truncate text-center short:w-auto short:min-w-0 short:flex-1 short:text-left"
+                  style={{ fontSize: 'var(--text-small)' }}
+                >
                   {item.label}
                 </span>
+                {/* Lying down, the count follows the label rather than covering its first letters. */}
+                <CountMark {...count} className="hidden shrink-0 short:inline" />
               </button>
             </li>
           )
@@ -577,7 +581,7 @@ function HealthButton({ onOpen }: { onOpen: (section: StatusRowId | null) => voi
     <button
       type="button"
       onClick={() => onOpen(line.section)}
-      className="flex min-h-(--control-h) min-w-0 flex-1 items-center gap-2 rounded-sm px-2 text-left active:bg-muted"
+      className="flex min-h-(--control-h) min-w-0 flex-1 items-center gap-2 rounded-sm px-2 text-left outline-none active:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
       style={{ fontSize: 'var(--text-small)' }}
     >
       <span aria-hidden className={cn('size-2.5 shrink-0', DOT[line.tone])} />

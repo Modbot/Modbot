@@ -48,6 +48,14 @@
   }
 }
 
+/* A screen under 500px tall: a phone on its side, on the same height the `big` variant draws its
+   line at. For something that must lie down to fit, like the tiles of the phone's Menu sheet. */
+@custom-variant short {
+  @media (max-height: 31.25rem) {
+    @slot;
+  }
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    Modbot design tokens.
 
