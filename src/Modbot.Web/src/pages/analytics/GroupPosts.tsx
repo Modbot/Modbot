@@ -21,6 +21,9 @@ import { can } from '@/lib/permissions'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { GroupHeaderFor } from './GroupHeader'
 
+/** The list each page of posts last showed, by page number, kept while the app is open. */
+const lastLists = new Map<number, GroupPostList>()
+
 /**
  * The VRChat page's Posts tab: the group's posts as vrchat.com lists them, newest first, and — for
  * whoever may manage them — a new post, an edit and a delete.
@@ -37,7 +40,12 @@ export function GroupPosts({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageI
   // The last answer, with the read it answered: a read whose answer has not come back yet is the
   // one being waited for, and the last list stays on screen meanwhile.
   const wanted = `${page}:${asked}`
-  const [read, setRead] = useState<{ key: string; list: GroupPostList | null; error: string | null } | null>(null)
+  // Coming back to the tab draws the list it last showed while the tab's one read is in flight,
+  // rather than "Loading…" in its place.
+  const [read, setRead] = useState<{ key: string; list: GroupPostList | null; error: string | null } | null>(() => {
+    const shown = lastLists.get(page)
+    return shown ? { key: 'shown before', list: shown, error: null } : null
+  })
   const loading = read?.key !== wanted
   const list = read?.list ?? null
   const error = read?.key === wanted ? read.error : null
@@ -70,6 +78,12 @@ export function GroupPosts({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageI
       cancelled = true
     }
   }, [page, asked])
+
+  // Whatever the list now shows -- a read, a new post, an edit, a delete -- is what the tab shows
+  // next time it opens.
+  useEffect(() => {
+    if (read?.list) lastLists.set(page, read.list)
+  }, [read, page])
 
   const refresh = useCallback(() => setAsked((n) => n + 1), [])
 

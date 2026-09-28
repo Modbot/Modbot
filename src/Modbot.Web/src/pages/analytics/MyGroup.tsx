@@ -24,6 +24,9 @@ export function MyGroup({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) 
   )
 }
 
+/** The week the strip last showed, kept while the app is open (see `GroupWeek`). */
+let lastWeeks: { fortnight: GroupAnalytics; week: GroupAnalytics } | null = null
+
 /**
  * New members, leavers, join requests and the most online at once over the last seven days, each
  * but the last against the seven before. The week ends today, not over yet, as the Discord page's
@@ -34,17 +37,19 @@ export function MyGroup({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) 
  * figure from last week to set beside it and shows when it happened instead.
  *
  * Nothing is drawn while it loads or if it cannot be read: the overview above is the page, and the
- * week is not worth an error in front of it.
+ * week is not worth an error in front of it. Coming back from another tab draws the week it showed
+ * last while it reads again, so the strip does not blink out and back.
  */
 function GroupWeek({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
-  const [weeks, setWeeks] = useState<{ fortnight: GroupAnalytics; week: GroupAnalytics } | null>(null)
+  const [weeks, setWeeks] = useState<{ fortnight: GroupAnalytics; week: GroupAnalytics } | null>(lastWeeks)
 
   useEffect(() => {
     let cancelled = false
 
     Promise.all([api.groupAnalytics('days=14'), api.groupAnalytics('days=7')])
       .then(([fortnight, week]) => {
-        if (!cancelled) setWeeks({ fortnight, week })
+        lastWeeks = { fortnight, week }
+        if (!cancelled) setWeeks(lastWeeks)
       })
       .catch(() => undefined)
 
