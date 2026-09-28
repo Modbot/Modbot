@@ -251,7 +251,7 @@ export function CopyId({ id }: { id: string }) {
         aria-label="Copy id"
         // The line of text is 20px tall, too small for a finger, and a taller button would push the
         // header down. So the part that takes a tap reaches past it, to a control's height.
-        className="relative inline-flex min-w-0 items-center gap-1 rounded-sm px-1 -mx-1 text-muted-foreground outline-none after:absolute after:inset-x-0 after:inset-y-[calc((100%-var(--control-h))/2)] hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+        className="relative inline-flex min-w-0 items-center gap-1 rounded-sm px-1 -mx-1 text-muted-foreground after:absolute after:inset-x-0 after:inset-y-[calc((100%-var(--control-h))/2)] hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
       >
         <span className="max-w-[14rem] truncate font-mono">{id}</span>
         {state === 'copied' ? <Check className="size-3 shrink-0 text-ok" /> : <Copy className="size-3 shrink-0" />}
@@ -393,7 +393,7 @@ export function PopupMenu({ onRawData }: { onRawData: () => void }) {
         <button
           type="button"
           aria-label="More"
-          className="grid shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+          className="grid shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
         >
           <MoreHorizontal className="size-4" />

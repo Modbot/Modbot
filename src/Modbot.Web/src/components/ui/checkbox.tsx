@@ -60,7 +60,7 @@ export function Checkbox({
           'relative size-[calc(var(--control-h)/2)] shrink-0 cursor-[inherit] appearance-none rounded-sm border border-(length:--hairline) border-input bg-card transition-colors',
           // Set in the label's size and line height, so `1lh` is a line of the label's text.
           '[font-size:inherit] [line-height:inherit] mt-[calc((1lh_-_var(--control-h)/2)/2)]',
-          'outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+          'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
           'checked:border-primary checked:bg-primary indeterminate:border-primary indeterminate:bg-primary',
           'before:absolute before:top-[42%] before:left-1/2 before:h-[55%] before:w-[30%] before:-translate-x-1/2 before:-translate-y-1/2 before:rotate-45 before:border-r-2 before:border-b-2 before:border-primary-foreground before:opacity-0 checked:before:opacity-100 indeterminate:before:opacity-0',
           'after:absolute after:top-1/2 after:left-1/2 after:h-0.5 after:w-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:bg-primary-foreground after:opacity-0 indeterminate:after:opacity-100',

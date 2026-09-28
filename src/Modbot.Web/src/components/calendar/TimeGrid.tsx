@@ -395,7 +395,7 @@ export function TimeGrid({
                         onPointerDown={(e) => pressEntry(e, entry)}
                         onKeyDown={(e) => openByKey(e, entry)}
                         className={cn(
-                          'absolute flex flex-col rounded-sm border border-(length:--hairline) border-l-[3px] px-1.5 py-0.5 text-left outline-none focus-visible:outline-2 focus-visible:outline-ring',
+                          'absolute flex flex-col rounded-sm border border-(length:--hairline) border-l-[3px] px-1.5 py-0.5 text-left focus-visible:outline-2 focus-visible:outline-ring',
                           toneClass(entry.event),
                           entry.event.state === 'finished' && 'opacity-70',
                           editable && 'cursor-grab',

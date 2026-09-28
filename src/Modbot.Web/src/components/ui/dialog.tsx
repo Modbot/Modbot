@@ -93,7 +93,7 @@ function DialogContent({
           {/* Sized from --control-h rather than from the glyph: on a phone this is the way out of
               a dialog that covers the screen, and a 24px target is not one a finger can hit. */}
           <DialogPrimitive.Close
-            className="grid shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            className="grid shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
             style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
             aria-label="Close"
           >

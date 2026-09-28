@@ -152,7 +152,7 @@ export function Switch({
         onClick={() => onChange(!checked)}
         className={cn(
           'relative inline-flex h-(--switch-h) w-[calc(var(--switch-h)*1.8)] shrink-0 items-center rounded-sm transition-colors',
-          'outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+          'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
           checked ? 'bg-primary' : 'bg-input',
         )}
         style={{ '--switch-h': 'calc(var(--control-h) * 2 / 3)' } as React.CSSProperties}
