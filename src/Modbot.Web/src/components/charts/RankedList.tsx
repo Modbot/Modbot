@@ -31,17 +31,26 @@ export function RankedList({
   return (
     <div className="flex flex-col gap-1.5">
       {rows.map((row) => {
+        // On a phone the note goes under the name rather than in a column of its own: three fixed
+        // columns leave the bar next to nothing on a 360px screen.
         const label = (
-          <div className="flex w-36 shrink-0 items-center gap-1 text-muted-foreground" title={row.label}>
-            {row.icon}
-            <span className="min-w-0 truncate">{row.label}</span>
+          <div className="flex w-36 shrink-0 flex-col text-muted-foreground">
+            <div className="flex items-center gap-1" title={row.label}>
+              {row.icon}
+              <span className="min-w-0 truncate">{row.label}</span>
+            </div>
+            {row.note && (
+              <span className="truncate md:hidden" style={{ fontSize: 'var(--text-tiny)' }} title={row.note}>
+                {row.note}
+              </span>
+            )}
           </div>
         )
 
         return (
           <div key={row.key} className="flex items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
             {onPick ? (
-              <button type="button" className="w-36 shrink-0 truncate text-left hover:underline" onClick={() => onPick(row.key)}>
+              <button type="button" className="w-36 shrink-0 truncate text-left hover:underline phone:min-h-(--control-h)" onClick={() => onPick(row.key)}>
                 {label}
               </button>
             ) : (
@@ -51,7 +60,7 @@ export function RankedList({
               <div className="h-full" style={{ width: `${Math.max(2, (row.value / max) * 100)}%`, background: color }} />
             </div>
             <div className="w-16 shrink-0 text-right font-mono font-medium">{format(row.value)}</div>
-            {row.note && <div className="w-28 shrink-0 truncate text-muted-foreground" title={row.note}>{row.note}</div>}
+            {row.note && <div className="w-28 shrink-0 truncate text-muted-foreground max-md:hidden" title={row.note}>{row.note}</div>}
           </div>
         )
       })}
