@@ -1,6 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
-import { Braces, MoreHorizontal } from 'lucide-react'
-import { Popover } from 'radix-ui'
+import { useCallback, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
@@ -22,13 +20,14 @@ import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { PhoneActions, StandingBar } from '@/components/subject/Standing'
-import { Block, CopyId, Empty, FactList, More, Panel, PopupFrame } from '@/components/subject/shared'
+import { Block, CopyId, Empty, FactList, More, Panel, PopupFrame, PopupMenu } from '@/components/subject/shared'
 import { ProfileBadges } from '@/components/ProfileBadges'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Ago, Unread } from '@/components/Freshness'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useDiscordRecords } from '@/lib/useDiscordRecords'
 import { useLoad } from '@/lib/useLoad'
+import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
 import {
   api,
   type AuditEntry,
@@ -145,12 +144,7 @@ function Resolved({
   // On a phone the tabs come after the whole profile, so a tab opened from the row under the title
   // or from the Note button at the foot would change somewhere the reader cannot see. Opening one
   // from there brings the tabs up to the top of the screen as well.
-  const tabsAt = useRef<HTMLDivElement>(null)
-  const openFromAbove = (next: Tab) => {
-    setTab(next)
-    if (window.matchMedia('(max-width: 767px)').matches)
-      requestAnimationFrame(() => tabsAt.current?.scrollIntoView({ block: 'start' }))
-  }
+  const [tabsAt, openFromAbove] = useOpenFromAbove(setTab)
 
   // Bumped after a kick, ban or unban, or a note written or taken back, which remounts the cards
   // that read what Modbot stores.
@@ -562,51 +556,6 @@ function TimeInWorld({ data }: { data: PersonMetrics }) {
       />
       <Stat label="First seen" value={c.firstSeenAt ? formatDay(c.firstSeenAt) : '—'} />
     </StatStrip>
-  )
-}
-
-/**
- * The ⋯ in the header, for what a moderator seldom needs and the tab row has no room for.
- *
- * Raw data was a tab of its own, and on a phone it and Metrics pushed Flags off the screen.
- */
-function PopupMenu({ onRawData }: { onRawData: () => void }) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger asChild>
-        {/* Sized like the close button beside it. */}
-        <button
-          type="button"
-          aria-label="More"
-          className="grid shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
-          style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
-        >
-          <MoreHorizontal className="size-4" />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          align="end"
-          sideOffset={4}
-          className="z-50 flex flex-col rounded-sm border border-(length:--hairline) bg-popover p-1 text-popover-foreground shadow-sm"
-          style={{ fontSize: 'var(--text-small)' }}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false)
-              onRawData()
-            }}
-            className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-muted"
-          >
-            <Braces className="size-3.5" />
-            Raw data
-          </button>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
   )
 }
 

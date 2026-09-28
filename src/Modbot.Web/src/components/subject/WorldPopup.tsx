@@ -5,9 +5,23 @@ import { SubjectLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { InstanceTable } from '@/components/InstanceTable'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Block, CopyId, Empty, FactList, Field, Footer, More, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import {
+  Block,
+  CopyId,
+  Empty,
+  FactList,
+  Field,
+  Footer,
+  More,
+  Note,
+  Panel,
+  PopupFrame,
+  PopupMenu,
+} from '@/components/subject/shared'
+import { WORLD_MOVED, WORLD_TABS, type WorldTab as Tab } from '@/components/subject/tabs'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useLoad } from '@/lib/useLoad'
+import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
 import { api, type CurrentUser, type WorldView } from '@/lib/api'
 import { concernsWorld } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
@@ -18,9 +32,6 @@ import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
-const TABS = ['overview', 'instances', 'history', 'metrics', 'json'] as const
-type Tab = (typeof TABS)[number]
-
 /**
  * One world: its name, picture, author and who can find it on the left; the rest of its page, the
  * instances that have run in it and how busy it has been on the right.
@@ -30,7 +41,8 @@ type Tab = (typeof TABS)[number]
  * from Modbot's own tables. Opening this never asks VRChat for anything.
  */
 export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
-  const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
+  const [tab, setTab] = useOpeningTab<Tab>('overview', WORLD_TABS, WORLD_MOVED)
+  const [tabsAt, openFromAbove] = useOpenFromAbove(setTab)
   const allowed = can(me, 'ViewAnalytics')
 
   // Read again when something happens in one of this world's instances.
@@ -65,40 +77,42 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
       title={title}
       subtitle={<CopyId id={id} />}
       lead={lead}
+      actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
       left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity world={data} /> : <Empty>Loading…</Empty>}
     >
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'instances', label: 'Instances', badge: data?.instancesTotal },
-          { value: 'history', label: 'History' },
-          { value: 'metrics', label: 'Metrics' },
-          { value: 'json', label: 'JSON' },
-        ]}
-      >
-        {data && tab === 'overview' && <Overview world={data} onMore={setTab} />}
-        {data && tab === 'instances' && (
-          <Panel title="Instances in this world" flush>
-            {data.instances.length === 0 ? (
-              <EmptyRow>No instances yet.</EmptyRow>
-            ) : (
-              <>
-                <InstanceTable instances={data.instances} showWorld={false} />
-                {data.instancesTotal > data.instances.length && (
-                  <Footer>
-                    Showing the newest {data.instances.length} of {compactNumber(data.instancesTotal)}.
-                  </Footer>
-                )}
-              </>
-            )}
-          </Panel>
-        )}
-        {tab === 'history' && <History id={id} />}
-        {data && tab === 'metrics' && <Metrics world={data} />}
-        {tab === 'json' && <JsonView title="World" value={error ?? data} className="border-0" />}
-      </Tabs>
+      <div ref={tabsAt} className="flex min-h-0 flex-1 flex-col">
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { value: 'overview', label: 'Overview' },
+            { value: 'instances', label: 'Instances', badge: data?.instancesTotal },
+            { value: 'history', label: 'History' },
+            // Opened from the ⋯ in the header; a tab only while it is open, like the person popup's.
+            ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
+          ]}
+        >
+          {data && tab === 'overview' && <Overview world={data} onMore={setTab} />}
+          {data && tab === 'instances' && (
+            <Panel title="Instances in this world" flush>
+              {data.instances.length === 0 ? (
+                <EmptyRow>No instances yet.</EmptyRow>
+              ) : (
+                <>
+                  <InstanceTable instances={data.instances} showWorld={false} />
+                  {data.instancesTotal > data.instances.length && (
+                    <Footer>
+                      Showing the newest {data.instances.length} of {compactNumber(data.instancesTotal)}.
+                    </Footer>
+                  )}
+                </>
+              )}
+            </Panel>
+          )}
+          {tab === 'history' && <History id={id} />}
+          {tab === 'json' && <JsonView title="World" value={error ?? data} className="border-0" />}
+        </Tabs>
+      </div>
     </PopupFrame>
   )
 }
@@ -205,7 +219,10 @@ function releaseWords(status: string): string {
   return { public: 'Anyone (public)', private: 'Only people given the link (private)', hidden: 'Hidden' }[status] ?? status
 }
 
-/** The glance: the rest of the page, the figures, the newest instances, and where to go for the rest. */
+/**
+ * The glance: the rest of the page, the figures, the newest instances, and how busy the world has been
+ * day by day. The charts were a Metrics tab of their own, under a copy of the same four figures.
+ */
 function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => void }) {
   const c = world.counts
 
@@ -231,6 +248,8 @@ function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => v
           <InstanceTable instances={world.instances.slice(0, 5)} showWorld={false} />
         )}
       </Panel>
+
+      <PerDay world={world} />
     </div>
   )
 }
@@ -259,44 +278,31 @@ function History({ id }: { id: string }) {
   )
 }
 
-function Metrics({ world }: { world: WorldView }) {
-  const c = world.counts
-  const series = [...world.visitorsPerDay, ...world.instancesPerDay].map((p) => p.day).sort()
-  const from = series[0]
-  const to = series[series.length - 1]
+/** Visitors and instances opened per day, over the days anything was recorded. Nothing when nothing was. */
+function PerDay({ world }: { world: WorldView }) {
+  const days = [...world.visitorsPerDay, ...world.instancesPerDay].map((p) => p.day).sort()
+  const from = days[0]
+  const to = days[days.length - 1]
+  if (!(from && to)) return null
 
   return (
-    <div className="flex flex-col">
-      <Panel title="How busy this world has been" flush>
-        <StatStrip className="m-0">
-          <Stat label="Time seen" value={minutes(c.minutesSeen)} />
-          <Stat label="Visitors" value={compactNumber(c.visitors)} />
-          <Stat label="Instances opened" value={compactNumber(world.instancesTotal)} note={<OpenNow world={world} />} />
-          <Stat label="Last seen" value={c.lastSeenAt ? ago(c.lastSeenAt, world.now) : '—'} />
-        </StatStrip>
-        {!(from && to) && <EmptyRow className="border-t border-t-(length:--hairline)">Nothing recorded yet.</EmptyRow>}
+    <>
+      <Panel title="Visitors per day">
+        <DailyBars
+          from={from}
+          to={to}
+          series={[{ key: 'visitors', label: 'visitors', one: 'visitor', points: world.visitorsPerDay, slot: 1 }]}
+          emptyText="No visitors yet."
+        />
       </Panel>
-
-      {from && to && (
-        <>
-          <Panel title="Visitors per day">
-            <DailyBars
-              from={from}
-              to={to}
-              series={[{ key: 'visitors', label: 'visitors', one: 'visitor', points: world.visitorsPerDay, slot: 1 }]}
-              emptyText="No visitors yet."
-            />
-          </Panel>
-          <Panel title="Instances opened per day">
-            <DailyBars
-              from={from}
-              to={to}
-              series={[{ key: 'instances', label: 'instances opened', one: 'instance opened', points: world.instancesPerDay, slot: 4 }]}
-              emptyText="No instances yet."
-            />
-          </Panel>
-        </>
-      )}
-    </div>
+      <Panel title="Instances opened per day">
+        <DailyBars
+          from={from}
+          to={to}
+          series={[{ key: 'instances', label: 'instances opened', one: 'instance opened', points: world.instancesPerDay, slot: 4 }]}
+          emptyText="No instances yet."
+        />
+      </Panel>
+    </>
   )
 }

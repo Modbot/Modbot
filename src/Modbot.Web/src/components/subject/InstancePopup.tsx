@@ -8,11 +8,13 @@ import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Block, Empty, FactList, Field, Footer, More, Panel, PopupFrame } from '@/components/subject/shared'
+import { Block, Empty, FactList, Field, Footer, More, Panel, PopupFrame, PopupMenu } from '@/components/subject/shared'
+import { INSTANCE_TABS, type InstanceTab as Tab } from '@/components/subject/tabs'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCountSeries'
 import { useLoad } from '@/lib/useLoad'
+import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
 import { api, type CurrentUser, type InstanceView } from '@/lib/api'
 import { concernsInstance } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
@@ -22,9 +24,6 @@ import { instanceEnd, instanceName } from '@/lib/instanceName'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
-
-const TABS = ['overview', 'people', 'logs', 'json'] as const
-type Tab = (typeof TABS)[number]
 
 /**
  * One instance: which world, which number, who can join and whether it is open on the left; where
@@ -36,7 +35,8 @@ type Tab = (typeof TABS)[number]
  * in here" to "what else runs in this world" without closing anything.
  */
 export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
-  const [tab, setTab] = useOpeningTab<Tab>('overview', TABS)
+  const [tab, setTab] = useOpeningTab<Tab>('overview', INSTANCE_TABS)
+  const [tabsAt, openFromAbove] = useOpenFromAbove(setTab)
   const allowed = can(me, 'ViewAnalytics')
 
   // Read again when something happens in this instance. The stream names instances by VRChat's number,
@@ -70,35 +70,39 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       title={title}
       subtitle={instance ? <span title={instance.location}>{endLabel(instance)}</span> : undefined}
       lead={lead}
+      actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
       left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
     >
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'people', label: 'People', badge: data?.people.length },
-          { value: 'logs', label: 'Activity', badge: data?.log.length },
-          { value: 'json', label: 'JSON' },
-        ]}
-      >
-        {data && tab === 'overview' && <Overview view={data} live={live} onMore={setTab} />}
-        {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
-          <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
-            <EmptyRow>You do not have permission to see this.</EmptyRow>
-          </Panel>
-        )}
-        {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
-        {data?.canSeeWhoWasThere && tab === 'logs' && (
-          <Panel title="What happened in this instance" flush>
-            <FactList entries={data.log} empty="Nothing recorded yet." now={data.now} />
-            {data.logTruncated && (
-              <Footer>Showing the newest {data.log.length}.</Footer>
-            )}
-          </Panel>
-        )}
-        {tab === 'json' && <JsonView title="Instance" value={error ?? data} className="border-0" />}
-      </Tabs>
+      <div ref={tabsAt} className="flex min-h-0 flex-1 flex-col">
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { value: 'overview', label: 'Overview' },
+            { value: 'people', label: 'People', badge: data?.people.length },
+            { value: 'logs', label: 'Activity', badge: data?.log.length },
+            // Opened from the ⋯ in the header; a tab only while it is open, like the person popup's.
+            ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
+          ]}
+        >
+          {data && tab === 'overview' && <Overview view={data} live={live} onMore={setTab} />}
+          {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
+            <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
+              <EmptyRow>You do not have permission to see this.</EmptyRow>
+            </Panel>
+          )}
+          {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
+          {data?.canSeeWhoWasThere && tab === 'logs' && (
+            <Panel title="What happened in this instance" flush>
+              <FactList entries={data.log} empty="Nothing recorded yet." now={data.now} />
+              {data.logTruncated && (
+                <Footer>Showing the newest {data.log.length}.</Footer>
+              )}
+            </Panel>
+          )}
+          {tab === 'json' && <JsonView title="Instance" value={error ?? data} className="border-0" />}
+        </Tabs>
+      </div>
     </PopupFrame>
   )
 }

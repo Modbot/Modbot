@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { Braces, Check, Copy, MoreHorizontal } from 'lucide-react'
+import { Popover } from 'radix-ui'
 import { CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { DialogContent } from '@/components/ui/dialog'
 import { EmptyRow } from '@/components/PanelGrid'
@@ -243,7 +244,7 @@ export function CopyId({ id }: { id: string }) {
 /**
  * The frame every popup shares: identity on the left, tabs on the right.
  *
- * Nearly the whole window, because every kind now carries an Overview, a History and a JSON tab
+ * Nearly the whole window, because every kind now carries an Overview, a History and its raw data
  * beside what it had, and a raw record or a table of versions wants room. Stacks to one column
  * on a narrow screen, where the whole popup scrolls rather than each column.
  *
@@ -304,6 +305,52 @@ export function PopupFrame({
           and the popup never scrolled, so the tab a reader had just opened stayed out of sight. */}
       <div className="flex min-h-[calc(100dvh-6rem)] flex-col md:min-h-0">{children}</div>
     </DialogContent>
+  )
+}
+
+/**
+ * The ⋯ in the header, for what a moderator seldom needs and the tab row has no room for.
+ *
+ * Raw data was a tab of its own on every popup, and on a phone it pushed the tabs people use off the
+ * screen. While it is open it has a tab like the rest, so the row still says where the reader is.
+ */
+export function PopupMenu({ onRawData }: { onRawData: () => void }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        {/* Sized like the close button beside it. */}
+        <button
+          type="button"
+          aria-label="More"
+          className="grid shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+          style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
+        >
+          <MoreHorizontal className="size-4" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={4}
+          className="z-50 flex flex-col rounded-sm border border-(length:--hairline) bg-popover p-1 text-popover-foreground shadow-sm"
+          style={{ fontSize: 'var(--text-small)' }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onRawData()
+            }}
+            className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-muted"
+          >
+            <Braces className="size-3.5" />
+            Raw data
+          </button>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 

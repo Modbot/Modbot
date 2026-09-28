@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { decodeSubject, encodeSubject, isPerson, openingTab, sameSubject } from '../src/lib/subject.ts'
+import { INSTANCE_TABS, WORLD_MOVED, WORLD_TABS } from '../src/components/subject/tabs.ts'
 
 /**
  * The address vocabulary: which kinds exist, how a link writes one, and what a link written
@@ -90,4 +91,17 @@ test('a tab nobody knows opens on the fallback, not on whatever the link said', 
   assert.equal(openingTab('nonsense', 'overview', tabs, { metrics: 'overview' }), 'overview')
   // Not one of the object's own keys, so not a moved tab.
   assert.equal(openingTab('toString', 'logs', tabs, { metrics: 'overview' }), 'logs')
+})
+
+test('a world link to Metrics opens Overview, where its figures and charts went', () => {
+  assert.equal(WORLD_TABS.includes('metrics' as never), false)
+  assert.equal(openingTab('metrics', 'overview', WORLD_TABS, WORLD_MOVED), 'overview')
+  // Even when the popup was already on another tab: the link names where to go.
+  assert.equal(openingTab('metrics', 'history', WORLD_TABS, WORLD_MOVED), 'overview')
+})
+
+test('a world or instance link to JSON still opens the raw data', () => {
+  // Out of the tab row and behind the ⋯ menu, but still a tab the popup knows.
+  assert.equal(openingTab('json', 'overview', WORLD_TABS, WORLD_MOVED), 'json')
+  assert.equal(openingTab('json', 'overview', INSTANCE_TABS), 'json')
 })
