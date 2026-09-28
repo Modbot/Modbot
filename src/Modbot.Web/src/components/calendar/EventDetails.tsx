@@ -12,7 +12,7 @@ import { sameDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
 import type { Spot } from './entry'
-import { SHEET, SHEET_CLASS, SHEET_FOOT_CLASS, useMedia } from './phone'
+import { SHEET, SHEET_CLASS, SHEET_FOOT_CLASS, SHEET_LAST_ROW_CLASS, useMedia } from './phone'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -221,6 +221,8 @@ export function EventDetails({
             title={event.title}
             subtitle={<StateBadge event={event} />}
             className={SHEET_CLASS}
+            // With no buttons under it, the body is the sheet's last row, so it keeps clear of the home bar.
+            bodyClassName={buttons ? undefined : SHEET_LAST_ROW_CLASS}
             foot={buttons && <div className={SHEET_FOOT_CLASS}>{buttons}</div>}
           >
             <EventBody event={event} start={start} end={end} />
