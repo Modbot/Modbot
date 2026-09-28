@@ -11,7 +11,7 @@ import { GroupStep } from './GroupStep'
 import { LinkVRChatStep } from './LinkVRChatStep'
 import { OptionalStep } from './OptionalStep'
 import { VRChatStep } from './VRChatStep'
-import { Brand, StepIndicator, WizardBody, WizardFooter, WizardHeader } from './WizardChrome'
+import { Brand, IssuesFoot, StepIndicator, WizardBody, WizardFooter, WizardHeader } from './WizardChrome'
 import { Notice } from '@/components/ui/notice'
 import { WIZARD_FORM_ID, type StepProps } from './types'
 
@@ -200,6 +200,7 @@ function Shell({
             {steps && <StepIndicator total={steps.total} current={steps.current} />}
             {children}
           </Card>
+          <IssuesFoot />
         </div>
       </div>
     </div>

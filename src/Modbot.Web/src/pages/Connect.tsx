@@ -3,7 +3,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ApiError, api, type McpSignInView } from '@/lib/api'
-import { Brand, ErrorText, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, IssuesFoot, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 
 /**
  * An AI app asking to act as the signed-in person on the MCP server (`/connect`).
@@ -104,6 +104,7 @@ export function Connect() {
             </Button>
           </WizardFooter>
         </Card>
+        <IssuesFoot />
       </div>
     </div>
   )

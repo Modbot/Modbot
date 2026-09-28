@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type LinkPageStatus } from '@/lib/api'
-import { Brand, ErrorText, Field, WizardBody, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, IssuesFoot, WizardBody, WizardHeader } from './setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
 
 /** What `?error=` from the sign-in redirect means, in the words the page shows. */
@@ -125,6 +125,7 @@ export function LinkAccounts() {
             )}
           </WizardBody>
         </Card>
+        <IssuesFoot />
       </div>
     </div>
   )

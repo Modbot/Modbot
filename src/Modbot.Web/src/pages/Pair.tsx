@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type IssuedPairingCode } from '@/lib/api'
 import { encodePairingToken, pairingLink } from '@/lib/pairingToken'
-import { Brand, ErrorText, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, IssuesFoot, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
 
 type Issued = IssuedPairingCode & { token: string; link: string }
@@ -148,6 +148,7 @@ export function Pair() {
             </Button>
           </WizardFooter>
         </Card>
+        <IssuesFoot />
       </div>
     </div>
   )

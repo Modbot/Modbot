@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type ForgotPasswordWays } from '@/lib/api'
-import { Brand, ErrorText, Field, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, IssuesFoot, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
 
 /**
@@ -70,6 +70,7 @@ export function ForgotPassword({ onBack }: { onBack: () => void }) {
             </WizardFooter>
           </Card>
         </form>
+        <IssuesFoot />
       </div>
     </div>
   )

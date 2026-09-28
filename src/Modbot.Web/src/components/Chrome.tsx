@@ -9,10 +9,11 @@ import type { StatusRowId } from '@/lib/status'
 import { hasPageActions, useShortcutList, useWaitingChord } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
+import { ISSUES_LABEL, ISSUES_URL } from '@/lib/issues'
 import type { Place, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { Headset, House, LogOut, Menu, Monitor, Moon, Search, Sun, UserRound, X, Zap } from 'lucide-react'
+import { Bug, Headset, House, LogOut, Menu, Monitor, Moon, Search, Sun, UserRound, X, Zap } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -225,6 +226,8 @@ export function Topbar({
       <div className="ml-auto hidden items-center gap-3 lg:flex">
         <AppearanceControls place={place} setPlace={setPlace} theme={theme} setTheme={setTheme} />
 
+        <IssuesButton />
+
         {/* Your account: username, password, where a reset link reaches you, sign out everywhere. */}
         {onAccount && (
           <Button variant="ghost" size="sm" onClick={onAccount} title="Your account">
@@ -243,6 +246,21 @@ export function Topbar({
         )}
       </div>
     </header>
+  )
+}
+
+/**
+ * Bugs and feedback, in the top bar on a wide screen and in the navigation sheet on a phone and in a
+ * headset: somewhere a moderator sees it on every page without looking for it.
+ */
+function IssuesButton() {
+  return (
+    <Button variant="ghost" size="sm" asChild>
+      <a href={ISSUES_URL} target="_blank" rel="noreferrer">
+        <Bug className="size-4" />
+        {ISSUES_LABEL}
+      </a>
+    </Button>
   )
 }
 
@@ -337,6 +355,7 @@ export function NavSheet({
             footer={
               <div className="flex flex-col items-start gap-2 border-t border-t-(length:--hairline) pt-4">
                 <AppearanceControls {...appearance} />
+                <IssuesButton />
                 {onAccount && (
                   <Button
                     variant="ghost"
@@ -466,6 +485,9 @@ export function Footer() {
       className="mt-auto flex justify-end gap-4 border-t border-t-(length:--hairline) px-5 py-2 text-muted-foreground"
       style={{ fontSize: 'var(--text-small)' }}
     >
+      <a href={ISSUES_URL} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
+        {ISSUES_LABEL}
+      </a>
       <a href={DOCS_URL} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
         Docs
       </a>

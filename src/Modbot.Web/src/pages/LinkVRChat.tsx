@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { VRChatLinkPanel } from '@/components/VRChatLinkPanel'
 import { api, type CurrentUser } from '@/lib/api'
-import { Brand, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, IssuesFoot, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 
 /**
  * Where a signed-in person lands until they have linked their VRChat account (accounts and
@@ -28,6 +28,7 @@ export function LinkVRChat({ me, onLinked }: { me: CurrentUser; onLinked: () => 
             </Button>
           </WizardFooter>
         </Card>
+        <IssuesFoot />
       </div>
     </div>
   )

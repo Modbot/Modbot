@@ -1,6 +1,8 @@
 import type * as React from 'react'
+import { Bug } from 'lucide-react'
 import { CardAction, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ISSUES_LABEL, ISSUES_URL } from '@/lib/issues'
 import { cn } from '@/lib/utils'
 
 /**
@@ -128,6 +130,26 @@ export function Tickbox({
     <Checkbox id={id} checked={checked} onChange={onChange}>
       {children}
     </Checkbox>
+  )
+}
+
+/**
+ * Under the panel on every screen outside the app shell, so somebody stuck signing in or setting up
+ * can still say so.
+ */
+export function IssuesFoot() {
+  return (
+    <div className="flex justify-center pt-4" style={{ fontSize: 'var(--text-small)' }}>
+      <a
+        href={ISSUES_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:underline"
+      >
+        <Bug className="size-3.5" aria-hidden />
+        {ISSUES_LABEL}
+      </a>
+    </div>
   )
 }
 

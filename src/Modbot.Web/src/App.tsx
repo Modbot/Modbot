@@ -10,6 +10,7 @@ import { api, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { moderationApi } from '@/lib/autoMod'
 import { DemoContext } from '@/lib/demo'
 import { changesFlags } from '@/lib/liveRules'
+import { ISSUES_LABEL, ISSUES_URL } from '@/lib/issues'
 import { INSTANCE_KINDS, PRESENCE_KINDS, REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
 import { setMyModbotOrigin, setServerGroup } from '@/lib/myModbot'
 import { setVRChatImagesProxied } from '@/lib/vrchatMedia'
@@ -549,6 +550,12 @@ function Shell({
       .map((d) => ({ id: `density:${d.value}`, label: `${d.label} spacing`, group: 'Appearance', run: () => prefs.setDensity(d.value) })),
     { id: 'account', label: 'Your account', group: 'Account', run: () => navigate(PATHS.account) },
     ...(signOut ? [{ id: 'sign-out', label: 'Sign out', group: 'Account', run: signOut }] : []),
+    {
+      id: 'issues',
+      label: ISSUES_LABEL,
+      group: 'Help',
+      run: () => window.open(ISSUES_URL, '_blank', 'noopener,noreferrer'),
+    },
   ]
 
   // What the sidebar needs, in one place: the column on a wide screen and the sheet on a phone

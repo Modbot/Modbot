@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { ApiError, api } from '@/lib/api'
-import { Brand, ErrorText, Field, Tickbox, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
+import { Brand, ErrorText, Field, IssuesFoot, Tickbox, WizardBody, WizardFooter, WizardHeader } from './setup/WizardChrome'
 
 /**
  * Signing in (spec 7.2).
@@ -95,6 +95,7 @@ export function Login({
             </WizardFooter>
           </Card>
         </form>
+        <IssuesFoot />
       </div>
     </div>
   )
