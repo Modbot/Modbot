@@ -383,7 +383,7 @@ function PeoplePicker({
               key={personKey(person.platform, person.id)}
               type="button"
               onClick={() => add(person)}
-              className="flex items-center gap-2 px-2.5 py-1 text-left hover:bg-muted"
+              className="flex items-center gap-2 px-2.5 py-1 text-left hover:bg-muted phone:min-h-(--control-h)"
             >
               {person.pictureUrl ? (
                 <img src={vrchatMedia(person.pictureUrl)} alt="" className="size-5 shrink-0 rounded-full object-cover" />
@@ -400,7 +400,7 @@ function PeoplePicker({
               key={personKey(person.platform, 'typed')}
               type="button"
               onClick={() => add(person)}
-              className="px-2.5 py-1 text-left hover:bg-muted"
+              className="px-2.5 py-1 text-left hover:bg-muted phone:min-h-(--control-h)"
             >
               Use {person.id} as a {PLATFORM_LABEL[person.platform]} id
             </button>

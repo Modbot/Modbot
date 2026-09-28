@@ -220,7 +220,7 @@ export function ServerActivity({ data }: { data: ServerAnalytics }) {
                 <button
                   type="button"
                   onClick={() => setAllChannels((all) => !all)}
-                  className="self-start rounded-sm text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                  className="self-start rounded-sm text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring phone:min-h-(--control-h)"
                   style={{ fontSize: 'var(--text-small)' }}
                 >
                   {allChannels ? 'Show fewer' : 'Show all'}
