@@ -311,12 +311,13 @@ function MemberList({ me }: { me: CurrentUser }) {
                           </>
                         )
                       }
+                      // "3 days ago" and "10 years" in the row's own type, not the table's monospace:
+                      // they are words in a line rather than numbers in a column, and monospace made
+                      // the line too long for a 360 px phone.
                       facts={[
                         m.username !== m.displayName && m.username,
                         m.joinedAt && (
-                          <span key="joined">
-                            joined <span className="font-mono">{timeAgo(m.joinedAt, list.coverage.now) ?? formatDay(m.joinedAt)}</span>
-                          </span>
+                          <span key="joined">joined {timeAgo(m.joinedAt, list.coverage.now) ?? formatDay(m.joinedAt)}</span>
                         ),
                         showLeft && m.leftAt && (
                           <span key="left">
@@ -325,7 +326,7 @@ function MemberList({ me }: { me: CurrentUser }) {
                         ),
                         age && (
                           <span key="account" className={cn(age.fresh && 'text-warn')}>
-                            account <span className="font-mono">{age.text}</span>
+                            account {age.text}
                           </span>
                         ),
                         seesLinks && m.linkedVRChat && (m.linkedVRChat.displayName ?? m.linkedVRChat.userId),
