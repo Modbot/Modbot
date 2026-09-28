@@ -219,10 +219,10 @@ public abstract class GroupSweepService : BackgroundService
 
     private static string Describe(SweepRunResult result) => result switch
     {
-        { RestUntil: not null } => "resting between sweeps",
-        { SweepComplete: true, FirstSweep: true } => "first sweep finished",
+        { RestUntil: not null } => "resting between syncs",
+        { SweepComplete: true, FirstSweep: true } => "first sync finished",
         { SweepComplete: true } =>
-            $"sweep finished: {result.MarkedGone} no longer listed, {result.FactsWritten} recorded",
+            $"sync finished: {result.MarkedGone} no longer listed, {result.FactsWritten} recorded",
         { Outcome: SyncOutcome.Produced or SyncOutcome.Quiet } =>
             $"page read: {result.RowsRead} listed, {result.RowsChanged} changed",
         _ => result.Message ?? result.Outcome.ToString(),

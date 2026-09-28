@@ -601,7 +601,7 @@ function Producer({
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-medium">{name}</span>
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          last completed a pass <Ago iso={polledAt} now={now} />
+          last checked <Ago iso={polledAt} now={now} />
         </span>
       </div>
       {detail && (
