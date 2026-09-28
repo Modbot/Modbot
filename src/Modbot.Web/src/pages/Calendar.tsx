@@ -35,6 +35,7 @@ import {
   viewTitle,
   type CalendarViewName,
 } from '@/lib/calendarGrid'
+import { firstView, rememberView } from '@/lib/calendarView'
 import { timeOfDay } from '@/lib/format'
 import { changesCalendar } from '@/lib/liveRules'
 import { go, useLocation } from '@/lib/router'
@@ -68,7 +69,7 @@ type Detail = { id: string; start: Date; end: Date; spot: Spot | null }
  */
 export function Calendar() {
   const [view, setView] = useState<CalendarViewName>(() =>
-    typeof window !== 'undefined' && window.matchMedia(PHONE).matches ? 'day' : 'week',
+    firstView(typeof window !== 'undefined' && window.matchMedia(PHONE).matches),
   )
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [data, setData] = useState<{ key: string; view: CalendarView } | null>(null)
@@ -200,16 +201,20 @@ export function Calendar() {
   const step = (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction))
   const goToday = () => setAnchor(startOfDay(now))
   const newEvent = () => setEditing({ event: null })
+  const pickView = (next: CalendarViewName) => {
+    setView(next)
+    rememberView(next)
+  }
   const pickDay = (day: Date) => {
     setAnchor(startOfDay(day))
     setView('day')
   }
 
   useShortcuts([
-    { keys: 'd', label: 'Day', group: 'Calendar', page: true, run: () => setView('day') },
-    { keys: 'w', label: 'Week', group: 'Calendar', page: true, run: () => setView('week') },
-    { keys: 'm', label: 'Month', group: 'Calendar', page: true, run: () => setView('month') },
-    { keys: 'a', label: 'Schedule', group: 'Calendar', page: true, run: () => setView('schedule') },
+    { keys: 'd', label: 'Day', group: 'Calendar', page: true, run: () => pickView('day') },
+    { keys: 'w', label: 'Week', group: 'Calendar', page: true, run: () => pickView('week') },
+    { keys: 'm', label: 'Month', group: 'Calendar', page: true, run: () => pickView('month') },
+    { keys: 'a', label: 'Schedule', group: 'Calendar', page: true, run: () => pickView('schedule') },
     { keys: 't', label: 'Today', group: 'Calendar', page: true, run: goToday },
     { keys: 'j', label: 'Next', group: 'Calendar', page: true, run: () => step(1) },
     { keys: 'arrowright', label: 'Next', group: 'Calendar', page: true, hidden: true, run: () => step(1) },
@@ -319,7 +324,7 @@ export function Calendar() {
           {viewTitle(view, anchor)}
         </h2>
         <div className="flex-1" />
-        <SwitchBank value={view} onChange={setView} options={VIEWS} label="View" />
+        <SwitchBank value={view} onChange={pickView} options={VIEWS} label="View" />
         <Button variant="outline" onClick={() => void readVRChat(true)} disabled={reading > 0}>
           <RefreshCw className={reading > 0 ? 'animate-spin' : undefined} /> Refresh
         </Button>
