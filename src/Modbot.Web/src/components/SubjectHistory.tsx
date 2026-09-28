@@ -11,7 +11,7 @@ import { api, ApiError, type RepeatOffenderView, type SubjectHistory as History 
  * moderators, and when last (spec 5.8.4).
  *
  * Read from the repeat-offender counts, which the detection run rebuilds from the fact log on the
- * daily totals schedule. That is why the block says when the counts were last rebuilt: a number a
+ * daily totals schedule. That is why the block says when they were last counted: a number a
  * quarter-hour old is fine, but a number that looks live and is not would be the wrong kind of
  * wrong. The status word is never shown without the rule that decided it (spec 5.10.3).
  */
@@ -48,7 +48,7 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
       {!error && !history && <EmptyRow>Loading…</EmptyRow>}
 
       {history && !history.known && (
-        <EmptyRow>{history.lastRunAt === null ? 'Counts not built yet.' : 'No actions recorded.'}</EmptyRow>
+        <EmptyRow>{history.lastRunAt === null ? 'Not counted yet.' : 'No actions recorded.'}</EmptyRow>
       )}
 
       {history?.counts && <Counts counts={history.counts} rule={history.rule} now={history.now} />}
@@ -56,7 +56,7 @@ export function SubjectHistory({ subjectId }: { subjectId: string }) {
       {history?.lastRunAt && (
         <Footer>
           <span>
-            Counts rebuilt <Ago iso={history.lastRunAt} now={history.now} />.
+            Counted <Ago iso={history.lastRunAt} now={history.now} />
           </span>
         </Footer>
       )}

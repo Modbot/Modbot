@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, ChartColumn, Gavel, Users, Volume2, type LucideIcon } from 'lucide-react'
+import { CalendarDays, ChartColumn, Gavel, Users, type LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { api, type CurrentUser, type ServerProfile } from '@/lib/api'
 import { formatDay, plural } from '@/lib/format'
@@ -139,15 +139,14 @@ export function ServerHeader({
 }
 
 /**
- * The icon Discord puts beside each part of a server -- calendar for Events, people for Members, a
- * speaker for voice -- so a Discord user finds a link by its picture, as on the VRChat row. Discord
- * has no Overview; the chart is Server Insights', which is what that page is.
+ * The icon Discord puts beside each part of a server -- calendar for Events, people for Members --
+ * so a Discord user finds a link by its picture, as on the VRChat row. Discord has no Overview; the
+ * chart is Server Insights', which is what that page is.
  */
 const TAB_ICONS: Partial<Record<PageId, LucideIcon>> = {
   'analytics-server': ChartColumn,
   calendar: CalendarDays,
   'discord-members': Users,
-  live: Volume2,
   bans: Gavel,
 }
 

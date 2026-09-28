@@ -16,15 +16,16 @@ at once**. Moderation done in VRChat itself still arrives here, because Modbot r
 audit log.
 </Callout>
 
-## What "as last swept" means
+## What "synced" means
 
-You will see the words *sweep* and *last synced* on both lists. A **sweep** is Modbot reading a whole
-list from VRChat, one page of up to 100 people at a time, from start to finish. When it gets to the
-end, it rests, then starts again from the top.
+Both lists start with a line like **4,790 members · Synced 12m ago**. Syncing is Modbot reading a
+whole list from VRChat, one page of up to 100 people at a time, from start to finish. When it gets
+to the end, it rests, then starts again from the top. While it is reading, the line says
+**Syncing...** in place of the time.
 
-So the lists show **what the last complete read found**. **Last synced 12 minutes ago** means the
-last complete read finished 12 minutes ago. Anything that changed in VRChat after that shows up
-after the next read.
+So the lists show **what the last complete read found**, and so does the count. **Synced 12m ago**
+means the last complete read finished 12 minutes ago. Anything that changed in VRChat after that
+shows up after the next read.
 
 These are the default timings. You can see the ones your Modbot uses under **Settings**, **Server**,
 **Sync timings**, on the **Member list** and **Ban list** cards. They cannot be changed from the app.
@@ -55,11 +56,11 @@ for **Members** (`Ctrl`+`K`). The sidebar lights **People** while it is open. Se
 It needs **See profiles**, or **See members** on its own. With only See members you see members and
 people who left, without the **Discord** column.
 
-Above the list: when it was last synced, whether a new sweep is running now, and how many members
-the last complete read found.
+Above the list: how many members the last complete read found, and when it was
+[synced](#what-synced-means) (or **Syncing...** while a read is running).
 
 The columns are **Person**, **Discord**, **Roles**, **Joined**, **Last seen by Modbot** and
-**Known for**, with **Left** in place of **Known for** for people who left. The last column on each
+**First seen**, with **Left** in place of **First seen** for people who left. The last column on each
 row opens a menu with **Kick** and **Ban**; see
 [Kicking, banning and unbanning](#kicking-banning-and-unbanning). The search, the filters, the
 sorting and the keyboard are People's: see [People](/moderation/people#search-filters-and-sorting).
@@ -79,16 +80,17 @@ once**.
 Everyone VRChat says is banned from your group right now, however long ago the ban was issued.
 **This is the list to check before deciding somebody is not banned in VRChat.**
 
-Above it: when it was last synced and how many bans the last complete read found.
+Above it: how many bans the last complete read found, and when it was
+[synced](#what-synced-means).
 
 | Control | Options |
 |---|---|
 | **Search by name or id** | As on [People](/moderation/people#search-filters-and-sorting). |
-| Status | **Bans that stand**, **Bans that were lifted** or **Both**. |
+| Status | **Still banned**, **Bans that were lifted** or **Both**. |
 
 **Bans that were lifted** are bans a complete read no longer listed.
 
-The columns are **Person**, **Banned on**, **Modbot first saw it**, **Lifted** (when you are
+The columns are **Person**, **Banned on**, **Seen by Modbot**, **Lifted** (when you are
 looking at lifted bans), and **Case file** (with **See profiles**). 50 bans a page, with the page
 numbers at the bottom and the page you are on in the address. With **Unban**, each standing ban also
 has an **Unban** button.
@@ -104,7 +106,7 @@ bot's role in Discord; without it the tab says **Cannot read the Discord ban lis
 Members.** and shows only the bans the bot saw happen.
 
 Search and **Status** work as on the VRChat tab. The columns are **Person**, **Reason** (the reason
-given in Discord, when there was one), **Banned on**, **Modbot first saw it** and **Lifted** (when you
+given in Discord, when there was one), **Banned on**, **Seen by Modbot** and **Lifted** (when you
 are looking at lifted bans). Discord's list has no dates, so a ban that was already there when the
 bot first read the list has no **Banned on**. Click a row to open the person popup.
 

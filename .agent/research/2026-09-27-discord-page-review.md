@@ -246,8 +246,9 @@ finding 1), decided with the user one at a time:
   recorded since Aug 13, so the tab says it cannot read the list until the owner grants it.
   Discord's list carries a reason but no date, so a ban found already in place has no "Banned on".
 - **Icons (B):** the row takes Discord's icons and order: chart Overview, calendar Events, people
-  Members, speaker Voice now, gavel Bans. **"Events" has no count:** Modbot's calendar had 2 upcoming
+  Members, gavel Bans. **"Events" has no count:** Modbot's calendar had 2 upcoming
   events where Discord's own column said 5, and the bot does not read Discord's event list.
-- **Voice channels under the header (C):** later, as its own task.
+- **Voice channels under the header (C):** its own task; it landed separately and took the Voice now
+  link out of the row.
 - **Discord members' Joined (D):** relative now ("11 days ago", "4 years ago"), the day on hover. This
   replaces finding 3's "Joined stays a date".

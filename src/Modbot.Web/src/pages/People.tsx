@@ -16,7 +16,7 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type PeopleList, type PeopleQuery } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
-import { ago, clockTime, formatDay, howLong } from '@/lib/format'
+import { ago, clockTime, formatDay } from '@/lib/format'
 import { changesMembers } from '@/lib/liveRules'
 import { Pager } from '@/components/Pager'
 import { useListPage } from '@/lib/listPage'
@@ -243,8 +243,8 @@ export function People({ me }: { me: CurrentUser }) {
         multi: false,
         negatable: false,
         options: [
-          { value: 'fetched', label: 'Fetched' },
-          { value: 'not-fetched', label: 'Not fetched yet' },
+          { value: 'fetched', label: 'Read' },
+          { value: 'not-fetched', label: 'Not read yet' },
         ],
       },
     ],
@@ -302,7 +302,7 @@ export function People({ me }: { me: CurrentUser }) {
           <option value="seen">Most recently seen first</option>
           <option value="joined">Newest joiner first</option>
           <option value="name">By name</option>
-          <option value="known">Known longest first</option>
+          <option value="known">First seen longest ago</option>
         </Select>
       </FilterBar>
 
@@ -334,7 +334,7 @@ export function People({ me }: { me: CurrentUser }) {
                   <Th>Joined</Th>
                   {view === 'left' && <Th>Left</Th>}
                   <Th>Last seen by Modbot</Th>
-                  {view === 'member' && <Th className="text-right">Known for</Th>}
+                  {view === 'member' && <Th className="text-right">First seen</Th>}
                   {canAct && <Th><span className="sr-only">Actions</span></Th>}
                 </>
               ) : (
@@ -342,8 +342,8 @@ export function People({ me }: { me: CurrentUser }) {
                   <Th>Person</Th>
                   <Th>Standing</Th>
                   <Th>Last seen by Modbot</Th>
-                  <Th className="text-right">Known for</Th>
-                  <Th>Profile</Th>
+                  <Th className="text-right">First seen</Th>
+                  <Th>Profile read</Th>
                 </>
               )
             }
@@ -388,7 +388,7 @@ export function People({ me }: { me: CurrentUser }) {
                     {view === 'left' && <Td className="font-mono">{person.leftAt ? formatDay(person.leftAt) : ''}</Td>}
                     <Td className="font-mono text-muted-foreground">{ago(person.lastSeenAt, now)}</Td>
                     {view === 'member' && (
-                      <Td className="text-right font-mono text-muted-foreground">{howLong(person.firstSeenAt, now)}</Td>
+                      <Td className="text-right font-mono text-muted-foreground">{ago(person.firstSeenAt, now)}</Td>
                     )}
                     {canAct && (
                       // A click on the menu is not a click on the row, which opens the person.
@@ -410,13 +410,13 @@ export function People({ me }: { me: CurrentUser }) {
                       <Standing person={person} />
                     </Td>
                     <Td className="font-mono text-muted-foreground">{ago(person.lastSeenAt, now)}</Td>
-                    <Td className="text-right font-mono text-muted-foreground">{howLong(person.firstSeenAt, now)}</Td>
+                    <Td className="text-right font-mono text-muted-foreground">{ago(person.firstSeenAt, now)}</Td>
                     <Td className="text-muted-foreground">
                       {person.notFoundAt
                         ? 'No such account'
                         : person.profileRefreshedAt
                           ? <span className="font-mono">{ago(person.profileRefreshedAt, now)}</span>
-                          : 'Not fetched yet'}
+                          : 'Not read yet'}
                     </Td>
                   </>
                 )}
@@ -433,7 +433,10 @@ export function People({ me }: { me: CurrentUser }) {
 
 type Person = PeopleList['people'][number]
 
-/** The first column: picture, name, the marks after it, the name in plain letters and the id. */
+/**
+ * The first column: picture, name, the marks after it and the name in plain letters. The id is left
+ * to the popup: it is the widest thing in a row and means nothing to a moderator reading the list.
+ */
 function PersonCell({ person }: { person: Person }) {
   return (
     <div className="flex items-center gap-2">
@@ -467,11 +470,6 @@ function PersonCell({ person }: { person: Person }) {
         {person.plainName && (
           <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {person.plainName}
-          </div>
-        )}
-        {person.displayName && (
-          <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
-            {person.userId}
           </div>
         )}
       </div>

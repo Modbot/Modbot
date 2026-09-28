@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { api, type CurrentUser, type MembershipView, type PersonView } from '@/lib/api'
 import { moderationApi } from '@/lib/autoMod'
-import { formatDay } from '@/lib/format'
+import { formatDay, pastActions } from '@/lib/format'
 import { can } from '@/lib/permissions'
 import { useLoad } from '@/lib/useLoad'
 import { cn } from '@/lib/utils'
@@ -89,13 +89,10 @@ export function StandingBar({
   }
 
   if (counts) {
-    const actions = `${counts.actions} ${counts.actions === 1 ? 'action' : 'actions'}`
-    const mods = counts.moderators > 0 ? `, ${counts.moderators} ${counts.moderators === 1 ? 'mod' : 'mods'}` : ''
     chips.push(
       <Chip key="repeat" tone={counts.status === 'repeat' ? 'bad' : undefined} onClick={() => onOpen('overview')}>
         {counts.status === 'repeat' ? 'Repeat · ' : ''}
-        {actions}
-        {mods}
+        {pastActions(counts.actions, counts.moderators)}
       </Chip>,
     )
   }

@@ -47,9 +47,9 @@ export function MyTeam({
           <StatStrip>
             <Stat label="Moderators active" value={compactNumber(data.moderators.length)} />
             <Stat label="Actions" value={compactNumber(totalActions)} />
-            <Stat label="Coverage gaps" value={compactNumber(data.coverageGaps.length)} />
+            <Stat label="Left without a moderator" value={compactNumber(data.coverageGaps.length)} />
             <Stat
-              label="Instances nobody watched"
+              label="Instances with no moderator in them"
               value={compactNumber(data.instancesOpenedWithoutAnyWatch)}
               note={
                 <>
@@ -61,7 +61,7 @@ export function MyTeam({
           </StatStrip>
 
           <Panel
-            title="Coverage gaps"
+            title="Left without a moderator"
             flush
             right={
               <Toggle

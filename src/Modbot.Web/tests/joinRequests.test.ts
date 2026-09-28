@@ -2,10 +2,12 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   confirmTitle,
+  countText,
   historyNote,
   mayAnswer,
   resultText,
   rowIsAnswered,
+  waitingFrom,
 } from '../src/lib/joinRequests.ts'
 import type { CurrentUser, JoinRequestRow } from '../src/lib/api.ts'
 
@@ -83,4 +85,20 @@ test('a standing ban outranks every other thing the row could say', () => {
   assert.equal(historyNote(row({ bannedBefore: true, wasMember: true })), 'Banned before')
   assert.equal(historyNote(row({ wasMember: true })), 'Was a member')
   assert.equal(historyNote(row()), null)
+})
+
+test('the count is the rows the first page holds, less the ones answered here', () => {
+  const list = { requests: [row({ userId: 'usr_1' }), row({ userId: 'usr_2' })], hasMore: false }
+
+  assert.deepEqual(waitingFrom(list, []), { count: 2, more: false })
+  assert.deepEqual(waitingFrom(list, ['usr_2']), { count: 1, more: false })
+  assert.deepEqual(waitingFrom({ requests: [], hasMore: false }, []), { count: 0, more: false })
+})
+
+test('a full first page is written with a plus, never as a made-up total', () => {
+  const full = { requests: [row({ userId: 'usr_1' })], hasMore: true }
+
+  assert.deepEqual(waitingFrom(full, []), { count: 1, more: true })
+  assert.equal(countText(50, true), '50+')
+  assert.equal(countText(3, false), '3')
 })

@@ -7,6 +7,7 @@ import {
   boostShare,
   channelLook,
   discordPicture,
+  seesVoice,
   serverInitials,
   serverTabFrom,
   serverTabHref,
@@ -27,7 +28,6 @@ test('the links are named and ordered the way Discord’s server column has them
       ['Overview', 'analytics-server'],
       ['Events', 'calendar'],
       ['Members', 'discord-members'],
-      ['Voice now', 'live'],
       ['Bans', 'bans'],
     ],
   )
@@ -68,6 +68,12 @@ test('a time ago is written the way Discord’s Members page writes it', () => {
 
 test('a time in the future reads as today, not a negative number', () => {
   assert.equal(timeAgo('2026-09-28T12:00:00Z', '2026-09-27T12:00:00Z'), 'today')
+})
+
+test('who is in voice is drawn only for someone who may open Live, whose answer it is read from', () => {
+  assert.equal(seesVoice(person('ViewAnalytics')), false)
+  assert.equal(seesVoice(person('ViewAnalytics', 'ViewLiveInstances')), true)
+  assert.equal(seesVoice(person('Administrator')), true)
 })
 
 test('the boost goal is the next level, from Discord’s level', () => {

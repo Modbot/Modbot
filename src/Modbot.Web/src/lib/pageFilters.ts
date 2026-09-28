@@ -37,7 +37,9 @@ export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' 
         : source?.values.length
           ? source.values
           : undefined,
-    type: type?.values.length ? type.values : undefined,
+    // The type list comes from the server, so "is not" goes as its own parameter.
+    type: type?.operator !== 'is-not' && type?.values.length ? type.values : undefined,
+    notType: type?.operator === 'is-not' && type.values.length ? type.values : undefined,
     category: category?.values[0] as AuditRequest['category'],
     actor: actor?.values[0] || undefined,
     subject: subject?.values[0]?.trim() || undefined,

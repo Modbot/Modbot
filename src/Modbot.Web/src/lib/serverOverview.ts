@@ -4,15 +4,19 @@ import type { CurrentUser } from './api.ts'
 import { mayOpen, type PageId } from './nav.ts'
 
 /**
- * The pieces of the Discord page that are worth a test: which links a person sees, the boost bar,
+ * The pieces of the Discord page that are worth a test: which links a person sees, whether they
+ * see who is in voice, the boost bar,
  * the size asked of Discord's picture site, the week's ups and downs, an account's age read from
  * its id, and which picture a channel is drawn with.
  */
 
 /**
  * The row under the server's header, named and ordered the way Discord's own server column names
- * its parts -- Events above Members, the voice channels below -- each leading to the Modbot page
- * that shows that part. Overview is the page itself.
+ * its parts -- Events above Members -- each leading to the Modbot page that shows that part.
+ * Overview is the page itself.
+ *
+ * There is no voice link: who is in voice is drawn on the page itself, under the header, as
+ * Discord draws it in its channel list rather than in its server menu.
  *
  * "Events" has no count. Discord's column says "5 Events" from Discord's own event list, which the
  * bot does not read; a count from Modbot's calendar would sit beside Discord's and disagree with it
@@ -22,7 +26,6 @@ export const SERVER_TABS: readonly { id: PageId; label: string }[] = [
   { id: 'analytics-server', label: 'Overview' },
   { id: 'calendar', label: 'Events' },
   { id: 'discord-members', label: 'Members' },
-  { id: 'live', label: 'Voice now' },
   { id: 'bans', label: 'Bans' },
 ]
 
@@ -46,6 +49,14 @@ export function serverTabHref(id: PageId, path: string): string {
  */
 export function serverTabFrom(page: PageId, search: URLSearchParams): PageId | null {
   return search.get('from') === 'server' && page === 'bans' ? 'bans' : null
+}
+
+/**
+ * Whether the page draws who is in voice. It is read from Live's own answer, so it is shown to
+ * whoever may open Live and to nobody else.
+ */
+export function seesVoice(me: CurrentUser): boolean {
+  return mayOpen(me, 'live')
 }
 
 /** The boosts each level needs: level 1 at 2, level 2 at 7, level 3 at 14. Discord's own numbers. */

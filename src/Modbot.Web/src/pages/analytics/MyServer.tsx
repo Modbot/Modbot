@@ -28,9 +28,10 @@ import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { mayOpen, type PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
-import { channelLook, serverTabHref, weekChange, type ChannelLook } from '@/lib/serverOverview'
+import { channelLook, seesVoice, serverTabHref, weekChange, type ChannelLook } from '@/lib/serverOverview'
 import { CoverageLine, PageMessage, Panel, RangePicker, Section, Stat, StatStrip, Toggle } from './shared'
 import { ServerHeader } from './ServerHeader'
+import { ServerVoice } from './ServerVoice'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { useAnalytics, type Range } from './useAnalytics'
 import { plural } from '@/lib/format'
@@ -45,7 +46,8 @@ const CHANNELS_SHOWN = 10
  * My Server -- is the Discord server healthy, and who keeps it going? (M5 spec §6)
  *
  * Laid out after Discord's own screens. The server's header comes first, as its server profile has
- * it, read on its own so it is there before the charts are. Then "This week": the four numbers
+ * it, read on its own so it is there before the charts are. Under it, who is in voice now, as
+ * Discord's channel list shows it, for someone who may open Live. Then "This week": the four numbers
  * Discord's Server Insights opens on, each against the week before, whatever the range picked.
  * Then the parts, named as Insights names them: Growth is who comes and goes, Engagement is what
  * the people there do. Moderation has its own part, as it has its own heading in Discord's
@@ -89,6 +91,8 @@ export function MyServer({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId)
   return (
     <div className="flex flex-col gap-3">
       {server && <ServerHeader server={server} me={me} pathOf={pathOf} />}
+
+      {seesVoice(me) && <ServerVoice />}
 
       {data && <WeekStrip week={data.week} />}
 

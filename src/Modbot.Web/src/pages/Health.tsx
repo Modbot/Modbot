@@ -439,7 +439,7 @@ function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'membe
       'Stopped'
     ) : sweep.phase === 'sweeping' ? (
       <>
-        Sweeping · {pages(sweep.pagesWalked)} read · at row <span className="font-mono">{sweep.offset.toLocaleString()}</span>
+        Syncing · {pages(sweep.pagesWalked)} read · at row <span className="font-mono">{sweep.offset.toLocaleString()}</span>
       </>
     ) : sweep.phase === 'resting'
           ? 'Resting'
@@ -451,12 +451,12 @@ function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'membe
 
   const last = sweep.lastCompletedAt ? (
     <>
-      last full sweep <Ago iso={sweep.lastCompletedAt} now={now} />: <Count n={sweep.count} what={what} />
+      last synced <Ago iso={sweep.lastCompletedAt} now={now} />: <Count n={sweep.count} what={what} />
       {sweep.phase !== 'sweeping' && <>, {pages(sweep.pagesWalked)}</>},{' '}
       <Count n={sweep.rowsChanged} what={sweep.rowsChanged === 1 ? 'row changed' : 'rows changed'} />
     </>
   ) : (
-    'no full sweep yet'
+    'not synced yet'
   )
 
   // Counted since this process started. "Already in the audit log" is a change the list saw that
@@ -470,7 +470,7 @@ function sweepDetail(sweep: SyncHealth['memberSweep'], now: string, what: 'membe
 
   const next = sweep.nextPassAt ? (
     <>
-      next pass <span className="font-mono whitespace-nowrap">{nextAt(sweep.nextPassAt, now)}</span>
+      next sync <span className="font-mono whitespace-nowrap">{nextAt(sweep.nextPassAt, now)}</span>
     </>
   ) : null
 
@@ -601,7 +601,7 @@ function Producer({
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-medium">{name}</span>
         <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-          last completed a pass <Ago iso={polledAt} now={now} />
+          last checked <Ago iso={polledAt} now={now} />
         </span>
       </div>
       {detail && (
