@@ -33,6 +33,8 @@ test('a count that is not a real positive number adds nothing', () => {
 test('the tab title carries the total only while something is waiting', () => {
   assert.equal(titleWithCount('Modbot', 3), '(3) Modbot')
   assert.equal(titleWithCount('Modbot', 0), 'Modbot')
+  assert.equal(titleWithCount('Modbot', 50, true), '(50+) Modbot')
+  assert.equal(titleWithCount('Modbot', 0, true), 'Modbot')
 })
 
 function person(...permissionNames: string[]): CurrentUser {

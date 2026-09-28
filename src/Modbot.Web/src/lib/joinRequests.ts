@@ -1,7 +1,13 @@
 // Relative, with the extension, rather than the '@/' alias the rest of the app uses: the Node test
 // runner resolves neither the alias nor an extensionless path, and this is the piece of the screen
 // worth testing. `permissions.ts` imports nothing at run time, so it loads as it is too.
-import type { CurrentUser, JoinRequestAnswer, JoinRequestRow, ModerationActionResult } from './api.ts'
+import type {
+  CurrentUser,
+  JoinRequestAnswer,
+  JoinRequestList,
+  JoinRequestRow,
+  ModerationActionResult,
+} from './api.ts'
 import { can } from './permissions.ts'
 
 /** Whether this person may answer a join request at all. */
@@ -62,4 +68,33 @@ export function historyNote(row: JoinRequestRow): string | null {
   if (row.bannedBefore) return 'Banned before'
   if (row.wasMember) return 'Was a member'
   return null
+}
+
+/**
+ * How many rows one read of the queue asks VRChat for, on the Requests page and on Now alike, so
+ * the two count the same way.
+ */
+export const JOIN_REQUEST_PAGE_SIZE = 50
+
+/**
+ * How many people are waiting, as far as the first page of the queue shows. VRChat sends no total,
+ * so a page that came back full is `more`: the count is what was read, and the `+` says there may
+ * be others behind it. Never a number Modbot made up.
+ */
+export type WaitingCount = { count: number; more: boolean }
+
+/** The first page's rows, less the ones answered here since it was read. */
+export function waitingFrom(
+  list: Pick<JoinRequestList, 'requests' | 'hasMore'>,
+  answered: readonly string[],
+): WaitingCount {
+  return {
+    count: list.requests.filter((r) => !answered.includes(r.userId)).length,
+    more: list.hasMore,
+  }
+}
+
+/** A count as it is written beside a label: `50+` when the page it came from was full. */
+export function countText(count: number, more: boolean): string {
+  return more ? `${count}+` : String(count)
 }

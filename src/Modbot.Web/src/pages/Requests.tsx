@@ -22,13 +22,20 @@ import {
   type ModerationActionResult,
 } from '@/lib/api'
 import { formatDay } from '@/lib/format'
-import { confirmTitle, historyNote, mayAnswer, resultText, rowIsAnswered } from '@/lib/joinRequests'
+import {
+  confirmTitle,
+  historyNote,
+  JOIN_REQUEST_PAGE_SIZE,
+  mayAnswer,
+  resultText,
+  rowIsAnswered,
+  waitingFrom,
+  type WaitingCount,
+} from '@/lib/joinRequests'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { missingPermissionOf } from '@/lib/vrchatPermissions'
 import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { Marks } from '@/components/ListParts'
-
-const PAGE_SIZE = 50
 
 /**
  * The people waiting to be let into the group.
@@ -40,8 +47,16 @@ const PAGE_SIZE = 50
  * Answering a row takes it out of the list here rather than re-reading the page, so that clearing
  * a backlog costs one VRChat request per answer instead of two.
  */
-export function Requests({ me, onOpenSubject }: { me: CurrentUser; onOpenSubject: (id: string) => void }) {
-  return <JoinRequests me={me} onOpenSubject={onOpenSubject} />
+export function Requests({
+  me,
+  onOpenSubject,
+  onWaitingCount,
+}: {
+  me: CurrentUser
+  onOpenSubject: (id: string) => void
+  onWaitingCount?: (waiting: WaitingCount) => void
+}) {
+  return <JoinRequests me={me} onOpenSubject={onOpenSubject} onWaitingCount={onWaitingCount} />
 }
 
 /**
@@ -53,10 +68,13 @@ export function JoinRequests({
   me,
   onOpenSubject,
   title,
+  onWaitingCount,
 }: {
   me: CurrentUser
   onOpenSubject: (id: string) => void
   title?: string
+  /** The count beside Requests in the sidebar, from the first page only: a later page has no count to give. */
+  onWaitingCount?: (waiting: WaitingCount) => void
 }) {
   const [page, setPage] = useState(1)
   const [list, setList] = useState<JoinRequestList | null>(null)
@@ -78,7 +96,7 @@ export function JoinRequests({
     setLoading(true)
 
     api
-      .joinRequests({ page, pageSize: PAGE_SIZE })
+      .joinRequests({ page, pageSize: JOIN_REQUEST_PAGE_SIZE })
       .then((next) => {
         if (cancelled) return
         setList(next)
@@ -113,6 +131,10 @@ export function JoinRequests({
     () => (list?.requests ?? []).filter((r) => !answered.includes(r.userId)),
     [list, answered],
   )
+
+  useEffect(() => {
+    if (list?.page === 1) onWaitingCount?.(waitingFrom(list, answered))
+  }, [list, answered, onWaitingCount])
 
   const canAnswer = mayAnswer(me)
 
@@ -251,9 +273,10 @@ function HistoryMark({ row }: { row: JoinRequestRow }) {
 
 /**
  * The confirmation, built the way the kick and ban one is: a key made when the dialog opens and
- * carried by every press, so a double click, a retry or a reload all produce one answer.
+ * carried by every press, so a double click, a retry or a reload all produce one answer. Now's
+ * join request rows open the same one.
  */
-function ConfirmAnswer({
+export function ConfirmAnswer({
   answer,
   row,
   onClose,

@@ -27,6 +27,7 @@ import {
   type PageId,
 } from '@/lib/nav'
 import { groupTabFrom } from '@/lib/groupOverview'
+import type { WaitingCount } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density, type Place } from '@/lib/preferences'
 import { go, useLocation, useRoute } from '@/lib/router'
@@ -455,12 +456,17 @@ function Shell({
     ),
   )
 
-  // Join requests have no count yet: VRChat is the only place they are read, and whether that is
-  // worth a request on a timer is still open. When it is settled, the count goes in here beside
-  // the other two and the sidebar and the tab title pick it up with no other change.
+  // The number beside "Requests": the people waiting to be let in. VRChat is the only place the
+  // queue is read, so there is no count-only endpoint and nothing on a timer: Now and the Requests
+  // page read it when they open (one VRChat request each, approved 2026-09-27) and hand the count
+  // up, and answering a row there takes one off. Unknown until one of them has read it.
+  const seesRequests = mayOpen(me, 'requests')
+  const [joinRequests, setJoinRequests] = useState<WaitingCount | null>(null)
+
   const queues: Partial<Record<PageId, number>> = {
     ...(canReview ? { reviews: openReviews } : {}),
     ...(seesFlags ? { flags: openFlags } : {}),
+    ...(seesRequests && joinRequests ? { requests: joinRequests.count } : {}),
   }
 
   // Now carries the total of the queues it lists, and Live its own number beside them.
@@ -471,17 +477,20 @@ function Shell({
     ...(seesLive ? { live: flaggedHere } : {}),
   }
   const alarms: Partial<Record<PageId, boolean>> = { live: true }
+  // A full first page of join requests is written `50+`, and so is every total it is part of.
+  const waitingMore = seesRequests && joinRequests?.more === true
+  const more: Partial<Record<PageId, boolean>> = waitingMore ? { requests: true, now: true } : {}
 
   // The tab's title says how much is waiting, `(3) Modbot`, so a moderator whose Modbot tab is in
   // the background can see it from the tab strip. The cleanup puts the plain title back before the
   // next count is applied, so the count is never added twice.
   useEffect(() => {
     const plain = document.title
-    document.title = titleWithCount(plain, waiting)
+    document.title = titleWithCount(plain, waiting, waitingMore)
     return () => {
       document.title = plain
     }
-  }, [waiting])
+  }, [waiting, waitingMore])
 
   // The keyboard (lib/shortcuts.ts): the palette, the sheet, and `g` then a letter for every page
   // this person may open. Pages register their own list and filter keys.
@@ -546,6 +555,7 @@ function Shell({
     group: status.group,
     badges,
     alarms,
+    more,
   }
 
   return (
@@ -580,9 +590,10 @@ function Shell({
               onOpenSubject={setSubject}
               onGo={(p) => navigate(PATHS[p])}
               onOpenHealth={(section) => go(section ? `${PATHS.health}#${section}` : PATHS.health)}
+              onJoinRequestCount={setJoinRequests}
             />
           )}
-          {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} />}
+          {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} onWaitingCount={setJoinRequests} />}
           {page === 'discord-members' && <DiscordMembers me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live />}
@@ -622,7 +633,9 @@ function Shell({
           {page === 'group-settings' && <GroupSettings me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-roles' && <GroupRoles me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-gallery' && <GroupGallery me={me} pathOf={(id) => PATHS[id]} />}
-          {page === 'group-invites' && <GroupInvites me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-invites' && (
+            <GroupInvites me={me} pathOf={(id) => PATHS[id]} onJoinRequestCount={setJoinRequests} />
+          )}
           {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
           {page === 'health' && <Health />}
           {page === 'logs' && <Logs />}

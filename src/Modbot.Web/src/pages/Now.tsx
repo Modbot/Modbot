@@ -1,13 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { EmptyRow } from '@/components/PanelGrid'
+import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { api, type CurrentUser, type LiveInstance, type NowChange, type NowLook, type ReviewView } from '@/lib/api'
+import { Dialog } from '@/components/ui/dialog'
+import {
+  api,
+  type CurrentUser,
+  type JoinRequestAnswer,
+  type JoinRequestRow,
+  type LiveInstance,
+  type NowChange,
+  type NowLook,
+  type ReviewView,
+} from '@/lib/api'
 import { moderationApi, type ModerationFlag } from '@/lib/autoMod'
 import { writeChips } from '@/lib/filters'
 import { ago, clockTime, formatDay, headCountText, plural } from '@/lib/format'
 import { instanceName } from '@/lib/instanceName'
+import { countText, historyNote, JOIN_REQUEST_PAGE_SIZE, mayAnswer, waitingFrom, type WaitingCount } from '@/lib/joinRequests'
 import { changesFlags } from '@/lib/liveRules'
 import { INSTANCE_KINDS, PRESENCE_KINDS, REVIEW_KINDS, type LiveEvent } from '@/lib/liveStream'
 import { mayOpen, type PageId } from '@/lib/nav'
@@ -19,10 +32,12 @@ import { useLiveVersion } from '@/lib/useLiveVersion'
 import { useLoad } from '@/lib/useLoad'
 import { useStatusRows } from '@/lib/useStatusRows'
 import { cn } from '@/lib/utils'
+import { ConfirmAnswer } from '@/pages/Requests'
 
 /** How many of each queue's newest rows the page lists. The rest are one click away. */
 const FLAG_ROWS = 5
 const REVIEW_ROWS = 3
+const REQUEST_ROWS = 3
 
 /** How often the instances are read again while the page is on screen, as Live does. */
 const INSTANCES_MS = 30_000
@@ -39,6 +54,7 @@ const isInstanceEvent = (event: LiveEvent) => PRESENCE_KINDS.has(event.kind) || 
 const loadFlags = () => moderationApi.flags('open')
 const loadReviews = () => api.reviews('open')
 const loadLive = () => api.live()
+const loadRequests = () => api.joinRequests({ pageSize: JOIN_REQUEST_PAGE_SIZE })
 
 /**
  * Now -- the front page (UX review 2026-09-25, finding 3 and big idea 1). It answers "what needs
@@ -46,20 +62,28 @@ const loadLive = () => api.live()
  * analytics pages.
  *
  * Every part is read from the endpoint its own page uses, under that page's permission, so a
- * part this person cannot open is simply not drawn. Join requests are a link without a number:
- * VRChat is the only place they are read, and whether that is worth a request here is still open.
+ * part this person cannot open is simply not drawn.
+ *
+ * Join requests are read from VRChat, the one place the whole queue is (Modbot's own records start
+ * when it was set up, and a request can be older): one VRChat request each time the page opens,
+ * never on a timer and never again for a live event (approved 2026-09-27; site review 2026-09-27,
+ * finding 2). Without it "Nothing waiting" was wrong whenever somebody had asked to join. The count
+ * is handed up for the sidebar and the tab title, which have no other way to read it.
  */
 export function Now({
   me,
   onOpenSubject,
   onGo,
   onOpenHealth,
+  onJoinRequestCount,
 }: {
   me: CurrentUser
   onOpenSubject: (id: string) => void
   onGo: (page: PageId) => void
   /** Opens the Health page, at one part when the line names one. */
   onOpenHealth: (section: StatusRowId | null) => void
+  /** How many join requests are waiting, each time the queue is read or a row is answered here. */
+  onJoinRequestCount?: (waiting: WaitingCount) => void
 }) {
   const seesFlags = mayOpen(me, 'flags')
   const seesReviews = mayOpen(me, 'reviews')
@@ -69,6 +93,18 @@ export function Now({
 
   const flags = useLoad(seesFlags ? loadFlags : null, useLiveVersion(changesFlags))
   const reviews = useLoad(seesReviews ? loadReviews : null, useLiveVersion(isReviewEvent))
+  const requests = useLoad(seesRequests ? loadRequests : null)
+
+  // The rows answered here, so they leave without a second read, as on the Requests page.
+  const [answered, setAnswered] = useState<string[]>([])
+  const waitingRows = useMemo(
+    () => requests.data?.requests.filter((r) => !answered.includes(r.userId)) ?? null,
+    [requests.data, answered],
+  )
+
+  useEffect(() => {
+    if (requests.data) onJoinRequestCount?.(waitingFrom(requests.data, answered))
+  }, [requests.data, answered, onJoinRequestCount])
 
   const tick = useWhileVisible(INSTANCES_MS)
   const live = useLoad(seesLive ? loadLive : null, useLiveVersion(isInstanceEvent) + tick)
@@ -86,7 +122,13 @@ export function Now({
         <Decisions
           flags={seesFlags ? flags : null}
           reviews={seesReviews ? reviews : null}
-          seesRequests={seesRequests}
+          requests={
+            seesRequests
+              ? { data: waitingRows && { rows: waitingRows, more: requests.data?.hasMore === true }, error: requests.error }
+              : null
+          }
+          canAnswer={mayAnswer(me)}
+          onAnswered={(userId) => setAnswered((ids) => [...ids, userId])}
           now={now}
           onOpenSubject={onOpenSubject}
           onGo={onGo}
@@ -176,33 +218,46 @@ function HealthLine({ onOpen }: { onOpen: (section: StatusRowId | null) => void 
 
 type Loaded<T> = { data: T | null; error: string | null }
 
-/** Open flags and reviews, a count each and the newest rows, and the way to join requests. */
+/** Open flags, reviews and join requests, a count each and the newest rows. */
 function Decisions({
   flags,
   reviews,
-  seesRequests,
+  requests,
+  canAnswer,
+  onAnswered,
   now,
   onOpenSubject,
   onGo,
 }: {
   flags: Loaded<{ flags: ModerationFlag[]; open: number }> | null
   reviews: Loaded<{ reviews: ReviewView[]; openCount: number }> | null
-  seesRequests: boolean
+  /** The first page of the queue, less the rows answered here; `more` when it came back full. */
+  requests: Loaded<{ rows: JoinRequestRow[]; more: boolean }> | null
+  canAnswer: boolean
+  onAnswered: (userId: string) => void
   now: string
   onOpenSubject: (id: string) => void
   onGo: (page: PageId) => void
 }) {
+  const [answering, setAnswering] = useState<{ answer: JoinRequestAnswer; row: JoinRequestRow } | null>(null)
+
   const flagRows = [...(flags?.data?.flags ?? [])]
     .sort((a, b) => Date.parse(b.flaggedAt) - Date.parse(a.flaggedAt))
     .slice(0, FLAG_ROWS)
   const reviewRows = [...(reviews?.data?.reviews ?? [])]
     .sort((a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt))
     .slice(0, REVIEW_ROWS)
+  // A request VRChat gave no time for goes last: it cannot be shown as the newest.
+  const requestRows = [...(requests?.data?.rows ?? [])]
+    .sort((a, b) => (b.askedAt ? Date.parse(b.askedAt) : 0) - (a.askedAt ? Date.parse(a.askedAt) : 0))
+    .slice(0, REQUEST_ROWS)
 
-  const loading = (flags !== null && !flags.data && !flags.error) || (reviews !== null && !reviews.data && !reviews.error)
-  const failed = [flags?.error && !flags.data ? 'flags' : null, reviews?.error && !reviews.data ? 'reviews' : null].filter(
-    (x): x is string => x !== null,
-  )
+  const loading = [flags, reviews, requests].some((part) => part !== null && !part.data && !part.error)
+  const failed = [
+    flags?.error && !flags.data ? 'flags' : null,
+    reviews?.error && !reviews.data ? 'reviews' : null,
+    requests?.error && !requests.data ? 'join requests' : null,
+  ].filter((x): x is string => x !== null)
 
   return (
     <Card>
@@ -215,17 +270,20 @@ function Decisions({
           {reviews?.data && (
             <CountLink count={reviews.data.openCount} one="review" onClick={() => onGo('reviews')} />
           )}
-          {seesRequests && (
-            <button type="button" onClick={() => onGo('requests')} className="text-muted-foreground hover:text-foreground hover:underline">
-              Join requests
-            </button>
+          {requests?.data && (
+            <CountLink
+              count={requests.data.rows.length}
+              more={requests.data.more}
+              one="join request"
+              onClick={() => onGo('requests')}
+            />
           )}
         </div>
       </CardHeader>
 
       {failed.length > 0 && <EmptyRow tone="danger">Could not load the {failed.join(' or the ')}.</EmptyRow>}
 
-      {flagRows.length + reviewRows.length > 0 ? (
+      {flagRows.length + reviewRows.length + requestRows.length > 0 ? (
         <ul className="divide-y-(length:--hairline) divide-border" style={{ fontSize: 'var(--text-small)' }}>
           {flagRows.map((flag) => (
             <li key={flag.id} className="flex min-h-(--row-h) items-center gap-2 px-(--panel-pad) py-1">
@@ -261,22 +319,74 @@ function Decisions({
               <span className="shrink-0 font-mono text-muted-foreground">{ago(review.openedAt, now)}</span>
             </li>
           ))}
+          {requestRows.map((row) => {
+            const history = historyNote(row)
+            return (
+              <li key={row.userId} className="flex min-h-(--row-h) items-center gap-2 px-(--panel-pad) py-1">
+                <Badge variant="outline">Request</Badge>
+                <span className="shrink-0">
+                  <SubjectLink id={row.userId} name={row.displayName} onOpen={onOpenSubject} />
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onGo('requests')}
+                  className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch overflow-hidden text-left"
+                >
+                  <TrustRankBadge rank={row.trustRank} />
+                  {history && <Badge variant={row.banned ? 'destructive' : 'outline'}>{history}</Badge>}
+                </button>
+                <span className="shrink-0 font-mono text-muted-foreground">{row.askedAt ? ago(row.askedAt, now) : '—'}</span>
+                {canAnswer && (
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <Button size="xs" variant="ghost" onClick={() => setAnswering({ answer: 'approve', row })}>
+                      Approve
+                    </Button>
+                    <Button size="xs" variant="outline" onClick={() => setAnswering({ answer: 'reject', row })}>
+                      Reject
+                    </Button>
+                  </span>
+                )}
+              </li>
+            )
+          })}
         </ul>
       ) : (
         failed.length === 0 && <EmptyRow>{loading ? 'Loading…' : 'Nothing waiting'}</EmptyRow>
       )}
+
+      <Dialog open={answering !== null} onOpenChange={(next) => !next && setAnswering(null)}>
+        {answering !== null && (
+          <ConfirmAnswer
+            answer={answering.answer}
+            row={answering.row}
+            onClose={() => setAnswering(null)}
+            onAnswered={onAnswered}
+          />
+        )}
+      </Dialog>
     </Card>
   )
 }
 
-function CountLink({ count, one, onClick }: { count: number; one: string; onClick: () => void }) {
+function CountLink({
+  count,
+  more = false,
+  one,
+  onClick,
+}: {
+  count: number
+  /** The count is one full page of a list with no total: `50+`. */
+  more?: boolean
+  one: string
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn('hover:underline', count > 0 ? 'text-foreground' : 'text-muted-foreground')}
     >
-      <span className="font-mono">{count}</span> {plural(count, one)}
+      <span className="font-mono">{countText(count, more)}</span> {plural(more ? 2 : count, one)}
     </button>
   )
 }
