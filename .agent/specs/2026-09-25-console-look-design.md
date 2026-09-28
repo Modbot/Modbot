@@ -751,6 +751,12 @@ conversation list from the left (`17rem`), and the Users page's account details 
 | body (IBM Plex Sans) | everything else, with `tabular-nums` on the whole page |
 | `font-mono` | ids, timestamps, counters, compared numbers, sizes, versions, addresses |
 
+One exception, chosen by the owner on 2026-09-28: the cards on the VRChat page's Overview title
+themselves the way vrchat.com's group page does, large and bold (`GroupCardTitle` in
+`GroupOverview.tsx`, 1.4 times `--text-base`, weight 700), so the page reads like VRChat's. The
+face and the colours stay Modbot's: VRChat's teal for the chosen tab was offered the same day and
+turned down.
+
 Body text is `--text-base`. Tables, strips, labels, badges, notes and fields' labels are
 `--text-small`. The line under a name (an id, a region, "bot", "representing") is `--text-tiny`,
 and a plain name on its own line under another is `--text-small`. `--text-tiny` is 11px dense,
