@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
@@ -25,7 +25,7 @@ import { can, canAny } from '@/lib/permissions'
 import { useQueryParam } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
 import { openPerson } from '@/lib/subject'
-import { trustRankColour, trustRankLabel, type TrustRank } from '@/lib/trustRank'
+import { trustRank, trustRankColour, trustRankLabel, type TrustRank } from '@/lib/trustRank'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -335,16 +335,12 @@ export function People({ me }: { me: CurrentUser }) {
         {list.people.length === 0 ? (
           <EmptyRow>{search || chips.length > 0 || joined ? 'Nobody matches' : 'Nobody seen yet'}</EmptyRow>
         ) : (
-          <>
-          {/*
-            Two-line rows on a phone and in VR, where the table ran off the side and a headset wrote
-            every column's name out on every row. The member list's views keep their table: their
-            kick and ban menu has no place in a row that is one button.
-          */}
-          {!view && <PeopleRows people={list.people} now={now} />}
-          <div data-layout={view ? undefined : 'wide'}>
           <Table
             pinFirst
+            // Two-line rows on a phone and in VR, where the table ran off the side and a headset
+            // wrote every column's name out on every row. The member list's views keep their table:
+            // their kick and ban menu has no place in a row that is one button.
+            narrow={view ? undefined : <PeopleRows people={list.people} now={now} />}
             head={
               view ? (
                 <>
@@ -435,8 +431,6 @@ export function People({ me }: { me: CurrentUser }) {
               </Tr>
             ))}
           </Table>
-          </div>
-          </>
         )}
 
         <Pager at={at} pages={pages} />
@@ -518,19 +512,14 @@ function Standing({ person, blank = false }: { person: Person; blank?: boolean }
  */
 function PeopleRows({ people, now }: { people: Person[]; now: string }) {
   return (
-    <ul data-layout="narrow">
+    <NarrowRows>
       {people.map((person) => (
-        <li key={person.userId} className="border-t border-(length:--hairline) first:border-t-0">
-          <button
-            type="button"
-            onClick={() => openPerson(person.userId)}
-            className={cn(
-              'flex w-full items-center gap-2 px-(--panel-pad) py-2 text-left hover:bg-muted/40',
-              person.notFoundAt && 'text-muted-foreground',
-            )}
-            style={{ minHeight: 'var(--row-h)' }}
-          >
-            {person.avatarThumbnailUrl ? (
+        <NarrowRow
+          key={person.userId}
+          onOpen={() => openPerson(person.userId)}
+          className={cn(person.notFoundAt && 'text-muted-foreground')}
+          picture={
+            person.avatarThumbnailUrl ? (
               <img
                 src={vrchatMedia(person.avatarThumbnailUrl)}
                 alt=""
@@ -539,31 +528,32 @@ function PeopleRows({ people, now }: { people: Person[]; now: string }) {
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="size-8 shrink-0 rounded-full bg-muted" />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="truncate font-medium">{person.displayName ?? person.userId}</span>
-                {person.eighteenPlus && (
-                  <Badge variant="ok" className="shrink-0 font-mono" title="18+ verified">
-                    18+
-                  </Badge>
-                )}
-                <span className="ml-auto shrink-0">
-                  <Standing person={person} blank />
-                </span>
-              </div>
-              <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                {person.plainName && <span className="truncate">{person.plainName}</span>}
-                <TrustRankBadge rank={person.trustRank} className="shrink-0" />
-                {person.isRepresenting && <span className="shrink-0">representing</span>}
-                <span className="shrink-0 whitespace-nowrap">seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span></span>
-              </div>
-            </div>
-          </button>
-        </li>
+              <span className="size-8 shrink-0 rounded-full bg-muted" />
+            )
+          }
+          main={
+            <span className="flex items-center gap-1.5">
+              <span className="truncate font-medium">{person.displayName ?? person.userId}</span>
+              {person.eighteenPlus && (
+                <Badge variant="ok" className="shrink-0 font-mono" title="18+ verified">
+                  18+
+                </Badge>
+              )}
+            </span>
+          }
+          side={<Standing person={person} blank />}
+          facts={[
+            person.plainName,
+            // The badge draws nothing for a rank it does not know, and an empty fact would still get its " · ".
+            trustRank(person.trustRank) && <TrustRankBadge key="rank" rank={person.trustRank} />,
+            person.isRepresenting && 'representing',
+            <span key="seen">
+              seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span>
+            </span>,
+          ]}
+        />
       ))}
-    </ul>
+    </NarrowRows>
   )
 }
 

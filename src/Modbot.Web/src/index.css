@@ -363,7 +363,8 @@
    a scrollbar a laser pointer cannot catch. So the page draws both and shows
    one: `data-layout="wide"` on the table, `data-layout="narrow"` on the rows.
    The rows say the few numbers that answer the page's question; the world's
-   popup has the rest.
+   popup has the rest. A table given `narrow` rows marks both itself
+   (components/ui/data-table.tsx), so a page never writes these by hand.
    ─────────────────────────────────────────────────────────────────────────── */
 [data-layout="narrow"] {
   display: none;

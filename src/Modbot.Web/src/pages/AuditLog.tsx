@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardFooter, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { EntryDetail } from '@/components/audit/EntryDetail'
 import { mergeSameFacts, type FactRow } from '@/lib/factRows'
 import { FilterBar } from '@/components/filters/FilterBar'
@@ -390,6 +390,19 @@ export function AuditLog() {
           ) : (
             <Table
               nameColumn={3}
+              narrow={
+                <NarrowRows>
+                  {rows.map((row) => (
+                    <NarrowFact
+                      key={row.entry.id}
+                      row={row}
+                      marked={isNamed(row, factId)}
+                      open={isOpen(row)}
+                      onToggle={() => toggle(row)}
+                    />
+                  ))}
+                </NarrowRows>
+              }
               head={
                 <>
                   <Th className="w-0 pr-0" />
@@ -457,6 +470,89 @@ async function searchWorlds(words: string): Promise<FilterOption[]> {
 }
 
 /**
+ * Scrolls the row the address names to the middle of the screen, once. Both forms of a row ask:
+ * the one that is hidden has no place on the screen, so only the one being read moves.
+ */
+function useBroughtIntoView<T extends HTMLElement>(marked: boolean) {
+  const row = useRef<T>(null)
+  const brought = useRef(false)
+
+  useEffect(() => {
+    if (!marked || brought.current) return
+    brought.current = true
+    row.current?.scrollIntoView({ block: 'center' })
+  }, [marked])
+
+  return row
+}
+
+/** What happened, as a sentence, and how many facts it stands for when it is one decision of several. */
+function Sentence({ entry }: { entry: AuditEntry }) {
+  return (
+    <>
+      {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
+          markup. */}
+      <FactSentence entry={entry} />
+      {/* One decision, several facts. The row is the decision; opening it shows every fact. */}
+      {entry.linked && entry.linked.length > 0 && (
+        <Badge variant="secondary" className="ml-2 align-middle">
+          <span className="font-mono">{entry.linked.length + 1}</span> facts
+        </Badge>
+      )}
+    </>
+  )
+}
+
+/**
+ * One fact on a phone: the sentence on top, because it is what the page is for, then the sources
+ * and when, muted. A tap opens the same detail the table's row does, under it.
+ */
+function NarrowFact({
+  row: { entry, also },
+  marked,
+  open,
+  onToggle,
+}: {
+  row: FactRow
+  marked: boolean
+  open: boolean
+  onToggle: () => void
+}) {
+  const row = useBroughtIntoView<HTMLLIElement>(marked)
+
+  return (
+    <NarrowRow
+      ref={row}
+      main={<Sentence entry={entry} />}
+      facts={[
+        <span key="sources" className="inline-flex gap-1">
+          {[entry, ...also].map((seen) => (
+            <SourceBadge key={seen.id} source={seen.source} />
+          ))}
+        </span>,
+        <span key="when" className="inline-flex items-baseline gap-2 font-mono">
+          <FactTime entry={entry} />
+          <span>{formatDay(entry.occurredAt)}</span>
+        </span>,
+      ]}
+      onOpen={onToggle}
+      open={open}
+      hasLinks
+      className={cn(marked && 'bg-accent')}
+    >
+      {open && (
+        <div>
+          <EntryDetail entry={entry} />
+          {also.map((seen) => (
+            <EntryDetail key={seen.id} entry={seen} around={false} />
+          ))}
+        </div>
+      )}
+    </NarrowRow>
+  )
+}
+
+/**
  * One fact, as a sentence, and everything it holds underneath when the row is opened.
  *
  * It used to print the raw type and then the subject and the actor as ids in two more columns,
@@ -483,14 +579,7 @@ function Row({
   'data-selected': boolean | undefined
   'aria-selected': boolean
 }) {
-  const row = useRef<HTMLTableRowElement>(null)
-  const brought = useRef(false)
-
-  useEffect(() => {
-    if (!marked || brought.current) return
-    brought.current = true
-    row.current?.scrollIntoView({ block: 'center' })
-  }, [marked])
+  const row = useBroughtIntoView<HTMLTableRowElement>(marked)
 
   return (
     <>
@@ -524,15 +613,7 @@ function Row({
           </div>
         </Td>
         <Td className="max-w-3xl min-w-[20rem] whitespace-normal" title={entry.type}>
-          {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
-              markup. */}
-          <FactSentence entry={entry} />
-          {/* One decision, several facts. The row is the decision; opening it shows every fact. */}
-          {entry.linked && entry.linked.length > 0 && (
-            <Badge variant="secondary" className="ml-2 align-middle">
-              <span className="font-mono">{entry.linked.length + 1}</span> facts
-            </Badge>
-          )}
+          <Sentence entry={entry} />
         </Td>
       </Tr>
       {/* No line of its own above: the detail belongs to the row over it. The next row's line

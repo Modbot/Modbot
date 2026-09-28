@@ -1,4 +1,3 @@
-import { Fragment } from 'react'
 import { DailyLine, compactNumber, dateTime, minutes, nextSlot } from '@/components/charts'
 import { WorldLink } from '@/components/facts'
 import { HeadCount } from '@/components/HeadCount'
@@ -7,7 +6,7 @@ import { plural } from '@/lib/format'
 import { openWorld } from '@/lib/subject'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { PageMessage, Panel, Stat, StatStrip } from './shared'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /** Below this many presence reports in the range, the numbers are shown but called thin. */
@@ -62,38 +61,31 @@ export function WorldStats({ data }: { data: WorldsAnalytics }) {
         {data.worlds.length === 0 ? (
           <EmptyRow>No worlds in this range.</EmptyRow>
         ) : (
-          <>
-          {/* Two-line rows on a phone and in VR, where the table's columns ran off the side. */}
-          <ul data-layout="narrow">
-            {data.worlds.map((w) => (
-              <li key={w.worldId} className="border-t border-(length:--hairline) first:border-t-0">
-                <button
-                  type="button"
-                  onClick={() => openWorld(w.worldId)}
-                  className="flex w-full items-center gap-2 px-(--panel-pad) py-2 text-left hover:bg-muted/40"
-                  style={{ minHeight: 'var(--row-h)' }}
-                >
-                  {w.thumbnailImageUrl && (
-                    <img
-                      src={vrchatMedia(w.thumbnailImageUrl)}
-                      alt=""
-                      loading="lazy"
-                      className="size-10 shrink-0 object-cover"
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <div className="truncate">{worldLabel(data.worlds, w.worldId)}</div>
-                    <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                      {secondLine(w)}
-                    </div>
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div data-layout="wide">
           <Table
             pinFirst
+            // Two-line rows on a phone and in VR, where the table's columns ran off the side.
+            narrow={
+              <NarrowRows>
+                {data.worlds.map((w) => (
+                  <NarrowRow
+                    key={w.worldId}
+                    onOpen={() => openWorld(w.worldId)}
+                    picture={
+                      w.thumbnailImageUrl && (
+                        <img
+                          src={vrchatMedia(w.thumbnailImageUrl)}
+                          alt=""
+                          loading="lazy"
+                          className="size-10 shrink-0 object-cover"
+                        />
+                      )
+                    }
+                    main={<span className="block truncate">{worldLabel(data.worlds, w.worldId)}</span>}
+                    facts={secondLine(w)}
+                  />
+                ))}
+              </NarrowRows>
+            }
             head={
               <>
                 <Th>World</Th>
@@ -176,8 +168,6 @@ export function WorldStats({ data }: { data: WorldsAnalytics }) {
               </Tr>
             ))}
           </Table>
-          </div>
-          </>
         )}
       </Panel>
 
@@ -213,16 +203,16 @@ function MostAtOnce({ world }: { world: WorldSummary }) {
 }
 
 /** A world's second line on a phone or in VR: "2 instances · 10 h 50 min open · 53 of 80". */
-function secondLine(w: WorldSummary): React.ReactNode {
-  const parts: React.ReactNode[] = [`${compactNumber(w.instances)} ${plural(w.instances, 'instance')}`]
-  if (w.minutesOpen > 0) parts.push(`${minutes(w.minutesOpen)} open`)
-  if (w.mostAtOnce !== null) parts.push(<MostAtOnce key="most" world={w} />)
-  return parts.map((p, i) => (
-    <Fragment key={i}>
-      {i > 0 && ' · '}
-      {p}
-    </Fragment>
-  ))
+function secondLine(w: WorldSummary): React.ReactNode[] {
+  return [
+    <span key="instances" className="font-mono">{`${compactNumber(w.instances)} ${plural(w.instances, 'instance')}`}</span>,
+    w.minutesOpen > 0 && <span key="open" className="font-mono">{`${minutes(w.minutesOpen)} open`}</span>,
+    w.mostAtOnce !== null && (
+      <span key="most" className="font-mono">
+        <MostAtOnce world={w} />
+      </span>
+    ),
+  ]
 }
 
 /**

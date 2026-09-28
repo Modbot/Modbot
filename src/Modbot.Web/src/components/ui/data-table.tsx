@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef } from 'react'
+import { Fragment, useLayoutEffect, useRef } from 'react'
+import { keptFacts } from '@/lib/rowFacts'
 import { cn } from '@/lib/utils'
 
 /**
@@ -13,16 +14,22 @@ import { cn } from '@/lib/utils'
  * "Tables in a headset"). `nameColumn` says which column names the row, where it is not the first.
  * The column names are copied onto the cells here, because a stacked cell is far from its header
  * and CSS cannot read one element's text into another.
+ *
+ * `narrow` is the same list drawn as two-line rows (`NarrowRows`), for a table too wide for a
+ * phone. Given one, the table draws both and shows one by width (index.css, "A list with two
+ * forms"): the rows on a phone and in a headset, the table everywhere else, unchanged.
  */
 export function Table({
   head,
   pinFirst = false,
   nameColumn = 0,
+  narrow,
   children,
 }: {
   head: React.ReactNode
   pinFirst?: boolean
   nameColumn?: number
+  narrow?: React.ReactNode
   children: React.ReactNode
 }) {
   const table = useRef<HTMLTableElement>(null)
@@ -70,14 +77,127 @@ export function Table({
   }, [nameColumn])
 
   return (
-    <div data-pin-first={pinFirst || undefined} className="relative overflow-x-auto">
-      <table ref={table} data-slot="table" className="w-full" style={{ fontSize: 'var(--text-small)' }}>
-        <thead className="bg-strip text-left text-muted-foreground">
-          <tr>{head}</tr>
-        </thead>
-        <tbody>{children}</tbody>
-      </table>
-    </div>
+    <>
+      {narrow}
+      <div
+        data-pin-first={pinFirst || undefined}
+        data-layout={narrow ? 'wide' : undefined}
+        className="relative overflow-x-auto"
+      >
+        <table ref={table} data-slot="table" className="w-full" style={{ fontSize: 'var(--text-small)' }}>
+          <thead className="bg-strip text-left text-muted-foreground">
+            <tr>{head}</tr>
+          </thead>
+          <tbody>{children}</tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+/** A table's phone form: one `NarrowRow` for each of the table's rows, in the same order. */
+export function NarrowRows({ children }: { children: React.ReactNode }) {
+  return <ul data-layout="narrow">{children}</ul>
+}
+
+/**
+ * One row of a list on a phone. Line 1 is the thing the row is about -- a name, the audit log's
+ * sentence -- with `side` at its right end for a badge or the row's own buttons. Line 2 is the
+ * table's other columns, muted, one line joined with " · ", in column order. When line 2 is too
+ * long, the first fact gives way (a plain name, say), so the last ones -- usually when -- stay.
+ *
+ * The whole row is the tap target, at least a row high. It is a button, unless something inside it
+ * is a link or a button of its own (`hasLinks`): a button cannot hold another, so such a row is
+ * clicked as a whole the way a table row is, and a tap on one of its own links is left to that
+ * link. `open` is for a row that opens its details below it, in `children`.
+ */
+export function NarrowRow({
+  picture,
+  main,
+  side,
+  facts = [],
+  onOpen,
+  open,
+  hasLinks = false,
+  className,
+  ref,
+  children,
+}: {
+  picture?: React.ReactNode
+  main: React.ReactNode
+  side?: React.ReactNode
+  facts?: readonly (React.ReactNode | null | undefined | false | '')[]
+  onOpen?: () => void
+  open?: boolean
+  hasLinks?: boolean
+  className?: string
+  ref?: React.Ref<HTMLLIElement>
+  children?: React.ReactNode
+}) {
+  const shown = keptFacts(facts)
+
+  const body = (
+    <>
+      {picture}
+      <span className="block min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="block min-w-0 flex-1">{main}</span>
+          {side && <span className="flex shrink-0 items-center gap-1">{side}</span>}
+        </span>
+        {shown.length > 0 && (
+          <span
+            className="flex min-w-0 items-center gap-1.5 text-muted-foreground"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            {shown.map((fact, i) => (
+              <Fragment key={i}>
+                {i > 0 && <span className="shrink-0">·</span>}
+                <span className={i === 0 ? 'min-w-0 truncate' : 'shrink-0 whitespace-nowrap'}>{fact}</span>
+              </Fragment>
+            ))}
+          </span>
+        )}
+      </span>
+    </>
+  )
+
+  const look = cn(
+    'flex w-full items-center gap-2 px-(--panel-pad) py-2 text-left',
+    onOpen && 'cursor-pointer hover:bg-muted/40',
+    className,
+  )
+
+  return (
+    <li ref={ref} className="border-t border-(length:--hairline) first:border-t-0">
+      {!onOpen ? (
+        <div className={look} style={{ minHeight: 'var(--row-h)' }}>
+          {body}
+        </div>
+      ) : hasLinks ? (
+        <div
+          tabIndex={0}
+          aria-expanded={open}
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest('a, button, summary')) return
+            onOpen()
+          }}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return
+            e.preventDefault()
+            onOpen()
+          }}
+          className={look}
+          style={{ minHeight: 'var(--row-h)' }}
+        >
+          {body}
+        </div>
+      ) : (
+        <button type="button" aria-expanded={open} onClick={onOpen} className={look} style={{ minHeight: 'var(--row-h)' }}>
+          {body}
+        </button>
+      )}
+      {children}
+    </li>
   )
 }
 
