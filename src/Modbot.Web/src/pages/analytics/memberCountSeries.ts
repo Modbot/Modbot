@@ -78,21 +78,155 @@ export function memberCountRows(
   }
 }
 
-/** `want` evenly spaced instants from `from` to `to`, both included, for the axis. */
-export function timeTicks(from: number, to: number, want = 6): number[] {
-  if (!(to > from)) return [from]
-
-  const n = Math.max(2, want)
-  const out: number[] = []
-  for (let i = 0; i < n; i++) out.push(Math.round(from + ((to - from) * i) / (n - 1)))
-  return out
-}
-
+const MINUTE = 60_000
+const HOUR = 3_600_000
 const DAY = 86_400_000
 
 /** Locale and zone, so a test can pin them; the page leaves both to the viewer's browser. */
 /** `now` is the instant "this year" is taken from, for the tests; the browser's clock when left out. */
 export type TimeFormat = { locale?: string; timeZone?: string; now?: number }
+
+/**
+ * The axis's ticks: about `want` of them, each on a boundary the label names — a whole minute or
+ * hour across a day or two, a midnight across weeks and months, the first of a month across years.
+ *
+ * Ticks used to be `want` equal slices of the span. A week cut into five gaps puts one every 1.4
+ * days, each label names whatever day its slice starts on, and so one day in seven never gets a
+ * label and reads as missing. A tick on the boundary names exactly the day (or hour) it stands on.
+ *
+ * The step is the smallest one that gives no more than `want + 2` ticks, so a week shows all seven
+ * days. Days are counted back from the last midnight, so the newest day always has its label.
+ * Boundaries are the viewer's own, in `format.timeZone` when a test pins one.
+ */
+export function timeTicks(from: number, to: number, want = 6, format: TimeFormat = {}): number[] {
+  if (!(to > from)) return [from]
+
+  const span = to - from
+  const most = Math.max(2, want) + 2
+  const steps: { every: number; ticks: () => number[] }[] =
+    span <= 2 * DAY
+      ? [
+          ...[1, 2, 5, 10, 15, 30].map((m) => ({ every: m * MINUTE, ticks: () => minuteTicks(from, to, m, format) })),
+          ...[1, 2, 3, 4, 6, 12].map((h) => ({ every: h * HOUR, ticks: () => hourTicks(from, to, h, format) })),
+        ]
+      : span <= 400 * DAY
+        ? [
+            ...[1, 2, 7, 14].map((d) => ({ every: d * DAY, ticks: () => dayTicks(from, to, d, format) })),
+            ...[1, 3].map((m) => ({ every: m * 30 * DAY, ticks: () => monthTicks(from, to, m, format) })),
+          ]
+        : [1, 3, 6, 12, 24, 60].map((m) => ({ every: m * 30 * DAY, ticks: () => monthTicks(from, to, m, format) }))
+
+  for (const step of steps) {
+    // Only build the steps that could fit; a minute step across two days would be thousands.
+    if (span / step.every > most + 1) continue
+    const ticks = step.ticks()
+    if (ticks.length >= 2 && ticks.length <= most) return ticks
+  }
+
+  // An axis too short for two whole minutes: evenly spaced, both ends included.
+  const n = Math.max(2, want)
+  const out: number[] = []
+  for (let i = 0; i < n; i++) out.push(Math.round(from + (span * i) / (n - 1)))
+  return out
+}
+
+/** Every `step` minutes on the viewer's clock (minute 0, 15, 30, 45 for fifteen). */
+function minuteTicks(from: number, to: number, step: number, format: TimeFormat): number[] {
+  // Zone offsets are whole minutes, so a whole minute here is a whole minute on the viewer's clock.
+  let t = Math.ceil(from / MINUTE) * MINUTE
+  while (t <= to && localParts(t, format.timeZone).minute % step !== 0) t += MINUTE
+
+  const out: number[] = []
+  for (; t <= to; t += step * MINUTE) out.push(t)
+  return out
+}
+
+/** Every `step` hours on the viewer's clock, on the hour (00:00, 06:00, 12:00, 18:00 for six). */
+function hourTicks(from: number, to: number, step: number, format: TimeFormat): number[] {
+  const first = localParts(from, format.timeZone)
+  let t = from - first.minute * MINUTE - first.second * 1000 - (from % 1000)
+  if (t < from) t += HOUR
+
+  // One hour at a time, so a clock change still lands every tick on a whole hour.
+  const out: number[] = []
+  for (; t <= to; t += HOUR) {
+    const p = localParts(t, format.timeZone)
+    if (p.minute === 0 && p.hour % step === 0) out.push(t)
+  }
+  return out
+}
+
+/** Midnights `step` days apart, counted back from the last midnight at or before `to`. */
+function dayTicks(from: number, to: number, step: number, format: TimeFormat): number[] {
+  const last = localParts(to, format.timeZone)
+  const out: number[] = []
+  for (let back = 0; ; back += step) {
+    const t = localMidnight(last.year, last.month, last.day - back, format.timeZone)
+    if (t < from) break
+    if (t <= to) out.push(t)
+  }
+  return out.reverse()
+}
+
+/** The first of every `step`th month, counted from January, from `from` to `to`. */
+function monthTicks(from: number, to: number, step: number, format: TimeFormat): number[] {
+  const first = localParts(from, format.timeZone)
+  const out: number[] = []
+  for (let month = first.month; ; month++) {
+    const t = localMidnight(first.year, month, 1, format.timeZone)
+    if (t > to) break
+    if (t >= from && (month - 1) % step === 0) out.push(t)
+  }
+  return out
+}
+
+type LocalParts = { year: number; month: number; day: number; hour: number; minute: number; second: number }
+
+const clocks = new Map<string, Intl.DateTimeFormat>()
+
+/** An instant as the date and time on the viewer's clock (or the pinned zone's). Month is 1–12. */
+function localParts(ms: number, timeZone: string | undefined): LocalParts {
+  const key = timeZone ?? ''
+  let clock = clocks.get(key)
+  if (!clock) {
+    clock = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+    })
+    clocks.set(key, clock)
+  }
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(clock.formatToParts(ms).find((p) => p.type === type)?.value ?? 0)
+  return {
+    year: part('year'),
+    month: part('month'),
+    day: part('day'),
+    hour: part('hour'),
+    minute: part('minute'),
+    second: part('second'),
+  }
+}
+
+/**
+ * The instant of midnight on a date on the viewer's clock. Day and month may run past their ends
+ * (day 0 is the last of the month before), as `Date.UTC` allows.
+ */
+function localMidnight(year: number, month: number, day: number, timeZone: string | undefined): number {
+  const wall = Date.UTC(year, month - 1, day)
+  const offset = (t: number) => {
+    const p = localParts(t, timeZone)
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(t / 1000) * 1000
+  }
+  // Twice, because the offset at the first guess can be the one from the other side of a clock change.
+  const guess = wall - offset(wall)
+  return wall - offset(guess)
+}
 
 /**
  * An axis label for an instant, in the viewer's own clock.
