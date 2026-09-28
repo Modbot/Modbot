@@ -6,6 +6,7 @@ import { Card, CardFooter, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { EntryDetail } from '@/components/audit/EntryDetail'
+import { mergeSameFacts, type FactRow } from '@/lib/factRows'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, SourceBadge } from '@/components/facts'
@@ -175,6 +176,9 @@ export function AuditLog() {
   }, [pages, query])
 
   const entries = useMemo(() => pages.flatMap((p) => p.entries), [pages])
+  // One thing two sources both recorded is one row with both badges (lib/factRows). Merged after
+  // the pages are joined, so a pair split across "Load more" comes together once both are loaded.
+  const rows = useMemo(() => mergeSameFacts(entries), [entries])
   const coverage = pages[0]?.coverage
   const next = pages[pages.length - 1]?.next
 
@@ -231,19 +235,19 @@ export function AuditLog() {
   // Rows open on click into everything the entry holds. The entry the address names opens too,
   // because whoever followed that link came for that one.
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set())
-  const isOpen = (entry: AuditEntry) => expanded.has(entry.id) || isNamed(entry, factId)
-  const toggle = (entry: AuditEntry) =>
+  const isOpen = (row: FactRow) => expanded.has(row.entry.id) || isNamed(row, factId)
+  const toggle = (row: FactRow) =>
     setExpanded((current) => {
       const next = new Set(current)
-      if (isOpen(entry)) next.delete(entry.id)
-      else next.add(entry.id)
+      if (isOpen(row)) next.delete(row.entry.id)
+      else next.add(row.entry.id)
       return next
     })
 
   // `j`/`k` move down and up the rows; `Enter` opens the selected row; `o` opens what it is about.
-  const { rowProps, selected } = useListSelection(entries.length, (i) => {
-    const entry = entries[i]
-    if (entry) toggle(entry)
+  const { rowProps, selected } = useListSelection(rows.length, (i) => {
+    const row = rows[i]
+    if (row) toggle(row)
   })
 
   useShortcuts([
@@ -253,7 +257,7 @@ export function AuditLog() {
       group: 'Lists',
       page: true,
       run: () => {
-        const entry = selected === null ? undefined : entries[selected]
+        const entry = selected === null ? undefined : rows[selected]?.entry
         if (!entry) return
         if (entry.subjectKind === 'Person')
           (entry.subjectPlatform.toLowerCase() === 'discord' ? openDiscordPerson : openPerson)(entry.subjectId)
@@ -393,13 +397,13 @@ export function AuditLog() {
                 </>
               }
             >
-              {entries.map((entry, i) => (
+              {rows.map((row, i) => (
                 <Row
-                  key={entry.id}
-                  entry={entry}
-                  marked={isNamed(entry, factId)}
-                  open={isOpen(entry)}
-                  onToggle={() => toggle(entry)}
+                  key={row.entry.id}
+                  row={row}
+                  marked={isNamed(row, factId)}
+                  open={isOpen(row)}
+                  onToggle={() => toggle(row)}
                   {...rowProps(i)}
                 />
               ))}
@@ -408,7 +412,7 @@ export function AuditLog() {
 
           <CardFooter className="gap-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             <span>
-              <span className="font-mono">{entries.length}</span> {entries.length === 1 ? 'entry' : 'entries'} shown
+              <span className="font-mono">{rows.length}</span> {rows.length === 1 ? 'entry' : 'entries'} shown
             </span>
             <span className="flex-1" />
             {next && (
@@ -425,11 +429,14 @@ export function AuditLog() {
 /**
  * Whether a row is the entry the address names. A decision's second fact is shown inside the row
  * for the decision rather than on its own (spec 5.3.2), so a link to it -- a case file's to the ban
- * pressed in Modbot -- names the row that holds it.
+ * pressed in Modbot -- names the row that holds it. So does a link to another source's record of
+ * the same fact, which is shown in the same row.
  */
-function isNamed(entry: AuditEntry, factId: string | null): boolean {
+function isNamed(row: FactRow, factId: string | null): boolean {
   if (!factId) return false
-  return String(entry.id) === factId || (entry.linked ?? []).some((fact) => String(fact.id) === factId)
+  return [row.entry, ...row.also].some(
+    (entry) => String(entry.id) === factId || (entry.linked ?? []).some((fact) => String(fact.id) === factId),
+  )
 }
 
 /** The command palette's search, narrowed to people: VRChat and Discord, since either can be what an entry is about. */
@@ -455,15 +462,18 @@ async function searchWorlds(words: string): Promise<FilterOption[]> {
  * and where, and every name in it opens its own popup (see components/factSentence.tsx).
  * Clicking the row itself, anywhere that is not one of those names, opens the entry's detail
  * below it: every column, the diff, the snapshot, and the JSON.
+ *
+ * A fact two sources both recorded is one row with both badges, and opening it shows each
+ * source's own entry, one under the other, so neither record is hidden by the merge.
  */
 function Row({
-  entry,
+  row: { entry, also },
   marked,
   open,
   onToggle,
   ...rowAttributes
 }: {
-  entry: AuditEntry
+  row: FactRow
   marked: boolean
   open: boolean
   onToggle: () => void
@@ -506,7 +516,11 @@ function Row({
           </div>
         </Td>
         <Td>
-          <SourceBadge source={entry.source} />
+          <div className="flex flex-wrap gap-1">
+            {[entry, ...also].map((seen) => (
+              <SourceBadge key={seen.id} source={seen.source} />
+            ))}
+          </div>
         </Td>
         <Td className="max-w-3xl min-w-[20rem] whitespace-normal" title={entry.type}>
           {/* Payload text is user-controlled (spec 5.3). The sentence renders it as text, never as
@@ -526,6 +540,9 @@ function Row({
         <tr>
           <td colSpan={4} className="p-0">
             <EntryDetail entry={entry} />
+            {also.map((seen) => (
+              <EntryDetail key={seen.id} entry={seen} around={false} />
+            ))}
           </td>
         </tr>
       )}
