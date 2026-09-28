@@ -490,7 +490,7 @@ function PageGrid({
           <img src={vrchatMedia(group.iconUrl)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-sm object-cover" />
         ) : undefined
       }
-      bodyClassName="px-2 py-2"
+      bodyClassName="px-2 py-2 short:py-1"
       foot={
         <div className="flex shrink-0 items-center gap-1 border-t border-t-(length:--hairline) px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
           {/* The same line as the sidebar's status rows, for the same people. */}
@@ -530,13 +530,12 @@ function PageGrid({
         </div>
       }
     >
-      {/* A phone on its side is under 400px tall, and a tile standing up is 60px: the tiles lie
-          down there, the icon beside the label, so three rows of them still fit on one screen. */}
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1 short:grid-cols-[repeat(auto-fill,minmax(8rem,1fr))]">
+      {/* A phone on its side is under 400px tall. The tiles lose their padding there, so three rows
+          of them still fit on one screen, six or more across from a 667px-wide phone up. */}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
         {listedPages(me).map((item) => {
           const Icon = PAGE_ICONS[item.id] ?? Circle
           const here = lit === item.id
-          const count = { count: badges?.[item.id], alarm: alarms?.[item.id], more: more?.[item.id] }
           return (
             <li key={item.id}>
               <button
@@ -545,8 +544,8 @@ function PageGrid({
                 aria-current={here ? 'page' : undefined}
                 className={cn(
                   'relative flex min-h-[calc(var(--control-h)+0.75rem)] w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-sm px-1 py-2',
-                  'short:min-h-(--control-h) short:flex-row short:justify-start short:gap-2 short:px-2 short:py-1',
-                  'outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                  'short:min-h-(--control-h) short:gap-0 short:py-1',
+                  'outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring',
                   here ? 'bg-background font-medium text-foreground' : 'text-muted-foreground active:bg-muted',
                 )}
               >
@@ -554,16 +553,16 @@ function PageGrid({
                 {here && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-primary" />}
                 <span className="relative shrink-0">
                   <Icon className="size-5" />
-                  <CountMark {...count} className="absolute -top-2 left-[calc(100%-0.25rem)] short:hidden" />
+                  <CountMark
+                    count={badges?.[item.id]}
+                    alarm={alarms?.[item.id]}
+                    more={more?.[item.id]}
+                    className="absolute -top-2 left-[calc(100%-0.25rem)] short:-top-1"
+                  />
                 </span>
-                <span
-                  className="w-full truncate text-center short:w-auto short:min-w-0 short:flex-1 short:text-left"
-                  style={{ fontSize: 'var(--text-small)' }}
-                >
+                <span className="w-full truncate text-center" style={{ fontSize: 'var(--text-small)' }}>
                   {item.label}
                 </span>
-                {/* Lying down, the count follows the label rather than covering its first letters. */}
-                <CountMark {...count} className="hidden shrink-0 short:inline" />
               </button>
             </li>
           )
@@ -581,7 +580,7 @@ function HealthButton({ onOpen }: { onOpen: (section: StatusRowId | null) => voi
     <button
       type="button"
       onClick={() => onOpen(line.section)}
-      className="flex min-h-(--control-h) min-w-0 flex-1 items-center gap-2 rounded-sm px-2 text-left outline-none active:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+      className="flex min-h-(--control-h) min-w-0 flex-1 items-center gap-2 rounded-sm px-2 text-left outline-none active:bg-muted focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring"
       style={{ fontSize: 'var(--text-small)' }}
     >
       <span aria-hidden className={cn('size-2.5 shrink-0', DOT[line.tone])} />
