@@ -34,7 +34,7 @@ and gives your staff tools VRChat does not have. One Modbot looks after one grou
 
 <img src="assets/audit-log.png" alt="The audit log: every event from VRChat next to everything that happened inside Modbot" width="880">
 
-<img src="assets/analytics.png" alt="Analytics for a Discord server, with charts for member count, joins and leaves, and messages per day" width="880">
+<img src="assets/stats.png" alt="The Stats page's Activity tab: people in the group's instances over time, and the hours of the week the community is busiest" width="880">
 
 <img src="assets/discord-members.png" alt="Discord members, with their VRChat account linked where one is" width="880">
 
