@@ -366,7 +366,12 @@ function UserDrawer({
 
   return (
     <aside
-      className="fixed inset-y-0 right-0 z-30 flex w-[26rem] max-w-full flex-col overflow-auto border-l-(length:--hairline) bg-card shadow-sm"
+      className={cn(
+        'fixed inset-y-0 right-0 z-30 flex w-[26rem] max-w-full flex-col overflow-auto border-l-(length:--hairline) bg-card shadow-sm',
+        // Room at the end for the bar along the foot of a phone, which is drawn over this sheet;
+        // the same room the page itself leaves (App.tsx), or the bar hid the sheet's last row.
+        'pb-[calc(3.25rem+env(safe-area-inset-bottom))] desk:lg:pb-0 headset:pb-[calc(var(--control-h)+1.5rem+env(safe-area-inset-bottom))]',
+      )}
       aria-label={`Account: ${user.username}`}
     >
       {/* The sheet scrolls as one column, so the strip must not be squeezed to its minimum. */}
