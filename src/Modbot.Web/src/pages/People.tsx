@@ -323,6 +323,14 @@ export function People({ me }: { me: CurrentUser }) {
         {list.people.length === 0 ? (
           <EmptyRow>{search || chips.length > 0 || joined ? 'Nobody matches' : 'Nobody seen yet'}</EmptyRow>
         ) : (
+          <>
+          {/*
+            Two-line rows on a phone and in VR, where the table ran off the side and a headset wrote
+            every column's name out on every row. The member list's views keep their table: their
+            kick and ban menu has no place in a row that is one button.
+          */}
+          {!view && <PeopleRows people={list.people} now={now} />}
+          <div data-layout={view ? undefined : 'wide'}>
           <Table
             pinFirst
             head={
@@ -343,7 +351,6 @@ export function People({ me }: { me: CurrentUser }) {
                   <Th>Standing</Th>
                   <Th>Last seen by Modbot</Th>
                   <Th className="text-right">First seen</Th>
-                  <Th>Profile read</Th>
                 </>
               )
             }
@@ -411,18 +418,13 @@ export function People({ me }: { me: CurrentUser }) {
                     </Td>
                     <Td className="font-mono text-muted-foreground">{ago(person.lastSeenAt, now)}</Td>
                     <Td className="text-right font-mono text-muted-foreground">{ago(person.firstSeenAt, now)}</Td>
-                    <Td className="text-muted-foreground">
-                      {person.notFoundAt
-                        ? 'No such account'
-                        : person.profileRefreshedAt
-                          ? <span className="font-mono">{ago(person.profileRefreshedAt, now)}</span>
-                          : 'Not read yet'}
-                    </Td>
                   </>
                 )}
               </Tr>
             ))}
           </Table>
+          </div>
+          </>
         )}
 
         <Pager at={at} pages={pages} />
@@ -477,15 +479,79 @@ function PersonCell({ person }: { person: Person }) {
   )
 }
 
-/** Where this person stands with the group: a member, somebody who left, on the ban list, or none of those. */
-function Standing({ person }: { person: Person }) {
+/**
+ * Where this person stands with the group: a member, somebody who left, on the ban list, or none of
+ * those. An account VRChat says does not exist says so here, now that the list has no column for
+ * when the profile was read. The two-line rows leave a person with none of these blank rather
+ * than writing a dash beside every visitor.
+ */
+function Standing({ person, blank = false }: { person: Person; blank?: boolean }) {
+  const none = !person.isMember && !person.leftAt && !person.banned && !person.notFoundAt
+  if (none && blank) return null
+
   return (
     <div className="flex items-center gap-1 whitespace-nowrap">
       {person.isMember && <Badge variant="secondary">Member</Badge>}
       {person.leftAt && !person.isMember && <Badge variant="outline">Left</Badge>}
       {person.banned && <Badge variant="destructive">Banned</Badge>}
-      {!person.isMember && !person.leftAt && !person.banned && <span className="text-muted-foreground">—</span>}
+      {person.notFoundAt && <Badge variant="outline">No such account</Badge>}
+      {none && <span className="text-muted-foreground">—</span>}
     </div>
+  )
+}
+
+/**
+ * The list on a phone and in a headset: a row is the name, its marks and where they stand, then
+ * the trust rank and when Modbot last saw them. The popup a row opens has everything else.
+ */
+function PeopleRows({ people, now }: { people: Person[]; now: string }) {
+  return (
+    <ul data-layout="narrow">
+      {people.map((person) => (
+        <li key={person.userId} className="border-t border-(length:--hairline) first:border-t-0">
+          <button
+            type="button"
+            onClick={() => openPerson(person.userId)}
+            className={cn(
+              'flex w-full items-center gap-2 px-(--panel-pad) py-2 text-left hover:bg-muted/40',
+              person.notFoundAt && 'text-muted-foreground',
+            )}
+            style={{ minHeight: 'var(--row-h)' }}
+          >
+            {person.avatarThumbnailUrl ? (
+              <img
+                src={vrchatMedia(person.avatarThumbnailUrl)}
+                alt=""
+                loading="lazy"
+                className="size-8 shrink-0 rounded-full bg-muted object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="size-8 shrink-0 rounded-full bg-muted" />
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate font-medium">{person.displayName ?? person.userId}</span>
+                {person.eighteenPlus && (
+                  <Badge variant="ok" className="shrink-0 font-mono" title="18+ verified">
+                    18+
+                  </Badge>
+                )}
+                <span className="ml-auto shrink-0">
+                  <Standing person={person} blank />
+                </span>
+              </div>
+              <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                {person.plainName && <span className="truncate">{person.plainName}</span>}
+                <TrustRankBadge rank={person.trustRank} className="shrink-0" />
+                {person.isRepresenting && <span className="shrink-0">representing</span>}
+                <span className="shrink-0 whitespace-nowrap">seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span></span>
+              </div>
+            </div>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 
