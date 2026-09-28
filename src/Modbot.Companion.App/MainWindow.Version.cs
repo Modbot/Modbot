@@ -35,6 +35,8 @@ public sealed partial class MainWindow
     private readonly Button _checkUpdates = Ui.Button("Check for updates");
     private readonly TextBlock _checkLine = Ui.Faint("");
 
+    private readonly Button _issues = Ui.Button(Issues.Label);
+
     /// <summary>
     /// How long what a check came to stays under the button. "Up to date" is true when it is said
     /// and stops being worth believing an hour later, so it does not stay.
@@ -56,6 +58,10 @@ public sealed partial class MainWindow
             _checkLineClear.Stop();
             _checkLine.IsVisible = false;
         };
+
+        _issues.Margin = new Thickness(0, 4, 0, 0);
+        _issues.Click += async (_, _) => await CrashGuard.RunAsync(
+            "opening bugs and feedback", async () => await Launcher.LaunchUriAsync(Issues.Page));
     }
 
     /// <summary>
@@ -130,7 +136,7 @@ public sealed partial class MainWindow
     {
         Spacing = 2,
         Margin = new Thickness(0, 6, 0, 0),
-        Children = { _versionLine, _updateLine, _updateRestart, _checkUpdates, _checkLine },
+        Children = { _versionLine, _updateLine, _updateRestart, _checkUpdates, _checkLine, _issues },
     };
 
     private async Task UpdateRestartPressedAsync()

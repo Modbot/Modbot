@@ -2694,6 +2694,10 @@ internal sealed class CompanionHost : IOverlayListener
         var open = new NativeMenuItem("Open Modbot");
         open.Click += (_, _) => ShowWindow();
 
+        var issues = new NativeMenuItem(Issues.Label);
+        issues.Click += async (_, _) => await CrashGuard.RunAsync(
+            "opening bugs and feedback", async () => await Window.Launcher.LaunchUriAsync(Issues.Page));
+
         var quit = new NativeMenuItem("Quit — stops reporting");
         quit.Click += (_, _) =>
         {
@@ -2706,7 +2710,7 @@ internal sealed class CompanionHost : IOverlayListener
             Icon = Brand.Icon(),
             ToolTipText = "Modbot: reporting presence for your groups",
             IsVisible = true,
-            Menu = [open, quit],
+            Menu = [open, issues, quit],
         };
 
         _tray.Clicked += (_, _) => ShowWindow();
