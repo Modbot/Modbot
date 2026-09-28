@@ -97,8 +97,12 @@ export function Table({
 }
 
 /** A table's phone form: one `NarrowRow` for each of the table's rows, in the same order. */
-export function NarrowRows({ children }: { children: React.ReactNode }) {
-  return <ul data-layout="narrow">{children}</ul>
+export function NarrowRows({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <ul data-layout="narrow" className={className}>
+      {children}
+    </ul>
+  )
 }
 
 /**

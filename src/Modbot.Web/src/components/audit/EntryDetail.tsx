@@ -312,7 +312,7 @@ function AroundNarrow({ entries, current }: { entries: AuditEntry[]; current: nu
     })
 
   return (
-    <NarrowRows>
+    <NarrowRows className="border-t border-t-(length:--hairline)">
       {entries.map((fact) =>
         fact.id === current ? (
           <NarrowRow
