@@ -27,12 +27,25 @@ namespace Modbot.Demo;
 public static class DemoGroupInfo
 {
     /// <summary>The group as it stood at <paramref name="at"/>, counted from the plan's own people.</summary>
-    public static GroupInfoSnapshot At(DemoPlan plan, DateTimeOffset at)
+    public static GroupInfoSnapshot At(DemoPlan plan, DateTimeOffset at) => AtEach(plan, [at]).Single().Group;
+
+    /// <summary>
+    /// The group as it stood at each of <paramref name="times"/>, which must run oldest first.
+    /// </summary>
+    /// <remarks>
+    /// Counted in one pass (<see cref="CountsAt"/>): working out who was online reads the whole
+    /// year, and doing that again for every moment asked about added about twenty seconds to every
+    /// demo's seeding.
+    /// </remarks>
+    public static IEnumerable<(DateTimeOffset At, GroupInfoSnapshot Group)> AtEach(DemoPlan plan, IEnumerable<DateTimeOffset> times)
     {
         ArgumentNullException.ThrowIfNull(plan);
 
-        var (_, members, online) = CountsAt(plan, [at]).Single();
+        return CountsAt(plan, times).Select(c => (c.At, Snapshot(plan, c.Members, c.Online)));
+    }
 
+    private static GroupInfoSnapshot Snapshot(DemoPlan plan, int members, int online)
+    {
         return new GroupInfoSnapshot(
             plan.GroupName,
             "LONGPORCH",

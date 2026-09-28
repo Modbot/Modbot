@@ -221,7 +221,7 @@ public sealed class DemoHistory
     private static IEnumerable<FactRecord> GroupInfo(DemoPlan plan)
     {
         var start = plan.Now.AddDays(-DemoPlan.DaysOfHistory);
-        GroupInfoSnapshot? previous = null;
+        var times = new List<DateTimeOffset>();
 
         for (var day = 0; day <= DemoPlan.DaysOfHistory; day++)
         {
@@ -229,13 +229,20 @@ public sealed class DemoHistory
             // have their own times spread through it. The last one is taken at the present moment,
             // so the chart runs up to today rather than stopping yesterday.
             var at = start.AddDays(day).AddHours(21);
-            var last = at >= plan.Now;
 
-            if (last)
-                at = plan.Now;
+            if (at >= plan.Now)
+            {
+                times.Add(plan.Now);
+                break;
+            }
 
-            var current = DemoGroupInfo.At(plan, at);
+            times.Add(at);
+        }
 
+        GroupInfoSnapshot? previous = null;
+
+        foreach (var (at, current) in DemoGroupInfo.AtEach(plan, times))
+        {
             if (previous is null)
             {
                 yield return GroupFact(plan, at, current.BaselinePayload(), since: null);
@@ -248,9 +255,6 @@ public sealed class DemoHistory
                 yield return GroupFact(plan, at, current.ChangePayload(previous, changed), since: at.AddMinutes(-5));
                 previous = current;
             }
-
-            if (last)
-                break;
         }
     }
 
