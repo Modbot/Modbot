@@ -24,6 +24,16 @@ export const NAV = [
   // Questions answered from Modbot's own data, with tools that run as the person asking. Beside
   // Now with no heading since 2026-09-27: it asks about every part of the app, not one of them.
   { id: 'chat', label: 'Chat', needs: 'UseAiChat' },
+  // Stats: the charts of every platform on one page, a tab per question (Stats page design, spec
+  // 10.1). It took Team's place on 2026-09-27, when Team and Worlds became parts of its Moderation
+  // and Activity tabs; their old addresses open those tabs (`MOVED`), and the palette still finds
+  // them by name. The Growth tab is the page itself; the other two light Stats. Tracked Groups is
+  // a later feature (spec 10.3) and has no entry until it exists. Beside Now and Chat with no heading
+  // since 2026-09-27: it charts every platform, and once VRChat and Discord moved to Integrations the
+  // Analytics heading would have stood over it alone.
+  { id: 'stats', label: 'Stats', needs: 'ViewAnalytics', words: ['growth'] },
+  { id: 'stats-activity', label: 'Activity stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['worlds'] },
+  { id: 'stats-moderation', label: 'Moderation stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['team'] },
   // The people asking to be let in, read from VRChat when the page is opened. Near People
   // because it is the same roster one step earlier.
   //
@@ -64,18 +74,11 @@ export const NAV = [
   { id: 'calendar', label: 'Calendar', group: 'Community', needs: 'ViewCalendar', words: ['events', 'schedule'] },
   // Giveaways, their rules, who entered and how each draw went (giveaways design).
   { id: 'giveaways', label: 'Giveaways', group: 'Community', needs: 'ViewGiveaways' },
-  // Stats: the charts of every platform on one page, a tab per question (Stats page design, spec
-  // 10.1). It took Team's place on 2026-09-27, when Team and Worlds became parts of its Moderation
-  // and Activity tabs; their old addresses open those tabs (`MOVED`), and the palette still finds
-  // them by name. The Growth tab is the page itself; the other two light Stats. Tracked Groups is
-  // a later feature (spec 10.3) and has no entry until it exists.
-  { id: 'stats', label: 'Stats', group: 'Analytics', needs: 'ViewAnalytics', words: ['growth'] },
-  { id: 'stats-activity', label: 'Activity stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['worlds'] },
-  { id: 'stats-moderation', label: 'Moderation stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['team'] },
   // The VRChat group and the Discord server, each as its own site shows it. Their charts are on
   // Stats; each keeps this week's numbers. The ids and addresses keep their old names, so links and
-  // bookmarks still open the same pages.
-  { id: 'analytics-group', label: 'VRChat', needs: 'ViewAnalytics' },
+  // bookmarks still open the same pages. Under "Integrations" since 2026-09-27: they are the two
+  // outside services Modbot is connected to, and the Stats page no longer sits among them.
+  { id: 'analytics-group', label: 'VRChat', group: 'Integrations', needs: 'ViewAnalytics' },
   // Not in the page list since 2026-09-27: it is the Instances tab of the VRChat page, the way
   // vrchat.com shows a group's instances, so the sidebar lights VRChat while it is open. The
   // palette and `g i` still reach it, and its address is unchanged.
@@ -92,7 +95,7 @@ export const NAV = [
   { id: 'group-gallery', label: 'VRChat gallery', needs: 'ViewAnalytics', hidden: true, under: 'analytics-group' },
   { id: 'group-invites', label: 'VRChat invites', needs: 'ManageGroupInvites', hidden: true, under: 'analytics-group' },
   // The Discord server, beside the group: its own members, messages and voice (M5 spec §6).
-  { id: 'analytics-server', label: 'Discord', needs: 'ViewAnalytics' },
+  { id: 'analytics-server', label: 'Discord', group: 'Integrations', needs: 'ViewAnalytics' },
   // Not in the page list: the status rows at the foot of the sidebar say what it says, and each
   // one opens it at the part it names. The page, its address and every link to it are unchanged.
   // Called "Sync health" until 2026-09-26; it covers far more than syncing.

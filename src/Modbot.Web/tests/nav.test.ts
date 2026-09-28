@@ -151,6 +151,17 @@ test('Community heads the pages from Requests to Giveaways, each of which names 
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })
 
+test('Integrations follows Community and holds VRChat and Discord, whose tabs still light them', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+  const integrations = shown.filter((n) => 'group' in n && n.group === 'Integrations')
+  const lastCommunity = shown.map((n) => ('group' in n ? n.group : undefined)).lastIndexOf('Community')
+
+  assert.deepEqual(integrations.map((n) => n.id), ['analytics-group', 'analytics-server'])
+  assert.equal(shown.indexOf(integrations[0]), lastCommunity + 1)
+  assert.equal(sidebarEntry('analytics-instances'), 'analytics-group')
+  assert.equal(sidebarEntry('discord-members'), 'analytics-server')
+})
+
 test('the Community heading is still drawn without Requests', () => {
   const people = NAV.find((n) => n.id === 'people')
 
@@ -258,12 +269,13 @@ test('Instances is still offered by name and keeps its chord', () => {
   assert.equal(GO_TO_KEYS['analytics-instances'], 'i')
 })
 
-test('Stats takes Team’s place at the top of the Analytics heading, before VRChat and Discord', () => {
-  const at = (id: string) => NAV.findIndex((n) => n.id === id)
-  const stats = NAV[at('stats')]
+test('Stats sits beside Now and Chat with no heading, and the Analytics heading is gone', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+  const stats = NAV.find((n) => n.id === 'stats')
 
-  assert.ok('group' in stats && stats.group === 'Analytics')
-  assert.ok(at('stats') < at('analytics-group') && at('analytics-group') < at('analytics-server'))
+  assert.deepEqual(shown.slice(0, 3).map((n) => n.id), ['now', 'chat', 'stats'])
+  assert.ok(stats && !('group' in stats))
+  assert.ok(!NAV.some((n) => 'group' in n && (n.group as string) === 'Analytics'))
   assert.ok(!NAV.some((n) => (n.id as string) === 'analytics-team' || (n.id as string) === 'analytics-worlds'))
 })
 
