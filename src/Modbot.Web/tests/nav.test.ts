@@ -228,10 +228,34 @@ test('Instances is still offered by name and keeps its chord', () => {
   assert.equal(GO_TO_KEYS['analytics-instances'], 'i')
 })
 
-test('Worlds stays in the sidebar under VRChat', () => {
-  const worlds = NAV.find((n) => n.id === 'analytics-worlds')
+test('Stats takes Team’s place at the top of the Analytics heading, before VRChat and Discord', () => {
+  const at = (id: string) => NAV.findIndex((n) => n.id === id)
+  const stats = NAV[at('stats')]
 
-  assert.ok(worlds && !('hidden' in worlds) && 'indent' in worlds && worlds.indent)
+  assert.ok('group' in stats && stats.group === 'Analytics')
+  assert.ok(at('stats') < at('analytics-group') && at('analytics-group') < at('analytics-server'))
+  assert.ok(!NAV.some((n) => (n.id as string) === 'analytics-team' || (n.id as string) === 'analytics-worlds'))
+})
+
+test('the Stats tabs light Stats and need what Stats needs', () => {
+  for (const id of ['stats-activity', 'stats-moderation'] as const) {
+    assert.equal(sidebarEntry(id), 'stats')
+    assert.equal(mayOpen(person('ViewAnalytics'), id), true)
+    assert.equal(mayOpen(person('ViewMembers'), id), false)
+  }
+})
+
+test('Team and Worlds open the Stats tabs they became, and Stats opens on Growth', () => {
+  assert.equal(MOVED['/analytics/team'], '/stats/moderation')
+  assert.equal(MOVED['/analytics/worlds'], '/stats/activity')
+  assert.equal(MOVED['/stats'], '/stats/growth')
+})
+
+test('the palette still finds the team and the worlds', () => {
+  const find = (typed: string) => NAV.filter((n) => matchRank(typed, n.label, otherWords(n)) !== null).map((n) => n.id)
+
+  assert.ok(find('team').includes('stats-moderation'))
+  assert.ok(find('worlds').includes('stats-activity'))
 })
 
 test("the VRChat page's Posts and Settings tabs light VRChat and ask for their own permissions", () => {

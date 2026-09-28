@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError } from '@/lib/api'
 
 /**
@@ -25,17 +25,24 @@ export const rangeQuery = (range: Range): string => (range === 'all' ? 'all=true
  *
  * A 403 is worded as a permission problem rather than a failure, because from the reader's side
  * that is what it is, and a generic error would send them to check the server.
+ *
+ * `enabled` false holds off the read, for a part of the Stats page whose tab is not open yet. What
+ * was read stays, so going back to a tab does not read it again for the same range.
  */
-export function useAnalytics<T>(load: (query: string) => Promise<T>, range: Range) {
+export function useAnalytics<T>(load: (query: string) => Promise<T>, range: Range, enabled = true) {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const readFor = useRef<string | null>(null)
 
   useEffect(() => {
+    const query = rangeQuery(range)
+    if (!enabled || readFor.current === query) return
     let cancelled = false
 
-    load(rangeQuery(range))
+    load(query)
       .then((next) => {
         if (!cancelled) {
+          readFor.current = query
           setData(next)
           setError(null)
         }
@@ -52,7 +59,7 @@ export function useAnalytics<T>(load: (query: string) => Promise<T>, range: Rang
     return () => {
       cancelled = true
     }
-  }, [load, range])
+  }, [load, range, enabled])
 
   return { data, error }
 }

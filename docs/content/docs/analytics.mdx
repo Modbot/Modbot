@@ -1,29 +1,39 @@
 ---
 title: Analytics
-description: The five Analytics pages (Team, VRChat, Worlds, Instances and Discord), what each one shows, and where its numbers come from.
+description: The Stats page (Growth, Activity and Moderation), the VRChat and Discord pages' This week, and where the numbers come from.
 ---
 
-Analytics is a set of five pages, each answering one question about your community. They are in the
-sidebar under **Analytics**, with **Worlds** under **VRChat**. **Instances** is a tab on the
-**VRChat** page:
+The charts and numbers over time for every part of your community are on one page, **Stats**, in
+the sidebar under **Analytics**. It has a tab for each question:
 
-| Page | The question it answers |
+| Tab | The question it answers |
 |---|---|
-| [**VRChat**](#vrchat) | Is the VRChat group growing or shrinking, and what changed? |
-| [**Discord**](#discord) | Is the Discord server healthy, and who keeps it going? |
-| [**Team**](#team) | Who is doing the moderation work, and when is nobody covering? |
-| [**Worlds**](#worlds) | Which of our worlds actually get used? |
-| [**Instances**](#instances) | When is the community actually active? |
+| [**Growth**](#growth) | Is the community growing or shrinking, and what changed? |
+| [**Activity**](#activity) | When is the community busy, and where? |
+| [**Moderation**](#moderation) | Who is doing the moderation work, and when is nobody covering? |
 
-All five need the **See analytics** permission
+In each tab, the VRChat group and the Discord server have a part of their own, under their names.
+Nothing adds the two together: a VRChat join and a Discord join are not the same kind of thing.
+
+The [**VRChat**](#vrchat) and [**Discord**](#discord) pages, beside Stats in the sidebar, show the
+group and the server the way VRChat and Discord do. Each keeps **This week**: four numbers for the
+last seven days, each against the seven before. Its heading opens Stats.
+
+All of it needs the **See analytics** permission
 ([roles and permissions](/accounts/roles-and-permissions#see-analytics)). The built-in **Moderator**
 and **Viewer** roles have it. Without it, the pages are hidden from the sidebar and Modbot refuses
 their data.
 
+<Callout type="info" title="Team and Worlds moved">
+Until September 2026 the charts were spread over five pages: **Team**, **VRChat**, **Worlds**,
+**Instances** and **Discord**. Team is now the Moderation tab and Worlds is part of the Activity
+tab. Their old addresses, `/analytics/team` and `/analytics/worlds`, open those tabs.
+</Callout>
+
 ## Date ranges
 
-Every page has the same range buttons at the top: **7 days**, **30 days** (the default), **90 days**
-and **All time**. The dates the range covers are shown on the right.
+Stats has range buttons at the top, shared by its three tabs: **7 days**, **30 days** (the
+default), **90 days** and **All time**. The dates the range covers are shown on the right.
 
 - Ranges are whole days in UTC, and include today. Today's figures are still filling in.
 - **All time** starts at the first day Modbot has anything recorded.
@@ -82,7 +92,7 @@ anything below a few hundred as a sample rather than a measurement.
 
 ### Head counts
 
-Some figures (**People in instances**, and the peaks on the [Instances](#instances) page) come from
+Some figures (**People in instances**, and the peaks on the [Activity](#activity) tab) come from
 **head counts** instead, and these are not limited by who was in the instance. Modbot reads each of
 the group's open instances' own page about every thirty seconds and keeps VRChat's own count of how
 many people are in it.
@@ -102,7 +112,7 @@ Head counts start when Modbot starts reading an instance, so they can still be i
 - If VRChat rate limits Modbot, reading stops until the limit clears and nothing is counted in
   between. [Health](/self-hosting/health) shows when that is happening.
 
-The Instances page measures exactly this and says so — see [Coverage](#coverage) below.
+The Activity tab measures exactly this and says so — see [Coverage](#coverage) below.
 
 ## VRChat
 
@@ -243,7 +253,50 @@ group**, **Group post changed**, **Group post deleted**, **Group role created**,
 changed** (each field, with what it was and what it became), **Group role deleted**, **Group invite
 cancelled** (on the invited person's history) and **Gallery image removed**.
 
-### The stats
+### This week
+
+Under the overview cards, **This week** has four numbers for the last seven days, today included:
+
+- **New members**, **Left** and **Join requests**, each against the seven days before.
+- **Most online at once**: the most of the group's members in VRChat at the same moment this week,
+  with when it happened. It has no figure from last week beside it: a peak is one moment.
+
+Press **This week** to open [Stats](#stats).
+
+## Discord
+
+The Discord page needs the Discord bot. Under the server's header, **In voice** lists the voice
+channels with somebody in them and who is in each, as Discord's channel list does. It is there for
+anyone who may open Live, and is read again every 30 seconds. Then **This week** has **New
+members**, **Talked**, **Messages** and **Time in voice** for the last seven days, each against the
+seven before. Press **This week** to open the [Activity](#activity) tab of Stats.
+
+The server's charts are on [Stats](#stats): who comes and goes on **Growth**, messages and voice on
+**Activity**, and moderation actions on **Moderation**.
+
+For every panel in detail, and how messages are stored, see
+[Discord messages and analytics](/discord/messages-and-analytics).
+
+## Instances
+
+The **Instances** tab of the VRChat page, in the row under the group's header, shows what
+vrchat.com shows there: **Open right now** (group instances open at this moment, when there are
+some) and **Recent instances** (the most recent instances of the last 30 days). The command palette
+finds it as **Instances**, and `g` then `i` opens it. Its address is `/analytics/instances`.
+
+The charts about when the community is active are on the [Activity](#activity) tab of Stats.
+
+## Stats
+
+The page opens on **Growth**. The tabs are at `/stats/growth`, `/stats/activity` and
+`/stats/moderation`; `g` then `t` opens Stats, and `g` then `w` opens Activity. Each tab starts with
+the [**Insights**](/ai/insights) that answer its question, if AI insights are set up.
+
+### Growth
+
+**Is the community growing or shrinking, and what changed?**
+
+#### VRChat group
 
 The stats along the top:
 
@@ -251,13 +304,11 @@ The stats along the top:
 - **Joined** and **Left**: joins and leaves recorded in the range.
 - **Net change**: joined minus left in the range.
 
-Then the two peaks, each with the moment it happened, in your own time zone:
+Then the peak, with the moment it happened, in your own time zone:
 
 - **Most members**: the highest member count VRChat reported in the range.
-- **Most online at once**: the highest number of the group's members who were in VRChat at the same
-  moment, anywhere — not only in your instances.
 
-Both are read from the five-minute member count readings, so the moment shown is a real reading and
+It is read from the five-minute member count readings, so the moment shown is a real reading and
 not a day. Where the same number was reached more than once, the **earliest** time is shown, so the
 figure does not move about between two loads of the same page.
 
@@ -267,8 +318,6 @@ deleted the older readings, the peak is the highest Modbot saw and not necessari
 was. When fewer than half the days in the range carry a reading, the page says so above the stats —
 **Readings on 2 of 30 days in this range** — and with no readings at all, **No member count readings
 in this range**.
-
-Below them, the [**Insights**](/ai/insights) panel appears if AI insights are set up.
 
 | Panel | What it shows | Comes from |
 |---|---|---|
@@ -290,122 +339,24 @@ deleted if one is set.
 counts members whose join Modbot recorded, and says how many that is. Members who joined before
 Modbot started recording are not counted here.
 
-## Discord
+#### Discord
 
-**Is the Discord server healthy, and who keeps it going?**
-
-The Discord page needs the Discord bot. Under the server's header, **In voice** lists the voice
-channels with somebody in them and who is in each, as Discord's channel list does. It is there for
-anyone who may open Live, and is read again every 30 seconds. Then **This week** has **New
-members**, **Talked**, **Messages** and **Time in voice** for the last seven days, each against the
-seven before. After the range buttons, a line says how many channels the bot can read and whether it
-can read the audit log. Then come **Growth** (members, joins and leaves, the member count, new
-members who stayed), **Engagement** (messages and voice, active members, the busiest channels and
-hours, who went quiet, top contributors), **Moderation** (actions per day) and **Members** (links to
-VRChat, new accounts joining, how long members have been here). Names open that person's popup.
-
-"Active" means the person sent a message or spent time in voice. Bots are never counted.
-
-Most of it comes from daily totals. **New members still here** pairs joins with later leaves, so it
-covers what the fact log still holds. **This week**, **Went quiet** and **Members** are about now
-and ignore the range.
-
-For every panel in detail, and how messages are stored, see
+Members, joins and leaves, the member count, new members who stayed, and who the members are now
+(links to VRChat, new accounts joining, how long members have been here). A line at the top says how
+many channels the bot can read and whether it can read the audit log. See
 [Discord messages and analytics](/discord/messages-and-analytics).
 
-## Team
+### Activity
 
-**Who is doing the moderation work, and when is nobody covering?**
+**When is the community busy, and where?**
 
-The stats along the top:
+#### VRChat instances
 
-- **Moderators active**: how many people took a moderation action in the range.
-- **Actions**: all moderation actions in the range.
-- **Left without a moderator**: how many times the last moderator left an instance while people
-  were still in it (see below).
-- **Instances with no moderator in them**: group instances opened with no companion ever in them,
-  out of all instances opened.
+The stats along the top are **Most online at once** (the most of the group's members in VRChat at the
+same moment, anywhere, not only in your instances), **Opened** and **Closed** (instances in the
+range), **Typical time open** and **Most open at once**.
 
-### Left without a moderator
-
-A gap is a stretch of time when people were in a group instance and no moderator was. It
-starts when the last moderator leaves while people are still there, and ends when a moderator is seen
-again or the instance closes.
-
-A moderator counts as present when their companion is reporting from the instance, or when
-another client sees someone Modbot recognises as a moderator (they hold a role with moderation
-permissions, have taken a moderation action, or own the group). A moderator without the client, in
-an instance no client is in, cannot be seen at all.
-
-Use the buttons to show only gaps where at least a number of people were left behind:
-**Anyone left behind**, **3+ people** (the default), **5+** or **10+**. The table shows:
-
-| Column | Meaning |
-|---|---|
-| **Began** | When the last moderator left. |
-| **Lasted** | How long until the gap ended, or "unknown". |
-| **People left behind** | How many people were there when the last moderator left. |
-| **Last moderator out** | Who left last, or "a client stopped reporting". |
-| **Ended because** | "a moderator arrived", "the instance was closed", or "nothing more was reported". |
-| **Instance** | The world (click to open it) and instance number. |
-
-### Actions
-
-- **Actions per moderator**: one row per moderator with a **Total** and a column per kind of action:
-  **Instance kicks**, **Warns**, **Bans**, **Unbans**, **Removed from group**, **Invites**, **Requests
-  approved**, **Requests rejected** and **Role changes**, plus the day they were **Last active**.
-  Rows are sorted by last active, most recent first, then by name, so whoever has gone quiet is at
-  the bottom. Click a name to open their [popup](/moderation/popups). People who can review tickets also see a
-  **Reviews of unusual patterns →** button that opens [Reviews](/moderation/reviews).
-- **Actions per day**: all actions per day.
-- **What kind of actions**: each kind of action, largest first.
-
-The action counts come from daily totals. Gaps come from presence reports in the fact log.
-
-## Worlds
-
-**Which of our worlds actually get used?**
-
-If there are no presence reports in the range, the page says **No presence reports in this range.**
-If there are fewer than 200, it says how many, as a reminder that the figures are thin.
-
-The stats along the top are **Worlds**, **Time seen**, **Visitors** and **Presence reports**.
-
-**Worlds, by time people were seen in them** lists each world with:
-
-| Column | Meaning |
-|---|---|
-| **World** | Name, author and world id. Click the name to open the world. |
-| **Holds** | The world's capacity. |
-| **Time seen** | Total time people were seen in the world. |
-| **Visitors** | Different people seen there. |
-| **Arrivals seen** | Times someone was seen arriving. |
-| **Instances opened** | Group instances opened in the world. |
-| **Last seen** | When someone was last seen there. |
-
-**Visitors per day, busiest worlds** charts visitors per day for the five busiest worlds.
-
-Time, visitors and arrivals come from presence reports. **Instances opened** comes from the group's
-audit log and is complete whether or not a client was there. Visitors per day comes from daily totals
-and outlasts a short retention window.
-
-## Instances
-
-**When is the community actually active?**
-
-Open it from **Analytics** → **VRChat** → **Instances**: the tab in the row under the group's
-header. The page keeps that header at the top with **Instances** marked. The command palette finds
-it as **Instances**, and `g` then `i` opens it.
-
-<Callout type="info" title="It used to be in the sidebar">
-Instances had its own sidebar entry, under **VRChat**, until September 2026. Its address,
-`/analytics/instances`, is unchanged, so links and bookmarks still open it.
-</Callout>
-
-The stats along the top are **Opened** and **Closed** (instances in the range), **Typical time open**
-and **Most open at once**.
-
-### Peaks
+##### Peaks
 
 Under them is a second row of peaks, each with the moment it happened, in your own time zone. All
 four are built from [head counts](#head-counts) — VRChat's own numbers — so they cover instances
@@ -428,7 +379,7 @@ Where the same height was reached twice, the **earliest** moment is shown, so th
 move about between two loads of the same page. A range with nothing recorded shows a dash rather
 than a zero: nothing was recorded is not the same statement as the peak was nought.
 
-### Coverage
+##### Coverage
 
 A peak is only as good as the time Modbot was counting. Two hours of counting in a week gives a
 peak that is real and is **not** the week's peak, and nothing about the number itself says which one
@@ -447,12 +398,10 @@ counts in this range**.
 The peaks are still shown when coverage is thin. They are marked, not hidden — a real peak from a
 short window is still worth seeing, as long as you know that is what it is.
 
-### Panels
+##### Panels
 
 | Panel | What it shows | Comes from |
 |---|---|---|
-| **Open right now** | Group instances open at this moment. Shown only when there are some, and ignores the range. | Modbot's instance list |
-| **Recent instances** | The most recent instances. | Modbot's instance list |
 | **People in instances** | People in all of the group's instances, moment by moment, with how many instances they were spread across drawn over it in green on its own scale at the right. Hover a point for both numbers and the time. | Head counts |
 | **When the community is active** | A week-by-hour grid. Switch between **People arriving** and **Instances opened**. Hours are shown in your own time zone (named in the title), rounded to whole hours. | Fact log (arrivals from presence reports) |
 | **Opened and closed per day** | Instances opened and closed each day. | Daily totals |
@@ -478,3 +427,90 @@ VRChat only records an instance closing when a moderator closes it. An instance 
 its own has no close on record, so Modbot treats it as open until the last thing seen in it (a kick,
 a warning or a presence report). That is why **Closed** is often lower than **Opened**, and why
 **Typical time open** only covers instances with both ends on record.
+
+#### VRChat worlds
+
+If there are no presence reports in the range, the page says **No presence reports in this range.**
+If there are fewer than 200, it says how many, as a reminder that the figures are thin.
+
+The stats along the top are **Worlds**, **Time seen**, **Visitors** and **Presence reports**.
+
+**Worlds, by time people were seen in them** lists each world with:
+
+| Column | Meaning |
+|---|---|
+| **World** | Name, author and world id. Click the name to open the world. |
+| **Holds** | The world's capacity. |
+| **Time seen** | Total time people were seen in the world. |
+| **Visitors** | Different people seen there. |
+| **Arrivals seen** | Times someone was seen arriving. |
+| **Instances opened** | Group instances opened in the world. |
+| **Last seen** | When someone was last seen there. |
+
+**Visitors per day, busiest worlds** charts visitors per day for the five busiest worlds.
+
+Time, visitors and arrivals come from presence reports. **Instances opened** comes from the group's
+audit log and is complete whether or not a client was there. Visitors per day comes from daily totals
+and outlasts a short retention window.
+
+#### Discord
+
+Messages and voice, active members, the busiest channels and hours, who went quiet and the top
+contributors. Names open that person's popup. "Active" means the person sent a message or spent
+time in voice; bots are never counted.
+
+### Moderation
+
+**Who is doing the moderation work, and when is nobody covering?**
+
+#### Team
+
+The stats along the top:
+
+- **Moderators active**: how many people took a moderation action in the range.
+- **Actions**: all moderation actions in the range.
+- **Left without a moderator**: how many times the last moderator left an instance while people
+  were still in it (see below).
+- **Instances with no moderator in them**: group instances opened with no companion ever in them,
+  out of all instances opened.
+
+##### Left without a moderator
+
+A gap is a stretch of time when people were in a group instance and no moderator was. It
+starts when the last moderator leaves while people are still there, and ends when a moderator is seen
+again or the instance closes.
+
+A moderator counts as present when their companion is reporting from the instance, or when
+another client sees someone Modbot recognises as a moderator (they hold a role with moderation
+permissions, have taken a moderation action, or own the group). A moderator without the client, in
+an instance no client is in, cannot be seen at all.
+
+Use the buttons to show only gaps where at least a number of people were left behind:
+**Anyone left behind**, **3+ people** (the default), **5+** or **10+**. The table shows:
+
+| Column | Meaning |
+|---|---|
+| **Began** | When the last moderator left. |
+| **Lasted** | How long until the gap ended, or "unknown". |
+| **People left behind** | How many people were there when the last moderator left. |
+| **Last moderator out** | Who left last, or "a client stopped reporting". |
+| **Ended because** | "a moderator arrived", "the instance was closed", or "nothing more was reported". |
+| **Instance** | The world (click to open it) and instance number. |
+
+##### Actions
+
+- **Actions per moderator**: one row per moderator with a **Total** and a column per kind of action:
+  **Instance kicks**, **Warns**, **Bans**, **Unbans**, **Removed from group**, **Invites**, **Requests
+  approved**, **Requests rejected** and **Role changes**, plus the day they were **Last active**.
+  Rows are sorted by last active, most recent first, then by name, so whoever has gone quiet is at
+  the bottom. Click a name to open their [popup](/moderation/popups). People who can review tickets also see a
+  **Reviews of unusual patterns →** button that opens [Reviews](/moderation/reviews).
+- **Actions per day**: all actions per day.
+- **What kind of actions**: each kind of action, largest first.
+
+The action counts come from daily totals. Gaps come from presence reports in the fact log.
+
+#### Discord
+
+**Moderation actions per day**: bans, kicks, timeouts and messages removed. Without the audit log,
+kicks and removed messages are missing, and the panel says so.

@@ -57,13 +57,18 @@ export const NAV = [
   // thing from the Analytics page called Team.
   { id: 'reviews', label: 'Reviews', needs: 'ReviewTickets' },
   { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'], words: ['kick', 'warn', 'log', 'history'] },
-  // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
-  // feature (spec 10.3) and has no entry until it exists. Named by what each is about: the team,
-  // then each platform. Worlds is VRChat's, so it sits indented under it; the ids and addresses
-  // keep their old names, so links and bookmarks still open the same pages.
-  { id: 'analytics-team', label: 'Team', group: 'Analytics', needs: 'ViewAnalytics' },
+  // Stats: the charts of every platform on one page, a tab per question (Stats page design, spec
+  // 10.1). It took Team's place on 2026-09-27, when Team and Worlds became parts of its Moderation
+  // and Activity tabs; their old addresses open those tabs (`MOVED`), and the palette still finds
+  // them by name. The Growth tab is the page itself; the other two light Stats. Tracked Groups is
+  // a later feature (spec 10.3) and has no entry until it exists.
+  { id: 'stats', label: 'Stats', group: 'Analytics', needs: 'ViewAnalytics', words: ['growth'] },
+  { id: 'stats-activity', label: 'Activity stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['worlds'] },
+  { id: 'stats-moderation', label: 'Moderation stats', needs: 'ViewAnalytics', hidden: true, under: 'stats', words: ['team'] },
+  // The VRChat group and the Discord server, each as its own site shows it. Their charts are on
+  // Stats; each keeps this week's numbers. The ids and addresses keep their old names, so links and
+  // bookmarks still open the same pages.
   { id: 'analytics-group', label: 'VRChat', needs: 'ViewAnalytics' },
-  { id: 'analytics-worlds', label: 'Worlds', indent: true, needs: 'ViewAnalytics' },
   // Not in the page list since 2026-09-27: it is the Instances tab of the VRChat page, the way
   // vrchat.com shows a group's instances, so the sidebar lights VRChat while it is open. The
   // palette and `g i` still reach it, and its address is unchanged.
@@ -125,6 +130,11 @@ export const MOVED: Record<string, string> = {
   '/credits': CREDITS_PATH,
   '/users': `${IAM_PATH}/users`,
   '/roles': `${IAM_PATH}/roles`,
+  // Stats opens on its first tab; Team and Worlds became its Moderation and Activity tabs on
+  // 2026-09-27 (Stats page design).
+  '/stats': '/stats/growth',
+  '/analytics/team': '/stats/moderation',
+  '/analytics/worlds': '/stats/activity',
 }
 
 export type NavItem = (typeof NAV)[number]
@@ -153,8 +163,9 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   audit: 'a',
   'analytics-group': 'g',
   'analytics-server': 'v',
-  'analytics-team': 't',
-  'analytics-worlds': 'w',
+  stats: 't',
+  'stats-activity': 'w',
+  'stats-moderation': '',
   'analytics-instances': 'i',
   'group-posts': '',
   'group-settings': '',

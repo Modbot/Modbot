@@ -6,23 +6,25 @@ import { api, type Insight, type InsightKind } from '@/lib/api'
 import { Panel, Toggle } from './shared'
 
 /**
- * The AI-written summaries on My Group: the latest of each kind, and the earlier ones behind a
- * picker (AI insights design §4).
+ * The AI-written summaries: the latest, and the earlier ones behind a picker (AI insights design
+ * §4). Each tab of the Stats page asks for the one kind that answers its question (`only`): Group on
+ * Growth, Instances on Activity, Moderation team on Moderation. With no `only`, every kind, with a
+ * switch between them.
  *
  * Renders nothing when there are none -- which is every deployment that has not switched insights
  * on -- rather than an empty panel asking to be set up.
  */
-export function InsightsPanel() {
+export function InsightsPanel({ only }: { only?: InsightKind }) {
   const [insights, setInsights] = useState<Insight[] | null>(null)
   const [kind, setKind] = useState<InsightKind | null>(null)
   const [chosen, setChosen] = useState<string | null>(null)
 
   useEffect(() => {
     api
-      .insights(undefined, 50)
+      .insights(only, 50)
       .then((r) => setInsights(r.insights))
       .catch(() => setInsights([]))
-  }, [])
+  }, [only])
 
   const kinds = useMemo(() => {
     const seen = new Map<InsightKind, string>()

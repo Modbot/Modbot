@@ -2427,20 +2427,28 @@ Two screens this spec once listed separately are now tabs of **settings**: the s
 and the roles list, which moved into its IAM tab on 2026-09-18 because they are how the deployment
 is configured rather than screens a moderator works in. Their old addresses still open them.
 
-### 10.1 Analytics is five sections, not one dashboard
+### 10.1 Analytics is split by question, not one dashboard
 
-A single "metrics" page collapses five unrelated questions into one scroll. They are separated
-because they are asked by different people at different times:
+A single "metrics" page collapses unrelated questions into one scroll. They are separated because
+they are asked by different people at different times.
 
-| Section | Answers | Built from |
+Since 2026-09-27 the questions are the tabs of one **Stats** page, and each tab holds every
+platform's answer in a part of its own: the VRChat group's and the Discord server's side by side,
+never added together (`2026-09-27-stats-page-design.md`). Until then they were five pages (My
+Group, My Team, Worlds, Instances, and the Discord server of M5), each platform's charts under its
+own page.
+
+| Tab | Answers | Built from |
 |---|---|---|
-| **My Group** | *Is the community growing or shrinking, and what changed?* Member count over time, join and leave rates, net growth, role distribution, tenure spread, invite acceptance. | Member/ban/invite facts (M1), daily totals |
-| **My Team** | *Who is doing the moderation work, and when is nobody covering?* Actions per moderator, breakdown by classification, activity over time, and the §5.8 accountability signals. | Audit log + Modbot-side facts (M2) |
-| **Worlds** | *Which of our worlds actually get used?* Time spent per world, unique visitors, popularity over time. | Presence facts (M3) |
-| **Instances** | *When is the community actually active?* Instances opened and closed, concurrent count, peak population, duration, a time-of-day heatmap. | Instance facts (M3, M6) |
+| **Growth** | *Is the community growing or shrinking, and what changed?* Member count over time, join and leave rates, net growth, role distribution, tenure spread, invite acceptance; the Discord server's joins, leaves and who stayed. | Member/ban/invite facts (M1), daily totals, the Discord server's facts (M5) |
+| **Activity** | *When is the community busy, and where?* Instances opened and closed, concurrent count, peak population, duration, a time-of-day heatmap; time spent per world, unique visitors; the Discord server's messages and voice. | Instance facts (M3, M6), presence facts (M3), daily totals |
+| **Moderation** | *Who is doing the moderation work, and when is nobody covering?* Actions per moderator, breakdown by classification, activity over time, and the §5.8 accountability signals; the Discord server's moderation actions. | Audit log + Modbot-side facts (M2), the Discord server's audit log |
 | **Tracked Groups** | *How are we doing compared to groups like ours?* — **later feature, §10.3** | Public group info, polled |
 
-**My Team has one metric worth calling out: coverage gaps.** Cross-referencing moderator presence
+No tab holds every number at once: a summary tab like that would be the one dashboard this section
+rules out.
+
+**The team's part of Moderation has one metric worth calling out: coverage gaps.** Cross-referencing moderator presence
 against instance activity answers *"when was the community busy with no moderator present"*, which is
 a scheduling question no group can currently answer and which falls straight out of data Modbot
 already holds. It is also the one analytics figure that suggests an action rather than describing a

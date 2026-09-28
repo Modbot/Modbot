@@ -1,12 +1,12 @@
 ---
 title: Messages and analytics
-description: What the bot keeps from your Discord server, who can read stored messages, and the Discord analytics page built from it.
+description: What the bot keeps from your Discord server, who can read stored messages, and the Discord charts built from it.
 ---
 
 Once the bot is connected, Modbot keeps a record of your Discord server: its messages, who joins
 and leaves, moderation in the server, and time spent in voice. That record feeds the
 [Discord members](/discord/members) list, the person popup, [AutoMod](/moderation/automod),
-and the charts on the **Discord** analytics page, described below.
+the **Discord** page, and the Discord parts of the **Stats** page, described below.
 
 ## What the bot stores
 
@@ -96,23 +96,29 @@ newest first, 50 to a page:
 
 The app shows the current text of an edited message, not its earlier versions.
 
-Nothing else in Modbot shows a person's messages. The **Discord** analytics page and the popup's
+Nothing else in Modbot shows a person's messages. The Discord page, the Stats page and the popup's
 **Metrics** tab only count them, and a [flag](/moderation/flags) quotes only the message a rule
 matched.
 
 ## Discord analytics
 
-The **Discord** page is under **Analytics** in the sidebar. It needs **See analytics**. It answers
-"is our Discord server healthy, and who keeps it going?" The **Members** link under the server's
-header opens [Discord members](/discord/members).
+The **Discord** page is under **Analytics** in the sidebar. It needs **See analytics**. It shows the
+server's header, who is in voice, and **This week**. The **Members** link under the server's header
+opens [Discord members](/discord/members).
+
+The server's charts are on the [**Stats**](/analytics#stats) page, in the **Discord** part of each
+tab: **Growth** has [Growth](#growth), [Members](#members) and
+[New members still here](#new-members-still-here); **Activity** has [Activity](#activity),
+[Went quiet](#went-quiet) and [Top contributors](#top-contributors); **Moderation** has
+[Moderation](#moderation).
 
 **Active** means the person sent a message or spent time in voice. Bots are never counted.
 
 ### This week
 
 Under the server's header, four numbers for the last seven days (today included), each with how far
-it moved from the seven days before: **▲** up, **▼** down, or **Same as last week**. They ignore the
-range you pick, like the first screen of Discord's own Server Insights.
+it moved from the seven days before: **▲** up, **▼** down, or **Same as last week**, like the first
+screen of Discord's own Server Insights. Press **This week** to open the Activity tab of Stats.
 
 | Figure | What it shows |
 |---|---|
@@ -125,13 +131,14 @@ Modbot's numbers will not match Discord's exactly. Discord counts a "communicato
 messages, and its voice figure is time spent speaking; Modbot's is time connected. Discord's
 **Visitors** (people who opened the server) is not something a bot can see.
 
-Below that, pick a range for the rest of the page: **7 days**, **30 days**, **90 days** or
-**All time**.
+On Stats, the range buttons at the top of the page set the range for the Discord parts too:
+**7 days**, **30 days**, **90 days** or **All time**.
 
 ### What the bot can read
 
-After **Details**, Modbot says how many of the server's channels the bot can read, for example
-**Reads 35 of 165 channels**, and **No audit log** if it cannot read the audit log. It is shown in
+At the top of each Discord part on Stats, after **Details**, Modbot says how many of the server's
+channels the bot can read, for example **Reads 35 of 165 channels**, and **No audit log** if it
+cannot read the audit log. It is shown in
 amber when anything is missing. With **Manage settings**, it links to the Discord part of
 Settings, which lists what the bot may do in each channel (see [Permissions the bot needs](/discord/bot-setup#permissions-the-bot-needs)).
 
@@ -149,7 +156,7 @@ History** in those channels, and **View Audit Log**, in Discord's server setting
 | **Still here after 7 days** | The share of people who joined in the range (at least a week ago) who were still in the server a week later. |
 | **Joins and leaves per day** | People who **Joined** and **Left** each day. Switch to **Member count** for the count over time, from the last reading each day. |
 
-### Engagement
+### Activity
 
 | Panel | What it shows |
 |---|---|

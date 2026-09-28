@@ -65,8 +65,7 @@ import { GroupGallery } from '@/pages/analytics/GroupGallery'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
 import { MyServer } from '@/pages/analytics/MyServer'
-import { MyTeam } from '@/pages/analytics/MyTeam'
-import { Worlds } from '@/pages/analytics/Worlds'
+import { Stats } from '@/pages/analytics/Stats'
 import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { Flags } from '@/pages/Flags'
@@ -91,8 +90,10 @@ const TITLES: Record<PageId, string> = {
   audit: 'Audit log',
   'analytics-group': 'VRChat',
   'analytics-server': 'Discord',
-  'analytics-team': 'Team',
-  'analytics-worlds': 'Worlds',
+  // Tabs of the Stats page, so they carry its name, as the sidebar does.
+  stats: 'Stats',
+  'stats-activity': 'Stats',
+  'stats-moderation': 'Stats',
   // Tabs of the VRChat page, so they carry its name, as the sidebar does.
   'analytics-instances': 'VRChat',
   'group-posts': 'VRChat',
@@ -132,8 +133,9 @@ const PATHS: Record<PageId, string> = {
   audit: '/audit',
   'analytics-group': '/analytics/group',
   'analytics-server': '/analytics/server',
-  'analytics-team': '/analytics/team',
-  'analytics-worlds': '/analytics/worlds',
+  stats: '/stats/growth',
+  'stats-activity': '/stats/activity',
+  'stats-moderation': '/stats/moderation',
   'analytics-instances': '/analytics/instances',
   'group-posts': '/analytics/group/posts',
   'group-settings': '/analytics/group/settings',
@@ -613,10 +615,17 @@ function Shell({
           {page === 'audit' && <AuditLog />}
           {page === 'analytics-group' && <MyGroup me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'analytics-server' && <MyServer me={me} pathOf={(id) => PATHS[id]} />}
-          {page === 'analytics-team' && (
-            <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
+          {/* One element for the three tabs, so the page's range stays put while the tab changes. */}
+          {(page === 'stats' || page === 'stats-activity' || page === 'stats-moderation') && (
+            <Stats
+              me={me}
+              pathOf={(id) => PATHS[id]}
+              tab={page}
+              onTab={(tab) => navigate(PATHS[tab])}
+              onOpenSubject={setSubject}
+              onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined}
+            />
           )}
-          {page === 'analytics-worlds' && <Worlds />}
           {page === 'analytics-instances' && <Instances me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-posts' && <GroupPosts me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-settings' && <GroupSettings me={me} pathOf={(id) => PATHS[id]} />}
