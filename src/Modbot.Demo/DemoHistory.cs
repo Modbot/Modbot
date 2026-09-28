@@ -445,7 +445,7 @@ public sealed class DemoHistory
     {
         var voiceChannel = DemoPlan.Snowflake(3012);
         var people = plan.People.Where(p => p.DiscordUserId is not null).ToList();
-        var random = new Random(77);
+        var random = new Random(DemoVoice.Seed);
 
         foreach (var person in people)
         {
@@ -473,50 +473,31 @@ public sealed class DemoHistory
             }
         }
 
-        // Voice: evenings in the lounge, for people who are still around.
-        var present = people.Where(p => p.LeftGroupAt is null).ToList();
-
-        for (var dayBack = DemoPlan.DaysOfHistory; dayBack >= 0; dayBack--)
+        // Voice: evenings in the lounge. The same dice go on to the moderation below, so the sessions
+        // are drawn from them here, in the order they always were.
+        foreach (var session in DemoVoice.Sessions(plan, random))
         {
-            var day = plan.Now.AddDays(-dayBack).Date;
-            var sessions = random.Next(0, 7);
-
-            for (var i = 0; i < sessions; i++)
+            yield return new FactRecord
             {
-                var person = present[random.Next(present.Count)];
+                Type = FactType.DiscordVoiceJoined,
+                OccurredAt = session.Joined,
+                SubjectPlatform = FactPlatform.Discord,
+                SubjectId = session.Person.DiscordUserId!,
+                Source = FactSource.Discord,
+                Data = Held([], [], [], new JsonObject { ["channelId"] = voiceChannel }),
+            };
 
-                if (person.JoinedGroupAt > plan.Now.AddDays(-dayBack))
-                    continue;
-
-                var joined = new DateTimeOffset(day.AddHours(19 + random.Next(0, 5)).AddMinutes(random.Next(0, 60)), TimeSpan.Zero);
-
-                if (joined >= plan.Now)
-                    continue;
-
-                var leftAt = joined.AddMinutes(random.Next(8, 180));
-
+            if (session.Left is { } left)
+            {
                 yield return new FactRecord
                 {
-                    Type = FactType.DiscordVoiceJoined,
-                    OccurredAt = joined,
+                    Type = FactType.DiscordVoiceLeft,
+                    OccurredAt = left,
                     SubjectPlatform = FactPlatform.Discord,
-                    SubjectId = person.DiscordUserId!,
+                    SubjectId = session.Person.DiscordUserId!,
                     Source = FactSource.Discord,
                     Data = Held([], [], [], new JsonObject { ["channelId"] = voiceChannel }),
                 };
-
-                if (leftAt < plan.Now)
-                {
-                    yield return new FactRecord
-                    {
-                        Type = FactType.DiscordVoiceLeft,
-                        OccurredAt = leftAt,
-                        SubjectPlatform = FactPlatform.Discord,
-                        SubjectId = person.DiscordUserId!,
-                        Source = FactSource.Discord,
-                        Data = Held([], [], [], new JsonObject { ["channelId"] = voiceChannel }),
-                    };
-                }
             }
         }
 

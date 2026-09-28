@@ -339,6 +339,13 @@ public class DemoSeedTests
         Assert.All(readings.Zip(readings.Skip(1)), p => Assert.Equal(every, p.Second.CountedAt - p.First.CountedAt));
 
         Assert.True(readings.Max(r => r.OnlineMemberCount) > 0, "Nobody was ever online.");
+        Assert.All(readings, r => Assert.True(r.OnlineMemberCount <= r.MemberCount, $"{r.OnlineMemberCount} online of {r.MemberCount} members at {r.CountedAt:O}."));
+
+        // Online means online anywhere in VRChat, not in one of the group's instances, so a group of
+        // a few hundred is never empty. Counting only the instances drew the line at nought most of
+        // every day.
+        var lastMonth = readings.Where(r => r.CountedAt > now.AddDays(-30)).ToList();
+        Assert.All(lastMonth, r => Assert.True(r.OnlineMemberCount > 0, $"Nobody was online at {r.CountedAt:O}."));
 
         // A fact and the reading taken by the same poll say the same thing.
         var byTime = readings.ToDictionary(r => r.CountedAt);
@@ -361,12 +368,14 @@ public class DemoSeedTests
     }
 
     /// <summary>
-    /// The one-pass count the readings are written from agrees with counting everybody at the moment.
+    /// The one-pass count the readings are written from agrees with counting everybody at the moment,
+    /// and the online count sits between the people in the group's instances and the member count.
     /// </summary>
     [Fact]
-    public void TheMemberCountAtEveryMomentIsWhoWasInTheGroupAndWhoWasInAnInstance()
+    public void TheMemberCountAtEveryMomentIsWhoWasInTheGroupAndWhoWasOnline()
     {
         var plan = DemoPlan.Build(new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero));
+        var stretches = DemoOnline.Stretches(plan);
 
         var times = new List<DateTimeOffset>();
         for (var at = plan.Now.AddDays(-DemoPlan.DaysOfHistory - 1); at <= plan.Now; at += TimeSpan.FromMinutes(97))
@@ -376,20 +385,80 @@ public class DemoSeedTests
         times.AddRange(plan.People.Take(40).Select(p => p.JoinedGroupAt));
         times.AddRange(plan.People.Where(p => p.LeftGroupAt is not null).Take(40).Select(p => p.LeftGroupAt!.Value));
         times.AddRange(plan.Instances.SelectMany(r => r.Visits).Take(200).SelectMany(v => new[] { v.Arrived, v.Left ?? v.Arrived }));
+        times.AddRange(stretches.Take(300).SelectMany(s => new[] { s.From, s.Until ?? s.From }));
         times.Add(plan.Now);
         times = [.. times.Where(t => t <= plan.Now).Distinct().Order()];
 
         foreach (var (at, members, online) in DemoGroupInfo.CountsAt(plan, times))
         {
-            var expectedMembers = plan.People.Count(p => p.JoinedGroupAt <= at && (p.LeftGroupAt is null || p.LeftGroupAt > at));
+            var inGroup = plan.People
+                .Where(p => p.JoinedGroupAt <= at && (p.LeftGroupAt is null || p.LeftGroupAt > at))
+                .Select(p => p.UserId)
+                .ToHashSet(StringComparer.Ordinal);
 
-            var expectedOnline = plan.Instances
+            var expectedOnline = stretches
+                .Where(s => s.From <= at && (s.Until is null || s.Until > at))
+                .Select(s => s.Person.UserId)
+                .Distinct(StringComparer.Ordinal)
+                .Count();
+
+            // Members only: a group instance is for members, and VRChat counts only its members.
+            var inAnInstance = plan.Instances
                 .Where(r => r.OpenedAt <= at && (r.ClosedAt is null || r.ClosedAt > at))
-                .Sum(r => r.Visits.Count(v => v.Arrived <= at && (v.Left is null || v.Left > at)));
+                .SelectMany(r => r.Visits.Where(v => v.Arrived <= at && (v.Left is null || v.Left > at)))
+                .Select(v => v.Person.UserId)
+                .Where(inGroup.Contains)
+                .Distinct(StringComparer.Ordinal)
+                .Count();
 
-            Assert.Equal(expectedMembers, members);
+            Assert.Equal(inGroup.Count, members);
             Assert.Equal(expectedOnline, online);
+            Assert.True(online <= members, $"{online} online of {members} members at {at:O}.");
+            Assert.True(online >= inAnInstance, $"{online} online but {inAnInstance} in the group's instances at {at:O}.");
         }
+    }
+
+    /// <summary>
+    /// Each member's online stretches are joined up, so nobody is counted twice, and only ever fall
+    /// inside their time in the group.
+    /// </summary>
+    [Fact]
+    public void NobodyIsOnlineTwiceOrOutsideTheGroup()
+    {
+        var plan = DemoPlan.Build(new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero));
+
+        foreach (var mine in DemoOnline.Stretches(plan).GroupBy(s => s.Person.UserId, StringComparer.Ordinal))
+        {
+            var person = mine.First().Person;
+            var ordered = mine.OrderBy(s => s.From).ToList();
+
+            Assert.All(ordered, s =>
+            {
+                Assert.True(s.From >= person.JoinedGroupAt, $"{person.DisplayName} was online before joining.");
+                Assert.True(s.Until is null || s.Until > s.From, $"{person.DisplayName} has an empty stretch.");
+
+                if (person.LeftGroupAt is { } left)
+                    Assert.True(s.Until is not null && s.Until <= left, $"{person.DisplayName} was online after leaving.");
+            });
+
+            Assert.All(ordered.Zip(ordered.Skip(1)), p =>
+                Assert.True(p.First.Until is not null && p.First.Until < p.Second.From, $"{person.DisplayName} has two stretches that meet."));
+        }
+    }
+
+    /// <summary>
+    /// The online count is worked out from ids and times, not from the clock or a fresh roll of the
+    /// dice, so two demos started at the same moment count the same people online.
+    /// </summary>
+    [Fact]
+    public void TheOnlineCountIsTheSameEveryTime()
+    {
+        var now = new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero);
+
+        static List<(string, DateTimeOffset, DateTimeOffset?)> Read(DemoPlan plan)
+            => [.. DemoOnline.Stretches(plan).Select(s => (s.Person.UserId, s.From, s.Until))];
+
+        Assert.Equal(Read(DemoPlan.Build(now)), Read(DemoPlan.Build(now)));
     }
 
     private static async Task TheLivePageHasInstancesOpenWithPeopleInThemAsync(DemoSeedHost host, CancellationToken ct)

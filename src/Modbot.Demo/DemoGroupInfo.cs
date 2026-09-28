@@ -67,12 +67,13 @@ public static class DemoGroupInfo
     /// <remarks>
     /// <para>
     /// A member is counted from the moment they joined until the moment they left; somebody is
-    /// online while they are in one of the group's instances and that instance is open.
+    /// online during one of their <see cref="DemoOnline.Stretches"/>, which is VRChat's meaning of
+    /// online (anywhere in VRChat) rather than "in one of the group's instances".
     /// </para>
     /// <para>
-    /// One pass over the joins, leaves, arrivals and departures, in time order, rather than a count
+    /// One pass over the joins, leaves and online stretches, in time order, rather than a count
     /// of everybody at every moment: a year of five-minute readings is a hundred thousand moments,
-    /// and counting the whole plan at each of them would go through every person and every visit a
+    /// and counting the whole plan at each of them would go through every person and every stretch a
     /// hundred thousand times.
     /// </para>
     /// </remarks>
@@ -83,9 +84,7 @@ public static class DemoGroupInfo
 
         var members = Changes(plan.People.Select(p => (p.JoinedGroupAt, p.LeftGroupAt)));
 
-        var online = Changes(plan.Instances.SelectMany(r => r.Visits.Select(v => (
-            v.Arrived > r.OpenedAt ? v.Arrived : r.OpenedAt,
-            Earlier(v.Left, r.ClosedAt)))));
+        var online = Changes(DemoOnline.Stretches(plan).Select(s => (s.From, s.Until)));
 
         int memberCount = 0, onlineCount = 0, nextMember = 0, nextOnline = 0;
         DateTimeOffset? previous = null;
@@ -129,7 +128,4 @@ public static class DemoGroupInfo
         changes.Sort((a, b) => a.At.CompareTo(b.At));
         return changes;
     }
-
-    private static DateTimeOffset? Earlier(DateTimeOffset? a, DateTimeOffset? b)
-        => a is null ? b : b is null ? a : a < b ? a : b;
 }
