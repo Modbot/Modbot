@@ -1,4 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
+import { Braces, MoreHorizontal } from 'lucide-react'
+import { Popover } from 'radix-ui'
 import { Badge } from '@/components/ui/badge'
 import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
@@ -46,8 +48,14 @@ import { useDiscordMember } from '@/lib/useDiscordMember'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
 
-const TABS = ['overview', 'logs', 'notes', 'history', 'cases', 'flags', 'discord', 'messages', 'account', 'metrics', 'json'] as const
+const TABS = ['overview', 'logs', 'notes', 'history', 'cases', 'flags', 'discord', 'messages', 'account', 'json'] as const
 type Tab = (typeof TABS)[number]
+
+/**
+ * Tabs that were taken out, and where an old link to one lands now. Metrics was split between
+ * Overview and the Discord tab; the VRChat half is what a link to it most often wanted.
+ */
+const MOVED: Record<string, Tab> = { metrics: 'overview' }
 
 /**
  * One person: every account Modbot can tie to them, and everything recorded about any of them.
@@ -132,7 +140,7 @@ function Resolved({
   const version = useOpeningVersion()
 
   const opening: Tab = message && discordId && readsMessages ? 'messages' : 'overview'
-  const [tab, setTab] = useOpeningTab<Tab>(opening, TABS)
+  const [tab, setTab] = useOpeningTab<Tab>(opening, TABS, MOVED)
 
   // On a phone the tabs come after the whole profile, so a tab opened from the row under the title
   // or from the Note button at the foot would change somewhere the reader cannot see. Opening one
@@ -184,11 +192,14 @@ function Resolved({
     ...(vrchatId && seesProfile ? [{ value: 'history' as const, label: 'Profile changes' }] : []),
     ...(vrchatId && seesProfile ? [{ value: 'cases' as const, label: 'Cases' }] : []),
     ...((vrchatId || discordId) && seesProfile ? [{ value: 'flags' as const, label: 'Flags' }] : []),
-    ...(discordId && seesMembers ? [{ value: 'discord' as const, label: 'Discord' }] : []),
+    // The member read needs one permission and the activity charts another, so either opens it.
+    ...(discordId && (seesMembers || seesProfile) ? [{ value: 'discord' as const, label: 'Discord' }] : []),
     ...(discordId && readsMessages ? [{ value: 'messages' as const, label: 'Messages' }] : []),
     ...(account && readsLogs ? [{ value: 'account' as const, label: 'Account' }] : []),
-    ...(seesProfile ? [{ value: 'metrics' as const, label: 'Metrics' }] : []),
-    { value: 'json', label: 'JSON' },
+    // Raw data is opened from the menu in the header, not from this row: two tabs almost nobody
+    // opened pushed Flags off a phone's screen (UX review 2026-09-27, idea 11). While it is open
+    // it has a tab like the rest, so the row still says where the reader is.
+    ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
   ]
 
   // Led by the name, as VRChat's profile page and Discord's profile card are: "Person" and an id
@@ -219,6 +230,7 @@ function Resolved({
         </span>
       }
       lead={lead}
+      actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
       standing={
         <StandingBar
           person={person}
@@ -309,10 +321,21 @@ function Resolved({
           {tab === 'flags' && (vrchatId || discordId) && (
             <PersonFlags key={live} vrchatId={vrchatId} discordId={discordId} />
           )}
-          {tab === 'discord' && discordId && <DiscordHistory key={live} id={discordId} read={member} />}
+          {tab === 'discord' && discordId && (
+            seesMembers ? (
+              <DiscordHistory key={live} id={discordId} read={member}>
+                {seesProfile && <DiscordMetrics id={discordId} />}
+              </DiscordHistory>
+            ) : (
+              seesProfile && (
+                <div className="flex min-h-0 flex-col">
+                  <DiscordMetrics id={discordId} />
+                </div>
+              )
+            )
+          )}
           {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
           {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
-          {tab === 'metrics' && <Metrics key={live} person={person} />}
           {tab === 'json' && <Records key={fresh} person={person} me={me} />}
         </Tabs>
       </div>
@@ -422,18 +445,12 @@ function Overview({
 
       {seesProfile && vrchatId && <SubjectHistory subjectId={vrchatId} />}
 
-      {metrics.data?.known && (
-        <StatStrip className="m-0 shrink-0">
-          <Stat label="Time seen" value={minutes(metrics.data.counts.minutesSeen)} />
-          <Stat label="Instances visited" value={compactNumber(metrics.data.counts.instances)} />
-          <Stat label="Worlds visited" value={compactNumber(metrics.data.counts.worlds)} />
-          <Stat
-            label="Last seen"
-            value={metrics.data.counts.lastSeenAt ? ago(metrics.data.counts.lastSeenAt, metrics.data.now) : '—'}
-            note={metrics.data.counts.lastSeenAt ? dateTime(metrics.data.counts.lastSeenAt) : undefined}
-            noteMono
-          />
-        </StatStrip>
+      {metrics.data?.known && <TimeInWorld data={metrics.data} />}
+
+      {metrics.data?.known && metrics.data.recentInstances.length > 0 && (
+        <Panel title="Instances they were seen in" flush>
+          <InstanceTable instances={metrics.data.recentInstances} />
+        </Panel>
       )}
 
       <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
@@ -523,50 +540,16 @@ function Records({ person, me }: { person: PersonView; me: CurrentUser }) {
 }
 
 /**
- * What Modbot can actually work out about one person's time in world, and their activity in
- * Discord, side by side.
+ * What Modbot can actually work out about one person's time in world.
  *
- * The time-in-world figures come from the companion's presence reports, the same arithmetic the
- * Worlds page uses, so they only cover time a moderator's client shared an instance with them.
+ * The figures come from the companion's presence reports, the same arithmetic the Worlds page
+ * uses, so they only cover time a moderator's client shared an instance with them.
  */
-function Metrics({ person }: { person: PersonView }) {
-  const vrchatId = person.vrChat?.id ?? null
-  const discordId = person.discord?.id ?? null
-
-  const load = useCallback(() => api.userMetrics(vrchatId!), [vrchatId])
-  const { data, error } = useLoad(vrchatId ? load : null)
-
-  return (
-    <div className="flex min-h-0 flex-col">
-      {vrchatId && (
-        <Panel title="Time in world" flush>
-          {error && <EmptyRow tone="danger">{error}</EmptyRow>}
-          {!error && !data && <EmptyRow>Loading…</EmptyRow>}
-          {data && !data.known && <EmptyRow>Not seen in an instance yet.</EmptyRow>}
-          {data?.known && <TimeInWorld data={data} />}
-        </Panel>
-      )}
-
-      {data?.known && (
-        <Panel title="Instances they were seen in" flush>
-          {data.recentInstances.length === 0 ? (
-            <EmptyRow>No instances yet.</EmptyRow>
-          ) : (
-            <InstanceTable instances={data.recentInstances} />
-          )}
-        </Panel>
-      )}
-
-      {discordId && <DiscordMetrics id={discordId} />}
-    </div>
-  )
-}
-
 function TimeInWorld({ data }: { data: PersonMetrics }) {
   const c = data.counts
 
   return (
-    <StatStrip className="m-0 md:grid-cols-3 xl:grid-cols-3">
+    <StatStrip className="m-0 shrink-0 md:grid-cols-3 xl:grid-cols-3">
       <Stat label="Time seen" value={minutes(c.minutesSeen)} />
       <Stat label="Instances visited" value={compactNumber(c.instances)} />
       <Stat label="Worlds visited" value={compactNumber(c.worlds)} />
@@ -579,6 +562,51 @@ function TimeInWorld({ data }: { data: PersonMetrics }) {
       />
       <Stat label="First seen" value={c.firstSeenAt ? formatDay(c.firstSeenAt) : '—'} />
     </StatStrip>
+  )
+}
+
+/**
+ * The ⋯ in the header, for what a moderator seldom needs and the tab row has no room for.
+ *
+ * Raw data was a tab of its own, and on a phone it and Metrics pushed Flags off the screen.
+ */
+function PopupMenu({ onRawData }: { onRawData: () => void }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        {/* Sized like the close button beside it. */}
+        <button
+          type="button"
+          aria-label="More"
+          className="grid shrink-0 place-items-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+          style={{ height: 'var(--control-h)', width: 'var(--control-h)' }}
+        >
+          <MoreHorizontal className="size-4" />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={4}
+          className="z-50 flex flex-col rounded-sm border border-(length:--hairline) bg-popover p-1 text-popover-foreground shadow-sm"
+          style={{ fontSize: 'var(--text-small)' }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              onRawData()
+            }}
+            className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-muted"
+          >
+            <Braces className="size-3.5" />
+            Raw data
+          </button>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 

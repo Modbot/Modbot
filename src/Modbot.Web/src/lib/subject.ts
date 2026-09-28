@@ -173,19 +173,40 @@ export function useMessageAt(): string | null {
  * not rewrite a link somebody is about to copy into something that opens on the wrong tab. A new
  * `?tab=` while it is open is followed, though: the palette's "Add a note to X…" on the person
  * already open has to land on their Notes.
+ *
+ * @param moved Tabs a popup no longer has, each with the tab its content went to, so a link
+ *   pasted before the tab was taken out still opens on what it pointed at.
  */
-export function useOpeningTab<T extends string>(fallback: T, allowed: readonly T[]): [T, (next: T) => void] {
+export function useOpeningTab<T extends string>(
+  fallback: T,
+  allowed: readonly T[],
+  moved?: Readonly<Record<string, T>>,
+): [T, (next: T) => void] {
   const [location] = useLocation()
   const asked = location.search.get(TAB)
-  const [tab, setTab] = useState<T>(() => (allowed.includes(asked as T) ? (asked as T) : fallback))
+  const [tab, setTab] = useState<T>(() => openingTab(asked, fallback, allowed, moved))
 
+  // A tab the popup does not know leaves it where it is, which is what the current tab as the
+  // fallback says.
   const [followed, setFollowed] = useState(asked)
   if (asked !== followed) {
     setFollowed(asked)
-    if (allowed.includes(asked as T)) setTab(asked as T)
+    setTab(openingTab(asked, tab, allowed, moved))
   }
 
   return [tab, setTab]
+}
+
+/** Which tab `?tab=<asked>` opens: an allowed tab as it is, a moved one where it went, else the fallback. */
+export function openingTab<T extends string>(
+  asked: string | null,
+  fallback: T,
+  allowed: readonly T[],
+  moved: Readonly<Record<string, T>> = {},
+): T {
+  if (asked === null) return fallback
+  if (allowed.includes(asked as T)) return asked as T
+  return Object.hasOwn(moved, asked) ? moved[asked] : fallback
 }
 
 /** The version the popup was opened at, when it was opened at one (`?version=<fact id>`). */
