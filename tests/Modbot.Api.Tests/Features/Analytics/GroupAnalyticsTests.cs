@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Analytics.Group;
 using Modbot.Api.Tests.Features.Audit;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using static Modbot.Api.Tests.Features.Analytics.AnalyticsFacts;
@@ -63,11 +65,11 @@ public class GroupAnalyticsTests
     }
 
     /// <summary>
-    /// Only members whose join is on record have a tenure, and somebody who has since left is
-    /// not a current member however long they were one.
+    /// Before the member list has been read, the fact log's joins are all there is: somebody who
+    /// has since left is not a current member however long they were one.
     /// </summary>
     [Fact]
-    public async Task Tenure_BucketsCurrentMembersByRecordedJoin()
+    public async Task Tenure_BeforeTheMemberListIsRead_BucketsCurrentMembersByRecordedJoin()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -95,6 +97,66 @@ public class GroupAnalyticsTests
         Assert.Equal(1, Members("1 to 4 weeks"));
         Assert.Equal(1, Members("1 to 3 months"));
         Assert.Equal(0, Members("Over a year"));
+    }
+
+    /// <summary>
+    /// With a member list, tenure is VRChat's join date for every current member of the managed
+    /// group, including the ones who joined long before the fact log begins. Somebody who has left,
+    /// a member of another group and a member with no join date are not counted, and the fact log's
+    /// joins are no longer used.
+    /// </summary>
+    [Fact]
+    public async Task Tenure_ComesFromTheMemberList_WhenThereIsOne()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var now = host.Clock.UtcNow;
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var settings = await db.GetSettingsAsync(ct);
+            settings.ManagedGroupId = "grp_1";
+
+            GroupMember Member(string user, DateTimeOffset? joined, string group = "grp_1", DateTimeOffset? left = null) => new()
+            {
+                GroupId = group,
+                UserId = user,
+                JoinedAt = joined,
+                LeftAt = left,
+                FirstSeenAt = now,
+                LastSeenAt = now,
+            };
+
+            db.GroupMembers.AddRange(
+                Member("usr_new", now.AddDays(-3)),
+                Member("usr_month", now.AddDays(-50)),
+                Member("usr_half", now.AddDays(-200)),
+                Member("usr_old", now.AddDays(-900)),
+                Member("usr_older", now.AddDays(-1200)),
+                Member("usr_gone", now.AddDays(-700), left: now.AddDays(-1)),
+                Member("usr_elsewhere", now.AddDays(-700), group: "grp_other"),
+                Member("usr_undated", null));
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        // A join the fact log holds for somebody the member list does not: not counted.
+        await host.WriteFactAsync(AuditFact(FactType.MemberJoined, "usr_only_in_log", now.AddDays(-2)), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<GroupAnalytics>("/api/analytics/group?days=7", cookie, ct);
+
+        int Members(string label) => page.Tenure.Single(b => b.Label == label).Members;
+
+        Assert.Equal(5, page.MembersWithKnownTenure);
+        Assert.Equal(1, Members("Under a week"));
+        Assert.Equal(0, Members("1 to 4 weeks"));
+        Assert.Equal(1, Members("1 to 3 months"));
+        Assert.Equal(1, Members("3 to 12 months"));
+        Assert.Equal(2, Members("Over a year"));
     }
 
     [Fact]

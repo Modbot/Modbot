@@ -14,8 +14,9 @@ import { plural } from '@/lib/format'
  * Overview until the charts of every platform moved onto one Stats page.
  *
  * Two sources, kept visibly apart. Joins, leaves, invites and requests per day come from the daily
- * totals, which are never aged out; the headcount, roles, tenure and invite follow-up come from the
- * fact log, which a retention window can shorten.
+ * totals, which are never aged out; the headcount, roles and invite follow-up come from the fact
+ * log, which a retention window can shorten. Tenure comes from the join dates on VRChat's member
+ * list, which covers every member.
  *
  * `netChange` is deliberately labelled as recorded joins minus recorded leaves and never as the
  * member count: it starts from zero on the fact log's first day, so a group that installed Modbot
@@ -164,7 +165,8 @@ export function GroupGrowth({ data }: { data: GroupAnalytics }) {
           right={
             data.membersWithKnownTenure > 0 && (
               <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                <span className="font-mono">{compactNumber(data.membersWithKnownTenure)}</span> with a known join date
+                <span className="font-mono">{compactNumber(data.membersWithKnownTenure)}</span>{' '}
+                {plural(data.membersWithKnownTenure, 'member')}
               </span>
             )
           }

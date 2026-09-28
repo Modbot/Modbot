@@ -100,8 +100,8 @@ public sealed record GroupMemberCountSeries(
 /// </param>
 /// <param name="RolesKnownAt">When the role list was last read from VRChat, or null if never.</param>
 /// <param name="MembersWithKnownTenure">
-/// How many current members the tenure buckets cover. Only people whose join Modbot recorded
-/// have a join date; members from before recording began are not in any bucket.
+/// How many current members the tenure buckets cover: every member on VRChat's member list with a
+/// join date, or, before the member list has been read, the members whose join the fact log holds.
 /// </param>
 /// <param name="Peaks">The highest the two counts reached inside the window, and when.</param>
 /// <param name="Today">

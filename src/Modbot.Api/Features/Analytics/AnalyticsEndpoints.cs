@@ -69,8 +69,9 @@ public static class AnalyticsEndpoints
                 + "Member count over time, joins and leaves per day, net change, roles, how long "
                 + "current members have been members, and whether invites turn into joins. Daily "
                 + "series come from modbot_daily_total, which is never aged out; the headcount, "
-                + "role changes, tenure and invite follow-up come from the fact log, which a "
-                + "retention window can shorten. `coverage` reports both ranges.")
+                + "role changes and invite follow-up come from the fact log, which a retention "
+                + "window can shorten; tenure comes from the join dates on VRChat's member list. "
+                + "`coverage` reports both ranges.")
             .Produces<GroupAnalytics>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

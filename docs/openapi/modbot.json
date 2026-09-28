@@ -9065,7 +9065,7 @@
           "Analytics"
         ],
         "summary": "Get group analytics",
-        "description": "The VRChat analytics page: is the community growing or shrinking, and what changed? Member count over time, joins and leaves per day, net change, roles, how long current members have been members, and whether invites turn into joins. Daily series come from modbot_daily_total, which is never aged out; the headcount, role changes, tenure and invite follow-up come from the fact log, which a retention window can shorten. `coverage` reports both ranges.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The VRChat analytics page: is the community growing or shrinking, and what changed? Member count over time, joins and leaves per day, net change, roles, how long current members have been members, and whether invites turn into joins. Daily series come from modbot_daily_total, which is never aged out; the headcount, role changes and invite follow-up come from the fact log, which a retention window can shorten; tenure comes from the join dates on VRChat's member list. `coverage` reports both ranges.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetGroupAnalytics",
         "parameters": [
           {
