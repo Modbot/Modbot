@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DiscordPersonLink, SourceBadge, SubjectLink } from '@/components/facts'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
-import { InstanceTile } from '@/components/InstanceCards'
+import { InstanceHeader, InstanceTile } from '@/components/InstanceCards'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { PanelGrid } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
@@ -245,29 +245,32 @@ function VoiceCard({ channel }: { channel: LiveVoiceChannel }) {
 function InstanceCard({ instance, now }: { instance: LiveInstance; now: number }) {
   const watched = instance.watching.length > 0
   const reporting = new Set(instance.watching.map((w) => w.userId))
+  const tile = {
+    instanceId: instance.id,
+    worldName: instance.worldName,
+    instanceName: instance.instanceName,
+    number: instance.vrChatInstanceId,
+    imageUrl: instance.worldImageUrl,
+    people: instance.headCount,
+    peopleUnsure: instance.headCountUnsure,
+    capacity: instance.worldCapacity,
+    groupAccessType: instance.groupAccessType,
+    region: instance.region,
+    platforms: instance.worldPlatforms,
+  }
 
   return (
     <Card>
       {/* The instance as the game draws it, and beside it who is there: known only while a
           moderator's Companion App is in the instance, whose row says so. Its number is in the
-          instance's popup. */}
+          instance's popup. On a phone the tile would be a screen-wide picture above every list,
+          so there the instance is one row with a small picture, and the people come sooner. A
+          headset keeps the tile: it has its own sizes and no narrow screen. */}
       <div className="flex flex-col desk:sm:flex-row">
-        <div className="shrink-0 p-(--panel-pad)">
-          <InstanceTile
-            instanceId={instance.id}
-            worldName={instance.worldName}
-            instanceName={instance.instanceName}
-            number={instance.vrChatInstanceId}
-            imageUrl={instance.worldImageUrl}
-            people={instance.headCount}
-            peopleUnsure={instance.headCountUnsure}
-            capacity={instance.worldCapacity}
-            groupAccessType={instance.groupAccessType}
-            region={instance.region}
-            platforms={instance.worldPlatforms}
-            className="desk:sm:w-56 headset:max-w-sm"
-          />
+        <div className="shrink-0 p-(--panel-pad) desk:max-sm:hidden">
+          <InstanceTile {...tile} className="desk:sm:w-56 headset:max-w-sm" />
         </div>
+        <InstanceHeader {...tile} className="hidden desk:max-sm:flex" />
 
         <div className="min-w-0 flex-1 desk:sm:border-l desk:sm:border-l-(length:--hairline)">
           {watched && <People title="Here now" people={instance.people} reporting={reporting} now={now} />}

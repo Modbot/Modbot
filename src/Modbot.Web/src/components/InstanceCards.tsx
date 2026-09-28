@@ -3,8 +3,7 @@ import { PlatformBadges, RegionBadge } from '@/components/InstanceBadges'
 import { cn } from '@/lib/utils'
 import { openInstance } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
-import { instanceNumber } from '@/lib/instanceName'
-import { headCountText, accessInGame } from '@/lib/format'
+import { instanceCardText, instanceNumber } from '@/lib/instanceName'
 import { HeadCount } from '@/components/HeadCount'
 
 /**
@@ -73,19 +72,23 @@ export function InstanceTile({
   platforms: string[] | null
   className?: string
 }) {
-  const here = people ?? 0
-  const unsure = people !== null && peopleUnsure
-  const count = `${headCountText(here, unsure)}${capacity ? `/${capacity}` : ''}`
-  const access = accessInGame(groupAccessType)
-  const name = worldName ?? 'Unknown world'
-  const named = instanceName?.trim() ? instanceNumber(number, instanceName) : null
+  const { here, unsure, access, name, named, tileLabel } = instanceCardText({
+    worldName,
+    instanceName,
+    number,
+    people,
+    peopleUnsure,
+    capacity,
+    groupAccessType,
+    region,
+  })
 
   return (
     <button
       type="button"
       onClick={() => openInstance(instanceId)}
       title={named && number ? instanceNumber(number) : undefined}
-      aria-label={`${name}${named ? ` ${named}` : ''}, ${count}${access ? `, ${access}` : ''}${region ? `, ${region.toUpperCase()}` : ''}`}
+      aria-label={tileLabel}
       className={cn(
         'group relative block aspect-[4/3] w-full overflow-hidden rounded-md bg-muted text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
         className,
@@ -118,6 +121,76 @@ export function InstanceTile({
           <HeadCount count={here} unsure={unsure} />
           {capacity ? `/${capacity}` : null}
           {access ? ` - ${access}` : null}
+        </span>
+      </span>
+    </button>
+  )
+}
+
+/**
+ * One instance as a single row, for a phone: a small square of the world's picture, then the
+ * world's name and "25/40" on one line and the access type, region, number and platforms on the
+ * next. The same facts as the tile, with the picture shrunk so the people in the instance come
+ * first. Opens the instance, as the tile does.
+ */
+export function InstanceHeader({
+  instanceId,
+  worldName,
+  instanceName,
+  number,
+  imageUrl,
+  people,
+  peopleUnsure = false,
+  capacity,
+  groupAccessType,
+  region,
+  platforms,
+  className,
+}: Parameters<typeof InstanceTile>[0]) {
+  const { here, unsure, access, name, tag, named, headerLabel } = instanceCardText({
+    worldName,
+    instanceName,
+    number,
+    people,
+    peopleUnsure,
+    capacity,
+    groupAccessType,
+    region,
+  })
+
+  const facts = [
+    access && <span key="access" className="shrink-0">{access}</span>,
+    region && <RegionBadge key="region" region={region} />,
+    tag && <span key="tag" className="min-w-0 truncate">{tag}</span>,
+  ].filter(Boolean)
+
+  return (
+    <button
+      type="button"
+      onClick={() => openInstance(instanceId)}
+      title={named && number ? instanceNumber(number) : undefined}
+      aria-label={headerLabel}
+      className={cn(
+        'flex w-full items-center gap-3 p-(--panel-pad) text-left hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+        className,
+      )}
+    >
+      <span className="size-12 shrink-0 overflow-hidden rounded-md bg-muted">
+        {imageUrl && <img src={vrchatMedia(imageUrl)} alt="" loading="lazy" className="size-full object-cover" />}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1 leading-tight">
+        <span className="flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate font-semibold">{name}</span>
+          <span className="shrink-0 font-mono">
+            <HeadCount count={here} unsure={unsure} />
+            {capacity ? `/${capacity}` : null}
+          </span>
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+          {facts.flatMap((fact, i) => (i > 0 ? [<span key={`dot${i}`} aria-hidden>·</span>, fact] : [fact]))}
+          <span className="ml-auto shrink-0 pl-1">
+            <PlatformBadges platforms={platforms} />
+          </span>
         </span>
       </span>
     </button>

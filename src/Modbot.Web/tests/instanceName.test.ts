@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { instanceEnd, instanceName, instanceNumber } from '../src/lib/instanceName.ts'
+import { instanceCardText, instanceEnd, instanceName, instanceNumber } from '../src/lib/instanceName.ts'
 
 test('an instance is named the way VRChat shows it: the world, then the number', () => {
   assert.equal(instanceName('The Black Cat', 'wrld_4b34', '19453'), 'The Black Cat #19453')
@@ -47,4 +47,57 @@ test('an instance is closed only when a moderator closed it, and otherwise ended
 
   // An older server that does not say is read as the common case, not as a moderator's close.
   assert.equal(instanceEnd({ closedAt: '2026-09-25T03:22:00Z' }), 'ended')
+})
+
+const neonYard = {
+  worldName: 'Neon Yard',
+  number: '19453',
+  people: 7,
+  capacity: 60,
+  groupAccessType: 'members',
+  region: 'eu',
+}
+
+test('the tile and the phone header say the same head count and access type', () => {
+  const text = instanceCardText(neonYard)
+  assert.equal(text.count, '7/60')
+  assert.equal(text.access, 'Group')
+  assert.equal(text.name, 'Neon Yard')
+})
+
+test('the phone header always shows the number; the tile leaves it to the popup', () => {
+  const text = instanceCardText(neonYard)
+  assert.equal(text.tag, '#19453')
+  assert.equal(text.named, null)
+  assert.equal(text.tileLabel, 'Neon Yard, 7/60, Group, EU')
+  assert.equal(text.headerLabel, 'Neon Yard #19453, 7/60, Group, EU')
+})
+
+test('an instance with a name of its own shows the name in quotes on both', () => {
+  const text = instanceCardText({ ...neonYard, instanceName: '6 killed 7' })
+  assert.equal(text.tag, '“6 killed 7”')
+  assert.equal(text.named, '“6 killed 7”')
+  assert.equal(text.tileLabel, 'Neon Yard “6 killed 7”, 7/60, Group, EU')
+})
+
+test('an unsure count carries its question mark, and missing facts are left out', () => {
+  const text = instanceCardText({
+    worldName: null,
+    people: 80,
+    peopleUnsure: true,
+    capacity: null,
+    groupAccessType: null,
+    region: null,
+  })
+  assert.equal(text.count, '80?')
+  assert.equal(text.unsure, true)
+  assert.equal(text.tag, null)
+  assert.equal(text.headerLabel, 'Unknown world, 80?')
+})
+
+test('with no head count at all the instance reads as empty, never as unsure', () => {
+  const text = instanceCardText({ ...neonYard, people: null, peopleUnsure: true })
+  assert.equal(text.here, 0)
+  assert.equal(text.unsure, false)
+  assert.equal(text.count, '0/60')
 })

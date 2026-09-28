@@ -1,3 +1,5 @@
+import { accessInGame, headCountText } from './format.ts'
+
 /**
  * What an instance is called on a screen: the world's name and VRChat's number, the way VRChat
  * shows it in game — `The Black Cat #19453`.
@@ -36,6 +38,38 @@ function instanceTag(number: string | null | undefined, name: string | null | un
   const named = name?.trim()
   if (named) return `“${named}”`
   return number ? `#${number}` : null
+}
+
+/**
+ * The words an open instance is drawn with, shared by the big tile and the phone's one-row header
+ * so the two never disagree: the world's name, "25/40", the game's word for the access type, and
+ * the instance's number or its own name in quotes.
+ *
+ * The tile keeps the number in the popup and names only an instance opened with a name; the
+ * header has a line for it, so it always shows the number. Each has a label for screen readers
+ * that says what it shows.
+ */
+export function instanceCardText(i: {
+  worldName: string | null
+  instanceName?: string | null
+  number?: string | null
+  people: number | null
+  peopleUnsure?: boolean
+  capacity: number | null
+  groupAccessType: string | null
+  region: string | null
+}) {
+  const here = i.people ?? 0
+  const unsure = i.people !== null && !!i.peopleUnsure
+  const count = `${headCountText(here, unsure)}${i.capacity ? `/${i.capacity}` : ''}`
+  const access = accessInGame(i.groupAccessType)
+  const name = i.worldName ?? 'Unknown world'
+  const tag = instanceTag(i.number, i.instanceName)
+  const named = i.instanceName?.trim() ? tag : null
+  const label = (shown: string | null) =>
+    `${name}${shown ? ` ${shown}` : ''}, ${count}${access ? `, ${access}` : ''}${i.region ? `, ${i.region.toUpperCase()}` : ''}`
+
+  return { here, unsure, count, access, name, tag, named, tileLabel: label(named), headerLabel: label(tag) }
 }
 
 /**
