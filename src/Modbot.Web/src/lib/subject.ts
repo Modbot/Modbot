@@ -170,12 +170,21 @@ export function useMessageAt(): string | null {
  * History and the audit log can send a moderator to one version (`?version=`).
  *
  * Read from the address but held in state once the popup is open: switching tabs by hand should
- * not rewrite a link somebody is about to copy into something that opens on the wrong tab.
+ * not rewrite a link somebody is about to copy into something that opens on the wrong tab. A new
+ * `?tab=` while it is open is followed, though: the palette's "Add a note to X…" on the person
+ * already open has to land on their Notes.
  */
 export function useOpeningTab<T extends string>(fallback: T, allowed: readonly T[]): [T, (next: T) => void] {
   const [location] = useLocation()
   const asked = location.search.get(TAB)
   const [tab, setTab] = useState<T>(() => (allowed.includes(asked as T) ? (asked as T) : fallback))
+
+  const [followed, setFollowed] = useState(asked)
+  if (asked !== followed) {
+    setFollowed(asked)
+    if (allowed.includes(asked as T)) setTab(asked as T)
+  }
+
   return [tab, setTab]
 }
 
