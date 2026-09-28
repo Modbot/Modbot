@@ -21,9 +21,18 @@ export const NAV = [
   // group's instances, Modbot's health and what changed since this person last looked. Every part
   // is read under its own page's permission, so it needs none of its own.
   { id: 'now', label: 'Now' },
+  // Questions answered from Modbot's own data, with tools that run as the person asking. Beside
+  // Now with no heading since 2026-09-27: it asks about every part of the app, not one of them.
+  { id: 'chat', label: 'Chat', needs: 'UseAiChat' },
   // The people asking to be let in, read from VRChat when the page is opened. Near People
   // because it is the same roster one step earlier.
-  { id: 'requests', label: 'Requests', needs: 'ViewJoinRequests', words: ['join', 'join requests', 'applicants'] },
+  //
+  // "Community" heads the pages about the group's people, from here down to Giveaways
+  // (2026-09-27). Before it the first eleven entries ran on with no heading, Chat in the middle.
+  // Inside it, the pages that act on a person come first and Bans follows Live, where a
+  // moderator most often decides one; Calendar and Giveaways, opened less often, close it. Each
+  // of them names the heading, so it is still drawn for somebody who may not open Requests.
+  { id: 'requests', label: 'Requests', group: 'Community', needs: 'ViewJoinRequests', words: ['join', 'join requests', 'applicants'] },
   // The Discord server's own member list. Separate from Members, because most people are on one
   // side only and most never link. Not in the page list since 2026-09-27: it is the Members link on
   // the Discord page's header, so the sidebar lights Discord while it is open. The palette and
@@ -33,30 +42,28 @@ export const NAV = [
   // instance or read about in the audit log have a profile and a history too, and no list led to
   // them. "People" rather than "Users", which is the settings screen for Modbot's own accounts.
   // See members opens it too, for the Members view alone (below).
-  { id: 'people', label: 'People', needsAny: ['ViewProfile', 'ViewMembers'] },
+  { id: 'people', label: 'People', group: 'Community', needsAny: ['ViewProfile', 'ViewMembers'] },
   // Not a page since 2026-09-27: the member list became People narrowed to members, with its
   // columns and filters (`MEMBERS_PATH`). It keeps its name so the VRChat page's Members tab, `g m`
   // and the palette still go to it, and the sidebar lights People while it is open. `/members`
   // and its old filters still open it (`membersAddress`).
   { id: 'members', label: 'Members', needs: 'ViewMembers', hidden: true, under: 'people', words: ['roster', 'VRChat members'] },
   // The group's open instances right now and who is in each.
-  { id: 'live', label: 'Live', needs: 'ViewLiveInstances', words: ['voice', 'online', 'instances now'] },
-  // Planned events, where each is published, and the calendar feed (calendar design).
-  { id: 'calendar', label: 'Calendar', needs: 'ViewCalendar', words: ['events', 'schedule'] },
-  // Giveaways, their rules, who entered and how each draw went (giveaways design).
-  { id: 'giveaways', label: 'Giveaways', needs: 'ViewGiveaways' },
-  // Questions answered from Modbot's own data, with tools that run as the person asking.
-  { id: 'chat', label: 'Chat', needs: 'UseAiChat' },
-  { id: 'bans', label: 'Bans', needs: 'ViewAuditLog', words: ['banned', 'ban list', 'unban', 'banned users'] },
+  { id: 'live', label: 'Live', group: 'Community', needs: 'ViewLiveInstances', words: ['voice', 'online', 'instances now'] },
+  { id: 'bans', label: 'Bans', group: 'Community', needs: 'ViewAuditLog', words: ['banned', 'ban list', 'unban', 'banned users'] },
   // What AI moderation rules flagged. A flag is a note about a person, so it needs ViewProfile;
   // dismissing one needs ReviewTickets, which the page checks for itself.
-  { id: 'flags', label: 'Flags', needs: 'ViewProfile' },
+  { id: 'flags', label: 'Flags', group: 'Community', needs: 'ViewProfile' },
   // Reviews of a moderator's pattern (spec 5.8.5), beside Flags because both are things somebody
   // has to look at and decide. Gated on ReviewTickets because the people being reviewed should
   // not be closing them. It used to sit under a "Team" heading of its own, which named a different
   // thing from the Analytics page called Team.
-  { id: 'reviews', label: 'Reviews', needs: 'ReviewTickets' },
-  { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'], words: ['kick', 'warn', 'log', 'history'] },
+  { id: 'reviews', label: 'Reviews', group: 'Community', needs: 'ReviewTickets' },
+  { id: 'audit', label: 'Audit log', group: 'Community', needsAny: ['ViewAuditLog', 'ViewOperationalLog'], words: ['kick', 'warn', 'log', 'history'] },
+  // Planned events, where each is published, and the calendar feed (calendar design).
+  { id: 'calendar', label: 'Calendar', group: 'Community', needs: 'ViewCalendar', words: ['events', 'schedule'] },
+  // Giveaways, their rules, who entered and how each draw went (giveaways design).
+  { id: 'giveaways', label: 'Giveaways', group: 'Community', needs: 'ViewGiveaways' },
   // Stats: the charts of every platform on one page, a tab per question (Stats page design, spec
   // 10.1). It took Team's place on 2026-09-27, when Team and Worlds became parts of its Moderation
   // and Activity tabs; their old addresses open those tabs (`MOVED`), and the palette still finds

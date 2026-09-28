@@ -130,11 +130,39 @@ test('no heading in the sidebar shares a name with a page in it', () => {
   assert.ok(!groups.some((g) => labels.has(g)), 'a heading repeats a page name')
 })
 
-test('Reviews sits beside Flags, with no heading of its own', () => {
+test('Reviews sits beside Flags, under the same heading', () => {
   const at = (id: string) => NAV.findIndex((n) => n.id === id)
+  const reviews = NAV[at('reviews')]
+  const flags = NAV[at('flags')]
 
   assert.equal(at('reviews'), at('flags') + 1)
-  assert.ok(!('group' in NAV[at('reviews')]))
+  assert.ok('group' in reviews && 'group' in flags && reviews.group === flags.group)
+})
+
+test('Community heads the pages from Requests to Giveaways, each of which names it', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+  const community = shown.filter((n) => 'group' in n && n.group === 'Community')
+  const first = shown.indexOf(community[0])
+
+  assert.deepEqual(
+    community.map((n) => n.id),
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'giveaways'],
+  )
+  assert.deepEqual(shown.slice(first, first + community.length), community)
+})
+
+test('the Community heading is still drawn without Requests', () => {
+  const people = NAV.find((n) => n.id === 'people')
+
+  assert.equal(mayOpen(person('ViewMembers'), 'requests'), false)
+  assert.ok(people && 'group' in people && people.group === 'Community')
+})
+
+test('Now and Chat sit above every heading', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+
+  assert.deepEqual(shown.slice(0, 2).map((n) => n.id), ['now', 'chat'])
+  assert.ok(shown.slice(0, 2).every((n) => !('group' in n)))
 })
 
 test("Modbot's own log is not called just Logs, which the audit log and the popup also were", () => {
