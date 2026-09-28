@@ -4,7 +4,8 @@ import type { CurrentUser } from './api.ts'
 import { mayOpen, type PageId } from './nav.ts'
 
 /**
- * The pieces of the Discord page that are worth a test: which links a person sees, the boost bar,
+ * The pieces of the Discord page that are worth a test: which links a person sees, whether they
+ * see who is in voice, the boost bar,
  * the size asked of Discord's picture site, the week's ups and downs, an account's age read from
  * its id, and which picture a channel is drawn with.
  */
@@ -12,11 +13,13 @@ import { mayOpen, type PageId } from './nav.ts'
 /**
  * The row under the server's header, named the way Discord's own server menu names its parts,
  * each leading to the Modbot page that shows that part. Overview is the page itself.
+ *
+ * There is no voice link: who is in voice is drawn on the page itself, under the header, as
+ * Discord draws it in its channel list rather than in its server menu.
  */
 export const SERVER_TABS: readonly { id: PageId; label: string }[] = [
   { id: 'analytics-server', label: 'Overview' },
   { id: 'discord-members', label: 'Members' },
-  { id: 'live', label: 'Voice now' },
   { id: 'calendar', label: 'Events' },
   { id: 'bans', label: 'Bans' },
 ]
@@ -24,6 +27,14 @@ export const SERVER_TABS: readonly { id: PageId; label: string }[] = [
 /** The links this person may open, in order: a page the sidebar hides is not offered here either. */
 export function serverTabs(me: CurrentUser): { id: PageId; label: string }[] {
   return SERVER_TABS.filter((tab) => mayOpen(me, tab.id))
+}
+
+/**
+ * Whether the page draws who is in voice. It is read from Live's own answer, so it is shown to
+ * whoever may open Live and to nobody else.
+ */
+export function seesVoice(me: CurrentUser): boolean {
+  return mayOpen(me, 'live')
 }
 
 /** The boosts each level needs: level 1 at 2, level 2 at 7, level 3 at 14. Discord's own numbers. */

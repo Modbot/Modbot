@@ -7,6 +7,7 @@ import {
   boostShare,
   channelLook,
   discordPicture,
+  seesVoice,
   serverInitials,
   serverTabs,
   weekChange,
@@ -23,7 +24,6 @@ test('the links are named the way Discord names them, and lead to the matching p
     [
       ['Overview', 'analytics-server'],
       ['Members', 'discord-members'],
-      ['Voice now', 'live'],
       ['Events', 'calendar'],
       ['Bans', 'bans'],
     ],
@@ -36,6 +36,12 @@ test('a link the person may not open is not offered, the same as in the sidebar'
     serverTabs(person('ViewAnalytics', 'ViewMembers', 'ViewAuditLog')).map((t) => t.label),
     ['Overview', 'Members', 'Bans'],
   )
+})
+
+test('who is in voice is drawn only for someone who may open Live, whose answer it is read from', () => {
+  assert.equal(seesVoice(person('ViewAnalytics')), false)
+  assert.equal(seesVoice(person('ViewAnalytics', 'ViewLiveInstances')), true)
+  assert.equal(seesVoice(person('Administrator')), true)
 })
 
 test('the boost goal is the next level, from Discord’s level', () => {
