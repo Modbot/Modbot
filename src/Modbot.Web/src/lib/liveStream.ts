@@ -69,6 +69,12 @@ export const PRESENCE_KINDS = new Set(['person_joined', 'flagged_join', 'person_
 
 export const INSTANCE_KINDS = new Set(['instance_opened', 'instance_closed', 'instance_changed'])
 
+/** Somebody joined, moved or left Discord voice: the Live page's voice list and the Discord page's "In voice". */
+export const VOICE_KINDS = new Set(['voice_changed'])
+
+/** At most one read of who is in voice this often while voice keeps changing. */
+export const VOICE_GAP_MS = 2_000
+
 export const REVIEW_KINDS = new Set(['review_opened', 'review_closed'])
 
 /** The part of a WebSocket the stream uses, so a test can hand in a fake. */

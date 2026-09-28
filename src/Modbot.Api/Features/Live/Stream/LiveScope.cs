@@ -10,7 +10,7 @@ namespace Modbot.Api.Features.Live.Stream;
 /// <remarks>
 /// <para>
 /// <strong>A person</strong> sees by permission, decided per event from what they hold at that
-/// moment: presence and instances need "See live instances" (the Live page's own permission, M3
+/// moment: presence, instances and Discord voice need "See live instances" (the Live page's own permission, M3
 /// §7.4), alerts need "See analytics" (the card's own permission), reviews need "Review tickets"
 /// (the sidebar count's). A permission removed mid-connection stops the next event.
 /// </para>
@@ -71,7 +71,7 @@ public sealed class LiveScope
         if (EventVisibility.CanSee(Permissions, type))
             return true;
 
-        if (LiveKinds.IsPresence(kind) || LiveKinds.IsInstance(kind))
+        if (LiveKinds.IsPresence(kind) || LiveKinds.IsInstance(kind) || LiveKinds.IsVoice(kind))
             return ModbotAuth.Allows(Permissions, ModbotPermissions.ViewLiveInstances);
 
         if (kind == LiveKinds.Alert)

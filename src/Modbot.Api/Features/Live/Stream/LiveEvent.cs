@@ -40,6 +40,9 @@ public static class LiveKinds
 
     public const string InstanceChanged = "instance_changed";
 
+    /// <summary>Somebody joined, left or moved between Discord voice channels.</summary>
+    public const string VoiceChanged = "voice_changed";
+
     /// <summary>Unusual activity, from the alert watchers (AI insights design §8).</summary>
     public const string Alert = "alert";
 
@@ -56,6 +59,7 @@ public static class LiveKinds
         FactType.GroupInstanceCreated => InstanceOpened,
         FactType.GroupInstanceClosed => InstanceClosed,
         FactType.GroupInstanceUpdated => InstanceChanged,
+        FactType.DiscordVoiceJoined or FactType.DiscordVoiceLeft or FactType.DiscordVoiceMoved => VoiceChanged,
         FactType.InsightAlert => Alert,
         FactType.ReviewOpened => ReviewOpened,
         FactType.ReviewClosed => ReviewClosed,
@@ -68,6 +72,12 @@ public static class LiveKinds
 
     public static bool IsInstance(string kind)
         => kind is InstanceOpened or InstanceClosed or InstanceChanged;
+
+    /// <summary>
+    /// Who is in Discord voice: needs "See live instances", like the Live page that lists them.
+    /// Not <see cref="IsPresence"/>, which is what a companion is sent and describes a VRChat person.
+    /// </summary>
+    public static bool IsVoice(string kind) => kind is VoiceChanged;
 
     public static bool IsReview(string kind)
         => kind is ReviewOpened or ReviewClosed;

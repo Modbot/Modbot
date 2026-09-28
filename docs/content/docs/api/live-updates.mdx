@@ -28,12 +28,15 @@ kinds are named, because a screen does something particular with them; everythin
 | `person_here` | `vrchat.instance.presence` | Somebody was already there when a moderator started watching. |
 | `watch_stopped` | `vrchat.instance.log-stopped` | A moderator's client stopped seeing the instance. |
 | `instance_opened`, `instance_closed`, `instance_changed` | `vrchat.group.instance.*` | A group instance opened, closed or changed. |
+| `voice_changed` | `discord.voice.join`, `.move`, `.leave` | Somebody joined, moved between or left Discord voice channels. |
 | `alert` | `modbot.insight.alert` | Unusual activity, from the [alert watchers](/ai/alerts). |
 | `review_opened`, `review_closed` | `modbot.review.*` | A [review](/moderation/reviews) opened or closed. |
 | `fact` | anything else | A ban, a join, a role change, a sign-in, a settings change, and so on. |
 
 Until 2026-09-17 the three group instance kinds were `room_opened`, `room_closed` and
 `room_changed`. A client written against those names needs the new ones.
+
+Until 2026-09-27 Discord voice changes came as `fact`, with the same `type`.
 
 ```json
 {
@@ -86,7 +89,7 @@ Until 2026-09-17 the three group instance kinds were `room_opened`, `room_closed
 The same rules as the screens that show these things, decided event by event from the
 permissions the person holds at that moment:
 
-- Presence and instances need [**See live instances**](/accounts/roles-and-permissions#see-live-instances).
+- Presence, instances and Discord voice need [**See live instances**](/accounts/roles-and-permissions#see-live-instances).
 - Alerts need **See analytics**.
 - Reviews need **Review tickets**.
 - Every other event follows the audit log's rules: moderation events need **See the audit log**,
