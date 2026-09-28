@@ -18,3 +18,7 @@ export const siteUrl = 'https://docs.modbot.co';
 
 /** Modbot's own public site. */
 export const landingUrl = 'https://modbot.co';
+
+/** Where bugs and feedback go: the project's GitHub issues, the list rather than the new-issue form. */
+export const issuesUrl = 'https://github.com/Modbot/Modbot/issues';
+export const issuesLabel = 'Bugs and feedback';

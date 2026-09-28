@@ -1,3 +1,4 @@
+import { Bug } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link } from '@/components/Link'
 
@@ -17,6 +18,17 @@ export function Shell({ children }: { children: ReactNode }) {
           </Link>
         </header>
         {children}
+        <footer className="flex justify-center pt-2 text-sm">
+          <a
+            href="https://github.com/Modbot/Modbot/issues"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:underline"
+          >
+            <Bug className="size-3.5" aria-hidden="true" />
+            Bugs and feedback
+          </a>
+        </footer>
       </div>
     </div>
   )

@@ -4,9 +4,9 @@ using Modbot.Landing.Configuration;
 namespace Modbot.Landing.Tests;
 
 /// <summary>
-/// /discord and /github are short addresses people type and the site links to with an icon. The
-/// server sends them on to whatever it was given, so the page can be built once and the addresses
-/// changed without rebuilding it.
+/// /discord, /github and /issues are short addresses people type and the site links to. The server
+/// sends them on to whatever it was given, so the page can be built once and the addresses changed
+/// without rebuilding it.
 /// </summary>
 public class LinkTests
 {
@@ -90,6 +90,27 @@ public class LinkTests
         using var response = await host.GetAsync("/github");
 
         Assert.Equal("https://github.com/someone/fork", response.Headers.Location?.ToString());
+    }
+
+    [Fact]
+    public async Task IssuesSendsPeopleToTheRepositorysIssues()
+    {
+        await using var host = await LandingTestHost.StartAsync();
+
+        using var response = await host.GetAsync("/issues");
+
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+        Assert.Equal("https://github.com/Modbot/Modbot/issues", response.Headers.Location?.ToString());
+    }
+
+    [Fact]
+    public async Task IssuesFollowsAFork()
+    {
+        await using var host = await LandingTestHost.StartAsync(github: "https://github.com/someone/fork");
+
+        using var response = await host.GetAsync("/issues");
+
+        Assert.Equal("https://github.com/someone/fork/issues", response.Headers.Location?.ToString());
     }
 
     [Fact]

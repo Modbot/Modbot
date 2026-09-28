@@ -5,8 +5,8 @@ namespace Modbot.Landing.Features.Pages;
 
 /// <summary>
 /// <c>/</c> serves the landing page and each address in <see cref="Pages"/> serves the page built
-/// for it, including <c>/instances</c> and the privacy policy. <c>/discord</c> and <c>/github</c>
-/// send people to the addresses the server was given. Every other path no file claimed is a 404,
+/// for it, including <c>/instances</c> and the privacy policy. <c>/discord</c>, <c>/github</c> and
+/// <c>/issues</c> send people to the addresses the server was given. Every other path no file claimed is a 404,
 /// with the built not-found page for anything a person might have typed.
 /// </summary>
 public static class PageEndpoints
@@ -46,6 +46,11 @@ public static class PageEndpoints
         app.MapMethods("/github", [HttpMethods.Get, HttpMethods.Head],
             ([FromServices] LandingEnvironment environment, [FromServices] BuiltPages pages, HttpContext http) =>
                 Send(environment.GithubUrl, pages, http));
+
+        // Bugs and feedback: the repository's issues, so a fork's site sends people to the fork's.
+        app.MapMethods("/issues", [HttpMethods.Get, HttpMethods.Head],
+            ([FromServices] LandingEnvironment environment, [FromServices] BuiltPages pages, HttpContext http) =>
+                Send(environment.GithubUrl is { } github ? $"{github}/issues" : null, pages, http));
 
         // The page's address until 2026-09-17. Other sites link it, so it stays as a redirect.
         app.MapMethods("/rooms", [HttpMethods.Get, HttpMethods.Head],

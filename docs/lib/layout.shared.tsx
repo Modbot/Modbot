@@ -1,6 +1,7 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import { Bug } from 'lucide-react';
 import Image from 'next/image';
-import { landingUrl } from './shared';
+import { issuesLabel, issuesUrl, landingUrl } from './shared';
 
 export function baseOptions(): BaseLayoutProps {
   return {
@@ -18,6 +19,12 @@ export function baseOptions(): BaseLayoutProps {
       {
         text: 'modbot.co',
         url: landingUrl,
+        external: true,
+      },
+      {
+        icon: <Bug />,
+        text: issuesLabel,
+        url: issuesUrl,
         external: true,
       },
     ],

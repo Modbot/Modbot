@@ -1,9 +1,20 @@
-import { Moon, Sun } from 'lucide-react'
+import { Bug, Moon, Sun } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { buttonVariants } from '@/components/ui/button'
 import { DiscordIcon, GithubIcon } from '@/components/Icons'
 import { SourceBadge, type Source } from '@/components/SourceBadge'
-import { DISCORD, DOCS, FOUNDER, GITHUB, MY_MODBOT, OPEN_MY_SERVER, PAGES, type PageName } from '@/lib/links'
+import {
+  DISCORD,
+  DOCS,
+  FOUNDER,
+  GITHUB,
+  ISSUES,
+  ISSUES_LABEL,
+  MY_MODBOT,
+  OPEN_MY_SERVER,
+  PAGES,
+  type PageName,
+} from '@/lib/links'
 import { THEME_BUTTON } from '@/lib/theme'
 import { useTheme } from '@/lib/useTheme'
 import { cn } from '@/lib/utils'
@@ -123,10 +134,13 @@ export function SiteHeader({ page }: { page?: PageName }) {
   )
 }
 
-/** Discord and GitHub, the two places the project lives outside this site. */
+/** Bugs and feedback, then Discord and GitHub, the places the project lives outside this site. */
 export function SocialLinks({ className, variant = 'ghost' }: { className?: string; variant?: 'ghost' | 'outline' }) {
   return (
     <div className={cn('flex items-center gap-0.5', className)}>
+      <a href={ISSUES} aria-label={ISSUES_LABEL} title={ISSUES_LABEL} className={buttonVariants({ variant, size: 'icon' })}>
+        <Bug aria-hidden="true" />
+      </a>
       <a href={DISCORD} aria-label="Modbot on Discord" className={buttonVariants({ variant, size: 'icon' })}>
         <DiscordIcon />
       </a>
@@ -252,6 +266,9 @@ export function SiteFooter({ page, privacy = false }: { page?: PageName; privacy
           </a>
           <a href={DOCS} className="hover:text-foreground hover:underline">
             Docs
+          </a>
+          <a href={ISSUES} className="hover:text-foreground hover:underline">
+            {ISSUES_LABEL}
           </a>
           <a href={PAGES.about} aria-current={here('about')} className="hover:text-foreground hover:underline">
             About

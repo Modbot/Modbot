@@ -12,6 +12,13 @@ export const SITE = 'https://modbot.co'
 export const DISCORD = '/discord'
 export const GITHUB = '/github'
 
+/**
+ * Bugs and feedback: the repository's issues, by way of this site's own `/issues`, which follows
+ * `MODBOT_GITHUB_URL` the same way `/github` does.
+ */
+export const ISSUES = '/issues'
+export const ISSUES_LABEL = 'Bugs and feedback'
+
 /** The founder's own site, behind his name in the footer. */
 export const FOUNDER = 'https://bin.moe'
 
