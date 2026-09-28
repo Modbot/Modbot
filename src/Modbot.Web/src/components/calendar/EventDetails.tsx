@@ -12,6 +12,7 @@ import { sameDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
 import type { Spot } from './entry'
+import { SHEET, SHEET_CLASS, SHEET_FOOT_CLASS, useMedia } from './phone'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -58,26 +59,10 @@ type Actions = {
 }
 
 /**
- * One event, as it opens from the calendar: when, the world, the instance, where it is published and
- * how that went (with VRChat's or Discord's own words when it failed), and Edit, Duplicate and
- * Delete for somebody who may change it.
+ * One event, as it opens from the calendar: when, the world, the instance, and where it is published
+ * and how that went (with VRChat's or Discord's own words when it failed). Its buttons come last.
  */
-function EventBody({
-  event,
-  start,
-  end,
-  canManage,
-  onEdit,
-  onDuplicate,
-  onAsk,
-}: Pick<Actions, 'canManage' | 'onEdit' | 'onDuplicate'> & {
-  event: CalendarEvent
-  start: Date
-  end: Date
-  onAsk: (what: 'cancel' | 'delete') => void
-}) {
-  const live = event.state === 'scheduled' || event.state === 'open'
-
+function EventBody({ event, start, end, children }: { event: CalendarEvent; start: Date; end: Date; children?: ReactNode }) {
   return (
     <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
       <div className="font-mono">{when(start, end)}</div>
@@ -133,28 +118,39 @@ function EventBody({
         </div>
       )}
 
-      {canManage && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {event.state !== 'cancelled' && (
-            <Button size="sm" onClick={onEdit}>
-              Edit
-            </Button>
-          )}
-          <Button size="sm" variant="outline" onClick={onDuplicate}>
-            Duplicate
-          </Button>
-          {live && (
-            <Button size="sm" variant="outline" onClick={() => onAsk('cancel')}>
-              Cancel event
-            </Button>
-          )}
-          <Button size="sm" variant="destructive" onClick={() => onAsk('delete')}>
-            Delete
-          </Button>
-        </div>
-      )}
-
+      {children}
     </div>
+  )
+}
+
+/** Edit, Duplicate, Cancel event and Delete, for somebody who may change the event. */
+function EventButtons({
+  event,
+  onEdit,
+  onDuplicate,
+  onAsk,
+}: Pick<Actions, 'onEdit' | 'onDuplicate'> & { event: CalendarEvent; onAsk: (what: 'cancel' | 'delete') => void }) {
+  const live = event.state === 'scheduled' || event.state === 'open'
+
+  return (
+    <>
+      {event.state !== 'cancelled' && (
+        <Button size="sm" onClick={onEdit}>
+          Edit
+        </Button>
+      )}
+      <Button size="sm" variant="outline" onClick={onDuplicate}>
+        Duplicate
+      </Button>
+      {live && (
+        <Button size="sm" variant="outline" onClick={() => onAsk('cancel')}>
+          Cancel event
+        </Button>
+      )}
+      <Button size="sm" variant="destructive" onClick={() => onAsk('delete')}>
+        Delete
+      </Button>
+    </>
   )
 }
 
@@ -177,6 +173,10 @@ function Heading({ event, children }: { event: CalendarEvent; children?: ReactNo
 /**
  * The event, next to where it was clicked, the way Google opens one. Without a spot to point at (a
  * link to `?event=`), it opens as a dialog in the middle instead.
+ *
+ * On a phone it rises from the bottom as a sheet with its buttons pinned under it, wherever it was
+ * tapped: a popover 22rem wide has no room on either side of a tap there, and Radix can flip it to
+ * the other side but not slide it along, so it hung off the left edge (mobile review 2026-09-28, #2).
  */
 export function EventDetails({
   event,
@@ -186,16 +186,14 @@ export function EventDetails({
   ...actions
 }: Actions & { event: CalendarEvent; start: Date; end: Date; spot: Spot | null }) {
   const [confirm, setConfirm] = useState<'cancel' | 'delete' | null>(null)
+  const sheet = useMedia(SHEET)
+  const buttons = actions.canManage && (
+    <EventButtons event={event} onEdit={actions.onEdit} onDuplicate={actions.onDuplicate} onAsk={setConfirm} />
+  )
   const body = (
-    <EventBody
-      event={event}
-      start={start}
-      end={end}
-      canManage={actions.canManage}
-      onEdit={actions.onEdit}
-      onDuplicate={actions.onDuplicate}
-      onAsk={setConfirm}
-    />
+    <EventBody event={event} start={start} end={end}>
+      {buttons && <div className="flex flex-wrap gap-2 pt-1">{buttons}</div>}
+    </EventBody>
   )
 
   // Beside the popover rather than inside it, so the confirmation is not taken for a click outside
@@ -214,6 +212,23 @@ export function EventDetails({
       }}
     />
   )
+
+  if (sheet)
+    return (
+      <>
+        <Dialog open onOpenChange={(open) => !open && actions.onClose()}>
+          <DialogContent
+            title={event.title}
+            subtitle={<StateBadge event={event} />}
+            className={SHEET_CLASS}
+            foot={buttons && <div className={SHEET_FOOT_CLASS}>{buttons}</div>}
+          >
+            <EventBody event={event} start={start} end={end} />
+          </DialogContent>
+        </Dialog>
+        {confirmation}
+      </>
+    )
 
   if (!spot)
     return (

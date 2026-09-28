@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/lib/api'
 import { calendarApi, newEventAt, type CalendarEvent, type CalendarEventInput } from '@/lib/calendar'
 import { sameDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import type { Spot } from './entry'
+import { SHEET, SHEET_CLASS, SHEET_FOOT_CLASS, useMedia } from './phone'
 
 const day = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -17,6 +19,9 @@ const day = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long',
  * It saves a draft rather than scheduling, because a scheduled event goes out to VRChat and Discord
  * at once, and VRChat's calendar will not take one without a description. A draft goes nowhere
  * until it is scheduled from the full form.
+ *
+ * On a phone it rises from the bottom as a sheet, as an opened event does (EventDetails), since a
+ * popover beside the tap has no room there.
  */
 export function QuickCreate({
   start,
@@ -48,6 +53,57 @@ export function QuickCreate({
   }
 
   const lastMinute = new Date(end.getTime() - 1)
+  const sheet = useMedia(SHEET)
+  const formId = useId()
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (title.trim()) save()
+  }
+
+  const titleField = (
+    <Input autoFocus aria-label="Title" placeholder="Title" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} />
+  )
+  const when = (
+    <div className="font-mono text-muted-foreground">
+      {day.format(start)} · {timeOfDay(start.toISOString())} –{' '}
+      {sameDay(start, lastMinute) ? '' : `${day.format(end)}, `}
+      {timeOfDay(end.toISOString())}
+    </div>
+  )
+  const problemLine = problem && <div className="text-destructive">{problem}</div>
+  const buttons = (
+    <>
+      <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onMore(newEventAt(title, start, end))}>
+        More options
+      </Button>
+      <Button type="submit" form={formId} size="sm" disabled={busy || !title.trim()}>
+        Save draft
+      </Button>
+    </>
+  )
+
+  if (sheet)
+    return (
+      <Dialog open onOpenChange={(open) => !open && onClose()}>
+        <DialogContent
+          title="New event"
+          className={SHEET_CLASS}
+          foot={
+            <div className={SHEET_FOOT_CLASS} style={{ fontSize: 'var(--text-small)' }}>
+              {buttons}
+            </div>
+          }
+        >
+          {/* Save draft is pinned under the body, outside the form, and names it with `form`. */}
+          <form id={formId} className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }} onSubmit={submit}>
+            {titleField}
+            {when}
+            {problemLine}
+          </form>
+        </DialogContent>
+      </Dialog>
+    )
 
   return (
     <Popover.Root open onOpenChange={(open) => !open && onClose()}>
@@ -64,28 +120,11 @@ export function QuickCreate({
           className="z-40 flex w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-3 rounded-sm border-(length:--hairline) bg-popover p-(--panel-pad) text-popover-foreground shadow-sm outline-none"
           style={{ fontSize: 'var(--text-small)' }}
         >
-          <form
-            className="flex flex-col gap-3"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (title.trim()) save()
-            }}
-          >
-            <Input autoFocus aria-label="Title" placeholder="Title" value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} />
-            <div className="font-mono text-muted-foreground">
-              {day.format(start)} · {timeOfDay(start.toISOString())} –{' '}
-              {sameDay(start, lastMinute) ? '' : `${day.format(end)}, `}
-              {timeOfDay(end.toISOString())}
-            </div>
-            {problem && <div className="text-destructive">{problem}</div>}
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onMore(newEventAt(title, start, end))}>
-                More options
-              </Button>
-              <Button type="submit" size="sm" disabled={busy || !title.trim()}>
-                Save draft
-              </Button>
-            </div>
+          <form id={formId} className="flex flex-col gap-3" onSubmit={submit}>
+            {titleField}
+            {when}
+            {problemLine}
+            <div className="flex flex-wrap justify-end gap-2">{buttons}</div>
           </form>
         </Popover.Content>
       </Popover.Portal>
