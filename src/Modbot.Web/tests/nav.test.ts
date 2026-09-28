@@ -7,9 +7,11 @@ import {
   MOVED,
   NAV,
   goesByName,
+  matchRank,
   MEMBERS_PATH,
   mayOpen,
   membersAddress,
+  otherWords,
   sidebarEntry,
   titleWithCount,
   waitingTotal,
@@ -31,6 +33,8 @@ test('a count that is not a real positive number adds nothing', () => {
 test('the tab title carries the total only while something is waiting', () => {
   assert.equal(titleWithCount('Modbot', 3), '(3) Modbot')
   assert.equal(titleWithCount('Modbot', 0), 'Modbot')
+  assert.equal(titleWithCount('Modbot', 50, true), '(50+) Modbot')
+  assert.equal(titleWithCount('Modbot', 0, true), 'Modbot')
 })
 
 function person(...permissionNames: string[]): CurrentUser {
@@ -226,10 +230,34 @@ test('Instances is still offered by name and keeps its chord', () => {
   assert.equal(GO_TO_KEYS['analytics-instances'], 'i')
 })
 
-test('Worlds stays in the sidebar under VRChat', () => {
-  const worlds = NAV.find((n) => n.id === 'analytics-worlds')
+test('Stats takes Team’s place at the top of the Analytics heading, before VRChat and Discord', () => {
+  const at = (id: string) => NAV.findIndex((n) => n.id === id)
+  const stats = NAV[at('stats')]
 
-  assert.ok(worlds && !('hidden' in worlds) && 'indent' in worlds && worlds.indent)
+  assert.ok('group' in stats && stats.group === 'Analytics')
+  assert.ok(at('stats') < at('analytics-group') && at('analytics-group') < at('analytics-server'))
+  assert.ok(!NAV.some((n) => (n.id as string) === 'analytics-team' || (n.id as string) === 'analytics-worlds'))
+})
+
+test('the Stats tabs light Stats and need what Stats needs', () => {
+  for (const id of ['stats-activity', 'stats-moderation'] as const) {
+    assert.equal(sidebarEntry(id), 'stats')
+    assert.equal(mayOpen(person('ViewAnalytics'), id), true)
+    assert.equal(mayOpen(person('ViewMembers'), id), false)
+  }
+})
+
+test('Team and Worlds open the Stats tabs they became, and Stats opens on Growth', () => {
+  assert.equal(MOVED['/analytics/team'], '/stats/moderation')
+  assert.equal(MOVED['/analytics/worlds'], '/stats/activity')
+  assert.equal(MOVED['/stats'], '/stats/growth')
+})
+
+test('the palette still finds the team and the worlds', () => {
+  const find = (typed: string) => NAV.filter((n) => matchRank(typed, n.label, otherWords(n)) !== null).map((n) => n.id)
+
+  assert.ok(find('team').includes('stats-moderation'))
+  assert.ok(find('worlds').includes('stats-activity'))
 })
 
 test("the VRChat page's Posts and Settings tabs light VRChat and ask for their own permissions", () => {
@@ -254,4 +282,43 @@ test("the VRChat page's Roles, Gallery and Invites tabs light VRChat and ask for
 
   assert.equal(mayOpen(person('ViewAnalytics'), 'group-invites'), false)
   assert.equal(mayOpen(person('ManageGroupInvites'), 'group-invites'), true)
+})
+
+/** The pages the palette offers for what was typed, best match first, as the palette orders them. */
+function palette(typed: string): string[] {
+  return NAV.filter(goesByName)
+    .map((n) => ({ label: n.label, rank: matchRank(typed, n.label, [...otherWords(n), 'Go to']) }))
+    .filter((r) => r.rank !== null)
+    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+    .map((r) => r.label)
+}
+
+test('the words a moderator types find the page they mean', () => {
+  assert.equal(palette('join')[0], 'Requests')
+  assert.equal(palette('events')[0], 'Calendar')
+  assert.equal(palette('banned')[0], 'Bans')
+  assert.equal(palette('kick')[0], 'Audit log')
+  assert.equal(palette('voice')[0], 'Live')
+})
+
+test("the group's Members comes before Discord members", () => {
+  assert.deepEqual(palette('members'), ['Members', 'Discord members'])
+})
+
+test('a page named by what was typed comes before one that only answers to it', () => {
+  assert.deepEqual(palette('instances').slice(0, 2), ['Instances', 'Live'])
+})
+
+test('a match on the label ranks exact, then start, then anywhere, then other words', () => {
+  assert.equal(matchRank('audit log', 'Audit log'), 0)
+  assert.equal(matchRank('aud', 'Audit log'), 1)
+  assert.equal(matchRank('log', 'Audit log'), 2)
+  assert.equal(matchRank('history', 'Audit log', ['kick', 'history']), 3)
+  assert.equal(matchRank('ban list', 'Bans', ['ban list']), 3)
+  assert.equal(matchRank('voice', 'Bans', ['banned']), null)
+})
+
+test('case and extra spaces do not matter, and nothing typed matches everything', () => {
+  assert.equal(matchRank('  MEMBERS ', 'Members'), 0)
+  assert.equal(matchRank('', 'Bans'), 0)
 })

@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type GroupInfo } from '@/lib/api'
+
+/**
+ * The last group read, shared by every tab of the VRChat page. Each tab is its own page, so
+ * without it every tab change started from nothing and the page flashed "Loading…" in place of
+ * the header it had a moment ago. A tab now draws what the last one read and reads again quietly.
+ */
+let lastRead: GroupInfo | null = null
 
 /**
  * The group as Modbot last read it, for the top of every tab of the VRChat page. Read from what the
@@ -11,8 +18,13 @@ export function useGroupInfo(): {
   error: string | null
   setInfo: (info: GroupInfo) => void
 } {
-  const [info, setInfo] = useState<GroupInfo | null>(null)
+  const [info, setShown] = useState<GroupInfo | null>(lastRead)
   const [error, setError] = useState<string | null>(null)
+
+  const setInfo = useCallback((next: GroupInfo) => {
+    lastRead = next
+    setShown(next)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -29,7 +41,7 @@ export function useGroupInfo(): {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [setInfo])
 
   return { info, error, setInfo }
 }

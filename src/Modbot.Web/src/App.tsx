@@ -27,10 +27,12 @@ import {
   type PageId,
 } from '@/lib/nav'
 import { groupTabFrom } from '@/lib/groupOverview'
+import { serverTabFrom } from '@/lib/serverOverview'
+import type { WaitingCount } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density, type Place } from '@/lib/preferences'
 import { go, useLocation, useRoute } from '@/lib/router'
-import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
+import { APP_GROUPS, useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
 import { openPerson } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
@@ -61,12 +63,12 @@ import { GroupSettings } from '@/pages/analytics/GroupSettings'
 import { GroupRoles } from '@/pages/analytics/GroupRoles'
 import { GroupInvites } from '@/pages/analytics/GroupInvites'
 import { GroupPageTop } from '@/pages/analytics/GroupPageTop'
+import { ServerPageTop } from '@/pages/analytics/ServerHeader'
 import { GroupGallery } from '@/pages/analytics/GroupGallery'
 import { Instances } from '@/pages/analytics/Instances'
 import { MyGroup } from '@/pages/analytics/MyGroup'
 import { MyServer } from '@/pages/analytics/MyServer'
-import { MyTeam } from '@/pages/analytics/MyTeam'
-import { Worlds } from '@/pages/analytics/Worlds'
+import { Stats } from '@/pages/analytics/Stats'
 import { Pair } from '@/pages/Pair'
 import { ResetPassword } from '@/pages/ResetPassword'
 import { Flags } from '@/pages/Flags'
@@ -91,8 +93,10 @@ const TITLES: Record<PageId, string> = {
   audit: 'Audit log',
   'analytics-group': 'VRChat',
   'analytics-server': 'Discord',
-  'analytics-team': 'Team',
-  'analytics-worlds': 'Worlds',
+  // Tabs of the Stats page, so they carry its name, as the sidebar does.
+  stats: 'Stats',
+  'stats-activity': 'Stats',
+  'stats-moderation': 'Stats',
   // Tabs of the VRChat page, so they carry its name, as the sidebar does.
   'analytics-instances': 'VRChat',
   'group-posts': 'VRChat',
@@ -132,8 +136,9 @@ const PATHS: Record<PageId, string> = {
   audit: '/audit',
   'analytics-group': '/analytics/group',
   'analytics-server': '/analytics/server',
-  'analytics-team': '/analytics/team',
-  'analytics-worlds': '/analytics/worlds',
+  stats: '/stats/growth',
+  'stats-activity': '/stats/activity',
+  'stats-moderation': '/stats/moderation',
   'analytics-instances': '/analytics/instances',
   'group-posts': '/analytics/group/posts',
   'group-settings': '/analytics/group/settings',
@@ -371,8 +376,10 @@ function Shell({
     ? requested
     : (NAV.find((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id))?.id ?? 'account')
 
-  // Events, Members, Banned Users and Logs opened from the VRChat page's tab row keep its header.
+  // Events, Members, Banned Users and Logs opened from the VRChat page's tab row keep its header;
+  // Bans opened from the Discord page's row keeps that one.
   const fromGroup = groupTabFrom(page, location.search, me)
+  const fromServer = serverTabFrom(page, location.search)
   const title = TITLES[page]
 
   // A headset opens on Live, which is what a moderator in VR is there to watch. Once, as the app
@@ -455,12 +462,17 @@ function Shell({
     ),
   )
 
-  // Join requests have no count yet: VRChat is the only place they are read, and whether that is
-  // worth a request on a timer is still open. When it is settled, the count goes in here beside
-  // the other two and the sidebar and the tab title pick it up with no other change.
+  // The number beside "Requests": the people waiting to be let in. VRChat is the only place the
+  // queue is read, so there is no count-only endpoint and nothing on a timer: Now and the Requests
+  // page read it when they open (one VRChat request each, approved 2026-09-27) and hand the count
+  // up, and answering a row there takes one off. Unknown until one of them has read it.
+  const seesRequests = mayOpen(me, 'requests')
+  const [joinRequests, setJoinRequests] = useState<WaitingCount | null>(null)
+
   const queues: Partial<Record<PageId, number>> = {
     ...(canReview ? { reviews: openReviews } : {}),
     ...(seesFlags ? { flags: openFlags } : {}),
+    ...(seesRequests && joinRequests ? { requests: joinRequests.count } : {}),
   }
 
   // Now carries the total of the queues it lists, and Live its own number beside them.
@@ -471,17 +483,20 @@ function Shell({
     ...(seesLive ? { live: flaggedHere } : {}),
   }
   const alarms: Partial<Record<PageId, boolean>> = { live: true }
+  // A full first page of join requests is written `50+`, and so is every total it is part of.
+  const waitingMore = seesRequests && joinRequests?.more === true
+  const more: Partial<Record<PageId, boolean>> = waitingMore ? { requests: true, now: true } : {}
 
   // The tab's title says how much is waiting, `(3) Modbot`, so a moderator whose Modbot tab is in
   // the background can see it from the tab strip. The cleanup puts the plain title back before the
   // next count is applied, so the count is never added twice.
   useEffect(() => {
     const plain = document.title
-    document.title = titleWithCount(plain, waiting)
+    document.title = titleWithCount(plain, waiting, waitingMore)
     return () => {
       document.title = plain
     }
-  }, [waiting])
+  }, [waiting, waitingMore])
 
   // The keyboard (lib/shortcuts.ts): the palette, the sheet, and `g` then a letter for every page
   // this person may open. Pages register their own list and filter keys.
@@ -489,7 +504,7 @@ function Shell({
 
   const [paletteOpen, setPaletteOpen] = useState(false)
   // The same sheet, named for how it was asked for: `?` asks for the keys, the bar at the foot of
-  // a phone asks for what this page can do. It is one list either way.
+  // a phone asks for what this page can do, which is the same list without the app's own keys.
   const [sheet, setSheet] = useState<'keys' | 'page' | null>(null)
   const [navOpen, setNavOpen] = useState(false)
 
@@ -546,6 +561,7 @@ function Shell({
     group: status.group,
     badges,
     alarms,
+    more,
   }
 
   return (
@@ -556,8 +572,12 @@ function Shell({
     <div className="grid h-[100dvh] grid-cols-1 desk:lg:grid-cols-[13.5rem_1fr]">
       <Sidebar {...nav} className="hidden desk:lg:flex" />
       {/* `min-w-0`: a grid item is as wide as its widest child unless told otherwise, so without
-          it a table that means to scroll inside its own box widens the whole app instead. */}
-      <main className="flex min-w-0 flex-col overflow-auto pb-[calc(3.25rem+env(safe-area-inset-bottom))] desk:lg:pb-0 headset:pb-[calc(var(--control-h)+1.5rem+env(safe-area-inset-bottom))]">
+          it a table that means to scroll inside its own box widens the whole app instead.
+          `relative`: anything absolutely placed on a page -- a screen reader's `sr-only` label
+          included -- is placed within this scrolling box. Without it such an element is placed
+          against the window at the spot it would have scrolled to, and a label far down a long
+          page made the window itself scroll, shifting the whole app sideways. */}
+      <main className="relative flex min-w-0 flex-col overflow-auto pb-[calc(3.25rem+env(safe-area-inset-bottom))] desk:lg:pb-0 headset:pb-[calc(var(--control-h)+1.5rem+env(safe-area-inset-bottom))]">
         {/* Above everything, for everyone signed in, on every page (foundation spec 4.1.2). */}
         <SignInWaitBanner />
         {/* A critical notification that reached this person on no channel (foundation 4.5.3). */}
@@ -574,15 +594,17 @@ function Shell({
         />
         <div className="p-4 lg:p-5">
           {fromGroup && <GroupPageTop me={me} page={page} tab={fromGroup} pathOf={(id) => PATHS[id]} />}
+          {fromServer && <ServerPageTop me={me} tab={fromServer} pathOf={(id) => PATHS[id]} />}
           {page === 'now' && !movingToMembers && (
             <Now
               me={me}
               onOpenSubject={setSubject}
               onGo={(p) => navigate(PATHS[p])}
               onOpenHealth={(section) => go(section ? `${PATHS.health}#${section}` : PATHS.health)}
+              onJoinRequestCount={setJoinRequests}
             />
           )}
-          {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} />}
+          {page === 'requests' && <Requests me={me} onOpenSubject={setSubject} onWaitingCount={setJoinRequests} />}
           {page === 'discord-members' && <DiscordMembers me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live />}
@@ -613,16 +635,25 @@ function Shell({
           {page === 'audit' && <AuditLog />}
           {page === 'analytics-group' && <MyGroup me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'analytics-server' && <MyServer me={me} pathOf={(id) => PATHS[id]} />}
-          {page === 'analytics-team' && (
-            <MyTeam onOpenSubject={setSubject} onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined} />
+          {/* One element for the three tabs, so the page's range stays put while the tab changes. */}
+          {(page === 'stats' || page === 'stats-activity' || page === 'stats-moderation') && (
+            <Stats
+              me={me}
+              pathOf={(id) => PATHS[id]}
+              tab={page}
+              onTab={(tab) => navigate(PATHS[tab])}
+              onOpenSubject={setSubject}
+              onOpenReviews={canReview ? () => navigate(PATHS.reviews) : undefined}
+            />
           )}
-          {page === 'analytics-worlds' && <Worlds />}
           {page === 'analytics-instances' && <Instances me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-posts' && <GroupPosts me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-settings' && <GroupSettings me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-roles' && <GroupRoles me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'group-gallery' && <GroupGallery me={me} pathOf={(id) => PATHS[id]} />}
-          {page === 'group-invites' && <GroupInvites me={me} pathOf={(id) => PATHS[id]} />}
+          {page === 'group-invites' && (
+            <GroupInvites me={me} pathOf={(id) => PATHS[id]} onJoinRequestCount={setJoinRequests} />
+          )}
           {page === 'reviews' && <Reviews onOpenSubject={setSubject} onChanged={refreshReviewCount} />}
           {page === 'health' && <Health />}
           {page === 'logs' && <Logs />}
@@ -651,11 +682,11 @@ function Shell({
         open={sheet !== null}
         onOpenChange={(open) => setSheet(open ? 'keys' : null)}
         title={sheet === 'page' ? 'Actions' : 'Keyboard shortcuts'}
-        omit={sheet === 'page' ? ['Go to'] : undefined}
+        omit={sheet === 'page' ? APP_GROUPS : undefined}
       />
 
       {/* The phone's shell: the pages in a sheet, and the bar at the foot that opens it, the
-          palette and the page's own keys. Not drawn at all from `lg` up. */}
+          palette, Now and the page's own keys. Not drawn at all from `lg` up. */}
       <NavSheet
         open={navOpen}
         onOpenChange={setNavOpen}
@@ -666,9 +697,12 @@ function Shell({
         onSignOut={signOut}
       />
       <BottomBar
+        page={page}
+        waiting={waiting}
         onMenu={() => setNavOpen(true)}
         onSearch={() => setPaletteOpen(true)}
-        onThisPage={() => setSheet('page')}
+        onNow={() => navigate(PATHS.now)}
+        onActions={() => setSheet('page')}
       />
     </div>
   )

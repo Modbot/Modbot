@@ -11,6 +11,7 @@ import {
   howLong,
   lengthOfTime,
   needsYear,
+  pastActions,
   timeOfDay,
   whenRange,
   plural,
@@ -164,4 +165,15 @@ test('a range across midnight names both days', () => {
   const across = whenRange(`${thisYear}-03-05T18:01:00`, `${thisYear}-03-06T00:11:00`)
   assert.ok(across.includes(formatDay(`${thisYear}-03-05T18:01:00`)))
   assert.ok(across.includes(formatDay(`${thisYear}-03-06T00:11:00`)))
+})
+
+test('past actions say who acted in full words, singular only at exactly one', () => {
+  assert.equal(pastActions(4, 3), '4 actions by 3 moderators')
+  assert.equal(pastActions(1, 1), '1 action by 1 moderator')
+  assert.equal(pastActions(2, 1), '2 actions by 1 moderator')
+})
+
+test('past actions with nobody named leave the moderators off rather than saying 0', () => {
+  assert.equal(pastActions(3, 0), '3 actions')
+  assert.equal(pastActions(1, 0), '1 action')
 })

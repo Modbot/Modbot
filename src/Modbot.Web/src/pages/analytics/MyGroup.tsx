@@ -1,266 +1,79 @@
-import { useCallback, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertsCard } from '@/components/alerts/AlertsCard'
-import { Badge } from '@/components/ui/badge'
-import { DailyBars, DailyLine, RankedList, compactNumber, dateTime, longDay, percent } from '@/components/charts'
-import { api, type CurrentUser, type MemberCountPeaks } from '@/lib/api'
-import type { PageId } from '@/lib/nav'
-import { Ago } from '@/components/Freshness'
+import { compactNumber, dateTime } from '@/components/charts'
+import { api, type CurrentUser, type GroupAnalytics } from '@/lib/api'
+import { weekPair } from '@/lib/groupOverview'
+import { mayOpen, type PageId } from '@/lib/nav'
 import { GroupOverview } from './GroupOverview'
-import { InsightsPanel } from './InsightsPanel'
-import { MemberCountChart } from './MemberCountChart'
-import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
-import { CoverageLine, PageMessage, Panel, RangePicker, Stat, StatStrip } from './shared'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
-import { useAnalytics, type Range } from './useAnalytics'
-import { plural } from '@/lib/format'
+import { Stat } from './shared'
+import { WeekStat, WeekStrip } from './WeekStrip'
 
 /**
- * My Group -- is the community growing or shrinking, and what changed? (spec 10.1)
- *
- * It opens the way the group's own VRChat page does (`GroupOverview`): the banner, name and counts,
- * VRChat's row of tabs leading to Modbot's pages for each, and the overview cards. The analytics
- * follow, unchanged.
- *
- * Two sources on one page, kept visibly apart. Joins, leaves, invites and requests per day come
- * from the daily totals, which are never aged out; the headcount, roles and invite follow-up come
- * from the fact log, which a retention window can shorten. Each panel says which. Tenure comes
- * from the join dates on VRChat's member list, which covers every member.
- *
- * `netChange` is deliberately labelled as recorded joins minus recorded leaves and never as the
- * member count: it starts from zero on the fact log's first day, so a group that installed Modbot
- * with 40,000 members would watch it climb from nothing. The headcount is what VRChat reported.
- *
- * The member count chart has a range of its own (`MemberCountChart`): it is drawn from every
- * five-minute reading, not from the page's whole-day window.
+ * The VRChat page's Overview, laid out the way the group's own VRChat page is (`GroupOverview`):
+ * the banner, name and counts, VRChat's row of tabs, and the overview cards. Under them, this week's
+ * four numbers, the same shape as the Discord page's. The charts that used to follow are on the
+ * Stats page, split by question (Stats page design); the week's heading opens them.
  */
 export function MyGroup({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
-  const [range, setRange] = useState<Range>(30)
-  const load = useCallback((q: string) => api.groupAnalytics(q), [])
-  const { data, error } = useAnalytics(load, range)
-
-  const overview = <GroupOverview me={me} pathOf={pathOf} />
-
-  if (error) {
-    return (
-      <div className="flex flex-col gap-3">
-        {overview}
-        <PageMessage tone="danger">{error}</PageMessage>
-      </div>
-    )
-  }
-
-  const sum = (points: { value: number }[]) => points.reduce((s, p) => s + p.value, 0)
-  const latestCount = data?.memberCount[data.memberCount.length - 1]
-  const joined = data ? sum(data.joined) : 0
-  const left = data ? sum(data.left) : 0
-
   return (
     <div className="flex flex-col gap-3">
-      {overview}
-
+      <GroupOverview me={me} pathOf={pathOf} />
       <AlertsCard />
-
-      <RangePicker range={range} onChange={setRange} from={data?.from} to={data?.to} />
-
-      {!data && <PageMessage>Loading…</PageMessage>}
-
-      {data && (
-        // One sheet: every panel on the page shares its edges with the next, rows of two sit in a
-        // nested grid, and the six readings run across the top like the gauges on a panel.
-        <PanelGrid className="grid-cols-1">
-          <CoverageLine coverage={data.coverage} generatedAt={data.generatedAt} />
-
-          <StatStrip className="md:grid-cols-3 xl:grid-cols-6">
-            <Stat
-              label="Members"
-              value={latestCount ? compactNumber(latestCount.value) : '—'}
-              note={latestCount ? longDay(latestCount.day) : undefined}
-              noteMono
-            />
-            <Stat label="Joined" value={compactNumber(joined)} />
-            <Stat label="Left" value={compactNumber(left)} />
-            <Stat label="Net change" value={`${joined - left >= 0 ? '+' : ''}${compactNumber(joined - left)}`} />
-            <Peaks peaks={data.peaks} />
-          </StatStrip>
-
-          <PeaksCoverage peaks={data.peaks} />
-
-          <InsightsPanel />
-
-          <MemberCountChart />
-
-          <PanelGrid className="lg:grid-cols-2">
-            <Panel title="Joins and leaves per day">
-              <DailyBars
-                from={data.from}
-                to={data.to}
-                missing={data.daysWithoutAuditLog}
-                today={data.today}
-                legend={[{ label: 'Joined', slot: 3 }, { label: 'Left', slot: 2 }]}
-                series={[
-                  { key: 'joined', label: 'joined', points: data.joined, slot: 3 },
-                  { key: 'left', label: 'left', points: data.left, slot: 2 },
-                ]}
-              />
-            </Panel>
-
-            <Panel title="Joined minus left, running">
-              <DailyLine
-                from={data.from}
-                to={data.to}
-                missing={data.daysWithoutAuditLog}
-                today={data.today}
-                mode="carry"
-                series={[{ key: 'net', label: 'net', points: data.netChange, slot: 4 }]}
-              />
-            </Panel>
-          </PanelGrid>
-
-          <Panel title="Invites and join requests" flush>
-            <StatStrip className="m-0">
-              <Stat label="Invites sent" value={compactNumber(data.invites.invitesSent)} />
-              <Stat
-                label="Invites accepted"
-                value={percent(data.invites.joinedAfterInvite, data.invites.invitesSent)}
-                note={
-                  <>
-                    <span className="font-mono">{compactNumber(data.invites.joinedAfterInvite)}</span> joined within{' '}
-                    <span className="font-mono">{data.invites.followUpDays} {plural(data.invites.followUpDays, 'day')}</span>
-                  </>
-                }
-              />
-              <Stat label="Join requests" value={compactNumber(data.invites.requestsReceived)} />
-              <Stat
-                label="Requests decided"
-                value={`${compactNumber(data.invites.requestsApproved)} / ${compactNumber(data.invites.requestsRejected)}`}
-                note="approved / rejected"
-              />
-            </StatStrip>
-            <div className="p-(--panel-pad)">
-              <DailyBars
-                from={data.from}
-                to={data.to}
-                missing={data.daysWithoutAuditLog}
-                today={data.today}
-                legend={[{ label: 'Invites sent', slot: 1 }, { label: 'Join requests', slot: 5 }]}
-                series={[
-                  { key: 'invites', label: 'invites sent', one: 'invite sent', points: data.invitesSent, slot: 1 },
-                  { key: 'requests', label: 'join requests', one: 'join request', points: data.requestsReceived, slot: 5 },
-                ]}
-              />
-            </div>
-          </Panel>
-
-          <PanelGrid className="lg:grid-cols-2">
-            <Panel
-              flush
-              title="Roles"
-              right={
-                data.rolesKnownAt && (
-                  <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                    read <Ago iso={data.rolesKnownAt} now={data.generatedAt} />
-                  </span>
-                )
-              }
-            >
-              {data.roles.length === 0 ? (
-                <EmptyRow>No roles yet.</EmptyRow>
-              ) : (
-                <Table
-                  head={
-                    <>
-                      <Th>Role</Th>
-                      <Th className="text-right">Given</Th>
-                      <Th className="text-right">Taken away</Th>
-                    </>
-                  }
-                >
-                  {data.roles.map((r) => (
-                    <Tr key={r.id}>
-                      <Td>
-                        <span className="font-medium">{r.name ?? r.id}</span>
-                        {r.isModerationRole && <Badge variant="secondary" className="ml-2">moderation</Badge>}
-                        {r.isAddedOnJoin && <Badge variant="outline" className="ml-2">given on join</Badge>}
-                        {r.isSelfAssignable && <Badge variant="outline" className="ml-2">self-service</Badge>}
-                      </Td>
-                      <Td className="text-right font-mono">{compactNumber(r.granted)}</Td>
-                      <Td className="text-right font-mono">{compactNumber(r.revoked)}</Td>
-                    </Tr>
-                  ))}
-                </Table>
-              )}
-            </Panel>
-
-            <Panel
-              title="How long members have been members"
-              flush={data.membersWithKnownTenure === 0}
-              right={
-                data.membersWithKnownTenure > 0 && (
-                  <span className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                    <span className="font-mono">{compactNumber(data.membersWithKnownTenure)}</span>{' '}
-                    {plural(data.membersWithKnownTenure, 'member')}
-                  </span>
-                )
-              }
-            >
-              {data.membersWithKnownTenure === 0 ? (
-                <EmptyRow>No data yet.</EmptyRow>
-              ) : (
-                <RankedList
-                  slot={1}
-                  rows={data.tenure.map((b) => ({ key: b.label, label: b.label, value: b.members }))}
-                />
-              )}
-            </Panel>
-          </PanelGrid>
-
-        </PanelGrid>
-      )}
+      <GroupWeek me={me} pathOf={pathOf} />
     </div>
   )
 }
 
+/** The week the strip last showed, kept while the app is open (see `GroupWeek`). */
+let lastWeeks: { fortnight: GroupAnalytics; week: GroupAnalytics } | null = null
+
 /**
- * The highest the two counts reached in the range, each with the reading that reached it.
+ * New members, leavers, join requests and the most online at once over the last seven days, each
+ * but the last against the seven before. The week ends today, not over yet, as the Discord page's
+ * does (`ServerWeek`).
  *
- * Both are numbers VRChat reported, taken from the five-minute readings rather than from the daily
- * totals -- a daily total holds the last reading of a day and would put every peak at midnight. The
- * coverage line says how many of the range's days carry a reading at all, because a high water mark
- * across days nobody was reading is the highest Modbot saw and not the highest there was.
+ * Read from the group's analytics twice, for fourteen days (both weeks' daily totals) and for seven
+ * (the week's own peak), with no read of VRChat. The most online is one moment, so it has no fair
+ * figure from last week to set beside it and shows when it happened instead.
+ *
+ * Nothing is drawn while it loads or if it cannot be read: the overview above is the page, and the
+ * week is not worth an error in front of it. Coming back from another tab draws the week it showed
+ * last while it reads again, so the strip does not blink out and back.
  */
-function Peaks({ peaks }: { peaks: MemberCountPeaks }) {
+function GroupWeek({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
+  const [weeks, setWeeks] = useState<{ fortnight: GroupAnalytics; week: GroupAnalytics } | null>(lastWeeks)
+
+  useEffect(() => {
+    let cancelled = false
+
+    Promise.all([api.groupAnalytics('days=14'), api.groupAnalytics('days=7')])
+      .then(([fortnight, week]) => {
+        lastWeeks = { fortnight, week }
+        if (!cancelled) setWeeks(lastWeeks)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (!weeks) return null
+
+  const { fortnight, week } = weeks
+  const online = week.peaks.online
+
   return (
-    <>
-      <Stat
-        label="Most members"
-        value={peaks.members ? compactNumber(peaks.members.value) : '—'}
-        note={peaks.members ? dateTime(peaks.members.at) : undefined}
-        noteMono
-      />
+    <WeekStrip href={mayOpen(me, 'stats') ? pathOf('stats') : undefined}>
+      <WeekStat label="New members" pair={weekPair(fortnight.joined, fortnight.to)} />
+      <WeekStat label="Left" pair={weekPair(fortnight.left, fortnight.to)} upIsGood={false} />
+      <WeekStat label="Join requests" pair={weekPair(fortnight.requestsReceived, fortnight.to)} />
       <Stat
         label="Most online at once"
-        value={peaks.online ? compactNumber(peaks.online.value) : '—'}
-        note={peaks.online ? dateTime(peaks.online.at) : undefined}
+        value={online ? compactNumber(online.value) : '—'}
+        note={online ? dateTime(online.at) : undefined}
         noteMono
       />
-    </>
+    </WeekStrip>
   )
-}
-
-/** How many of the range's days the peaks above were read from, when that is not all of them. */
-function PeaksCoverage({ peaks }: { peaks: MemberCountPeaks }) {
-  const { coverage } = peaks
-
-  if (coverage.readings === 0) return <PageMessage>No member count readings in this range.</PageMessage>
-
-  if (coverage.thin) {
-    return (
-      <PageMessage>
-        Readings on <span className="font-mono">{coverage.daysWithReadings}</span> of{' '}
-        <span className="font-mono">{coverage.windowDays}</span> {plural(coverage.windowDays, 'day')} in this range.
-      </PageMessage>
-    )
-  }
-
-  return null
 }

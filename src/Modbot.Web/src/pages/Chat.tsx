@@ -46,7 +46,6 @@ export function Chat({
   onOpenConversation: (id: string | null, options?: { replace?: boolean }) => void
 }) {
   const [available, setAvailable] = useState<boolean | null>(null)
-  const [model, setModel] = useState<string | null>(null)
   const [conversations, setConversations] = useState<ChatConversationSummary[]>([])
   const [error, setError] = useState<string | null>(null)
 
@@ -86,7 +85,6 @@ export function Chat({
         .chatHome()
         .then((home) => {
           setAvailable(home.available)
-          setModel(home.model)
           setConversations(home.conversations)
           setError(null)
         })
@@ -440,7 +438,6 @@ export function Chat({
             onStop={() => abort.current?.abort()}
             busy={busy}
             disabledReason={disabledReason}
-            model={model}
             maxLength={MAX_MESSAGE_LENGTH}
             inputRef={composer}
           />

@@ -3,15 +3,16 @@ import { DemoMarker } from '@/components/DemoMarker'
 import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
 import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, sidebarEntry, type NavItem, type PageId } from '@/lib/nav'
+import { countText } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import type { StatusRowId } from '@/lib/status'
-import { IS_MAC, keyNames } from '@/lib/shortcuts'
+import { hasPageActions, useShortcutList } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
 import type { Place, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { Headset, LogOut, Menu, Monitor, Moon, Search, Sun, UserRound, X, Zap } from 'lucide-react'
+import { Headset, House, LogOut, Menu, Monitor, Moon, Search, Sun, UserRound, X, Zap } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -28,6 +29,7 @@ export function Sidebar({
   group,
   badges,
   alarms,
+  more,
   className,
   footer,
 }: {
@@ -46,6 +48,8 @@ export function Sidebar({
    * destructive colour: flagged people beside Live.
    */
   alarms?: Partial<Record<PageId, boolean>>
+  /** Entries whose count came from a full page of a list with no total, written `50+`. */
+  more?: Partial<Record<PageId, boolean>>
   className?: string
   /** Drawn at the foot, under Modbot's own mark. The phone sheet puts the top bar's controls here. */
   footer?: React.ReactNode
@@ -117,21 +121,21 @@ export function Sidebar({
                     : 'bg-primary text-primary-foreground',
                 )}
                 style={{ fontSize: 'var(--text-tiny)', lineHeight: 1.5 }}
-                aria-label={alarms?.[item.id] ? `${badges[item.id]} flagged here` : `${badges[item.id]} waiting`}
+                aria-label={
+                  alarms?.[item.id]
+                    ? `${badges[item.id]} flagged here`
+                    : `${countText(badges[item.id] ?? 0, more?.[item.id] === true)} waiting`
+                }
               >
-                {badges[item.id]}
+                {countText(badges[item.id] ?? 0, more?.[item.id] === true)}
               </span>
             ) : null}
             {/* The go-to chord, where the page has one. Not on a phone or in a headset, which have no keyboard to hand. The
                 keys side by side with no "then" between, which the palette's boxes have room for
                 and a VR row with a long name does not. */}
             {GO_TO_KEYS[item.id] && (
-              <span
-                aria-hidden
-                className="hidden shrink-0 font-mono text-muted-foreground desk:lg:inline"
-                style={{ fontSize: 'var(--text-tiny)' }}
-              >
-                {keyNames(`g ${GO_TO_KEYS[item.id]}`, IS_MAC).join(' ')}
+              <span aria-hidden className="contents">
+                <Kbd keys={`g ${GO_TO_KEYS[item.id]}`} compact className="shrink-0" />
               </span>
             )}
           </button>
@@ -354,45 +358,92 @@ export function NavSheet({
  * The bar at the foot of the screen on a phone and in a headset.
  *
  * At the foot rather than the top because a phone held in one hand puts the top of a tall screen
- * out of a thumb's reach, and these are the three controls a moderator reaches for most: the
- * pages, a person by name, and whatever the screen they are on can do. A headset gets it for the
- * same three controls, at the headset's larger size, in place of a sidebar whose labels do not fit.
+ * out of a thumb's reach, and these are the controls a moderator reaches for most: the pages, a
+ * person by name, what is waiting, and whatever the screen they are on can do. A headset gets it
+ * for the same controls, at the headset's larger size, in place of a sidebar whose labels do not fit.
+ *
+ * Now is here with its count because it is the page a moderator comes back to between everything
+ * else, and the count says whether coming back is worth it without opening Menu.
  *
  * "Actions" is the answer to the keyboard. Every key a page registers carries a label already
  * (lib/shortcuts.ts), so the sheet that lists them for `?` is also the list of what the page can
- * do -- and each row runs it (components/ShortcutSheet.tsx). It leaves out "Go to", because that
- * is what Menu is.
+ * do -- and each row runs it (components/ShortcutSheet.tsx). It leaves out the app's own keys,
+ * which Menu and Search already are, and so is drawn only on a page that registered keys of its
+ * own: on the rest it opened a sheet of keyboard help (review 2026-09-27, finding 8).
  */
 export function BottomBar({
+  page,
+  waiting,
   onMenu,
   onSearch,
-  onThisPage,
+  onNow,
+  onActions,
 }: {
+  page: PageId
+  waiting: number
   onMenu: () => void
   onSearch: () => void
-  onThisPage: () => void
+  onNow: () => void
+  onActions: () => void
 }) {
+  const actions = hasPageActions(useShortcutList())
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-30 flex divide-x-(--hairline) divide-border border-t border-t-(length:--hairline) bg-background pb-[env(safe-area-inset-bottom)] desk:lg:hidden"
     >
       <BottomButton icon={<Menu className="size-5 headset:size-7" />} label="Menu" onClick={onMenu} />
       <BottomButton icon={<Search className="size-5 headset:size-7" />} label="Search" onClick={onSearch} />
-      <BottomButton icon={<Zap className="size-5 headset:size-7" />} label="Actions" onClick={onThisPage} />
+      <BottomButton
+        icon={<House className="size-5 headset:size-7" />}
+        label="Now"
+        count={waiting}
+        current={page === 'now'}
+        onClick={onNow}
+      />
+      {actions && <BottomButton icon={<Zap className="size-5 headset:size-7" />} label="Actions" onClick={onActions} />}
     </nav>
   )
 }
 
-function BottomButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+function BottomButton({
+  icon,
+  label,
+  count,
+  current,
+  onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  count?: number
+  current?: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-muted-foreground active:bg-muted"
+      aria-current={current ? 'page' : undefined}
+      className={cn(
+        'flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 active:bg-muted',
+        current ? 'text-foreground' : 'text-muted-foreground',
+      )}
       style={{ minHeight: 'var(--control-h)' }}
     >
       {icon}
-      <span style={{ fontSize: 'var(--text-tiny)' }}>{label}</span>
+      <span className="flex items-center gap-1" style={{ fontSize: 'var(--text-tiny)' }}>
+        {label}
+        {/* The same mark as the sidebar's, so the number reads the same in both places. */}
+        {count ? (
+          <span
+            className="rounded-sm bg-primary px-1 font-mono text-primary-foreground"
+            style={{ lineHeight: 1.5 }}
+            aria-label={`${count} waiting`}
+          >
+            {count}
+          </span>
+        ) : null}
+      </span>
     </button>
   )
 }

@@ -33,9 +33,10 @@ export function Freshness({
   // is waiting to be read.
   if (demo) {
     return (
-      <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        <span>Demo data.</span>
-        <span>{counted}.</span>
+      <div className="flex flex-wrap items-baseline gap-x-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span>{counted}</span>
+        <span aria-hidden>·</span>
+        <span>Demo data</span>
       </div>
     )
   }
@@ -48,19 +49,41 @@ export function Freshness({
     )
   }
 
+  // "4,790 members · Synced 15m ago", or "· Syncing..." while the next read is under way. The count
+  // is always the last complete read's, so it stays put while a read is part way through.
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-      <span>
-        Last synced <Ago iso={coverage.lastSyncedAt} now={coverage.now} />
-        {coverage.sweepInProgress ? '. A new sweep is running now' : ''}.
-      </span>
-      <span>{counted} at the last full sweep.</span>
+    <div className="flex flex-wrap items-baseline gap-x-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      <span>{counted}</span>
+      <span aria-hidden>·</span>
+      {coverage.sweepInProgress ? (
+        <span>
+          Syncing
+          <Dots />
+        </span>
+      ) : (
+        <span>
+          Synced <Ago iso={coverage.lastSyncedAt} now={coverage.now} />
+        </span>
+      )}
     </div>
   )
 }
 
+/** Three dots that light one after another; still dots when the reader has asked for less motion. */
+function Dots() {
+  return (
+    <span aria-hidden>
+      {[0, 200, 400].map((delay) => (
+        <span key={delay} className="animate-dot motion-reduce:animate-none" style={{ animationDelay: `${delay}ms` }}>
+          .
+        </span>
+      ))}
+    </span>
+  )
+}
+
 /**
- * How long ago something happened, said inside a sentence: "Last synced 9h ago". The time is a
+ * How long ago something happened, said inside a sentence: "Synced 9h ago". The time is a
  * reading, so it is set in mono like every other timestamp, and kept on one line so "3h" and "ago"
  * never land on two; with no time the sentence says "never", which is a word and stays in the
  * sentence's own face.

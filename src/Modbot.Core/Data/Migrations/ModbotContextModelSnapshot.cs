@@ -996,10 +996,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<string>("VRChatImageId")
-                        .HasColumnType("text")
-                        .HasColumnName("vrchat_image_id");
-
                     b.Property<int?>("VRChatCloseInstanceAfterEndMinutes")
                         .HasColumnType("integer")
                         .HasColumnName("vrchat_close_instance_after_end_minutes");
@@ -1015,6 +1011,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<int?>("VRChatHostEarlyJoinMinutes")
                         .HasColumnType("integer")
                         .HasColumnName("vrchat_host_early_join_minutes");
+
+                    b.Property<string>("VRChatImageId")
+                        .HasColumnType("text")
+                        .HasColumnName("vrchat_image_id");
 
                     b.PrimitiveCollection<string>("VRChatRoleIds")
                         .HasColumnType("jsonb")
@@ -1587,6 +1587,57 @@ namespace Modbot.Core.Data.Migrations
                         .HasFilter("unlinked_at IS NULL");
 
                     b.ToTable("discord_account_link", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordBan", b =>
+                {
+                    b.Property<string>("GuildId")
+                        .HasColumnType("text")
+                        .HasColumnName("guild_id");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("avatar_url");
+
+                    b.Property<DateTimeOffset?>("BannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("banned_at");
+
+                    b.Property<string>("DisplayName")
+                        .HasColumnType("text")
+                        .HasColumnName("display_name");
+
+                    b.Property<DateTimeOffset>("FirstSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen_at");
+
+                    b.Property<DateTimeOffset?>("LiftedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lifted_at");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Username")
+                        .HasColumnType("text")
+                        .HasColumnName("username");
+
+                    b.HasKey("GuildId", "UserId")
+                        .HasName("pk_discord_ban");
+
+                    b.HasIndex("GuildId", "LiftedAt")
+                        .HasDatabaseName("ix_discord_ban_current");
+
+                    b.ToTable("discord_ban", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.DiscordChannel", b =>
@@ -2264,6 +2315,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("BannerUrl")
                         .HasColumnType("text")
                         .HasColumnName("banner_url");
+
+                    b.Property<DateTimeOffset?>("BansListedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bans_listed_at");
 
                     b.Property<int?>("BoostCount")
                         .HasColumnType("integer")

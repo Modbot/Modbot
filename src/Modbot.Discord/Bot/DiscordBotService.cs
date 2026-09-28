@@ -103,6 +103,12 @@ public sealed class DiscordBotService : BackgroundService
 
     private DateTimeOffset _seenWrittenAt;
 
+    /// <summary>One read of the whole ban list at a time: the sign-in read and the daily one must not overlap.</summary>
+    private readonly SemaphoreSlim _banList = new(1, 1);
+
+    /// <summary>When the loop last asked whether the daily ban list read is due; asked every ten minutes.</summary>
+    private DateTimeOffset _banListCheckedAt;
+
     public DiscordBotService(
         IServiceScopeFactory scopes,
         IDiscordGatewayFactory gateways,
@@ -242,6 +248,15 @@ public sealed class DiscordBotService : BackgroundService
             _seenWrittenAt = now;
             await RecordAsync("note that the bot is listening", (recorder, token) => recorder.SeenAsync(listening, token))
                 .ConfigureAwait(false);
+        }
+
+        // The daily read of the whole ban list. Asked every ten minutes, and skipped while the
+        // sign-in read is still going.
+        if (_gateway is { State: DiscordGatewayState.Ready } banning && _gapRead && _guildId is { } banGuild
+            && now - _banListCheckedAt >= TimeSpan.FromMinutes(10) && _banList.CurrentCount > 0)
+        {
+            _banListCheckedAt = now;
+            await ReadBanListAsync(banning, banGuild, always: false, ct).ConfigureAwait(false);
         }
 
         if (_gateway is not null || _stopped)
@@ -438,6 +453,9 @@ public sealed class DiscordBotService : BackgroundService
 
         await ReadAuditLogAsync(gateway, guildId, ct).ConfigureAwait(false);
 
+        // The whole ban list on every fresh sign-in, and after a resume only when the daily read is due.
+        await ReadBanListAsync(gateway, guildId, always: messages, ct).ConfigureAwait(false);
+
         var voice = gateway.ReadVoice(guildId);
         await RecordAsync("compare who is in voice", (recorder, token) =>
             recorder.VoiceListedAsync(guildId, voice, seenThrough, token)).ConfigureAwait(false);
@@ -464,6 +482,12 @@ public sealed class DiscordBotService : BackgroundService
 
             if (page.Entries.Count > 0 || page.NewestId is not null)
                 await recorder.AuditLogAsync(guildId, page, ct).ConfigureAwait(false);
+
+            if (page.Entries.Count > 0)
+            {
+                await scope.ServiceProvider.GetRequiredService<DiscordBanList>()
+                    .AuditLogAsync(guildId, page.Entries, ct).ConfigureAwait(false);
+            }
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
@@ -496,15 +520,78 @@ public sealed class DiscordBotService : BackgroundService
             ? RecordAsync("record a member change", (recorder, ct) => recorder.MemberUpdatedAsync(guildId, member, ct))
             : Task.CompletedTask;
 
-    private Task OnMemberBannedAsync(string guildId, string userId)
-        => IsOurServer(guildId)
-            ? RecordAsync("record a ban", (recorder, ct) => recorder.BannedAsync(guildId, userId, ct))
-            : Task.CompletedTask;
+    private async Task OnMemberBannedAsync(string guildId, string userId)
+    {
+        if (!IsOurServer(guildId))
+            return;
 
-    private Task OnMemberUnbannedAsync(string guildId, string userId)
-        => IsOurServer(guildId)
-            ? RecordAsync("record an unban", (recorder, ct) => recorder.UnbannedAsync(guildId, userId, ct))
-            : Task.CompletedTask;
+        // The list first: the fact is what tells an open Bans page to read it again.
+        await KeepBanListAsync("add a ban to the ban list", (bans, ct) => bans.BannedAsync(guildId, userId, ct)).ConfigureAwait(false);
+        await RecordAsync("record a ban", (recorder, ct) => recorder.BannedAsync(guildId, userId, ct)).ConfigureAwait(false);
+    }
+
+    private async Task OnMemberUnbannedAsync(string guildId, string userId)
+    {
+        if (!IsOurServer(guildId))
+            return;
+
+        await KeepBanListAsync("mark a ban lifted", (bans, ct) => bans.UnbannedAsync(guildId, userId, ct)).ConfigureAwait(false);
+        await RecordAsync("record an unban", (recorder, ct) => recorder.UnbannedAsync(guildId, userId, ct)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reads the server's whole ban list and stores it, when the bot holds Ban Members and either
+    /// <paramref name="always"/> is set (a fresh sign-in) or the daily read is due. Pages a thousand
+    /// bans a request; a list the bot may not read is left as it was.
+    /// </summary>
+    private async Task ReadBanListAsync(IDiscordGateway gateway, string guildId, bool always, CancellationToken ct)
+    {
+        await _banList.WaitAsync(ct).ConfigureAwait(false);
+
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var bans = scope.ServiceProvider.GetRequiredService<DiscordBanList>();
+
+            if (!await bans.ReadDueAsync(guildId, ct).ConfigureAwait(false)
+                && !(always && await BotCanBanAsync(scope, guildId, ct).ConfigureAwait(false)))
+            {
+                return;
+            }
+
+            if (await gateway.ReadBansAsync(guildId, ct).ConfigureAwait(false) is { } list)
+                await bans.ListedAsync(guildId, list, ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not read the Discord server's ban list");
+            _status.Problem($"Could not read the server's ban list: {e.Message}", _clock.UtcNow);
+        }
+        finally
+        {
+            _banList.Release();
+        }
+    }
+
+    private static Task<bool> BotCanBanAsync(IServiceScope scope, string guildId, CancellationToken ct)
+        => scope.ServiceProvider.GetRequiredService<ModbotContext>().DiscordServers.AsNoTracking()
+            .Where(s => s.GuildId == guildId)
+            .Select(s => s.BotCanBanMembers)
+            .FirstOrDefaultAsync(ct);
+
+    private async Task KeepBanListAsync(string what, Func<DiscordBanList, CancellationToken, Task> work)
+    {
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            await work(scope.ServiceProvider.GetRequiredService<DiscordBanList>(), CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not {What}", what);
+            _status.Problem($"Could not {what}: {e.Message}", _clock.UtcNow);
+        }
+    }
 
     private Task OnVoiceChangedAsync(string guildId, string userId, string? from, string? to)
         => IsOurServer(guildId)

@@ -70,6 +70,16 @@ export function plural(n: number, one: string, many: string = `${one}s`): string
   return n === 1 ? one : many
 }
 
+/**
+ * How often a person has been acted on, and by how many moderators: "4 actions by 3 moderators".
+ * The moderators are left off when nobody is named for any of the actions. "Moderators" in full,
+ * not "mods", which is chat slang (site review 2026-09-27, finding 4).
+ */
+export function pastActions(actions: number, moderators: number): string {
+  const done = `${actions} ${plural(actions, 'action')}`
+  return moderators > 0 ? `${done} by ${moderators} ${plural(moderators, 'moderator')}` : done
+}
+
 /** A place in an order, the way people say it: "1st", "2nd", "3rd", "11th", "22nd". */
 export function ordinal(n: number): string {
   const tens = n % 100

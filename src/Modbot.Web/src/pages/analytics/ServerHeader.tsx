@@ -1,9 +1,55 @@
+import { useEffect, useState } from 'react'
+import { CalendarDays, ChartColumn, Gavel, Users, type LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import type { CurrentUser, ServerProfile } from '@/lib/api'
+import { api, type CurrentUser, type ServerProfile } from '@/lib/api'
 import { formatDay, plural } from '@/lib/format'
 import type { PageId } from '@/lib/nav'
-import { boostGoal, boostShare, discordPicture, serverInitials, serverTabs, type BoostGoal } from '@/lib/serverOverview'
+import { can } from '@/lib/permissions'
+import {
+  boostGoal,
+  boostShare,
+  discordPicture,
+  serverInitials,
+  serverTabHref,
+  serverTabs,
+  type BoostGoal,
+} from '@/lib/serverOverview'
 import { HeaderTabs } from './shared'
+
+/**
+ * The header over a Modbot page that the server's row leads out to (Bans), drawn only when the page
+ * was opened from that row (`serverTabFrom`), so the person has not left the Discord page. Read on
+ * its own, gated on See members like the member list it also sits over, and left out if it cannot
+ * be read, so the page below never waits on it.
+ */
+export function ServerPageTop({ me, tab, pathOf }: { me: CurrentUser; tab: PageId; pathOf: (id: PageId) => string }) {
+  const [server, setServer] = useState<ServerProfile | null>(null)
+  const allowed = can(me, 'ViewMembers')
+
+  useEffect(() => {
+    if (!allowed) return
+    let cancelled = false
+
+    api
+      .discordServer()
+      .then((next) => {
+        if (!cancelled) setServer(next)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
+  }, [allowed])
+
+  if (!server) return null
+
+  return (
+    <div className="mb-3">
+      <ServerHeader server={server} me={me} pathOf={pathOf} active={tab} />
+    </div>
+  )
+}
 
 /**
  * The top of the Discord analytics page, laid out the way Discord's own server profile is: the
@@ -17,7 +63,8 @@ import { HeaderTabs } from './shared'
  * On a phone the icon sits over the banner and the name goes under it; from `sm` up the name moves
  * beside the icon, level with its lower half, as on the VRChat page.
  *
- * The Discord members page draws it too, with Members marked, so the two read as one Discord page.
+ * The Discord members page draws it too, with Members marked, so the two read as one Discord page,
+ * and so does the Bans page opened from the row, on its Discord list with Bans marked.
  */
 export function ServerHeader({
   server,
@@ -81,9 +128,26 @@ export function ServerHeader({
 
       {boosts && <BoostBar goal={boosts} />}
 
-      <HeaderTabs label="Server" tabs={serverTabs(me)} active={active} pathOf={pathOf} />
+      <HeaderTabs
+        label="Server"
+        tabs={serverTabs(me).map((tab) => ({ ...tab, icon: TAB_ICONS[tab.id] }))}
+        active={active}
+        pathOf={(id) => serverTabHref(id, pathOf(id))}
+      />
     </Card>
   )
+}
+
+/**
+ * The icon Discord puts beside each part of a server -- calendar for Events, people for Members --
+ * so a Discord user finds a link by its picture, as on the VRChat row. Discord has no Overview; the
+ * chart is Server Insights', which is what that page is.
+ */
+const TAB_ICONS: Partial<Record<PageId, LucideIcon>> = {
+  'analytics-server': ChartColumn,
+  calendar: CalendarDays,
+  'discord-members': Users,
+  bans: Gavel,
 }
 
 function count(n: number | null): string {

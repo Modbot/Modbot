@@ -10,6 +10,7 @@ import {
   linkLabel,
   nextEvent,
   settingsTab,
+  weekPair,
 } from '../src/lib/groupOverview.ts'
 import { membersAddress } from '../src/lib/nav.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
@@ -184,4 +185,20 @@ test('the Members tab still says where it came from after /members moves on to P
   const moved = membersAddress('/members', '?from=group')
   assert.ok(moved?.startsWith('/people?'))
   assert.equal(new URLSearchParams(moved!.slice('/people'.length)).get('from'), 'group')
+})
+
+test('the week is the seven days ending today against the seven before, as the Discord page counts it', () => {
+  const points = [
+    { day: '2026-09-14', value: 100 },
+    { day: '2026-09-15', value: 4 },
+    { day: '2026-09-21', value: 6 },
+    { day: '2026-09-22', value: 1 },
+    { day: '2026-09-28', value: 2 },
+  ]
+
+  assert.deepEqual(weekPair(points, '2026-09-28'), { thisWeek: 3, lastWeek: 10 })
+})
+
+test('a week with no daily totals counts as nought, not as missing', () => {
+  assert.deepEqual(weekPair([], '2026-09-28'), { thisWeek: 0, lastWeek: 0 })
 })

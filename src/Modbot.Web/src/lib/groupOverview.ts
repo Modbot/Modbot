@@ -1,6 +1,6 @@
 // Relative, with the extension, so the Node test runner can load this file as it is (see nav.ts).
 // Every import is either a type, which is stripped, or nav.ts, which loads on its own.
-import type { CurrentUser } from './api.ts'
+import type { CurrentUser, DayValue, WeekPair } from './api.ts'
 import type { CalendarEvent } from './calendar.ts'
 import { mayOpen, type PageId } from './nav.ts'
 
@@ -159,4 +159,25 @@ export function nextEvent(events: readonly CalendarEvent[], now: string): NextEv
   }
 
   return best
+}
+
+/**
+ * One of the VRChat page's This week numbers: the daily totals of the seven days ending `to`
+ * against the seven before, counted the way the Discord page's week is (`ServerWeek`: the last day
+ * is today, not over yet). `points` are the group's daily totals over fourteen days ending `to`;
+ * a day with no total counts as nought.
+ */
+export function weekPair(points: readonly DayValue[], to: string): WeekPair {
+  const end = Date.parse(`${to}T00:00:00Z`)
+  const day = 86_400_000
+  let thisWeek = 0
+  let lastWeek = 0
+
+  for (const p of points) {
+    const back = Math.round((end - Date.parse(`${p.day}T00:00:00Z`)) / day)
+    if (back >= 0 && back < 7) thisWeek += p.value
+    else if (back >= 7 && back < 14) lastWeek += p.value
+  }
+
+  return { thisWeek, lastWeek }
 }

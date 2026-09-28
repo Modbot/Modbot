@@ -27,6 +27,9 @@ export const DISCORD_MEMBER_TYPES = ['discord.member.', 'discord.members.', 'dis
 /** The ban list. */
 export const BAN_TYPES = ['vrchat.group.member.ban', 'vrchat.group.member.unban', 'vrchat.group.bans.'] as const
 
+/** Bans and unbans in the Discord server, for the Bans page's Discord list. */
+export const DISCORD_BAN_TYPES = ['discord.member.ban', 'discord.member.unban'] as const
+
 /** Case files and the reports in them. */
 export const CASE_TYPES = ['modbot.report.', 'modbot.evidence.'] as const
 
@@ -43,6 +46,7 @@ export const changesLive = (e: LiveEvent) => startsWithAny(e.type, PRESENCE_TYPE
 export const changesMembers = (e: LiveEvent) => startsWithAny(e.type, MEMBER_TYPES)
 export const changesDiscordMembers = (e: LiveEvent) => startsWithAny(e.type, DISCORD_MEMBER_TYPES)
 export const changesBans = (e: LiveEvent) => startsWithAny(e.type, BAN_TYPES)
+export const changesDiscordBans = (e: LiveEvent) => startsWithAny(e.type, DISCORD_BAN_TYPES)
 export const changesCases = (e: LiveEvent) => startsWithAny(e.type, CASE_TYPES)
 export const changesFlags = (e: LiveEvent) => startsWithAny(e.type, FLAG_TYPES)
 export const changesReviews = (e: LiveEvent) => startsWithAny(e.type, REVIEW_TYPES)
@@ -76,6 +80,7 @@ export function concernsInstance(event: LiveEvent, vrChatInstanceId: string | nu
 export function auditMatches(event: LiveEvent, query: Omit<AuditRequest, 'limit' | 'before'>): boolean {
   if (query.source?.length && !query.source.includes(event.source)) return false
   if (query.type?.length && !query.type.includes(event.type)) return false
+  if (query.notType?.includes(event.type)) return false
   if (query.category && query.category.toLowerCase() !== event.category.toLowerCase()) return false
 
   if (query.subject && event.subject.id !== query.subject) return false

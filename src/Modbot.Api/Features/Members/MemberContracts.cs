@@ -82,7 +82,7 @@ public sealed record MemberRow(
 /// False until the first full sweep has finished. Until then the list is partial -- however many
 /// pages have been read -- and the screen says so rather than showing a short list as the group.
 /// </param>
-/// <param name="LastSyncedAt">When the last full sweep finished. What "last synced X ago" shows.</param>
+/// <param name="LastSyncedAt">When the last full sweep finished. What "Synced X ago" shows.</param>
 /// <param name="SweepInProgress">True while a sweep is part-way through its pages.</param>
 /// <param name="MemberCount">How many members the last full sweep listed.</param>
 /// <param name="Now">The server's clock (spec 4.4), so ages are computed against it.</param>

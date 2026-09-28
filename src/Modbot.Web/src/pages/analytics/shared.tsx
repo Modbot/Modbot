@@ -14,10 +14,10 @@ import { cn } from '@/lib/utils'
 import { RANGES, type Range } from './useAnalytics'
 
 /**
- * What the four Analytics pages share: the date-range control, the panel and stat frames, the
- * loading and error states, and the footer that says where the numbers came from.
+ * What the Stats page's parts and the platform pages share: the date-range control, the panel and
+ * stat frames, the loading and error states, and the line that says where the numbers came from.
  *
- * Kept as plain building blocks rather than a page template, because the pages are meant to be
+ * Kept as plain building blocks rather than a page template, because the parts are meant to be
  * different from each other -- one question each (spec 10.1) -- and a template would pull them
  * back towards the single dashboard they replaced.
  */
@@ -113,15 +113,26 @@ export function StatStrip({ className, children }: { className?: string; childre
 
 /**
  * A named part of a page: a small heading with a rule running out from it, as the Live page heads
- * each platform's half, and the panels under it.
+ * each platform's half, and the panels under it. With `href`, the heading is a link to where the
+ * part is shown in full, as each platform page's This week opens Stats.
  */
-export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, href, children }: { title: string; href?: string; children: React.ReactNode }) {
   const id = `section-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
 
   return (
     <section aria-labelledby={id} className="flex flex-col gap-2">
       <h2 id={id} className="flex items-center gap-2 font-label text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-        {title}
+        {href ? (
+          <a
+            href={href}
+            onClick={followLink(href)}
+            className="rounded-sm underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            {title}
+          </a>
+        ) : (
+          title
+        )}
         <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
       </h2>
       {children}

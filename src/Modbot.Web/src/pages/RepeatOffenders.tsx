@@ -97,7 +97,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
       >
         <p>{list.rule}</p>
         <p className="mt-1">
-          {list.lastRunAt ? <>Counts rebuilt <Ago iso={list.lastRunAt} now={list.now} />.</> : 'Counts not built yet.'}
+          {list.lastRunAt ? <>Counted <Ago iso={list.lastRunAt} now={list.now} /></> : 'Not counted yet'}
         </p>
       </div>
 

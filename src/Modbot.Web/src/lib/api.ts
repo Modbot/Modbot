@@ -813,6 +813,8 @@ export type PersonAsk = { vrchat?: string; discord?: string; account?: string }
 
 export type AuditRequest = {
   type?: string[]
+  /** Types to leave out. The type list is the server's, so "is not" cannot be sent as the rest of it. */
+  notType?: string[]
   source?: string[]
   subject?: string
   subjectPlatform?: 'VRChat' | 'Discord' | 'Modbot'
@@ -1213,6 +1215,38 @@ export type GroupBanQuery = {
   status?: 'current' | 'lifted' | 'all'
   page?: number
   pageSize?: number
+}
+
+/**
+ * One ban in the Discord server, standing or lifted. `bannedAt` is null for a ban that was already
+ * in place when the bot read the list: Discord's list carries no date.
+ */
+export type DiscordBanRow = {
+  userId: string
+  username: string | null
+  displayName: string | null
+  avatarUrl: string | null
+  reason: string | null
+  bannedAt: string | null
+  firstSeenAt: string
+  liftedAt: string | null
+}
+
+export type DiscordBanList = {
+  bans: DiscordBanRow[]
+  total: number
+  page: number
+  pageSize: number
+  coverage: {
+    guildId: string | null
+    /** When the whole list was last read from Discord. Null until it has been. */
+    listedAt: string | null
+    /** Whether the bot holds Ban Members, which reading the whole list needs. */
+    canRead: boolean
+    /** Bans that stand, whatever the filters. */
+    standing: number
+    now: string
+  }
 }
 
 /** One person waiting to be let into the group, as VRChat had the queue a moment ago. */
@@ -4360,6 +4394,7 @@ export const api = {
   audit: (query: AuditRequest = {}) => {
     const q = new URLSearchParams()
     query.type?.forEach((t) => q.append('type', t))
+    query.notType?.forEach((t) => q.append('notType', t))
     query.source?.forEach((s) => q.append('source', s))
     if (query.subject) q.set('subject', query.subject)
     if (query.subjectPlatform) q.set('subjectPlatform', query.subjectPlatform)
@@ -4493,6 +4528,17 @@ export const api = {
     if (query.pageSize) q.set('pageSize', String(query.pageSize))
     const search = q.toString()
     return request<GroupBanList>(`/api/bans${search ? `?${search}` : ''}`)
+  },
+
+  /** The Discord server's ban list, as the bot last read it and kept it since. */
+  discordBans: (query: GroupBanQuery = {}) => {
+    const q = new URLSearchParams()
+    if (query.search) q.set('search', query.search)
+    if (query.status && query.status !== 'current') q.set('status', query.status)
+    if (query.page && query.page > 1) q.set('page', String(query.page))
+    if (query.pageSize) q.set('pageSize', String(query.pageSize))
+    const search = q.toString()
+    return request<DiscordBanList>(`/api/discord/bans${search ? `?${search}` : ''}`)
   },
 
   /**

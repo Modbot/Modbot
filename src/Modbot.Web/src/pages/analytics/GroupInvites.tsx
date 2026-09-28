@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, ApiError, type CurrentUser, type GroupInviteList, type GroupInviteRow, type MissingGroupPermission } from '@/lib/api'
 import { formatDay } from '@/lib/format'
+import type { WaitingCount } from '@/lib/joinRequests'
 import { mayOpen, type PageId } from '@/lib/nav'
 import { openPerson } from '@/lib/subject'
 import { JoinRequests } from '@/pages/Requests'
@@ -23,7 +24,15 @@ import { GroupHeaderFor } from './GroupHeader'
  * opens, once per page turned and once per Refresh, so opening the tab costs two; a Cancel, an
  * Approve or a Reject is one. VRChat sends no total, so paging is Previous and Next.
  */
-export function GroupInvites({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
+export function GroupInvites({
+  me,
+  pathOf,
+  onJoinRequestCount,
+}: {
+  me: CurrentUser
+  pathOf: (id: PageId) => string
+  onJoinRequestCount?: (waiting: WaitingCount) => void
+}) {
   const [page, setPage] = useState(1)
   const [asked, setAsked] = useState(0)
   const wanted = `${page}:${asked}`
@@ -73,7 +82,9 @@ export function GroupInvites({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pag
     <div className="flex flex-col gap-3">
       <GroupHeaderFor me={me} pathOf={pathOf} active="group-invites" />
 
-      {mayOpen(me, 'requests') && <JoinRequests me={me} onOpenSubject={openPerson} title="Join requests" />}
+      {mayOpen(me, 'requests') && (
+        <JoinRequests me={me} onOpenSubject={openPerson} title="Join requests" onWaitingCount={onJoinRequestCount} />
+      )}
 
       <PanelGrid className="grid-cols-1">
         <Card>

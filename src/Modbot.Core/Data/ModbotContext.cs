@@ -250,6 +250,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The Discord server's members as last seen. Current state; the history is in <see cref="Events"/>.</summary>
     public DbSet<DiscordMember> DiscordMembers => Set<DiscordMember>();
 
+    /// <summary>The Discord server's bans as last seen. Current state; the history is in <see cref="Events"/>.</summary>
+    public DbSet<DiscordBan> DiscordBans => Set<DiscordBan>();
+
     /// <summary>VRChat group roles paired with Discord roles, and which side decides each (M5 §3.1).</summary>
     public DbSet<DiscordRolePair> DiscordRolePairs => Set<DiscordRolePair>();
 
@@ -1991,6 +1994,22 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.HasIndex(e => e.GuildId)
                 .HasDatabaseName("ix_discord_member_in_voice")
                 .HasFilter("voice_channel_id IS NOT NULL");
+        });
+
+        builder.Entity<DiscordBan>(entity =>
+        {
+            entity.ToTable("discord_ban");
+            entity.HasKey(e => new { e.GuildId, e.UserId });
+
+            entity.Property(e => e.GuildId).HasColumnType("text");
+            entity.Property(e => e.UserId).HasColumnType("text");
+            entity.Property(e => e.Username).HasColumnType("text");
+            entity.Property(e => e.DisplayName).HasColumnType("text");
+            entity.Property(e => e.AvatarUrl).HasColumnType("text");
+            entity.Property(e => e.Reason).HasColumnType("text");
+
+            // The Bans page's Discord list: bans that stand, and those lifted.
+            entity.HasIndex(e => new { e.GuildId, e.LiftedAt }).HasDatabaseName("ix_discord_ban_current");
         });
 
         builder.Entity<CalendarEvent>(entity =>

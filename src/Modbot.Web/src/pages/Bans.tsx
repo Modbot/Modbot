@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { changesBans } from '@/lib/liveRules'
+import { changesBans, changesDiscordBans } from '@/lib/liveRules'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { Card, CardHeader } from '@/components/ui/card'
 import { Tabs } from '@/components/ui/tabs'
@@ -11,30 +11,36 @@ import { CaseFileCell } from '@/components/CaseFileCell'
 import { Pager } from '@/components/Pager'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { ModerationActions } from '@/components/moderation/ModerationActions'
-import { SubjectLink } from '@/components/facts'
+import { DiscordPersonLink, SubjectLink } from '@/components/facts'
+import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { RepeatOffendersTab } from '@/pages/RepeatOffenders'
 import { useCaseFiles } from '@/lib/caseFiles'
 import { useDemo } from '@/lib/demo'
 import { formatDay } from '@/lib/format'
 import { useListPage } from '@/lib/listPage'
 import { can, canAny } from '@/lib/permissions'
+import { go, useLocation } from '@/lib/router'
+import { discordPicture } from '@/lib/serverOverview'
+import { openDiscordPerson } from '@/lib/subject'
 import {
   api,
   ApiError,
   type CurrentUser,
+  type DiscordBanList,
   type GroupBanList,
   type GroupBanQuery,
 } from '@/lib/api'
-import { Freshness } from '@/components/Freshness'
+import { Ago, Freshness, Unread } from '@/components/Freshness'
 import { Empty, Marks } from '@/components/ListParts'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
- * The group's ban list: everyone VRChat says is banned right now, whenever the ban was issued,
- * read by the ban sweep. It is the one to check before concluding somebody is not banned.
+ * The ban lists: the group's, everyone VRChat says is banned right now, whenever the ban was issued,
+ * read by the ban sweep; and the Discord server's, read by the bot. Each is the one to check before
+ * concluding somebody is not banned on that platform.
  *
- * Beside it, the people the group has acted on more than once.
+ * Beside them, the people the group has acted on more than once.
  */
 export function Bans({
   me,
@@ -45,27 +51,51 @@ export function Bans({
   onOpenSubject: (id: string) => void
   onOpenCase: (caseId: string) => void
 }) {
-  // Two tabs, one question: who has the group had trouble with. The ban list as VRChat holds it,
-  // and the people acted on more than once (spec 5.8.4).
-  const [tab, setTab] = useState<'list' | 'repeat'>('list')
+  // Three tabs, one question: who has the group had trouble with. The ban list as VRChat holds it,
+  // the one Discord holds, and the people acted on more than once (spec 5.8.4). Which platform is
+  // in the address (`platform=discord`), so the Discord page's Bans link opens on Discord's.
+  const [location] = useLocation()
+  const [repeat, setRepeat] = useState(false)
+  const tab: BansTab = repeat ? 'repeat' : location.search.get('platform') === 'discord' ? 'discord' : 'list'
+
+  const choose = (next: BansTab) => {
+    setRepeat(next === 'repeat')
+    if (next === 'repeat' || next === tab) return
+
+    // A page number belongs to the list it was turned on, and the header of the platform page the
+    // list was opened from belongs to that platform's list. `go`, not this component's own
+    // navigate, so the shell sees the address change and drops that header.
+    const params = new URLSearchParams(location.search)
+    params.delete('page')
+    params.delete('from')
+    if (next === 'discord') params.set('platform', 'discord')
+    else params.delete('platform')
+
+    const query = params.toString()
+    go(location.path + (query ? `?${query}` : ''), { replace: true })
+  }
 
   return (
     <Tabs
       value={tab}
-      onChange={setTab}
+      onChange={choose}
       tabs={[
-        { value: 'list', label: 'Ban list' },
+        { value: 'list', label: 'VRChat' },
+        { value: 'discord', label: 'Discord' },
         { value: 'repeat', label: 'People acted on more than once' },
       ]}
       className="gap-3"
     >
       <div className="flex flex-col gap-3">
         {tab === 'list' && <GroupBans me={me} onOpenSubject={onOpenSubject} onOpenCase={onOpenCase} />}
+        {tab === 'discord' && <DiscordBans />}
         {tab === 'repeat' && <RepeatOffendersTab onOpenSubject={onOpenSubject} />}
       </div>
     </Tabs>
   )
 }
+
+type BansTab = 'list' | 'discord' | 'repeat'
 
 /** What the ban table needs to draw its case file column. */
 type CaseColumn = {
@@ -167,7 +197,7 @@ function GroupBans({
           }}
           aria-label="Status"
         >
-          <option value="current">Bans that stand</option>
+          <option value="current">Still banned</option>
           <option value="lifted">Bans that were lifted</option>
           <option value="all">Both</option>
         </Select>
@@ -190,7 +220,7 @@ function GroupBans({
             <>
               <Th>Person</Th>
               <Th>Banned on</Th>
-              <Th>Modbot first saw it</Th>
+              <Th>Seen by Modbot</Th>
               {status !== 'current' && <Th>Lifted</Th>}
               {showCases && <Th>Case file</Th>}
               {canAct && (
@@ -225,11 +255,6 @@ function GroupBans({
                     {ban.plainName && (
                       <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
                         {ban.plainName}
-                      </div>
-                    )}
-                    {ban.displayName && (
-                      <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
-                        {ban.userId}
                       </div>
                     )}
                   </div>
@@ -271,6 +296,164 @@ function GroupBans({
       )}
 
       <Pager at={at} pages={pages} />
+      </Card>
+    </>
+  )
+}
+
+/**
+ * The Discord server's ban list, as the bot last read it and kept it since. Discord's list carries
+ * no dates, so a ban found already in place has none; one the bot saw happen has when.
+ */
+function DiscordBans() {
+  const [typed, setTyped] = useState('')
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState<NonNullable<GroupBanQuery['status']>>('current')
+
+  const at = useListPage()
+  const { page, restart } = at
+  const [list, setList] = useState<DiscordBanList | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const live = useLiveVersion(changesDiscordBans)
+
+  useEffect(() => {
+    const next = typed.trim()
+    if (next === search) return
+
+    const timer = setTimeout(() => {
+      setSearch(next)
+      restart()
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [typed, search, restart])
+
+  useEffect(() => {
+    let cancelled = false
+
+    api
+      .discordBans({ search, status, page, pageSize: PAGE_SIZE })
+      .then((next) => {
+        if (cancelled) return
+        setList(next)
+        setError(null)
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setError(
+          e instanceof ApiError && e.status === 403
+            ? 'You do not have permission to read moderation history.'
+            : 'Could not load the Discord ban list.',
+        )
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [search, status, page, live])
+
+  if (error) return <Empty tone="danger">{error}</Empty>
+  if (!list) return <Empty>Loading…</Empty>
+
+  const pages = Math.max(1, Math.ceil(list.total / list.pageSize))
+  const { coverage } = list
+  const unread = coverage.guildId === null || !coverage.canRead || coverage.listedAt === null
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2 md:justify-end max-md:[&>[data-slot=input]]:flex-[1_1_10rem]">
+        <Input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Search by name or id"
+          className="w-56"
+          aria-label="Search Discord bans"
+        />
+        <Select
+          value={status}
+          onChange={(next) => {
+            setStatus(next as typeof status)
+            restart()
+          }}
+          aria-label="Status"
+        >
+          <option value="current">Still banned</option>
+          <option value="lifted">Bans that were lifted</option>
+          <option value="all">Both</option>
+        </Select>
+      </div>
+
+      <Card>
+        <CardHeader className={cn(unread && 'bg-warn/10')}>
+          {coverage.guildId === null ? (
+            <Unread>No Discord server set.</Unread>
+          ) : !coverage.canRead ? (
+            <Unread>Cannot read the Discord ban list: the bot needs Ban Members.</Unread>
+          ) : coverage.listedAt === null ? (
+            <Unread>The Discord ban list has not been read yet.</Unread>
+          ) : (
+            <div className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+              Read <Ago iso={coverage.listedAt} now={coverage.now} />.{' '}
+              <span className="font-mono">{coverage.standing.toLocaleString()}</span> still banned.
+            </div>
+          )}
+          <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="font-mono">{list.total.toLocaleString()}</span> {list.total === 1 ? 'person' : 'people'}
+          </span>
+        </CardHeader>
+
+        {list.bans.length === 0 ? (
+          <EmptyRow>{search ? 'Nobody matches' : 'No bans listed'}</EmptyRow>
+        ) : (
+          <Table
+            pinFirst
+            head={
+              <>
+                <Th>Person</Th>
+                <Th>Reason</Th>
+                <Th>Banned on</Th>
+                <Th>Seen by Modbot</Th>
+                {status !== 'current' && <Th>Lifted</Th>}
+              </>
+            }
+          >
+            {list.bans.map((ban) => (
+              <Tr
+                key={ban.userId}
+                onClick={() => openDiscordPerson(ban.userId)}
+                className={cn('cursor-pointer hover:bg-muted/40', ban.liftedAt && 'text-muted-foreground')}
+              >
+                <Td>
+                  <div className="flex items-center gap-2">
+                    <Avatar url={discordPicture(ban.avatarUrl, 64)} />
+                    <div className="min-w-0">
+                      <DiscordPersonLink id={ban.userId} name={ban.displayName} className="max-md:max-w-full" />
+                      {ban.username && ban.username !== ban.displayName && (
+                        <div className="truncate text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                          {ban.username}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Td>
+                <Td className="max-w-80">
+                  {ban.reason ? (
+                    <span className="line-clamp-2 break-words">{ban.reason}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </Td>
+                <Td className="font-mono">
+                  {ban.bannedAt ? formatDay(ban.bannedAt) : <span className="text-muted-foreground">—</span>}
+                </Td>
+                <Td className="font-mono text-muted-foreground">{formatDay(ban.firstSeenAt)}</Td>
+                {status !== 'current' && <Td className="font-mono">{ban.liftedAt ? formatDay(ban.liftedAt) : ''}</Td>}
+              </Tr>
+            ))}
+          </Table>
+        )}
+
+        <Pager at={at} pages={pages} />
       </Card>
     </>
   )

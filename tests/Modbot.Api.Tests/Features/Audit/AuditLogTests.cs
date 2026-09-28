@@ -472,4 +472,27 @@ public class AuditLogTests
         var entry = Assert.Single(page.Entries);
         Assert.Equal(FactType.GroupInstanceKick, entry.Type);
     }
+
+    /// <summary>
+    /// "Type is not" on the Audit log page. The type list is the server's, so the page cannot send
+    /// the rest of it the way it does for sources; it sends the types to leave out instead.
+    /// </summary>
+    [Fact]
+    public async Task NotType_LeavesOutTheTypesItNames()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        await host.WriteFactAsync(Ban("usr_a", "usr_mod", Day), ct);
+        await host.WriteFactAsync(Ban("usr_b", "usr_mod", Day.AddHours(1)) with { Type = FactType.MemberUnbanned }, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAuditLog, ct);
+        var page = await host.GetJsonAsync<AuditPage>(
+            $"/api/audit?notType={Uri.EscapeDataString(FactType.MemberBanned)}", cookie, ct);
+
+        var entry = Assert.Single(page.Entries);
+        Assert.Equal(FactType.MemberUnbanned, entry.Type);
+        Assert.Equal("usr_b", entry.SubjectId);
+    }
 }

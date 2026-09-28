@@ -120,8 +120,19 @@ public sealed class FakeGateway : IDiscordGateway
     /// <summary>Who the Discord server has banned. Null makes the ban list unreadable.</summary>
     public List<string>? Banned { get; set; } = [];
 
-    public Task<IReadOnlyList<string>?> ReadBansAsync(string guildId, CancellationToken ct)
-        => Task.FromResult<IReadOnlyList<string>?>(Banned);
+    /// <summary>The reason each banned id carries in the ban list, where a test gives one.</summary>
+    public Dictionary<string, string> BanReasons { get; } = [];
+
+    /// <summary>How many times the whole ban list was read.</summary>
+    public int BanListReads { get; private set; }
+
+    public Task<IReadOnlyList<DiscordBanSnapshot>?> ReadBansAsync(string guildId, CancellationToken ct)
+    {
+        BanListReads++;
+        return Task.FromResult<IReadOnlyList<DiscordBanSnapshot>?>(Banned?
+            .Select(id => new DiscordBanSnapshot(id, $"user{id}", Reason: BanReasons.GetValueOrDefault(id)))
+            .ToList());
+    }
 
     private Task<DiscordModerationOutcome> ModerationAsync(string action, string guildId, string userId, string reason)
     {
