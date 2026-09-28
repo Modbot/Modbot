@@ -11,6 +11,7 @@ export function PanelGrid({
   id,
   as: Tag = 'div',
   className,
+  phonePairs = false,
   children,
 }: {
   /** An anchor to scroll to, such as Health's `#ai`. */
@@ -18,10 +19,12 @@ export function PanelGrid({
   /** `ul` or `ol` when the panels are the items of a list. */
   as?: 'div' | 'ul' | 'ol'
   className?: string
+  /** Two across on a phone rather than three, for a strip of tiles (StatStrip). */
+  phonePairs?: boolean
   children: React.ReactNode
 }) {
   return (
-    <Tag id={id} data-slot="panel-grid" className={className}>
+    <Tag id={id} data-slot="panel-grid" data-phone-pairs={phonePairs || undefined} className={className}>
       {children}
     </Tag>
   )

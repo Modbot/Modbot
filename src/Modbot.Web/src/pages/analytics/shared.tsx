@@ -11,6 +11,7 @@ import type { PageId } from '@/lib/nav'
 import { followLink } from '@/lib/router'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { cn } from '@/lib/utils'
+import { sectionId } from './sectionId'
 import { RANGES, type Range } from './useAnalytics'
 
 /**
@@ -106,9 +107,25 @@ export function Stat({
  * A row of Stats sharing one hairline grid. Two across on a narrow screen and the caller's count
  * when wider; on a phone, three compact ones across (index.css), so a strip of six is two short
  * rows and the first chart is on the first screen.
+ *
+ * `phonePairs` for a strip of two, four or five, which three across leaves with a lone tile or an
+ * empty slot: on a phone it goes two across, and an odd first tile takes the whole row. Two across
+ * also leaves a date and time room for one line.
  */
-export function StatStrip({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <PanelGrid className={cn('grid-cols-2 xl:grid-cols-4', className)}>{children}</PanelGrid>
+export function StatStrip({
+  className,
+  phonePairs = false,
+  children,
+}: {
+  className?: string
+  phonePairs?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <PanelGrid className={cn('grid-cols-2 xl:grid-cols-4', className)} phonePairs={phonePairs}>
+      {children}
+    </PanelGrid>
+  )
 }
 
 /**
@@ -117,11 +134,12 @@ export function StatStrip({ className, children }: { className?: string; childre
  * part is shown in full, as each platform page's This week opens Stats.
  */
 export function Section({ title, href, children }: { title: string; href?: string; children: React.ReactNode }) {
-  const id = `section-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+  const id = sectionId(title)
 
   return (
     <section aria-labelledby={id} className="flex flex-col gap-2">
-      <h2 id={id} className="flex items-center gap-2 font-label text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      {/* The margin keeps a heading jumped to clear of the sticky top bar. */}
+      <h2 id={id} className="flex scroll-mt-20 items-center gap-2 font-label text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
         {href ? (
           <a
             href={href}
@@ -197,11 +215,14 @@ export function HeaderTabs({
  * on screen; the page code and spec 10.1 do.
  */
 export function Panel({
+  id,
   title,
   right,
   flush = false,
   children,
 }: {
+  /** An anchor to jump to; clear of the sticky top bar, like a Section's heading. */
+  id?: string
   title: string
   right?: React.ReactNode
   /** Runs the content to the panel's edges, for a table or an `EmptyRow`. */
@@ -209,7 +230,7 @@ export function Panel({
   children: React.ReactNode
 }) {
   return (
-    <Card>
+    <Card id={id} className={id ? 'scroll-mt-20' : undefined}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         {right && <CardAction>{right}</CardAction>}

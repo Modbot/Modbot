@@ -171,7 +171,7 @@ export function ServerActivity({ data }: { data: ServerAnalytics }) {
 
   return (
     <PanelGrid className="grid-cols-1">
-      <StatStrip className="sm:grid-cols-2 xl:grid-cols-2">
+      <StatStrip className="sm:grid-cols-2 xl:grid-cols-2" phonePairs>
         <Stat label="Messages" value={compactNumber(sum(data.messages))} />
         <Stat label="Time in voice" value={minutes(sum(data.voiceMinutes))} />
       </StatStrip>

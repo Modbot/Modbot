@@ -10,6 +10,9 @@ import { PageMessage, Panel, Stat, StatStrip, Toggle } from './shared'
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const HOURS = Array.from({ length: 24 }, (_, h) => `${h}:00`)
 
+/** The heatmap's anchor, for the Activity tab's jumps. */
+export const HEATMAP_ID = 'heatmap'
+
 /** Below this many presence reports in the range, the presence panels are shown but called thin. */
 const THIN_REPORTS = 200
 
@@ -44,7 +47,7 @@ export function InstanceStats({
 
   return (
     <PanelGrid className="grid-cols-1">
-      <StatStrip className={mostOnline ? 'md:grid-cols-3 xl:grid-cols-5' : undefined}>
+      <StatStrip className={mostOnline ? 'md:grid-cols-3 xl:grid-cols-5' : undefined} phonePairs>
         {mostOnline}
         <Stat label="Opened" value={compactNumber(sum(data.opened))} />
         <Stat label="Closed" value={compactNumber(sum(data.closed))} />
@@ -63,6 +66,7 @@ export function InstanceStats({
       )}
 
       <Panel
+        id={HEATMAP_ID}
         title="When the community is active (your time)"
         flush={sum(toPoints(data.hourOfWeek[layer])) === 0}
         right={
@@ -208,7 +212,7 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
         </PageMessage>
       ) : null}
 
-      <StatStrip>
+      <StatStrip phonePairs>
         <Stat
           label="Most people at once"
           value={

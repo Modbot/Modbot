@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { Tabs } from '@/components/ui/tabs'
 import { api, type CurrentUser } from '@/lib/api'
 import type { PageId } from '@/lib/nav'
 import { GroupGrowth, MostOnline } from './GroupStats'
 import { InsightsPanel } from './InsightsPanel'
-import { InstanceStats } from './InstanceStats'
+import { HEATMAP_ID, InstanceStats } from './InstanceStats'
 import { TeamStats } from './MyTeam'
+import { sectionId } from './sectionId'
 import { ServerActivity, ServerCoverage, ServerGrowth, ServerModeration } from './ServerStats'
 import { CoverageLine, PageMessage, RangePicker, Section } from './shared'
 import { useAnalytics, type Range } from './useAnalytics'
@@ -18,6 +20,18 @@ const TABS: { value: StatsTab; label: string }[] = [
   { value: 'stats', label: 'Growth' },
   { value: 'stats-activity', label: 'Activity' },
   { value: 'stats-moderation', label: 'Moderation' },
+]
+
+// The Activity tab's parts, named once for their headings and for the jumps to them.
+const INSTANCES = 'VRChat instances'
+const WORLDS = 'VRChat worlds'
+const DISCORD = 'Discord'
+
+const JUMPS: { label: string; id: string }[] = [
+  { label: 'Instances', id: sectionId(INSTANCES) },
+  { label: 'Heatmap', id: HEATMAP_ID },
+  { label: 'Worlds', id: sectionId(WORLDS) },
+  { label: 'Discord', id: sectionId(DISCORD) },
 ]
 
 /**
@@ -72,6 +86,8 @@ export function Stats({
       <div className="flex flex-col gap-4">
         <RangePicker range={range} onChange={setRange} from={shown?.from} to={shown?.to} />
 
+        {tab === 'stats-activity' && <Jumps />}
+
         {shown && <CoverageLine coverage={shown.coverage} generatedAt={shown.generatedAt} />}
 
         {tab === 'stats' && (
@@ -89,15 +105,15 @@ export function Stats({
         {tab === 'stats-activity' && (
           <>
             <InsightsPanel only="instances" />
-            <Part title="VRChat instances" read={instances}>
+            <Part title={INSTANCES} read={instances}>
               {(data) => (
                 <InstanceStats data={data} mostOnline={group.data && <MostOnline peaks={group.data.peaks} />} />
               )}
             </Part>
-            <Part title="VRChat worlds" read={worlds}>
+            <Part title={WORLDS} read={worlds}>
               {(data) => <WorldStats data={data} />}
             </Part>
-            <Part title="Discord" read={server} coverage={(data) => <ServerCoverage data={data} {...links} />}>
+            <Part title={DISCORD} read={server} coverage={(data) => <ServerCoverage data={data} {...links} />}>
               {(data) => <ServerActivity data={data} />}
             </Part>
           </>
@@ -116,6 +132,34 @@ export function Stats({
         )}
       </div>
     </Tabs>
+  )
+}
+
+/**
+ * A row of jumps to the Activity tab's parts, for a screen where the tab runs to several screens.
+ * Below the sidebar's breakpoint only: a desktop sees most of a part at once and has no need. Each
+ * jump scrolls its target under the sticky top bar, which the target's own scroll margin clears.
+ */
+function Jumps() {
+  return (
+    <nav aria-label="Parts of this tab" className="-my-2 -ml-2.5 flex flex-wrap items-center lg:hidden">
+      {JUMPS.map((jump, i) => (
+        <span key={jump.id} className="flex items-center">
+          {i > 0 && (
+            <span aria-hidden className="text-muted-foreground">
+              ·
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => document.getElementById(jump.id)?.scrollIntoView({ block: 'start' })}
+          >
+            {jump.label}
+          </Button>
+        </span>
+      ))}
+    </nav>
   )
 }
 

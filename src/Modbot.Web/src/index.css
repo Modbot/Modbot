@@ -302,6 +302,17 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  /* A strip of two, four or five (StatStrip's phonePairs), which three across
+     leaves with a lone tile or an empty slot. Two across, and an odd first tile
+     across the whole row, so the rest pair up under it. */
+  :root:not([data-place="headset"]) [data-slot="panel-grid"][data-phone-pairs]:has(> [data-slot="stat"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  :root:not([data-place="headset"]) [data-slot="panel-grid"][data-phone-pairs]:has(> [data-slot="stat"]:last-child:nth-child(odd)) > [data-slot="stat"]:first-child {
+    grid-column: 1 / -1;
+  }
+
   :root:not([data-place="headset"]) [data-slot="stat"] {
     --stat-label: 0.6875rem;  /* 11px */
     --stat-value: 1rem;       /* 16px */
