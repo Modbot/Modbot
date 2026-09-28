@@ -11,6 +11,7 @@ import type { AuditEntry } from '@/lib/api'
 import { factDays } from '@/lib/factRows'
 import { usePhoneLayout } from '@/lib/phoneLayout'
 import { cn } from '@/lib/utils'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 /**
  * The pieces the three popups share: one loader, one section, one fact list.
@@ -82,6 +83,20 @@ export function Block({ children, className }: { children: React.ReactNode; clas
     <div className={cn('flex shrink-0 flex-col gap-3 border-b border-b-(length:--hairline) p-(--panel-pad)', className)}>
       {children}
     </div>
+  )
+}
+
+/**
+ * A world's picture beside the title, for the World and Instance popups on a phone, where the
+ * desk's picture across the left column was most of the first screen. 4:3, as VRChat draws it.
+ * An empty frame when there is none, so the title does not jump once the page is read.
+ */
+export function HeaderPicture({ url }: { url: string | null }) {
+  const src = vrchatMedia(url)
+  return src ? (
+    <img src={src} alt="" className="aspect-[4/3] h-10 shrink-0 rounded-sm bg-muted object-cover" />
+  ) : (
+    <span className="aspect-[4/3] h-10 shrink-0 rounded-sm bg-muted" />
   )
 }
 

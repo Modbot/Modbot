@@ -11,6 +11,7 @@ import {
   FactList,
   Field,
   Footer,
+  HeaderPicture,
   More,
   Note,
   Panel,
@@ -21,6 +22,7 @@ import {
 import { WORLD_MOVED, WORLD_TABS, type WorldTab as Tab } from '@/components/subject/tabs'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useLoad } from '@/lib/useLoad'
+import { usePhoneLayout } from '@/lib/phoneLayout'
 import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
 import { api, type CurrentUser, type WorldView } from '@/lib/api'
 import { concernsWorld } from '@/lib/liveRules'
@@ -51,6 +53,12 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
   const load = useCallback(() => api.world(id), [id])
   const { data, error } = useLoad(allowed ? load : null, live)
 
+  // On a phone the picture is small, in the header, and the facts from the left column are at the
+  // top of Overview instead: a column stacked above the tabs was mostly picture and put the tab
+  // row two screens down on a phone on its side (mobile review 2026-09-28, rule 5). Drawn in one
+  // place or the other, never both.
+  const phone = usePhoneLayout()
+
   const title = data?.name ?? 'World'
 
   if (!allowed) {
@@ -76,9 +84,22 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
     <PopupFrame
       title={title}
       subtitle={<CopyId id={id} />}
-      lead={lead}
+      lead={
+        <>
+          {lead}
+          {phone && !error && <HeaderPicture url={data ? (data.thumbnailImageUrl ?? data.imageUrl) : null} />}
+        </>
+      }
       actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
-      left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity world={data} /> : <Empty>Loading…</Empty>}
+      left={
+        error ? (
+          <Empty tone="danger">{error}</Empty>
+        ) : !data ? (
+          <Empty>Loading…</Empty>
+        ) : phone ? null : (
+          <Identity world={data} />
+        )
+      }
     >
       <PopupTabs
         at={tabsAt}
@@ -92,7 +113,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
           ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
         ]}
       >
-        {data && tab === 'overview' && <Overview world={data} onMore={pick} />}
+        {data && tab === 'overview' && <Overview world={data} phone={phone} onMore={pick} />}
         {data && tab === 'instances' && (
           <Panel title="Instances in this world" flush>
             {data.instances.length === 0 ? (
@@ -151,23 +172,41 @@ function Identity({ world }: { world: WorldView }) {
           )}
         </div>
 
-        {world.authorName && (
-          <Field label="Made by">
-            {world.authorId ? <SubjectLink id={world.authorId} name={world.authorName} /> : world.authorName}
-          </Field>
-        )}
-
-        {world.releaseStatus && <Field label="Who can find it">{releaseWords(world.releaseStatus)}</Field>}
+        <Maker world={world} />
       </Block>
     </>
   )
 }
 
-/** The rest of the page as Modbot read it, at the top of the Overview. */
-function Details({ world }: { world: WorldView }) {
+/** Who made it and who can find it: under the name on a desk, first in Details on a phone. */
+function Maker({ world }: { world: WorldView }) {
+  return (
+    <>
+      {world.authorName && (
+        <Field label="Made by">
+          {world.authorId ? <SubjectLink id={world.authorId} name={world.authorName} /> : world.authorName}
+        </Field>
+      )}
+
+      {world.releaseStatus && <Field label="Who can find it">{releaseWords(world.releaseStatus)}</Field>}
+    </>
+  )
+}
+
+/**
+ * The rest of the page as Modbot read it, at the top of the Overview. On a phone it starts with
+ * what the left column says on a desk, less the name, which is the header's title there.
+ */
+function Details({ world, phone }: { world: WorldView; phone: boolean }) {
   return (
     <Panel title="Details">
+      {phone && !world.name && world.readError && (
+        <Note className="text-destructive">Couldn't read this world: {world.readError}</Note>
+      )}
+
       <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {phone && <Maker world={world} />}
+
         {/* What the page said. Never a limit Modbot enforces -- exemptions raise real capacity
             above it (spec 3.1). */}
         {world.capacity !== null && (
@@ -222,12 +261,12 @@ function releaseWords(status: string): string {
  * The glance: the rest of the page, the figures, the newest instances, and how busy the world has been
  * day by day. The charts were a Metrics tab of their own, under a copy of the same four figures.
  */
-function Overview({ world, onMore }: { world: WorldView; onMore: (tab: Tab) => void }) {
+function Overview({ world, phone, onMore }: { world: WorldView; phone: boolean; onMore: (tab: Tab) => void }) {
   const c = world.counts
 
   return (
     <div className="flex flex-col">
-      <Details world={world} />
+      <Details world={world} phone={phone} />
 
       <StatStrip className="m-0 shrink-0">
         <Stat label="Time seen" value={minutes(c.minutesSeen)} />

@@ -7,12 +7,25 @@ import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Block, Empty, FactList, Field, Footer, More, Panel, PopupFrame, PopupMenu, PopupTabs } from '@/components/subject/shared'
+import {
+  Block,
+  Empty,
+  FactList,
+  Field,
+  Footer,
+  HeaderPicture,
+  More,
+  Panel,
+  PopupFrame,
+  PopupMenu,
+  PopupTabs,
+} from '@/components/subject/shared'
 import { INSTANCE_TABS, type InstanceTab as Tab } from '@/components/subject/tabs'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCountSeries'
 import { useLoad } from '@/lib/useLoad'
+import { usePhoneLayout } from '@/lib/phoneLayout'
 import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
 import { api, type CurrentUser, type InstanceView } from '@/lib/api'
 import { concernsInstance } from '@/lib/liveRules'
@@ -51,6 +64,12 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
     number.current = data?.instance.vrChatInstanceId ?? null
   }, [data])
 
+  // On a phone the world's picture is small, in the header, and the facts from the left column are
+  // at the top of Overview instead: a column stacked above the tabs was mostly picture and put the
+  // tab row two screens down on a phone on its side (mobile review 2026-09-28, rule 5). Drawn in
+  // one place or the other, never both.
+  const phone = usePhoneLayout()
+
   if (!allowed) {
     return (
       <PopupFrame title="Instance" lead={lead} left={<Empty>You do not have permission to see instances.</Empty>}>
@@ -68,9 +87,24 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
     <PopupFrame
       title={title}
       subtitle={instance ? <span title={instance.location}>{endLabel(instance)}</span> : undefined}
-      lead={lead}
+      lead={
+        <>
+          {lead}
+          {phone && !error && (
+            <HeaderPicture url={data ? (data.instance.worldThumbnailImageUrl ?? data.worldImageUrl) : null} />
+          )}
+        </>
+      }
       actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
-      left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
+      left={
+        error ? (
+          <Empty tone="danger">{error}</Empty>
+        ) : !data ? (
+          <Empty>Loading…</Empty>
+        ) : phone ? null : (
+          <Identity view={data} />
+        )
+      }
     >
       <PopupTabs
         at={tabsAt}
@@ -84,7 +118,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
           ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
         ]}
       >
-        {data && tab === 'overview' && <Overview view={data} live={live} onMore={pick} />}
+        {data && tab === 'overview' && <Overview view={data} phone={phone} live={live} onMore={pick} />}
         {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
           <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
             <EmptyRow>You do not have permission to see this.</EmptyRow>
@@ -121,43 +155,61 @@ function Identity({ view }: { view: InstanceView }) {
       )}
 
       <Block>
-        <Field label="World" title={instance.worldId}>
-          <WorldLink id={instance.worldId} name={instance.worldName} />
-          <div className="font-mono text-muted-foreground break-all" style={{ fontSize: 'var(--text-tiny)' }}>
-            {instance.worldId}
-          </div>
-        </Field>
-
-        <Field label="Instance number" title={instance.location}>
-          <span className="font-mono">{instance.vrChatInstanceId ?? '—'}</span>
-        </Field>
-
-        <Field label="Who can join">{accessInGame(instance.groupAccessType) ?? view.type ?? '—'}</Field>
-
-        <Field label={endLabel(instance)}>
-          {instance.closedAt ? (
-            <>
-              <span className="font-mono">{dateTime(instance.closedAt)}</span>
-              {instance.closedBy === 'time' ? ' · went quiet' : ''}
-            </>
-          ) : (
-            <>
-              last seen <span className="font-mono">{dateTime(view.lastSeenAt)}</span>
-            </>
-          )}
-        </Field>
+        <Facts view={view} />
       </Block>
     </>
   )
 }
 
-/** Where and when it ran, at the top of the Overview. How long and how busy are the figures under it. */
-function Details({ view }: { view: InstanceView }) {
+/**
+ * Which world, which number, who can join and whether it is open: under the picture on a desk,
+ * first in Details on a phone.
+ */
+function Facts({ view }: { view: InstanceView }) {
+  const instance = view.instance
+
+  return (
+    <>
+      <Field label="World" title={instance.worldId}>
+        <WorldLink id={instance.worldId} name={instance.worldName} />
+        <div className="font-mono text-muted-foreground break-all" style={{ fontSize: 'var(--text-tiny)' }}>
+          {instance.worldId}
+        </div>
+      </Field>
+
+      <Field label="Instance number" title={instance.location}>
+        <span className="font-mono">{instance.vrChatInstanceId ?? '—'}</span>
+      </Field>
+
+      <Field label="Who can join">{accessInGame(instance.groupAccessType) ?? view.type ?? '—'}</Field>
+
+      <Field label={endLabel(instance)}>
+        {instance.closedAt ? (
+          <>
+            <span className="font-mono">{dateTime(instance.closedAt)}</span>
+            {instance.closedBy === 'time' ? ' · went quiet' : ''}
+          </>
+        ) : (
+          <>
+            last seen <span className="font-mono">{dateTime(view.lastSeenAt)}</span>
+          </>
+        )}
+      </Field>
+    </>
+  )
+}
+
+/**
+ * Where and when it ran, at the top of the Overview. How long and how busy are the figures under it.
+ * On a phone it starts with what the left column says on a desk.
+ */
+function Details({ view, phone }: { view: InstanceView; phone: boolean }) {
   const instance = view.instance
 
   return (
     <Panel title="Details">
       <div className="flex flex-wrap gap-x-6 gap-y-2">
+        {phone && <Facts view={view} />}
         {instance.region && <Field label="Region">{instance.region.toUpperCase()}</Field>}
         <Field label="Opened">
           <span className="font-mono">{dateTime(instance.openedAt)}</span>
@@ -188,13 +240,23 @@ function Details({ view }: { view: InstanceView }) {
 }
 
 /** The glance: where and when, the figures, the people seen longest, the newest facts. */
-function Overview({ view, live, onMore }: { view: InstanceView; live: number; onMore: (tab: Tab) => void }) {
+function Overview({
+  view,
+  phone,
+  live,
+  onMore,
+}: {
+  view: InstanceView
+  phone: boolean
+  live: number
+  onMore: (tab: Tab) => void
+}) {
   const instance = view.instance
   const longest = [...view.people].sort((a, b) => b.minutesSeen - a.minutesSeen).slice(0, 6)
 
   return (
     <div className="flex flex-col">
-      <Details view={view} />
+      <Details view={view} phone={phone} />
 
       <StatStrip className="m-0 shrink-0">
         <Stat label={instance.closedAt ? 'Ran for' : 'Open for'} value={minutes(instance.minutesOpen)} />
