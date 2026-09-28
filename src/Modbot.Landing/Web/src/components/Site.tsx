@@ -138,7 +138,14 @@ export function SiteHeader({ page }: { page?: PageName }) {
 export function SocialLinks({ className, variant = 'ghost' }: { className?: string; variant?: 'ghost' | 'outline' }) {
   return (
     <div className={cn('flex items-center gap-0.5', className)}>
-      <a href={ISSUES} aria-label={ISSUES_LABEL} title={ISSUES_LABEL} className={buttonVariants({ variant, size: 'icon' })}>
+      <a
+        href={ISSUES}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={ISSUES_LABEL}
+        title={ISSUES_LABEL}
+        className={buttonVariants({ variant, size: 'icon' })}
+      >
         <Bug aria-hidden="true" />
       </a>
       <a href={DISCORD} aria-label="Modbot on Discord" className={buttonVariants({ variant, size: 'icon' })}>
@@ -267,7 +274,7 @@ export function SiteFooter({ page, privacy = false }: { page?: PageName; privacy
           <a href={DOCS} className="hover:text-foreground hover:underline">
             Docs
           </a>
-          <a href={ISSUES} className="hover:text-foreground hover:underline">
+          <a href={ISSUES} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
             {ISSUES_LABEL}
           </a>
           <a href={PAGES.about} aria-current={here('about')} className="hover:text-foreground hover:underline">
