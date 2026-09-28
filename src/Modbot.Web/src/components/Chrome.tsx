@@ -2,10 +2,14 @@ import { Button } from '@/components/ui/button'
 import { DemoMarker } from '@/components/DemoMarker'
 import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
-import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, sidebarEntry, type NavItem, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, listedPages, sidebarEntry, type NavItem, type PageId } from '@/lib/nav'
 import { countText } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
-import type { StatusRowId } from '@/lib/status'
+import { DOT, TONE, statusLine, type StatusRowId } from '@/lib/status'
+import { useStatusRows } from '@/lib/useStatusRows'
+import { usePhoneLayout } from '@/lib/phoneLayout'
+import { SHEET, useMedia } from '@/components/calendar/phone'
+import { DialogContent } from '@/components/ui/dialog'
 import { hasPageActions, useShortcutList, useWaitingChord } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
@@ -13,7 +17,11 @@ import { ISSUES_LABEL, ISSUES_URL } from '@/lib/issues'
 import type { Place, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { Bug, Headset, House, LogOut, Menu, Monitor, Moon, Search, Sun, UserRound, X, Zap } from 'lucide-react'
+import {
+  Ban, Bug, CalendarDays, ChartLine, Circle, ClipboardCheck, Flag, Gift, Globe, Hash, Headset, House, Logs,
+  LogOut, Menu, MessageSquare, Monitor, Moon, Radio, ScrollText, Search, Settings, Sun, UserPlus, UserRound,
+  Users, X, Zap, type LucideIcon,
+} from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -39,8 +47,8 @@ export function Sidebar({
   onNavigate: (p: PageId) => void
   /** Opens the command palette. */
   onSearch: () => void
-  /** Opens the Health page at one part's card. */
-  onOpenHealth: (section: StatusRowId) => void
+  /** Opens the Health page at one part's card, or at its top. */
+  onOpenHealth: (section: StatusRowId | null) => void
   group?: SidebarGroup | null
   /** A count to show beside an entry -- open reviews beside Reviews. Zero or absent shows nothing. */
   badges?: Partial<Record<PageId, number>>
@@ -55,7 +63,7 @@ export function Sidebar({
   /** Drawn at the foot, under Modbot's own mark. The phone sheet puts the top bar's controls here. */
   footer?: React.ReactNode
 }) {
-  const visible = NAV.filter((item) => !('hidden' in item && item.hidden) && mayOpen(me, item.id))
+  const visible = listedPages(me)
   // A page shown as part of another, like Discord members on the Discord page, lights that one.
   const lit = sidebarEntry(page)
   const goToWaiting = useWaitingChord() === 'g'
@@ -114,24 +122,7 @@ export function Sidebar({
             {/* The rail's marker: a bar on the edge, not a filled pill. */}
             {lit === item.id && <span aria-hidden className="absolute inset-y-0 left-0 w-0.5 bg-primary" />}
             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            {badges?.[item.id] ? (
-              <span
-                className={cn(
-                  'rounded-sm px-1 font-mono',
-                  alarms?.[item.id]
-                    ? 'bg-destructive text-destructive-foreground'
-                    : 'bg-primary text-primary-foreground',
-                )}
-                style={{ fontSize: 'var(--text-tiny)', lineHeight: 1.5 }}
-                aria-label={
-                  alarms?.[item.id]
-                    ? `${badges[item.id]} flagged here`
-                    : `${countText(badges[item.id] ?? 0, more?.[item.id] === true)} waiting`
-                }
-              >
-                {countText(badges[item.id] ?? 0, more?.[item.id] === true)}
-              </span>
-            ) : null}
+            <CountMark count={badges?.[item.id]} alarm={alarms?.[item.id]} more={more?.[item.id]} />
             {/* The go-to chord, where the page has one. Not on a phone or in a headset, which have no keyboard to hand. The
                 keys side by side with no "then" between, which the palette's boxes have room for
                 and a VR row with a long name does not. Shown on the row under the pointer or the
@@ -172,6 +163,35 @@ export function Sidebar({
 
       {footer && <div className={cn('px-3 pt-4', !group && 'mt-auto')}>{footer}</div>}
     </aside>
+  )
+}
+
+/** The count beside a page's name, in the sidebar and on the phone's page tiles. Nothing for zero. */
+function CountMark({
+  count,
+  alarm,
+  more,
+  className,
+}: {
+  count?: number
+  alarm?: boolean
+  more?: boolean
+  className?: string
+}) {
+  if (!count) return null
+  const text = countText(count, more === true)
+  return (
+    <span
+      className={cn(
+        'rounded-sm px-1 font-mono',
+        alarm ? 'bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground',
+        className,
+      )}
+      style={{ fontSize: 'var(--text-tiny)', lineHeight: 1.5 }}
+      aria-label={alarm ? `${count} flagged here` : `${text} waiting`}
+    >
+      {text}
+    </span>
   )
 }
 
@@ -300,6 +320,11 @@ function AppearanceControls({
  * The same component, not a second navigation: one list of pages, one set of permission checks,
  * one place a page is added. It slides from the left because that is where the sidebar is on a
  * wide screen, and it is opened from the bar at the foot, where a thumb reaches.
+ *
+ * On a phone, upright or on its side, it is a grid of pages rising from the bottom instead
+ * (`PageGrid`). The drawer ran 1.7 screens tall with its top half out of a thumb's reach (mobile
+ * review 2026-09-28). A tablet keeps the drawer, which fits it, and so does a headset, which is also
+ * the one place to switch back from Headset to Desk.
  */
 export function NavSheet({
   open,
@@ -319,6 +344,25 @@ export function NavSheet({
   onSignOut?: () => void
 }) {
   const close = () => onOpenChange(false)
+  // A phone: where a dialog is a sheet from the bottom, and too small for a popup's two columns.
+  // Both halves are tests the app already makes, so this adds no third idea of what a phone is.
+  const sheet = useMedia(SHEET)
+  const small = usePhoneLayout()
+  const grid = sheet && small && appearance.place !== 'headset'
+
+  if (grid)
+    return (
+      <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+        <PageGrid
+          nav={nav}
+          appearance={appearance}
+          username={username}
+          onAccount={onAccount}
+          onSignOut={onSignOut}
+          close={close}
+        />
+      </DialogPrimitive.Root>
+    )
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -381,6 +425,164 @@ export function NavSheet({
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
+  )
+}
+
+/** Each listed page's picture on the phone's page tiles. A page added without one gets a plain dot. */
+const PAGE_ICONS: Partial<Record<PageId, LucideIcon>> = {
+  now: House,
+  chat: MessageSquare,
+  stats: ChartLine,
+  requests: UserPlus,
+  people: Users,
+  live: Radio,
+  bans: Ban,
+  flags: Flag,
+  reviews: ClipboardCheck,
+  audit: ScrollText,
+  calendar: CalendarDays,
+  giveaways: Gift,
+  'analytics-group': Globe,
+  'analytics-server': Hash,
+  logs: Logs,
+  settings: Settings,
+}
+
+/**
+ * Menu on a phone: every page as a tile in one grid, on the app's sheet from the bottom, with
+ * Modbot's health, the theme, bugs and feedback, the account and Sign out in one row under it.
+ *
+ * It fits one screen: three tiles across held upright and as many as fit on its side, so nothing
+ * is out of a thumb's reach and nothing scrolls. What the drawer carried and this leaves out:
+ * Search, which is on the bottom bar under it; the headings, since the pages keep their order and
+ * so their groups; the four status rows, said in the one line Now says them in; and Desk or
+ * Headset, which a phone has no use for. The group is named in the sheet's header, by its icon and
+ * name, and its banner is left out.
+ */
+function PageGrid({
+  nav,
+  appearance,
+  username,
+  onAccount,
+  onSignOut,
+  close,
+}: {
+  nav: Omit<React.ComponentProps<typeof Sidebar>, 'className' | 'footer'>
+  appearance: React.ComponentProps<typeof AppearanceControls>
+  username?: string
+  onAccount?: () => void
+  onSignOut?: () => void
+  close: () => void
+}) {
+  const { me, group, badges, alarms, more } = nav
+  const lit = sidebarEntry(nav.page)
+  const { theme, setTheme } = appearance
+  const then = (run: () => void) => () => {
+    close()
+    run()
+  }
+
+  return (
+    <DialogContent
+      aria-describedby={undefined}
+      title={group?.name ?? 'Pages'}
+      lead={
+        group?.iconUrl ? (
+          <img src={vrchatMedia(group.iconUrl)} alt="" width={28} height={28} className="size-7 shrink-0 rounded-sm object-cover" />
+        ) : undefined
+      }
+      bodyClassName="px-2 py-2"
+      foot={
+        <div className="flex shrink-0 items-center gap-1 border-t border-t-(length:--hairline) px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+          {/* The same line as the sidebar's status rows, for the same people. */}
+          {can(me, 'ViewOperationalLog') ? (
+            <HealthButton
+              onOpen={(section) => {
+                close()
+                nav.onOpenHealth(section)
+              }}
+            />
+          ) : (
+            <span className="flex-1" />
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+          >
+            {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
+          </Button>
+          <Button variant="ghost" size="icon" asChild>
+            <a href={ISSUES_URL} target="_blank" rel="noreferrer" aria-label={ISSUES_LABEL}>
+              <Bug className="size-5" />
+            </a>
+          </Button>
+          {onAccount && (
+            <Button variant="ghost" size="icon" onClick={then(onAccount)} aria-label={username ?? 'Your account'}>
+              <UserRound className="size-5" />
+            </Button>
+          )}
+          {onSignOut && (
+            <Button variant="ghost" size="icon" onClick={onSignOut} aria-label="Sign out">
+              <LogOut className="size-5" />
+            </Button>
+          )}
+        </div>
+      }
+    >
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
+        {listedPages(me).map((item) => {
+          const Icon = PAGE_ICONS[item.id] ?? Circle
+          const here = lit === item.id
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                onClick={then(() => nav.onNavigate(item.id))}
+                aria-current={here ? 'page' : undefined}
+                className={cn(
+                  'relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-sm px-1 py-2',
+                  here ? 'bg-background font-medium text-foreground' : 'text-muted-foreground active:bg-muted',
+                )}
+                style={{ minHeight: 'calc(var(--control-h) + 0.75rem)' }}
+              >
+                {here && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-primary" />}
+                <span className="relative">
+                  <Icon className="size-5" />
+                  <CountMark
+                    count={badges?.[item.id]}
+                    alarm={alarms?.[item.id]}
+                    more={more?.[item.id]}
+                    className="absolute -top-2 left-[calc(100%-0.25rem)]"
+                  />
+                </span>
+                <span className="w-full truncate text-center" style={{ fontSize: 'var(--text-small)' }}>
+                  {item.label}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </DialogContent>
+  )
+}
+
+/** Modbot's health in the one line Now says it in, opening the Health page at the first problem. */
+function HealthButton({ onOpen }: { onOpen: (section: StatusRowId | null) => void }) {
+  const line = statusLine(useStatusRows())
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(line.section)}
+      className="flex min-h-(--control-h) min-w-0 flex-1 items-center gap-2 rounded-sm px-2 text-left active:bg-muted"
+      style={{ fontSize: 'var(--text-small)' }}
+    >
+      <span aria-hidden className={cn('size-2.5 shrink-0', DOT[line.tone])} />
+      <span className={cn('truncate', line.tone === 'ok' ? 'text-muted-foreground' : TONE[line.tone])}>{line.text}</span>
+    </button>
   )
 }
 

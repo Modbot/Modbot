@@ -567,7 +567,7 @@ function Shell({
     onSearch: () => setPaletteOpen(true),
     // `go` rather than `navigate`: the hash names the card to open, and only `go` wakes the
     // page already on screen when nothing but the hash changed.
-    onOpenHealth: (section: StatusRowId) => go(`${PATHS.health}#${section}`),
+    onOpenHealth: (section: StatusRowId | null) => go(section ? `${PATHS.health}#${section}` : PATHS.health),
     group: status.group,
     badges,
     alarms,

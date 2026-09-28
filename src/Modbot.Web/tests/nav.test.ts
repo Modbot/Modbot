@@ -7,6 +7,7 @@ import {
   MOVED,
   NAV,
   goesByName,
+  listedPages,
   matchRank,
   MEMBERS_PATH,
   mayOpen,
@@ -376,4 +377,18 @@ test('a match on the label ranks exact, then start, then anywhere, then other wo
 test('case and extra spaces do not matter, and nothing typed matches everything', () => {
   assert.equal(matchRank('  MEMBERS ', 'Members'), 0)
   assert.equal(matchRank('', 'Bans'), 0)
+})
+
+test('the page list holds what the sidebar and the phone grid show, in NAV order', () => {
+  const ids = listedPages(person('ViewAnalytics', 'ViewProfile', 'ViewAuditLog')).map((item) => item.id)
+  assert.deepEqual(ids, ['now', 'stats', 'people', 'bans', 'flags', 'audit', 'analytics-group', 'analytics-server'])
+})
+
+test('the page list leaves out pages that are part of another and pages this person may not open', () => {
+  const ids = listedPages(person('ViewAnalytics', 'ViewOperationalLog')).map((item) => item.id)
+  assert.ok(!ids.includes('stats-activity'))
+  assert.ok(!ids.includes('health'))
+  assert.ok(!ids.includes('account'))
+  assert.ok(!ids.includes('bans'))
+  assert.ok(ids.includes('logs'))
 })

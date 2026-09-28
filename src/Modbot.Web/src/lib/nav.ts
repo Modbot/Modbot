@@ -251,6 +251,14 @@ export function matchRank(typed: string, label: string, other: readonly string[]
   return null
 }
 
+/**
+ * The pages in the page list for this person, in order: the sidebar's rows, and the tiles of the
+ * phone's Menu sheet. One list for both, so a page added or hidden here is added or hidden in each.
+ */
+export function listedPages(me: CurrentUser): NavItem[] {
+  return NAV.filter((item) => !('hidden' in item && item.hidden) && mayOpen(me, item.id))
+}
+
 /** Whether this person may open a page. Pages with no requirement are open to everyone signed in. */
 export function mayOpen(me: CurrentUser, id: PageId): boolean {
   const item = NAV.find((n) => n.id === id)
