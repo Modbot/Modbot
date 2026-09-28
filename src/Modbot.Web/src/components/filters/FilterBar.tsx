@@ -44,8 +44,10 @@ export function FilterBar({
   // Below `md` the chips fold behind one button, so the list starts a control's height down the
   // screen instead of two or three rows of chips down. Folding is a phone's business only: the
   // classes below do nothing from `md` up, whatever this says.
+  // Never while the picker is open: it hangs from the Filter button, and ticking the first value of a
+  // list adds a chip with the picker still open, which would fold the button away from under it.
   const [unfolded, setUnfolded] = useState(false)
-  const folded = chips.length > 0 && !unfolded
+  const folded = chips.length > 0 && !unfolded && !adding
   const byId = useMemo(() => new Map(properties.map((p) => [p.id, p])), [properties])
   const bar = useRef<HTMLDivElement>(null)
 
