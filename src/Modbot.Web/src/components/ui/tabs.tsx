@@ -32,7 +32,9 @@ export function Tabs<T extends string>({
         The row scrolls sideways rather than wrapping or shrinking. AI in Settings has seven tabs, and
         seven labels squeezed into a phone's width are seven unreadable words; four readable
         ones and a swipe is the trade. `whitespace-nowrap` keeps a label on one line, and the
-        thin scrollbar stays out of the way on a mouse.
+        thin scrollbar stays out of the way on a mouse. A swipe is still the last resort, so tabs
+        sit closer together below `sm`: the person popup's six tabs fit a 390px phone at 8px a
+        side and do not at 12px.
       */}
       {/* The line under the row belongs to the wrapper, not to the scrolling row: a scrolling box
           clips both axes, and an underline drawn one pixel below a tab would be cut off. */}
@@ -51,7 +53,7 @@ export function Tabs<T extends string>({
               aria-controls={`${id}-panel`}
               onClick={() => onChange(tab.value)}
               className={cn(
-                'relative flex shrink-0 items-center px-3 py-2 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
+                'relative flex shrink-0 items-center px-2 py-2 sm:px-3 font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring',
                 value === tab.value
                   ? 'text-foreground'
                   : 'text-muted-foreground hover:text-foreground',
