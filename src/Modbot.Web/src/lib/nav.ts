@@ -192,6 +192,18 @@ export const GO_TO_KEYS: Record<PageId, string> = {
 }
 
 /**
+ * The page whose name the title and the sidebar carry while `page` is open. A page opened from the
+ * VRChat or Discord page's tab row (`groupTabFrom`, `serverTabFrom`) sits under that page's header,
+ * so it carries that page's name: People opened as the VRChat page's Members tab said "People" under
+ * a VRChat header (UX review 2026-09-27, idea 6). Opened from anywhere else it carries its own.
+ */
+export function shownAs(page: PageId, groupTab: PageId | null, serverTab: PageId | null): PageId {
+  if (groupTab) return 'analytics-group'
+  if (serverTab) return 'analytics-server'
+  return page
+}
+
+/**
  * The sidebar entry lit while a page is open: the page's own, or, for a page shown as part of
  * another (`under`), that one's. Discord members is the Members link on the Discord page, so
  * Discord stays lit; the VRChat page's Instances, Posts and Settings tabs light VRChat.

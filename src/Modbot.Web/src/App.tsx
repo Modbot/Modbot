@@ -22,6 +22,7 @@ import {
   goesByName,
   mayOpen,
   membersAddress,
+  shownAs,
   titleWithCount,
   waitingTotal,
   type PageId,
@@ -380,7 +381,9 @@ function Shell({
   // Bans opened from the Discord page's row keeps that one.
   const fromGroup = groupTabFrom(page, location.search, me)
   const fromServer = serverTabFrom(page, location.search)
-  const title = TITLES[page]
+  // Under that header the title and the sidebar name the page the header belongs to.
+  const shown = shownAs(page, fromGroup, fromServer)
+  const title = TITLES[shown]
 
   // A headset opens on Live, which is what a moderator in VR is there to watch. Once, as the app
   // opens, and only at the bare address: Now is still one tap away in the menu, and a pasted
@@ -551,7 +554,7 @@ function Shell({
   // What the sidebar needs, in one place: the column on a wide screen and the sheet on a phone
   // draw the same component from it, so a page is added to the navigation once.
   const nav = {
-    page,
+    page: shown,
     me,
     onNavigate: (p: PageId) => navigate(PATHS[p]),
     onSearch: () => setPaletteOpen(true),

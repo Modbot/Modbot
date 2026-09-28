@@ -26,8 +26,12 @@ export function GroupHeaderFor({ me, pathOf, active }: { me: CurrentUser; pathOf
  * On a phone the icon sits over the banner and the name goes under it; from `sm` up the name moves
  * beside the icon, level with its lower half, as VRChat has it.
  *
- * Every tab of the page draws it, with its own tab marked, so they read as one page. The row wraps
- * onto a second line on a narrow screen rather than hiding tabs off to the side.
+ * Every tab of the page draws it, with its own tab marked, so they read as one page. Only the
+ * Overview draws the banner: on the other tabs it put the list they are opened for half way down a
+ * desk screen and below the first screen in a headset (site review 2026-09-27, finding 9), so they
+ * draw one slim line of icon, name and counts over the row instead. vrchat.com's banner scrolls away
+ * as soon as you scroll; Modbot's would sit over every working list. The row wraps onto a second line
+ * on a narrow screen rather than hiding tabs off to the side.
  */
 export function GroupHeader({
   info,
@@ -44,57 +48,75 @@ export function GroupHeader({
   const banner = vrchatMedia(info.bannerUrl)
   const icon = vrchatMedia(info.iconUrl)
   const code = groupCode(info.shortCode, info.discriminator)
+  const full = active === 'analytics-group'
+
+  const name = info.name ?? <span className="font-mono text-muted-foreground">{info.id ?? 'No group'}</span>
+  const counts = (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+      <span className="flex items-center gap-1.5">
+        <span aria-hidden className="size-[0.6em] shrink-0 rounded-full bg-ok" />
+        <span className="font-mono text-foreground">{count(info.online)}</span> online
+      </span>
+      <span className="flex items-center gap-1.5">
+        <Users aria-hidden className="size-[1.1em] shrink-0" />
+        <span className="font-mono text-foreground">{count(info.members)}</span> members
+      </span>
+      {code && <GroupCode code={code} />}
+    </div>
+  )
 
   return (
     <Card className="overflow-hidden">
-      {banner ? (
-        <img
-          src={banner}
-          alt=""
-          referrerPolicy="no-referrer"
-          className="aspect-[3/1] max-h-64 w-full border-b border-b-(length:--hairline) bg-muted object-cover sm:aspect-[4/1]"
-        />
+      {full ? (
+        <>
+          {banner ? (
+            <img
+              src={banner}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="aspect-[3/1] max-h-64 w-full border-b border-b-(length:--hairline) bg-muted object-cover sm:aspect-[4/1]"
+            />
+          ) : (
+            <div className="h-16 border-b border-b-(length:--hairline) bg-strip sm:h-20" />
+          )}
+
+          <div className="flex flex-col gap-2 px-(--panel-pad) pb-(--panel-pad) sm:flex-row sm:items-end sm:gap-4">
+            {/* Cut out of the card by a ring of the card's own colour, over the banner's edge. */}
+            {icon ? (
+              <img
+                src={icon}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="-mt-10 size-20 shrink-0 rounded-full bg-muted object-cover ring-4 ring-card sm:-mt-12 sm:size-24"
+              />
+            ) : (
+              <div className="-mt-10 size-20 shrink-0 rounded-full bg-muted ring-4 ring-card sm:-mt-12 sm:size-24" />
+            )}
+
+            <div className="flex min-w-0 flex-1 flex-col gap-1 sm:pb-1">
+              <h2 className="font-display leading-tight break-words" style={{ fontSize: 'calc(var(--text-base) * 1.85)' }}>
+                {name}
+              </h2>
+              {counts}
+            </div>
+          </div>
+        </>
       ) : (
-        <div className="h-16 border-b border-b-(length:--hairline) bg-strip sm:h-20" />
-      )}
+        <div className="flex items-center gap-3 px-(--panel-pad) py-2.5">
+          {icon ? (
+            <img src={icon} alt="" referrerPolicy="no-referrer" className="size-10 shrink-0 rounded-full bg-muted object-cover" />
+          ) : (
+            <div className="size-10 shrink-0 rounded-full bg-muted" />
+          )}
 
-      <div className="flex flex-col gap-2 px-(--panel-pad) pb-(--panel-pad) sm:flex-row sm:items-end sm:gap-4">
-        {/* Cut out of the card by a ring of the card's own colour, over the banner's edge. */}
-        {icon ? (
-          <img
-            src={icon}
-            alt=""
-            referrerPolicy="no-referrer"
-            className="-mt-10 size-20 shrink-0 rounded-full bg-muted object-cover ring-4 ring-card sm:-mt-12 sm:size-24"
-          />
-        ) : (
-          <div className="-mt-10 size-20 shrink-0 rounded-full bg-muted ring-4 ring-card sm:-mt-12 sm:size-24" />
-        )}
-
-        <div className="flex min-w-0 flex-1 flex-col gap-1 sm:pb-1">
-          <h2
-            className="font-display leading-tight break-words"
-            style={{ fontSize: 'calc(var(--text-base) * 1.85)' }}
-          >
-            {info.name ?? <span className="font-mono text-muted-foreground">{info.id ?? 'No group'}</span>}
-          </h2>
-
-          <div
-            className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground"
-            style={{ fontSize: 'var(--text-small)' }}
-          >
-            <span className="flex items-center gap-1.5">
-              <span aria-hidden className="size-[0.6em] shrink-0 rounded-full bg-ok" />
-              <span className="font-mono text-foreground">{count(info.online)}</span> online
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Users aria-hidden className="size-[1.1em] shrink-0" />
-              <span className="font-mono text-foreground">{count(info.members)}</span> members
-            </span>
-            {code && <GroupCode code={code} />}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-0.5">
+            <h2 className="min-w-0 font-display leading-tight break-words" style={{ fontSize: 'calc(var(--text-base) * 1.25)' }}>
+              {name}
+            </h2>
+            {counts}
           </div>
         </div>
-      </div>
+      )}
 
       <HeaderTabs
         label="Group"

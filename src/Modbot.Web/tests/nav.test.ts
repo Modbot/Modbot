@@ -12,6 +12,7 @@ import {
   mayOpen,
   membersAddress,
   otherWords,
+  shownAs,
   sidebarEntry,
   titleWithCount,
   waitingTotal,
@@ -160,6 +161,20 @@ test('Integrations follows Community and holds VRChat and Discord, whose tabs st
   assert.equal(shown.indexOf(integrations[0]), lastCommunity + 1)
   assert.equal(sidebarEntry('analytics-instances'), 'analytics-group')
   assert.equal(sidebarEntry('discord-members'), 'analytics-server')
+})
+
+test("a page opened from the VRChat or Discord page's tab row carries that page's name", () => {
+  assert.equal(shownAs('people', 'members', null), 'analytics-group')
+  assert.equal(shownAs('bans', 'bans', null), 'analytics-group')
+  assert.equal(shownAs('audit', 'group-settings', null), 'analytics-group')
+  assert.equal(shownAs('bans', null, 'bans'), 'analytics-server')
+  assert.equal(sidebarEntry(shownAs('people', 'members', null)), 'analytics-group')
+})
+
+test('a page opened from anywhere else carries its own name', () => {
+  assert.equal(shownAs('people', null, null), 'people')
+  assert.equal(shownAs('bans', null, null), 'bans')
+  assert.equal(sidebarEntry(shownAs('members', null, null)), 'people')
 })
 
 test('the Community heading is still drawn without Requests', () => {
