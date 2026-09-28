@@ -5,7 +5,7 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { dateTime } from '@/components/charts'
 import { Avatar, RoleChip } from '@/components/discord/DiscordMemberParts'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
@@ -269,6 +269,72 @@ function MemberList({ me }: { me: CurrentUser }) {
         ) : (
           <Table
             pinFirst
+            // Two-line rows on a phone, which showed two of the seven columns: the name and its
+            // highest role, then the rest in column order.
+            narrow={
+              <NarrowRows>
+                {list.members.map((m) => {
+                  const timedOut = m.timedOutUntil !== null && Date.parse(m.timedOutUntil) > now
+                  const age = accountAge(m.userId, list.coverage.now)
+                  const [topRole, ...otherRoles] = m.roles
+
+                  return (
+                    <NarrowRow
+                      key={m.userId}
+                      onOpen={() => openDiscordPerson(m.userId)}
+                      className={cn(m.leftAt && 'text-muted-foreground')}
+                      picture={<Avatar url={m.avatarUrl} className="size-8" />}
+                      main={
+                        <span className="flex items-center gap-1.5">
+                          <span className="truncate font-medium">{m.displayName}</span>
+                          {m.isBot && (
+                            <span className="shrink-0 text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
+                              bot
+                            </span>
+                          )}
+                          {timedOut && (
+                            <span className="shrink-0 text-destructive" style={{ fontSize: 'var(--text-tiny)' }}>
+                              timed out
+                            </span>
+                          )}
+                        </span>
+                      }
+                      side={
+                        topRole && (
+                          <>
+                            <RoleChip id={topRole.id} name={topRole.name} color={topRole.color} className="max-w-[7.5rem]" />
+                            {otherRoles.length > 0 && (
+                              <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                                +{otherRoles.length}
+                              </span>
+                            )}
+                          </>
+                        )
+                      }
+                      facts={[
+                        m.username !== m.displayName && m.username,
+                        m.joinedAt && (
+                          <span key="joined">
+                            joined <span className="font-mono">{timeAgo(m.joinedAt, list.coverage.now) ?? formatDay(m.joinedAt)}</span>
+                          </span>
+                        ),
+                        showLeft && m.leftAt && (
+                          <span key="left">
+                            left <span className="font-mono">{formatDay(m.leftAt)}</span>
+                          </span>
+                        ),
+                        age && (
+                          <span key="account" className={cn(age.fresh && 'text-warn')}>
+                            account <span className="font-mono">{age.text}</span>
+                          </span>
+                        ),
+                        seesLinks && m.linkedVRChat && (m.linkedVRChat.displayName ?? m.linkedVRChat.userId),
+                      ]}
+                    />
+                  )
+                })}
+              </NarrowRows>
+            }
             head={
               <>
                 <Th>Person</Th>

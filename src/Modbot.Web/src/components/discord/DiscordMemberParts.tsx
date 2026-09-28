@@ -8,9 +8,19 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
  */
 
 /** A Discord role as a badge, with a square in the role's colour. A role with no colour gets no square. */
-export function RoleChip({ name, id, color }: { name: string | null; id: string; color: number }) {
+export function RoleChip({
+  name,
+  id,
+  color,
+  className,
+}: {
+  name: string | null
+  id: string
+  color: number
+  className?: string
+}) {
   return (
-    <Badge variant="secondary" className="max-w-[12rem]" title={id}>
+    <Badge variant="secondary" className={cn('max-w-[12rem]', className)} title={id}>
       {color !== 0 && (
         <span
           aria-hidden
