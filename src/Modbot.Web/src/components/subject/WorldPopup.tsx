@@ -5,7 +5,7 @@ import { SubjectLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { InstanceTable } from '@/components/InstanceTable'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Block, Empty, FactList, Field, Footer, More, Note, Panel, PopupFrame } from '@/components/subject/shared'
+import { Block, CopyId, Empty, FactList, Field, Footer, More, Note, Panel, PopupFrame } from '@/components/subject/shared'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { useLoad } from '@/lib/useLoad'
 import { api, type CurrentUser, type WorldView } from '@/lib/api'
@@ -45,7 +45,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
     return (
       <PopupFrame
         title="World"
-        subtitle={<Id id={id} />}
+        subtitle={<CopyId id={id} />}
         lead={lead}
         left={
           <Block>
@@ -63,7 +63,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
   return (
     <PopupFrame
       title={title}
-      subtitle={<Id id={id} />}
+      subtitle={<CopyId id={id} />}
       lead={lead}
       left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity world={data} /> : <Empty>Loading…</Empty>}
     >

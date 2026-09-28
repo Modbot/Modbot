@@ -20,7 +20,8 @@ import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { PhoneActions, StandingBar } from '@/components/subject/Standing'
-import { Block, Empty, FactList, More, Panel, PopupFrame } from '@/components/subject/shared'
+import { Block, CopyId, Empty, FactList, More, Panel, PopupFrame } from '@/components/subject/shared'
+import { ProfileBadges } from '@/components/ProfileBadges'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Ago, Unread } from '@/components/Freshness'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
@@ -181,12 +182,23 @@ function Resolved({
     { value: 'json', label: 'JSON' },
   ]
 
+  // Led by the name, as VRChat's profile page and Discord's profile card are: "Person" and an id
+  // told a moderator nothing, and the name was under the banner, a whole phone screen down (site
+  // review 2026-09-27, finding 4). The id only stands in when no name is known.
+  const shownId = vrchatId ?? discordId ?? at.id
+  const name = stored.profile?.displayName ?? person.vrChat?.name ?? person.discord?.name ?? null
+
   return (
     <PopupFrame
-      title="Person"
-      // The id verbatim and unparsed: VRChat ids are opaque, and a legacy one looks nothing like
-      // a modern one (spec 3.1.1).
-      subtitle={<span className="font-mono" title={at.id}>{vrchatId ?? discordId ?? at.id}</span>}
+      title={name ?? shownId}
+      subtitle={
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {vrchatId && (
+            <ProfileBadges tags={null} lastPlatform={stored.profile?.lastPlatform} rank={stored.profile?.trustRank} />
+          )}
+          <CopyId id={shownId} />
+        </span>
+      }
       lead={lead}
       standing={
         <StandingBar

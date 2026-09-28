@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { Check, Copy } from 'lucide-react'
 import { CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { DialogContent } from '@/components/ui/dialog'
 import { EmptyRow } from '@/components/PanelGrid'
@@ -165,6 +167,52 @@ export function FactList({
         </li>
       ))}
     </ol>
+  )
+}
+
+/**
+ * An id under a popup's title, cut short to fit, as one button that copies the whole of it.
+ *
+ * The title is the name, which is what a moderator reads; the id is what they paste into a report
+ * or a search, so it is there to be copied rather than read. Shown verbatim and never parsed: a
+ * legacy VRChat id looks nothing like a modern one (spec 3.1.1). A browser that refuses the
+ * clipboard says so.
+ */
+export function CopyId({ id }: { id: string }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  useEffect(() => {
+    if (state === 'idle') return
+    const timer = window.setTimeout(() => setState('idle'), 2000)
+    return () => window.clearTimeout(timer)
+  }, [state])
+
+  const copy = () => {
+    const write = navigator.clipboard?.writeText(id)
+    if (!write) {
+      setState('failed')
+      return
+    }
+    write.then(
+      () => setState('copied'),
+      () => setState('failed'),
+    )
+  }
+
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <button
+        type="button"
+        onClick={copy}
+        title={id}
+        aria-label="Copy id"
+        className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1 -mx-1 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+      >
+        <span className="max-w-[14rem] truncate font-mono">{id}</span>
+        {state === 'copied' ? <Check className="size-3 shrink-0 text-ok" /> : <Copy className="size-3 shrink-0" />}
+      </button>
+      {state === 'failed' && <span className="text-destructive">Could not copy</span>}
+    </span>
   )
 }
 
