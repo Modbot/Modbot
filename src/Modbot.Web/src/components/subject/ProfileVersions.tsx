@@ -36,8 +36,8 @@ export function ProfileVersions({ id, openAt }: { id: string; openAt: number | n
   const version = data.versions.find((v) => v.factId === chosen) ?? data.versions[0]
 
   return (
-    <div className="grid min-h-0 flex-1 md:h-full md:grid-cols-[18rem_minmax(0,1fr)] md:overflow-hidden">
-      <ol className="flex flex-col border-b border-b-(length:--hairline) md:overflow-auto md:border-r md:border-b-0 md:border-r-(length:--hairline)">
+    <div className="grid min-h-0 flex-1 big:h-full big:grid-cols-[18rem_minmax(0,1fr)] big:overflow-hidden">
+      <ol className="flex flex-col border-b border-b-(length:--hairline) big:overflow-auto big:border-r big:border-b-0 big:border-r-(length:--hairline)">
         {data.versions.map((v) => (
           <VersionRow key={v.factId} version={v} chosen={v.factId === version.factId} onClick={() => setChosen(v.factId)} />
         ))}
