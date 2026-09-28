@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Tabs } from '@/components/ui/tabs'
 import { compactNumber, dateTime, minutes } from '@/components/charts'
 import { JsonView } from '@/components/JsonView'
 import { InstanceTable } from '@/components/InstanceTable'
@@ -20,7 +19,7 @@ import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
 import { PhoneActions, StandingBar } from '@/components/subject/Standing'
-import { Block, CopyId, Empty, FactList, More, Panel, PopupFrame, PopupMenu } from '@/components/subject/shared'
+import { Block, CopyId, Empty, FactList, More, Panel, PopupFrame, PopupMenu, PopupTabs } from '@/components/subject/shared'
 import { ProfileBadges } from '@/components/ProfileBadges'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Ago, Unread } from '@/components/Freshness'
@@ -46,7 +45,7 @@ import { useMessageAt, useOpeningAction, useOpeningTab, useOpeningVersion, type 
 import { useDiscordMember } from '@/lib/useDiscordMember'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
-import { isPhoneLayout, usePhoneLayout } from '@/lib/phoneLayout'
+import { usePhoneLayout } from '@/lib/phoneLayout'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
 const TABS = ['overview', 'logs', 'notes', 'history', 'cases', 'flags', 'discord', 'messages', 'account', 'json'] as const
@@ -147,18 +146,7 @@ function Resolved({
   // under the title or from the Note button at the foot would change somewhere the reader cannot
   // see. Opening one from there brings the tabs up to the top of the screen as well.
   const phone = usePhoneLayout()
-  const [tabsAt, openFromAbove] = useOpenFromAbove(setTab)
-
-  // A tab picked from the row itself, which on a phone stays pinned under the header. Picked
-  // while the reader was far down the last tab, the new one would open at that same depth,
-  // part way through; it starts at its top instead. Picked from the top of the popup, nothing moves.
-  const pick = (next: Tab) => {
-    setTab(next)
-    const at = tabsAt.current
-    const row = at?.querySelector('[role="tablist"]')
-    if (at && row && isPhoneLayout() && row.getBoundingClientRect().top > at.getBoundingClientRect().top + 1)
-      requestAnimationFrame(() => at.scrollIntoView({ block: 'start' }))
-  }
+  const [tabsAt, openFromAbove, pick] = useOpenFromAbove(setTab)
 
   // Bumped after a kick, ban or unban, or a note written or taken back, which remounts the cards
   // that read what Modbot stores.
@@ -340,64 +328,49 @@ function Resolved({
         )
       }
     >
-      {/* On a phone the tab row stays pinned under the header and the tab grows with the popup,
-          which is the one scroll. A tab that scrolled on its own inside a popup that also
-          scrolled showed about 50px of itself, and every tab stays in sight on two lines rather
-          than one running off the edge. `flex-auto` there rather than `flex-1`, so each part is
-          as tall as what it holds and the pinned row is held for the whole length of the tab. */}
-      <div ref={tabsAt} className="flex min-h-0 flex-auto flex-col big:flex-1">
-        <Tabs
-          value={tab}
-          onChange={pick}
-          tabs={tabs}
-          wrap={phone}
-          className="flex-auto big:flex-1"
-          rowClassName="sticky top-0 z-10 bg-card big:static"
-          panelClassName="flex-auto overflow-visible big:flex-1 big:overflow-auto"
-        >
-          {tab === 'overview' && (
-            <Overview
-              key={fresh}
-              person={person}
-              me={me}
-              stored={stored}
-              onMore={pick}
-              accounts={phone ? accounts : null}
-            />
-          )}
-          {tab === 'logs' && <Logs key={fresh} person={person} />}
-          {tab === 'notes' && notesId && (
-            <PersonNotes
-              key={`${notesId}-${live}`}
-              subjectId={notesId}
-              name={person.vrChat?.name ?? person.discord?.name}
-              platform={notesPlatform}
-              onChanged={() => setActed((n) => n + 1)}
-            />
-          )}
-          {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
-          {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
-          {tab === 'flags' && (vrchatId || discordId) && (
-            <PersonFlags key={live} vrchatId={vrchatId} discordId={discordId} />
-          )}
-          {tab === 'discord' && discordId && (
-            seesMembers ? (
-              <DiscordHistory key={live} id={discordId} read={member}>
-                {seesProfile && <DiscordMetrics id={discordId} />}
-              </DiscordHistory>
-            ) : (
-              seesProfile && (
-                <div className="flex min-h-0 flex-col">
-                  <DiscordMetrics id={discordId} />
-                </div>
-              )
+      <PopupTabs at={tabsAt} value={tab} onChange={pick} tabs={tabs}>
+        {tab === 'overview' && (
+          <Overview
+            key={fresh}
+            person={person}
+            me={me}
+            stored={stored}
+            onMore={pick}
+            accounts={phone ? accounts : null}
+          />
+        )}
+        {tab === 'logs' && <Logs key={fresh} person={person} />}
+        {tab === 'notes' && notesId && (
+          <PersonNotes
+            key={`${notesId}-${live}`}
+            subjectId={notesId}
+            name={person.vrChat?.name ?? person.discord?.name}
+            platform={notesPlatform}
+            onChanged={() => setActed((n) => n + 1)}
+          />
+        )}
+        {tab === 'history' && vrchatId && <ProfileVersions key={live} id={vrchatId} openAt={version} />}
+        {tab === 'cases' && vrchatId && <SubjectCaseFiles key={live} subjectId={vrchatId} />}
+        {tab === 'flags' && (vrchatId || discordId) && (
+          <PersonFlags key={live} vrchatId={vrchatId} discordId={discordId} />
+        )}
+        {tab === 'discord' && discordId && (
+          seesMembers ? (
+            <DiscordHistory key={live} id={discordId} read={member}>
+              {seesProfile && <DiscordMetrics id={discordId} />}
+            </DiscordHistory>
+          ) : (
+            seesProfile && (
+              <div className="flex min-h-0 flex-col">
+                <DiscordMetrics id={discordId} />
+              </div>
             )
-          )}
-          {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
-          {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
-          {tab === 'json' && <Records key={fresh} person={person} me={me} />}
-        </Tabs>
-      </div>
+          )
+        )}
+        {tab === 'messages' && discordId && <DiscordMessages id={discordId} at={message} />}
+        {tab === 'account' && account && <AccountHistory key={fresh} accountId={account.id} />}
+        {tab === 'json' && <Records key={fresh} person={person} me={me} />}
+      </PopupTabs>
 
       {/* Opened by the palette's "Ban X…". The member list read above decides, by the same rule as
           the buttons, whether it is still an action to offer: somebody banned since the search is

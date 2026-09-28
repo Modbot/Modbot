@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { Tabs } from '@/components/ui/tabs'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts'
 import { ChartFrame, ChartTooltip, chartHeight, compactNumber, dateTime, minutes, seriesColor } from '@/components/charts'
 import { HeadCount } from '@/components/HeadCount'
@@ -8,7 +7,7 @@ import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Block, Empty, FactList, Field, Footer, More, Panel, PopupFrame, PopupMenu } from '@/components/subject/shared'
+import { Block, Empty, FactList, Field, Footer, More, Panel, PopupFrame, PopupMenu, PopupTabs } from '@/components/subject/shared'
 import { INSTANCE_TABS, type InstanceTab as Tab } from '@/components/subject/tabs'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
@@ -36,7 +35,7 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
  */
 export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
   const [tab, setTab] = useOpeningTab<Tab>('overview', INSTANCE_TABS)
-  const [tabsAt, openFromAbove] = useOpenFromAbove(setTab)
+  const [tabsAt, openFromAbove, pick] = useOpenFromAbove(setTab)
   const allowed = can(me, 'ViewAnalytics')
 
   // Read again when something happens in this instance. The stream names instances by VRChat's number,
@@ -73,36 +72,35 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
       left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity view={data} /> : <Empty>Loading…</Empty>}
     >
-      <div ref={tabsAt} className="flex min-h-0 flex-1 flex-col">
-        <Tabs
-          value={tab}
-          onChange={setTab}
-          tabs={[
-            { value: 'overview', label: 'Overview' },
-            { value: 'people', label: 'People', badge: data?.people.length },
-            { value: 'logs', label: 'Activity', badge: data?.log.length },
-            // Opened from the ⋯ in the header; a tab only while it is open, like the person popup's.
-            ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
-          ]}
-        >
-          {data && tab === 'overview' && <Overview view={data} live={live} onMore={setTab} />}
-          {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
-            <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
-              <EmptyRow>You do not have permission to see this.</EmptyRow>
-            </Panel>
-          )}
-          {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
-          {data?.canSeeWhoWasThere && tab === 'logs' && (
-            <Panel title="What happened in this instance" flush>
-              <FactList entries={data.log} empty="Nothing recorded yet." now={data.now} />
-              {data.logTruncated && (
-                <Footer>Showing the newest {data.log.length}.</Footer>
-              )}
-            </Panel>
-          )}
-          {tab === 'json' && <JsonView title="Instance" value={error ?? data} className="border-0" />}
-        </Tabs>
-      </div>
+      <PopupTabs
+        at={tabsAt}
+        value={tab}
+        onChange={pick}
+        tabs={[
+          { value: 'overview', label: 'Overview' },
+          { value: 'people', label: 'People', badge: data?.people.length },
+          { value: 'logs', label: 'Activity', badge: data?.log.length },
+          // Opened from the ⋯ in the header; a tab only while it is open, like the person popup's.
+          ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
+        ]}
+      >
+        {data && tab === 'overview' && <Overview view={data} live={live} onMore={pick} />}
+        {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
+          <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
+            <EmptyRow>You do not have permission to see this.</EmptyRow>
+          </Panel>
+        )}
+        {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
+        {data?.canSeeWhoWasThere && tab === 'logs' && (
+          <Panel title="What happened in this instance" flush>
+            <FactList entries={data.log} empty="Nothing recorded yet." now={data.now} />
+            {data.logTruncated && (
+              <Footer>Showing the newest {data.log.length}.</Footer>
+            )}
+          </Panel>
+        )}
+        {tab === 'json' && <JsonView title="Instance" value={error ?? data} className="border-0" />}
+      </PopupTabs>
     </PopupFrame>
   )
 }

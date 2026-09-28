@@ -1,5 +1,4 @@
 import { useCallback } from 'react'
-import { Tabs } from '@/components/ui/tabs'
 import { DailyBars, compactNumber, dateTime, minutes } from '@/components/charts'
 import { SubjectLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
@@ -17,6 +16,7 @@ import {
   Panel,
   PopupFrame,
   PopupMenu,
+  PopupTabs,
 } from '@/components/subject/shared'
 import { WORLD_MOVED, WORLD_TABS, type WorldTab as Tab } from '@/components/subject/tabs'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
@@ -42,7 +42,7 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
  */
 export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead?: React.ReactNode }) {
   const [tab, setTab] = useOpeningTab<Tab>('overview', WORLD_TABS, WORLD_MOVED)
-  const [tabsAt, openFromAbove] = useOpenFromAbove(setTab)
+  const [tabsAt, openFromAbove, pick] = useOpenFromAbove(setTab)
   const allowed = can(me, 'ViewAnalytics')
 
   // Read again when something happens in one of this world's instances.
@@ -80,39 +80,38 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
       actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
       left={error ? <Empty tone="danger">{error}</Empty> : data ? <Identity world={data} /> : <Empty>Loading…</Empty>}
     >
-      <div ref={tabsAt} className="flex min-h-0 flex-1 flex-col">
-        <Tabs
-          value={tab}
-          onChange={setTab}
-          tabs={[
-            { value: 'overview', label: 'Overview' },
-            { value: 'instances', label: 'Instances', badge: data?.instancesTotal },
-            { value: 'history', label: 'History' },
-            // Opened from the ⋯ in the header; a tab only while it is open, like the person popup's.
-            ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
-          ]}
-        >
-          {data && tab === 'overview' && <Overview world={data} onMore={setTab} />}
-          {data && tab === 'instances' && (
-            <Panel title="Instances in this world" flush>
-              {data.instances.length === 0 ? (
-                <EmptyRow>No instances yet.</EmptyRow>
-              ) : (
-                <>
-                  <InstanceTable instances={data.instances} showWorld={false} />
-                  {data.instancesTotal > data.instances.length && (
-                    <Footer>
-                      Showing the newest {data.instances.length} of {compactNumber(data.instancesTotal)}.
-                    </Footer>
-                  )}
-                </>
-              )}
-            </Panel>
-          )}
-          {tab === 'history' && <History id={id} />}
-          {tab === 'json' && <JsonView title="World" value={error ?? data} className="border-0" />}
-        </Tabs>
-      </div>
+      <PopupTabs
+        at={tabsAt}
+        value={tab}
+        onChange={pick}
+        tabs={[
+          { value: 'overview', label: 'Overview' },
+          { value: 'instances', label: 'Instances', badge: data?.instancesTotal },
+          { value: 'history', label: 'History' },
+          // Opened from the ⋯ in the header; a tab only while it is open, like the person popup's.
+          ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
+        ]}
+      >
+        {data && tab === 'overview' && <Overview world={data} onMore={pick} />}
+        {data && tab === 'instances' && (
+          <Panel title="Instances in this world" flush>
+            {data.instances.length === 0 ? (
+              <EmptyRow>No instances yet.</EmptyRow>
+            ) : (
+              <>
+                <InstanceTable instances={data.instances} showWorld={false} />
+                {data.instancesTotal > data.instances.length && (
+                  <Footer>
+                    Showing the newest {data.instances.length} of {compactNumber(data.instancesTotal)}.
+                  </Footer>
+                )}
+              </>
+            )}
+          </Panel>
+        )}
+        {tab === 'history' && <History id={id} />}
+        {tab === 'json' && <JsonView title="World" value={error ?? data} className="border-0" />}
+      </PopupTabs>
     </PopupFrame>
   )
 }

@@ -3,11 +3,13 @@ import { Braces, Check, Copy, MoreHorizontal } from 'lucide-react'
 import { Popover } from 'radix-ui'
 import { CardAction, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { DialogContent } from '@/components/ui/dialog'
+import { Tabs } from '@/components/ui/tabs'
 import { EmptyRow } from '@/components/PanelGrid'
 import { FactSentence } from '@/components/factSentence'
 import { FactTime, ReportedBy, SourceBadge } from '@/components/facts'
 import type { AuditEntry } from '@/lib/api'
 import { factDays } from '@/lib/factRows'
+import { usePhoneLayout } from '@/lib/phoneLayout'
 import { cn } from '@/lib/utils'
 
 /**
@@ -313,6 +315,48 @@ export function PopupFrame({
           and the popup never scrolled, so the tab a reader had just opened stayed out of sight. */}
       <div className="flex min-h-[calc(100dvh-6rem)] flex-col big:min-h-0">{children}</div>
     </DialogContent>
+  )
+}
+
+/**
+ * A popup's tabs. On a desk the tab scrolls on its own beside the left column. On a phone the
+ * popup is the one scroll: the row stays pinned under the header, the tab grows with the popup,
+ * and every tab stays in sight on two lines rather than one running off the edge. A tab that
+ * scrolled on its own inside a popup that also scrolled showed about 50px of itself (mobile review
+ * 2026-09-28, #4). `flex-auto` there rather than `flex-1`, so each part is as tall as what it
+ * holds and the pinned row is held for the whole length of the tab.
+ *
+ * `at` is the ref from `useOpenFromAbove`, and `onChange` its `pick`.
+ */
+export function PopupTabs<T extends string>({
+  at,
+  value,
+  onChange,
+  tabs,
+  children,
+}: {
+  at: React.Ref<HTMLDivElement>
+  value: T
+  onChange: (next: T) => void
+  tabs: { value: T; label: string; badge?: number | null }[]
+  children: React.ReactNode
+}) {
+  const phone = usePhoneLayout()
+
+  return (
+    <div ref={at} className="flex min-h-0 flex-auto flex-col big:flex-1">
+      <Tabs
+        value={value}
+        onChange={onChange}
+        tabs={tabs}
+        wrap={phone}
+        className="flex-auto big:flex-1"
+        rowClassName="sticky top-0 z-10 bg-card big:static"
+        panelClassName="flex-auto overflow-visible big:flex-1 big:overflow-auto"
+      >
+        {children}
+      </Tabs>
+    </div>
   )
 }
 
