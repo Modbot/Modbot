@@ -304,7 +304,7 @@ export function PopupFrame({
       actions={actions}
       aria-describedby={undefined}
       place="full"
-      foot={foot ?<div className="shrink-0 big:hidden">{foot}</div> : undefined}
+      foot={foot ? <div className="shrink-0 big:hidden">{foot}</div> : undefined}
       className={cn(
         'top-0 left-0 h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0',
         'big:top-1/2 big:left-1/2 big:h-[calc(100dvh-2rem)] big:w-[calc(100vw-2rem)] big:max-w-[100rem]',
