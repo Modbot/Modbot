@@ -8,3 +8,12 @@
 export function keptFacts<T>(facts: readonly (T | null | undefined | false | '')[]): T[] {
   return facts.filter((fact): fact is T => fact !== null && fact !== undefined && fact !== false && fact !== '')
 }
+
+/**
+ * A ban's case files, as a fact on its row: how many there are, or nothing when none is open. A
+ * withdrawn one alone counts as none, as the table's column does, since it has nothing to open.
+ */
+export function caseFileFact(lookup: { caseId: string | null; count: number } | undefined): string | null {
+  if (!lookup?.caseId) return null
+  return lookup.count === 1 ? '1 case file' : `${lookup.count} case files`
+}

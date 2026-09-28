@@ -5,7 +5,7 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { Tabs } from '@/components/ui/tabs'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Select } from '@/components/ui/select'
 import { CaseFileCell } from '@/components/CaseFileCell'
 import { Pager } from '@/components/Pager'
@@ -32,6 +32,8 @@ import {
 } from '@/lib/api'
 import { Ago, Freshness, Unread } from '@/components/Freshness'
 import { Empty, Marks } from '@/components/ListParts'
+import { caseFileFact } from '@/lib/rowFacts'
+import { trustRank } from '@/lib/trustRank'
 import { cn } from '@/lib/utils'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 
@@ -216,6 +218,44 @@ function GroupBans({
       ) : (
         <Table
           pinFirst
+          // Two-line rows on a phone, where Unban and the case file sat past the right edge.
+          narrow={
+            <NarrowRows>
+              {list.bans.map((ban) => (
+                <NarrowRow
+                  key={ban.userId}
+                  onOpen={() => onOpenSubject(ban.userId)}
+                  hasLinks={canAct}
+                  className={cn(ban.liftedAt && 'text-muted-foreground')}
+                  picture={<Avatar url={ban.avatarThumbnailUrl} className="size-8" />}
+                  main={<span className="block truncate font-medium">{ban.displayName ?? ban.userId}</span>}
+                  side={
+                    canAct && (
+                      <ModerationActions
+                        me={me}
+                        person={{ userId: ban.userId, banned: !ban.liftedAt }}
+                        name={ban.displayName ?? ban.userId}
+                        onDone={() => setLifted((n) => n + 1)}
+                        size="xs"
+                      />
+                    )
+                  }
+                  facts={[
+                    trustRank(ban.trustRank) && <TrustRankBadge key="rank" rank={ban.trustRank} />,
+                    ban.bannedAt && <span key="banned" className="font-mono">{formatDay(ban.bannedAt)}</span>,
+                    ban.liftedAt && (
+                      <span key="lifted">
+                        lifted <span className="font-mono">{formatDay(ban.liftedAt)}</span>
+                      </span>
+                    ),
+                    // Writing a case file is left to a wider screen; the row opens the person, whose
+                    // Case files tab has the files counted here.
+                    showCases && caseFileFact(cases.get(ban.userId)),
+                  ]}
+                />
+              ))}
+            </NarrowRows>
+          }
           head={
             <>
               <Th>Person</Th>
@@ -407,6 +447,28 @@ function DiscordBans() {
         ) : (
           <Table
             pinFirst
+            narrow={
+              <NarrowRows>
+                {list.bans.map((ban) => (
+                  <NarrowRow
+                    key={ban.userId}
+                    onOpen={() => openDiscordPerson(ban.userId)}
+                    className={cn(ban.liftedAt && 'text-muted-foreground')}
+                    picture={<Avatar url={discordPicture(ban.avatarUrl, 64)} className="size-8" />}
+                    main={<span className="block truncate font-medium">{ban.displayName ?? ban.username ?? ban.userId}</span>}
+                    facts={[
+                      ban.reason,
+                      ban.bannedAt && <span key="banned" className="font-mono">{formatDay(ban.bannedAt)}</span>,
+                      ban.liftedAt && (
+                        <span key="lifted">
+                          lifted <span className="font-mono">{formatDay(ban.liftedAt)}</span>
+                        </span>
+                      ),
+                    ]}
+                  />
+                ))}
+              </NarrowRows>
+            }
             head={
               <>
                 <Th>Person</Th>
