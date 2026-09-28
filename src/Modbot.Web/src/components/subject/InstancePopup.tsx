@@ -90,7 +90,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
       lead={
         <>
           {lead}
-          {phone && !error && (
+          {phone && !lead && !error && (
             <HeaderPicture url={data ? (data.instance.worldThumbnailImageUrl ?? data.worldImageUrl) : undefined} />
           )}
         </>

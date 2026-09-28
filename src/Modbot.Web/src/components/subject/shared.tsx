@@ -89,6 +89,8 @@ export function Block({ children, className }: { children: React.ReactNode; clas
 /**
  * A world's picture beside the title, for the World and Instance popups on a phone, where the
  * desk's picture across the left column was most of the first screen. 4:3, as VRChat draws it.
+ * Left out of a popup opened from another one: beside the way back it left the title about 28px
+ * on a 390px phone.
  *
  * `undefined` while the page is still being read, which holds the picture's place with an empty
  * frame so the title does not jump; `null` for a world with no picture, which draws nothing.

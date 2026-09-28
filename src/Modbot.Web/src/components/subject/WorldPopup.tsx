@@ -87,7 +87,7 @@ export function WorldPopup({ id, me, lead }: { id: string; me: CurrentUser; lead
       lead={
         <>
           {lead}
-          {phone && !error && <HeaderPicture url={data ? (data.thumbnailImageUrl ?? data.imageUrl) : undefined} />}
+          {phone && !lead && !error && <HeaderPicture url={data ? (data.thumbnailImageUrl ?? data.imageUrl) : undefined} />}
         </>
       }
       actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
