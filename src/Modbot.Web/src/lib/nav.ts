@@ -12,6 +12,10 @@ import { can, canAny } from './permissions.ts'
 // Each entry names the permission it needs. The sidebar hides what the person cannot open; the
 // server refuses the data regardless (accounts and access design §8). Permission names, never
 // bits -- see lib/permissions.ts for why.
+//
+// `words` are what else a page answers to in the palette (site review 2026-09-27, finding 3): the
+// word a moderator types is often not the label -- "join" for Requests, "banned" for Bans -- and
+// without them the palette said "Nothing matches" or offered a person whose name held the word.
 export const NAV = [
   // The front page (UX review 2026-09-25, finding 3): what is waiting for a decision, who is in the
   // group's instances, Modbot's health and what changed since this person last looked. Every part
@@ -19,7 +23,7 @@ export const NAV = [
   { id: 'now', label: 'Now' },
   // The people asking to be let in, read from VRChat when the page is opened. Near People
   // because it is the same roster one step earlier.
-  { id: 'requests', label: 'Requests', needs: 'ViewJoinRequests' },
+  { id: 'requests', label: 'Requests', needs: 'ViewJoinRequests', words: ['join', 'join requests', 'applicants'] },
   // The Discord server's own member list. Separate from Members, because most people are on one
   // side only and most never link. Not in the page list since 2026-09-27: it is the Members link on
   // the Discord page's header, so the sidebar lights Discord while it is open. The palette and
@@ -34,16 +38,16 @@ export const NAV = [
   // columns and filters (`MEMBERS_PATH`). It keeps its name so the VRChat page's Members tab, `g m`
   // and the palette still go to it, and the sidebar lights People while it is open. `/members`
   // and its old filters still open it (`membersAddress`).
-  { id: 'members', label: 'Members', needs: 'ViewMembers', hidden: true, under: 'people' },
+  { id: 'members', label: 'Members', needs: 'ViewMembers', hidden: true, under: 'people', words: ['roster', 'VRChat members'] },
   // The group's open instances right now and who is in each.
-  { id: 'live', label: 'Live', needs: 'ViewLiveInstances' },
+  { id: 'live', label: 'Live', needs: 'ViewLiveInstances', words: ['voice', 'online', 'instances now'] },
   // Planned events, where each is published, and the calendar feed (calendar design).
-  { id: 'calendar', label: 'Calendar', needs: 'ViewCalendar' },
+  { id: 'calendar', label: 'Calendar', needs: 'ViewCalendar', words: ['events', 'schedule'] },
   // Giveaways, their rules, who entered and how each draw went (giveaways design).
   { id: 'giveaways', label: 'Giveaways', needs: 'ViewGiveaways' },
   // Questions answered from Modbot's own data, with tools that run as the person asking.
   { id: 'chat', label: 'Chat', needs: 'UseAiChat' },
-  { id: 'bans', label: 'Bans', needs: 'ViewAuditLog' },
+  { id: 'bans', label: 'Bans', needs: 'ViewAuditLog', words: ['banned', 'ban list', 'unban', 'banned users'] },
   // What AI moderation rules flagged. A flag is a note about a person, so it needs ViewProfile;
   // dismissing one needs ReviewTickets, which the page checks for itself.
   { id: 'flags', label: 'Flags', needs: 'ViewProfile' },
@@ -52,7 +56,7 @@ export const NAV = [
   // not be closing them. It used to sit under a "Team" heading of its own, which named a different
   // thing from the Analytics page called Team.
   { id: 'reviews', label: 'Reviews', needs: 'ReviewTickets' },
-  { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'] },
+  { id: 'audit', label: 'Audit log', needsAny: ['ViewAuditLog', 'ViewOperationalLog'], words: ['kick', 'warn', 'log', 'history'] },
   // One page per question (spec 10.1), not one "metrics" page. Tracked Groups is a later
   // feature (spec 10.3) and has no entry until it exists. Named by what each is about: the team,
   // then each platform. Worlds is VRChat's, so it sits indented under it; the ids and addresses
@@ -183,6 +187,35 @@ export function sidebarEntry(id: PageId): PageId {
  */
 export function goesByName(item: NavItem): boolean {
   return !('hidden' in item && item.hidden) || 'under' in item
+}
+
+/** The other words a page answers to in the palette, besides its label. */
+export function otherWords(item: NavItem): readonly string[] {
+  return 'words' in item ? item.words : []
+}
+
+/**
+ * How well something in the palette matches what was typed, lower first: 0 when its label is what
+ * was typed, 1 when the label starts with it, 2 when every typed word is in the label, 3 when every
+ * typed word is in the label or one of its other words. Null when it does not match. When nothing is
+ * typed, everything matches.
+ *
+ * The order is what puts the group's Members above Discord members for "members", and Instances
+ * above Live for "instances", without either page being a special case.
+ */
+export function matchRank(typed: string, label: string, other: readonly string[] = []): number | null {
+  const words = typed.toLowerCase().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return 0
+
+  const name = label.toLowerCase()
+  const whole = words.join(' ')
+  if (name === whole) return 0
+  if (name.startsWith(whole)) return 1
+  if (words.every((w) => name.includes(w))) return 2
+
+  const rest = other.map((o) => o.toLowerCase())
+  if (words.every((w) => name.includes(w) || rest.some((o) => o.includes(w)))) return 3
+  return null
 }
 
 /** Whether this person may open a page. Pages with no requirement are open to everyone signed in. */

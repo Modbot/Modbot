@@ -43,6 +43,7 @@ public static class AuditLogEndpoints
                 HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromQuery(Name = "type")] string[]? types,
+                [FromQuery(Name = "notType")] string[]? notTypes,
                 [FromQuery(Name = "source")] string[]? sources,
                 [FromQuery] string? subject,
                 [FromQuery] string? subjectPlatform,
@@ -72,6 +73,13 @@ public static class AuditLogEndpoints
                 // request for types does: the permission filter has already run.
                 if (Enum.TryParse<AuditCategory>(category, ignoreCase: true, out var wanted))
                     visible = visible.Where(t => AuditVisibility.CategoryOf(t) == wanted).ToList();
+
+                // "Is not" on the type list. The SPA cannot send the rest of the list itself the
+                // way it does for sources, because the type list is the server's and depends on
+                // what the caller may see.
+                var unwanted = ParseTypes(notTypes);
+                if (unwanted.Count > 0)
+                    visible = visible.Where(t => !unwanted.Contains(t)).ToList();
 
                 // A cursor is only a cursor with both halves. Half of one would page from a
                 // timestamp with no tie-break and quietly drop every entry sharing that second.
@@ -123,6 +131,7 @@ public static class AuditLogEndpoints
                 + "alone is half the story. It narrows what you may already see: a caller with "
                 + "only ViewAuditLog gets the account's moderation actions, one with only "
                 + "ViewOperationalLog gets its sign-ins and role changes.\n\n"
+                + "`notType` leaves out the types it names, and can be combined with `type`.\n\n"
                 + "`world` and `instance` narrow to one world or one VRChat instance number; "
                 + "`category` to Moderation or Operational; `precision` to Exact or Window; "
                 + "`hasActor` to facts somebody is named for, or not; `q` finds a word in the "
