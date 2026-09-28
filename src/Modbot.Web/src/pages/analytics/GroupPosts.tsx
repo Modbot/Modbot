@@ -19,6 +19,7 @@ import { useListPage } from '@/lib/listPage'
 import type { PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { useShortcuts } from '@/lib/shortcuts'
 import { GroupHeaderFor } from './GroupHeader'
 
 /** The list each page of posts last showed, by page number, kept while the app is open. */
@@ -110,6 +111,11 @@ export function GroupPosts({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageI
     }))
 
   const roles = list?.roles ?? []
+
+  useShortcuts([
+    { label: 'Refresh posts', group: 'Page', page: true, run: refresh },
+    ...(manages ? [{ label: 'New post', group: 'Page' as const, page: true, run: () => setEditing('new') }] : []),
+  ])
 
   return (
     <div className="flex flex-col gap-3">

@@ -33,7 +33,7 @@ import type { WaitingCount } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import { usePreferences, type Density, type Place } from '@/lib/preferences'
 import { go, useLocation, useRoute } from '@/lib/router'
-import { APP_GROUPS, useKeyboard, useShortcuts } from '@/lib/shortcuts'
+import { useKeyboard, useShortcuts } from '@/lib/shortcuts'
 import type { StatusRowId } from '@/lib/status'
 import { openPerson } from '@/lib/subject'
 import { useLiveStream } from '@/lib/useLiveStream'
@@ -507,7 +507,7 @@ function Shell({
 
   const [paletteOpen, setPaletteOpen] = useState(false)
   // The same sheet, named for how it was asked for: `?` asks for the keys, the bar at the foot of
-  // a phone asks for what this page can do, which is the same list without the app's own keys.
+  // a phone asks for what this page can do: its own actions, with a key or without.
   const [sheet, setSheet] = useState<'keys' | 'page' | null>(null)
   const [navOpen, setNavOpen] = useState(false)
 
@@ -684,8 +684,7 @@ function Shell({
       <ShortcutSheet
         open={sheet !== null}
         onOpenChange={(open) => setSheet(open ? 'keys' : null)}
-        title={sheet === 'page' ? 'Actions' : 'Keyboard shortcuts'}
-        omit={sheet === 'page' ? APP_GROUPS : undefined}
+        actions={sheet === 'page'}
       />
 
       {/* The phone's shell: the pages in a sheet, and the bar at the foot that opens it, the

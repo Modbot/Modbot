@@ -4,6 +4,8 @@ import {
   CHORD_TIMEOUT_MS,
   describeKeys,
   hasPageActions,
+  isListedKey,
+  isPageAction,
   isTyping,
   keyToken,
   matchKeys,
@@ -12,7 +14,7 @@ import {
   waitingChord,
 } from '../src/lib/shortcuts.ts'
 
-test('a page has actions only when it registered a key of its own that the sheet lists', () => {
+test('a page has actions only when it registered one of its own that the sheet lists', () => {
   // Now: the palette, the sheet and the go-to keys, all the app's own.
   assert.equal(
     hasPageActions([
@@ -26,6 +28,28 @@ test('a page has actions only when it registered a key of its own that the sheet
   assert.equal(hasPageActions([{ group: 'General' }, { group: 'Lists' }]), true)
   assert.equal(hasPageActions([{ group: 'Calendar' }]), true)
   assert.equal(hasPageActions([]), false)
+  // A list page with nothing but its row moves and the search key has nothing to tap either.
+  assert.equal(
+    hasPageActions([
+      { group: 'Lists', keyboardOnly: true },
+      { group: 'Filters', keyboardOnly: true },
+    ]),
+    false,
+  )
+  assert.equal(hasPageActions([{ group: 'Lists', keyboardOnly: true }, { group: 'Sort' }]), true)
+})
+
+test('the Actions sheet leaves out the keyboard, and the key list leaves out what has no key', () => {
+  // Row moves: the key list has them, the Actions sheet does not.
+  assert.equal(isPageAction({ group: 'Lists', keyboardOnly: true }), false)
+  assert.equal(isListedKey({ keys: 'j' }), true)
+  // Refresh: the Actions sheet has it, the key list does not.
+  assert.equal(isPageAction({ group: 'Page' }), true)
+  assert.equal(isListedKey({}), false)
+  // The app's own keys belong to Menu and Search; a hidden key belongs to neither list.
+  assert.equal(isPageAction({ group: 'General' }), false)
+  assert.equal(isPageAction({ group: 'Filters', hidden: true }), false)
+  assert.equal(isListedKey({ keys: 'arrowdown', hidden: true }), false)
 })
 
 test('a letter typed into a text box is typing; a checkbox is not', () => {

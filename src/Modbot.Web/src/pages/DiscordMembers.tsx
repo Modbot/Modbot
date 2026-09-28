@@ -57,6 +57,13 @@ import { ServerHeader } from '@/pages/analytics/ServerHeader'
 
 const PAGE_SIZE = 50
 
+// One list for the sort box and the Actions sheet, so the two never name a sort differently.
+const SORTS: { value: NonNullable<DiscordMemberQuery['sort']>; label: string }[] = [
+  { value: 'joined', label: 'Newest joiner first' },
+  { value: 'oldest', label: 'Oldest joiner first' },
+  { value: 'name', label: 'By name' },
+]
+
 export function DiscordMembers({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) => string }) {
   const [server, setServer] = useState<ServerProfile | null>(null)
 
@@ -195,7 +202,14 @@ function MemberList({ me }: { me: CurrentUser }) {
   )
 
   const searchBox = useRef<HTMLInputElement>(null)
-  useShortcuts([{ keys: '/', label: 'Search', group: 'Filters', page: true, run: () => searchBox.current?.select() }])
+  const sortBy = (next: typeof sort) => {
+    setSort(next)
+    restart()
+  }
+  useShortcuts([
+    { keys: '/', label: 'Search', group: 'Filters', page: true, keyboardOnly: true, run: () => searchBox.current?.select() },
+    ...SORTS.map((s) => ({ label: s.label, group: 'Sort' as const, page: true, checked: s.value === sort, run: () => sortBy(s.value) })),
+  ])
   const { rowProps } = useListSelection(list?.members.length ?? 0, (i) => {
     const m = list?.members[i]
     if (m) openDiscordPerson(m.userId)
@@ -223,15 +237,14 @@ function MemberList({ me }: { me: CurrentUser }) {
 
         <Select
           value={sort}
-          onChange={(v) => {
-            setSort(v as typeof sort)
-            restart()
-          }}
+          onChange={(v) => sortBy(v as typeof sort)}
           aria-label="Sort"
         >
-          <option value="joined">Newest joiner first</option>
-          <option value="oldest">Oldest joiner first</option>
-          <option value="name">By name</option>
+          {SORTS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
         </Select>
       </FilterBar>
 

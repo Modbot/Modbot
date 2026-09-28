@@ -62,6 +62,14 @@ const RANKS: TrustRank[] = ['Visitor', 'NewUser', 'User', 'KnownUser', 'TrustedU
 /** The filters somebody with See members and not See profiles may use: the member list's own. */
 const MEMBER_LIST_FILTERS = new Set(['membership', 'role', 'hasRole', 'banned', 'everBanned', 'trustRank', 'platform', 'eighteenPlus', 'representing', 'joined', 'seen', 'profile'])
 
+// One list for the sort box and the Actions sheet, so the two never name a sort differently.
+const SORTS: { value: NonNullable<PeopleQuery['sort']>; label: string }[] = [
+  { value: 'seen', label: 'Most recently seen first' },
+  { value: 'joined', label: 'Newest joiner first' },
+  { value: 'name', label: 'By name' },
+  { value: 'known', label: 'First seen longest ago' },
+]
+
 export function People({ me }: { me: CurrentUser }) {
   // See members alone opens the member list's two views and nothing wider; the server refuses the
   // rest regardless. Links need See profiles (Discord account linking design §11).
@@ -251,7 +259,14 @@ export function People({ me }: { me: CurrentUser }) {
   )
 
   const searchBox = useRef<HTMLInputElement>(null)
-  useShortcuts([{ keys: '/', label: 'Search', group: 'Filters', page: true, run: () => searchBox.current?.select() }])
+  const sortBy = (next: typeof sort) => {
+    setSort(next)
+    restart()
+  }
+  useShortcuts([
+    { keys: '/', label: 'Search', group: 'Filters', page: true, keyboardOnly: true, run: () => searchBox.current?.select() },
+    ...SORTS.map((s) => ({ label: s.label, group: 'Sort' as const, page: true, checked: s.value === sort, run: () => sortBy(s.value) })),
+  ])
   const { rowProps } = useListSelection(list?.people.length ?? 0, (i) => {
     const person = list?.people[i]
     if (person) openPerson(person.userId)
@@ -292,16 +307,14 @@ export function People({ me }: { me: CurrentUser }) {
 
         <Select
           value={sort}
-          onChange={(v) => {
-            setSort(v as typeof sort)
-            restart()
-          }}
+          onChange={(v) => sortBy(v as typeof sort)}
           aria-label="Sort"
         >
-          <option value="seen">Most recently seen first</option>
-          <option value="joined">Newest joiner first</option>
-          <option value="name">By name</option>
-          <option value="known">First seen longest ago</option>
+          {SORTS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
         </Select>
       </FilterBar>
 

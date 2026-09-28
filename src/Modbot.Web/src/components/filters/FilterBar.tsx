@@ -53,6 +53,9 @@ export function FilterBar({
       hidden: true,
       run: () => onChange(chips.slice(0, -1)),
     },
+    ...(chips.length > 0
+      ? [{ label: 'Clear filters', group: 'Filters' as const, page: true, run: () => onChange([]) }]
+      : []),
   ])
 
   const replace = (next: FilterChip) =>

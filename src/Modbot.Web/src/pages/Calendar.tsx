@@ -221,6 +221,7 @@ export function Calendar() {
     { keys: 'k', label: 'Previous', group: 'Calendar', page: true, run: () => step(-1) },
     { keys: 'arrowleft', label: 'Previous', group: 'Calendar', page: true, hidden: true, run: () => step(-1) },
     ...(canManage ? [{ keys: 'c', label: 'New event', group: 'Calendar' as const, page: true, run: newEvent }] : []),
+    { label: 'Refresh', group: 'Calendar', page: true, run: () => void readVRChat(true) },
   ])
 
   const say = useCallback((next: Omit<Toast, 'id'>) => setToast({ ...next, id: ++toastCount.current }), [])

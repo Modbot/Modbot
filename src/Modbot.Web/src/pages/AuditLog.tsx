@@ -256,6 +256,7 @@ export function AuditLog() {
       label: 'Open the person, account or instance the selected row is about',
       group: 'Lists',
       page: true,
+      keyboardOnly: true,
       run: () => {
         const entry = selected === null ? undefined : rows[selected]?.entry
         if (!entry) return
@@ -265,6 +266,7 @@ export function AuditLog() {
         else if (entry.subjectKind === 'Instance' && entry.modbotInstanceId) openInstance(entry.modbotInstanceId)
       },
     },
+    ...(pending > 0 ? [{ label: `${pending} new`, group: 'Page' as const, page: true, run: showNew }] : []),
   ])
 
   // Names for the ids the About and World chips hold: the ones picked from a search, and the ones

@@ -145,8 +145,9 @@ function Palette({
     const keys: Item[] = shortcuts
       .filter((s) => !s.hidden && s.group !== 'Go to' && s.keys !== 'mod+k')
       .map((s) => ({
-        id: `key:${s.keys}`,
-        group: 'On this page',
+        id: `key:${s.keys ?? `${s.group}:${s.label}`}`,
+        // A sort order is a name alone ("By name"), so it keeps its heading.
+        group: s.group === 'Sort' ? 'Sort' : 'On this page',
         label: s.label,
         keys: s.keys,
         run: () => s.run(new KeyboardEvent('keydown')),
