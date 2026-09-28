@@ -530,10 +530,7 @@ function NarrowFact({
             <SourceBadge key={seen.id} source={seen.source} />
           ))}
         </span>,
-        <span key="when" className="inline-flex items-baseline gap-2 font-mono">
-          <FactTime entry={entry} />
-          <span>{formatDay(entry.occurredAt)}</span>
-        </span>,
+        <FactTime key="when" entry={entry} withDay />,
       ]}
       onOpen={onToggle}
       open={open}
