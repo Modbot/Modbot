@@ -132,6 +132,10 @@ export function InstanceTile({
  * world's name and "25/40" on one line and the access type, region, number and platforms on the
  * next. The same facts as the tile, with the picture shrunk so the people in the instance come
  * first. Opens the instance, as the tile does.
+ *
+ * Only the world's name, or the instance's own name, is cut short. The number is what finds the
+ * instance in game, so on a narrow phone the platforms move to a line of their own rather than
+ * the number turning into "#…".
  */
 export function InstanceHeader({
   instanceId,
@@ -161,7 +165,11 @@ export function InstanceHeader({
   const facts = [
     access && <span key="access" className="shrink-0">{access}</span>,
     region && <RegionBadge key="region" region={region} />,
-    tag && <span key="tag" className="min-w-0 truncate">{tag}</span>,
+    tag && (
+      <span key="tag" className={named ? 'min-w-0 truncate' : 'shrink-0 whitespace-nowrap'}>
+        {tag}
+      </span>
+    ),
   ].filter(Boolean)
 
   return (
@@ -186,7 +194,10 @@ export function InstanceHeader({
             {capacity ? `/${capacity}` : null}
           </span>
         </span>
-        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+        <span
+          className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-muted-foreground"
+          style={{ fontSize: 'var(--text-small)' }}
+        >
           {facts.flatMap((fact, i) => (i > 0 ? [<span key={`dot${i}`} aria-hidden>·</span>, fact] : [fact]))}
           <span className="ml-auto shrink-0 pl-1">
             <PlatformBadges platforms={platforms} />
