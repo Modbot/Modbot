@@ -4,11 +4,12 @@ import { Badge } from '@/components/ui/badge'
 import { RefreshCw } from 'lucide-react'
 import { Card, CardAction, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { ReasonButtons } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
+import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import {
   api,
@@ -176,6 +177,35 @@ export function JoinRequests({
         ) : (
           <Table
             pinFirst
+            // Rows on a phone, where Approve and Reject sat past the right edge. The two buttons and
+            // a name do not fit on one line at 360 px, so the buttons take a third.
+            narrow={
+              <NarrowRows>
+                {rows.map((row) => (
+                  <NarrowRow
+                    key={row.userId}
+                    onOpen={() => onOpenSubject(row.userId)}
+                    picture={<Avatar url={row.avatarThumbnailUrl} className="size-8" />}
+                    main={<span className="block truncate font-medium">{row.displayName ?? row.userId}</span>}
+                    facts={[
+                      row.askedAt && <span key="asked" className="font-mono">{formatDay(row.askedAt)}</span>,
+                      historyNote(row) && <HistoryMark key="history" row={row} />,
+                    ]}
+                  >
+                    {canAnswer && (
+                      <div className="flex justify-end gap-2 px-(--panel-pad) pb-2">
+                        <Button size="xs" variant="outline" onClick={() => setOpen({ answer: 'reject', row })}>
+                          Reject
+                        </Button>
+                        <Button size="xs" variant="ghost" onClick={() => setOpen({ answer: 'approve', row })}>
+                          Approve
+                        </Button>
+                      </div>
+                    )}
+                  </NarrowRow>
+                ))}
+              </NarrowRows>
+            }
             head={
               <>
                 <Th>Person</Th>
