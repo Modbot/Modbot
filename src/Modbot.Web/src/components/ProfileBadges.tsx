@@ -120,7 +120,7 @@ export function OtherTags({ tags, className }: { tags: readonly string[] | null 
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex items-center gap-1 self-start rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+        className="flex items-center gap-1 self-start rounded-sm text-muted-foreground hover:text-foreground phone:min-h-(--control-h) focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
         style={{ fontSize: 'var(--text-small)' }}
       >
         <ChevronRight

@@ -152,7 +152,7 @@ export function LanguagePicker({ value, onChange }: { value: string[]; onChange:
                 <button
                   type="button"
                   aria-label={`Remove ${languageName(code)}`}
-                  className="inline-flex size-[1.5em] items-center justify-center rounded-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                  className="inline-flex size-[1.5em] items-center justify-center rounded-xs phone:size-(--control-h) text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
                   onClick={() => onChange(value.filter((c) => c !== code))}
                 >
                   <X className="size-3" aria-hidden />

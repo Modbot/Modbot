@@ -26,6 +26,18 @@
   }
 }
 
+/* A phone, on the same test as the phone sizes below: a coarse pointer, a narrow screen, not a
+   headset. For a hand-written control the 44px floor there does not reach -- a bare `<button>`
+   with no data-slot -- so it can take the floor without growing on a desk:
+   `phone:min-h-(--control-h)`. */
+@custom-variant phone {
+  @media (pointer: coarse) and (max-width: 63.9375rem) {
+    &:where(:root:not([data-place="headset"]) *) {
+      @slot;
+    }
+  }
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    Modbot design tokens.
 

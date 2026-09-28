@@ -354,7 +354,7 @@ function PeoplePicker({
                 <button
                   type="button"
                   aria-label={`Remove ${name}`}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground phone:grid phone:size-(--control-h) phone:place-items-center"
                   onClick={() => remove(platform, id)}
                 >
                   <X className="size-3" />

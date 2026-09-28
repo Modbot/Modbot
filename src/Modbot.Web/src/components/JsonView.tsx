@@ -80,7 +80,7 @@ export function JsonView({
             type="button"
             onClick={() => setOpen((shown) => !shown)}
             aria-expanded={open}
-            className="flex min-w-0 items-center gap-1 rounded-sm text-left hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+            className="flex min-w-0 items-center gap-1 rounded-sm text-left hover:text-foreground phone:min-h-(--control-h) focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
           >
             <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
             <span className="truncate font-medium">{title ?? 'JSON'}</span>

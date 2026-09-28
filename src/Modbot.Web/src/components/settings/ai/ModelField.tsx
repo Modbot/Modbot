@@ -220,7 +220,7 @@ function ModelPicker({
 
   const head = (text: string, next: ModelSort, className?: string) => (
     <Th className={className}>
-      <button type="button" className="hover:text-foreground" onClick={() => by(next)}>
+      <button type="button" className="hover:text-foreground phone:min-h-(--control-h)" onClick={() => by(next)}>
         {text}
         {sort === next && (descending ? ' ↓' : ' ↑')}
       </button>

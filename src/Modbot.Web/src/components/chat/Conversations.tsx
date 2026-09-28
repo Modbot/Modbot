@@ -159,7 +159,7 @@ function Row({
         aria-current={current ? 'true' : undefined}
         title={conversation.title}
         className={cn(
-          'relative min-h-(--control-h) w-full truncate py-1.5 pr-8 pl-2 text-left transition-colors',
+          'relative min-h-(--control-h) w-full truncate py-1.5 pr-8 pl-2 text-left transition-colors phone:pr-(--control-h)',
           current
             ? 'bg-card font-medium text-foreground'
             : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
@@ -176,6 +176,7 @@ function Row({
             aria-label="More"
             className={cn(
               'absolute right-1 rounded-sm p-1 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-foreground',
+              'phone:right-0 phone:grid phone:size-(--control-h) phone:place-items-center',
               'focus-visible:opacity-100 group-hover/row:opacity-100 [@media(hover:none)]:opacity-100 headset:opacity-100',
               menu && 'opacity-100',
             )}

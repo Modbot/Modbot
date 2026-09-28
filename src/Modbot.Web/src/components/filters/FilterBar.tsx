@@ -205,9 +205,9 @@ function Chip({
         type="button"
         onClick={onRemove}
         aria-label={`Remove the ${property.label} filter`}
-        className="px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="px-1.5 text-muted-foreground hover:bg-muted hover:text-foreground phone:min-w-(--control-h)"
       >
-        <X className="size-3.5" />
+        <X className="mx-auto size-3.5" />
       </button>
     </span>
   )
