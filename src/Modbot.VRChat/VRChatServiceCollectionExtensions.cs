@@ -270,6 +270,7 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Data.ModbotContext>(),
             provider.GetRequiredService<VRChatUserProfiles>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
             provider.GetRequiredService<ISyncPacingSource>().Snapshot.MemberSweep));
 
         services.AddScoped<GroupBanSync>(provider => new GroupBanSync(
@@ -279,6 +280,7 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<Core.Data.ModbotContext>(),
             provider.GetRequiredService<VRChatUserProfiles>(),
             provider.GetRequiredService<Core.Time.IModbotClock>(),
+            provider.GetRequiredService<SyncDiagnostics>(),
             provider.GetRequiredService<ISyncPacingSource>().Snapshot.BanSweep));
 
         services.AddHostedService(provider => new GroupMemberSyncService(

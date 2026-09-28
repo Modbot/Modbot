@@ -41,6 +41,7 @@ public sealed class GroupBanSync
     private readonly VRChatUserProfiles _profiles;
     private readonly ListDiffFacts _diff;
     private readonly IModbotClock _clock;
+    private readonly SyncDiagnostics _diagnostics;
     private readonly GroupBanSyncOptions _options;
     private readonly ILogger _log;
 
@@ -51,6 +52,7 @@ public sealed class GroupBanSync
         ModbotContext db,
         VRChatUserProfiles profiles,
         IModbotClock clock,
+        SyncDiagnostics diagnostics,
         GroupBanSyncOptions? options = null,
         ILogger? log = null)
     {
@@ -60,11 +62,13 @@ public sealed class GroupBanSync
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(profiles);
         ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(diagnostics);
 
         _gate = gate;
         _db = db;
         _profiles = profiles;
         _clock = clock;
+        _diagnostics = diagnostics;
         _options = (options ?? new GroupBanSyncOptions()).Clamped();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
         _diff = new ListDiffFacts(db, facts, partitions, clock, _log);
@@ -327,7 +331,7 @@ public sealed class GroupBanSync
         {
             var settled = await _diff.SettleAsync(
                 groupId, row.UserId, row.WaitingFacts, settings, now,
-                _options.WaitForAuditLog, _options.AuditLogSilentAfter, ct).ConfigureAwait(false);
+                _options.WaitForAuditLog, _options.AuditLogSilentAfter, _diagnostics.StartedAt, ct).ConfigureAwait(false);
 
             row.WaitingFacts = settled.Remaining;
             written += settled.Written;

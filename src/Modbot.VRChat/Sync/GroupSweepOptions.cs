@@ -65,23 +65,25 @@ public sealed record GroupMemberSyncOptions
     public int PageOverlap { get; init; } = 5;
 
     /// <summary>
-    /// How long after a change was noticed the audit log must have polled before the sweep
-    /// records the change itself.
+    /// How long after a change was noticed the audit log must have started a pass that read to
+    /// its newest entry before the sweep records the change itself.
     /// </summary>
     /// <remarks>
     /// The audit log is authoritative and exact; the sweep is an inference with a window (spec
     /// 5.3). If the sweep wrote first, the audit log would write the same event again a poll
     /// later -- it deduplicates on VRChat's entry id, which an inferred fact does not have -- and
     /// every join would count twice in the daily totals. So the sweep waits until the audit log
-    /// has polled at least this long after the moment the change was noticed, then records only
-    /// what the audit log did not (member and ban sync design §4).
+    /// has read to the end at least this long after the moment the change was noticed, then
+    /// records only what the audit log did not (member and ban sync design §4).
     /// </remarks>
     public TimeSpan WaitForAuditLog { get; init; } = TimeSpan.FromMinutes(2);
 
     /// <summary>
-    /// If the audit log has not polled for this long, stop waiting for it and record inferred
-    /// changes straight away. An audit log that is switched off, or whose bucket has given up,
-    /// must not hold the sweep's facts forever.
+    /// If the audit log has not read to the end for this long, stop waiting for it and record
+    /// inferred changes. An audit log that is switched off, or whose bucket has given up, must not
+    /// hold the sweep's facts forever. Counted from the later of the moment the change was noticed
+    /// and the moment this process started, so a restart after hours off gives the audit log time
+    /// to catch up rather than being taken for one that has gone quiet.
     /// </summary>
     public TimeSpan AuditLogSilentAfter { get; init; } = TimeSpan.FromHours(1);
 
