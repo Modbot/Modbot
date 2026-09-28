@@ -572,8 +572,12 @@ function Shell({
     <div className="grid h-[100dvh] grid-cols-1 desk:lg:grid-cols-[13.5rem_1fr]">
       <Sidebar {...nav} className="hidden desk:lg:flex" />
       {/* `min-w-0`: a grid item is as wide as its widest child unless told otherwise, so without
-          it a table that means to scroll inside its own box widens the whole app instead. */}
-      <main className="flex min-w-0 flex-col overflow-auto pb-[calc(3.25rem+env(safe-area-inset-bottom))] desk:lg:pb-0 headset:pb-[calc(var(--control-h)+1.5rem+env(safe-area-inset-bottom))]">
+          it a table that means to scroll inside its own box widens the whole app instead.
+          `relative`: anything absolutely placed on a page -- a screen reader's `sr-only` label
+          included -- is placed within this scrolling box. Without it such an element is placed
+          against the window at the spot it would have scrolled to, and a label far down a long
+          page made the window itself scroll, shifting the whole app sideways. */}
+      <main className="relative flex min-w-0 flex-col overflow-auto pb-[calc(3.25rem+env(safe-area-inset-bottom))] desk:lg:pb-0 headset:pb-[calc(var(--control-h)+1.5rem+env(safe-area-inset-bottom))]">
         {/* Above everything, for everyone signed in, on every page (foundation spec 4.1.2). */}
         <SignInWaitBanner />
         {/* A critical notification that reached this person on no channel (foundation 4.5.3). */}
