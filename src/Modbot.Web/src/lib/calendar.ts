@@ -248,7 +248,7 @@ export function blankEvent(now: Date): CalendarEventInput {
     visibility: 'group',
     notifyMembers: false,
     publishToVRChat: true,
-    publishToDiscord: false,
+    publishToDiscord: true,
     postToChannel: false,
     channelId: null,
     autoOpen: false,

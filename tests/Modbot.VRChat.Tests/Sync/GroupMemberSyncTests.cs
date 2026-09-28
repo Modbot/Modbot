@@ -167,8 +167,8 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
 
     /// <summary>
     /// When the audit log is running, the sweep does not race it: the join waits until the audit
-    /// log has polled past the moment it was noticed, and is recorded on the next pass only if
-    /// the audit log still has nothing.
+    /// log has read to the end past the moment it was noticed, and is recorded on the next pass
+    /// only if the audit log still has nothing.
     /// </summary>
     [Fact]
     public async Task AJoinWaitsForTheAuditLogToPollBeforeItIsRecorded()
@@ -176,13 +176,8 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Seed(VRChat.Groups, 3);
         await SweepMembersAsync();
 
-        // The audit log polled a moment ago -- alive, but not yet past the join.
-        await using (var context = Database.NewContext())
-        {
-            var settings = await context.GetSettingsAsync(Ct);
-            settings.AuditLogPolledAt = Clock.UtcNow;
-            await context.SaveChangesAsync(Ct);
-        }
+        // The audit log read to the end a moment ago -- alive, but not yet past the join.
+        await AuditLogReadToEndNowAsync();
 
         RestMembers();
         VRChat.Groups.Members.Add(Member("usr_new", Clock.UtcNow.AddMinutes(-1)));
@@ -194,20 +189,155 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Empty(await FactsOfTypeAsync(FactType.MemberJoined));
         Assert.NotNull((await MemberRowAsync("usr_new"))!.WaitingFacts);
 
-        // The audit log polls again, after the change was noticed, and has nothing to say.
+        // The audit log reads again, after the change was noticed, and has nothing to say.
         RestMembers();
-        await using (var context = Database.NewContext())
-        {
-            var settings = await context.GetSettingsAsync(Ct);
-            settings.AuditLogPolledAt = Clock.UtcNow;
-            await context.SaveChangesAsync(Ct);
-        }
+        await AuditLogReadToEndNowAsync();
 
         var third = await SweepMembersAsync();
 
         Assert.Equal(1, third.FactsWritten);
         Assert.Single(await FactsOfTypeAsync(FactType.MemberJoined));
         Assert.Null((await MemberRowAsync("usr_new"))!.WaitingFacts);
+    }
+
+    /// <summary>
+    /// What happened on 2026-09-27. Modbot was off for five and a half hours; somebody joined
+    /// while it was. On the way back up the member sweep saw the join before the audit log had
+    /// polled once, took an audit log last heard from hours ago for one that had gone quiet, and
+    /// wrote the join. The audit log wrote it again five seconds later.
+    /// </summary>
+    [Fact]
+    public async Task AJoinSeenJustAfterARestartWaitsForTheAuditLogToCatchUp()
+    {
+        Seed(VRChat.Groups, 3);
+        await SweepMembersAsync();
+        await RunAuditLogAsync();
+
+        Clock.Advance(TimeSpan.FromHours(5.5));
+        Restart();
+
+        var joinedAt = Clock.UtcNow.AddHours(-3);
+        VRChat.Groups.Add(Entry("gaud_join", joinedAt, GroupAuditLogEvents.MemberJoin, target: "usr_new"));
+        VRChat.Groups.Members.Add(Member("usr_new", joinedAt));
+
+        // The sweep gets there first.
+        var noticed = await SweepMembersAsync();
+
+        Assert.Equal(0, noticed.FactsWritten);
+        Assert.Equal(1, noticed.FactsWaiting);
+
+        await RunAuditLogAsync();
+        RestMembers();
+        await RunAuditLogAsync();
+        var settled = await SweepMembersAsync();
+
+        Assert.Equal(0, settled.FactsWritten);
+        Assert.Equal(1, settled.FactsDeduplicated);
+
+        var join = Assert.Single(await FactsOfTypeAsync(FactType.MemberJoined));
+        Assert.Equal(FactSource.AuditLog, join.Source);
+    }
+
+    /// <summary>
+    /// A poll is not a read. After a long outage on a busy group the audit log works through its
+    /// backlog a few pages a pass, newest first, and every one of those passes stamps its poll
+    /// time. The join at the back of the backlog is not in the log until the last of them.
+    /// </summary>
+    [Fact]
+    public async Task AJoinWaitsWhileTheAuditLogIsStillWorkingThroughABacklog()
+    {
+        var auditLog = new AuditLogSyncOptions { CatchUp = false, PageSize = 2, MaxPagesPerRun = 2 };
+
+        Seed(VRChat.Groups, 3);
+        await SweepMembersAsync();
+        await RunAuditLogAsync(auditLog);
+
+        Clock.Advance(TimeSpan.FromHours(5));
+        Restart();
+
+        var joinedAt = Clock.UtcNow.AddHours(-4);
+        VRChat.Groups.Add(Entry("gaud_join", joinedAt, GroupAuditLogEvents.MemberJoin, target: "usr_new"));
+        VRChat.Groups.Members.Add(Member("usr_new", joinedAt));
+
+        // Ten newer entries in front of it: three passes of four.
+        for (var i = 0; i < 10; i++)
+            VRChat.Groups.Add(Entry($"gaud_ban_{i}", Clock.UtcNow.AddHours(-3).AddMinutes(i), target: $"usr_banned_{i}"));
+
+        var noticed = await SweepMembersAsync();
+        Assert.Equal(1, noticed.FactsWaiting);
+
+        // Well past the two minutes, and the audit log has polled -- but not reached the join.
+        RestMembers();
+        var partway = await RunAuditLogAsync(auditLog);
+        Assert.False(partway.Drained);
+
+        var early = await SweepMembersAsync();
+
+        Assert.Equal(0, early.FactsWritten);
+        Assert.Equal(1, early.FactsWaiting);
+        Assert.Empty(await FactsOfTypeAsync(FactType.MemberJoined));
+
+        var passes = 1;
+        while (!(await RunAuditLogAsync(auditLog)).Drained)
+            Assert.True(++passes < 5, "The audit log never read to the end.");
+
+        RestMembers();
+        var settled = await SweepMembersAsync();
+
+        Assert.Equal(0, settled.FactsWritten);
+        Assert.Equal(1, settled.FactsDeduplicated);
+
+        var join = Assert.Single(await FactsOfTypeAsync(FactType.MemberJoined));
+        Assert.Equal(FactSource.AuditLog, join.Source);
+    }
+
+    /// <summary>
+    /// The other side of waiting: an audit log that keeps polling and never gets through is
+    /// given an hour, and then the sweep records what it saw. The hour is an hour Modbot has been
+    /// running, not an hour on the clock -- the restart does not use it up.
+    /// </summary>
+    [Fact]
+    public async Task AnAuditLogThatCannotReadIsWaitedForAnHourOfRunningTime()
+    {
+        Seed(VRChat.Groups, 3);
+        await SweepMembersAsync();
+        await RunAuditLogAsync();
+
+        Clock.Advance(TimeSpan.FromHours(6));
+        Restart();
+
+        VRChat.Groups.AuditLogStatus = HttpStatusCode.InternalServerError;
+        VRChat.Groups.Members.Add(Member("usr_new", Clock.UtcNow.AddHours(-2)));
+
+        var noticed = await SweepMembersAsync();
+        Assert.Equal(1, noticed.FactsWaiting);
+
+        // Forty minutes in: polling, failing, still waited for.
+        Clock.Advance(TimeSpan.FromMinutes(40));
+        await RunAuditLogAsync();
+        var stillWaiting = await SweepMembersAsync();
+
+        Assert.Equal(0, stillWaiting.FactsWritten);
+        Assert.Equal(1, stillWaiting.FactsWaiting);
+
+        // Past the hour: given up on.
+        Clock.Advance(TimeSpan.FromMinutes(25));
+        await RunAuditLogAsync();
+        var gaveUp = await SweepMembersAsync();
+
+        Assert.Equal(1, gaveUp.FactsWritten);
+
+        var join = Assert.Single(await FactsOfTypeAsync(FactType.MemberJoined));
+        Assert.Equal(FactSource.SyncDiff, join.Source);
+    }
+
+    private async Task AuditLogReadToEndNowAsync()
+    {
+        await using var context = Database.NewContext();
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.AuditLogPolledAt = Clock.UtcNow;
+        settings.AuditLogReadToEndAt = Clock.UtcNow;
+        await context.SaveChangesAsync(Ct);
     }
 
     [Fact]

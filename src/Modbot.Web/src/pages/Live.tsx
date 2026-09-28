@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { api, ApiError, type LivePerson, type LiveInstance, type LiveTally, type LiveView, type LiveVoiceChannel } from '@/lib/api'
 import { PRESENCE_KINDS, INSTANCE_KINDS, VOICE_GAP_MS, VOICE_KINDS, stateWord, type LiveEvent, type LiveState } from '@/lib/liveStream'
-import { ago, clockTime } from '@/lib/format'
+import { ago, timeOfDay } from '@/lib/format'
 import { arrivedWithin, LIT_MS, NEW_MS, pinned, tallyCounts } from '@/lib/livePeople'
 import { DOT, type Tone } from '@/lib/status'
 import { throttle } from '@/lib/throttle'
@@ -189,7 +189,7 @@ export function Live() {
 function Tally({ tally }: { tally: LiveTally }) {
   return (
     <span>
-      Since <span className="font-mono">{clockTime(tally.since)}</span>:{' '}
+      Since <span className="font-mono">{timeOfDay(tally.since)}</span>:{' '}
       {tallyCounts(tally).map(([n, words], i) => (
         <span key={i}>
           {i > 0 && ' · '}
@@ -232,7 +232,7 @@ function VoiceCard({ channel }: { channel: LiveVoiceChannel }) {
             </span>
             {p.since && (
               <span className="shrink-0 whitespace-nowrap text-muted-foreground">
-                since <span className="font-mono">{clockTime(p.since)}</span>
+                since <span className="font-mono">{timeOfDay(p.since)}</span>
               </span>
             )}
           </li>
@@ -273,7 +273,7 @@ function InstanceCard({ instance, now }: { instance: LiveInstance; now: number }
           {watched && <People title="Here now" people={instance.people} reporting={reporting} now={now} />}
 
           {!watched && instance.lastWatchedAt && instance.lastSeen.length > 0 && (
-            <People title={`Last seen ${clockTime(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
+            <People title={`Last seen ${timeOfDay(instance.lastWatchedAt)}`} people={instance.lastSeen} muted />
           )}
         </div>
       </div>
@@ -346,11 +346,11 @@ function People({
               <span className="shrink-0 whitespace-nowrap text-muted-foreground">
                 {p.arrivedAt ? (
                   <>
-                    arrived <span className="font-mono">{clockTime(p.arrivedAt)}</span>
+                    arrived <span className="font-mono">{timeOfDay(p.arrivedAt)}</span>
                   </>
                 ) : p.hereBefore ? (
                   <>
-                    here before <span className="font-mono">{clockTime(p.hereBefore)}</span>
+                    here before <span className="font-mono">{timeOfDay(p.hereBefore)}</span>
                   </>
                 ) : (
                   ''

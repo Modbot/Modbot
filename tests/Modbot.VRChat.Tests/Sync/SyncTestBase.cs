@@ -55,6 +55,13 @@ public abstract class SyncTestBase : IAsyncLifetime
 
     protected SyncDiagnostics Diagnostics { get; private set; } = null!;
 
+    /// <summary>
+    /// What a restart leaves behind: the database as it was, and a new process that started now.
+    /// Every pass already gets a fresh producer and context, so the process's start time is all
+    /// there is left to replace.
+    /// </summary>
+    protected void Restart() => Diagnostics = new SyncDiagnostics(Clock);
+
     /// <summary>One queue per test, like one process: the API and the producer would share it.</summary>
     protected UserRefreshQueue Queue { get; } = new();
 
@@ -198,6 +205,7 @@ public abstract class SyncTestBase : IAsyncLifetime
             context,
             ProfilesFor(context),
             Clock,
+            Diagnostics,
             MemberOptions);
 
         return await sync.RunOnceAsync(Ct);
@@ -214,6 +222,7 @@ public abstract class SyncTestBase : IAsyncLifetime
             context,
             ProfilesFor(context),
             Clock,
+            Diagnostics,
             BanOptions);
 
         return await sync.RunOnceAsync(Ct);

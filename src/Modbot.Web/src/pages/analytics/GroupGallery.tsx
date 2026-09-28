@@ -20,6 +20,7 @@ import type { PageId } from '@/lib/nav'
 import { can } from '@/lib/permissions'
 import { missingPermissionOf } from '@/lib/vrchatPermissions'
 import { vrchatMedia } from '@/lib/vrchatMedia'
+import { useShortcuts } from '@/lib/shortcuts'
 import { GroupHeaderFor } from './GroupHeader'
 
 /**
@@ -49,6 +50,8 @@ export function GroupGallery({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pag
   const missing = read?.key === wanted ? read.missing : null
 
   const manages = can(me, 'ManageGroupGallery')
+
+  useShortcuts([{ label: 'Refresh gallery', group: 'Page', page: true, run: () => setAsked((n) => n + 1) }])
   const [removing, setRemoving] = useState<GroupGalleryImageRow | null>(null)
 
   useEffect(() => {

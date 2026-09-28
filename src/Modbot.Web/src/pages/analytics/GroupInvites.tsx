@@ -13,6 +13,7 @@ import { mayOpen, type PageId } from '@/lib/nav'
 import { openPerson } from '@/lib/subject'
 import { JoinRequests } from '@/pages/Requests'
 import { missingPermissionOf } from '@/lib/vrchatPermissions'
+import { useShortcuts } from '@/lib/shortcuts'
 import { GroupHeaderFor } from './GroupHeader'
 
 /**
@@ -48,6 +49,8 @@ export function GroupInvites({
   const missing = read?.key === wanted ? read.missing : null
 
   const [cancelling, setCancelling] = useState<GroupInviteRow | null>(null)
+
+  useShortcuts([{ label: 'Refresh sent invites', group: 'Page', page: true, run: () => setAsked((n) => n + 1) }])
 
   useEffect(() => {
     let cancelled = false

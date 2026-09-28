@@ -1,8 +1,20 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { describeKeys, hasPageActions, isTyping, keyToken, matchKeys } from '../src/lib/shortcuts.ts'
+import {
+  CHORD_TIMEOUT_MS,
+  describeKeys,
+  hasPageActions,
+  isListedKey,
+  isPageAction,
+  isTyping,
+  keyToken,
+  matchKeys,
+  onKeyDown,
+  registerShortcut,
+  waitingChord,
+} from '../src/lib/shortcuts.ts'
 
-test('a page has actions only when it registered a key of its own that the sheet lists', () => {
+test('a page has actions only when it registered one of its own that the sheet lists', () => {
   // Now: the palette, the sheet and the go-to keys, all the app's own.
   assert.equal(
     hasPageActions([
@@ -16,6 +28,28 @@ test('a page has actions only when it registered a key of its own that the sheet
   assert.equal(hasPageActions([{ group: 'General' }, { group: 'Lists' }]), true)
   assert.equal(hasPageActions([{ group: 'Calendar' }]), true)
   assert.equal(hasPageActions([]), false)
+  // A list page with nothing but its row moves and the search key has nothing to tap either.
+  assert.equal(
+    hasPageActions([
+      { group: 'Lists', keyboardOnly: true },
+      { group: 'Filters', keyboardOnly: true },
+    ]),
+    false,
+  )
+  assert.equal(hasPageActions([{ group: 'Lists', keyboardOnly: true }, { group: 'Sort' }]), true)
+})
+
+test('the Actions sheet leaves out the keyboard, and the key list leaves out what has no key', () => {
+  // Row moves: the key list has them, the Actions sheet does not.
+  assert.equal(isPageAction({ group: 'Lists', keyboardOnly: true }), false)
+  assert.equal(isListedKey({ keys: 'j' }), true)
+  // Refresh: the Actions sheet has it, the key list does not.
+  assert.equal(isPageAction({ group: 'Page' }), true)
+  assert.equal(isListedKey({}), false)
+  // The app's own keys belong to Menu and Search; a hidden key belongs to neither list.
+  assert.equal(isPageAction({ group: 'General' }), false)
+  assert.equal(isPageAction({ group: 'Filters', hidden: true }), false)
+  assert.equal(isListedKey({ keys: 'arrowdown', hidden: true }), false)
 })
 
 test('a letter typed into a text box is typing; a checkbox is not', () => {
@@ -69,4 +103,40 @@ test('keys are described the way a person reads them', () => {
   assert.equal(describeKeys('escape', false), 'Esc')
   assert.equal(describeKeys('?', false), '?')
   assert.equal(describeKeys('shift+enter', false), 'Shift Enter')
+})
+
+test('the sidebar can tell a g is waiting, for exactly as long as the second key works', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const off = registerShortcut({ keys: 'g k', label: 'Now', group: 'Go to', run: () => {} })
+  t.after(off)
+
+  const press = (key: string) =>
+    onKeyDown({
+      key,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      shiftKey: false,
+      target: null,
+      defaultPrevented: false,
+      isComposing: false,
+      preventDefault: () => {},
+    })
+
+  // Pressed, then the second key: waiting, then not.
+  press('g')
+  assert.equal(waitingChord(), 'g')
+  press('k')
+  assert.equal(waitingChord(), null)
+
+  // Pressed and left: the wait ends when the chord stops listening, not later.
+  press('g')
+  t.mock.timers.tick(CHORD_TIMEOUT_MS - 1)
+  assert.equal(waitingChord(), 'g')
+  t.mock.timers.tick(1)
+  assert.equal(waitingChord(), null)
+
+  // A letter that starts nothing does not wait.
+  press('x')
+  assert.equal(waitingChord(), null)
 })

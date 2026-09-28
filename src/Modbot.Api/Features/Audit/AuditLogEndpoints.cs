@@ -42,6 +42,7 @@ public static class AuditLogEndpoints
         group.MapGet("/", async (
                 HttpContext http,
                 [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
                 [FromQuery(Name = "type")] string[]? types,
                 [FromQuery(Name = "notType")] string[]? notTypes,
                 [FromQuery(Name = "source")] string[]? sources,
@@ -108,9 +109,9 @@ public static class AuditLogEndpoints
                 // Nothing visible left after the intersection: an honest empty page with the
                 // coverage still attached, not a 403 for asking.
                 if (visible.Count == 0)
-                    return Results.Ok(new AuditPage([], null, await new AuditQuery(db).CoverageAsync([], ct)));
+                    return Results.Ok(new AuditPage([], null, await new AuditQuery(db).CoverageAsync([], ct), clock.UtcNow));
 
-                return Results.Ok(await new AuditQuery(db, held).PageAsync(request, ct));
+                return Results.Ok(await new AuditQuery(db, held).PageAsync(request, clock.UtcNow, ct));
             })
             .WithName("GetAuditLog")
             .WithSummary("List audit log")

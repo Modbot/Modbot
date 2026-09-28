@@ -196,10 +196,15 @@ public sealed record AuditCoverage(
     bool CatchUpComplete);
 
 /// <param name="Next">Null when this was the last page.</param>
+/// <param name="Now">
+/// The server's clock when the page was read. A list that heads its rows "Today" and "Yesterday"
+/// asks this, not the browser, which is routinely wrong on a machine that has been asleep.
+/// </param>
 public sealed record AuditPage(
     IReadOnlyList<AuditEntry> Entries,
     AuditCursor? Next,
-    AuditCoverage Coverage);
+    AuditCoverage Coverage,
+    DateTimeOffset Now);
 
 /// <param name="Value">The <c>FactType</c> name, as sent back in <c>type</c>.</param>
 /// <param name="Label">A short human label for the chip.</param>

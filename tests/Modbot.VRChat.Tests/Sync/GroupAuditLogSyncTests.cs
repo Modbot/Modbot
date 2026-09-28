@@ -106,6 +106,42 @@ public class GroupAuditLogSyncTests(PostgresFixture fixture) : SyncTestBase(fixt
     }
 
     /// <summary>
+    /// The member and ban sweeps wait on this time before they record a change themselves, so it
+    /// must only move when everything up to it has been read. The poll time moves on every pass.
+    /// </summary>
+    [Fact]
+    public async Task OnlyAPassThatReadsToTheEndSaysSo()
+    {
+        for (var i = 0; i < 10; i++)
+            VRChat.Groups.Add(Entry($"gaud_{i}", Now.AddMinutes(-i - 1), target: $"usr_{i}"));
+
+        var options = new AuditLogSyncOptions { CatchUp = false, PageSize = 2, MaxPagesPerRun = 2 };
+
+        await RunAuditLogAsync(options);
+
+        var partway = await SettingsAsync();
+        Assert.Equal(Now, partway.AuditLogPolledAt);
+        Assert.Null(partway.AuditLogReadToEndAt);
+
+        Clock.Advance(TimeSpan.FromSeconds(10));
+        await RunAuditLogAsync(options);
+        Clock.Advance(TimeSpan.FromSeconds(10));
+        var last = await RunAuditLogAsync(options);
+
+        Assert.True(last.Drained);
+        Assert.Equal(Now.AddSeconds(20), (await SettingsAsync()).AuditLogReadToEndAt);
+
+        // A pass that fails keeps the last good one.
+        Clock.Advance(TimeSpan.FromSeconds(10));
+        VRChat.Groups.AuditLogStatus = System.Net.HttpStatusCode.InternalServerError;
+        await RunAuditLogAsync(options);
+
+        var failed = await SettingsAsync();
+        Assert.Equal(Now.AddSeconds(30), failed.AuditLogPolledAt);
+        Assert.Equal(Now.AddSeconds(20), failed.AuditLogReadToEndAt);
+    }
+
+    /// <summary>
     /// The restart case. Each pass gets a fresh context and a fresh producer, which is what a
     /// redeploy looks like from the database's point of view: whatever was in memory is gone and
     /// only the cursor and the facts remain.

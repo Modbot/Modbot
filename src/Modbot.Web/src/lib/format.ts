@@ -55,6 +55,31 @@ export function formatDay(iso: string, withYear: boolean = needsYear(iso)): stri
   })
 }
 
+/** The viewer's own calendar day an instant falls on, as "2026-09-27", for telling two days apart. */
+export function localDayKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * A day as a list heading: "Today", "Yesterday", otherwise "Sep 25", with the year when it is not
+ * the year `now` is in.
+ *
+ * `now` is the server's clock, as with {@link ago}: a heading that says "Today" over last night's
+ * rows because the browser's clock is wrong answers "when did this happen?" wrongly. The day
+ * boundaries are the viewer's own, since "yesterday" means the day before theirs.
+ */
+export function dayHeading(iso: string, now: string): string {
+  const day = localDayKey(iso)
+  if (day === localDayKey(now)) return 'Today'
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (day === localDayKey(yesterday.toISOString())) return 'Yesterday'
+
+  return formatDay(iso, new Date(iso).getFullYear() !== new Date(now).getFullYear())
+}
+
 /** Two days as one range, "Aug 28 – Sep 26": both with the year, or neither. */
 export function formatDayRange(from: string, to: string): string {
   const withYear = needsYear(from, to)
@@ -88,18 +113,73 @@ export function ordinal(n: number): string {
 }
 
 /**
- * A time of day, "03:41 PM" or "15:41" as the viewer's locale writes it, in their own clock.
+ * A time of day the way people say it, in the viewer's own clock: "8:04 PM", not "08:04 PM", or
+ * "20:04" where the viewer's locale counts to 24.
+ *
+ * The one way every screen writes a time. There were two until 2026-09-28, one with the leading
+ * zero and one without, and the same moment read "08:04 PM" in the audit log and "8:04 PM" on an
+ * instance -- close enough to look like the same time, far enough apart to make a moderator check.
+ * The zero bought a column of times that lined up; that was not worth two spellings of one time.
  *
  * Hours and minutes, never seconds: nothing on a screen is acted on to the second, and the same
  * instant written with seconds on one page and without on the next reads as two different times.
- * Two digits for the hour, like `dateTime` and `FactTime`, so a column of times lines up.
  */
-export function clockTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+export function timeOfDay(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
 /**
- * How long ago, measured against the server's clock rather than the browser's.
+ * An instant, "Sep 27, 8:44 PM": the day first, then the time, in the viewer's own clock, because
+ * that is the clock they will act in. The year only when it is not this year ({@link needsYear});
+ * pass `withYear` for two instants shown as one span, so both carry it or neither does.
+ */
+export function dateTime(iso: string, withYear: boolean = needsYear(iso)): string {
+  return new Date(iso).toLocaleString(undefined, {
+    year: withYear ? 'numeric' : undefined,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * An instant with its weekday, "Fri, Sep 25, 1:00 PM", for a planned event, where the day of the
+ * week is what people plan around. Otherwise the same as {@link dateTime}.
+ */
+export function dateTimeWithWeekday(iso: string, withYear: boolean = needsYear(iso)): string {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: 'short',
+    year: withYear ? 'numeric' : undefined,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+const DAY_SECONDS = 86_400
+
+/**
+ * An age in the largest unit that still reads at a glance: "40s", "12m", "5h", "30d", "3 mo",
+ * "1 yr". Days up to 45, because "38d" is still easy to picture and more exact than "1 mo". Past
+ * that, whole months and then whole years that have passed, the way people say an age: something
+ * a year and a half old is "1 yr" until it is two. "563d" made the reader do the sum.
+ */
+function age(seconds: number): string {
+  if (seconds < 60) return `${Math.max(0, seconds)}s`
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
+  if (seconds < DAY_SECONDS) return `${Math.round(seconds / 3600)}h`
+
+  const days = Math.round(seconds / DAY_SECONDS)
+  if (days < 45) return `${days}d`
+  if (days < 365) return `${Math.floor(days / 30.44)} mo`
+  return `${Math.floor(days / 365)} yr`
+}
+
+/**
+ * How long ago, measured against the server's clock rather than the browser's, in the steps of
+ * {@link age}: "5h ago", "30d ago", "3 mo ago", "1 yr ago".
  *
  * The browser's clock is not the authority for anything here and is routinely wrong on a machine
  * that has been asleep, so every screen showing an age passes the `now` the server sent.
@@ -110,28 +190,56 @@ export function ago(iso: string | null, now: string): string {
   const seconds = Math.round((Date.parse(now) - Date.parse(iso)) / 1000)
 
   if (seconds < 0) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`
-  if (seconds < 86_400) return `${Math.round(seconds / 3600)}h ago`
+  return `${age(seconds)} ago`
+}
 
-  return `${Math.round(seconds / 86_400)}d ago`
+/** When a list was last read, and the server's clock at the time it said so. */
+export type Reading = { at: string | null; now: string }
+
+/**
+ * The oldest of several readings, or null when any of them has never been taken.
+ *
+ * A card built from two lists is only as fresh as the older one, so it gives one age rather than
+ * one per list: nothing on it is older than that. Each reading is measured against its own `now`,
+ * because the two answers can come from the server a moment apart.
+ */
+export function oldestReading(readings: Reading[]): { at: string; now: string } | null {
+  let oldest: { at: string; now: string } | null = null
+  let oldestAge = -Infinity
+
+  for (const { at, now } of readings) {
+    if (!at) return null
+
+    const age = Date.parse(now) - Date.parse(at)
+    if (age > oldestAge) {
+      oldest = { at, now }
+      oldestAge = age
+    }
+  }
+
+  return oldest
+}
+
+/**
+ * The accounts that could not be tied to a person, in one line: "Not linked to Discord or Modbot".
+ * Empty when nothing is missing.
+ */
+export function notLinkedTo(names: string[]): string {
+  if (names.length === 0) return ''
+  if (names.length === 1) return `Not linked to ${names[0]}`
+
+  return `Not linked to ${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`
 }
 
 /**
  * How long something has been going on, against the server's clock, in the same steps as
- * {@link ago} and without the "ago". "Last seen 2d ago" and "known for 300d" are different
+ * {@link ago} and without the "ago". "Last seen 2d ago" and "known for 1 yr" are different
  * questions about the same person, and the People page asks both.
  */
 export function howLong(iso: string | null, now: string): string {
   if (!iso) return 'never'
 
-  const seconds = Math.round((Date.parse(now) - Date.parse(iso)) / 1000)
-
-  if (seconds < 60) return `${Math.max(0, seconds)}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  if (seconds < 86_400) return `${Math.round(seconds / 3600)}h`
-
-  return `${Math.round(seconds / 86_400)}d`
+  return age(Math.round((Date.parse(now) - Date.parse(iso)) / 1000))
 }
 
 /**
@@ -239,11 +347,6 @@ export function accessInGame(groupAccessType: string | null): string | null {
   if (!groupAccessType) return null
 
   return ({ members: 'Group', plus: 'Group+', public: 'Group Public' } as Record<string, string>)[groupAccessType] ?? groupAccessType
-}
-
-/** A time of day the way people say it: "8:04 PM", not "08:04 PM". */
-export function timeOfDay(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
 /**

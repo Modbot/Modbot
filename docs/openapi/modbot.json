@@ -355,7 +355,7 @@
           "Search"
         ],
         "summary": "Search people and worlds",
-        "description": "People, Discord people and worlds by name or id, for the command palette. `q` is matched against display names and ids, case-insensitively. People and Discord people need See members; worlds need See analytics. A kind the caller may not see comes back as an empty list. At most `limit` of each kind (default 8, max 25).",
+        "description": "People, Discord people and worlds by name or id, for the command palette. `q` is matched against display names and ids, case-insensitively. People and Discord people need See members; worlds need See analytics. Each person says whether they are on the group's member list, have left it, or are on its ban list. A kind the caller may not see comes back as an empty list. At most `limit` of each kind (default 8, max 25).",
         "operationId": "Search",
         "parameters": [
           {
@@ -19754,7 +19754,8 @@
         "required": [
           "entries",
           "next",
-          "coverage"
+          "coverage",
+          "now"
         ],
         "type": "object",
         "properties": {
@@ -19776,6 +19777,10 @@
           },
           "coverage": {
             "$ref": "#/components/schemas/AuditCoverage"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -34408,7 +34413,10 @@
         "required": [
           "userId",
           "displayName",
-          "avatarUrl"
+          "avatarUrl",
+          "isMember",
+          "left",
+          "banned"
         ],
         "type": "object",
         "properties": {
@@ -34426,6 +34434,15 @@
               "null",
               "string"
             ]
+          },
+          "isMember": {
+            "type": "boolean"
+          },
+          "left": {
+            "type": "boolean"
+          },
+          "banned": {
+            "type": "boolean"
           }
         }
       },

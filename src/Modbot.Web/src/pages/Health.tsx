@@ -7,7 +7,7 @@ import { Card, CardAction, CardContent, CardFooter, CardHeader, CardTitle } from
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { statusOf } from '@/lib/gate'
 import { discordState, DOT, TONE, type Tone } from '@/lib/status'
-import { clockTime, duration, formatDay } from '@/lib/format'
+import { timeOfDay, duration, formatDay } from '@/lib/format'
 import { dateTime } from '@/components/charts/format'
 import { amountText, share } from '@/lib/aiSpend'
 import {
@@ -129,7 +129,7 @@ export function Health() {
         {health.gate.coldStopEndsAt && (
           <p>
             Next check no earlier than{' '}
-            <span className="font-mono">{clockTime(health.gate.coldStopEndsAt)}</span>
+            <span className="font-mono">{timeOfDay(health.gate.coldStopEndsAt)}</span>
           </p>
         )}
         {/* Row's value takes its colour from around it and its label stays muted, so the wrapper
@@ -143,7 +143,7 @@ export function Health() {
           <Row label="Sign-ins this hour" value={`${health.gate.signInsInLastHour} of ${health.gate.signInLimit}`} mono />
           {health.gate.signInWait && (
             <div className="text-destructive">
-              <Row label="Next sign-in" value={clockTime(health.gate.signInWait.retryAt)} mono />
+              <Row label="Next sign-in" value={timeOfDay(health.gate.signInWait.retryAt)} mono />
             </div>
           )}
         </div>
@@ -318,7 +318,7 @@ export function Health() {
                       {bucket.stoppedUntil && (
                         <>
                           {' until '}
-                          <span className="font-mono">{clockTime(bucket.stoppedUntil)}</span>
+                          <span className="font-mono">{timeOfDay(bucket.stoppedUntil)}</span>
                         </>
                       )}
                     </State>

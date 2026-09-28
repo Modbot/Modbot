@@ -1,62 +1,55 @@
+import { Check } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Kbd } from '@/components/ui/kbd'
-import { useModal, useShortcutList, type Shortcut, type ShortcutGroup } from '@/lib/shortcuts'
+import { isListedKey, isPageAction, useModal, useShortcutList, type Shortcut, type ShortcutGroup } from '@/lib/shortcuts'
+import { cn } from '@/lib/utils'
 
-const ORDER: ShortcutGroup[] = ['General', 'Go to', 'Lists', 'Filters', 'Calendar', 'Popups']
+const ORDER: ShortcutGroup[] = ['General', 'Go to', 'Page', 'Lists', 'Filters', 'Sort', 'Calendar', 'Popups']
 
 /**
- * Everything the screen that is open can do, grouped, with the key for each. Opened with `?`, and
- * from the bar at the foot of a phone.
+ * Everything the screen that is open can do, grouped. Opened with `?` as the list of keys, and from
+ * the bar at the foot of a phone as Actions.
  *
  * Read from the registry rather than from a fixed table, so a key a page does not register is
  * not promised here.
  *
- * **Every row runs.** A phone has no keyboard, so a list of keys would be a list of things a
- * moderator on a phone cannot do — and these are not spare conveniences: `o` on the audit log
- * opens the person a row is about, and nothing else on that screen does. Each row is the control,
- * and the key beside it is how to reach the same control with a keyboard.
+ * **Every row runs.** Each row is the control, and the key beside it is how to reach the same
+ * control with a keyboard. As Actions it leaves out the keys that only mean something at a
+ * keyboard: it once held nothing on a list page but "Next row" and "Previous row", which a finger or
+ * a laser pointer has no use for (review 2026-09-27, idea 8).
  */
 export function ShortcutSheet({
   open,
   onOpenChange,
-  title = 'Keyboard shortcuts',
-  omit,
+  actions = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  title?: string
-  /** Groups to leave out. The bar at the foot of a phone drops the app's own keys, which are Menu and Search. */
-  omit?: readonly ShortcutGroup[]
+  /**
+   * The Actions sheet the bar at the foot of a phone opens, rather than the `?` list of keys: the
+   * page's own actions, with a key or without, and none of the app's or the keyboard's own.
+   */
+  actions?: boolean
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {open && <Sheet title={title} omit={omit} onDone={() => onOpenChange(false)} />}
+      {open && <Sheet actions={actions} onDone={() => onOpenChange(false)} />}
     </Dialog>
   )
 }
 
-function Sheet({
-  title,
-  omit,
-  onDone,
-}: {
-  title: string
-  omit?: readonly ShortcutGroup[]
-  onDone: () => void
-}) {
+function Sheet({ actions, onDone }: { actions: boolean; onDone: () => void }) {
   useModal()
   const all = useShortcutList()
 
-  // One row per key: the last registration is the one that fires, so it is the one listed.
+  // One row per key: the last registration is the one that fires, so it is the one listed. An
+  // action with no key is one row per name.
   const byKeys = new Map<string, Shortcut>()
-  for (const s of all) if (!s.hidden) byKeys.set(s.keys, s)
+  for (const s of all) if (actions ? isPageAction(s) : isListedKey(s)) byKeys.set(s.keys ?? `${s.group}:${s.label}`, s)
 
-  const groups = ORDER.filter((group) => !omit?.includes(group))
-    .map((group) => ({
-      group,
-      items: [...byKeys.values()].filter((s) => s.group === group),
-    }))
-    .filter((g) => g.items.length > 0)
+  const groups = ORDER.map((group) => ({ group, items: [...byKeys.values()].filter((s) => s.group === group) })).filter(
+    (g) => g.items.length > 0,
+  )
 
   // Closed before it runs, the same order the command palette uses: a shortcut that opens a popup
   // or moves the list underneath should not have to fight this sheet for the screen.
@@ -66,7 +59,7 @@ function Sheet({
   }
 
   return (
-    <DialogContent title={title} className="max-w-2xl" aria-describedby={undefined}>
+    <DialogContent title={actions ? 'Actions' : 'Keyboard shortcuts'} className="max-w-2xl" aria-describedby={undefined}>
       <div className="grid gap-x-8 gap-y-4 sm:grid-cols-2" style={{ fontSize: 'var(--text-small)' }}>
         {groups.map(({ group, items }) => (
           <section key={group} className="flex flex-col">
@@ -76,14 +69,19 @@ function Sheet({
             </div>
             {items.map((s) => (
               <button
-                key={s.keys}
+                key={s.keys ?? s.label}
                 type="button"
                 onClick={() => run(s)}
+                aria-pressed={s.checked}
                 className="-mx-2 flex items-center justify-between gap-3 px-2 text-left hover:bg-muted"
                 style={{ minHeight: 'var(--control-h)' }}
               >
-                <span className="text-muted-foreground">{s.label}</span>
-                <Kbd keys={s.keys} className="shrink-0" />
+                <span className={cn('flex items-center gap-2', s.checked ? 'text-foreground' : 'text-muted-foreground')}>
+                  {/* A set of choices, such as the sort orders, keeps its labels in line whichever is ticked. */}
+                  {s.checked !== undefined && <Check aria-hidden className={cn('size-4 shrink-0', !s.checked && 'invisible')} />}
+                  {s.label}
+                </span>
+                {s.keys && <Kbd keys={s.keys} className="shrink-0" />}
               </button>
             ))}
           </section>

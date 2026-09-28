@@ -18,6 +18,11 @@ namespace Modbot.Demo;
 /// sync would have written, through the same snapshot type, rather than inventing a shape of its
 /// own that the page would not know how to read.
 /// </para>
+/// <para>
+/// The sync also keeps every poll's two counts as a reading (<c>group_member_count</c>), changed or
+/// not, and the member count chart and the peaks read those. Facts and readings both come from
+/// <see cref="CountsAt"/>, so a reading taken at the moment of a fact says what the fact says.
+/// </para>
 /// </remarks>
 public static class DemoGroupInfo
 {
@@ -26,11 +31,7 @@ public static class DemoGroupInfo
     {
         ArgumentNullException.ThrowIfNull(plan);
 
-        var members = plan.People.Count(p => p.JoinedGroupAt <= at && (p.LeftGroupAt is null || p.LeftGroupAt > at));
-
-        var online = plan.Instances
-            .Where(r => r.OpenedAt <= at && (r.ClosedAt is null || r.ClosedAt > at))
-            .Sum(r => r.Visits.Count(v => v.Arrived <= at && (v.Left is null || v.Left > at)));
+        var (_, members, online) = CountsAt(plan, [at]).Single();
 
         return new GroupInfoSnapshot(
             plan.GroupName,
@@ -58,4 +59,77 @@ public static class DemoGroupInfo
                 IsDefault: name == "Member",
                 Permissions: []))]);
     }
+
+    /// <summary>
+    /// The member count and the online count at each of <paramref name="times"/>, which must run
+    /// oldest first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A member is counted from the moment they joined until the moment they left; somebody is
+    /// online while they are in one of the group's instances and that instance is open.
+    /// </para>
+    /// <para>
+    /// One pass over the joins, leaves, arrivals and departures, in time order, rather than a count
+    /// of everybody at every moment: a year of five-minute readings is a hundred thousand moments,
+    /// and counting the whole plan at each of them would go through every person and every visit a
+    /// hundred thousand times.
+    /// </para>
+    /// </remarks>
+    public static IEnumerable<(DateTimeOffset At, int Members, int Online)> CountsAt(DemoPlan plan, IEnumerable<DateTimeOffset> times)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(times);
+
+        var members = Changes(plan.People.Select(p => (p.JoinedGroupAt, p.LeftGroupAt)));
+
+        var online = Changes(plan.Instances.SelectMany(r => r.Visits.Select(v => (
+            v.Arrived > r.OpenedAt ? v.Arrived : r.OpenedAt,
+            Earlier(v.Left, r.ClosedAt)))));
+
+        int memberCount = 0, onlineCount = 0, nextMember = 0, nextOnline = 0;
+        DateTimeOffset? previous = null;
+
+        foreach (var at in times)
+        {
+            if (at < previous)
+                throw new ArgumentException("The times must run oldest first.", nameof(times));
+
+            previous = at;
+
+            for (; nextMember < members.Count && members[nextMember].At <= at; nextMember++)
+                memberCount += members[nextMember].Change;
+
+            for (; nextOnline < online.Count && online[nextOnline].At <= at; nextOnline++)
+                onlineCount += online[nextOnline].Change;
+
+            yield return (at, memberCount, onlineCount);
+        }
+    }
+
+    /// <summary>
+    /// Each stretch as one step up where it starts and one step down where it ends, oldest first. A
+    /// stretch with no end never steps down; one that ends before it starts was never there.
+    /// </summary>
+    private static List<(DateTimeOffset At, int Change)> Changes(IEnumerable<(DateTimeOffset From, DateTimeOffset? Until)> stretches)
+    {
+        var changes = new List<(DateTimeOffset At, int Change)>();
+
+        foreach (var (from, until) in stretches)
+        {
+            if (until <= from)
+                continue;
+
+            changes.Add((from, 1));
+
+            if (until is { } end)
+                changes.Add((end, -1));
+        }
+
+        changes.Sort((a, b) => a.At.CompareTo(b.At));
+        return changes;
+    }
+
+    private static DateTimeOffset? Earlier(DateTimeOffset? a, DateTimeOffset? b)
+        => a is null ? b : b is null ? a : a < b ? a : b;
 }

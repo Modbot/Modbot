@@ -121,6 +121,7 @@ rooms open, whenever the demo is started.
 | VRChat profiles | 420 — bios, pronouns, status, account age, trust tags, 18+ flags |
 | The mix | 8 on the team, ~250 regulars, ~70 newcomers, 22 repeat offenders, ~68 who left |
 | Group membership | Joins, leaves and role changes across a year |
+| Group member count | A reading every five minutes across the year, as the group-info sync keeps them, counted from the joins, leaves and instance visits |
 | Worlds | 12 |
 | Rooms | ~600 over the year, each with who was in it and a head-count reading every ten minutes; a few open right now |
 | Moderation | ~450 warnings, kicks and bans, some lifted; a case file with a written report for every ban |
@@ -178,7 +179,7 @@ the rooms and their head counts, the ban reasons and case files, the Discord ser
 the calendar, the API key and the webhook — runs **synchronously during start-up**, after the
 migrations and before the first request. It is a few seconds. Nobody ever sees an empty demo.
 
-**The heavy half** — ~18,000 facts, several thousand Discord messages, the daily totals rebuilt
+**The heavy half** — ~18,000 facts, a year of member count readings (~105,000), several thousand Discord messages, the daily totals rebuilt
 from them, and the review job — runs afterwards in `DemoDataService`, and takes about a minute. The
 app is fully usable throughout; the charts fill in behind it. `GET /api/demo` reports the step and
 how far it has got, which the Sync health page shows as a line and the top bar shows beside the

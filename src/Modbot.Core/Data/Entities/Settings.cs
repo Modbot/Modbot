@@ -786,6 +786,26 @@ public class Settings
     public DateTimeOffset? AuditLogPolledAt { get; set; }
 
     /// <summary>
+    /// When the last audit-log pass that read all the way to the newest entry began.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Not the same as <see cref="AuditLogPolledAt"/>, which is stamped by every pass, including
+    /// one that was rate-limited, failed, or ran out of pages with a backlog still behind it. The
+    /// member and ban sweeps wait on this one instead: before they record a join or a ban
+    /// themselves, the audit log has to have read everything up to a moment after they noticed it
+    /// (member and ban sync design §4). A poll that stopped partway through a long backlog, after
+    /// a restart say, has not read that far, and a sweep that took it as the audit log's turn would
+    /// write the same join the audit log was about to.
+    /// </para>
+    /// <para>
+    /// The pass's start rather than its end, because an entry made while the pass was paging
+    /// may not be on any page it read.
+    /// </para>
+    /// </remarks>
+    public DateTimeOffset? AuditLogReadToEndAt { get; set; }
+
+    /// <summary>
     /// The group metadata as it was when the last change was recorded, as JSON.
     /// </summary>
     /// <remarks>

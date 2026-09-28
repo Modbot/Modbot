@@ -106,12 +106,13 @@ public sealed record SettleResult(string? Remaining, int Written, int Deduplicat
 /// design §4).
 /// </para>
 /// <para>
-/// That needs the audit log to have <em>had its turn</em>: to have polled at least
-/// <c>WaitForAuditLog</c> after the moment the change was noticed. Until then the change waits
-/// on the row. A join noticed at 14:00 is checked on the next pass after the audit log has polled
-/// past 14:02, and recorded only if no audit-log join for that person is found from around the
-/// time VRChat says they joined. An audit log that is switched off, or has been silent for an
-/// hour, is not waited for.
+/// That needs the audit log to have <em>had its turn</em>: to have read to its newest entry in a
+/// pass that began at least <c>WaitForAuditLog</c> after the moment the change was noticed. Until
+/// then the change waits on the row. A join noticed at 14:00 is checked on the next pass after the
+/// audit log has read to the end past 14:02, and recorded only if no audit-log join for that person
+/// is found from around the time VRChat says they joined. An audit log that has never polled is not
+/// waited for, and one that has not read to the end for an hour -- an hour this process has been
+/// running, after the change was noticed -- stops being waited for.
 /// </para>
 /// <para>
 /// Waiting also fixes the one false inference offset paging makes on its own: a member skipped
@@ -154,26 +155,39 @@ public sealed class ListDiffFacts
     }
 
     /// <summary>
-    /// Whether the audit log has polled late enough that anything it was going to record about
-    /// this change is already in the log.
+    /// Whether the audit log has read far enough that anything it was going to record about
+    /// this change is already in the log -- or has stopped being worth waiting for.
     /// </summary>
+    /// <param name="runningSince">When this process started (<see cref="SyncDiagnostics.StartedAt"/>).</param>
     public static bool AuditLogHasHadItsTurn(
         Settings settings,
         WaitingFact fact,
         DateTimeOffset now,
         TimeSpan waitFor,
-        TimeSpan silentAfter)
+        TimeSpan silentAfter,
+        DateTimeOffset runningSince)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(fact);
 
-        // Never polled, or silent for a long time: not running, or given up. Waiting on it would
-        // hold every inferred fact forever, and a fact log with no joins in it because the audit
-        // log's bucket alerted is worse than one with inferred joins.
-        if (settings.AuditLogPolledAt is not { } polledAt || now - polledAt > silentAfter)
+        // Never polled: not set up, or switched off. Nothing is coming.
+        if (settings.AuditLogPolledAt is null)
             return true;
 
-        return polledAt >= fact.NoticedAt + waitFor;
+        // Read all the way to the newest entry, starting after the change had had time to reach
+        // the log. Any poll is not enough: one that stopped at its page budget partway through a
+        // backlog, or was rate-limited, has not read as far as the change yet.
+        if (settings.AuditLogReadToEndAt is { } readAt && readAt >= fact.NoticedAt + waitFor)
+            return true;
+
+        // Silent for an hour: stuck, or given up. Waiting on it would hold every inferred fact
+        // forever, and a fact log with no joins in it because the audit log's bucket alerted is
+        // worse than one with inferred joins. The hour counts only time this process has been up
+        // and the change has been known. A Modbot that was off for six hours comes back to a last
+        // read six hours old, and the audit log is seconds away from catching up on exactly the
+        // changes the sweep is about to settle; that is when both used to be written.
+        var waitingSince = fact.NoticedAt > runningSince ? fact.NoticedAt : runningSince;
+        return now - waitingSince > silentAfter;
     }
 
     /// <summary>
@@ -188,6 +202,7 @@ public sealed class ListDiffFacts
         DateTimeOffset now,
         TimeSpan waitFor,
         TimeSpan silentAfter,
+        DateTimeOffset runningSince,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -202,7 +217,7 @@ public sealed class ListDiffFacts
 
         foreach (var fact in waiting)
         {
-            if (!AuditLogHasHadItsTurn(settings, fact, now, waitFor, silentAfter))
+            if (!AuditLogHasHadItsTurn(settings, fact, now, waitFor, silentAfter, runningSince))
             {
                 remaining.Add(fact);
                 continue;

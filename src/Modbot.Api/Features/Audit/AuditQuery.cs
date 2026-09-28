@@ -83,7 +83,7 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
     /// </summary>
     public static readonly TimeSpan AroundWindow = TimeSpan.FromDays(90);
 
-    public async Task<AuditPage> PageAsync(AuditRequest request, CancellationToken ct = default)
+    public async Task<AuditPage> PageAsync(AuditRequest request, DateTimeOffset now, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -109,7 +109,7 @@ public sealed class AuditQuery(ModbotContext db, ModbotPermissions held = Modbot
             ? new AuditCursor(rows[^1].OccurredAt, rows[^1].Id)
             : null;
 
-        return new AuditPage(entries, next, await CoverageAsync(request.Types, ct));
+        return new AuditPage(entries, next, await CoverageAsync(request.Types, ct), now);
     }
 
     /// <summary>

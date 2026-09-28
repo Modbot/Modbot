@@ -8,7 +8,7 @@
       "error",
       {
         "property": "toLocaleTimeString",
-        "message": "Write times with clockTime or dateTime, so every screen writes them the same way (console look spec 17.3)."
+        "message": "Write times with timeOfDay or dateTime, so every screen writes them the same way (console look spec 17.3)."
       },
       {
         "property": "toLocaleDateString",

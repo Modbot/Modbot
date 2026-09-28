@@ -9,6 +9,7 @@ import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type LogFilters, type LogLevel, type LogLine, type LogPage } from '@/lib/api'
 import { wholeEntry } from '@/lib/logEntry'
 import { cn } from '@/lib/utils'
+import { useShortcuts } from '@/lib/shortcuts'
 import { Empty } from '@/components/ListParts'
 
 const PAGE_SIZE = 100
@@ -73,6 +74,8 @@ export function Logs() {
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState<number | null>(null)
   const [reloads, setReloads] = useState(0)
+
+  useShortcuts([{ label: 'Refresh', group: 'Page', page: true, run: () => setReloads((n) => n + 1) }])
 
   // Typing waits a moment before it asks, so a word typed at speed is one request, not five.
   useEffect(() => {

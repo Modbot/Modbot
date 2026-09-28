@@ -558,6 +558,10 @@ public sealed class CalendarVRChatReader
             Id = Guid.CreateVersion7(),
             MadeOnVRChat = true,
             PublishToVRChat = true,
+
+            // Onto the Discord server too, as an event made in Modbot is (calendar design §12.2).
+            // The channel post stays off: it needs a channel, and nobody picked one.
+            PublishToDiscord = true,
             State = CalendarEventStates.Scheduled,
             CreatedAt = now,
             UpdatedAt = now,

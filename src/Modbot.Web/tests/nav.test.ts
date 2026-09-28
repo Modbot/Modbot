@@ -12,6 +12,7 @@ import {
   mayOpen,
   membersAddress,
   otherWords,
+  shownAs,
   sidebarEntry,
   titleWithCount,
   waitingTotal,
@@ -130,11 +131,64 @@ test('no heading in the sidebar shares a name with a page in it', () => {
   assert.ok(!groups.some((g) => labels.has(g)), 'a heading repeats a page name')
 })
 
-test('Reviews sits beside Flags, with no heading of its own', () => {
+test('Reviews sits beside Flags, under the same heading', () => {
   const at = (id: string) => NAV.findIndex((n) => n.id === id)
+  const reviews = NAV[at('reviews')]
+  const flags = NAV[at('flags')]
 
   assert.equal(at('reviews'), at('flags') + 1)
-  assert.ok(!('group' in NAV[at('reviews')]))
+  assert.ok('group' in reviews && 'group' in flags && reviews.group === flags.group)
+})
+
+test('Community heads the pages from Requests to Giveaways, each of which names it', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+  const community = shown.filter((n) => 'group' in n && n.group === 'Community')
+  const first = shown.indexOf(community[0])
+
+  assert.deepEqual(
+    community.map((n) => n.id),
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'giveaways'],
+  )
+  assert.deepEqual(shown.slice(first, first + community.length), community)
+})
+
+test('Integrations follows Community and holds VRChat and Discord, whose tabs still light them', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+  const integrations = shown.filter((n) => 'group' in n && n.group === 'Integrations')
+  const lastCommunity = shown.map((n) => ('group' in n ? n.group : undefined)).lastIndexOf('Community')
+
+  assert.deepEqual(integrations.map((n) => n.id), ['analytics-group', 'analytics-server'])
+  assert.equal(shown.indexOf(integrations[0]), lastCommunity + 1)
+  assert.equal(sidebarEntry('analytics-instances'), 'analytics-group')
+  assert.equal(sidebarEntry('discord-members'), 'analytics-server')
+})
+
+test("a page opened from the VRChat or Discord page's tab row carries that page's name", () => {
+  assert.equal(shownAs('people', 'members', null), 'analytics-group')
+  assert.equal(shownAs('bans', 'bans', null), 'analytics-group')
+  assert.equal(shownAs('audit', 'group-settings', null), 'analytics-group')
+  assert.equal(shownAs('bans', null, 'bans'), 'analytics-server')
+  assert.equal(sidebarEntry(shownAs('people', 'members', null)), 'analytics-group')
+})
+
+test('a page opened from anywhere else carries its own name', () => {
+  assert.equal(shownAs('people', null, null), 'people')
+  assert.equal(shownAs('bans', null, null), 'bans')
+  assert.equal(sidebarEntry(shownAs('members', null, null)), 'people')
+})
+
+test('the Community heading is still drawn without Requests', () => {
+  const people = NAV.find((n) => n.id === 'people')
+
+  assert.equal(mayOpen(person('ViewMembers'), 'requests'), false)
+  assert.ok(people && 'group' in people && people.group === 'Community')
+})
+
+test('Now and Chat sit above every heading', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+
+  assert.deepEqual(shown.slice(0, 2).map((n) => n.id), ['now', 'chat'])
+  assert.ok(shown.slice(0, 2).every((n) => !('group' in n)))
 })
 
 test("Modbot's own log is not called just Logs, which the audit log and the popup also were", () => {
@@ -230,12 +284,13 @@ test('Instances is still offered by name and keeps its chord', () => {
   assert.equal(GO_TO_KEYS['analytics-instances'], 'i')
 })
 
-test('Stats takes Team’s place at the top of the Analytics heading, before VRChat and Discord', () => {
-  const at = (id: string) => NAV.findIndex((n) => n.id === id)
-  const stats = NAV[at('stats')]
+test('Stats sits beside Now and Chat with no heading, and the Analytics heading is gone', () => {
+  const shown = NAV.filter((n) => !('hidden' in n && n.hidden))
+  const stats = NAV.find((n) => n.id === 'stats')
 
-  assert.ok('group' in stats && stats.group === 'Analytics')
-  assert.ok(at('stats') < at('analytics-group') && at('analytics-group') < at('analytics-server'))
+  assert.deepEqual(shown.slice(0, 3).map((n) => n.id), ['now', 'chat', 'stats'])
+  assert.ok(stats && !('group' in stats))
+  assert.ok(!NAV.some((n) => 'group' in n && (n.group as string) === 'Analytics'))
   assert.ok(!NAV.some((n) => (n.id as string) === 'analytics-team' || (n.id as string) === 'analytics-worlds'))
 })
 

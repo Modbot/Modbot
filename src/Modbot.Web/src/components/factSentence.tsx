@@ -6,7 +6,7 @@ import type { AuditEntry } from '@/lib/api'
 import { followLink } from '@/lib/router'
 import { openPersonVersion } from '@/lib/subject'
 import { avatarWorn, timeInInstance } from '@/lib/factDetails'
-import { duration } from '@/lib/format'
+import { dateTimeWithWeekday, duration, timeOfDay } from '@/lib/format'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { VRCHAT_PERMISSIONS } from '@/lib/vrchatPermissions'
 
@@ -1777,22 +1777,10 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
 
-/**
- * A moment from a payload, in the reader's own time: "Fri 25 Sep, 01:00 PM". The weekday is why
- * this is not `dateTime`; the hour is written the way `clockTime` writes it.
- */
+/** A moment from a payload, in the reader's own time, with its weekday: "Fri, Sep 25, 1:00 PM". */
 function when(iso: string | null): string | null {
-  if (!iso) return null
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return null
-
-  return date.toLocaleString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  if (!iso || Number.isNaN(Date.parse(iso))) return null
+  return dateTimeWithWeekday(iso)
 }
 
 const DAY_NAMES: Record<string, string> = {
@@ -1886,18 +1874,13 @@ const quoted = (value: unknown): string => (typeof value === 'string' && value ?
 /** A moment, in the reader's own time. */
 const moment = (value: unknown): string => (typeof value === 'string' ? (when(value) ?? value) : 'none')
 
-/** A time of day from a payload, in the reader's own clock, written the way `when` writes it. */
-function clock(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit' })
-}
-
-/** "Sat 26 Sep, 08:00 PM–10:00 PM" within a day, both moments in full across midnight. */
+/** "Sat, Sep 26, 8:00 PM–10:00 PM" within a day, both moments in full across midnight. */
 function span(start: unknown, end: unknown): string {
   if (typeof start !== 'string' || typeof end !== 'string') return moment(start)
   const from = new Date(start)
   const to = new Date(end)
   return from.toDateString() === new Date(to.getTime() - 1).toDateString()
-    ? `${moment(start)}–${clock(end)}`
+    ? `${moment(start)}–${timeOfDay(end)}`
     : `${moment(start)} – ${moment(end)}`
 }
 
@@ -1914,7 +1897,7 @@ function timeChange(before: Record<string, unknown>, after: Record<string, unkno
       typeof before['endsAt'] === 'string' &&
       typeof after['endsAt'] === 'string' &&
       new Date(before['endsAt']).toDateString() === new Date(after['endsAt']).toDateString()
-    const show = (v: unknown) => (sameDay && typeof v === 'string' ? clock(v) : moment(v))
+    const show = (v: unknown) => (sameDay && typeof v === 'string' ? timeOfDay(v) : moment(v))
     return { moved: false, from: show(before['endsAt']), to: show(after['endsAt']) }
   }
 
