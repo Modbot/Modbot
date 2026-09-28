@@ -42,9 +42,18 @@ export function FilterBar({
 }) {
   const [adding, setAdding] = useState(false)
   const byId = useMemo(() => new Map(properties.map((p) => [p.id, p])), [properties])
+  const bar = useRef<HTMLDivElement>(null)
+
+  // The picker hangs from the bar, so a list scrolled past it would open the picker above the top
+  // of the screen: from `f`, or from the Actions sheet at the foot of a phone. The middle rather
+  // than the nearest edge, which is under the page's sticky title.
+  const add = () => {
+    bar.current?.scrollIntoView({ block: 'center' })
+    setAdding(true)
+  }
 
   useShortcuts([
-    { keys: 'f', label: 'Add a filter', group: 'Filters', page: true, run: () => setAdding(true) },
+    { keys: 'f', label: 'Add a filter', group: 'Filters', page: true, run: add },
     {
       keys: 'shift+f',
       label: 'Remove the last filter',
@@ -66,7 +75,7 @@ export function FilterBar({
   const remove = (property: string) => onChange(chips.filter((c) => c.property !== property))
 
   return (
-    <div className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
+    <div ref={bar} className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
       {chips.map((chip) => {
         const property = byId.get(chip.property)
         if (!property) return null
