@@ -133,6 +133,7 @@ export function ServerHeader({
         tabs={serverTabs(me).map((tab) => ({ ...tab, icon: TAB_ICONS[tab.id] }))}
         active={active}
         pathOf={(id) => serverTabHref(id, pathOf(id))}
+        wrap
       />
     </Card>
   )
