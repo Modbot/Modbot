@@ -1,13 +1,13 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Row } from '@/components/ui/fact-row'
 import { dateTime } from '@/components/charts'
 import { FactSentence } from '@/components/factSentence'
-import { PersonLink, InstanceLink, SourceBadge, WorldLink } from '@/components/facts'
+import { FactTime, PersonLink, InstanceLink, SourceBadge, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
 import { EmptyRow } from '@/components/PanelGrid'
 import { VersionCard } from '@/components/subject/ProfileVersions'
@@ -237,44 +237,109 @@ function AroundList({ title, entries, current }: { title: string; entries: Audit
         {title}
       </div>
       {entries.length <= 1 && <EmptyRow>Nothing else near it.</EmptyRow>}
-      {entries.length > 1 &&
-        entries.map((fact) =>
-          fact.id === current ? (
-            <div
-              key={fact.id}
-              aria-current="true"
-              className="flex flex-wrap items-baseline gap-2 border-t border-t-(length:--hairline) bg-accent px-(--panel-pad) py-2 pl-[calc(var(--panel-pad)+1.25rem)]"
+      {entries.length > 1 && (
+        <>
+          <AroundWide entries={entries} current={current} />
+          <AroundNarrow entries={entries} current={current} />
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The list where there is room: when, then the sentence beside it.
+ *
+ * Not a `Table`, so it marks itself as the wide form by hand (see `data-layout` in index.css). On a
+ * phone the time's column left the sentence a strip under 100px wide, and a role badge wider than
+ * that ran under "This one".
+ */
+function AroundWide({ entries, current }: { entries: AuditEntry[]; current: number }) {
+  return (
+    <div data-layout="wide">
+      {entries.map((fact) =>
+        fact.id === current ? (
+          <div
+            key={fact.id}
+            aria-current="true"
+            className="flex flex-wrap items-baseline gap-2 border-t border-t-(length:--hairline) bg-accent px-(--panel-pad) py-2 pl-[calc(var(--panel-pad)+1.25rem)]"
+            style={{ fontSize: 'var(--text-small)' }}
+          >
+            <span className="font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
+            <span className="min-w-0 flex-1">
+              <FactSentence entry={fact} />
+            </span>
+            <span className="text-muted-foreground">This one</span>
+          </div>
+        ) : (
+          <details key={fact.id} className="group border-t border-t-(length:--hairline)">
+            <summary
+              className={cn(
+                'flex cursor-pointer list-none items-baseline gap-2 px-(--panel-pad) py-2 hover:bg-muted/40',
+                'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden',
+              )}
               style={{ fontSize: 'var(--text-small)' }}
             >
-              <span className="font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
+              <ChevronRight
+                className="size-3.5 shrink-0 self-center text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                aria-hidden
+              />
+              <span className="shrink-0 font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
               <span className="min-w-0 flex-1">
-                <FactSentence entry={fact} />
+                <SourceBadge source={fact.source} /> <FactSentence entry={fact} />
               </span>
-              <span className="text-muted-foreground">This one</span>
-            </div>
-          ) : (
-            <details key={fact.id} className="group border-t border-t-(length:--hairline)">
-              <summary
-                className={cn(
-                  'flex cursor-pointer list-none items-baseline gap-2 px-(--panel-pad) py-2 hover:bg-muted/40',
-                  'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring [&::-webkit-details-marker]:hidden',
-                )}
-                style={{ fontSize: 'var(--text-small)' }}
-              >
-                <ChevronRight
-                  className="size-3.5 shrink-0 self-center text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
-                  aria-hidden
-                />
-                <span className="shrink-0 font-mono text-muted-foreground">{dateTime(fact.occurredAt)}</span>
-                <span className="min-w-0 flex-1">
-                  <SourceBadge source={fact.source} /> <FactSentence entry={fact} />
-                </span>
-              </summary>
-              <EntryDetail entry={fact} around={false} />
-            </details>
-          ),
-        )}
+            </summary>
+            <EntryDetail entry={fact} around={false} />
+          </details>
+        ),
+      )}
     </div>
+  )
+}
+
+/**
+ * The list on a phone, as the audit log's own rows are there: the sentence across the whole row,
+ * then where it came from and when. A row opens its detail below it, as the wide form's do.
+ */
+function AroundNarrow({ entries, current }: { entries: AuditEntry[]; current: number }) {
+  const [open, setOpen] = useState<ReadonlySet<number>>(new Set())
+
+  const toggle = (id: number) =>
+    setOpen((was) => {
+      const now = new Set(was)
+      if (!now.delete(id)) now.add(id)
+      return now
+    })
+
+  return (
+    <NarrowRows>
+      {entries.map((fact) =>
+        fact.id === current ? (
+          <NarrowRow
+            key={fact.id}
+            main={<FactSentence entry={fact} />}
+            facts={[
+              <SourceBadge key="source" source={fact.source} />,
+              <FactTime key="when" entry={fact} withDay />,
+              'This one',
+            ]}
+            current
+            className="bg-accent"
+          />
+        ) : (
+          <NarrowRow
+            key={fact.id}
+            main={<FactSentence entry={fact} />}
+            facts={[<SourceBadge key="source" source={fact.source} />, <FactTime key="when" entry={fact} withDay />]}
+            onOpen={() => toggle(fact.id)}
+            open={open.has(fact.id)}
+            hasLinks
+          >
+            {open.has(fact.id) && <EntryDetail entry={fact} around={false} />}
+          </NarrowRow>
+        ),
+      )}
+    </NarrowRows>
   )
 }
 

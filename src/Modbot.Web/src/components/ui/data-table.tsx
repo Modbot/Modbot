@@ -114,7 +114,8 @@ export function NarrowRows({ children }: { children: React.ReactNode }) {
  * clicked as a whole the way a table row is, and a tap on one of its own links is left to that
  * link. `open` is for a row that opens its details below it, in `children`. `children` also holds a
  * third line of buttons, for a row whose buttons do not fit beside its name: below the tap target
- * rather than in it, so a thumb that misses one does not open the row instead.
+ * rather than in it, so a thumb that misses one does not open the row instead. `current` marks the
+ * row a list is shown around, for a screen reader.
  */
 export function NarrowRow({
   picture,
@@ -124,6 +125,7 @@ export function NarrowRow({
   onOpen,
   open,
   hasLinks = false,
+  current = false,
   className,
   ref,
   children,
@@ -135,6 +137,7 @@ export function NarrowRow({
   onOpen?: () => void
   open?: boolean
   hasLinks?: boolean
+  current?: boolean
   className?: string
   ref?: React.Ref<HTMLLIElement>
   children?: React.ReactNode
@@ -173,7 +176,7 @@ export function NarrowRow({
   )
 
   return (
-    <li ref={ref} className="border-t border-(length:--hairline) first:border-t-0">
+    <li ref={ref} aria-current={current || undefined} className="border-t border-(length:--hairline) first:border-t-0">
       {!onOpen ? (
         <div className={look} style={{ minHeight: 'var(--row-h)' }}>
           {body}
