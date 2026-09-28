@@ -39,8 +39,14 @@ export function watchVisibleArea(): void {
   if (!seen) return
 
   const root = document.documentElement
+  // A variable on the root restyles the whole page when it changes, and panning a zoomed page
+  // fires `scroll` on every frame with the same answer each time, so an unchanged one is left be.
+  let last = ''
   const write = () => {
     const area = visibleArea(root.clientHeight, seen)
+    const key = `${area.height} ${area.top} ${area.keyboard}`
+    if (key === last) return
+    last = key
     root.style.setProperty('--visible-h', `${area.height}px`)
     root.style.setProperty('--visible-top', `${area.top}px`)
     root.style.setProperty('--keyboard-h', `${area.keyboard}px`)

@@ -113,6 +113,8 @@ function ConfirmBody({
         </DialogFoot>
       }
     >
+      {/* Nothing at all rather than an empty Outcome while there is no problem, so the dialog has
+          no body and draws its title straight over its buttons. */}
       {missing ? (
         <VRChatPermissionMissing missing={missing} className="text-destructive" />
       ) : (
