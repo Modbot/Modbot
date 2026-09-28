@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ExternalLink } from 'lucide-react'
 import { WorldLink } from '@/components/facts'
 import { InstanceTile } from '@/components/InstanceCards'
@@ -76,6 +76,18 @@ export function GroupOverview({ me, pathOf }: { me: CurrentUser; pathOf: (id: Pa
 }
 
 /**
+ * A card's title as vrchat.com sets it on a group's page: large and bold ("About This Group",
+ * "Rules"), not the console's small panel label. The owner chose this on 2026-09-28 so the VRChat
+ * page reads like VRChat's; it is 1.4 times the body size, so it grows with the density as the
+ * label would. VRChat's teal and its own face were not taken: the colour and the face stay Modbot's.
+ */
+function GroupCardTitle({ children }: { children: ReactNode }) {
+  return (
+    <CardTitle style={{ fontSize: 'calc(var(--text-base) * 1.4)', fontWeight: 700 }}>{children}</CardTitle>
+  )
+}
+
+/**
  * The group's instances open right now, as tiles the way the game draws them, each opening its
  * instance. Read once from what Modbot already keeps (`/api/live`), so it asks VRChat nothing.
  */
@@ -103,7 +115,7 @@ function RightNow() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Right now</CardTitle>
+        <GroupCardTitle>Right now</GroupCardTitle>
       </CardHeader>
 
       {failed ? (
@@ -180,7 +192,7 @@ function UpcomingEvent({ me, pathOf }: { me: CurrentUser; pathOf: (id: PageId) =
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Upcoming event</CardTitle>
+        <GroupCardTitle>Upcoming event</GroupCardTitle>
       </CardHeader>
 
       {failed ? (
@@ -255,7 +267,7 @@ function Languages({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Languages</CardTitle>
+        <GroupCardTitle>Languages</GroupCardTitle>
         {onSave && !draft && (
           <CardAction>
             <EditButton label="Edit languages" onClick={() => setDraft([...info.languages])} />
@@ -306,7 +318,7 @@ function Links({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Links</CardTitle>
+        <GroupCardTitle>Links</GroupCardTitle>
         {onSave && !draft && (
           <CardAction>
             <EditButton label="Edit links" onClick={() => setDraft(info.links.length > 0 ? [...info.links] : [''])} />
@@ -369,7 +381,7 @@ function About({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>About this group</CardTitle>
+        <GroupCardTitle>About this group</GroupCardTitle>
         {onSave && draft === null && (
           <CardAction>
             <EditButton label="Edit description" onClick={() => setDraft(info.description ?? '')} />
@@ -417,7 +429,7 @@ function Rules({ info, onSave }: { info: GroupInfo; onSave: OnSave }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Rules</CardTitle>
+        <GroupCardTitle>Rules</GroupCardTitle>
         {onSave && draft === null && (
           <CardAction>
             <EditButton label="Edit rules" onClick={() => setDraft(info.rules ?? '')} />
