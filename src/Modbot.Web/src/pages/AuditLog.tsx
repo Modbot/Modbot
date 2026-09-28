@@ -510,9 +510,8 @@ function Row({
           />
         </Td>
         <Td>
-          <div className="flex items-baseline gap-2 font-mono leading-tight">
-            <FactTime entry={entry} />
-            <span className="text-muted-foreground">{formatDay(entry.occurredAt)}</span>
+          <div className="leading-tight">
+            <FactTime entry={entry} withDay />
           </div>
         </Td>
         <Td>

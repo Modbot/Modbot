@@ -113,18 +113,73 @@ export function ordinal(n: number): string {
 }
 
 /**
- * A time of day, "03:41 PM" or "15:41" as the viewer's locale writes it, in their own clock.
+ * A time of day the way people say it, in the viewer's own clock: "8:04 PM", not "08:04 PM", or
+ * "20:04" where the viewer's locale counts to 24.
+ *
+ * The one way every screen writes a time. There were two until 2026-09-28, one with the leading
+ * zero and one without, and the same moment read "08:04 PM" in the audit log and "8:04 PM" on an
+ * instance -- close enough to look like the same time, far enough apart to make a moderator check.
+ * The zero bought a column of times that lined up; that was not worth two spellings of one time.
  *
  * Hours and minutes, never seconds: nothing on a screen is acted on to the second, and the same
  * instant written with seconds on one page and without on the next reads as two different times.
- * Two digits for the hour, like `dateTime` and `FactTime`, so a column of times lines up.
  */
-export function clockTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+export function timeOfDay(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
 /**
- * How long ago, measured against the server's clock rather than the browser's.
+ * An instant, "Sep 27, 8:44 PM": the day first, then the time, in the viewer's own clock, because
+ * that is the clock they will act in. The year only when it is not this year ({@link needsYear});
+ * pass `withYear` for two instants shown as one span, so both carry it or neither does.
+ */
+export function dateTime(iso: string, withYear: boolean = needsYear(iso)): string {
+  return new Date(iso).toLocaleString(undefined, {
+    year: withYear ? 'numeric' : undefined,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * An instant with its weekday, "Fri, Sep 25, 1:00 PM", for a planned event, where the day of the
+ * week is what people plan around. Otherwise the same as {@link dateTime}.
+ */
+export function dateTimeWithWeekday(iso: string, withYear: boolean = needsYear(iso)): string {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: 'short',
+    year: withYear ? 'numeric' : undefined,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+const DAY_SECONDS = 86_400
+
+/**
+ * An age in the largest unit that still reads at a glance: "40s", "12m", "5h", "30d", "3 mo",
+ * "1 yr". Days up to 45, because "38d" is still easy to picture and more exact than "1 mo". Past
+ * that, whole months and then whole years that have passed, the way people say an age: something
+ * a year and a half old is "1 yr" until it is two. "563d" made the reader do the sum.
+ */
+function age(seconds: number): string {
+  if (seconds < 60) return `${Math.max(0, seconds)}s`
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
+  if (seconds < DAY_SECONDS) return `${Math.round(seconds / 3600)}h`
+
+  const days = Math.round(seconds / DAY_SECONDS)
+  if (days < 45) return `${days}d`
+  if (days < 365) return `${Math.floor(days / 30.44)} mo`
+  return `${Math.floor(days / 365)} yr`
+}
+
+/**
+ * How long ago, measured against the server's clock rather than the browser's, in the steps of
+ * {@link age}: "5h ago", "30d ago", "3 mo ago", "1 yr ago".
  *
  * The browser's clock is not the authority for anything here and is routinely wrong on a machine
  * that has been asleep, so every screen showing an age passes the `now` the server sent.
@@ -135,11 +190,7 @@ export function ago(iso: string | null, now: string): string {
   const seconds = Math.round((Date.parse(now) - Date.parse(iso)) / 1000)
 
   if (seconds < 0) return 'just now'
-  if (seconds < 60) return `${seconds}s ago`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`
-  if (seconds < 86_400) return `${Math.round(seconds / 3600)}h ago`
-
-  return `${Math.round(seconds / 86_400)}d ago`
+  return `${age(seconds)} ago`
 }
 
 /** When a list was last read, and the server's clock at the time it said so. */
@@ -182,19 +233,13 @@ export function notLinkedTo(names: string[]): string {
 
 /**
  * How long something has been going on, against the server's clock, in the same steps as
- * {@link ago} and without the "ago". "Last seen 2d ago" and "known for 300d" are different
+ * {@link ago} and without the "ago". "Last seen 2d ago" and "known for 1 yr" are different
  * questions about the same person, and the People page asks both.
  */
 export function howLong(iso: string | null, now: string): string {
   if (!iso) return 'never'
 
-  const seconds = Math.round((Date.parse(now) - Date.parse(iso)) / 1000)
-
-  if (seconds < 60) return `${Math.max(0, seconds)}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  if (seconds < 86_400) return `${Math.round(seconds / 3600)}h`
-
-  return `${Math.round(seconds / 86_400)}d`
+  return age(Math.round((Date.parse(now) - Date.parse(iso)) / 1000))
 }
 
 /**
@@ -302,11 +347,6 @@ export function accessInGame(groupAccessType: string | null): string | null {
   if (!groupAccessType) return null
 
   return ({ members: 'Group', plus: 'Group+', public: 'Group Public' } as Record<string, string>)[groupAccessType] ?? groupAccessType
-}
-
-/** A time of day the way people say it: "8:04 PM", not "08:04 PM". */
-export function timeOfDay(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
 
 /**

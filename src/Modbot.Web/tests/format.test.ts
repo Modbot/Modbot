@@ -3,7 +3,8 @@ import { test } from 'node:test'
 import {
   accessInGame,
   ago,
-  clockTime,
+  dateTime,
+  dateTimeWithWeekday,
   duration,
   formatDay,
   formatDayRange,
@@ -25,9 +26,10 @@ test('how long says the same steps as ago, without the ago', () => {
   assert.equal(howLong('2026-09-18T11:59:30Z', NOW), '30s')
   assert.equal(howLong('2026-09-18T11:30:00Z', NOW), '30m')
   assert.equal(howLong('2026-09-18T06:00:00Z', NOW), '6h')
-  assert.equal(howLong('2026-06-20T12:00:00Z', NOW), '90d')
+  assert.equal(howLong('2026-08-19T12:00:00Z', NOW), '30d')
+  assert.equal(howLong('2026-06-20T12:00:00Z', NOW), '2 mo')
 
-  assert.equal(ago('2026-06-20T12:00:00Z', NOW), '90d ago')
+  assert.equal(ago('2026-08-19T12:00:00Z', NOW), '30d ago')
 })
 
 test('somebody Modbot has no record of has not been known for any time at all', () => {
@@ -38,18 +40,41 @@ test('a clock that ran backwards does not produce a negative age', () => {
   assert.equal(howLong('2026-09-18T12:00:30Z', NOW), '0s')
 })
 
-// Written without naming a locale or a time zone, because clockTime uses the viewer's: the tests
+test('an age stays in days up to 45 of them', () => {
+  assert.equal(ago('2026-08-19T12:00:00Z', NOW), '30d ago')
+  assert.equal(ago('2026-08-05T12:00:00Z', NOW), '44d ago')
+})
+
+test('past 45 days an age is whole months passed', () => {
+  assert.equal(ago('2026-08-04T12:00:00Z', NOW), '1 mo ago')
+  assert.equal(ago('2026-06-20T12:00:00Z', NOW), '2 mo ago')
+  assert.equal(ago('2026-03-02T12:00:00Z', NOW), '6 mo ago')
+  assert.equal(ago('2025-09-19T12:00:00Z', NOW), '11 mo ago')
+})
+
+test('past a year an age is whole years passed, so a year and a half is still one', () => {
+  assert.equal(ago('2025-09-18T12:00:00Z', NOW), '1 yr ago')
+  assert.equal(ago('2025-03-04T12:00:00Z', NOW), '1 yr ago')
+  assert.equal(ago('2024-09-18T12:00:00Z', NOW), '2 yr ago')
+})
+
+test('how long goes on past days in the same steps', () => {
+  assert.equal(howLong('2026-03-02T12:00:00Z', NOW), '6 mo')
+  assert.equal(howLong('2025-03-04T12:00:00Z', NOW), '1 yr')
+})
+
+// Written without naming a locale or a time zone, because timeOfDay uses the viewer's: the tests
 // hold on any machine they run on.
-test('a clock time has no seconds: two instants in the same minute read the same', () => {
-  assert.equal(clockTime('2026-09-18T15:41:07Z'), clockTime('2026-09-18T15:41:52Z'))
+test('a time of day has no seconds: two instants in the same minute read the same', () => {
+  assert.equal(timeOfDay('2026-09-18T15:41:07Z'), timeOfDay('2026-09-18T15:41:52Z'))
 })
 
-test('a clock time still tells one minute from the next', () => {
-  assert.notEqual(clockTime('2026-09-18T15:41:07Z'), clockTime('2026-09-18T15:42:07Z'))
+test('a time of day still tells one minute from the next', () => {
+  assert.notEqual(timeOfDay('2026-09-18T15:41:07Z'), timeOfDay('2026-09-18T15:42:07Z'))
 })
 
-test('a clock time is the time alone, with no date in it', () => {
-  assert.equal(clockTime('2026-09-18T15:41:00Z'), clockTime('2026-09-19T15:41:00Z'))
+test('a time of day is the time alone, with no date in it', () => {
+  assert.equal(timeOfDay('2026-09-18T15:41:00Z'), timeOfDay('2026-09-19T15:41:00Z'))
 })
 
 // ── Lengths of time ──────────────────────────────────────────────────────────────────────────
@@ -154,6 +179,19 @@ test('who may join is said in the words the game uses', () => {
 
 test('a time of day has no leading zero on the hour', () => {
   assert.ok(!/^0/.test(timeOfDay(`${thisYear}-03-05T08:04:00`)))
+})
+
+test('an instant is the day, then the time, written the same way as each alone', () => {
+  const at = `${thisYear}-03-05T08:04:00`
+  const written = dateTime(at)
+  assert.ok(written.startsWith(formatDay(at)))
+  assert.ok(written.endsWith(timeOfDay(at)))
+})
+
+test('an instant with its weekday is otherwise the same instant', () => {
+  const at = `${thisYear}-03-05T08:04:00`
+  assert.ok(dateTimeWithWeekday(at).endsWith(timeOfDay(at)))
+  assert.notEqual(dateTimeWithWeekday(at), dateTime(at))
 })
 
 test('a range inside one day names the day once, and an open one ends with a dash', () => {

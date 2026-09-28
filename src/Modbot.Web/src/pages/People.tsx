@@ -6,7 +6,6 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Input } from '@/components/ui/input'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
-import { dateTime } from '@/components/charts/format'
 import { DiscordPersonLink, SubjectLink } from '@/components/facts'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { Freshness } from '@/components/Freshness'
@@ -16,7 +15,7 @@ import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type PeopleList, type PeopleQuery } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
 import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
-import { ago, clockTime, formatDay } from '@/lib/format'
+import { ago, dateTime, formatDay, timeOfDay } from '@/lib/format'
 import { changesMembers } from '@/lib/liveRules'
 import { Pager } from '@/components/Pager'
 import { useListPage } from '@/lib/listPage'
@@ -278,7 +277,7 @@ export function People({ me }: { me: CurrentUser }) {
               restart()
             }}
           >
-            {`Joined ${dateTime(joined.from)} – ${clockTime(joined.to)} ×`}
+            {`Joined ${dateTime(joined.from)} – ${timeOfDay(joined.to)} ×`}
           </Button>
         )}
 

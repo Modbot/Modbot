@@ -36,20 +36,8 @@ export function dayRange(from: string, to: string): string {
   return `${longDay(from, withYear)} – ${longDay(to, withYear)}`
 }
 
-/**
- * An instant, in the viewer's own clock, because that is the clock they will act in. The year is
- * left out in the current year and written otherwise (`needsYear`); pass `withYear` for two
- * instants shown as one span, so both carry it or neither does.
- */
-export function dateTime(iso: string, withYear: boolean = needsYear(iso)): string {
-  return new Date(iso).toLocaleString(undefined, {
-    year: withYear ? 'numeric' : undefined,
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+/** An instant, "Sep 25, 8:53 AM". Lives with the other date helpers; kept here for the charts. */
+export { dateTime } from '../../lib/format.ts'
 
 /** 12,345 -> "12.3K"; 42 -> "42"; 3.14159 -> "3.1". Never more digits than the eye can use. */
 export const compactNumber = (n: number): string =>

@@ -18,7 +18,7 @@ import {
 } from '@/lib/api'
 import { moderationApi, type ModerationFlag } from '@/lib/autoMod'
 import { writeChips } from '@/lib/filters'
-import { ago, clockTime, formatDay, headCountText, plural } from '@/lib/format'
+import { ago, dateTime, headCountText, plural } from '@/lib/format'
 import { instanceName } from '@/lib/instanceName'
 import { countText, historyNote, JOIN_REQUEST_PAGE_SIZE, mayAnswer, waitingFrom, type WaitingCount } from '@/lib/joinRequests'
 import { changesFlags } from '@/lib/liveRules'
@@ -496,7 +496,7 @@ function SinceLastLooked({ look, changes }: { look: NowLook; changes: NowChange[
         <CardTitle>{look.lookedBefore ? 'Since you last looked' : 'In the last day'}</CardTitle>
         {look.lookedBefore && (
           <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-            {formatDay(look.since)} {clockTime(look.since)}
+            {dateTime(look.since)}
           </span>
         )}
       </CardHeader>
