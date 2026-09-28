@@ -104,8 +104,9 @@ export function NarrowRows({ children }: { children: React.ReactNode }) {
  * One row of a list on a phone. Line 1 is the thing the row is about -- a name, the audit log's
  * sentence -- with `side` at its right end for a badge or the row's own buttons. Line 2 is the
  * table's other columns, muted, one line joined with " · ", in column order. When line 2 is too
- * long, the first fact gives way (a plain name, say), so the last ones -- usually when -- stay. Only
- * once the first is gone do the others shorten, rather than run out of the row.
+ * long, the first fact gives way (a plain name, say), so the last ones -- usually when -- stay. The
+ * others never shrink: when even they are too long, the line ends at the row's edge rather than
+ * running past it.
  *
  * The whole row is the tap target, at least a row high. It is a button, unless something inside it
  * is a link or a button of its own (`hasLinks`): a button cannot hold another, so such a row is
@@ -149,13 +150,13 @@ export function NarrowRow({
         </span>
         {shown.length > 0 && (
           <span
-            className="flex min-w-0 items-center gap-1.5 text-muted-foreground"
+            className="flex min-w-0 items-center gap-1.5 overflow-hidden text-muted-foreground"
             style={{ fontSize: 'var(--text-small)' }}
           >
             {shown.map((fact, i) => (
               <Fragment key={i}>
                 {i > 0 && <span className="shrink-0">·</span>}
-                <span className={cn('min-w-0 truncate', i === 0 && 'shrink-[1000]')}>{fact}</span>
+                <span className={i === 0 ? 'min-w-0 truncate' : 'shrink-0 whitespace-nowrap'}>{fact}</span>
               </Fragment>
             ))}
           </span>
