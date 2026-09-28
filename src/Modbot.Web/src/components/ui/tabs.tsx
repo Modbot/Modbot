@@ -17,31 +17,41 @@ export function Tabs<T extends string>({
   tabs,
   children,
   className,
+  wrap = false,
+  rowClassName,
+  panelClassName,
 }: {
   value: T
   onChange: (next: T) => void
   tabs: { value: T; label: string; badge?: number | null }[]
   children: React.ReactNode
   className?: string
+  /** Every tab in sight on more than one line, rather than a row that scrolls sideways. */
+  wrap?: boolean
+  /** For the row of tabs, such as pinning it while the page scrolls under it. */
+  rowClassName?: string
+  /** For the panel, such as letting it grow with the page rather than scroll on its own. */
+  panelClassName?: string
 }) {
   const id = useId()
 
   return (
     <div className={cn('flex min-h-0 flex-col', className)}>
       {/*
-        The row scrolls sideways rather than wrapping or shrinking. AI in Settings has seven tabs, and
+        The row scrolls sideways rather than shrinking. AI in Settings has seven tabs, and
         seven labels squeezed into a phone's width are seven unreadable words; four readable
         ones and a swipe is the trade. `whitespace-nowrap` keeps a label on one line, and the
         thin scrollbar stays out of the way on a mouse. A swipe is still the last resort, so tabs
         sit closer together below `sm`: the person popup's six tabs fit a 390px phone at 8px a
-        side and do not at 12px.
+        side and do not at 12px. `wrap` puts the rest on a second line instead, for a screen
+        where a tab past the edge is a tab nobody finds.
       */}
       {/* The line under the row belongs to the wrapper, not to the scrolling row: a scrolling box
           clips both axes, and an underline drawn one pixel below a tab would be cut off. */}
-      <div className="shrink-0 border-b-(length:--hairline)">
+      <div className={cn('shrink-0 border-b-(length:--hairline)', rowClassName)}>
         <div
           role="tablist"
-          className="flex items-stretch overflow-x-auto [scrollbar-width:thin]"
+          className={cn('flex items-stretch', wrap ? 'flex-wrap' : 'overflow-x-auto [scrollbar-width:thin]')}
         >
           {tabs.map((tab) => (
             <button
@@ -76,7 +86,7 @@ export function Tabs<T extends string>({
         role="tabpanel"
         id={`${id}-panel`}
         aria-labelledby={`${id}-${value}`}
-        className="min-h-0 flex-1 overflow-auto"
+        className={cn('min-h-0 flex-1 overflow-auto', panelClassName)}
       >
         {children}
       </div>

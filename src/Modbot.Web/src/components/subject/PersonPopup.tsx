@@ -6,7 +6,7 @@ import { JsonView } from '@/components/JsonView'
 import { InstanceTable } from '@/components/InstanceTable'
 import { SubjectCaseFiles } from '@/components/SubjectCaseFiles'
 import { SubjectHistory } from '@/components/SubjectHistory'
-import { ProfileDetails, ProfileIdentity } from '@/components/UserProfileCard'
+import { ProfileDetails, ProfileIdentity, ProfileMark } from '@/components/UserProfileCard'
 import { AccountCard, AccountHistory } from '@/components/subject/AccountSide'
 import { DiscordLinkCard } from '@/components/subject/DiscordLinkCard'
 import {
@@ -46,6 +46,8 @@ import { useMessageAt, useOpeningAction, useOpeningTab, useOpeningVersion, type 
 import { useDiscordMember } from '@/lib/useDiscordMember'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
+import { isPhoneLayout, usePhoneLayout } from '@/lib/phoneLayout'
+import { vrchatMedia } from '@/lib/vrchatMedia'
 
 const TABS = ['overview', 'logs', 'notes', 'history', 'cases', 'flags', 'discord', 'messages', 'account', 'json'] as const
 type Tab = (typeof TABS)[number]
@@ -141,10 +143,22 @@ function Resolved({
   const opening: Tab = message && discordId && readsMessages ? 'messages' : 'overview'
   const [tab, setTab] = useOpeningTab<Tab>(opening, TABS, MOVED)
 
-  // On a phone the tabs come after the whole profile, so a tab opened from the row under the title
-  // or from the Note button at the foot would change somewhere the reader cannot see. Opening one
-  // from there brings the tabs up to the top of the screen as well.
+  // On a phone the popup is one scroll with the tabs part way down it, so a tab opened from the row
+  // under the title or from the Note button at the foot would change somewhere the reader cannot
+  // see. Opening one from there brings the tabs up to the top of the screen as well.
+  const phone = usePhoneLayout()
   const [tabsAt, openFromAbove] = useOpenFromAbove(setTab)
+
+  // A tab picked from the row itself, which on a phone stays pinned under the header. Picked
+  // while the reader was far down the last tab, the new one would open at that same depth,
+  // part way through; it starts at its top instead. Picked from the top of the popup, nothing moves.
+  const pick = (next: Tab) => {
+    setTab(next)
+    const at = tabsAt.current
+    const row = at?.querySelector('[role="tablist"]')
+    if (at && row && isPhoneLayout() && row.getBoundingClientRect().top > at.getBoundingClientRect().top + 1)
+      requestAnimationFrame(() => at.scrollIntoView({ block: 'start' }))
+  }
 
   // Bumped after a kick, ban or unban, or a note written or taken back, which remounts the cards
   // that read what Modbot stores.
@@ -212,19 +226,76 @@ function Resolved({
     ...(account === null && person.canSeeAccount ? ['Modbot'] : []),
   ]
 
+  // The accounts, as a column on a desk and at the top of Overview on a phone, where a column
+  // stacked above the tabs put the tab row at the bottom of the first screen (mobile review
+  // 2026-09-28, #4). Drawn in one place or the other, never both, so nothing is read twice.
+  const accounts = (
+    <>
+      {!vrchatId && discordId && seesMembers ? (
+        member.error ? (
+          <Empty tone="danger">{member.error}</Empty>
+        ) : !member.data ? (
+          <Empty>Loading…</Empty>
+        ) : (
+          <Block>
+            <DiscordIdentity read={member} />
+          </Block>
+        )
+      ) : null}
+
+      {missing.length > 0 && <Empty>{notLinkedTo(missing)}</Empty>}
+
+      {person.discord && seesProfile && (
+        <DiscordLinkCard key={live} side={person.discord} vrchatUserId={vrchatId} me={me} />
+      )}
+
+      {account && <AccountCard account={account} />}
+
+      {vrchatId && seesMembers && (
+        <MembershipCard
+          subjectId={vrchatId}
+          view={membership.data}
+          error={membership.error}
+          me={me}
+          onActed={() => setActed((n) => n + 1)}
+        />
+      )}
+    </>
+  )
+
+  // On a phone the header is the identity: the picture beside the name, and every badge under
+  // it. The banner is left out; a strip of decoration is not worth a third of the first screen.
+  const picture = vrchatMedia(stored.profile?.profilePictureUrl)
+
   return (
     <PopupFrame
       title={name ?? shownId}
       subtitle={
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {vrchatId && (
-            <ProfileBadges tags={null} lastPlatform={stored.profile?.lastPlatform} rank={stored.profile?.trustRank} />
+            <ProfileBadges
+              tags={phone ? stored.profile?.tags : null}
+              lastPlatform={stored.profile?.lastPlatform}
+              rank={stored.profile?.trustRank}
+            />
           )}
+          {vrchatId && phone && <ProfileMark stored={stored} me={me} />}
           <CopyId id={shownId} />
         </span>
       }
-      lead={lead}
       actions={<PopupMenu onRawData={() => openFromAbove('json')} />}
+      lead={
+        <>
+          {lead}
+          {vrchatId && phone && stored.profile && (
+            picture ? (
+              <img src={picture} alt="" className="size-10 shrink-0 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="size-10 shrink-0 rounded-full bg-muted" />
+            )
+          )}
+        </>
+      }
       standing={
         <StandingBar
           person={person}
@@ -252,53 +323,47 @@ function Resolved({
         />
       }
       left={
-        <>
-          {vrchatId ? (
-            stored.error ? (
-              <Empty tone="danger">{stored.error}</Empty>
-            ) : !stored.profile ? (
-              <Empty>Loading…</Empty>
-            ) : (
-              <Block>
-                <ProfileIdentity stored={stored} me={me} />
-              </Block>
-            )
-          ) : discordId && seesMembers ? (
-            member.error ? (
-              <Empty tone="danger">{member.error}</Empty>
-            ) : !member.data ? (
-              <Empty>Loading…</Empty>
-            ) : (
-              <Block>
-                <DiscordIdentity read={member} />
-              </Block>
-            )
-          ) : null}
-
-          {missing.length > 0 && <Empty>{notLinkedTo(missing)}</Empty>}
-
-          {person.discord && seesProfile && (
-            <DiscordLinkCard key={live} side={person.discord} vrchatUserId={vrchatId} me={me} />
-          )}
-
-          {account && <AccountCard account={account} />}
-
-          {vrchatId && seesMembers && (
-            <MembershipCard
-              subjectId={vrchatId}
-              view={membership.data}
-              error={membership.error}
-              me={me}
-              onActed={() => setActed((n) => n + 1)}
-            />
-          )}
-        </>
+        phone ? null : (
+          <>
+            {vrchatId &&
+              (stored.error ? (
+                <Empty tone="danger">{stored.error}</Empty>
+              ) : !stored.profile ? (
+                <Empty>Loading…</Empty>
+              ) : (
+                <Block>
+                  <ProfileIdentity stored={stored} me={me} />
+                </Block>
+              ))}
+            {accounts}
+          </>
+        )
       }
     >
-      <div ref={tabsAt} className="flex min-h-0 flex-1 flex-col">
-        <Tabs value={tab} onChange={setTab} tabs={tabs} className="flex-1">
+      {/* On a phone the tab row stays pinned under the header and the tab grows with the popup,
+          which is the one scroll. A tab that scrolled on its own inside a popup that also
+          scrolled showed about 50px of itself, and every tab stays in sight on two lines rather
+          than one running off the edge. `flex-auto` there rather than `flex-1`, so each part is
+          as tall as what it holds and the pinned row is held for the whole length of the tab. */}
+      <div ref={tabsAt} className="flex min-h-0 flex-auto flex-col big:flex-1">
+        <Tabs
+          value={tab}
+          onChange={pick}
+          tabs={tabs}
+          wrap={phone}
+          className="flex-auto big:flex-1"
+          rowClassName="sticky top-0 z-10 bg-card big:static"
+          panelClassName="flex-auto overflow-visible big:flex-1 big:overflow-auto"
+        >
           {tab === 'overview' && (
-            <Overview key={fresh} person={person} me={me} stored={stored} onMore={setTab} />
+            <Overview
+              key={fresh}
+              person={person}
+              me={me}
+              stored={stored}
+              onMore={pick}
+              accounts={phone ? accounts : null}
+            />
           )}
           {tab === 'logs' && <Logs key={fresh} person={person} />}
           {tab === 'notes' && notesId && (
@@ -409,20 +474,28 @@ function usePersonFacts(person: PersonView, limit: number) {
   return useLoad(load)
 }
 
-/** The glance: the profile, how often they have been acted on, where they have been, and the newest facts. */
+/**
+ * The glance: the profile, how often they have been acted on, where they have been, and the newest facts.
+ *
+ * On a phone `accounts` is the desk's left column, drawn first, and the profile panel also holds
+ * what the header has no room for: pronouns, the group they represent, and how old the reading is.
+ */
 function Overview({
   person,
   me,
   stored,
   onMore,
+  accounts,
 }: {
   person: PersonView
   me: CurrentUser
   stored: StoredProfile
   onMore: (tab: Tab) => void
+  accounts: React.ReactNode
 }) {
   const seesProfile = can(me, 'ViewProfile')
   const vrchatId = person.vrChat?.id ?? null
+  const phone = accounts != null
 
   const facts = usePersonFacts(person, 8)
 
@@ -431,10 +504,25 @@ function Overview({
 
   return (
     <div className="flex flex-col">
-      {seesProfile && stored.profile?.known && stored.profile.lastRefreshedAt && (
-        <Panel title="Profile">
-          <ProfileDetails stored={stored} />
-        </Panel>
+      {accounts}
+
+      {phone && vrchatId ? (
+        stored.error ? (
+          <Empty tone="danger">{stored.error}</Empty>
+        ) : !stored.profile ? (
+          <Empty>Loading…</Empty>
+        ) : (
+          <Panel title="Profile">
+            <ProfileIdentity stored={stored} me={me} compact />
+            {seesProfile && <ProfileDetails stored={stored} />}
+          </Panel>
+        )
+      ) : (
+        seesProfile && stored.profile?.known && stored.profile.lastRefreshedAt && (
+          <Panel title="Profile">
+            <ProfileDetails stored={stored} />
+          </Panel>
+        )
       )}
 
       {seesProfile && vrchatId && <SubjectHistory subjectId={vrchatId} />}
@@ -655,7 +743,7 @@ function MembershipCard({
           <p className="text-muted-foreground">{demo ? 'Demo data.' : <Checked view={view} />}</p>
 
           {/* On a phone these are in the row pinned to the foot of the popup instead. */}
-          <div className="hidden md:block">
+          <div className="hidden big:block">
             <ModerationActions
               me={me}
               person={{ userId: subjectId, banned: view.banned, isMember: view.isMember }}

@@ -15,6 +15,10 @@ import { vrchatMedia } from '@/lib/vrchatMedia'
  * looks the same in both. `pictureUrl` is the picture the server chose as the best it has; nothing
  * here falls back to another field, because the server already did. The represented group is a
  * row and not a link: it is whichever group the person chose to show, not one Modbot knows about.
+ *
+ * `compact` draws only the pronouns and the group, for the person popup on a phone, whose header
+ * already carries the picture, the name and the badges. There the banner cost a third of the
+ * screen above the tabs, and the name was drawn twice.
  */
 export function ProfileHeader({
   bannerUrl,
@@ -27,6 +31,7 @@ export function ProfileHeader({
   rank,
   representedGroup,
   marks,
+  compact = false,
   className,
 }: {
   bannerUrl: string | null | undefined
@@ -41,11 +46,34 @@ export function ProfileHeader({
   representedGroup: { groupId?: string | null; name?: string | null; iconUrl?: string | null } | null | undefined
   /** Anything else that belongs beside the name, such as the 18+ mark. */
   marks?: React.ReactNode
+  compact?: boolean
   className?: string
 }) {
   const banner = vrchatMedia(bannerUrl)
   const picture = vrchatMedia(pictureUrl)
   const groupIcon = vrchatMedia(representedGroup?.iconUrl)
+
+  const group = representedGroup?.name && (
+    <div className="flex items-center gap-1.5" title={representedGroup.groupId ?? undefined}>
+      {groupIcon ? (
+        <img src={groupIcon} alt="" className="size-5 shrink-0 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
+      ) : (
+        <span className="size-5 shrink-0 rounded-full bg-muted" />
+      )}
+      <span className="truncate">{representedGroup.name}</span>
+    </div>
+  )
+
+  if (compact) {
+    if (!pronouns && !group) return null
+
+    return (
+      <div className={cn('flex min-w-0 flex-col gap-1', className)} style={{ fontSize: 'var(--text-small)' }}>
+        {pronouns && <span className="text-muted-foreground">{pronouns}</span>}
+        {group}
+      </div>
+    )
+  }
 
   return (
     <div className={cn('flex flex-col', className)}>
@@ -84,16 +112,7 @@ export function ProfileHeader({
 
         <ProfileBadges tags={tags} lastPlatform={lastPlatform} rank={rank} />
 
-        {representedGroup?.name && (
-          <div className="flex items-center gap-1.5" title={representedGroup.groupId ?? undefined}>
-            {groupIcon ? (
-              <img src={groupIcon} alt="" className="size-5 shrink-0 rounded-full bg-muted object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="size-5 shrink-0 rounded-full bg-muted" />
-            )}
-            <span className="truncate">{representedGroup.name}</span>
-          </div>
-        )}
+        {group}
       </div>
     </div>
   )

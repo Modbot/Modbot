@@ -46,12 +46,18 @@ export function UserProfileCard({ subjectId, me }: { subjectId: string; me: Curr
 export function ProfileIdentity({
   stored,
   me,
+  compact = false,
 }: {
   stored: StoredProfile
   /** The signed-in account, for deciding whether to draw the flag control. */
   me: CurrentUser
+  /**
+   * Leaves out the banner, the picture, the name, the badges and the 18+ mark, for the person
+   * popup on a phone, which draws those in its header (`ProfileMark`).
+   */
+  compact?: boolean
 }) {
-  const { profile, error, refreshing, note, setProfile } = stored
+  const { profile, error, refreshing, note } = stored
 
   if (error) return <Empty tone="danger">{error}</Empty>
 
@@ -59,12 +65,12 @@ export function ProfileIdentity({
 
   const fetched = profile.known && profile.lastRefreshedAt
 
-  const mark = <AgeMark profile={profile} canEdit={can(me, 'EditAgeVerification')} onChanged={setProfile} />
+  const mark = compact ? null : <ProfileMark stored={stored} me={me} />
 
   return (
     <div className="flex flex-col gap-3">
       {fetched ? (
-        <Identity profile={profile} mark={mark} />
+        <Identity profile={profile} mark={mark} compact={compact} />
       ) : (
         // No header to hang the mark on, so it stands on its own: the flag is known for an id
         // whose profile has never been fetched, and it is the one thing worth saying about them.
@@ -72,7 +78,7 @@ export function ProfileIdentity({
           <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             {profile.known ? 'Profile not fetched yet.' : 'Not seen before.'}
           </p>
-          <div className="flex flex-wrap items-center gap-1">{mark}</div>
+          {mark && <div className="flex flex-wrap items-center gap-1">{mark}</div>}
         </div>
       )}
 
@@ -162,9 +168,25 @@ function Freshness({
   )
 }
 
-function Identity({ profile, mark }: { profile: VRChatUserProfile; mark: React.ReactNode }) {
+/** The 18+ mark and its card, on its own, for a header that draws the rest of the identity itself. */
+export function ProfileMark({ stored, me }: { stored: StoredProfile; me: CurrentUser }) {
+  if (!stored.profile) return null
+
+  return <AgeMark profile={stored.profile} canEdit={can(me, 'EditAgeVerification')} onChanged={stored.setProfile} />
+}
+
+function Identity({
+  profile,
+  mark,
+  compact,
+}: {
+  profile: VRChatUserProfile
+  mark: React.ReactNode
+  compact: boolean
+}) {
   return (
     <ProfileHeader
+      compact={compact}
       bannerUrl={profile.bannerUrl}
       pictureUrl={profile.profilePictureUrl}
       name={profile.displayName}

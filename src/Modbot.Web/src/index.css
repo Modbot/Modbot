@@ -16,6 +16,16 @@
 @custom-variant desk (&:where(:root:not([data-place="headset"]) *));
 @custom-variant headset (&:where([data-place="headset"] *));
 
+/* A screen big enough for a popup's two columns: `md` and up, unless it is a touch screen under
+   500px tall. A phone on its side is 800px wide and 390px tall, and by width alone it got the
+   desk's two columns, each a third of a screen high, with Kick and Ban below the fold and the
+   pinned foot hidden. `lib/phoneLayout.ts` asks the same question from script, turned round. */
+@custom-variant big {
+  @media (width >= 48rem) and (not (pointer: coarse)), (width >= 48rem) and (height > 31.25rem) {
+    @slot;
+  }
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    Modbot design tokens.
 

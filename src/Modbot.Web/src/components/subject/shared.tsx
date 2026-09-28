@@ -231,7 +231,9 @@ export function CopyId({ id }: { id: string }) {
         onClick={copy}
         title={id}
         aria-label="Copy id"
-        className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1 -mx-1 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+        // The line of text is 20px tall, too small for a finger, and a taller button would push the
+        // header down. So the part that takes a tap reaches past it, to a control's height.
+        className="relative inline-flex min-w-0 items-center gap-1 rounded-sm px-1 -mx-1 text-muted-foreground outline-none after:absolute after:inset-x-0 after:inset-y-[calc((100%-var(--control-h))/2)] hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
       >
         <span className="max-w-[14rem] truncate font-mono">{id}</span>
         {state === 'copied' ? <Check className="size-3 shrink-0 text-ok" /> : <Copy className="size-3 shrink-0" />}
@@ -251,6 +253,9 @@ export function CopyId({ id }: { id: string }) {
  * On a phone it is the screen, edge to edge, with no gutter and no corners. This is the screen a
  * moderator spends the most time on, and a popup floating inside a 16px margin spends 32px of a
  * 390px screen on the page behind it, which they are not reading.
+ *
+ * Which of the two it is comes from the `big` variant rather than from `md`, so a phone on its
+ * side keeps the one column and the pinned foot (`lib/phoneLayout.ts`).
  */
 export function PopupFrame({
   title,
@@ -280,30 +285,30 @@ export function PopupFrame({
       lead={lead}
       actions={actions}
       aria-describedby={undefined}
-      foot={foot ? <div className="shrink-0 md:hidden">{foot}</div> : undefined}
+      foot={foot ? <div className="shrink-0 big:hidden">{foot}</div> : undefined}
       className={cn(
         'top-0 left-0 h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0',
-        'md:top-1/2 md:left-1/2 md:h-[calc(100dvh-2rem)] md:w-[calc(100vw-2rem)] md:max-w-[100rem]',
-        'md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-sm md:border',
+        'big:top-1/2 big:left-1/2 big:h-[calc(100dvh-2rem)] big:w-[calc(100vw-2rem)] big:max-w-[100rem]',
+        'big:-translate-x-1/2 big:-translate-y-1/2 big:rounded-sm big:border',
       )}
       // `minmax(0,1fr)` on the one-column case as well: a bare `grid` sizes its column to the
       // widest thing in it, so the stacked popup was as wide as its widest table and scrolled
       // sideways as a whole rather than letting the table scroll inside itself.
       bodyClassName={cn(
-        'grid grid-cols-[minmax(0,1fr)] content-start overflow-auto p-0 md:grid-cols-[22rem_minmax(0,1fr)] md:overflow-hidden',
-        standing ? 'md:grid-rows-[auto_minmax(0,1fr)]' : 'md:grid-rows-[minmax(0,1fr)]',
+        'grid grid-cols-[minmax(0,1fr)] content-start overflow-auto p-0 big:grid-cols-[22rem_minmax(0,1fr)] big:overflow-hidden',
+        standing ? 'big:grid-rows-[auto_minmax(0,1fr)]' : 'big:grid-rows-[minmax(0,1fr)]',
       )}
     >
-      {standing && <div className="md:col-span-2">{standing}</div>}
+      {standing && <div className="big:col-span-2">{standing}</div>}
       {/* Every block in the column draws the hairline under itself, so the column draws only
           the one beside it. */}
-      <aside className="flex flex-col md:overflow-auto md:border-r md:border-r-(length:--hairline)">
+      <aside className="flex flex-col big:overflow-auto big:border-r big:border-r-(length:--hairline)">
         {left}
       </aside>
       {/* On a phone the tabs are at least a screen tall. Left to size themselves, they were
           squeezed into whatever the left column left over -- a few rows under a long profile --
           and the popup never scrolled, so the tab a reader had just opened stayed out of sight. */}
-      <div className="flex min-h-[calc(100dvh-6rem)] flex-col md:min-h-0">{children}</div>
+      <div className="flex min-h-[calc(100dvh-6rem)] flex-col big:min-h-0">{children}</div>
     </DialogContent>
   )
 }
