@@ -76,6 +76,7 @@ export function concernsInstance(event: LiveEvent, vrChatInstanceId: string | nu
 export function auditMatches(event: LiveEvent, query: Omit<AuditRequest, 'limit' | 'before'>): boolean {
   if (query.source?.length && !query.source.includes(event.source)) return false
   if (query.type?.length && !query.type.includes(event.type)) return false
+  if (query.notType?.includes(event.type)) return false
   if (query.category && query.category.toLowerCase() !== event.category.toLowerCase()) return false
 
   if (query.subject && event.subject.id !== query.subject) return false
