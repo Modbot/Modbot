@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Popover } from 'radix-ui'
-import { Check, ListFilter, X } from 'lucide-react'
+import { Check, ChevronDown, ListFilter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
@@ -41,15 +41,27 @@ export function FilterBar({
   children?: React.ReactNode
 }) {
   const [adding, setAdding] = useState(false)
+  // Below `md` the chips fold behind one button, so the list starts a control's height down the
+  // screen instead of two or three rows of chips down. Folding is a phone's business only: the
+  // classes below do nothing from `md` up, whatever this says.
+  const [unfolded, setUnfolded] = useState(false)
+  const folded = chips.length > 0 && !unfolded
   const byId = useMemo(() => new Map(properties.map((p) => [p.id, p])), [properties])
   const bar = useRef<HTMLDivElement>(null)
 
   // The picker hangs from the bar, so a list scrolled past it would open the picker above the top
   // of the screen: from `f`, or from the Actions sheet at the foot of a phone. The middle rather
   // than the nearest edge, which is under the page's sticky title.
+  // Unfolded too, or on a phone the picker would hang from a button that is not on the screen.
   const add = () => {
     bar.current?.scrollIntoView({ block: 'center' })
+    setUnfolded(true)
     setAdding(true)
+  }
+
+  const clear = () => {
+    onChange([])
+    setUnfolded(false)
   }
 
   useShortcuts([
@@ -63,7 +75,7 @@ export function FilterBar({
       run: () => onChange(chips.slice(0, -1)),
     },
     ...(chips.length > 0
-      ? [{ label: 'Clear filters', group: 'Filters' as const, page: true, run: () => onChange([]) }]
+      ? [{ label: 'Clear filters', group: 'Filters' as const, page: true, run: clear }]
       : []),
   ])
 
@@ -76,24 +88,38 @@ export function FilterBar({
 
   return (
     <div ref={bar} className="flex flex-wrap items-center gap-2" style={{ fontSize: 'var(--text-small)' }}>
-      {chips.map((chip) => {
-        const property = byId.get(chip.property)
-        if (!property) return null
-        return <Chip key={chip.property} property={property} chip={chip} onChange={replace} onRemove={() => remove(chip.property)} />
-      })}
-
-      <AddFilter
-        open={adding}
-        onOpenChange={setAdding}
-        properties={properties.filter((p) => !chips.some((c) => c.property === p.id))}
-        onAdd={replace}
-      />
-
       {chips.length > 0 && (
-        <Button variant="ghost" onClick={() => onChange([])}>
-          Clear
+        <Button variant="outline" className="md:hidden" aria-expanded={!folded} onClick={() => setUnfolded(folded)}>
+          <ListFilter className="size-3.5" />
+          Filter
+          <span className="font-mono">{chips.length}</span>
+          <ChevronDown className={cn('size-3.5 transition-transform', !folded && 'rotate-180')} aria-hidden />
         </Button>
       )}
+
+      {/* No box of its own from `md` up, so the chips sit in the bar exactly as they always have. */}
+      <div className={cn('contents', folded && 'max-md:hidden')}>
+        {chips.map((chip) => {
+          const property = byId.get(chip.property)
+          if (!property) return null
+          return <Chip key={chip.property} property={property} chip={chip} onChange={replace} onRemove={() => remove(chip.property)} />
+        })}
+
+        <AddFilter
+          open={adding}
+          onOpenChange={setAdding}
+          properties={properties.filter((p) => !chips.some((c) => c.property === p.id))}
+          onAdd={replace}
+          // Beside "Filter 2" on a phone, a second "Filter" would read as the same button.
+          phoneLabel={chips.length > 0 ? 'Add' : undefined}
+        />
+
+        {chips.length > 0 && (
+          <Button variant="ghost" onClick={clear}>
+            Clear
+          </Button>
+        )}
+      </div>
 
       {/* The right end, as one item rather than a spacer and a row of loose ones. A bare
           `flex-1` spacer between them is a flex item of its own: when the bar wraps it can land
@@ -192,18 +218,28 @@ function AddFilter({
   onOpenChange,
   properties,
   onAdd,
+  phoneLabel,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   properties: FilterProperty[]
   onAdd: (chip: FilterChip) => void
+  /** The button's word below `md`, where it is not "Filter". */
+  phoneLabel?: string
 }) {
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>
         <Button variant="outline">
           <ListFilter className="size-3.5" />
-          Filter
+          {phoneLabel ? (
+            <>
+              <span className="max-md:hidden">Filter</span>
+              <span className="md:hidden">{phoneLabel}</span>
+            </>
+          ) : (
+            'Filter'
+          )}
           <Kbd keys="f" />
         </Button>
       </Popover.Trigger>
