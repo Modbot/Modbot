@@ -294,8 +294,11 @@ export function PopupFrame({
       // `minmax(0,1fr)` on the one-column case as well: a bare `grid` sizes its column to the
       // widest thing in it, so the stacked popup was as wide as its widest table and scrolled
       // sideways as a whole rather than letting the table scroll inside itself.
+      // `auto-rows-max` because the body is a fixed height: its rows were sized to the tabs'
+      // minimum height rather than to what they hold, and the rest of a long tab spilled out of a
+      // row that ended a screen down, taking the pinned tab row's hold with it.
       bodyClassName={cn(
-        'grid grid-cols-[minmax(0,1fr)] content-start overflow-auto p-0 big:grid-cols-[22rem_minmax(0,1fr)] big:overflow-hidden',
+        'grid auto-rows-max grid-cols-[minmax(0,1fr)] content-start overflow-auto p-0 big:auto-rows-auto big:grid-cols-[22rem_minmax(0,1fr)] big:overflow-hidden',
         standing ? 'big:grid-rows-[auto_minmax(0,1fr)]' : 'big:grid-rows-[minmax(0,1fr)]',
       )}
     >
