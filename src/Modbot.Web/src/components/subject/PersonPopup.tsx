@@ -337,7 +337,8 @@ const VRCHAT = 'VRChat'
 const DISCORD = 'Discord'
 const ACCOUNT = 'Modbot account'
 
-type MergedFacts = { entries: AuditEntry[]; from: Map<number, string> }
+/** `now` is the server's clock from the reads; empty only when there was nothing to read. */
+type MergedFacts = { entries: AuditEntry[]; from: Map<number, string>; now: string }
 
 /**
  * Every fact about or by any of this person's accounts, newest first.
@@ -355,7 +356,7 @@ function usePersonFacts(person: PersonView, limit: number) {
   const accountId = person.account?.id ?? null
 
   const load = useCallback(async (): Promise<MergedFacts> => {
-    const asks: { from: string; page: Promise<{ entries: AuditEntry[] }> }[] = []
+    const asks: { from: string; page: Promise<{ entries: AuditEntry[]; now: string }> }[] = []
 
     if (vrchatId) {
       asks.push({ from: VRCHAT, page: api.audit({ subject: vrchatId, subjectPlatform: 'VRChat', limit }) })
@@ -385,7 +386,7 @@ function usePersonFacts(person: PersonView, limit: number) {
     })
 
     entries.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt) || b.id - a.id)
-    return { entries: entries.slice(0, limit), from }
+    return { entries: entries.slice(0, limit), from, now: pages[0]?.now ?? '' }
   }, [vrchatId, discordId, accountId, limit])
 
   return useLoad(load)
@@ -442,6 +443,7 @@ function Overview({
           <FactList
             entries={facts.data.entries}
             empty="Nothing recorded yet."
+            now={facts.data.now}
             from={(entry) => facts.data!.from.get(entry.id)}
           />
         )}
@@ -458,7 +460,12 @@ function Logs({ person }: { person: PersonView }) {
       {error && <EmptyRow tone="danger">{error}</EmptyRow>}
       {!error && !data && <EmptyRow>Loading…</EmptyRow>}
       {data && (
-        <FactList entries={data.entries} empty="Nothing recorded yet." from={(entry) => data.from.get(entry.id)} />
+        <FactList
+          entries={data.entries}
+          empty="Nothing recorded yet."
+          now={data.now}
+          from={(entry) => data.from.get(entry.id)}
+        />
       )}
     </Panel>
   )

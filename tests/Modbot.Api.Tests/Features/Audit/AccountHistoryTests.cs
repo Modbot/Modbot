@@ -169,4 +169,24 @@ public class AccountHistoryTests
 
         Assert.Empty(page.Entries);
     }
+
+    [Fact]
+    public async Task APageSaysWhatTimeTheServerThinksItIs()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+
+        var now = new DateTimeOffset(2026, 9, 27, 21, 0, 0, TimeSpan.Zero);
+        host.Clock.UtcNow = now;
+
+        await host.WriteFactAsync(SomebodyElsesBan(Day), Ct);
+
+        var cookie = await host.SignedInAsync(BothLogs, Ct);
+        var page = await host.GetJsonAsync<AuditPage>("/api/audit", cookie, Ct);
+        var empty = await host.GetJsonAsync<AuditPage>($"/api/audit?account={Guid.CreateVersion7()}", cookie, Ct);
+
+        // The web app heads its lists "Today" and "Yesterday" from this, not from the browser.
+        Assert.Equal(now, page.Now);
+        Assert.Equal(now, empty.Now);
+    }
 }

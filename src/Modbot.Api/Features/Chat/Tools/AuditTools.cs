@@ -4,6 +4,7 @@ using Modbot.AI.Chat;
 using Modbot.Api.Features.Audit;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Chat.Tools;
 
@@ -35,8 +36,9 @@ internal static class AuditSearch
             return [];
 
         var db = (ModbotContext)context.Services.GetService(typeof(ModbotContext))!;
+        var clock = (IModbotClock)context.Services.GetService(typeof(IModbotClock))!;
         var page = await new AuditQuery(db).PageAsync(
-            new AuditRequest(visible, [], subjectId, null, actorId, null, from, to, null, limit), ct);
+            new AuditRequest(visible, [], subjectId, null, actorId, null, from, to, null, limit), clock.UtcNow, ct);
 
         return page.Entries;
     }

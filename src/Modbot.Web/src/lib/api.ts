@@ -771,6 +771,8 @@ export type AuditPage = {
   entries: AuditEntry[]
   next: AuditCursor | null
   coverage: AuditCoverage
+  /** The server's clock when the page was read, for "Today" and "Yesterday". */
+  now: string
 }
 
 export type AuditActor = { platform: string; id: string; name: string | null; actions: number }

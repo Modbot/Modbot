@@ -19754,7 +19754,8 @@
         "required": [
           "entries",
           "next",
-          "coverage"
+          "coverage",
+          "now"
         ],
         "type": "object",
         "properties": {
@@ -19776,6 +19777,10 @@
           },
           "coverage": {
             "$ref": "#/components/schemas/AuditCoverage"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

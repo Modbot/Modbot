@@ -55,6 +55,31 @@ export function formatDay(iso: string, withYear: boolean = needsYear(iso)): stri
   })
 }
 
+/** The viewer's own calendar day an instant falls on, as "2026-09-27", for telling two days apart. */
+export function localDayKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * A day as a list heading: "Today", "Yesterday", otherwise "Sep 25", with the year when it is not
+ * the year `now` is in.
+ *
+ * `now` is the server's clock, as with {@link ago}: a heading that says "Today" over last night's
+ * rows because the browser's clock is wrong answers "when did this happen?" wrongly. The day
+ * boundaries are the viewer's own, since "yesterday" means the day before theirs.
+ */
+export function dayHeading(iso: string, now: string): string {
+  const day = localDayKey(iso)
+  if (day === localDayKey(now)) return 'Today'
+
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (day === localDayKey(yesterday.toISOString())) return 'Yesterday'
+
+  return formatDay(iso, new Date(iso).getFullYear() !== new Date(now).getFullYear())
+}
+
 /** Two days as one range, "Aug 28 – Sep 26": both with the year, or neither. */
 export function formatDayRange(from: string, to: string): string {
   const withYear = needsYear(from, to)

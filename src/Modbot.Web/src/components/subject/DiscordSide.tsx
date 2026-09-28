@@ -137,7 +137,7 @@ export function DiscordHistory({ id, read }: { id: string; read: DiscordMemberRe
       <Panel title="In the server" flush>
         {error && <EmptyRow tone="danger">{error}</EmptyRow>}
         {!error && !data && <EmptyRow>Loading…</EmptyRow>}
-        {data && <FactList entries={data.entries} empty="Nothing recorded yet." />}
+        {data && <FactList entries={data.entries} empty="Nothing recorded yet." now={data.now} />}
       </Panel>
     </div>
   )
