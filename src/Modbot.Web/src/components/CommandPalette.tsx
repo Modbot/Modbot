@@ -38,6 +38,8 @@ type Item = {
   group: string
   label: string
   detail?: string
+  /** The detail is only an id, which a phone leaves out for the name's sake. */
+  detailIsId?: boolean
   standing?: Standing[]
   keys?: string
   picture?: string | null
@@ -181,6 +183,7 @@ function Palette({
             group: 'Worlds',
             label: w.name ?? w.worldId,
             detail: w.name ? w.worldId : undefined,
+            detailIsId: true,
             picture: w.thumbnailImageUrl,
             run: () => openWorld(w.worldId),
           })),
@@ -261,7 +264,15 @@ function Palette({
       <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-foreground/30 dark:bg-background/70" />
       <DialogPrimitive.Content
         aria-describedby={undefined}
-        className="fixed top-[12vh] left-1/2 z-50 flex max-h-[70vh] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 flex-col overflow-hidden rounded-sm border border-(length:--hairline) bg-card text-card-foreground shadow-sm outline-none"
+        className={cn(
+          'fixed top-[12vh] left-1/2 z-50 flex max-h-[70vh] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2 flex-col overflow-hidden rounded-sm border border-(length:--hairline) bg-card text-card-foreground shadow-sm outline-none',
+          // On a phone, along the top of what is in sight and ending above the on-screen keyboard
+          // (lib/visibleArea.ts): 70vh does not shrink for the keyboard on iOS, and a long list
+          // ran under it. Clear of the notch, since the page draws under it (viewport-fit=cover).
+          'sheet:top-[var(--visible-top,0px)] sheet:left-0 sheet:w-full sheet:max-w-none sheet:translate-x-0',
+          'sheet:max-h-[calc(var(--visible-h,100dvh)*0.85)] sheet:rounded-t-none sheet:border-x-0 sheet:border-t-0',
+          'sheet:pt-[env(safe-area-inset-top)] sheet:pr-[env(safe-area-inset-right)] sheet:pl-[env(safe-area-inset-left)]',
+        )}
       >
         <DialogPrimitive.Title className="sr-only">Search and commands</DialogPrimitive.Title>
 
@@ -340,8 +351,16 @@ function Palette({
                 >
                   {item.picture !== undefined && <Avatar url={item.picture} className="size-6" />}
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  {/* At most half the row, so a long id is cut short rather than the name: a world's
+                      full id squeezed its name to one letter on a phone (mobile review, #13). */}
                   {item.detail && (
-                    <span className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
+                    <span
+                      className={cn(
+                        'max-w-[50%] truncate font-mono text-muted-foreground',
+                        item.detailIsId && 'max-sm:hidden',
+                      )}
+                      style={{ fontSize: 'var(--text-tiny)' }}
+                    >
                       {item.detail}
                     </span>
                   )}
