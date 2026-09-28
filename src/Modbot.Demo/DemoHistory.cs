@@ -97,6 +97,8 @@ public sealed class DemoHistory
 
         state.Advance(facts.Count);
 
+        await GroupReadingsAsync(plan, state, ct);
+
         await MessagesAsync(plan, state, ct);
 
         state.Begin("Working out the totals");
@@ -213,7 +215,8 @@ public sealed class DemoHistory
     /// One baseline at the start of the history and then one fact a day, on the days the count
     /// actually moved -- the same sparse series a real poll produces, because a fact per poll
     /// saying nothing changed is exactly what <see cref="GroupInfoSnapshot.DifferencesFrom"/>
-    /// exists to prevent. My Group's member count reads these and nothing else.
+    /// exists to prevent. The Members figure on the Stats page reads these; the member count chart
+    /// and the peaks read the readings (<see cref="GroupReadingsAsync"/>).
     /// </remarks>
     private static IEnumerable<FactRecord> GroupInfo(DemoPlan plan)
     {
@@ -266,6 +269,62 @@ public sealed class DemoHistory
             Source = FactSource.SyncDiff,
             Data = data,
         };
+
+    /// <summary>How many readings are saved at a time.</summary>
+    private const int ReadingsPerSave = 5000;
+
+    /// <summary>
+    /// The group's member count and online count, one reading per poll across the whole year, as
+    /// the group-info sync keeps them (<c>group_member_count</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A real sync saves a reading on every poll whether or not anything changed, and the member
+    /// count chart and the Most members and Most online figures read those and not the facts. A demo
+    /// with only the facts drew the chart as a dashed line carried from them and printed a dash for
+    /// both peaks.
+    /// </para>
+    /// <para>
+    /// The polls are the sync's own default spacing, counted from the start of the history, so every
+    /// one of <see cref="GroupInfo"/>'s facts falls on a poll and its reading says the same thing; the
+    /// last is at the present moment. Every retention window is "keep it" in the demo (demo mode
+    /// design §4.2), so a year-old deployment would still hold all of them.
+    /// </para>
+    /// </remarks>
+    private async Task GroupReadingsAsync(DemoPlan plan, DemoState state, CancellationToken ct)
+    {
+        var every = new GroupInfoSyncOptions().Interval;
+        var times = new List<DateTimeOffset>();
+
+        for (var at = plan.Now.AddDays(-DemoPlan.DaysOfHistory); at <= plan.Now; at += every)
+            times.Add(at);
+
+        state.Begin("Reading the group's member count", times.Count);
+
+        var written = 0;
+
+        foreach (var (at, members, online) in DemoGroupInfo.CountsAt(plan, times))
+        {
+            _db.GroupMemberCounts.Add(new GroupMemberCount
+            {
+                GroupId = plan.GroupId,
+                CountedAt = at,
+                MemberCount = members,
+                OnlineMemberCount = online,
+            });
+
+            if (++written % ReadingsPerSave == 0)
+            {
+                await _db.SaveChangesAsync(ct);
+                _db.ChangeTracker.Clear();
+                state.Advance(written);
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        _db.ChangeTracker.Clear();
+        state.Advance(written);
+    }
 
     private static IEnumerable<FactRecord> Instances(DemoPlan plan)
     {

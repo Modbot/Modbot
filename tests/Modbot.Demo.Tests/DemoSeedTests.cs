@@ -291,9 +291,9 @@ public class DemoSeedTests
         Assert.True(await host.Db.RepeatOffenders.AnyAsync(o => o.Actions > 1, ct));
         Assert.True(await host.Db.ModeratorBaselines.AnyAsync(ct));
 
-        // My Group's member count is read out of the group's own facts and nothing else -- it is a
-        // level, and no daily total adds up to it. A demo with none showed an empty chart and a
-        // dash where the headcount goes, beside full joins and leaves charts.
+        // The Members figure is read out of the group's own facts -- it is a level, and no daily
+        // total adds up to it. A demo with none showed an empty chart and a dash where the
+        // headcount goes, beside full joins and leaves charts.
         var group = await host.Db.Events.AsNoTracking()
             .Where(e => e.Type == FactType.GroupInfoChanged)
             .OrderBy(e => e.OccurredAt)
@@ -312,6 +312,84 @@ public class DemoSeedTests
         Assert.True(counts.Count > 30, $"Only {counts.Count} of {group.Count} group facts carried a member count.");
         Assert.True(counts[^1] > 100, $"The group ended the year with {counts[^1]} members.");
         Assert.True(counts[^1] > counts[0], "The group never grew.");
+
+        await TheMemberCountIsReadEveryPollAsync(host, ct);
+    }
+
+    /// <summary>
+    /// The member count chart and the Most members and Most online figures read the sync's readings,
+    /// not the facts. A demo with only the facts drew a dashed line and two dashes.
+    /// </summary>
+    private static async Task TheMemberCountIsReadEveryPollAsync(DemoSeedHost host, CancellationToken ct)
+    {
+        var now = host.Clock.UtcNow;
+        var settings = await host.Db.GetSettingsAsync(ct);
+
+        var readings = await host.Db.GroupMemberCounts.AsNoTracking()
+            .OrderBy(c => c.CountedAt)
+            .ToListAsync(ct);
+
+        Assert.NotEmpty(readings);
+        Assert.All(readings, r => Assert.Equal(settings.ManagedGroupId, r.GroupId));
+
+        // One a poll, every poll, from the start of the history up to the present moment.
+        var every = new Modbot.VRChat.Sync.GroupInfoSyncOptions().Interval;
+        Assert.Equal(now, readings[^1].CountedAt);
+        Assert.Equal(now.AddDays(-DemoPlan.DaysOfHistory), readings[0].CountedAt);
+        Assert.All(readings.Zip(readings.Skip(1)), p => Assert.Equal(every, p.Second.CountedAt - p.First.CountedAt));
+
+        Assert.True(readings.Max(r => r.OnlineMemberCount) > 0, "Nobody was ever online.");
+
+        // A fact and the reading taken by the same poll say the same thing.
+        var byTime = readings.ToDictionary(r => r.CountedAt);
+
+        var facts = await host.Db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.GroupInfoChanged)
+            .Select(e => new { At = e.OccurredBefore ?? e.OccurredAt, e.Data })
+            .ToListAsync(ct);
+
+        foreach (var fact in facts)
+        {
+            var data = JsonNode.Parse(fact.Data)!.AsObject();
+            var members = data["changed"]?["MemberCount"]?["new"] ?? data["baseline"]?["MemberCount"];
+
+            Assert.True(byTime.TryGetValue(fact.At, out var reading), $"No reading at {fact.At:O}, where a fact is.");
+
+            if (members is not null)
+                Assert.Equal(members.GetValue<int>(), reading.MemberCount);
+        }
+    }
+
+    /// <summary>
+    /// The one-pass count the readings are written from agrees with counting everybody at the moment.
+    /// </summary>
+    [Fact]
+    public void TheMemberCountAtEveryMomentIsWhoWasInTheGroupAndWhoWasInAnInstance()
+    {
+        var plan = DemoPlan.Build(new DateTimeOffset(2026, 9, 16, 12, 0, 0, TimeSpan.Zero));
+
+        var times = new List<DateTimeOffset>();
+        for (var at = plan.Now.AddDays(-DemoPlan.DaysOfHistory - 1); at <= plan.Now; at += TimeSpan.FromMinutes(97))
+            times.Add(at);
+
+        // The exact moments things happen, where an off-by-one in "from" or "until" would show.
+        times.AddRange(plan.People.Take(40).Select(p => p.JoinedGroupAt));
+        times.AddRange(plan.People.Where(p => p.LeftGroupAt is not null).Take(40).Select(p => p.LeftGroupAt!.Value));
+        times.AddRange(plan.Instances.SelectMany(r => r.Visits).Take(200).SelectMany(v => new[] { v.Arrived, v.Left ?? v.Arrived }));
+        times.Add(plan.Now);
+        times = [.. times.Where(t => t <= plan.Now).Distinct().Order()];
+
+        foreach (var (at, members, online) in DemoGroupInfo.CountsAt(plan, times))
+        {
+            var expectedMembers = plan.People.Count(p => p.JoinedGroupAt <= at && (p.LeftGroupAt is null || p.LeftGroupAt > at));
+
+            var expectedOnline = plan.Instances
+                .Where(r => r.OpenedAt <= at && (r.ClosedAt is null || r.ClosedAt > at))
+                .Sum(r => r.Visits.Count(v => v.Arrived <= at && (v.Left is null || v.Left > at)));
+
+            Assert.Equal(expectedMembers, members);
+            Assert.Equal(expectedOnline, online);
+        }
     }
 
     private static async Task TheLivePageHasInstancesOpenWithPeopleInThemAsync(DemoSeedHost host, CancellationToken ct)
