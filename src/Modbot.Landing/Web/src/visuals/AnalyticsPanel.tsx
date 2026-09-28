@@ -102,8 +102,8 @@ function Team() {
   ]
   return (
     <>
-      <Stats stats={[['Moderators active', '7'], ['Actions', '63'], ['Coverage gaps', '9'], ['Instances nobody watched', '4']]} />
-      <ChartTitle>Coverage gaps</ChartTitle>
+      <Stats stats={[['Moderators active', '7'], ['Actions', '63'], ['Left without a moderator', '9'], ['Instances with no moderator in them', '4']]} />
+      <ChartTitle>Left without a moderator</ChartTitle>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[30rem]" style={{ fontSize: 'var(--text-small)' }}>
           <thead className="text-left text-muted-foreground">

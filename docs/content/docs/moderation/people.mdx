@@ -34,8 +34,7 @@ link to it still work: they open the Members view, with the filters the link car
 
 Above the list, looking at everybody: how many people Modbot knows about in total, and how many of
 them are in your group right now. Looking at **Members** or **People who left**: when the member
-list was [last synced](/moderation/members-and-bans#what-as-last-swept-means), whether a new sweep is
-running now, and how many members the last complete read found.
+list's count and when it was [synced](/moderation/members-and-bans#what-synced-means).
 
 ## Search, filters and sorting
 
@@ -60,7 +59,7 @@ filters you last used.
 | **Has flags** | **Yes** or **No**. Anybody a [moderation rule](/moderation/flags) has ever flagged, dismissed or not. Needs **See profiles**. |
 | **Joined** | A day, or a stretch of days: when they joined your group. |
 | **Last seen** | A day, or a stretch of days. |
-| **Profile** | **Fetched** or **Not fetched yet**. |
+| **Profile** | **Read** or **Not read yet**. |
 
 **Trust rank** and **Platform** have no **is not**. Modbot knows neither for somebody whose profile
 it has never fetched, so "every rank but Visitor" would silently leave out every one of those
@@ -72,7 +71,7 @@ hour it is about. That hour shows as a button beside the filters; press it to re
 | Control | Options |
 |---|---|
 | **Search by name or id** | Matches any part of the display name or the VRChat id. Capital letters, accents and fancy lettering do not matter (see [Names](/moderation/names)). It waits a moment after you stop typing. |
-| Sort | **Most recently seen first**, **Newest joiner first**, **By name**, or **Known longest first**. |
+| Sort | **Most recently seen first**, **Newest joiner first**, **By name**, or **First seen longest ago**. |
 
 The Members and People who left views start on **Newest joiner first**; everybody else starts on
 **Most recently seen first**. **By name** puts the people whose profile has not been fetched yet at
@@ -91,8 +90,8 @@ Looking at everybody, or narrowed any way other than to members or people who le
 | **Person** | Picture and display name once Modbot has fetched their profile, otherwise their VRChat id. An **18+** mark if Modbot has ever seen them as 18+ verified, their [trust rank](/moderation/profiles#trust-ranks), and "representing" if they are representing your group. |
 | **Standing** | **Member**, **Left**, **Banned**, or **—**. A person can have more than one; most people on this page have none. |
 | **Last seen by Modbot** | The latest time Modbot saw them in anything it recorded. |
-| **Known for** | How long ago Modbot first saw them. |
-| **Profile** | How long ago the stored profile was fetched, **Not fetched yet**, or **No such account**. |
+| **First seen** | How long ago Modbot first saw them. |
+| **Profile read** | How long ago Modbot last read their profile from VRChat, **Not read yet**, or **No such account**. |
 
 With **Membership** set to **Members** or **People who left**, the member list's columns:
 
@@ -104,7 +103,7 @@ With **Membership** set to **Members** or **People who left**, the member list's
 | **Joined** | When they joined the group. |
 | **Left** | When a complete read stopped listing them. **People who left** only. |
 | **Last seen by Modbot** | The latest time Modbot saw them in anything it recorded. |
-| **Known for** | How long ago Modbot first saw them. **Members** only. |
+| **First seen** | How long ago Modbot first saw them. **Members** only. |
 
 In those two views the last column on each row opens a menu with **Kick** and **Ban**, for anybody
 with either permission. See
