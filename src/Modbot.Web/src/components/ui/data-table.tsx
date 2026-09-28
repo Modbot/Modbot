@@ -1,4 +1,5 @@
 import { Fragment, useLayoutEffect, useRef } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { keptFacts } from '@/lib/rowFacts'
 import { cn } from '@/lib/utils'
 
@@ -205,6 +206,38 @@ export function NarrowRow({
       )}
       {children}
     </li>
+  )
+}
+
+/**
+ * What a `NarrowRow` opens under itself when its table has more columns than two lines can hold:
+ * the rest of the row as a list, each column's name on the left and its value on the right. Team's
+ * twelve counts are the case it was made for -- a phone keeps the name, the total and when, and a
+ * tap reads the other ten in the table's order.
+ */
+export function NarrowDetails({ items }: { items: readonly { label: string; value: React.ReactNode }[] }) {
+  return (
+    <dl
+      className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 px-(--panel-pad) pb-2"
+      style={{ fontSize: 'var(--text-small)' }}
+    >
+      {items.map((item) => (
+        <Fragment key={item.label}>
+          <dt className="text-muted-foreground">{item.label}</dt>
+          <dd className="text-right">{item.value}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  )
+}
+
+/** The mark at the end of a `NarrowRow` that opens: down when shut, up when open. */
+export function NarrowChevron({ open }: { open: boolean }) {
+  return (
+    <ChevronDown
+      className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')}
+      aria-hidden
+    />
   )
 }
 

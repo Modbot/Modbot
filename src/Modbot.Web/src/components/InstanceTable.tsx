@@ -3,12 +3,12 @@ import { RegionBadge } from '@/components/InstanceBadges'
 import { WorldLink } from '@/components/facts'
 import { openInstance } from '@/lib/subject'
 import type { InstanceRow } from '@/lib/api'
-import { accessInGame, whenRange } from '@/lib/format'
+import { accessInGame, dateTime, whenRange } from '@/lib/format'
 import { instanceEnd, instanceNumber } from '@/lib/instanceName'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { cn } from '@/lib/utils'
 import { HeadCount } from '@/components/HeadCount'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
 
 /**
  * A table of actual instances: where, when, how busy, and how it ended. "closed" only when a
@@ -27,6 +27,11 @@ import { Table, Td, Th, Tr } from '@/components/ui/data-table'
  * in the game's words and the region with the tile's flag, so a row and the game read the same.
  * One "When" range replaces a start and an end stacked in one cell, and there is no "people now"
  * column: it was a dash on every row but the open one, which says how many are there instead.
+ *
+ * On a phone the five columns were 689 px, and only the world fitted. There each instance is a
+ * two-line row: the world and the most people at once, then the instance, how long it was open and
+ * when it began ("open now" and how many are there, for one still open). Who could join, the region
+ * and when it ended are in the instance's popup, which the row opens.
  */
 export function InstanceTable({
   instances,
@@ -39,6 +44,65 @@ export function InstanceTable({
   return (
     <Table
       pinFirst
+      narrow={
+        <NarrowRows>
+          {instances.map((r) => (
+            <NarrowRow
+              key={r.id}
+              onOpen={() => openInstance(r.id)}
+              hasLinks={showWorld}
+              picture={
+                showWorld &&
+                r.worldThumbnailImageUrl && (
+                  <img
+                    src={vrchatMedia(r.worldThumbnailImageUrl)}
+                    alt=""
+                    loading="lazy"
+                    className="size-10 shrink-0 object-cover"
+                  />
+                )
+              }
+              main={
+                <span className="block truncate">
+                  {showWorld ? (
+                    <WorldLink id={r.worldId} name={r.worldName} unnamed="id" />
+                  ) : (
+                    <InstanceName instance={r} />
+                  )}
+                </span>
+              }
+              side={
+                r.peakPeople !== null && (
+                  <span className="font-mono font-medium">
+                    <HeadCount count={r.peakPeople} unsure={r.peakPeopleUnsure} />
+                  </span>
+                )
+              }
+              facts={[
+                showWorld && <InstanceName key="instance" instance={r} />,
+                <span key="open" className="font-mono">
+                  {minutes(r.minutesOpen)}
+                </span>,
+                r.closedAt ? (
+                  <span key="began" className="font-mono">
+                    {dateTime(r.openedAt)}
+                  </span>
+                ) : (
+                  'open now'
+                ),
+                !r.closedAt && (
+                  <span key="here">
+                    <span className="font-mono">
+                      <HeadCount count={r.peopleNow ?? 0} unsure={r.peopleNow !== null && r.peopleNowUnsure} />
+                    </span>{' '}
+                    here
+                  </span>
+                ),
+              ]}
+            />
+          ))}
+        </NarrowRows>
+      }
       head={
         <>
           {showWorld && <Th>World</Th>}
@@ -122,5 +186,14 @@ export function InstanceTable({
         </Tr>
       ))}
     </Table>
+  )
+}
+
+/** An instance on a phone row: its name, or its number when it has none, as plain text -- the row opens it. */
+function InstanceName({ instance: r }: { instance: InstanceRow }) {
+  return (
+    <span className={cn(!r.instanceName?.trim() && 'font-mono')}>
+      {instanceNumber(r.vrChatInstanceId, r.instanceName)}
+    </span>
   )
 }

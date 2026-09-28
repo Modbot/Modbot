@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { caseFileFact, keptFacts } from '../src/lib/rowFacts.ts'
+import { caseFileFact, countsByKind, keptFacts } from '../src/lib/rowFacts.ts'
 
 test('a fact a row does not have leaves no gap on the second line', () => {
   assert.deepEqual(keptFacts([null, 'Trusted', undefined, false, '', 'seen 2 h ago']), ['Trusted', 'seen 2 h ago'])
@@ -33,4 +33,17 @@ test('a ban with no case file, or only a withdrawn one, adds no fact', () => {
 
 test('a ban whose lookup has not come back yet adds no fact', () => {
   assert.equal(caseFileFact(undefined), null)
+})
+
+test("a moderator's counts follow the table's columns, with a kind never done as 0", () => {
+  const kinds = [
+    { metric: 'kicks', label: 'Instance kicks' },
+    { metric: 'warns', label: 'Warns' },
+    { metric: 'bans', label: 'Bans' },
+  ]
+  assert.deepEqual(countsByKind(kinds, { bans: 2, kicks: 1 }), [
+    { label: 'Instance kicks', count: 1 },
+    { label: 'Warns', count: 0 },
+    { label: 'Bans', count: 2 },
+  ])
 })

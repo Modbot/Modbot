@@ -17,3 +17,15 @@ export function caseFileFact(lookup: { caseId: string | null; count: number } | 
   if (!lookup?.caseId) return null
   return lookup.count === 1 ? '1 case file' : `${lookup.count} case files`
 }
+
+/**
+ * One moderator's count of each kind of action, in the order the table has its columns, for the
+ * list a phone row opens. A kind they never did is 0, so every moderator's list is the same length
+ * and reads down the same way.
+ */
+export function countsByKind(
+  kinds: readonly { metric: string; label: string }[],
+  byKind: Readonly<Record<string, number>>,
+): { label: string; count: number }[] {
+  return kinds.map((k) => ({ label: k.label, count: byKind[k.metric] ?? 0 }))
+}

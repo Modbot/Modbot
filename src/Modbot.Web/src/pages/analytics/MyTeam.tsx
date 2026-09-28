@@ -5,7 +5,9 @@ import type { CoverageGap, TeamAnalytics } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { Panel, Stat, StatStrip, Toggle } from './shared'
-import { Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { NarrowChevron, NarrowDetails, NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
+import { plural } from '@/lib/format'
+import { countsByKind } from '@/lib/rowFacts'
 
 /**
  * The team on the Stats page's Moderation tab: who is doing the moderation work, and when is
@@ -27,10 +29,13 @@ export function TeamStats({
   onOpenReviews?: () => void
 }) {
   const [minPeople, setMinPeople] = useState<'1' | '3' | '5' | '10'>('3')
+  const [openGaps, toggleGap] = useOpenRows()
+  const [openModerators, toggleModerator] = useOpenRows()
 
-  const shownGaps = data.coverageGaps.filter((g) => g.peopleWhenLastModeratorLeft >= Number(minPeople))
+  const shownGaps = [...data.coverageGaps.filter((g) => g.peopleWhenLastModeratorLeft >= Number(minPeople))].reverse()
   const totalActions = data.actionsPerDay.reduce((s, p) => s + p.value, 0)
-  const name = (p: { id: string; name: string | null }) => p.name ?? p.id
+  const gapKey = (g: CoverageGap) => `${g.worldId}:${g.instanceId}:${g.startedAt}`
+  const moderatorKey = (m: TeamAnalytics['moderators'][number]) => `${m.who.platform}:${m.who.id}`
 
   return (
     <PanelGrid className="grid-cols-1">
@@ -75,6 +80,19 @@ export function TeamStats({
         ) : (
           <Table
             pinFirst
+            narrow={
+              <NarrowRows>
+                {shownGaps.map((g) => (
+                  <NarrowGap
+                    key={gapKey(g)}
+                    gap={g}
+                    open={openGaps.has(gapKey(g))}
+                    onToggle={() => toggleGap(gapKey(g))}
+                    onOpenSubject={onOpenSubject}
+                  />
+                ))}
+              </NarrowRows>
+            }
             head={
               <>
                 <Th>Began</Th>
@@ -86,8 +104,8 @@ export function TeamStats({
               </>
             }
           >
-            {[...shownGaps].reverse().map((g) => (
-              <GapRow key={`${g.worldId}:${g.instanceId}:${g.startedAt}`} gap={g} onOpenSubject={onOpenSubject} />
+            {shownGaps.map((g) => (
+              <GapRow key={gapKey(g)} gap={g} onOpenSubject={onOpenSubject} />
             ))}
           </Table>
         )}
@@ -109,6 +127,50 @@ export function TeamStats({
         ) : (
           <Table
             pinFirst
+            narrow={
+              <NarrowRows>
+                {data.moderators.map((m) => {
+                  const open = openModerators.has(moderatorKey(m))
+                  return (
+                    <NarrowRow
+                      key={moderatorKey(m)}
+                      main={
+                        <span className="block truncate">
+                          <ModeratorName who={m.who} onOpenSubject={onOpenSubject} />
+                        </span>
+                      }
+                      side={
+                        <>
+                          <span className="font-mono font-medium">{compactNumber(m.total)}</span>
+                          <NarrowChevron open={open} />
+                        </>
+                      }
+                      facts={[
+                        m.lastActiveDay && (
+                          <span key="active">
+                            active <span className="font-mono">{longDay(m.lastActiveDay)}</span>
+                          </span>
+                        ),
+                      ]}
+                      onOpen={() => toggleModerator(moderatorKey(m))}
+                      open={open}
+                      hasLinks={!!onOpenSubject}
+                    >
+                      {open && (
+                        <NarrowDetails
+                          items={countsByKind(data.kinds, m.byKind).map((c) => ({
+                            label: c.label,
+                            value: (
+                              <span className="font-mono">{c.count ? compactNumber(c.count) : '—'}</span>
+                            ),
+                          }))}
+                        />
+                      )}
+                    </NarrowRow>
+                  )
+                })}
+              </NarrowRows>
+            }
             head={
               <>
                 <Th>Moderator</Th>
@@ -123,15 +185,9 @@ export function TeamStats({
             }
           >
             {data.moderators.map((m) => (
-              <Tr key={`${m.who.platform}:${m.who.id}`}>
+              <Tr key={moderatorKey(m)}>
                 <Td className="whitespace-nowrap">
-                  {onOpenSubject ? (
-                    <button type="button" className="font-medium hover:underline" onClick={() => onOpenSubject(m.who.id)}>
-                      {name(m.who)}
-                    </button>
-                  ) : (
-                    <span className="font-medium">{name(m.who)}</span>
-                  )}
+                  <ModeratorName who={m.who} onOpenSubject={onOpenSubject} />
                 </Td>
                 <Td className="text-right font-mono font-medium">{compactNumber(m.total)}</Td>
                 {data.kinds.map((k) => (
@@ -175,51 +231,152 @@ export function TeamStats({
   )
 }
 
+/**
+ * Which rows of a phone list are open, by key. Several can be open at once, so two moderators'
+ * counts can be read one above the other.
+ */
+function useOpenRows() {
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set())
+  const toggle = (key: string) =>
+    setOpen((was) => {
+      const next = new Set(was)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
+  return [open, toggle] as const
+}
+
+function ModeratorName({
+  who,
+  onOpenSubject,
+}: {
+  who: { id: string; name: string | null }
+  onOpenSubject?: (subjectId: string) => void
+}) {
+  const name = who.name ?? who.id
+  return onOpenSubject ? (
+    <button type="button" className="font-medium hover:underline" onClick={() => onOpenSubject(who.id)}>
+      {name}
+    </button>
+  ) : (
+    <span className="font-medium">{name}</span>
+  )
+}
+
+function gapLasted(gap: CoverageGap): string | null {
+  return gap.endedAt ? minutes((Date.parse(gap.endedAt) - Date.parse(gap.startedAt)) / 60_000) : null
+}
+
+function gapEndedBecause(gap: CoverageGap): string {
+  return gap.endedBy === 'moderator-arrived'
+    ? 'a moderator arrived'
+    : gap.endedBy === 'instance-closed'
+      ? 'the instance was closed'
+      : 'nothing more was reported'
+}
+
+function LastModeratorOut({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id: string) => void }) {
+  if (!gap.lastModerator) return <span className="text-muted-foreground">a companion stopped reporting</span>
+  const { id, name } = gap.lastModerator
+  return onOpenSubject ? (
+    <button type="button" className="hover:underline" onClick={() => onOpenSubject(id)}>
+      {name ?? id}
+    </button>
+  ) : (
+    <>{name ?? id}</>
+  )
+}
+
+/* Instance ids are user-controlled text (spec 5.3): rendered as text, never as markup. The same link
+   every other screen uses, so it opens the instance when Modbot has a row for it and the world when
+   it does not. A world Modbot has not read yet is named by its id. */
+function GapInstance({ gap }: { gap: CoverageGap }) {
+  return (
+    <InstanceLink
+      modbotInstanceId={gap.modbotInstanceId}
+      worldId={gap.worldId}
+      worldName={gap.worldName}
+      number={gap.instanceId}
+      name={gap.instanceName}
+    />
+  )
+}
+
 function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id: string) => void }) {
-  const lasted = gap.endedAt
-    ? minutes((Date.parse(gap.endedAt) - Date.parse(gap.startedAt)) / 60_000)
-    : 'unknown'
-
-  const endedBecause =
-    gap.endedBy === 'moderator-arrived'
-      ? 'a moderator arrived'
-      : gap.endedBy === 'instance-closed'
-        ? 'the instance was closed'
-        : 'nothing more was reported'
-
   return (
     <Tr>
       <Td className="font-mono whitespace-nowrap">{dateTime(gap.startedAt)}</Td>
-      <Td className="font-mono whitespace-nowrap">{lasted}</Td>
+      <Td className="font-mono whitespace-nowrap">{gapLasted(gap) ?? 'unknown'}</Td>
       <Td className="text-right font-mono font-medium">{gap.peopleWhenLastModeratorLeft}</Td>
       <Td className="min-w-[12rem] whitespace-normal">
-        {gap.lastModerator ? (
-          onOpenSubject ? (
-            <button type="button" className="hover:underline" onClick={() => onOpenSubject(gap.lastModerator!.id)}>
-              {gap.lastModerator.name ?? gap.lastModerator.id}
-            </button>
-          ) : (
-            gap.lastModerator.name ?? gap.lastModerator.id
-          )
-        ) : (
-          <span className="text-muted-foreground">a companion stopped reporting</span>
-        )}
+        <LastModeratorOut gap={gap} onOpenSubject={onOpenSubject} />
       </Td>
-      <Td className="min-w-[12rem] whitespace-normal text-muted-foreground">{endedBecause}</Td>
-      {/* Instance ids are user-controlled text (spec 5.3): rendered as text, never as markup. The
-          same link every other screen uses, so it opens the instance when Modbot has a row for it
-          and the world when it does not. A world Modbot has not read yet is named by its id. */}
+      <Td className="min-w-[12rem] whitespace-normal text-muted-foreground">{gapEndedBecause(gap)}</Td>
       <Td>
         <span className="inline-block max-w-56 truncate align-bottom">
-          <InstanceLink
-            modbotInstanceId={gap.modbotInstanceId}
-            worldId={gap.worldId}
-            worldName={gap.worldName}
-            number={gap.instanceId}
-            name={gap.instanceName}
-          />
+          <GapInstance gap={gap} />
         </span>
       </Td>
     </Tr>
+  )
+}
+
+/**
+ * A gap on a phone: the instance and how many were left in it, then when and for how long. Who
+ * left last and why it ended are words too long to share that second line with a time, so a tap
+ * opens them under the row.
+ */
+function NarrowGap({
+  gap,
+  open,
+  onToggle,
+  onOpenSubject,
+}: {
+  gap: CoverageGap
+  open: boolean
+  onToggle: () => void
+  onOpenSubject?: (id: string) => void
+}) {
+  const lasted = gapLasted(gap)
+  const people = gap.peopleWhenLastModeratorLeft
+
+  return (
+    <NarrowRow
+      main={
+        <span className="block truncate">
+          <GapInstance gap={gap} />
+        </span>
+      }
+      side={
+        <>
+          <span className="whitespace-nowrap">
+            <span className="font-mono font-medium">{people}</span> {plural(people, 'person', 'people')}
+          </span>
+          <NarrowChevron open={open} />
+        </>
+      }
+      facts={[
+        <span key="began" className="font-mono">
+          {dateTime(gap.startedAt)}
+        </span>,
+        lasted && (
+          <span key="lasted">
+            lasted <span className="font-mono">{lasted}</span>
+          </span>
+        ),
+      ]}
+      onOpen={onToggle}
+      open={open}
+      hasLinks
+    >
+      {open && (
+        <NarrowDetails
+          items={[
+            { label: 'Last moderator out', value: <LastModeratorOut gap={gap} onOpenSubject={onOpenSubject} /> },
+            { label: 'Ended because', value: gapEndedBecause(gap) },
+          ]}
+        />
+      )}
+    </NarrowRow>
   )
 }
