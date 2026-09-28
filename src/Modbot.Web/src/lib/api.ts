@@ -813,6 +813,8 @@ export type PersonAsk = { vrchat?: string; discord?: string; account?: string }
 
 export type AuditRequest = {
   type?: string[]
+  /** Types to leave out. The type list is the server's, so "is not" cannot be sent as the rest of it. */
+  notType?: string[]
   source?: string[]
   subject?: string
   subjectPlatform?: 'VRChat' | 'Discord' | 'Modbot'
@@ -4360,6 +4362,7 @@ export const api = {
   audit: (query: AuditRequest = {}) => {
     const q = new URLSearchParams()
     query.type?.forEach((t) => q.append('type', t))
+    query.notType?.forEach((t) => q.append('notType', t))
     query.source?.forEach((s) => q.append('source', s))
     if (query.subject) q.set('subject', query.subject)
     if (query.subjectPlatform) q.set('subjectPlatform', query.subjectPlatform)
