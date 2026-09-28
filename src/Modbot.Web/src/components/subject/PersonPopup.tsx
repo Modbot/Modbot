@@ -15,7 +15,7 @@ import {
   DiscordMessages,
   DiscordMetrics,
 } from '@/components/subject/DiscordSide'
-import { ModerationActions } from '@/components/moderation/ModerationActions'
+import { ModerationActions, ModerationDialog } from '@/components/moderation/ModerationActions'
 import { PersonFlags } from '@/components/subject/PersonFlags'
 import { PersonNotes } from '@/components/subject/PersonNotes'
 import { ProfileVersions } from '@/components/subject/ProfileVersions'
@@ -40,7 +40,8 @@ import { ago, formatDay } from '@/lib/format'
 import { concernsPerson } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
 import { can, canAny } from '@/lib/permissions'
-import { useMessageAt, useOpeningTab, useOpeningVersion, type Subject } from '@/lib/subject'
+import { actionsFor } from '@/lib/moderationActions'
+import { useMessageAt, useOpeningAction, useOpeningTab, useOpeningVersion, type Subject } from '@/lib/subject'
 import { useDiscordMember } from '@/lib/useDiscordMember'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
@@ -167,6 +168,14 @@ function Resolved({
   // Both counters only go up, so their sum changes whenever either does.
   const loadMembership = useCallback(() => api.membership(vrchatId!), [vrchatId])
   const membership = useLoad(vrchatId && seesMembers ? loadMembership : null, acted + live)
+
+  const [act, putAwayAction] = useOpeningAction()
+  const askedAction =
+    vrchatId && membership.data
+      ? (actionsFor(me, { userId: vrchatId, banned: membership.data.banned, isMember: membership.data.isMember }).find(
+          (o) => o.action === act,
+        )?.action ?? null)
+      : null
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'overview', label: 'Overview' },
@@ -299,6 +308,18 @@ function Resolved({
           {tab === 'json' && <Records key={fresh} person={person} me={me} />}
         </Tabs>
       </div>
+
+      {/* Opened by the palette's "Ban X…". The member list read above decides, by the same rule as
+          the buttons, whether it is still an action to offer: somebody banned since the search is
+          not asked about a second ban. */}
+      <ModerationDialog
+        me={me}
+        action={askedAction}
+        person={{ userId: vrchatId, banned: membership.data?.banned, isMember: membership.data?.isMember }}
+        name={name ?? vrchatId}
+        onClose={putAwayAction}
+        onDone={() => setActed((n) => n + 1)}
+      />
     </PopupFrame>
   )
 }

@@ -78,6 +78,12 @@ export const MESSAGE = 'message'
 export const TAB = 'tab'
 export const VERSION = 'version'
 
+/**
+ * The kick, ban or unban whose confirmation the person popup opens with (`?act=ban`), when the
+ * palette's "Ban X…" opened it. Only the confirmation: nothing is sent until its button is pressed.
+ */
+export const ACT = 'act'
+
 /** Marks a history entry this module pushed, so closing knows whether back is safe. */
 const PUSHED = { modbotSubject: true }
 
@@ -118,7 +124,7 @@ export function useSubjects(): Subject[] {
  * Re-opening the thing already on top does nothing, so a list where the same world appears twice
  * does not build a stack of identical popups.
  */
-export function openSubject(subject: Subject, at?: { tab?: string; version?: number }): void {
+export function openSubject(subject: Subject, at?: { tab?: string; version?: number; act?: string }): void {
   const params = new URLSearchParams(window.location.search)
   const stack = params.getAll(PARAM)
 
@@ -130,8 +136,10 @@ export function openSubject(subject: Subject, at?: { tab?: string; version?: num
   // The tab and the version belong to the popup being opened, never to the one underneath.
   params.delete(TAB)
   params.delete(VERSION)
+  params.delete(ACT)
   if (at?.tab) params.set(TAB, at.tab)
   if (at?.version !== undefined) params.set(VERSION, String(at.version))
+  if (at?.act) params.set(ACT, at.act)
 
   go(`${window.location.pathname}?${params.toString()}`, { state: PUSHED })
 }
@@ -179,6 +187,27 @@ export function useOpeningVersion(): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+/**
+ * The confirmation the popup was opened with (`?act=`), and the way to put it away.
+ *
+ * Read straight from the address rather than held in state, unlike the tab: a person popup already
+ * open when the palette asks for a ban has to open the confirmation too. Putting it away takes it
+ * out of the address in place, so a reload does not ask again and the next "Ban X…" is a change.
+ */
+export function useOpeningAction(): [string | null, () => void] {
+  const [location] = useLocation()
+  const asked = location.search.get(ACT)
+
+  const done = () => {
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has(ACT)) return
+    params.delete(ACT)
+    go(`${window.location.pathname}?${params.toString()}`, { replace: true, state: window.history.state })
+  }
+
+  return [asked, done]
+}
+
 /** Closes the top popup, returning to the one underneath. */
 export function closeSubject(): void {
   // Modbot pushed this entry, so the browser's own back is the honest way to leave it: it keeps
@@ -197,6 +226,7 @@ export function closeSubject(): void {
   params.delete(MESSAGE)
   params.delete(TAB)
   params.delete(VERSION)
+  params.delete(ACT)
   for (const value of stack.slice(0, -1)) params.append(PARAM, value)
 
   const query = params.toString()
@@ -212,6 +242,7 @@ export function closeAllSubjects(): void {
   params.delete(MESSAGE)
   params.delete(TAB)
   params.delete(VERSION)
+  params.delete(ACT)
   const query = params.toString()
   go(window.location.pathname + (query ? `?${query}` : ''), { replace: true })
 }

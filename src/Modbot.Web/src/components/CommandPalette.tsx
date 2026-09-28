@@ -3,12 +3,32 @@ import { Dialog as DialogPrimitive } from 'radix-ui'
 import { Search, X } from 'lucide-react'
 import { Avatar } from '@/components/discord/DiscordMemberParts'
 import { EmptyRow } from '@/components/PanelGrid'
+import { Badge } from '@/components/ui/badge'
 import { Kbd } from '@/components/ui/kbd'
 import { api, type CurrentUser, type SearchResults } from '@/lib/api'
 import { NAV, goesByName, matchRank, mayOpen, otherWords, type PageId } from '@/lib/nav'
+import { mayDo, splitVerb, verbLabel } from '@/lib/paletteActions'
 import { useModal, useShortcutList } from '@/lib/shortcuts'
-import { openDiscordPerson, openPerson, openWorld } from '@/lib/subject'
+import { openDiscordPerson, openPerson, openSubject, openWorld } from '@/lib/subject'
 import { cn } from '@/lib/utils'
+
+type Standing = 'Member' | 'Left' | 'Banned'
+
+/** The People page's badges for the same three answers, so a person looks the same in both. */
+const STANDING_LOOK: Record<Standing, 'secondary' | 'outline' | 'destructive'> = {
+  Member: 'secondary',
+  Left: 'outline',
+  Banned: 'destructive',
+}
+
+/** Where a person found stands with the group, as the People page's Standing column says it. */
+function standingOf(p: SearchResults['people'][number]): Standing[] {
+  const standing: Standing[] = []
+  if (p.isMember) standing.push('Member')
+  else if (p.left) standing.push('Left')
+  if (p.banned) standing.push('Banned')
+  return standing
+}
 
 /** Something the palette can run that is not a page or a search hit: a theme, a density, sign out. */
 export type PaletteAction = { id: string; label: string; group: string; keys?: string; run: () => void }
@@ -18,6 +38,7 @@ type Item = {
   group: string
   label: string
   detail?: string
+  standing?: Standing[]
   keys?: string
   picture?: string | null
   run: () => void
@@ -31,6 +52,10 @@ type Item = {
  * to (`words` in lib/nav.ts); two characters or more also asks the server. `↑`/`↓` move, `Enter`
  * runs, `Esc` closes. Opening a person, a world or a Discord person from here goes through the
  * same popup every list uses.
+ *
+ * Ban, kick, unban or note followed by a name ("ban fenya") offers that action on each person
+ * found, where the popup's buttons would offer it; the row opens the popup with the confirmation,
+ * or the Notes tab, already open (lib/paletteActions.ts).
  */
 export function CommandPalette({
   open,
@@ -71,26 +96,31 @@ function Palette({
 
   const query = typed.trim()
 
+  // "ban fenya" searches for fenya and offers the ban; the pages are still matched on all of it.
+  const verbed = splitVerb(query)
+  const verb = verbed?.verb ?? null
+  const asked = verbed ? verbed.name : query
+
   // The answer is kept with the question it answered, so a stale answer is never shown against a
   // newer query and nothing has to be cleared when the query changes.
   // A failed search is kept the same way, so "Nothing matches" is never said about a search that
   // did not happen.
   const [answered, setAnswered] = useState<{ query: string; results: SearchResults | null } | null>(null)
-  const results = answered?.query === query ? answered.results : null
-  const searchFailed = query.length >= 2 && answered?.query === query && answered.results === null
+  const results = answered?.query === asked ? answered.results : null
+  const searchFailed = asked.length >= 2 && answered?.query === asked && answered.results === null
 
   useEffect(() => {
-    if (query.length < 2) return
+    if (asked.length < 2) return
 
     let cancelled = false
     const timer = setTimeout(() => {
       api
-        .search(query)
+        .search(asked)
         .then((next) => {
-          if (!cancelled) setAnswered({ query, results: next })
+          if (!cancelled) setAnswered({ query: asked, results: next })
         })
         .catch(() => {
-          if (!cancelled) setAnswered({ query, results: null })
+          if (!cancelled) setAnswered({ query: asked, results: null })
         })
     }, 150)
 
@@ -98,7 +128,7 @@ function Palette({
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query])
+  }, [asked])
 
   const goTo = useMemo(() => new Map(shortcuts.filter((s) => s.group === 'Go to').map((s) => [s.label, s.keys])), [shortcuts])
 
@@ -124,13 +154,16 @@ function Palette({
 
     const extra: Item[] = actions.map((a) => ({ id: `action:${a.id}`, group: a.group, label: a.label, keys: a.keys, run: a.run }))
 
+    // Where each person stands, in the People page's words, rather than their id: the id told a
+    // moderator nothing, and "is this the member or the one we already banned" is the question.
+    // The id still finds them; it is only not printed.
     const found: Item[] = results
       ? [
           ...results.people.map((p) => ({
             id: `person:${p.userId}`,
             group: 'People',
             label: p.displayName ?? p.userId,
-            detail: p.displayName ? p.userId : undefined,
+            standing: standingOf(p),
             picture: p.avatarUrl,
             run: () => openPerson(p.userId),
           })),
@@ -153,6 +186,38 @@ function Palette({
         ]
       : []
 
+    // "ban fenya": the ban, for each person found whom this moderator may ban, by the popup's own
+    // rule. The row opens the popup with the confirmation already open; nothing is sent from here.
+    const acts: Item[] =
+      verb && results
+        ? [
+            ...results.people
+              .filter((p) => mayDo(me, verb, p))
+              .map((p) => ({
+                id: `act:${verb}:${p.userId}`,
+                group: 'Actions',
+                label: verbLabel(verb, p.displayName ?? p.userId),
+                picture: p.avatarUrl,
+                run: () =>
+                  verb === 'note'
+                    ? openSubject({ kind: 'person', id: p.userId }, { tab: 'notes' })
+                    : openSubject({ kind: 'person', id: p.userId }, { act: verb }),
+              })),
+            // A note can be about somebody Modbot only knows from Discord; the others are VRChat's.
+            ...(verb === 'note'
+              ? results.discordPeople
+                  .filter((p) => mayDo(me, 'note', { userId: p.userId }))
+                  .map((p) => ({
+                    id: `act:note:discord:${p.userId}`,
+                    group: 'Actions',
+                    label: verbLabel('note', p.displayName),
+                    picture: p.avatarUrl,
+                    run: () => openSubject({ kind: 'discord-person', id: p.userId }, { tab: 'notes' }),
+                  }))
+              : []),
+          ]
+        : []
+
     // Search hits are already narrowed by the server; the rest is narrowed by what was typed. A page
     // that matches comes before them: "banned" is the Bans page before it is a person called
     // BannedPrincess. Pages are ordered by how well they match, the rest keep their order so each
@@ -164,8 +229,8 @@ function Palette({
       .map((r) => r.item)
     const rest = [...keys, ...extra].filter((item) => matchRank(query, item.label, [item.group]) !== null)
 
-    return [...ranked, ...found, ...rest]
-  }, [me, goTo, shortcuts, actions, results, query, onGoTo])
+    return [...ranked, ...acts, ...found, ...rest]
+  }, [me, goTo, shortcuts, actions, results, query, verb, onGoTo])
 
   // The cursor belongs to one list: when the items change under it, it starts again at the top.
   const itemsKey = items.map((i) => i.id).join('\n')
@@ -279,6 +344,11 @@ function Palette({
                       {item.detail}
                     </span>
                   )}
+                  {item.standing?.map((s) => (
+                    <Badge key={s} variant={STANDING_LOOK[s]}>
+                      {s}
+                    </Badge>
+                  ))}
                   {item.keys && <Kbd keys={item.keys} />}
                 </button>
               ))}

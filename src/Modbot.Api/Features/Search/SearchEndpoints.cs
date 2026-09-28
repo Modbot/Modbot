@@ -12,8 +12,14 @@ using Modbot.Core.Data.Entities;
 
 namespace Modbot.Api.Features.Search;
 
-/// <summary>A VRChat person found by name or id. The name is null until the profile sync has fetched one.</summary>
-public sealed record SearchPerson(string UserId, string? DisplayName, string? AvatarUrl);
+/// <summary>
+/// A VRChat person found by name or id, and where they stand with the group. The name is null until
+/// the profile sync has fetched one.
+/// </summary>
+/// <param name="IsMember">On the group's member list now.</param>
+/// <param name="Left">Was on the member list and has left it.</param>
+/// <param name="Banned">On the group's ban list now.</param>
+public sealed record SearchPerson(string UserId, string? DisplayName, string? AvatarUrl, bool IsMember, bool Left, bool Banned);
 
 /// <summary>A Discord person found by any of their names or their id.</summary>
 public sealed record SearchDiscordPerson(string UserId, string DisplayName, string Username, string? AvatarUrl, bool InServer);
@@ -79,7 +85,8 @@ public static class SearchEndpoints
             .WithDescription(
                 "People, Discord people and worlds by name or id, for the command palette. "
                 + "`q` is matched against display names and ids, case-insensitively. People and Discord "
-                + "people need See members; worlds need See analytics. A kind the caller may not see "
+                + "people need See members; worlds need See analytics. Each person says whether they are "
+                + "on the group's member list, have left it, or are on its ban list. A kind the caller may not see "
                 + "comes back as an empty list. At most `limit` of each kind (default 8, max 25).")
             .Produces<SearchResults>();
 
@@ -97,21 +104,7 @@ public static class SearchEndpoints
 
         var pattern = MemberEndpoints.Pattern(term);
 
-        var found = people
-            ? (await db.VRChatUsers.AsNoTracking()
-                .Where(u => EF.Functions.ILike(u.UserId, pattern, "\\")
-                    || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\")))
-                .OrderBy(u => u.DisplayName == null)
-                .ThenByDescending(u => u.LastSeenAt)
-                .Take(take)
-                .Select(u => new { u.UserId, u.DisplayName, u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl })
-                .ToListAsync(ct))
-                .Select(u => new SearchPerson(
-                    u.UserId,
-                    u.DisplayName,
-                    ProfilePictures.Best(u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl)))
-                .ToList()
-            : [];
+        var found = people ? await PeopleAsync(db, pattern, take, ct) : [];
 
         List<SearchDiscordPerson> discord = [];
         if (people)
@@ -147,5 +140,62 @@ public static class SearchEndpoints
             : [];
 
         return new SearchResults(found, discord, places);
+    }
+
+    /// <summary>
+    /// The people who match, each with where they stand: the People page's Member, Left and Banned,
+    /// so a moderator can tell the member from the person already banned without opening either.
+    /// </summary>
+    /// <remarks>
+    /// Read from the member and ban lists Modbot already keeps, never from VRChat: the palette asks
+    /// on every pause in typing. Two lookups for the page of ids rather than a join per row, as the
+    /// People page does it.
+    /// </remarks>
+    private static async Task<List<SearchPerson>> PeopleAsync(ModbotContext db, string pattern, int take, CancellationToken ct)
+    {
+        var rows = await db.VRChatUsers.AsNoTracking()
+            .Where(u => EF.Functions.ILike(u.UserId, pattern, "\\")
+                || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, "\\")))
+            .OrderBy(u => u.DisplayName == null)
+            .ThenByDescending(u => u.LastSeenAt)
+            .Take(take)
+            .Select(u => new { u.UserId, u.DisplayName, u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl })
+            .ToListAsync(ct);
+
+        if (rows.Count == 0)
+            return [];
+
+        var groupId = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.ManagedGroupId)
+            .FirstOrDefaultAsync(ct) ?? string.Empty;
+
+        var ids = rows.Select(r => r.UserId).ToList();
+
+        var members = await db.GroupMembers.AsNoTracking()
+            .Where(m => m.GroupId == groupId && ids.Contains(m.UserId))
+            .Select(m => new { m.UserId, m.LeftAt })
+            .ToDictionaryAsync(m => m.UserId, m => m.LeftAt, StringComparer.Ordinal, ct);
+
+        var banned = (await db.GroupBans.AsNoTracking()
+                .Where(b => b.GroupId == groupId && b.LiftedAt == null && ids.Contains(b.UserId))
+                .Select(b => b.UserId)
+                .ToListAsync(ct))
+            .ToHashSet(StringComparer.Ordinal);
+
+        return rows
+            .Select(u =>
+            {
+                var wasMember = members.TryGetValue(u.UserId, out var leftAt);
+
+                return new SearchPerson(
+                    u.UserId,
+                    u.DisplayName,
+                    ProfilePictures.Best(u.ProfilePictureUrl, u.IconUrl, u.CurrentAvatarThumbnailImageUrl),
+                    IsMember: wasMember && leftAt == null,
+                    Left: wasMember && leftAt != null,
+                    Banned: banned.Contains(u.UserId));
+            })
+            .ToList();
     }
 }

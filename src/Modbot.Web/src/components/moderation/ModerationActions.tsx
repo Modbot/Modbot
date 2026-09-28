@@ -111,20 +111,46 @@ export function ModerationActions({
         <div className="flex flex-wrap items-center gap-1.5">{buttons}</div>
       )}
 
-      <Dialog open={open !== null} onOpenChange={(next) => !next && setOpen(null)}>
-        {open !== null && (
-          <ConfirmAction
-            me={me}
-            action={open}
-            userId={person.userId ?? ''}
-            name={name ?? person.userId ?? ''}
-            isMember={person.isMember}
-            onClose={() => setOpen(null)}
-            onDone={onDone}
-          />
-        )}
-      </Dialog>
+      <ModerationDialog me={me} action={open} person={person} name={name} onClose={() => setOpen(null)} onDone={onDone} />
     </>
+  )
+}
+
+/**
+ * The confirmation for one kick, ban or unban, open while `action` is set.
+ *
+ * On its own as well as behind the buttons, because the palette's "Ban X…" opens the person popup
+ * with it already open: the moderator still reads the same sentence and presses the same Confirm.
+ */
+export function ModerationDialog({
+  me,
+  action,
+  person,
+  name,
+  onClose,
+  onDone,
+}: {
+  me: CurrentUser
+  action: ModerationActionName | null
+  person: PersonStanding
+  name?: string | null
+  onClose: () => void
+  onDone?: (result: ModerationActionResult) => void
+}) {
+  return (
+    <Dialog open={action !== null} onOpenChange={(next) => !next && onClose()}>
+      {action !== null && (
+        <ConfirmAction
+          me={me}
+          action={action}
+          userId={person.userId ?? ''}
+          name={name ?? person.userId ?? ''}
+          isMember={person.isMember}
+          onClose={onClose}
+          onDone={onDone}
+        />
+      )}
+    </Dialog>
   )
 }
 

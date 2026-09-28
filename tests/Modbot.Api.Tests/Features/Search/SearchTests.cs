@@ -102,6 +102,49 @@ public class SearchTests
     }
 
     [Fact]
+    public async Task EachPersonSaysWhereTheyStandWithTheGroup()
+    {
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(Ct);
+        await SeedAsync(host);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var settings = await db.GetSettingsAsync(Ct);
+            settings.ManagedGroupId = "grp_test";
+
+            db.VRChatUsers.AddRange(
+                new VRChatUser { UserId = "usr_member", DisplayName = "Zed Member", FirstSeenAt = Day, LastSeenAt = Day },
+                new VRChatUser { UserId = "usr_left", DisplayName = "Zed Left", FirstSeenAt = Day, LastSeenAt = Day },
+                new VRChatUser { UserId = "usr_banned", DisplayName = "Zed Banned", FirstSeenAt = Day, LastSeenAt = Day },
+                new VRChatUser { UserId = "usr_lifted", DisplayName = "Zed Lifted", FirstSeenAt = Day, LastSeenAt = Day });
+
+            db.GroupMembers.AddRange(
+                new GroupMember { GroupId = "grp_test", UserId = "usr_member", Roles = "[]", FirstSeenAt = Day, LastSeenAt = Day },
+                new GroupMember { GroupId = "grp_test", UserId = "usr_left", Roles = "[]", FirstSeenAt = Day, LastSeenAt = Day, LeftAt = Day },
+                // Another group's roster says nothing about this one.
+                new GroupMember { GroupId = "grp_other", UserId = "usr_lifted", Roles = "[]", FirstSeenAt = Day, LastSeenAt = Day });
+
+            db.GroupBans.AddRange(
+                new GroupBan { GroupId = "grp_test", UserId = "usr_banned", BannedAt = Day, FirstSeenAt = Day, LastSeenAt = Day },
+                // Let back in: off the ban list.
+                new GroupBan { GroupId = "grp_test", UserId = "usr_lifted", BannedAt = Day, LiftedAt = Day, FirstSeenAt = Day, LastSeenAt = Day });
+
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
+        var found = (await host.GetJsonAsync<SearchResults>("/api/search?q=zed", cookie, Ct)).People
+            .ToDictionary(p => p.UserId);
+
+        Assert.True(found["usr_member"] is { IsMember: true, Left: false, Banned: false });
+        Assert.True(found["usr_left"] is { IsMember: false, Left: true, Banned: false });
+        Assert.True(found["usr_banned"] is { IsMember: false, Left: false, Banned: true });
+        Assert.True(found["usr_lifted"] is { IsMember: false, Left: false, Banned: false });
+    }
+
+    [Fact]
     public async Task NothingTypedFindsNothing()
     {
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
