@@ -338,9 +338,23 @@ export function People({ me }: { me: CurrentUser }) {
           <Table
             pinFirst
             // Two-line rows on a phone and in VR, where the table ran off the side and a headset
-            // wrote every column's name out on every row. The member list's views keep their table:
-            // their kick and ban menu has no place in a row that is one button.
-            narrow={view ? undefined : <PeopleRows people={list.people} now={now} />}
+            // wrote every column's name out on every row. The member list's views keep their kick
+            // and ban menu at the end of the name's line.
+            narrow={
+              view ? (
+                <MemberRows
+                  me={me}
+                  people={list.people}
+                  now={now}
+                  view={view}
+                  seesProfiles={seesProfiles}
+                  canAct={canAct}
+                  onActed={() => setActed((n) => n + 1)}
+                />
+              ) : (
+                <PeopleRows people={list.people} now={now} />
+              )
+            }
             head={
               view ? (
                 <>
@@ -558,6 +572,96 @@ function PeopleRows({ people, now }: { people: Person[]; now: string }) {
 }
 
 /** A linked Discord account: picture, name, and whether they are in the server. */
+/**
+ * A member list's view on a phone and in a headset: the name, the highest role and the kick and ban
+ * menu, then Discord, when they joined (and left) and when Modbot last saw them.
+ */
+function MemberRows({
+  me,
+  people,
+  now,
+  view,
+  seesProfiles,
+  canAct,
+  onActed,
+}: {
+  me: CurrentUser
+  people: Person[]
+  now: string
+  view: NonNullable<ReturnType<typeof memberView>>
+  seesProfiles: boolean
+  canAct: boolean
+  onActed: () => void
+}) {
+  return (
+    <NarrowRows>
+      {people.map((person) => {
+        const [topRole, ...otherRoles] = person.roleNames
+
+        return (
+          <NarrowRow
+            key={person.userId}
+            onOpen={() => openPerson(person.userId)}
+            hasLinks={canAct}
+            className={cn((person.notFoundAt || person.leftAt) && 'text-muted-foreground')}
+            picture={<Avatar url={person.avatarThumbnailUrl} className="size-8" />}
+            main={
+              <span className="flex items-center gap-1.5">
+                <span className="truncate font-medium">{person.displayName ?? person.userId}</span>
+                {person.eighteenPlus && (
+                  <Badge variant="ok" className="shrink-0 font-mono" title="18+ verified">
+                    18+
+                  </Badge>
+                )}
+              </span>
+            }
+            side={
+              <>
+                {topRole && (
+                  <Badge variant="secondary" className="max-w-[7.5rem]" title={person.roleIds[0]}>
+                    <span className="truncate">{topRole}</span>
+                  </Badge>
+                )}
+                {otherRoles.length > 0 && (
+                  <span className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                    +{otherRoles.length}
+                  </span>
+                )}
+                {canAct && (
+                  <ModerationActions
+                    me={me}
+                    person={{ userId: person.userId, isMember: person.isMember }}
+                    name={person.displayName ?? person.userId}
+                    onDone={onActed}
+                    size="xs"
+                    layout="menu"
+                  />
+                )}
+              </>
+            }
+            facts={[
+              seesProfiles && person.linkedDiscord?.name,
+              person.joinedAt && (
+                <span key="joined">
+                  joined <span className="font-mono">{formatDay(person.joinedAt)}</span>
+                </span>
+              ),
+              view === 'left' && person.leftAt && (
+                <span key="left">
+                  left <span className="font-mono">{formatDay(person.leftAt)}</span>
+                </span>
+              ),
+              <span key="seen">
+                seen <span className="font-mono">{ago(person.lastSeenAt, now)}</span>
+              </span>,
+            ]}
+          />
+        )
+      })}
+    </NarrowRows>
+  )
+}
+
 function DiscordAccount({ account }: { account: LinkedDiscord }) {
   return (
     <div className="flex items-center gap-2">
