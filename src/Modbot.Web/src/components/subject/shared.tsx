@@ -89,15 +89,14 @@ export function Block({ children, className }: { children: React.ReactNode; clas
 /**
  * A world's picture beside the title, for the World and Instance popups on a phone, where the
  * desk's picture across the left column was most of the first screen. 4:3, as VRChat draws it.
- * An empty frame when there is none, so the title does not jump once the page is read.
+ *
+ * `undefined` while the page is still being read, which holds the picture's place with an empty
+ * frame so the title does not jump; `null` for a world with no picture, which draws nothing.
  */
-export function HeaderPicture({ url }: { url: string | null }) {
+export function HeaderPicture({ url }: { url: string | null | undefined }) {
+  if (url === undefined) return <span className="aspect-[4/3] h-10 shrink-0 rounded-sm bg-muted" />
   const src = vrchatMedia(url)
-  return src ? (
-    <img src={src} alt="" className="aspect-[4/3] h-10 shrink-0 rounded-sm bg-muted object-cover" />
-  ) : (
-    <span className="aspect-[4/3] h-10 shrink-0 rounded-sm bg-muted" />
-  )
+  return src ? <img src={src} alt="" className="aspect-[4/3] h-10 shrink-0 rounded-sm bg-muted object-cover" /> : null
 }
 
 /**
