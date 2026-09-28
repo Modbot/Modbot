@@ -13,16 +13,14 @@ namespace Modbot.Api.Features.Analytics.Group;
 /// <remarks>
 /// <para>
 /// <strong>Two sources, deliberately kept apart.</strong> Joins, leaves, invites and requests per
-/// day come from the daily totals, which are kept forever. The headcount, the role changes, the
-/// tenure buckets and the invite follow-up come from facts, which an operator may have configured
-/// a window on. Each panel says which, and the response reports both ranges.
+/// day come from the daily totals, which are kept forever. The headcount, the role changes and the
+/// invite follow-up come from facts, which an operator may have configured a window on. Each panel
+/// says which, and the response reports both ranges.
 /// </para>
 /// <para>
-/// <strong>What this page cannot yet say.</strong> There is no member list: Modbot has not synced
-/// one, so it does not know how many people hold each role, or when anybody who joined before
-/// recording began became a member. The role panel therefore shows the roles VRChat lists and the
-/// grants and revokes seen, and the tenure panel covers only members whose join was recorded.
-/// Both say so in their labels rather than presenting a partial number as the whole.
+/// The tenure buckets come from a third place, the member list (<c>group_member</c>), because
+/// VRChat gives every member's join date there and the fact log only reaches back as far as the
+/// audit log did when Modbot first read it.
 /// </para>
 /// </remarks>
 public sealed class GroupAnalyticsQuery(ModbotContext db)
@@ -78,7 +76,7 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
             totals.Where(r => r.Metric == DailyTotalMetrics.ModeratorApprovals).Sum(r => r.Value),
             totals.Where(r => r.Metric == DailyTotalMetrics.ModeratorRejections).Sum(r => r.Value));
 
-        var (tenure, withKnownTenure) = await TenureAsync(now, ct);
+        var (tenure, withKnownTenure) = await TenureAsync(settings, now, ct);
 
         return new GroupAnalytics(
             from,
@@ -263,37 +261,34 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
     }
 
     /// <summary>
-    /// How long current members have been members — for the members whose join is on record.
+    /// How long current members have been members, by the join date VRChat's member list gives.
     /// </summary>
     /// <remarks>
-    /// A current member is somebody whose most recent join is later than any leave, removal or
-    /// ban recorded for them. Over the whole log rather than the window, because tenure is a
-    /// "now" question: the window says how far back to chart, not who counts as a member today.
+    /// <para>
+    /// From <c>group_member</c>, which the member sweep fills with VRChat's own <c>joinedAt</c> for
+    /// every member it lists. Until 2026-09-27 this read joins out of the fact log instead, and the
+    /// fact log only reaches as far back as VRChat's audit log did when Modbot first read it (about
+    /// 30 days): on the live group that was 238 of 4,791 members, and "Over a year" read 0 for a
+    /// group founded in 2022.
+    /// </para>
+    /// <para>
+    /// Until the first sweep has listed anybody (a new install), the fact log's joins are all there
+    /// is, so they are used instead.
+    /// </para>
     /// </remarks>
     private async Task<(IReadOnlyList<TenureBucket> Buckets, int Members)> TenureAsync(
+        Core.Data.Entities.Settings? settings,
         DateTimeOffset now,
         CancellationToken ct)
     {
-        const string Sql = """
-            SELECT m.joined
-            FROM (
-                SELECT e.subject_id,
-                       MAX(e.occurred_at) FILTER (WHERE e.type = @join) AS joined,
-                       MAX(e.occurred_at) FILTER (WHERE e.type <> @join) AS gone
-                FROM modbot_event e
-                WHERE e.type = ANY(@types) AND e.subject_platform = @vrchat
-                GROUP BY e.subject_id
-            ) m
-            WHERE m.joined IS NOT NULL AND (m.gone IS NULL OR m.gone < m.joined)
-            """;
+        var groupId = settings?.ManagedGroupId ?? string.Empty;
 
-        var joins = await _sql.ReadAsync(
-            Sql,
-            r => AnalyticsSql.InstantOf(r, 0),
-            ct,
-            ("join", FactType.MemberJoined),
-            ("types", new[] { FactType.MemberJoined, FactType.MemberLeft, FactType.MemberKicked, FactType.MemberBanned }),
-            ("vrchat", (short)FactPlatform.VRChat));
+        var listed = await db.GroupMembers.AsNoTracking()
+            .Where(m => m.GroupId == groupId && m.LeftAt == null && m.JoinedAt != null)
+            .Select(m => m.JoinedAt!.Value)
+            .ToListAsync(ct);
+
+        IReadOnlyList<DateTimeOffset> joins = listed.Count > 0 ? listed : await RecordedJoinsAsync(ct);
 
         var buckets = TenureBuckets
             .Select(b => new TenureBucket(
@@ -308,6 +303,39 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
             .ToList();
 
         return (buckets, joins.Count);
+    }
+
+    /// <summary>
+    /// The joins of current members as the fact log recorded them, for before the member list has
+    /// been read.
+    /// </summary>
+    /// <remarks>
+    /// A current member is somebody whose most recent join is later than any leave, removal or
+    /// ban recorded for them. Over the whole log rather than the window, because tenure is a
+    /// "now" question: the window says how far back to chart, not who counts as a member today.
+    /// </remarks>
+    private async Task<IReadOnlyList<DateTimeOffset>> RecordedJoinsAsync(CancellationToken ct)
+    {
+        const string Sql = """
+            SELECT m.joined
+            FROM (
+                SELECT e.subject_id,
+                       MAX(e.occurred_at) FILTER (WHERE e.type = @join) AS joined,
+                       MAX(e.occurred_at) FILTER (WHERE e.type <> @join) AS gone
+                FROM modbot_event e
+                WHERE e.type = ANY(@types) AND e.subject_platform = @vrchat
+                GROUP BY e.subject_id
+            ) m
+            WHERE m.joined IS NOT NULL AND (m.gone IS NULL OR m.gone < m.joined)
+            """;
+
+        return await _sql.ReadAsync(
+            Sql,
+            r => AnalyticsSql.InstantOf(r, 0),
+            ct,
+            ("join", FactType.MemberJoined),
+            ("types", new[] { FactType.MemberJoined, FactType.MemberLeft, FactType.MemberKicked, FactType.MemberBanned }),
+            ("vrchat", (short)FactPlatform.VRChat));
     }
 
     /// <summary>
