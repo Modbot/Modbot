@@ -6,6 +6,7 @@ import { spotOf } from '@/components/calendar/entry'
 import { EventDetails } from '@/components/calendar/EventDetails'
 import { MiniMonth } from '@/components/calendar/MiniMonth'
 import { MonthView } from '@/components/calendar/MonthView'
+import { NARROW, useMedia } from '@/components/calendar/phone'
 import { QuickCreate } from '@/components/calendar/QuickCreate'
 import { ScheduleView } from '@/components/calendar/ScheduleView'
 import { TimeGrid } from '@/components/calendar/TimeGrid'
@@ -27,6 +28,7 @@ import {
 } from '@/lib/calendar'
 import {
   movedInput,
+  PHONE_WEEK_LENGTH,
   sameDay,
   startOfDay,
   stepAnchor,
@@ -42,9 +44,6 @@ import { go, useLocation } from '@/lib/router'
 import { useShortcuts } from '@/lib/shortcuts'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { PageMessage } from '@/pages/analytics/shared'
-
-/** Below Tailwind's `sm`: a phone held upright, where seven columns of hours do not fit. */
-const PHONE = '(max-width: 39.9375rem)'
 
 const VIEWS: { value: CalendarViewName; label: string }[] = [
   { value: 'day', label: 'Day' },
@@ -69,8 +68,10 @@ type Detail = { id: string; start: Date; end: Date; spot: Spot | null }
  */
 export function Calendar() {
   const [view, setView] = useState<CalendarViewName>(() =>
-    firstView(typeof window !== 'undefined' && window.matchMedia(PHONE).matches),
+    firstView(typeof window !== 'undefined' && window.matchMedia(NARROW).matches),
   )
+  // Week is three days on a phone held upright (calendarGrid `PHONE_WEEK_LENGTH`), seven elsewhere.
+  const weekLength = useMedia(NARROW) ? PHONE_WEEK_LENGTH : 7
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [data, setData] = useState<{ key: string; view: CalendarView } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -93,9 +94,9 @@ export function Calendar() {
   // `?new` opens the form for a new event: the VRChat page's "Create event" leads here.
   const wantsNew = location.search.has('new')
 
-  const range = useMemo(() => viewRange(view, anchor), [view, anchor])
+  const range = useMemo(() => viewRange(view, anchor, weekLength), [view, anchor, weekLength])
   const rangeKey = `${range.from.toISOString()}|${range.to.toISOString()}`
-  const days = useMemo(() => viewDays(view, anchor), [view, anchor])
+  const days = useMemo(() => viewDays(view, anchor, weekLength), [view, anchor, weekLength])
 
   const load = useCallback(
     () =>
@@ -198,7 +199,7 @@ export function Calendar() {
 
   const canManage = data?.view.canManage ?? false
 
-  const step = (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction))
+  const step = (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction, weekLength))
   const goToday = () => setAnchor(startOfDay(now))
   const newEvent = () => setEditing({ event: null })
   const pickView = (next: CalendarViewName) => {
@@ -322,7 +323,7 @@ export function Calendar() {
           </Button>
         </div>
         <h2 className="min-w-0 truncate font-label" style={{ fontSize: 'calc(var(--text-base) + 3px)' }}>
-          {viewTitle(view, anchor)}
+          {viewTitle(view, anchor, undefined, weekLength)}
         </h2>
         <div className="flex-1" />
         <SwitchBank value={view} onChange={pickView} options={VIEWS} label="View" />

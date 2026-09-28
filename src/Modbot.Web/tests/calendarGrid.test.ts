@@ -23,6 +23,7 @@ import {
   movedInput,
   movedTo,
   offsetToMinutes,
+  PHONE_WEEK_LENGTH,
   resizedTo,
   segmentOn,
   shiftDate,
@@ -174,6 +175,27 @@ test('the week the clocks go forward is seven midnights too', () => {
   assert.deepEqual(addDays(at(2026, 3, 29), 1), at(2026, 3, 30))
   assert.equal(daysBetween(at(2026, 3, 28), at(2026, 3, 30, 23, 59)), 2)
   assert.equal(daysBetween(at(2026, 10, 26), at(2026, 10, 24)), -2)
+})
+
+test("a phone's week is three days from the day in view, stepped by three", () => {
+  // Wednesday Sep 30: the three days run from it, not from its Monday, and cross into October.
+  const days = viewDays('week', at(2026, 9, 30, 15), PHONE_WEEK_LENGTH)
+  assert.deepEqual(days, [at(2026, 9, 30), at(2026, 10, 1), at(2026, 10, 2)])
+
+  const { from, to } = viewRange('week', at(2026, 9, 30, 15), PHONE_WEEK_LENGTH)
+  assert.deepEqual(from, at(2026, 9, 30))
+  assert.deepEqual(to, at(2026, 10, 3))
+
+  assert.deepEqual(stepAnchor('week', at(2026, 9, 30), 1, PHONE_WEEK_LENGTH), at(2026, 10, 3))
+  assert.deepEqual(stepAnchor('week', at(2026, 9, 30), -1, PHONE_WEEK_LENGTH), at(2026, 9, 27))
+  assert.equal(plainSpaces(viewTitle('week', at(2026, 9, 30), 'en-US', PHONE_WEEK_LENGTH)), 'Sep 30 – Oct 2, 2026')
+  assert.equal(plainSpaces(viewTitle('week', at(2026, 9, 28), 'en-US', PHONE_WEEK_LENGTH)), 'Sep 28 – 30, 2026')
+})
+
+test('three days across the clocks going back are three midnights', () => {
+  const days = viewDays('week', at(2026, 10, 24, 12), PHONE_WEEK_LENGTH)
+  assert.deepEqual(days, [at(2026, 10, 24), at(2026, 10, 25), at(2026, 10, 26)])
+  assert.ok(days.every((d) => d.getHours() === 0))
 })
 
 test('a month is six weeks from the Monday on or before its first', () => {

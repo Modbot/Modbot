@@ -88,32 +88,48 @@ export function monthDays(anchor: Date): Date[] {
   return Array.from({ length: 42 }, (_, i) => addDays(first, i))
 }
 
-/** The days a view shows as columns (day, week) or cells (month); the Schedule's first day. */
-export function viewDays(view: CalendarViewName, anchor: Date): Date[] {
+/**
+ * How many days the Week view shows on a phone held upright. Seven columns there are about 38 px
+ * each: the day names run into each other and a title shows one letter. Three leave room for a
+ * title, and start on the day in view rather than on a Monday, so Today shows today and the next
+ * two (mobile review 2026-09-28, #9).
+ */
+export const PHONE_WEEK_LENGTH = 3
+
+/** The Week view's first day: its Monday for a whole week, the day itself for a shorter one. */
+function firstOfWeek(anchor: Date, weekLength: number): Date {
+  return weekLength === 7 ? startOfWeek(anchor) : startOfDay(anchor)
+}
+
+/**
+ * The days a view shows as columns (day, week) or cells (month); the Schedule's first day.
+ * `weekLength` is 7, or {@link PHONE_WEEK_LENGTH} on a phone.
+ */
+export function viewDays(view: CalendarViewName, anchor: Date, weekLength = 7): Date[] {
   if (view === 'day') return [startOfDay(anchor)]
   if (view === 'week') {
-    const first = startOfWeek(anchor)
-    return Array.from({ length: 7 }, (_, i) => addDays(first, i))
+    const first = firstOfWeek(anchor, weekLength)
+    return Array.from({ length: weekLength }, (_, i) => addDays(first, i))
   }
   if (view === 'month') return monthDays(anchor)
   return [startOfDay(anchor)]
 }
 
 /** The span of time to ask the server for: from the first day's midnight to the last day's end. */
-export function viewRange(view: CalendarViewName, anchor: Date): { from: Date; to: Date } {
+export function viewRange(view: CalendarViewName, anchor: Date, weekLength = 7): { from: Date; to: Date } {
   if (view === 'schedule') {
     const from = startOfDay(anchor)
     return { from, to: addDays(from, SCHEDULE_DAYS) }
   }
 
-  const days = viewDays(view, anchor)
+  const days = viewDays(view, anchor, weekLength)
   return { from: days[0], to: addDays(days[days.length - 1], 1) }
 }
 
 /** Where the previous and next buttons (and `j`, `k`) go from here. */
-export function stepAnchor(view: CalendarViewName, anchor: Date, direction: 1 | -1): Date {
+export function stepAnchor(view: CalendarViewName, anchor: Date, direction: 1 | -1, weekLength = 7): Date {
   if (view === 'day') return addDays(anchor, direction)
-  if (view === 'week') return addDays(anchor, 7 * direction)
+  if (view === 'week') return addDays(anchor, weekLength * direction)
   if (view === 'month') return addMonths(anchor, direction)
   return addDays(anchor, 7 * direction)
 }
@@ -126,14 +142,14 @@ export function stepAnchor(view: CalendarViewName, anchor: Date, direction: 1 | 
  * across a new year, and "Sunday, Sep 27, 2026" for one day. `locale` is left out on the page, so
  * the viewer's own language writes it; the tests pass one.
  */
-export function viewTitle(view: CalendarViewName, anchor: Date, locale?: string): string {
+export function viewTitle(view: CalendarViewName, anchor: Date, locale?: string, weekLength = 7): string {
   if (view === 'month') return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(anchor)
 
   if (view === 'day')
     return new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }).format(anchor)
 
-  const from = view === 'week' ? startOfWeek(anchor) : startOfDay(anchor)
-  const to = view === 'week' ? addDays(from, 6) : addDays(from, SCHEDULE_DAYS - 1)
+  const from = view === 'week' ? firstOfWeek(anchor, weekLength) : startOfDay(anchor)
+  const to = addDays(from, (view === 'week' ? weekLength : SCHEDULE_DAYS) - 1)
   return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', year: 'numeric' }).formatRange(from, to)
 }
 
