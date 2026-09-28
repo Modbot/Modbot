@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { LogLine } from '../src/lib/api.ts'
-import { wholeEntry } from '../src/lib/logEntry.ts'
+import { shortLevel, wholeEntry } from '../src/lib/logEntry.ts'
 
 function line(over: Partial<LogLine> = {}): LogLine {
   return {
@@ -84,4 +84,13 @@ test('an exception is in the record, so the copied line carries it', () => {
 
 test('the row id is not in the record', () => {
   assert.equal(wholeEntry(line()).id, undefined)
+})
+
+test('a phone row writes the two long levels short and the rest whole', () => {
+  assert.equal(shortLevel('Information'), 'Info')
+  assert.equal(shortLevel('Warning'), 'Warn')
+  assert.equal(shortLevel('Error'), 'Error')
+  assert.equal(shortLevel('Debug'), 'Debug')
+  assert.equal(shortLevel('Verbose'), 'Verbose')
+  assert.equal(shortLevel('Fatal'), 'Fatal')
 })

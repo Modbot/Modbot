@@ -1,4 +1,19 @@
-import type { LogLine } from './api'
+import type { LogLevel, LogLine } from './api'
+
+/**
+ * The level in a word short enough for a phone's row, so the message keeps the width. Only the two
+ * long ones are shortened; the rest are short already.
+ */
+export function shortLevel(level: LogLevel): string {
+  switch (level) {
+    case 'Information':
+      return 'Info'
+    case 'Warning':
+      return 'Warn'
+    default:
+      return level
+  }
+}
 
 /**
  * One log line as a single record, ready to be shown and copied as JSON.

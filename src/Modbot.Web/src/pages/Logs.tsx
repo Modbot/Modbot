@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { JsonView } from '@/components/JsonView'
 import { api, ApiError, type LogFilters, type LogLevel, type LogLine, type LogPage } from '@/lib/api'
-import { wholeEntry } from '@/lib/logEntry'
+import { shortLevel, wholeEntry } from '@/lib/logEntry'
 import { cn } from '@/lib/utils'
 import { useShortcuts } from '@/lib/shortcuts'
 import { Empty } from '@/components/ListParts'
@@ -246,10 +246,15 @@ function LogRow({ line, open, onToggle }: { line: LogLine; open: boolean; onTogg
         <span className="shrink-0 font-mono text-muted-foreground">{when(line.at)}</span>
         {/* The word sits in a span of its own inside the column, so a filled level draws as a
             marker around the word rather than a block the width of the column. */}
-        <span className="w-16 shrink-0 font-medium">
-          <span className={LEVEL_TONE[line.level]}>{line.level}</span>
+        <span className="w-16 shrink-0 font-medium max-md:w-14">
+          <span className={LEVEL_TONE[line.level]}>
+            <span className="max-md:hidden">{line.level}</span>
+            <span className="md:hidden">{shortLevel(line.level)}</span>
+          </span>
         </span>
-        <span className="min-w-0 flex-1 truncate">{line.message}</span>
+        <span className="min-w-0 flex-1 truncate max-md:line-clamp-2 max-md:whitespace-normal max-md:break-words">
+          {line.message}
+        </span>
         <span className="hidden shrink-0 text-muted-foreground sm:inline">
           {shortSource(line.source)}
         </span>
