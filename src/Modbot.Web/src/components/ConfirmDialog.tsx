@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Outcome } from '@/components/settings/fields'
 import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { ApiError, type MissingGroupPermission } from '@/lib/api'
@@ -98,23 +98,26 @@ function ConfirmBody({
   }
 
   return (
-    <DialogContent title={title} subtitle={subtitle} className="max-w-[460px]">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-end gap-2">
+    <DialogContent
+      title={title}
+      subtitle={subtitle}
+      className="max-w-[460px]"
+      foot={
+        <DialogFoot>
           <Button size="sm" variant="outline" onClick={onClose} disabled={sending}>
             Cancel
           </Button>
           <Button size="sm" variant="destructive" onClick={send} disabled={sending}>
             {sending ? 'Sending…' : action}
           </Button>
-        </div>
-
-        {missing ? (
-          <VRChatPermissionMissing missing={missing} className="text-destructive" />
-        ) : (
-          <Outcome tone="problem">{problem}</Outcome>
-        )}
-      </div>
+        </DialogFoot>
+      }
+    >
+      {missing ? (
+        <VRChatPermissionMissing missing={missing} className="text-destructive" />
+      ) : (
+        problem ? <Outcome tone="problem">{problem}</Outcome> : null
+      )}
     </DialogContent>
   )
 }

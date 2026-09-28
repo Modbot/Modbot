@@ -13,7 +13,7 @@ import { TimeGrid } from '@/components/calendar/TimeGrid'
 import { UndoToast, type Toast } from '@/components/calendar/UndoToast'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { ApiError } from '@/lib/api'
@@ -459,17 +459,8 @@ export function Calendar() {
           <DialogContent
             title={`${asking.change.kind === 'move' ? 'Move' : 'Change'} every date of “${asking.entry.event.title}”?`}
             className="max-w-[480px]"
-          >
-            <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
-              <p>This event repeats. Modbot can only move all of its dates together, not one date on its own.</p>
-              <p className="font-mono">
-                {shortDay.format(asking.entry.start)}, {timeOfDay(asking.entry.start.toISOString())} –{' '}
-                {timeOfDay(asking.entry.end.toISOString())}
-                {' → '}
-                {sameDay(asking.entry.start, asking.change.start) ? '' : `${shortDay.format(asking.change.start)}, `}
-                {timeOfDay(asking.change.start.toISOString())} – {timeOfDay(asking.change.end.toISOString())}
-              </p>
-              <div className="flex flex-wrap justify-end gap-2">
+            foot={
+              <DialogFoot>
                 <Button
                   size="sm"
                   variant="outline"
@@ -490,7 +481,18 @@ export function Calendar() {
                 >
                   {asking.change.kind === 'move' ? 'Move all events' : 'Change all events'}
                 </Button>
-              </div>
+              </DialogFoot>
+            }
+          >
+            <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
+              <p>This event repeats. Modbot can only move all of its dates together, not one date on its own.</p>
+              <p className="font-mono">
+                {shortDay.format(asking.entry.start)}, {timeOfDay(asking.entry.start.toISOString())} –{' '}
+                {timeOfDay(asking.entry.end.toISOString())}
+                {' → '}
+                {sameDay(asking.entry.start, asking.change.start) ? '' : `${shortDay.format(asking.change.start)}, `}
+                {timeOfDay(asking.change.start.toISOString())} – {timeOfDay(asking.change.end.toISOString())}
+              </p>
             </div>
           </DialogContent>
         )}

@@ -26,6 +26,16 @@
   }
 }
 
+/* Where a dialog is a sheet along the bottom of the screen, under the thumb that opened it: a
+   phone held upright, and a touch screen short of a desk's width, which covers a phone held
+   sideways. `SHEET` in `components/calendar/phone.ts` asks the same question from script, for the
+   calendar's event details, which are a popover beside the tap everywhere else. */
+@custom-variant sheet {
+  @media (max-width: 39.9375rem), (pointer: coarse) and (max-width: 63.9375rem) {
+    @slot;
+  }
+}
+
 /* A phone, on the same test as the phone sizes below: a coarse pointer, a narrow screen, not a
    headset. For a hand-written control the 44px floor there does not reach -- a bare `<button>`
    with no data-slot -- so it can take the floor without growing on a desk:

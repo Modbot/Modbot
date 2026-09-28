@@ -451,7 +451,8 @@ export function Chat({
       <Dialog open={drawer} onOpenChange={setDrawer}>
         <DialogContent
           title="Conversations"
-          className="top-0 left-0 h-full max-w-[17rem] translate-x-0 translate-y-0 rounded-none"
+          place="side"
+          className="top-0 left-0 h-full max-h-[calc(100dvh-1.5rem)] w-[calc(100vw-1.5rem)] max-w-[17rem] rounded-none"
           bodyClassName="flex min-h-0 flex-1 flex-col px-3 py-3"
         >
           {list}

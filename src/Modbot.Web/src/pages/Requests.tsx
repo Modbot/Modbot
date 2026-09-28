@@ -5,7 +5,7 @@ import { RefreshCw } from 'lucide-react'
 import { Card, CardAction, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyRow } from '@/components/PanelGrid'
 import { NarrowRow, NarrowRows, Table, Td, Th, Tr } from '@/components/ui/data-table'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { ReasonButtons } from '@/components/CaseFileForm'
 import { SubjectLink } from '@/components/facts'
@@ -373,71 +373,77 @@ export function ConfirmAnswer({
         </span>
       }
       className="max-w-[460px]"
+      foot={
+        result === null ? (
+          <DialogFoot>
+            <Button size="sm" variant="outline" onClick={onClose} disabled={sending}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant={answer === 'approve' ? 'default' : 'destructive'}
+              onClick={send}
+              disabled={sending}
+            >
+              {sending ? 'Sending…' : answer === 'approve' ? 'Approve' : 'Reject'}
+            </Button>
+          </DialogFoot>
+        ) : (
+          <DialogFoot>
+            <Button size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </DialogFoot>
+        )
+      }
     >
-      <div className="flex flex-col gap-3">
-        {result === null && (
-          <>
-            {answer === 'reject' && (
-              <>
-                {reasons === null ? (
-                  <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
-                    Loading the reasons…
-                  </p>
-                ) : (
-                  <ReasonButtons reasons={reasons} picked={picked} onChange={setPicked} />
-                )}
+      {/* Approving asks nothing, so until there is a problem or an answer it is the title and its buttons. */}
+      {(answer === 'reject' || problem || result !== null) && (
+        <div className="flex flex-col gap-3">
+          {result === null && (
+            <>
+              {answer === 'reject' && (
+                <>
+                  {reasons === null ? (
+                    <p className="text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+                      Loading the reasons…
+                    </p>
+                  ) : (
+                    <ReasonButtons reasons={reasons} picked={picked} onChange={setPicked} />
+                  )}
 
-                <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-                  <span className="text-muted-foreground">Note (optional)</span>
-                  <Textarea
-                    rows={3}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                  />
-                </label>
-              </>
-            )}
+                  <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
+                    <span className="text-muted-foreground">Note (optional)</span>
+                    <Textarea
+                      rows={3}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                    />
+                  </label>
+                </>
+              )}
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={onClose} disabled={sending}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant={answer === 'approve' ? 'default' : 'destructive'}
-                onClick={send}
-                disabled={sending}
-              >
-                {sending ? 'Sending…' : answer === 'approve' ? 'Approve' : 'Reject'}
-              </Button>
-            </div>
+              {problem && (
+                <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+                  {problem}
+                </p>
+              )}
+            </>
+          )}
 
-            {problem && (
-              <p className="text-destructive" style={{ fontSize: 'var(--text-small)' }}>
-                {problem}
-              </p>
-            )}
-          </>
-        )}
-
-        {result !== null && (
-          <>
-            {!result.done && result.missingGroupPermission ? (
-              <VRChatPermissionMissing missing={result.missingGroupPermission} className="text-destructive" />
-            ) : (
-              <p className={result.done || result.gone ? '' : 'text-destructive'}>
-                {resultText(answer, result)}
-              </p>
-            )}
-
-            <div className="flex justify-end">
-              <Button size="sm" onClick={onClose}>
-                Close
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
+          {result !== null && (
+            <>
+              {!result.done && result.missingGroupPermission ? (
+                <VRChatPermissionMissing missing={result.missingGroupPermission} className="text-destructive" />
+              ) : (
+                <p className={result.done || result.gone ? '' : 'text-destructive'}>
+                  {resultText(answer, result)}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </DialogContent>
   )
 }

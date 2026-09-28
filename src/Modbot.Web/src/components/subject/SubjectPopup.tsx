@@ -78,6 +78,7 @@ function CasePopup({ id, lead }: { id: string; lead: React.ReactNode }) {
       title="Case file"
       lead={lead}
       aria-describedby={undefined}
+      place="full"
       className="top-0 left-0 h-[100dvh] max-h-none w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 md:top-1/2 md:left-1/2 md:h-auto md:max-h-[calc(100dvh-2rem)] md:w-[calc(100vw-2rem)] md:max-w-4xl md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-sm md:border"
       bodyClassName="p-0"
     >

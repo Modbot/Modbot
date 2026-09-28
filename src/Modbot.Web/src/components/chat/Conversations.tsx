@@ -2,7 +2,7 @@ import { useRef, useState, type KeyboardEvent } from 'react'
 import { MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import type { ChatConversationSummary } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -104,23 +104,28 @@ export function Conversations({
       </div>
 
       <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
-        <DialogContent title="Delete this conversation?" subtitle={deleting?.title} className="max-w-[380px]">
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="outline" onClick={() => setDeleting(null)}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                if (deleting) onDelete(deleting.id)
-                setDeleting(null)
-              }}
-            >
-              Delete
-            </Button>
-          </div>
-        </DialogContent>
+        <DialogContent
+          title="Delete this conversation?"
+          subtitle={deleting?.title}
+          className="max-w-[380px]"
+          foot={
+            <DialogFoot>
+              <Button size="sm" variant="outline" onClick={() => setDeleting(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  if (deleting) onDelete(deleting.id)
+                  setDeleting(null)
+                }}
+              >
+                Delete
+              </Button>
+            </DialogFoot>
+          }
+        />
       </Dialog>
     </div>
   )

@@ -11,8 +11,11 @@
     <meta name="theme-color" content="#0f0e15" media="(prefers-color-scheme: dark)" />
     <meta name="color-scheme" content="light dark" />
     <!-- viewport-fit=cover so the bar at the foot of the app can sit clear of a
-         phone's home indicator: without it env(safe-area-inset-*) is always 0. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+         phone's home indicator: without it env(safe-area-inset-*) is always 0.
+         interactive-widget=resizes-content so Android's browsers shrink the page above the
+         on-screen keyboard, and a sheet or Search ends where the keyboard begins. Safari on
+         iOS ignores it; lib/visibleArea.ts covers that case. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Modbot</title>
 
     <!-- The link preview a chat app draws when a moderator pastes a page of this app into a

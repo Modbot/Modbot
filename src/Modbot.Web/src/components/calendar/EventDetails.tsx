@@ -6,13 +6,13 @@ import { VRChatPermissionMissing } from '@/components/VRChatPermissionMissing'
 import { WorldLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { calendarApi, PLACE_LABEL, PLACE_STATE_LABEL, STATE_LABEL, type CalendarEvent } from '@/lib/calendar'
 import { sameDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
 import type { Spot } from './entry'
-import { SHEET, SHEET_CLASS, SHEET_FOOT_CLASS, SHEET_LAST_ROW_CLASS, useMedia } from './phone'
+import { SHEET, useMedia } from './phone'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -220,10 +220,7 @@ export function EventDetails({
           <DialogContent
             title={event.title}
             subtitle={<StateBadge event={event} />}
-            className={SHEET_CLASS}
-            // With no buttons under it, the body is the sheet's last row, so it keeps clear of the home bar.
-            bodyClassName={buttons ? undefined : SHEET_LAST_ROW_CLASS}
-            foot={buttons && <div className={SHEET_FOOT_CLASS}>{buttons}</div>}
+            foot={buttons && <DialogFoot>{buttons}</DialogFoot>}
           >
             <EventBody event={event} start={start} end={end} />
           </DialogContent>

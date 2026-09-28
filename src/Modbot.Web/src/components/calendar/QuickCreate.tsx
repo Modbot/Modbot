@@ -1,14 +1,14 @@
 import { useId, useState, type FormEvent } from 'react'
 import { Popover } from 'radix-ui'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { ApiError } from '@/lib/api'
 import { calendarApi, newEventAt, type CalendarEvent, type CalendarEventInput } from '@/lib/calendar'
 import { sameDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import type { Spot } from './entry'
-import { SHEET, SHEET_CLASS, SHEET_FOOT_CLASS, useMedia } from './phone'
+import { SHEET, useMedia } from './phone'
 
 const day = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -88,12 +88,7 @@ export function QuickCreate({
       <Dialog open onOpenChange={(open) => !open && onClose()}>
         <DialogContent
           title="New event"
-          className={SHEET_CLASS}
-          foot={
-            <div className={SHEET_FOOT_CLASS} style={{ fontSize: 'var(--text-small)' }}>
-              {buttons}
-            </div>
-          }
+          foot={<DialogFoot style={{ fontSize: 'var(--text-small)' }}>{buttons}</DialogFoot>}
         >
           {/* Save draft is pinned under the body, outside the form, and names it with `form`. */}
           <form id={formId} className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }} onSubmit={submit}>

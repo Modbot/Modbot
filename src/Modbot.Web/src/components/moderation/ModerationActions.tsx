@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Popover } from 'radix-ui'
 import { MoreHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { ReasonButtons, WrittenReasonBox } from '@/components/CaseFileForm'
 import { AddFileButton, BanFileList } from '@/components/moderation/BanFiles'
 import { useBanFiles } from '@/components/moderation/useBanFiles'
@@ -246,6 +246,52 @@ function ConfirmAction({
     <DialogContent
       title={confirmTitle(action, name, isMember)}
       className="max-w-[460px]"
+      foot={
+        result === null ? (
+          <DialogFoot>
+            <Button size="sm" variant="outline" onClick={onClose} disabled={sending}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant={action === 'unban' ? 'default' : 'destructive'}
+              onClick={send}
+              disabled={sending || (needsReason && picked.length === 0) || (needsNote && note.trim().length === 0)}
+            >
+              {sending ? 'Sending…' : confirmLabel(action)}
+            </Button>
+          </DialogFoot>
+        ) : (
+          <DialogFoot>
+            {/* A ban writes a case file and the server hands back its id. Offered here, so another
+                screenshot can be attached without searching for the person all over again, and
+                the case file opens over the page rather than instead of it. */}
+            {result.done && result.caseId && attachable && (
+              <AddFileButton
+                delivery={attachable}
+                label="Add another screenshot"
+                onPick={(file) => files.add(file, attachable)}
+              />
+            )}
+            {result.done && result.caseId && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const caseId = result.caseId!
+                  onClose()
+                  openCase(caseId)
+                }}
+              >
+                Open the case file
+              </Button>
+            )}
+            <Button size="sm" onClick={onClose}>
+              {writesCaseFile && result.done ? 'Done' : 'Close'}
+            </Button>
+          </DialogFoot>
+        )
+      }
     >
       <div className="flex flex-col gap-3">
         {result === null && (
@@ -296,20 +342,6 @@ function ConfirmAction({
               </div>
             )}
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={onClose} disabled={sending}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant={action === 'unban' ? 'default' : 'destructive'}
-                onClick={send}
-                disabled={sending || (needsReason && picked.length === 0) || (needsNote && note.trim().length === 0)}
-              >
-                {sending ? 'Sending…' : confirmLabel(action)}
-              </Button>
-            </div>
-
             <Outcome tone="problem">{problem}</Outcome>
           </>
         )}
@@ -326,35 +358,6 @@ function ConfirmAction({
             )}
 
             {writesCaseFile && <BanFileList items={files.items} />}
-
-            <div className="flex flex-wrap justify-end gap-2">
-              {/* A ban writes a case file and the server hands back its id. Offered here, so another
-                  screenshot can be attached without searching for the person all over again, and
-                  the case file opens over the page rather than instead of it. */}
-              {result.done && result.caseId && attachable && (
-                <AddFileButton
-                  delivery={attachable}
-                  label="Add another screenshot"
-                  onPick={(file) => files.add(file, attachable)}
-                />
-              )}
-              {result.done && result.caseId && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const caseId = result.caseId!
-                    onClose()
-                    openCase(caseId)
-                  }}
-                >
-                  Open the case file
-                </Button>
-              )}
-              <Button size="sm" onClick={onClose}>
-                {writesCaseFile && result.done ? 'Done' : 'Close'}
-              </Button>
-            </div>
           </>
         )}
       </div>
