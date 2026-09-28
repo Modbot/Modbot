@@ -109,7 +109,9 @@ export function NarrowRows({ children }: { children: React.ReactNode }) {
  * The whole row is the tap target, at least a row high. It is a button, unless something inside it
  * is a link or a button of its own (`hasLinks`): a button cannot hold another, so such a row is
  * clicked as a whole the way a table row is, and a tap on one of its own links is left to that
- * link. `open` is for a row that opens its details below it, in `children`.
+ * link. `open` is for a row that opens its details below it, in `children`. `children` also holds a
+ * third line of buttons, for a row whose buttons do not fit beside its name: below the tap target
+ * rather than in it, so a thumb that misses one does not open the row instead.
  */
 export function NarrowRow({
   picture,
@@ -178,6 +180,9 @@ export function NarrowRow({
           tabIndex={0}
           aria-expanded={open}
           onClick={(e) => {
+            // A dialog a row's button opened is drawn elsewhere in the page, but React still hands
+            // its clicks up through the row; a tap inside an Unban confirmation is not a tap on the row.
+            if (!e.currentTarget.contains(e.target as Node)) return
             if ((e.target as HTMLElement).closest('a, button, summary')) return
             onOpen()
           }}
