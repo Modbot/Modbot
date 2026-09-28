@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { describeKeys, hasPageActions, isTyping, keyToken, matchKeys } from '../src/lib/shortcuts.ts'
+import {
+  CHORD_TIMEOUT_MS,
+  describeKeys,
+  hasPageActions,
+  isTyping,
+  keyToken,
+  matchKeys,
+  onKeyDown,
+  registerShortcut,
+  waitingChord,
+} from '../src/lib/shortcuts.ts'
 
 test('a page has actions only when it registered a key of its own that the sheet lists', () => {
   // Now: the palette, the sheet and the go-to keys, all the app's own.
@@ -69,4 +79,40 @@ test('keys are described the way a person reads them', () => {
   assert.equal(describeKeys('escape', false), 'Esc')
   assert.equal(describeKeys('?', false), '?')
   assert.equal(describeKeys('shift+enter', false), 'Shift Enter')
+})
+
+test('the sidebar can tell a g is waiting, for exactly as long as the second key works', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const off = registerShortcut({ keys: 'g k', label: 'Now', group: 'Go to', run: () => {} })
+  t.after(off)
+
+  const press = (key: string) =>
+    onKeyDown({
+      key,
+      ctrlKey: false,
+      metaKey: false,
+      altKey: false,
+      shiftKey: false,
+      target: null,
+      defaultPrevented: false,
+      isComposing: false,
+      preventDefault: () => {},
+    })
+
+  // Pressed, then the second key: waiting, then not.
+  press('g')
+  assert.equal(waitingChord(), 'g')
+  press('k')
+  assert.equal(waitingChord(), null)
+
+  // Pressed and left: the wait ends when the chord stops listening, not later.
+  press('g')
+  t.mock.timers.tick(CHORD_TIMEOUT_MS - 1)
+  assert.equal(waitingChord(), 'g')
+  t.mock.timers.tick(1)
+  assert.equal(waitingChord(), null)
+
+  // A letter that starts nothing does not wait.
+  press('x')
+  assert.equal(waitingChord(), null)
 })

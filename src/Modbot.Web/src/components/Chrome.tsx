@@ -6,7 +6,7 @@ import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, sidebarEntry, type NavItem, typ
 import { countText } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import type { StatusRowId } from '@/lib/status'
-import { hasPageActions, useShortcutList } from '@/lib/shortcuts'
+import { hasPageActions, useShortcutList, useWaitingChord } from '@/lib/shortcuts'
 import { cn } from '@/lib/utils'
 import { DOCS_URL } from '@/lib/docs'
 import type { Place, Theme } from '@/lib/preferences'
@@ -57,6 +57,7 @@ export function Sidebar({
   const visible = NAV.filter((item) => !('hidden' in item && item.hidden) && mayOpen(me, item.id))
   // A page shown as part of another, like Discord members on the Discord page, lights that one.
   const lit = sidebarEntry(page)
+  const goToWaiting = useWaitingChord() === 'g'
 
   // A group heading travels with its first *visible* entry, so hiding "Users" does not take the
   // "Team" heading away from "Roles".
@@ -101,7 +102,7 @@ export function Sidebar({
           <button
             onClick={() => onNavigate(item.id)}
             className={cn(
-              'relative flex h-(--control-h) w-full items-center gap-2 pr-3 text-left transition-colors',
+              'group/row relative flex h-(--control-h) w-full items-center gap-2 pr-3 text-left transition-colors',
               // A page that belongs to the one above it, like Worlds under VRChat, sits one step in.
               'indent' in item && item.indent ? 'pl-8' : 'pl-4',
               lit === item.id
@@ -132,10 +133,20 @@ export function Sidebar({
             ) : null}
             {/* The go-to chord, where the page has one. Not on a phone or in a headset, which have no keyboard to hand. The
                 keys side by side with no "then" between, which the palette's boxes have room for
-                and a VR row with a long name does not. */}
+                and a VR row with a long name does not. Shown on the row under the pointer or the
+                keyboard's focus, and on every row while `g` waits for its second key; the rest of
+                the time 34 boxes beside 17 labels only compete with them. Hidden, not removed, so
+                a badge does not jump when they appear. */}
             {GO_TO_KEYS[item.id] && (
               <span aria-hidden className="contents">
-                <Kbd keys={`g ${GO_TO_KEYS[item.id]}`} compact className="shrink-0" />
+                <Kbd
+                  keys={`g ${GO_TO_KEYS[item.id]}`}
+                  compact
+                  className={cn(
+                    'shrink-0',
+                    !goToWaiting && 'invisible group-hover/row:visible group-focus-visible/row:visible',
+                  )}
+                />
               </span>
             )}
           </button>

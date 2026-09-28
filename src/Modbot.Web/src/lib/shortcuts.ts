@@ -251,8 +251,36 @@ export function describeKeys(keys: string, mac: boolean): string {
 
 let pendingChord: string | null = null
 let chordTimer: ReturnType<typeof setTimeout> | null = null
+const chordListeners = new Set<() => void>()
 
-function onKeyDown(event: KeyboardEvent) {
+function holdChord(chord: string | null) {
+  if (chord === pendingChord) return
+  pendingChord = chord
+  for (const l of chordListeners) l()
+}
+
+/** The first key of a chord still waiting for its second, such as `g`, or null. */
+export function waitingChord(): string | null {
+  return pendingChord
+}
+
+/**
+ * The waiting chord key as React state. The sidebar shows every go-to key while `g` waits, and for
+ * exactly as long: a key still on screen after the second press stopped working would be wrong.
+ */
+export function useWaitingChord(): string | null {
+  return useSyncExternalStore(
+    (cb) => {
+      chordListeners.add(cb)
+      return () => chordListeners.delete(cb)
+    },
+    waitingChord,
+    waitingChord,
+  )
+}
+
+/** The one keydown listener. Exported for the tests, which press keys without a browser. */
+export function onKeyDown(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'target' | 'defaultPrevented' | 'isComposing' | 'preventDefault'>) {
   if (event.defaultPrevented || event.isComposing) return
 
   const token = keyToken(event)
@@ -277,13 +305,12 @@ function onKeyDown(event: KeyboardEvent) {
     clearTimeout(chordTimer)
     chordTimer = null
   }
-  pendingChord = null
+  holdChord(outcome.pending ?? null)
 
   if (outcome.pending) {
-    pendingChord = outcome.pending
     chordTimer = setTimeout(() => {
-      pendingChord = null
       chordTimer = null
+      holdChord(null)
     }, CHORD_TIMEOUT_MS)
     event.preventDefault()
     return
@@ -296,7 +323,7 @@ function onKeyDown(event: KeyboardEvent) {
   if (!shortcut) return
 
   event.preventDefault()
-  shortcut.run(event)
+  shortcut.run(event as KeyboardEvent)
 }
 
 let installed = false
