@@ -3,6 +3,7 @@ import { DemoMarker } from '@/components/DemoMarker'
 import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
 import { CREDITS_PATH, GO_TO_KEYS, NAV, mayOpen, sidebarEntry, type NavItem, type PageId } from '@/lib/nav'
+import { countText } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import type { StatusRowId } from '@/lib/status'
 import { IS_MAC, keyNames } from '@/lib/shortcuts'
@@ -28,6 +29,7 @@ export function Sidebar({
   group,
   badges,
   alarms,
+  more,
   className,
   footer,
 }: {
@@ -46,6 +48,8 @@ export function Sidebar({
    * destructive colour: flagged people beside Live.
    */
   alarms?: Partial<Record<PageId, boolean>>
+  /** Entries whose count came from a full page of a list with no total, written `50+`. */
+  more?: Partial<Record<PageId, boolean>>
   className?: string
   /** Drawn at the foot, under Modbot's own mark. The phone sheet puts the top bar's controls here. */
   footer?: React.ReactNode
@@ -117,9 +121,13 @@ export function Sidebar({
                     : 'bg-primary text-primary-foreground',
                 )}
                 style={{ fontSize: 'var(--text-tiny)', lineHeight: 1.5 }}
-                aria-label={alarms?.[item.id] ? `${badges[item.id]} flagged here` : `${badges[item.id]} waiting`}
+                aria-label={
+                  alarms?.[item.id]
+                    ? `${badges[item.id]} flagged here`
+                    : `${countText(badges[item.id] ?? 0, more?.[item.id] === true)} waiting`
+                }
               >
-                {badges[item.id]}
+                {countText(badges[item.id] ?? 0, more?.[item.id] === true)}
               </span>
             ) : null}
             {/* The go-to chord, where the page has one. Not on a phone or in a headset, which have no keyboard to hand. The
