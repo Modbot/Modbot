@@ -117,6 +117,44 @@ export function ago(iso: string | null, now: string): string {
   return `${Math.round(seconds / 86_400)}d ago`
 }
 
+/** When a list was last read, and the server's clock at the time it said so. */
+export type Reading = { at: string | null; now: string }
+
+/**
+ * The oldest of several readings, or null when any of them has never been taken.
+ *
+ * A card built from two lists is only as fresh as the older one, so it gives one age rather than
+ * one per list: nothing on it is older than that. Each reading is measured against its own `now`,
+ * because the two answers can come from the server a moment apart.
+ */
+export function oldestReading(readings: Reading[]): { at: string; now: string } | null {
+  let oldest: { at: string; now: string } | null = null
+  let oldestAge = -Infinity
+
+  for (const { at, now } of readings) {
+    if (!at) return null
+
+    const age = Date.parse(now) - Date.parse(at)
+    if (age > oldestAge) {
+      oldest = { at, now }
+      oldestAge = age
+    }
+  }
+
+  return oldest
+}
+
+/**
+ * The accounts that could not be tied to a person, in one line: "Not linked to Discord or Modbot".
+ * Empty when nothing is missing.
+ */
+export function notLinkedTo(names: string[]): string {
+  if (names.length === 0) return ''
+  if (names.length === 1) return `Not linked to ${names[0]}`
+
+  return `Not linked to ${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`
+}
+
 /**
  * How long something has been going on, against the server's clock, in the same steps as
  * {@link ago} and without the "ago". "Last seen 2d ago" and "known for 300d" are different

@@ -11,6 +11,8 @@ import {
   howLong,
   lengthOfTime,
   needsYear,
+  notLinkedTo,
+  oldestReading,
   pastActions,
   timeOfDay,
   whenRange,
@@ -176,4 +178,25 @@ test('past actions say who acted in full words, singular only at exactly one', (
 test('past actions with nobody named leave the moderators off rather than saying 0', () => {
   assert.equal(pastActions(3, 0), '3 actions')
   assert.equal(pastActions(1, 0), '1 action')
+})
+
+test('the oldest reading is the one furthest behind its own clock', () => {
+  const members = { at: '2026-09-27T11:53:00Z', now: '2026-09-27T12:00:00Z' }
+  const bans = { at: '2026-09-27T11:37:00Z', now: '2026-09-27T12:00:00Z' }
+  assert.deepEqual(oldestReading([members, bans]), bans)
+  assert.deepEqual(oldestReading([bans, members]), bans)
+  assert.equal(ago(oldestReading([members, bans])!.at, '2026-09-27T12:00:00Z'), '23m ago')
+})
+
+test('a list never read leaves no oldest reading', () => {
+  const read = { at: '2026-09-27T11:53:00Z', now: '2026-09-27T12:00:00Z' }
+  assert.equal(oldestReading([read, { at: null, now: '2026-09-27T12:00:00Z' }]), null)
+  assert.equal(oldestReading([{ at: null, now: '2026-09-27T12:00:00Z' }, read]), null)
+})
+
+test('missing accounts are named in one line', () => {
+  assert.equal(notLinkedTo([]), '')
+  assert.equal(notLinkedTo(['Modbot']), 'Not linked to Modbot')
+  assert.equal(notLinkedTo(['Discord', 'Modbot']), 'Not linked to Discord or Modbot')
+  assert.equal(notLinkedTo(['VRChat', 'Discord', 'Modbot']), 'Not linked to VRChat, Discord or Modbot')
 })

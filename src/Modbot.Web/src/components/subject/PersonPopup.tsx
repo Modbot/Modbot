@@ -36,7 +36,7 @@ import {
   type PersonView,
 } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
-import { ago, formatDay } from '@/lib/format'
+import { ago, formatDay, notLinkedTo, oldestReading } from '@/lib/format'
 import { concernsPerson } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
 import { can, canAny } from '@/lib/permissions'
@@ -197,6 +197,16 @@ function Resolved({
   const shownId = vrchatId ?? discordId ?? at.id
   const name = stored.profile?.displayName ?? person.vrChat?.name ?? person.discord?.name ?? null
 
+  // The accounts that could not be tied to this person, said in one row rather than a panel each,
+  // which on a phone pushed Membership below the first screen. Each is only named where its own
+  // card would have been drawn: a Modbot account is not even said to be absent unless the caller
+  // may be told whether one exists.
+  const missing = [
+    ...(vrchatId === null ? ['VRChat'] : []),
+    ...(person.discord === null && seesProfile ? ['Discord'] : []),
+    ...(account === null && person.canSeeAccount ? ['Modbot'] : []),
+  ]
+
   return (
     <PopupFrame
       title={name ?? shownId}
@@ -259,15 +269,13 @@ function Resolved({
             )
           ) : null}
 
-          {vrchatId === null && <Empty>No VRChat account.</Empty>}
+          {missing.length > 0 && <Empty>{notLinkedTo(missing)}</Empty>}
 
           {person.discord && seesProfile && (
             <DiscordLinkCard key={live} side={person.discord} vrchatUserId={vrchatId} me={me} />
           )}
-          {person.discord === null && seesProfile && <Empty>No Discord account.</Empty>}
 
           {account && <AccountCard account={account} />}
-          {account === null && person.canSeeAccount && <Empty>No Modbot account.</Empty>}
 
           {vrchatId && seesMembers && (
             <MembershipCard
@@ -644,24 +652,23 @@ function MembershipCard({
               On the ban list{view.bannedAt ? <> since <span className="font-mono">{formatDay(view.bannedAt)}</span></> : ''}.
             </p>
           ) : view.banLiftedAt ? (
+            // The day Modbot lifted it, or the day the ban-list check found it gone. The two are
+            // one field, and a check runs often enough that the day is the same either way.
             <p className="text-muted-foreground">
-              Was banned{view.bannedAt ? <> on <span className="font-mono">{formatDay(view.bannedAt)}</span></> : ''}; lifted by{' '}
+              {view.bannedAt ? (
+                <>
+                  Banned <span className="font-mono">{formatDay(view.bannedAt)}</span>, lifted
+                </>
+              ) : (
+                'Ban lifted'
+              )}{' '}
               <span className="font-mono">{formatDay(view.banLiftedAt)}</span>.
             </p>
           ) : !view.bans.firstSweepComplete ? (
             <p className="text-muted-foreground">Ban list not read yet.</p>
           ) : null}
 
-          <p className="text-muted-foreground">
-            {demo ? (
-              'Demo data.'
-            ) : (
-              <>
-                Member list synced <Ago iso={view.members.lastSyncedAt} now={view.members.now} />; ban list synced{' '}
-                <Ago iso={view.bans.lastSyncedAt} now={view.bans.now} />.
-              </>
-            )}
-          </p>
+          <p className="text-muted-foreground">{demo ? 'Demo data.' : <Checked view={view} />}</p>
 
           {/* On a phone these are in the row pinned to the foot of the popup instead. */}
           <div className="hidden md:block">
@@ -676,5 +683,25 @@ function MembershipCard({
         </div>
       )}
     </Panel>
+  )
+}
+
+/**
+ * How old the card's reading is. The member list and the ban list are read separately, and the
+ * card is only as fresh as the older of the two, so that is the age it gives (member and ban sync
+ * design §6).
+ */
+function Checked({ view }: { view: MembershipView }) {
+  const oldest = oldestReading([
+    { at: view.members.lastSyncedAt, now: view.members.now },
+    { at: view.bans.lastSyncedAt, now: view.bans.now },
+  ])
+
+  if (!oldest) return <>Not checked yet</>
+
+  return (
+    <>
+      Checked <Ago iso={oldest.at} now={oldest.now} />
+    </>
   )
 }

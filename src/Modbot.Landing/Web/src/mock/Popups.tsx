@@ -261,7 +261,7 @@ function PersonBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen:
               ))}
             </div>
           )}
-          <p className="mt-1 text-muted-foreground">Member list synced 4 minutes ago; ban list synced 4 minutes ago.</p>
+          <p className="mt-1 text-muted-foreground">Checked 4m ago</p>
         </div>
       </Left>
 

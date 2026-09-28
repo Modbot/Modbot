@@ -245,7 +245,6 @@ function ConfirmAction({
   return (
     <DialogContent
       title={confirmTitle(action, name, isMember)}
-      subtitle={<span className="font-mono" title={userId}>{userId}</span>}
       className="max-w-[460px]"
     >
       <div className="flex flex-col gap-3">
