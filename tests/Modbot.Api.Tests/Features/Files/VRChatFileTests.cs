@@ -132,7 +132,9 @@ public class VRChatFileTests : IDisposable
 
     /// <summary>
     /// The route must never become a fetcher for whatever address somebody types. Anything that
-    /// is not VRChat's is refused before a single request goes out.
+    /// is not VRChat's is refused before a single request goes out, and so is any path on VRChat's
+    /// API host that is not a file or an image: that would be an API call made as the service
+    /// account.
     /// </summary>
     [Theory]
     [InlineData("https://example.com/x.png")]
@@ -141,6 +143,11 @@ public class VRChatFileTests : IDisposable
     [InlineData("https://169.254.169.254/latest/meta-data/")]
     [InlineData("not-a-url")]
     [InlineData("")]
+    [InlineData("https://api.vrchat.cloud/api/1/auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/users/usr_abc")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/../auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/%2e%2e/%2e%2e/1/auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/..%2f..%2fauth/user")]
     public async Task AnyAddressButVRChatsIsRefused(string url)
     {
         var ct = TestContext.Current.CancellationToken;
@@ -322,6 +329,29 @@ public class VRChatFileTests : IDisposable
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal(Address, response.Headers.Location?.ToString());
+        Assert.Empty(gate.Fetched);
+    }
+
+    /// <summary>
+    /// With the switch off the browser is only ever sent to a picture address: an API call on
+    /// VRChat's API host is refused the same as when the switch is on.
+    /// </summary>
+    [Fact]
+    public async Task WithTheSwitchOffAnApiAddressThatIsNotAPictureIsRefused()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await ApiTestHost.ResetDeploymentAsync(_db, ct);
+
+        var gate = new FakeVRChatGate().Serves([1, 2, 3]);
+        await using var host = await StartAsync(gate);
+        await StopProxyingPicturesAsync(host, ct);
+
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.None, ct);
+        var response = await host.Client.SendAsync(
+            host.Authenticated(HttpMethod.Get, Ask("https://api.vrchat.cloud/api/1/auth/user"), cookie), ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Null(response.Headers.Location);
         Assert.Empty(gate.Fetched);
     }
 

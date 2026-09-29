@@ -126,7 +126,7 @@ public interface IVRChatGate
     /// through the operator's egress proxy like everything else Modbot sends VRChat.
     /// </para>
     /// <para>
-    /// The address must be one of VRChat's (<see cref="Files.VRChatFiles.IsVRChatAddress(Uri)"/>)
+    /// The address must be a VRChat picture address (<see cref="Files.VRChatFiles.IsPictureAddress(Uri)"/>)
     /// and so must every address it redirects to; anything else fails rather than being fetched.
     /// </para>
     /// </remarks>

@@ -25,7 +25,9 @@ namespace Modbot.Api.Features.Files;
 /// public on VRChat's own delivery network to anyone who has the address, and the address is
 /// already in the profile the caller just read; fetching it for them adds no reach. What the
 /// route must not become is an open fetcher for the internet, and that is what the address check
-/// is for: VRChat's hosts and nothing else, on the first request and on every redirect.
+/// is for: VRChat's hosts and nothing else, on the first request and on every redirect. On the
+/// API host, where the service account's cookie goes, only the file and image paths; anything
+/// else there would be an API call made as that account.
 /// </para>
 /// <para>
 /// <strong>The API's own answers keep VRChat's real addresses.</strong> A profile's
@@ -65,7 +67,8 @@ public static class VRChatFileEndpoints
                 "Fetches a VRChat file address through Modbot and returns the bytes. VRChat's "
                 + "file addresses need the account's session cookie and redirect to a delivery "
                 + "host, so a browser cannot load one directly. Only addresses on vrchat.cloud "
-                + "are accepted, only pictures and video are returned, and the answer is cached "
+                + "are accepted, and on api.vrchat.cloud only paths under /api/1/file/ and "
+                + "/api/1/image/. Only pictures and video are returned, and the answer is cached "
                 + "on disk because a VRChat file address names a version and never changes.")
             // Listed one by one: a wildcard content type is not merely undocumented, it throws
             // while the route is being mapped and takes every other endpoint down with it.
@@ -95,14 +98,16 @@ public static class VRChatFileEndpoints
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var address))
             return Problem(StatusCodes.Status400BadRequest, "Give a url to fetch.");
 
-        if (!VRChatFiles.IsVRChatAddress(address))
-            return Problem(StatusCodes.Status400BadRequest, "That is not an address VRChat serves files from.");
+        // On VRChat's API host only the file and image paths pass: any other path there is an API
+        // call, and it would go out as the service account (VRChat files design §4.1).
+        if (!VRChatFiles.IsPictureAddress(address))
+            return Problem(StatusCodes.Status400BadRequest, "That is not an address VRChat serves pictures from.");
 
         // Off means Modbot does not fetch the picture, not that there is no picture: the browser
         // is sent to VRChat for it. Whether VRChat serves a browser that asks directly is
         // VRChat's business, and an operator who turned this off has said that is what they want.
-        // The address is checked above first, so this can only ever redirect to one of VRChat's
-        // own hosts and never to somewhere a caller chose.
+        // The address is checked above first, so this can only ever redirect to a picture address
+        // on one of VRChat's own hosts and never to somewhere a caller chose.
         if (!settings.VRChatImagesProxied)
             return Results.Redirect(address.ToString(), permanent: false, preserveMethod: false);
 

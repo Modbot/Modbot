@@ -3088,7 +3088,7 @@
           "Files"
         ],
         "summary": "Get VRChat file",
-        "description": "Fetches a VRChat file address through Modbot and returns the bytes. VRChat's file addresses need the account's session cookie and redirect to a delivery host, so a browser cannot load one directly. Only addresses on vrchat.cloud are accepted, only pictures and video are returned, and the answer is cached on disk because a VRChat file address names a version and never changes.",
+        "description": "Fetches a VRChat file address through Modbot and returns the bytes. VRChat's file addresses need the account's session cookie and redirect to a delivery host, so a browser cannot load one directly. Only addresses on vrchat.cloud are accepted, and on api.vrchat.cloud only paths under /api/1/file/ and /api/1/image/. Only pictures and video are returned, and the answer is cached on disk because a VRChat file address names a version and never changes.",
         "operationId": "GetVRChatFile",
         "parameters": [
           {

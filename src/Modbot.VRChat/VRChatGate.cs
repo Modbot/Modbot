@@ -412,7 +412,9 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     /// follow a <c>Location</c> anywhere and this must only ever reach VRChat. Each hop is
     /// checked before it is sent, and the address that finally answered is checked as well, so
     /// a handler that followed one on its own cannot get past it either -- and the client this
-    /// uses is told to follow none, so none is sent unchecked in the first place.
+    /// uses is told to follow none, so none is sent unchecked in the first place. The check is
+    /// <see cref="VRChatFiles.IsPictureAddress(Uri)"/>: on the API host, only its file and image
+    /// paths, so the cookie never goes out on any other API call.
     /// </para>
     /// <para>
     /// <strong>The session cookie goes to VRChat's API host and to nothing else.</strong> The
@@ -434,10 +436,10 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
     {
         ArgumentNullException.ThrowIfNull(url);
 
-        if (!VRChatFiles.IsVRChatAddress(url))
+        if (!VRChatFiles.IsPictureAddress(url))
         {
             return VRChatFileResult.Problems(
-                VRChatFileOutcome.NotVRChatAddress, $"{url} is not an address VRChat serves files from.");
+                VRChatFileOutcome.NotVRChatAddress, $"{url} is not an address VRChat serves pictures from.");
         }
 
         var session = await EnsureSessionAsync(Need.Use, 0, 0, VRChatCallPriority.Interactive, ct)
@@ -484,22 +486,24 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
                 // Where the request actually ended up, which is not where it was sent if the
                 // handler followed a redirect itself.
                 var answered = response.RequestMessage?.RequestUri ?? next;
-                if (!VRChatFiles.IsVRChatAddress(answered))
+                if (!VRChatFiles.IsPictureAddress(answered))
                 {
                     return VRChatFileResult.Problems(
                         VRChatFileOutcome.NotVRChatAddress,
-                        $"The file fetch ended at {answered.Host}, which is not one of VRChat's hosts.");
+                        $"The file fetch ended at {answered.Host}{answered.AbsolutePath}, which is not a VRChat picture address.");
                 }
 
+                // Every hop is held to the picture rule, not only the first: a redirect back to the
+                // API host would carry the cookie, so it must land on a file or image path too.
                 if (status is 301 or 302 or 303 or 307 or 308 && response.Headers.Location is { } location)
                 {
                     next = location.IsAbsoluteUri ? location : new Uri(answered, location);
 
-                    if (!VRChatFiles.IsVRChatAddress(next))
+                    if (!VRChatFiles.IsPictureAddress(next))
                     {
                         return VRChatFileResult.Problems(
                             VRChatFileOutcome.NotVRChatAddress,
-                            $"VRChat redirected the file fetch to {next.Host}, which is not one of its own hosts.");
+                            $"VRChat redirected the file fetch to {next.Host}{next.AbsolutePath}, which is not a VRChat picture address.");
                     }
 
                     continue;
@@ -507,6 +511,21 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
 
                 HttpLog.Completed(
                     _logger, ServiceName, "files", "fetch", status, _elapsed.Elapsed - started);
+
+                // Its own line, because a picture fetch has no bucket to cold stop (VRChat files
+                // design §4.3) and so nothing else would say it happened. Not retried, like every
+                // other 429 (foundation §4.3.1).
+                if (status == 429)
+                {
+                    _logger
+                        .ForContext(LogArea.Name, LogArea.Http)
+                        .Warning(
+                            "VRChat answered 429 to a picture fetch from {Host}{Path}. It is not retried",
+                            next.Host, next.AbsolutePath);
+
+                    return VRChatFileResult.Problems(
+                        VRChatFileOutcome.Failed, "VRChat answered 429 for that file. It is not retried.");
+                }
 
                 if (status == (int)HttpStatusCode.NotFound)
                     return VRChatFileResult.Problems(VRChatFileOutcome.NotFound, "VRChat has no such file.");

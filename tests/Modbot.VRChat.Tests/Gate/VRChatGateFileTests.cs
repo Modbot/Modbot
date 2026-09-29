@@ -132,6 +132,85 @@ public class VRChatGateFileTests
         Assert.Empty(handler.Sent);
     }
 
+    /// <summary>
+    /// <strong>Any other path on the API host is an API call, and is never sent.</strong> The
+    /// fetch carries the service account's cookie there, so without this a caller could make any
+    /// API call as that account, on a call no bucket paces.
+    /// </summary>
+    [Theory]
+    [InlineData("https://api.vrchat.cloud/api/1/auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/../auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/..%2f..%2fauth/user")]
+    public async Task AnApiAddressThatIsNotAPictureIsNeverSent(string url)
+    {
+        var handler = new ScriptedHandler(Answer.Picture([1], "image/png"));
+        var gate = NewGate(handler, out _);
+
+        var result = await gate.FetchFileAsync(new Uri(url), Ct);
+
+        Assert.Equal(VRChatFileOutcome.NotVRChatAddress, result.Outcome);
+        Assert.Empty(handler.Sent);
+    }
+
+    /// <summary>
+    /// A redirect back to the API host is held to the same rule as the first address, because it
+    /// would carry the cookie too.
+    /// </summary>
+    [Fact]
+    public async Task ARedirectToAnApiAddressThatIsNotAPictureIsNotFollowed()
+    {
+        var handler = new ScriptedHandler(
+            Answer.RedirectTo("https://api.vrchat.cloud/api/1/auth/user"),
+            Answer.Picture([9], "image/png"));
+
+        var gate = NewGate(handler, out _);
+
+        var result = await gate.FetchFileAsync(Stored, Ct);
+
+        Assert.Equal(VRChatFileOutcome.NotVRChatAddress, result.Outcome);
+        Assert.Single(handler.Sent);
+    }
+
+    /// <summary>
+    /// A delivery host's paths are whatever VRChat makes them, and it never gets the cookie, so a
+    /// redirect there is followed whatever its path.
+    /// </summary>
+    [Fact]
+    public async Task ARedirectToAnyPathOnADeliveryHostIsFollowedWithoutTheCookie()
+    {
+        var handler = new ScriptedHandler(
+            Answer.RedirectTo("https://files.vrchat.cloud/some/other/path.png?sig=abc"),
+            Answer.Picture([9], "image/png"));
+
+        var gate = NewGate(handler, out _);
+
+        Assert.Equal(VRChatFileOutcome.Fetched, (await gate.FetchFileAsync(Stored, Ct)).Outcome);
+
+        Assert.Equal(2, handler.Sent.Count);
+        Assert.Null(handler.Sent[1].Cookie);
+    }
+
+    /// <summary>
+    /// A 429 on a picture fails that picture and nothing else: it is not retried, and there is no
+    /// bucket for it to cold stop.
+    /// </summary>
+    [Fact]
+    public async Task A429OnAPictureIsNotRetried()
+    {
+        var handler = new ScriptedHandler(
+            new Answer(HttpStatusCode.TooManyRequests, [], "application/json", null, Repeat: true));
+
+        var gate = NewGate(handler, out var harness);
+
+        var result = await gate.FetchFileAsync(Stored, Ct);
+
+        Assert.Equal(VRChatFileOutcome.Failed, result.Outcome);
+        Assert.Single(handler.Sent);
+
+        var buckets = await harness.Limiter.DescribeAsync(Ct);
+        Assert.DoesNotContain(buckets, b => b.Name.Contains("file", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task SomethingThatIsNotAPictureIsRefused()
     {

@@ -43,6 +43,52 @@ public class VRChatFilesTests
         => Assert.False(VRChatFiles.IsVRChatAddress(url));
 
     /// <summary>
+    /// On the API host, where the session cookie goes, only the file and image paths are
+    /// pictures. The delivery hosts never get the cookie, so their paths are left alone.
+    /// </summary>
+    [Theory]
+    [InlineData("https://api.vrchat.cloud/api/1/file/file_abc/1/file")]
+    [InlineData("https://api.vrchat.cloud/api/1/image/file_abc/1/256")]
+    [InlineData("HTTPS://API.VRCHAT.CLOUD/api/1/file/file_abc/1/file")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/file_abc/1/file?x=1")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/not-an-id-shape/1/file")]
+    [InlineData("https://d348imysud55la.vrchat.cloud/file_abc.png")]
+    [InlineData("https://assets.vrchat.cloud/avatars/picture.png")]
+    [InlineData("https://files.vrchat.cloud/thumbnails/1.jpg?x=%2f")]
+    [InlineData("https://vrchat.cloud/x.png")]
+    public void PictureAddressesAreAccepted(string url)
+        => Assert.True(VRChatFiles.IsPictureAddress(url));
+
+    /// <summary>
+    /// Any other path on the API host is an API call, and it would go out as the service account.
+    /// A path that only reaches another one after <c>..</c> or an escape is decoded counts as
+    /// that other path.
+    /// </summary>
+    [Theory]
+    [InlineData("https://api.vrchat.cloud/api/1/auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/users/usr_abc")]
+    [InlineData("https://api.vrchat.cloud/api/1/files")]
+    [InlineData("https://api.vrchat.cloud/api/1/file")]
+    [InlineData("https://api.vrchat.cloud/api/1/image")]
+    [InlineData("https://api.vrchat.cloud/x.png")]
+    [InlineData("https://api.vrchat.cloud/")]
+    [InlineData("https://api.vrchat.cloud//api/1/file/file_abc/1/file")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/../auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/../../1/auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/%2e%2e/%2e%2e/1/auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/%2E%2E/auth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/..%2f..%2fauth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/..%2F..%2Fauth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file/..%5c..%5cauth/user")]
+    [InlineData("https://api.vrchat.cloud/api/1/file\\..\\..\\auth/user")]
+    [InlineData("http://api.vrchat.cloud/api/1/file/file_abc/1/file")]
+    [InlineData("https://example.com/api/1/file/file_abc/1/file")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void AnythingElseOnTheApiHostIsNotAPicture(string? url)
+        => Assert.False(VRChatFiles.IsPictureAddress(url));
+
+    /// <summary>
     /// Pictures and video, nothing else. A browser handed HTML or SVG from somewhere else runs
     /// it, and the point of the route is a face in a list.
     /// </summary>

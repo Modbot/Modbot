@@ -114,6 +114,72 @@ public static class VRChatFiles
         => Uri.TryCreate(url, UriKind.Absolute, out var parsed) && IsVRChatAddress(parsed);
 
     /// <summary>
+    /// VRChat's API host: the one a stored picture address points at, and the only one a file
+    /// fetch sends the session cookie to.
+    /// </summary>
+    public const string ApiHost = "api.vrchat.cloud";
+
+    /// <summary>The paths on <see cref="ApiHost"/> that serve a picture or a video.</summary>
+    private static readonly string[] PicturePaths = ["/api/1/file/", "/api/1/image/"];
+
+    /// <summary>
+    /// Escapes that could turn a picture path into another path once VRChat decodes it: a dot,
+    /// a slash, a backslash.
+    /// </summary>
+    private static readonly string[] PathEscapes = ["%2e", "%2f", "%5c"];
+
+    /// <summary>
+    /// Whether this is an address a picture or a video may be fetched from: one of VRChat's
+    /// (<see cref="IsVRChatAddress(Uri)"/>), and on <see cref="ApiHost"/> only its file and
+    /// image paths.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The API host is where a fetch carries the service account's session cookie, and it serves
+    /// every other API call too. Without the path rule, the route would send any API call a
+    /// caller wrote -- <c>/api/1/auth/user</c>, say -- as the service account, on a call that no
+    /// bucket paces because file fetches have none (VRChat files design §4.3). So on that host
+    /// the path must start <c>/api/1/file/</c> or <c>/api/1/image/</c>, and nothing else is sent.
+    /// </para>
+    /// <para>
+    /// The check reads the path after <see cref="Uri"/> has resolved <c>..</c> and backslashes,
+    /// so <c>/api/1/file/../auth/user</c> is checked as <c>/api/1/auth/user</c>. An escaped dot,
+    /// slash or backslash in the path is refused outright, because VRChat's server may decode it
+    /// after this check has passed. The other VRChat hosts are delivery hosts: they never get
+    /// the cookie, and their paths are whatever VRChat makes them, so they are not limited.
+    /// Only the path is checked; ids in it are not (foundation §3.1.1).
+    /// </para>
+    /// </remarks>
+    public static bool IsPictureAddress(Uri? url)
+    {
+        if (!IsVRChatAddress(url))
+            return false;
+
+        if (!url!.Host.Equals(ApiHost, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var path = url.AbsolutePath;
+
+        foreach (var escape in PathEscapes)
+        {
+            if (path.Contains(escape, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        foreach (var prefix in PicturePaths)
+        {
+            if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether an address is one a picture may be fetched from, when it arrives as text.</summary>
+    public static bool IsPictureAddress(string? url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var parsed) && IsPictureAddress(parsed);
+
+    /// <summary>
     /// Types that look like pictures and are not. SVG is a document with scripts in it, and one
     /// served from Modbot's own address -- which is what a proxy makes it -- runs those scripts
     /// against a moderator's session the moment somebody opens the address in a tab. The

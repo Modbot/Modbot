@@ -84,6 +84,21 @@ lands on — whose names change without notice, which is why the rule is the dom
 list somebody has to maintain. Matched on the label boundary, so `notvrchat.cloud` and
 `vrchat.cloud.example.com` are not VRChat. Anything else is a 400, and nothing is sent.
 
+**On `api.vrchat.cloud`, only the file and image paths** (narrowed 2026-09-29). The path must start
+`/api/1/file/` or `/api/1/image/`. The domain rule alone let any address on the API host through,
+and that host is where the fetch carries the service account's cookie: `?url=https://api.vrchat.cloud/api/1/auth/user`
+went out as a real API call, as that account, outside every bucket (§4.3 gives file fetches none).
+VRChat's JSON answer was refused as not a picture, so nothing leaked, but the call itself spent the
+account's rate limit and could get it flagged. The path is checked after `..` and backslashes are
+resolved, and an escaped dot, slash or backslash (`%2e`, `%2f`, `%5c`) is refused outright because
+VRChat may decode it after the check. The delivery hosts are not limited: they never get the cookie,
+and their paths are VRChat's to change. Only the path is checked, never the ids in it (foundation
+§3.1.1). The rule is `VRChatFiles.IsPictureAddress`, used by the route, by the gate on every hop,
+and by the Discord cards' picture fetch.
+
+This narrows the check and nothing else. There is still no bucket or lane for these calls (§4.3); a
+429 on one gets a log line of its own and is not retried.
+
 **The redirect target is checked the same way.** This is the part that matters: VRChat answers the
 stored address with a `Location`, and a handler that followed it on its own would follow it
 anywhere. So the gate follows redirects itself, checking each hop before sending it and checking

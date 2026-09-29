@@ -27,7 +27,7 @@ public sealed class VRChatPictures : IPictures
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out var address))
             return null;
 
-        if (!VRChatFiles.IsVRChatAddress(address))
+        if (!VRChatFiles.IsPictureAddress(address))
             return null;
 
         var fetched = await _gate.FetchFileAsync(address, ct).ConfigureAwait(false);

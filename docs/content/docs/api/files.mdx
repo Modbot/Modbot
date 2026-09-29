@@ -38,8 +38,8 @@ VRChat picture this way.
 
 ## What it accepts
 
-Addresses on `vrchat.cloud` and its subdomains, over `https`, and nothing else. Anything else is
-a `400`.
+Addresses on `vrchat.cloud` and its subdomains, over `https`, and nothing else. On
+`api.vrchat.cloud` the path must start `/api/1/file/` or `/api/1/image/`. Anything else is a `400`.
 
 The answer must be a picture or a video. Anything else is a `415`, and a file larger than 25 MB is
 a `502`.
