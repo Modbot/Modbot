@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { dateRange, decodeChip, encodeChip, operatorsFor, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
+import { dateRange, decodeChip, encodeChip, isFiltered, operatorsFor, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
 import {
   AUDIT_DEFAULTS,
   auditQueryFrom,
@@ -52,6 +52,20 @@ test('chips compare regardless of order', () => {
 
   assert.equal(sameChips(a, b), true)
   assert.equal(sameChips(a, [b[0]]), false)
+})
+
+test('a page is filtered only when its chips differ from every place it starts', () => {
+  const audit = [AUDIT_DEFAULTS]
+  assert.equal(isFiltered(AUDIT_DEFAULTS, audit), false)
+  assert.equal(isFiltered([...AUDIT_DEFAULTS].reverse(), audit), false)
+  assert.equal(isFiltered([], audit), true)
+  assert.equal(isFiltered([...AUDIT_DEFAULTS, { property: 'subject', operator: 'is', values: ['usr_a'] }], audit), true)
+
+  const people = [PEOPLE_DEFAULTS, MEMBERS_VIEW]
+  assert.equal(isFiltered([], people), false)
+  assert.equal(isFiltered(MEMBERS_VIEW, people), false)
+  assert.equal(isFiltered([...MEMBERS_VIEW, { property: 'hasRole', operator: 'yes', values: [] }], people), true)
+  assert.equal(isFiltered([{ property: 'membership', operator: 'is', values: ['left'] }], people), true)
 })
 
 test('a date chip becomes a half-open stretch that includes the last day', () => {

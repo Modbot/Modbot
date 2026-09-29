@@ -4,8 +4,8 @@ import { useLocation } from './router.ts'
 /**
  * Filters the way Linear does them (research 2026-09-16): add a filter, pick a property, pick
  * an operator, pick values. One chip per property; chips combine with AND; the values inside a
- * chip are "any of". The chips live in the address, so a link reproduces the view, and the last
- * set used on a page is remembered in the browser so the page opens the way it was left.
+ * chip are "any of". The chips live in the address, so a link reproduces the view, and Back
+ * brings back the set a page was left with.
  *
  * The pure parts -- what a chip is, how it is written into the address and read back -- are
  * here with no DOM, so they can be tested with Node alone. The bar that draws them is
@@ -169,47 +169,33 @@ export function sameChips(a: FilterChip[], b: FilterChip[]): boolean {
   return left.every((k, i) => k === right[i])
 }
 
-// ── Remembered per page ─────────────────────────────────────────────────────────────────────
+// ── The page's start ────────────────────────────────────────────────────────────────────────
 
-const STORE = 'modbot.filters.'
-
-export function rememberChips(page: string, chips: FilterChip[]): void {
-  try {
-    localStorage.setItem(STORE + page, JSON.stringify(chips))
-  } catch {
-    // A blocked store forgets; nothing else changes.
-  }
-}
-
-export function recallChips(page: string): FilterChip[] | null {
-  try {
-    const raw = localStorage.getItem(STORE + page)
-    if (!raw) return null
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return null
-    return parsed.filter(
-      (c): c is FilterChip =>
-        typeof c === 'object' && c !== null && typeof c.property === 'string' && Array.isArray(c.values),
-    )
-  } catch {
-    return null
-  }
+/**
+ * Whether the chips narrow the page past where it starts. A page can have more than one start
+ * (People opens bare, and as Members), and chips equal to any of them are not filtered.
+ */
+export function isFiltered(chips: FilterChip[], starts: FilterChip[][]): boolean {
+  return !starts.some((start) => sameChips(chips, start))
 }
 
 /**
  * The chips a page shows, and how to change them.
  *
- * The address wins; then what the browser remembers for this page; then the page's defaults.
- * Whichever it was, the answer is written into the address at once, so what a moderator copies
- * out is the view they are looking at and not a link that opens differently for somebody else.
+ * The address wins; then the page's defaults. Whichever it was, the answer is written into the
+ * address at once, so what a moderator copies out is the view they are looking at and not a link
+ * that opens differently for somebody else.
+ *
+ * *2026-09-28:* the last set used on a page is no longer remembered in the browser. The sidebar
+ * opened a page already narrowed by filters from an earlier visit, and a count of twelve read as
+ * a log with twelve entries in it. The address still carries the chips, so Back brings them back.
  */
 export function useFilters(
-  page: string,
   defaults: FilterChip[],
   /**
-   * What an address with no filters in it opens with, in place of the remembered set. A link to one
-   * entry passes none at all: opened with the filters last used for something else, the entry it
-   * names could be filtered out of the very page it opens.
+   * What an address with no filters in it opens with, in place of the defaults. A link to one
+   * entry passes none at all: opened with the default filters, the entry it names could be
+   * filtered out of the very page it opens.
    */
   linked?: FilterChip[],
 ): [FilterChip[], (next: FilterChip[]) => void] {
@@ -217,10 +203,7 @@ export function useFilters(
 
   const fromAddress = useMemo(() => readChips(location.search), [location.search])
 
-  const chips = useMemo(
-    () => fromAddress ?? linked ?? recallChips(page) ?? defaults,
-    [fromAddress, linked, page, defaults],
-  )
+  const chips = useMemo(() => fromAddress ?? linked ?? defaults, [fromAddress, linked, defaults])
 
   useEffect(() => {
     if (fromAddress !== null) return
@@ -233,10 +216,9 @@ export function useFilters(
     (next: FilterChip[]) => {
       const params = new URLSearchParams(window.location.search)
       writeChips(params, next)
-      rememberChips(page, next)
       navigate(`${window.location.pathname}?${params.toString()}`, { replace: true })
     },
-    [page, navigate],
+    [navigate],
   )
 
   return [chips, set]

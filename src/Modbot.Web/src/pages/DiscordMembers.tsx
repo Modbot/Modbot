@@ -20,7 +20,7 @@ import {
   type DiscordMemberQuery,
   type ServerProfile,
 } from '@/lib/api'
-import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
+import { isFiltered, useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { formatDay } from '@/lib/format'
 import { accountAge, timeAgo } from '@/lib/serverOverview'
 import { useListPage } from '@/lib/listPage'
@@ -56,6 +56,7 @@ import { ServerHeader } from '@/pages/analytics/ServerHeader'
  */
 
 const PAGE_SIZE = 50
+const DISCORD_MEMBER_STARTS = [DISCORD_MEMBER_DEFAULTS]
 
 // One list for the sort box and the Actions sheet, so the two never name a sort differently.
 const SORTS: { value: NonNullable<DiscordMemberQuery['sort']>; label: string }[] = [
@@ -103,8 +104,8 @@ function MemberList({ me }: { me: CurrentUser }) {
   const [list, setList] = useState<DiscordMemberList | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // The chips: in the address, remembered per page (lib/filters.ts). People in the server by default.
-  const [chips, setChipsOnly] = useFilters('discord-members', DISCORD_MEMBER_DEFAULTS)
+  // The chips: in the address (lib/filters.ts). People in the server by default.
+  const [chips, setChipsOnly] = useFilters(DISCORD_MEMBER_DEFAULTS)
   const setChips = (next: FilterChip[]) => {
     setChipsOnly(next)
     restart()
@@ -225,7 +226,7 @@ function MemberList({ me }: { me: CurrentUser }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <FilterBar properties={properties} chips={chips} onChange={setChips}>
+      <FilterBar properties={properties} chips={chips} starts={DISCORD_MEMBER_STARTS} onChange={setChips}>
         <Input
           ref={searchBox}
           value={typed}
@@ -262,6 +263,7 @@ function MemberList({ me }: { me: CurrentUser }) {
           )}
           <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             <span className="font-mono">{list.total.toLocaleString()}</span> {list.total === 1 ? 'person' : 'people'}
+            {isFiltered(chips, DISCORD_MEMBER_STARTS) && ' · filtered'}
           </span>
         </CardHeader>
         {list.members.length === 0 ? (

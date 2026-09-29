@@ -2141,6 +2141,13 @@ without adding a "who". One click on the Source chip brings them back. The filte
 Linear-style bar (research `2026-09-16-linear-ui-findings.md`), kept in the address and remembered
 per page.
 
+*2026-09-28:* no longer remembered. Opened from the sidebar, the log came up narrowed by filters
+left from an earlier visit and said "12 entries shown", which read as a short log rather than a
+narrowed one. A page now opens at its defaults; the address still carries the chips, so Back and a
+pasted link bring them back. The count says "filtered" whenever the chips differ from where the
+page starts, and Clear puts that start back rather than removing every chip, since no chips on the
+audit log is every source, Sync included.
+
 The merged default is the right one because the questions people actually ask span sources: *"who
 changed the ban threshold just before these bans?"* is unanswerable in either log alone.
 

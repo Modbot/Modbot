@@ -7,6 +7,7 @@ import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { EmptyRow } from '@/components/PanelGrid'
 import {
+  isFiltered,
   operatorsFor,
   operatorWords,
   type FilterChip,
@@ -25,17 +26,24 @@ import { cn } from '@/lib/utils'
  * changed in place, and `×` takes it away. Chips combine with AND, the values inside one are
  * "any of", and "is not" is the same list turned around.
  *
- * The bar draws what it is given. Where the chips live -- the address, and the browser's memory
- * of the page -- is `lib/filters.ts`'s business.
+ * The bar draws what it is given. Where the chips live -- the address -- is `lib/filters.ts`'s
+ * business.
+ *
+ * Clear puts back where the page starts, not no chips at all: on the audit log no chips is every
+ * source, Sync included, and on the Discord list it is everyone who ever left. It shows only when
+ * the chips differ from every start, the same test the page's count uses to say "filtered".
  */
 export function FilterBar({
   properties,
   chips,
+  starts,
   onChange,
   children,
 }: {
   properties: FilterProperty[]
   chips: FilterChip[]
+  /** Where the page starts: the first is what Clear puts back. */
+  starts: FilterChip[][]
   onChange: (chips: FilterChip[]) => void
   /** Drawn at the right end: a search box, a sort control, a count. */
   children?: React.ReactNode
@@ -61,8 +69,9 @@ export function FilterBar({
     setAdding(true)
   }
 
+  const filtered = isFiltered(chips, starts)
   const clear = () => {
-    onChange([])
+    onChange(starts[0])
     setUnfolded(false)
   }
 
@@ -76,7 +85,7 @@ export function FilterBar({
       hidden: true,
       run: () => onChange(chips.slice(0, -1)),
     },
-    ...(chips.length > 0
+    ...(filtered
       ? [{ label: 'Clear filters', group: 'Filters' as const, page: true, run: clear }]
       : []),
   ])
@@ -116,7 +125,7 @@ export function FilterBar({
           phoneLabel={chips.length > 0 ? 'Add' : undefined}
         />
 
-        {chips.length > 0 && (
+        {filtered && (
           <Button variant="ghost" onClick={clear}>
             Clear
           </Button>

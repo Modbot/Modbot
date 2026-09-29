@@ -14,7 +14,7 @@ import { ModerationActions } from '@/components/moderation/ModerationActions'
 import { TrustRankBadge } from '@/components/TrustRankBadge'
 import { api, ApiError, type CurrentUser, type LinkedDiscord, type PeopleList, type PeopleQuery } from '@/lib/api'
 import { useDemo } from '@/lib/demo'
-import { useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
+import { isFiltered, useFilters, type FilterChip, type FilterProperty } from '@/lib/filters'
 import { ago, dateTime, formatDay, timeOfDay } from '@/lib/format'
 import { changesMembers } from '@/lib/liveRules'
 import { Pager } from '@/components/Pager'
@@ -84,9 +84,9 @@ export function People({ me }: { me: CurrentUser }) {
   const [list, setList] = useState<PeopleList | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // The chips: in the address, remembered per page (lib/filters.ts). Nothing narrowed by default;
-  // every link to "Members" carries its chip in the address.
-  const [said, setChipsOnly] = useFilters('people', PEOPLE_DEFAULTS)
+  // The chips: in the address (lib/filters.ts). Nothing narrowed by default; every link to
+  // "Members" carries its chip in the address.
+  const [said, setChipsOnly] = useFilters(PEOPLE_DEFAULTS)
 
   // What the list is narrowed by. For See members alone, only the member list's filters, and
   // always one of its two views: current members unless the chips ask for people who left.
@@ -105,6 +105,9 @@ export function People({ me }: { me: CurrentUser }) {
 
   const filter = useMemo(() => peopleQueryFrom(chips), [chips])
   const view = memberView(chips)
+
+  // Where the page starts, and where Clear goes back to: Members when the list is Members, else People.
+  const starts = view === 'member' ? [MEMBERS_VIEW, PEOPLE_DEFAULTS] : [PEOPLE_DEFAULTS, MEMBERS_VIEW]
 
   // The member list opened newest joiner first, and still does; everything else, most recently
   // seen. Moving between the two sets the sort again, since each one's first choice means little
@@ -281,7 +284,7 @@ export function People({ me }: { me: CurrentUser }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <FilterBar properties={properties} chips={chips} onChange={setChips}>
+      <FilterBar properties={properties} chips={chips} starts={starts} onChange={setChips}>
         {joined && (
           <Button
             size="sm"
@@ -330,6 +333,7 @@ export function People({ me }: { me: CurrentUser }) {
           )}
           <span className="ml-auto text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             <span className="font-mono">{list.total.toLocaleString()}</span> {list.total === 1 ? 'person' : 'people'}
+            {isFiltered(chips, starts) && ' · filtered'}
           </span>
         </CardHeader>
         {list.people.length === 0 ? (
