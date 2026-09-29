@@ -32,6 +32,26 @@ public class GiveawayRuleCheckerTests(PostgresFixture fixture) : GiveawayTestBas
         Assert.Equal([$"vrchat:{Alice}"], await WhoMatchesAsync(Rule(GiveawayRuleKinds.InGroup)));
     }
 
+    /// <summary>
+    /// Modbot's own account is a member row (the group-info poll keeps it), and it must never be
+    /// drawn in a giveaway.
+    /// </summary>
+    [Fact]
+    public async Task ModbotsOwnAccountIsNeverACandidate()
+    {
+        await AddPersonAsync(vrchat: Alice, inGroupDays: 100);
+        await AddPersonAsync(vrchat: "usr_modbot", inGroupDays: 400);
+
+        await using (var context = Database.NewContext())
+        {
+            var settings = await context.GetSettingsAsync(Ct);
+            settings.VRChatAccountUserId = "usr_modbot";
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal([$"vrchat:{Alice}"], await WhoMatchesAsync(Rule(GiveawayRuleKinds.InGroup)));
+    }
+
     [Fact]
     public async Task GroupTenureCountsFromTheJoinDateVRChatStates()
     {

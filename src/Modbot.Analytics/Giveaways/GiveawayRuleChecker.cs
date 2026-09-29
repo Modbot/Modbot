@@ -631,8 +631,15 @@ public sealed class GiveawayRuleChecker
         // ── The VRChat side ──
         if (reacted is null)
         {
+            // Modbot's own account is a member row too (the group-info poll keeps it; see
+            // OwnMembership), and a giveaway Modbot can win is not one anybody means to run.
+            var own = await _db.Settings.AsNoTracking()
+                .Where(s => s.Id == 1)
+                .Select(s => s.VRChatAccountUserId)
+                .FirstOrDefaultAsync(ct);
+
             var members = await _db.GroupMembers.AsNoTracking()
-                .Where(m => m.LeftAt == null)
+                .Where(m => m.LeftAt == null && (own == null || m.UserId != own))
                 .Select(m => new { m.UserId, m.JoinedAt, m.Roles })
                 .Take(MaxPeople + 1)
                 .ToListAsync(ct);
