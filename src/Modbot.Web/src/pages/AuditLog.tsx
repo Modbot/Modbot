@@ -72,6 +72,8 @@ const SOURCES = ['AuditLog', 'SyncDiff', 'Companion', 'Discord', 'Manual', 'Modb
 
 const NO_FILTERS: FilterChip[] = []
 const AUDIT_STARTS = [AUDIT_DEFAULTS]
+// Opened at one entry, the log starts with no chips, and Clear goes back there so the entry stays on the list.
+const FACT_STARTS = [NO_FILTERS, AUDIT_DEFAULTS]
 
 export function AuditLog() {
   const [location] = useLocation()
@@ -96,6 +98,7 @@ export function AuditLog() {
   // Opened at one entry, by a link that says nothing about filters: none, so that entry is on the
   // list whatever it is. A case file's link to its ban, a Chat answer's source chip.
   const [chips, setChips] = useFilters(AUDIT_DEFAULTS, factId ? NO_FILTERS : undefined)
+  const starts = factId ? FACT_STARTS : AUDIT_STARTS
 
   useEffect(() => {
     if (!factId) return
@@ -372,7 +375,7 @@ export function AuditLog() {
 
   return (
     <div ref={listRef} className="flex flex-col gap-3">
-      <FilterBar properties={properties} chips={chips} starts={AUDIT_STARTS} onChange={setChips}>
+      <FilterBar properties={properties} chips={chips} starts={starts} onChange={setChips}>
         {pending > 0 && (
           <Button size="sm" variant="outline" onClick={showNew}>
             {pending} new
@@ -429,7 +432,7 @@ export function AuditLog() {
           <CardFooter className="gap-3 text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
             <span>
               <span className="font-mono">{rows.length}</span> {rows.length === 1 ? 'entry' : 'entries'} shown
-              {isFiltered(chips, AUDIT_STARTS) && ' · filtered'}
+              {isFiltered(chips, starts) && ' · filtered'}
             </span>
             <span className="flex-1" />
             {next && (

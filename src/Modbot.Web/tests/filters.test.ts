@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { dateRange, decodeChip, encodeChip, isFiltered, operatorsFor, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
+import { atStart, dateRange, decodeChip, encodeChip, isFiltered, operatorsFor, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
 import {
   AUDIT_DEFAULTS,
   auditQueryFrom,
@@ -58,7 +58,6 @@ test('a page is filtered only when its chips differ from every place it starts',
   const audit = [AUDIT_DEFAULTS]
   assert.equal(isFiltered(AUDIT_DEFAULTS, audit), false)
   assert.equal(isFiltered([...AUDIT_DEFAULTS].reverse(), audit), false)
-  assert.equal(isFiltered([], audit), true)
   assert.equal(isFiltered([...AUDIT_DEFAULTS, { property: 'subject', operator: 'is', values: ['usr_a'] }], audit), true)
 
   const people = [PEOPLE_DEFAULTS, MEMBERS_VIEW]
@@ -66,6 +65,19 @@ test('a page is filtered only when its chips differ from every place it starts',
   assert.equal(isFiltered(MEMBERS_VIEW, people), false)
   assert.equal(isFiltered([...MEMBERS_VIEW, { property: 'hasRole', operator: 'yes', values: [] }], people), true)
   assert.equal(isFiltered([{ property: 'membership', operator: 'is', values: ['left'] }], people), true)
+})
+
+test('no chips is never filtered, though Clear still goes back to where the page starts', () => {
+  const audit = [AUDIT_DEFAULTS]
+  assert.equal(isFiltered([], audit), false)
+  assert.equal(atStart([], audit), false)
+
+  // Opened at one entry: no chips is the start, so there is nothing to clear.
+  const atOneEntry = [[], AUDIT_DEFAULTS]
+  assert.equal(isFiltered([], atOneEntry), false)
+  assert.equal(atStart([], atOneEntry), true)
+  assert.equal(atStart(AUDIT_DEFAULTS, atOneEntry), true)
+  assert.equal(isFiltered([{ property: 'hasActor', operator: 'yes', values: [] }], atOneEntry), true)
 })
 
 test('a date chip becomes a half-open stretch that includes the last day', () => {

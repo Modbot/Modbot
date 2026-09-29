@@ -172,11 +172,21 @@ export function sameChips(a: FilterChip[], b: FilterChip[]): boolean {
 // ── The page's start ────────────────────────────────────────────────────────────────────────
 
 /**
- * Whether the chips narrow the page past where it starts. A page can have more than one start
- * (People opens bare, and as Members), and chips equal to any of them are not filtered.
+ * Whether the chips are where the page starts. A page can have more than one start (People opens
+ * bare, and as Members; the audit log opened at one entry opens with no chips), and chips equal to
+ * any of them are at the start. Clear shows whenever they are not.
+ */
+export function atStart(chips: FilterChip[], starts: FilterChip[][]): boolean {
+  return starts.some((start) => sameChips(chips, start))
+}
+
+/**
+ * Whether the page's count should say "filtered": the chips are not where the page starts, and
+ * there are some. No chips at all is never filtered, though it is not the start of the audit log
+ * or the Discord list: it shows more than the start does, not less.
  */
 export function isFiltered(chips: FilterChip[], starts: FilterChip[][]): boolean {
-  return !starts.some((start) => sameChips(chips, start))
+  return chips.length > 0 && !atStart(chips, starts)
 }
 
 /**

@@ -7,7 +7,7 @@ import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
 import { EmptyRow } from '@/components/PanelGrid'
 import {
-  isFiltered,
+  atStart,
   operatorsFor,
   operatorWords,
   type FilterChip,
@@ -30,8 +30,8 @@ import { cn } from '@/lib/utils'
  * business.
  *
  * Clear puts back where the page starts, not no chips at all: on the audit log no chips is every
- * source, Sync included, and on the Discord list it is everyone who ever left. It shows only when
- * the chips differ from every start, the same test the page's count uses to say "filtered".
+ * source, Sync included, and on the Discord list it is everyone who ever left. It shows whenever
+ * the chips differ from every start.
  */
 export function FilterBar({
   properties,
@@ -69,7 +69,7 @@ export function FilterBar({
     setAdding(true)
   }
 
-  const filtered = isFiltered(chips, starts)
+  const changed = !atStart(chips, starts)
   const clear = () => {
     onChange(starts[0])
     setUnfolded(false)
@@ -85,7 +85,7 @@ export function FilterBar({
       hidden: true,
       run: () => onChange(chips.slice(0, -1)),
     },
-    ...(filtered
+    ...(changed
       ? [{ label: 'Clear filters', group: 'Filters' as const, page: true, run: clear }]
       : []),
   ])
@@ -125,7 +125,7 @@ export function FilterBar({
           phoneLabel={chips.length > 0 ? 'Add' : undefined}
         />
 
-        {filtered && (
+        {changed && (
           <Button variant="ghost" onClick={clear}>
             Clear
           </Button>
