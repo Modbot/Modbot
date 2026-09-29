@@ -113,7 +113,7 @@ public sealed class GroupInfoSync
 
         // Modbot's own member row, from the same `myMember`. The member list never includes the
         // account asking for it, so this is the only read that can put it there.
-        await RecordOwnMembershipAsync(groupId, OwnMembership.From(result.RawResponse), ct).ConfigureAwait(false);
+        await RecordOwnMembershipAsync(settings, groupId, OwnMembership.From(result.RawResponse), ct).ConfigureAwait(false);
 
         // The two counts, every poll, whether or not anything changed. This is a different store
         // from the facts below with a different question behind it: the My Group chart shows the
@@ -325,28 +325,53 @@ public sealed class GroupInfoSync
         {
             settings.VRChatAccountPermissions = permissions;
         }
-
-        if (OwnMembership.From(groupJson)?.UserId is { } userId
-            && !string.Equals(settings.VRChatAccountUserId, userId, StringComparison.Ordinal))
-        {
-            settings.VRChatAccountUserId = userId;
-        }
     }
 
     /// <summary>
-    /// Writes or refreshes Modbot's own <c>group_member</c> row. Saved with the poll.
+    /// Writes or refreshes Modbot's own <c>group_member</c> row, and keeps the account's user id.
+    /// Saved with the poll.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// No join, leave or role fact is written from it: the audit log records the account's own
     /// changes like anyone else's, and the member sweep leaves this row alone
-    /// (<see cref="GroupMemberSync"/>). An answer with no <c>myMember</c> changes nothing.
+    /// (<see cref="GroupMemberSync"/>).
+    /// </para>
+    /// <para>
+    /// The row is marked as left when a successful answer has no <c>myMember</c>, which is how
+    /// VRChat answers an account that is not in the group, or when it states a status other than
+    /// <c>member</c> (invited, requested, banned). Otherwise the account would be counted as a
+    /// member after it was removed. A status VRChat left out is not read as leaving: spec 1.21
+    /// stopped promising one. When the account is back, the next poll clears the mark.
+    /// </para>
     /// </remarks>
-    internal async Task RecordOwnMembershipAsync(string groupId, OwnMembership? me, CancellationToken ct)
+    internal async Task RecordOwnMembershipAsync(Settings settings, string groupId, OwnMembership? me, CancellationToken ct)
     {
-        if (me is null)
-            return;
-
         var now = _clock.UtcNow;
+
+        if (me is null)
+        {
+            if (settings.VRChatAccountUserId is not { } own)
+                return;
+
+            var gone = await _db.GroupMembers
+                .FirstOrDefaultAsync(m => m.GroupId == groupId && m.UserId == own && m.LeftAt == null, ct)
+                .ConfigureAwait(false);
+
+            if (gone is not null)
+            {
+                gone.LeftAt = now;
+                _log.Information("Modbot's own VRChat account is no longer in the group; its member row is marked as left");
+            }
+
+            return;
+        }
+
+        if (!string.Equals(settings.VRChatAccountUserId, me.UserId, StringComparison.Ordinal))
+            settings.VRChatAccountUserId = me.UserId;
+
+        var member = me.MembershipStatus is null
+            || string.Equals(me.MembershipStatus, "member", StringComparison.OrdinalIgnoreCase);
 
         var row = await _db.GroupMembers
             .FirstOrDefaultAsync(m => m.GroupId == groupId && m.UserId == me.UserId, ct)
@@ -354,6 +379,9 @@ public sealed class GroupInfoSync
 
         if (row is null)
         {
+            if (!member)
+                return;
+
             row = new GroupMember { GroupId = groupId, UserId = me.UserId, FirstSeenAt = now };
             _db.GroupMembers.Add(row);
         }
@@ -366,7 +394,7 @@ public sealed class GroupInfoSync
         row.IsRepresenting = me.IsRepresenting;
         row.ManagerNotes = me.ManagerNotes;
         row.LastSeenAt = now;
-        row.LeftAt = null;
+        row.LeftAt = member ? null : row.LeftAt ?? now;
         row.Raw = me.Raw;
     }
 

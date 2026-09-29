@@ -382,5 +382,64 @@ public class GroupInfoSyncTests(PostgresFixture fixture) : SyncTestBase(fixture)
         Assert.Null((await SettingsAsync()).VRChatAccountUserId);
     }
 
+    /// <summary>
+    /// An account that is no longer in the group gets an answer with no <c>myMember</c>. Its row must
+    /// stop counting, or the Members list says one more than VRChat does.
+    /// </summary>
+    [Fact]
+    public async Task ModbotsOwnRowIsMarkedLeftWhenMyMemberIsGone()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        VRChat.Groups.GroupJson = """{"myMember":{"userId":"usr_bot","membershipStatus":"member"}}""";
+        await RunGroupInfoAsync();
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        VRChat.Groups.GroupJson = """{"id":"grp_1"}""";
+        await RunGroupInfoAsync();
+
+        Assert.Equal(Clock.UtcNow, (await MemberRowAsync("usr_bot"))!.LeftAt);
+        Assert.Empty(await FactsOfTypeAsync(FactType.MemberLeft));
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        VRChat.Groups.GroupJson = """{"myMember":{"userId":"usr_bot","membershipStatus":"member"}}""";
+        await RunGroupInfoAsync();
+
+        Assert.Null((await MemberRowAsync("usr_bot"))!.LeftAt);
+    }
+
+    [Theory]
+    [InlineData("banned")]
+    [InlineData("invited")]
+    public async Task AStatusOtherThanMemberMarksModbotsOwnRowLeft(string status)
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        VRChat.Groups.GroupJson = """{"myMember":{"userId":"usr_bot","membershipStatus":"member"}}""";
+        await RunGroupInfoAsync();
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        var leftAt = Clock.UtcNow;
+        VRChat.Groups.GroupJson = "{\"myMember\":{\"userId\":\"usr_bot\",\"membershipStatus\":\"" + status + "\"}}";
+        await RunGroupInfoAsync();
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        await RunGroupInfoAsync();
+
+        var row = await MemberRowAsync("usr_bot");
+        Assert.Equal(leftAt, row!.LeftAt);
+        Assert.Equal(status, row.MembershipStatus);
+    }
+
+    /// <summary>Spec 1.21 stopped promising a status, so one left out is not read as leaving.</summary>
+    [Fact]
+    public async Task AStatusLeftOutKeepsModbotsOwnRow()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        VRChat.Groups.GroupJson = """{"myMember":{"userId":"usr_bot"}}""";
+
+        await RunGroupInfoAsync();
+
+        Assert.Null((await MemberRowAsync("usr_bot"))!.LeftAt);
+    }
+
     private static JsonObject Payload(ModbotEvent fact) => JsonNode.Parse(fact.Data)!.AsObject();
 }

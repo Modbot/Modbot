@@ -30,6 +30,12 @@ which already reads `myMember`, writes the account's own row and keeps its user 
 row. The sweep never marks that row as left, leaves it out of the "listed nobody" check, and adds it
 to the count it stores. No join, leave or role fact comes from it: the audit log records those.
 
+The poll marks the row as left itself when a successful answer has no `myMember` (VRChat's answer
+to an account not in the group) or states a status other than `member`, and clears the mark when
+the account is back. A status left out is not read as leaving. The "listed nobody" check asks the
+rows who would be marked as left rather than working it out from the stored count, because that
+count may have been taken before the account's own row existed.
+
 ### 1.1 Pages overlap
 
 Offset paging over a live list is not stable. A member leaving while the sweep is between two

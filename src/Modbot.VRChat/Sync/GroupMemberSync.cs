@@ -347,17 +347,15 @@ public sealed class GroupMemberSync
             .CountAsync(m => m.LastSeenAt >= startedAt, ct)
             .ConfigureAwait(false);
 
-        // The count VRChat shows for the group includes Modbot's own account, so the stored count
-        // does too, whenever the group-info poll has written its row.
-        var ownListed = own is not null && await _db.GroupMembers
-            .AnyAsync(m => m.GroupId == groupId && m.UserId == own && m.LeftAt == null, ct)
-            .ConfigureAwait(false);
+        // Who would be marked as left, asked of the rows rather than worked out from the stored
+        // count: that count may or may not include Modbot's own account, depending on whether the
+        // group-info poll had written its row by then. So a group the account is the only member
+        // of is never read as a list that went empty.
+        var stillMembers = listed == 0 && settings.MemberSweepCount > 0
+            ? await rows.CountAsync(ct).ConfigureAwait(false)
+            : 0;
 
-        // Compared without Modbot's own account, so a group it is the only member of is not read
-        // as a list that went empty.
-        var listedLastTime = settings.MemberSweepCount - (ownListed ? 1 : 0);
-
-        if (listed == 0 && listedLastTime > 0)
+        if (stillMembers > 0)
         {
             // A list that went from thousands to nobody between two sweeps is far more likely to
             // be VRChat answering an empty page it should not have than a group emptying out.
@@ -365,7 +363,7 @@ public sealed class GroupMemberSync
             // starting over costs a rest.
             _log.Warning(
                 "The member sweep listed nobody, but the last full sweep listed {Count}. Nobody is marked as left; the sweep will run again",
-                listedLastTime);
+                stillMembers);
 
             settings.MemberSweepStartedAt = null;
             settings.MemberSweepOffset = 0;
@@ -374,13 +372,19 @@ public sealed class GroupMemberSync
             return await RecordPollAsync(
                 settings,
                 new SweepRunResult(SyncOutcome.Failed, PagesRead: 1, SweepStarted: started,
-                    Message: $"listed nobody where the last sweep listed {listedLastTime}"),
+                    Message: $"listed nobody where the last sweep listed {stillMembers}"),
                 ct).ConfigureAwait(false);
         }
 
         var gone = await rows
             .Where(m => m.LastSeenAt < startedAt)
             .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        // The count VRChat shows for the group includes Modbot's own account, so the stored count
+        // does too, whenever the group-info poll has written its row.
+        var ownListed = own is not null && await _db.GroupMembers
+            .AnyAsync(m => m.GroupId == groupId && m.UserId == own && m.LeftAt == null, ct)
             .ConfigureAwait(false);
 
         var seen = listed + (ownListed ? 1 : 0);

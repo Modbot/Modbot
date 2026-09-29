@@ -690,6 +690,28 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Equal(1, (await SettingsAsync()).MemberSweepCount);
     }
 
+    /// <summary>
+    /// Right after Modbot's own row first appears, the stored count was taken without it. An empty
+    /// list must still be caught then, in a group with a single member besides the account.
+    /// </summary>
+    [Fact]
+    public async Task AnEmptyListIsCaughtWhenTheStoredCountWasTakenBeforeModbotsOwnRow()
+    {
+        Seed(VRChat.Groups, 1);
+        await SweepMembersAsync();
+        Assert.Equal(1, (await SettingsAsync()).MemberSweepCount);
+
+        await PollOwnMembershipAsync();
+
+        RestMembers();
+        VRChat.Groups.Members.Clear();
+
+        var empty = await SweepMembersAsync();
+
+        Assert.Equal(SyncOutcome.Failed, empty.Outcome);
+        Assert.Null((await MemberRowAsync("usr_0000"))!.LeftAt);
+    }
+
     private async Task PollOwnMembershipAsync()
     {
         VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
