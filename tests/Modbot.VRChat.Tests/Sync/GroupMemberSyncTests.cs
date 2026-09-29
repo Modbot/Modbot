@@ -627,5 +627,57 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Equal(Clock.UtcNow, (await SettingsAsync()).MemberSweepCompletedAt);
     }
 
+    /// <summary>
+    /// VRChat's list leaves out the account asking for it, so Modbot's own row comes from the
+    /// group-info poll. The sweep must neither mark it as left nor leave it out of the count, or the
+    /// Members list is one short of the count VRChat shows for the group.
+    /// </summary>
+    [Fact]
+    public async Task ModbotsOwnRowIsCountedAndNeverMarkedLeft()
+    {
+        Seed(VRChat.Groups, 3);
+        await PollOwnMembershipAsync();
+
+        var first = await SweepMembersAsync();
+
+        Assert.Equal(0, first.MarkedGone);
+        Assert.Equal(4, (await SettingsAsync()).MemberSweepCount);
+
+        RestMembers();
+        var second = await SweepMembersAsync();
+
+        Assert.Equal(0, second.MarkedGone);
+        Assert.Null((await MemberRowAsync("usr_bot"))!.LeftAt);
+        Assert.Null((await MemberRowAsync("usr_bot"))!.WaitingFacts);
+        Assert.Equal(4, (await SettingsAsync()).MemberSweepCount);
+    }
+
+    /// <summary>
+    /// Modbot's own row is always there, so it must not count as the list having listed somebody:
+    /// an empty answer after a full sweep is still VRChat misbehaving.
+    /// </summary>
+    [Fact]
+    public async Task ASweepThatListsNobodyIsStillCaughtWhenModbotsOwnRowExists()
+    {
+        Seed(VRChat.Groups, 5);
+        await PollOwnMembershipAsync();
+        await SweepMembersAsync();
+
+        RestMembers();
+        VRChat.Groups.Members.Clear();
+
+        var empty = await SweepMembersAsync();
+
+        Assert.Equal(SyncOutcome.Failed, empty.Outcome);
+        Assert.Null((await MemberRowAsync("usr_0002"))!.LeftAt);
+    }
+
+    private async Task PollOwnMembershipAsync()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        VRChat.Groups.GroupJson = """{"myMember":{"userId":"usr_bot","membershipStatus":"member"}}""";
+        await RunGroupInfoAsync();
+    }
+
     private static JsonObject Payload(ModbotEvent fact) => JsonNode.Parse(fact.Data)!.AsObject();
 }

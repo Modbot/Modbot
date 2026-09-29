@@ -159,6 +159,16 @@ public class Settings
     /// </summary>
     public List<string>? VRChatAccountPermissions { get; set; }
 
+    /// <summary>
+    /// Modbot's own VRChat user id, from <c>myMember</c> in the group-info poll. Null until read.
+    /// </summary>
+    /// <remarks>
+    /// The member list never includes the account asking for it, so the group-info poll writes the
+    /// account's own <c>group_member</c> row, and the member sweep needs this id to leave that row
+    /// alone rather than mark it as left. Never validated (spec 3.1.1).
+    /// </remarks>
+    public string? VRChatAccountUserId { get; set; }
+
     // --- Public instances on modbot.co (central services design 4.6) ---
 
     /// <summary>

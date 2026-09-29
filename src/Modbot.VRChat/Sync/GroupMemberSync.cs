@@ -38,8 +38,9 @@ namespace Modbot.VRChat.Sync;
 /// pass reads the same page. The overlap between pages is what makes stopping mid-sweep safe.
 /// </para>
 /// <para>
-/// The list never includes the account doing the asking (VRChat documents this), so the bot's
-/// own membership is never a row here and is never marked as left.
+/// The list never includes the account doing the asking (VRChat documents this), so Modbot's own
+/// row is written by <see cref="GroupInfoSync"/> from <c>myMember</c> instead. The sweep never
+/// marks that row as left, and counts it in the headcount so the list agrees with VRChat's count.
 /// </para>
 /// </remarks>
 public sealed class GroupMemberSync
@@ -334,11 +335,19 @@ public sealed class GroupMemberSync
         var startedAt = settings.MemberSweepStartedAt!.Value;
         var firstSweep = settings.MemberSweepCompletedAt is null;
 
-        var seen = await _db.GroupMembers
-            .CountAsync(m => m.GroupId == groupId && m.LeftAt == null && m.LastSeenAt >= startedAt, ct)
+        // Modbot's own row is written by the group-info poll, never by this list (see the remarks),
+        // so it is left out of what the list showed and counted in only at the end.
+        var own = settings.VRChatAccountUserId;
+        var rows = _db.GroupMembers.Where(m => m.GroupId == groupId && m.LeftAt == null);
+
+        if (own is not null)
+            rows = rows.Where(m => m.UserId != own);
+
+        var listed = await rows
+            .CountAsync(m => m.LastSeenAt >= startedAt, ct)
             .ConfigureAwait(false);
 
-        if (seen == 0 && settings.MemberSweepCount > 0)
+        if (listed == 0 && settings.MemberSweepCount > 0)
         {
             // A list that went from thousands to nobody between two sweeps is far more likely to
             // be VRChat answering an empty page it should not have than a group emptying out.
@@ -359,10 +368,18 @@ public sealed class GroupMemberSync
                 ct).ConfigureAwait(false);
         }
 
-        var gone = await _db.GroupMembers
-            .Where(m => m.GroupId == groupId && m.LeftAt == null && m.LastSeenAt < startedAt)
+        var gone = await rows
+            .Where(m => m.LastSeenAt < startedAt)
             .ToListAsync(ct)
             .ConfigureAwait(false);
+
+        // The count VRChat shows for the group includes Modbot's own account, so the list's count
+        // does too, whenever the group-info poll has written its row.
+        var ownListed = own is not null && await _db.GroupMembers
+            .AnyAsync(m => m.GroupId == groupId && m.UserId == own && m.LeftAt == null, ct)
+            .ConfigureAwait(false);
+
+        var seen = listed + (ownListed ? 1 : 0);
 
         foreach (var row in gone)
         {

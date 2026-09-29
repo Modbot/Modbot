@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -109,6 +110,10 @@ public sealed class GroupInfoSync
         // Modbot's own roles and permissions in the group, from `myMember` in the same answer, so a
         // refusal for a missing permission can say what the account has (VRChatGroupPermissions).
         RecordAccount(settings, result.RawResponse);
+
+        // Modbot's own member row, from the same `myMember`. The member list never includes the
+        // account asking for it, so this is the only read that can put it there.
+        await RecordOwnMembershipAsync(groupId, OwnMembership.From(result.RawResponse), ct).ConfigureAwait(false);
 
         // The two counts, every poll, whether or not anything changed. This is a different store
         // from the facts below with a different question behind it: the My Group chart shows the
@@ -320,6 +325,49 @@ public sealed class GroupInfoSync
         {
             settings.VRChatAccountPermissions = permissions;
         }
+
+        if (OwnMembership.From(groupJson)?.UserId is { } userId
+            && !string.Equals(settings.VRChatAccountUserId, userId, StringComparison.Ordinal))
+        {
+            settings.VRChatAccountUserId = userId;
+        }
+    }
+
+    /// <summary>
+    /// Writes or refreshes Modbot's own <c>group_member</c> row. Saved with the poll.
+    /// </summary>
+    /// <remarks>
+    /// No join, leave or role fact is written from it: the audit log records the account's own
+    /// changes like anyone else's, and the member sweep leaves this row alone
+    /// (<see cref="GroupMemberSync"/>). An answer with no <c>myMember</c> changes nothing.
+    /// </remarks>
+    internal async Task RecordOwnMembershipAsync(string groupId, OwnMembership? me, CancellationToken ct)
+    {
+        if (me is null)
+            return;
+
+        var now = _clock.UtcNow;
+
+        var row = await _db.GroupMembers
+            .FirstOrDefaultAsync(m => m.GroupId == groupId && m.UserId == me.UserId, ct)
+            .ConfigureAwait(false);
+
+        if (row is null)
+        {
+            row = new GroupMember { GroupId = groupId, UserId = me.UserId, FirstSeenAt = now };
+            _db.GroupMembers.Add(row);
+        }
+
+        row.MembershipId = me.MembershipId;
+        row.Roles = me.Roles;
+        row.JoinedAt = me.JoinedAt;
+        row.MembershipStatus = me.MembershipStatus;
+        row.Visibility = me.Visibility;
+        row.IsRepresenting = me.IsRepresenting;
+        row.ManagerNotes = me.ManagerNotes;
+        row.LastSeenAt = now;
+        row.LeftAt = null;
+        row.Raw = me.Raw;
     }
 
     private async Task<GroupInfoRunResult> FailedAsync<T>(

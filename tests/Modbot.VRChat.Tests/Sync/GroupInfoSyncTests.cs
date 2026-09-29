@@ -327,5 +327,60 @@ public class GroupInfoSyncTests(PostgresFixture fixture) : SyncTestBase(fixture)
             .ToListAsync(Ct);
     }
 
+    /// <summary>
+    /// The member list never includes the account asking for it, so the Members list was one short
+    /// of the count VRChat shows. The group answer's <c>myMember</c> is the only read that has it.
+    /// </summary>
+    [Fact]
+    public async Task ThePollWritesModbotsOwnMemberRowFromMyMember()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+        VRChat.Groups.GroupJson = """
+            {
+              "id": "grp_1",
+              "myMember": {
+                "id": "gmem_bot",
+                "userId": "usr_bot",
+                "roleIds": ["grol_b", "grol_a"],
+                "joinedAt": "2026-01-02T03:04:05.000Z",
+                "membershipStatus": "member",
+                "visibility": "visible",
+                "isRepresenting": true,
+                "permissions": ["*"]
+              }
+            }
+            """;
+
+        await RunGroupInfoAsync();
+
+        var row = await MemberRowAsync("usr_bot");
+
+        Assert.NotNull(row);
+        Assert.Null(row.LeftAt);
+        Assert.Equal("gmem_bot", row.MembershipId);
+        Assert.Equal(["grol_a", "grol_b"], GroupMemberSync.RoleIds(row.Roles));
+        Assert.Equal(new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero), row.JoinedAt);
+        Assert.Equal("member", row.MembershipStatus);
+        Assert.Equal("visible", row.Visibility);
+        Assert.True(row.IsRepresenting);
+        Assert.Equal(Clock.UtcNow, row.LastSeenAt);
+        Assert.Equal("usr_bot", (await SettingsAsync()).VRChatAccountUserId);
+
+        // A row, not a join: the audit log records the account's own joins like anyone else's.
+        Assert.Empty(await FactsOfTypeAsync(FactType.MemberJoined));
+    }
+
+    [Fact]
+    public async Task AnAnswerWithNoMyMemberWritesNoMemberRow()
+    {
+        VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
+
+        await RunGroupInfoAsync();
+
+        await using var context = Database.NewContext();
+        Assert.Empty(await context.GroupMembers.AsNoTracking().ToListAsync(Ct));
+        Assert.Null((await SettingsAsync()).VRChatAccountUserId);
+    }
+
     private static JsonObject Payload(ModbotEvent fact) => JsonNode.Parse(fact.Data)!.AsObject();
 }

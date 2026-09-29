@@ -23,8 +23,12 @@ the front. The pass that reads the empty page does the end-of-sweep work: it mar
 listed this sweep as gone, writes the first sweep's snapshot fact, and settles the changes that
 have been waiting for the audit log (§4 below).
 
-The list never includes the account doing the asking, so the bot's own membership is never a row
-and is never marked as left.
+The list never includes the account doing the asking. Left at that, the Members list was always one
+short of the count VRChat shows for the group, and the missing one was Modbot's own account (seen
+2026-09-27: 5 against 4 on the test group, 4,791 against 4,790 on a live one). So the group-info poll,
+which already reads `myMember`, writes the account's own row and keeps its user id on the settings
+row. The sweep never marks that row as left, leaves it out of the "listed nobody" check, and adds it
+to the count it stores. No join, leave or role fact comes from it: the audit log records those.
 
 ### 1.1 Pages overlap
 

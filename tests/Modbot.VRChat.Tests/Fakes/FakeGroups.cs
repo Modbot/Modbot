@@ -30,6 +30,12 @@ public sealed class FakeGroups
     /// <summary>The group <c>GetGroup</c> answers with. Null means "no body", as a 404 would.</summary>
     public Group? Group { get; set; }
 
+    /// <summary>
+    /// The raw body <c>GetGroup</c> answers with, which is where <c>myMember</c> is read from. Empty
+    /// object by default.
+    /// </summary>
+    public string GroupJson { get; set; } = "{}";
+
     /// <summary>Force a status other than 200 on the audit log -- 403 for no access, 429 for a limit.</summary>
     public HttpStatusCode AuditLogStatus { get; set; } = HttpStatusCode.OK;
 
@@ -166,7 +172,7 @@ public sealed class FakeGroups
                 GroupRequests++;
 
                 return Task.FromResult(GroupStatus == HttpStatusCode.OK
-                    ? new ApiResponse<Group>(HttpStatusCode.OK, new Multimap<string, string>(), Group!, "{}")
+                    ? new ApiResponse<Group>(HttpStatusCode.OK, new Multimap<string, string>(), Group!, GroupJson)
                     : new ApiResponse<Group>(GroupStatus, new Multimap<string, string>(), null!, "{}"));
             });
 

@@ -8,7 +8,8 @@ namespace Modbot.Core.Data.Entities;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Written only by the member sweep (member and ban sync design §2). It is current state, not
+/// Written by the member sweep (member and ban sync design §2), except Modbot's own row, which the
+/// group-info poll writes because the list never includes the account asking. It is current state, not
 /// history: the history is the fact log, and this table exists so the Members page can answer
 /// "who is in the group right now, with which roles" without re-reading fifty pages of VRChat's
 /// list. Anything here can be rebuilt by the next sweep.
