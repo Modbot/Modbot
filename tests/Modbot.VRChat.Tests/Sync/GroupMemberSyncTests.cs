@@ -672,6 +672,24 @@ public class GroupMemberSyncTests(PostgresFixture fixture) : SyncTestBase(fixtur
         Assert.Null((await MemberRowAsync("usr_0002"))!.LeftAt);
     }
 
+    /// <summary>
+    /// A group Modbot's account is the only member of lists nobody every time. That is the group as
+    /// it is, not a list that went empty, so every sweep finishes.
+    /// </summary>
+    [Fact]
+    public async Task AGroupWithOnlyModbotsOwnAccountFinishesEverySweep()
+    {
+        await PollOwnMembershipAsync();
+        await SweepMembersAsync();
+
+        RestMembers();
+        var second = await SweepMembersAsync();
+
+        Assert.NotEqual(SyncOutcome.Failed, second.Outcome);
+        Assert.True(second.SweepComplete);
+        Assert.Equal(1, (await SettingsAsync()).MemberSweepCount);
+    }
+
     private async Task PollOwnMembershipAsync()
     {
         VRChat.Groups.Group = GroupInfoSnapshotTests.Group();
