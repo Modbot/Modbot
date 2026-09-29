@@ -188,6 +188,8 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
     }
   }
 
+  // A real button that opens the picker, rather than a label styled as one: a label is not in the
+  // tab order, so a moderator on a keyboard could not reach it at all.
   return (
     <CardFooter className="flex-wrap gap-x-2 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
       <input
@@ -195,17 +197,16 @@ function Attach({ caseId, delivery, onChanged }: { caseId: string; delivery: Evi
         type="file"
         accept={delivery.acceptedTypes.join(',')}
         disabled={sending || !delivery.uploadsAllowed}
+        tabIndex={-1}
+        aria-hidden
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) void upload(file)
         }}
         className="hidden"
-        id={`attach-${caseId}`}
       />
-      <Button asChild size="xs" variant="outline" disabled={sending || !delivery.uploadsAllowed}>
-        <label htmlFor={`attach-${caseId}`} className={sending || !delivery.uploadsAllowed ? 'pointer-events-none opacity-50' : 'cursor-pointer'}>
-          {sending ? 'Uploading…' : 'Attach a screenshot or video'}
-        </label>
+      <Button type="button" size="xs" variant="outline" disabled={sending || !delivery.uploadsAllowed} onClick={() => input.current?.click()}>
+        {sending ? 'Uploading…' : 'Attach a screenshot or video'}
       </Button>
       <span className="text-muted-foreground">
         {delivery.acceptedTypes.join(', ')}
