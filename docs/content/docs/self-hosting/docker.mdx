@@ -130,7 +130,10 @@ docker compose up -d --build
 ```
 
 - Modbot waits until the database is ready before starting.
-- Modbot is at `http://localhost:8080`. To publish it on a different port, set `MODBOT_PORT` in `.env`.
+- Modbot is at `http://localhost:8080`, from the same computer only, like Seq. To publish it on a
+  different port, set `MODBOT_PORT` in `.env`. A reverse proxy running on the same computer reaches
+  it as it is. To open it to other computers, which a proxy in its own container or on another
+  machine needs, set `MODBOT_BIND=0.0.0.0` in `.env`.
 - Seq is at `http://localhost:5380`, reachable from the same computer only. Sign in as `admin` with
   `SEQ_ADMIN_PASSWORD`. Seq reads it only the first time it starts with an empty volume. Modbot
   sends its logs to Seq over the Compose network.
@@ -144,12 +147,19 @@ docker compose up -d --build
   - `MODBOT_CLOUD_DISABLED`
   - `MODBOT_DEMO` and `MODBOT_DEMO_RESET_HOURS`, to run this Modbot as a
     [public demo](/self-hosting/demo-mode)
+  - `MODBOT_SETUP_CODE`, to choose the [setup code](/setup-wizard#the-setup-code) yourself
   - `MODBOT_COMMIT` and `MODBOT_BRANCH`, to show the version commit and release branch in **Settings**
 
 ## Open it
 
 Open `http://localhost:8080` on the same computer. A new Modbot sends you to the
-[setup wizard](/setup-wizard).
+[setup wizard](/setup-wizard), whose first step asks for the
+[setup code](/setup-wizard#the-setup-code) Modbot prints to its log:
+
+```bash
+docker compose logs modbot | grep "Setup code"   # Docker Compose
+docker logs modbot | grep "Setup code"           # docker run
+```
 
 <Callout type="warn" title="Use HTTPS from anywhere but localhost">
   Modbot's sign-in cookie is marked secure, so browsers only keep it over HTTPS. Browsers make an

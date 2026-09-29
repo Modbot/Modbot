@@ -20,16 +20,38 @@ Press **Continue** (or Enter) to move on, and **Back** to return to an earlier s
 browser part way through, Modbot remembers what is done and opens the wizard at the first step that
 is not.
 
-<Callout type="warn" title="Do step 1 straight away">
-  Until the administrator account exists, anyone who can reach your Modbot's address can open the
-  wizard. Create the account as soon as your Modbot is running. From that moment on, the wizard
-  needs you to be signed in.
-</Callout>
+## The setup code
+
+Until the administrator account exists there is nobody to sign in as, so step 1 asks for a
+**setup code** instead. Modbot prints it to its log each time it starts without an account:
+
+```text
+Setup code: 7KXM-P2QD-RW4H
+```
+
+It is there so that the first person to reach a new Modbot's address cannot take it over by being
+first: only someone who can read the server's log can create the account.
+
+| Where Modbot runs | How to see the code |
+|---|---|
+| Docker Compose, or the [install script](/self-hosting/install-script) | `docker compose logs modbot \| grep "Setup code"` in the folder with `docker-compose.yml` |
+| `docker run` | `docker logs modbot \| grep "Setup code"` |
+| [Railway](/self-hosting/railway) | The deployment's logs. Search for `Setup code`. |
+
+- It is only printed to the console. It is not in the log files, not in Seq, not on the
+  **Modbot's log** page and not in anything sent to Modbot Cloud.
+- Capitals, spaces and dashes do not matter when you type it.
+- A restart before the account exists prints a new code, and the old one stops working.
+- To choose the code yourself instead, set `MODBOT_SETUP_CODE` on the server. It then stays the
+  same across restarts. See [Environment variables](/self-hosting/environment-variables).
+- Once the administrator account exists, the code is not asked for again: the wizard needs you to
+  be signed in instead.
 
 ## Before you start
 
 Have these ready:
 
+- **The setup code** from Modbot's log. See [The setup code](#the-setup-code).
 - **A VRChat account for Modbot to use.** Use a dedicated account, not your personal one. Modbot
   signs in as this account and reads your group through it.
 - **That account's two-factor secret**, if two-factor authentication is on. This is the text code
@@ -42,6 +64,7 @@ Have these ready:
 
 | Field | Notes |
 |---|---|
+| **Setup code** | The code from Modbot's log. See [The setup code](#the-setup-code). Only asked for while no account exists. A wrong one shows **Wrong setup code.** |
 | **Username** | One of the two things you can sign in with. Up to 64 characters. Not case-sensitive. |
 | **Email** | The other. Required, and no two accounts can share one. Modbot includes this first account's address in how it identifies itself to VRChat on every request, so VRChat has someone to contact; it is also shown as this server's owner, which you can turn off under **Settings**, **Server**, **Public address**. Password reset links for this account go here. |
 | **Password** | At least 12 characters. There are no other rules, so a long phrase is best. |

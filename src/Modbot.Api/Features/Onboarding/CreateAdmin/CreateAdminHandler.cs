@@ -30,6 +30,7 @@ public static class CreateAdminHandler
         [FromServices] AccountFacts facts,
         [FromServices] AdministratorContact contact,
         [FromServices] IModbotClock clock,
+        [FromServices] SetupCode setupCode,
         HttpContext http,
         CancellationToken ct)
     {
@@ -91,6 +92,11 @@ public static class CreateAdminHandler
             ct);
 
         await transaction.CommitAsync(ct);
+
+        // An account exists now, so the wizard needs a session from here on and the code has done
+        // its one job (first-run setup code design §3).
+        if (firstRun)
+            setupCode.Drop();
 
         // The User-Agent's contact may have just come into existence.
         contact.Invalidate();

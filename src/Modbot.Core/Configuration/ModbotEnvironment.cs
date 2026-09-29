@@ -35,6 +35,12 @@ namespace Modbot.Core.Configuration;
 /// the switch is that a real deployment can never turn it on by accident, which a row in the
 /// database somebody can edit would not give.
 /// </para>
+/// <para>
+/// <c>MODBOT_SETUP_CODE</c> is needed before there is anybody to sign in as (first-run setup code
+/// design): it fixes the code the setup wizard asks for until the first account exists, for an
+/// operator who deploys somewhere the console is awkward to read. Optional; unset, a random code
+/// is printed to the console instead.
+/// </para>
 /// </remarks>
 public sealed class ModbotEnvironment
 {
@@ -44,6 +50,7 @@ public sealed class ModbotEnvironment
     public const string CloudEndpointVariable = "MODBOT_CLOUD_ENDPOINT";
     public const string CloudDisabledVariable = "MODBOT_CLOUD_DISABLED";
     public const string MyUrlVariable = "MODBOT_MY_URL";
+    public const string SetupCodeVariable = "MODBOT_SETUP_CODE";
 
     /// <summary>Where my.modbot.co is, when nothing says otherwise.</summary>
     public const string DefaultMyUrl = "https://my.modbot.co";
@@ -91,6 +98,12 @@ public sealed class ModbotEnvironment
     /// </summary>
     public int? DemoResetHours { get; init; }
 
+    /// <summary>
+    /// <c>MODBOT_SETUP_CODE</c>: the code the setup wizard asks for until the first account exists.
+    /// Null when unset, which means a random one each time Modbot starts without an account.
+    /// </summary>
+    public string? SetupCode { get; init; }
+
     public static ModbotEnvironment Read(IDictionary<string, string?>? source = null)
     {
         string? Get(string key) => source is not null
@@ -110,6 +123,7 @@ public sealed class ModbotEnvironment
             CloudDisabled = Truthy(Get(CloudDisabledVariable)),
             MyUrl = Address(Get(MyUrlVariable)) ?? DefaultMyUrl,
             Demo = Truthy(Get(DemoMode.Variable)),
+            SetupCode = Blank(Get(SetupCodeVariable)),
 
             // A year of hours is the ceiling. Anything outside it -- or not a number at all -- is
             // somebody's typo, and a typo should leave the default in place rather than turn the

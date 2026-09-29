@@ -13,7 +13,16 @@ curl -fsSL https://modbot.co/get.sh | sh
 It installs Docker if the machine does not have it, asks a few questions, writes a
 `docker-compose.yml` and a `.env` in the folder you pick, and starts Modbot and a PostgreSQL 16
 database in the background. Then you open the address it prints and the
-[setup wizard](/setup-wizard) takes over.
+[setup wizard](/setup-wizard) takes over. Its first step asks for a
+[setup code](/setup-wizard#the-setup-code); the script prints the command that shows it:
+
+```bash
+docker compose logs modbot | grep "Setup code"
+```
+
+Modbot opens on `localhost` only, so the address works from the machine it runs on. To reach it
+from another machine, put a reverse proxy that provides HTTPS on the same machine, or set
+`MODBOT_BIND=0.0.0.0` in `.env` and run `docker compose up -d`.
 
 Everything else — the VRChat account, Discord, email, AI — is set up in the browser afterwards, not
 in the shell.
@@ -114,6 +123,7 @@ cd /the/folder/you/picked
 
 docker compose ps                        # what is running
 docker compose logs -f modbot            # follow the log
+docker compose logs modbot | grep "Setup code"   # the setup code, before the first account exists
 docker compose pull && docker compose up -d   # update
 docker compose down                      # stop
 ```

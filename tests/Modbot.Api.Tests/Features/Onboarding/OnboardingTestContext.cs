@@ -82,8 +82,7 @@ internal static class OnboardingTestContext
             request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         }
 
-        if (cookie is not null)
-            request.Headers.Add("Cookie", cookie);
+        Identify(host, request, cookie);
 
         return host.Client.SendAsync(request, ct);
     }
@@ -95,10 +94,22 @@ internal static class OnboardingTestContext
 
         var request = new HttpRequestMessage(HttpMethod.Get, path);
 
-        if (cookie is not null)
-            request.Headers.Add("Cookie", cookie);
+        Identify(host, request, cookie);
 
         return host.Client.SendAsync(request, ct);
+    }
+
+    /// <summary>
+    /// The session when there is one, and otherwise the setup code while the host still has one --
+    /// what the web app sends before the first account exists. Tests about the code itself send
+    /// their own requests (see <see cref="SetupCodeTests"/>).
+    /// </summary>
+    private static void Identify(ApiTestHost host, HttpRequestMessage request, string? cookie)
+    {
+        if (cookie is not null)
+            request.Headers.Add("Cookie", cookie);
+        else if (host.SetupCode is { } code)
+            request.Headers.Add(Modbot.Api.Features.Onboarding.SetupCode.Header, code);
     }
 
     public static async Task<JsonElement> ReadJsonAsync(

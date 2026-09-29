@@ -20,6 +20,11 @@ namespace Modbot.Api.Features.Onboarding;
 /// VRChat account and a different group".
 /// </para>
 /// <para>
+/// The first half is narrowed by the first-run setup code design: before any account exists the
+/// wizard asks for the <see cref="SetupCode"/> printed to the console instead of a session, so
+/// whoever reaches a fresh deployment first does not own it by being first.
+/// </para>
+/// <para>
 /// It is a filter rather than an authorisation policy because the answer depends on a database
 /// row, not on the caller's ticket, and because a policy returning "allow" for anonymous callers
 /// on a fresh install and "deny" a second later is not something the authorisation system models
@@ -39,6 +44,9 @@ namespace Modbot.Api.Features.Onboarding;
 /// </remarks>
 public sealed class OnboardingAccessFilter : IEndpointFilter
 {
+    /// <summary>What a missing or wrong setup code is answered with.</summary>
+    public const string WrongCode = "Wrong setup code.";
+
     private readonly bool _requireVRChatLink;
 
     public OnboardingAccessFilter(bool requireVRChatLink) => _requireVRChatLink = requireVRChatLink;
@@ -53,7 +61,17 @@ public sealed class OnboardingAccessFilter : IEndpointFilter
         var accounts = http.RequestServices.GetRequiredService<UserAccountService>();
 
         if (!await accounts.AnyUsersAsync(http.RequestAborted).ConfigureAwait(false))
+        {
+            // Nobody to authenticate as yet, so the setup code printed to the console stands in for
+            // a session (first-run setup code design §3). Every wizard endpoint asks for it, not
+            // only the first step's, so nothing is saved before the account exists.
+            var code = http.RequestServices.GetRequiredService<SetupCode>();
+
+            if (!code.Matches(http.Request.Headers[SetupCode.Header].ToString()))
+                return Results.Json(new { error = WrongCode }, statusCode: StatusCodes.Status401Unauthorized);
+
             return await next(context).ConfigureAwait(false);
+        }
 
         if (http.User.Identity?.IsAuthenticated != true)
             return Results.Unauthorized();
@@ -75,8 +93,9 @@ public static class OnboardingAccess
     /// the rule reads identically on all of them.
     /// </summary>
     public const string Rule =
-        "Open while no staff account exists, because there is nobody to authenticate as yet. "
-        + "From the moment one does, it requires a signed-in account holding ManageSettings — "
+        "While no staff account exists there is nobody to authenticate as, so it asks for the setup "
+        + "code Modbot prints to its console at startup, in the X-Setup-Code header, and answers 401 "
+        + "without it. From the moment an account exists, it requires a signed-in account holding ManageSettings — "
         + "otherwise the wizard stays an unauthenticated way to re-point a running deployment.";
 
     /// <param name="requireVRChatLink">

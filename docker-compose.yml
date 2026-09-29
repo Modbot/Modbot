@@ -3,7 +3,8 @@
 #   cp .env.example .env      # then set the two passwords in .env
 #   docker compose up -d --build
 #
-# Modbot:  http://localhost:8080  (the setup wizard opens on first visit)
+# Modbot:  http://localhost:8080  (the setup wizard opens on first visit and asks for the setup
+#          code: docker compose logs modbot | grep "Setup code")
 # Seq:     http://localhost:5380  (sign in as "admin" with SEQ_ADMIN_PASSWORD)
 #
 # Everything Modbot keeps is in the database, except log files and evidence stored on disk, which
@@ -48,8 +49,13 @@ services:
       # who can reach it is an administrator. Ignored once this Modbot has been set up for real.
       MODBOT_DEMO: ${MODBOT_DEMO:-}
       MODBOT_DEMO_RESET_HOURS: ${MODBOT_DEMO_RESET_HOURS:-}
+      # The code the setup wizard asks for until the first account exists. Unset, Modbot prints a
+      # new one at each start: docker compose logs modbot | grep "Setup code"
+      MODBOT_SETUP_CODE: ${MODBOT_SETUP_CODE:-}
     ports:
-      - "${MODBOT_PORT:-8080}:8080"
+      # This machine only, like Seq below. A reverse proxy on this machine reaches it as it is. Set
+      # MODBOT_BIND=0.0.0.0 in .env to open it to other machines too.
+      - "${MODBOT_BIND:-127.0.0.1}:${MODBOT_PORT:-8080}:8080"
     volumes:
       - modbot-logs:/app/logs
       # Used when Settings → Evidence is set to a directory on disk (/app/data/evidence).

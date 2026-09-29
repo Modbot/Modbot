@@ -3905,13 +3905,25 @@ export const api = {
 
   resetDemo: () => request<{ started: boolean }>('/api/demo/reset', { method: 'POST' }),
 
-  createAdministrator: (body: {
-    username: string
-    password: string
-    confirmPassword: string
-    email: string
-    subscribeToUpdates?: boolean
-  }) => post<CurrentUser>('/api/onboarding/administrator', body),
+  /**
+   * `setupCode` is the code printed to the server's console, needed while no account exists
+   * (first-run setup code design). Once one does, the session is what counts and it is left out.
+   */
+  createAdministrator: (
+    body: {
+      username: string
+      password: string
+      confirmPassword: string
+      email: string
+      subscribeToUpdates?: boolean
+    },
+    setupCode?: string,
+  ) =>
+    request<CurrentUser>('/api/onboarding/administrator', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: setupCode ? { 'x-setup-code': setupCode } : undefined,
+    }),
 
   server: () => request<ServerInfo>('/api/server'),
 

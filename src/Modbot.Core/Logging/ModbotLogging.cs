@@ -160,11 +160,15 @@ public static class ModbotLogging
         //    thousand is about seven megabytes, and it costs nothing that is not written down
         //    elsewhere: the same lines are already going to the files, to the console and to the
         //    database, so a line dropped here is a line that is still in three other places.
+        //
+        //    Every destination but the console leaves out the ConsoleOnly lines: the setup code is
+        //    for whoever can read this server's console, and Seq, the files and the database are
+        //    read by others (first-run setup code design §2).
         if (!string.IsNullOrWhiteSpace(options.SeqUrl))
-            config.WriteTo.Seq(
+            config.WriteTo.Conditional(e => !IsConsoleOnly(e), sink => sink.Seq(
                 options.SeqUrl,
                 restrictedToMinimumLevel: LogEventLevel.Debug,
-                queueSizeLimit: DatabaseLogSink.QueueCapacity);
+                queueSizeLimit: DatabaseLogSink.QueueCapacity));
 
         // ── The database: the same events as the main stream, for the operator who has no Seq and
         //    no disk that survives a redeploy. The floor follows the level that was asked for,
@@ -178,8 +182,12 @@ public static class ModbotLogging
         //    written and then dropped at the door. What it costs is in LogStore: the daily prune
         //    now has a ceiling on rows as well as on days, because at Debug a busy day is worth a
         //    quiet month.
+        //
+        //    The ConsoleOnly lines stay out of it above all: this table is what is sent on to
+        //    Modbot Cloud.
         if (options.DatabaseSink is { } database)
-            config.WriteTo.Sink(database, restrictedToMinimumLevel: options.Level);
+            config.WriteTo.Conditional(
+                e => !IsConsoleOnly(e), sink => sink.Sink(database, restrictedToMinimumLevel: options.Level));
 
         return config.CreateLogger();
     }
@@ -190,7 +198,7 @@ public static class ModbotLogging
         // ── Main: the application record. Excludes Http so it stays readable for an operator
         //    diagnosing a sync problem rather than being buried under API traffic.
         config.WriteTo.Logger(main => main
-            .Filter.ByExcluding(IsHttp)
+            .Filter.ByExcluding(e => IsHttp(e) || IsConsoleOnly(e))
             .WriteTo.File(
                 new CompactJsonFormatter(),
                 Path.Combine(options.Directory, $"modbot_log_{stamp}.jsonl"),
@@ -226,6 +234,7 @@ public static class ModbotLogging
         if (options.Debug)
         {
             config.WriteTo.Logger(debug => debug
+                .Filter.ByExcluding(IsConsoleOnly)
                 .WriteTo.File(
                     new CompactJsonFormatter(),
                     Path.Combine(options.Directory, $"modbot_log_debug_{stamp}.jsonl"),
@@ -248,4 +257,10 @@ public static class ModbotLogging
         e.Properties.TryGetValue(LogArea.Name, out var v)
         && v is ScalarValue { Value: string area }
         && area == LogArea.Http;
+
+    /// <summary>True for a line meant for the console only. See <see cref="LogArea.ConsoleOnly"/>.</summary>
+    internal static bool IsConsoleOnly(LogEvent e) =>
+        e.Properties.TryGetValue(LogArea.Name, out var v)
+        && v is ScalarValue { Value: string area }
+        && area == LogArea.ConsoleOnly;
 }

@@ -473,6 +473,13 @@ try
         // ever sees an empty demo. The year of history behind it is written afterwards, by
         // DemoDataService, with a progress line on the Health page (demo mode design §5).
         await DemoStartup.SeedAsync(app.Services);
+
+        // Until the first account exists, the setup wizard asks for this code, so whoever reaches
+        // a fresh deployment first does not own it by being first (first-run setup code design).
+        // Printed to the console only: the log files, Seq and the database log leave it out, the
+        // last because it is sent on to Modbot Cloud. After the demo's seeding, which makes an
+        // account, so a demo is never asked for one.
+        await SetupCodeStartup.AnnounceAsync(app.Services);
     }
 
     // Now that the schema exists and the protector is warm, the stored evidence configuration can

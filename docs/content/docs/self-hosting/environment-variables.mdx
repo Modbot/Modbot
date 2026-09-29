@@ -29,6 +29,7 @@ what Modbot needs before it can reach the database, plus a few switches.
 | `MODBOT_MY_URL` | No | `https://my.modbot.co` | Where the server selector is. Every **Add to my.modbot.co** link Modbot offers points at it. A value that is not a full `http` or `https` address means the default. Modbot never calls it; it is only a link. |
 | `MODBOT_DEMO` | No | off | `1`, `true`, `yes` or `on` starts Modbot as a public demo: made-up data, no sign-in, and every visitor is an administrator. Only on a deployment that was never set up — a staff account or a finished setup wizard makes Modbot ignore it, and nothing is seeded or removed. See [Demo mode](/self-hosting/demo-mode). |
 | `MODBOT_DEMO_RESET_HOURS` | No | `24` | How many hours between automatic resets of the demo's data. `0` never resets. Anything that is not a whole number from 0 to 8760 means 24. Only read when `MODBOT_DEMO` is on. |
+| `MODBOT_SETUP_CODE` | No | a new random one at each start | The code the setup wizard asks for until the first account exists. Unset, Modbot makes one each time it starts without an account and prints it to the console only. Set it when the console is awkward to read on your host. Case, spaces and dashes do not matter. Ignored once an account exists. See [The setup code](/setup-wizard#the-setup-code). |
 
 The image clears `ASPNETCORE_HTTP_PORTS`, so `PORT` is the only port setting.
 

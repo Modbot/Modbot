@@ -89,6 +89,14 @@ In the Modbot service's settings, set the health check path to `/health/ready` a
 Generate a public domain for the Modbot service, then open it. You land in the
 [setup wizard](/setup-wizard).
 </Step>
+<Step>
+### Find the setup code
+
+The wizard's first step asks for a [setup code](/setup-wizard#the-setup-code). Open the
+deployment's logs and search for `Setup code`. The address is public from the moment Railway gives
+it out, and the code is what stops a stranger who finds it first from creating the administrator
+account. To choose the code yourself, set `MODBOT_SETUP_CODE` on the service.
+</Step>
 </Steps>
 
 ## What Modbot reads from Railway

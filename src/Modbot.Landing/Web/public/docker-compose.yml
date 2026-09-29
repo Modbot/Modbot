@@ -7,7 +7,8 @@
 #   docker compose up -d
 #
 # Modbot is then at http://localhost:8080 and opens the setup wizard on the first visit. Everything
-# else — the VRChat account, Discord, email, AI — is set up there, not here.
+# else — the VRChat account, Discord, email, AI — is set up there, not here. The wizard's first step
+# asks for the setup code Modbot prints to its log: docker compose logs modbot | grep "Setup code"
 #
 # Run one Modbot per database. A second copy would send twice as many requests against VRChat's
 # rate limits, and neither copy could see what the other was doing.
@@ -39,8 +40,13 @@ services:
       MODBOT_CLOUD_DISABLED: ${MODBOT_CLOUD_DISABLED:-}
       # Where the server selector is, for the "Add to my.modbot.co" links. Only ever a link.
       MODBOT_MY_URL: ${MODBOT_MY_URL:-}
+      # The code the setup wizard asks for until the first account exists. Unset, Modbot prints a
+      # new one at each start: docker compose logs modbot | grep "Setup code"
+      MODBOT_SETUP_CODE: ${MODBOT_SETUP_CODE:-}
     ports:
-      - "${MODBOT_PORT:-8080}:8080"
+      # This machine only. A reverse proxy on this machine reaches it as it is. Set
+      # MODBOT_BIND=0.0.0.0 in .env to open it to other machines too.
+      - "${MODBOT_BIND:-127.0.0.1}:${MODBOT_PORT:-8080}:8080"
     volumes:
       # Three folders rather than one on /app/data, so that opening modbot-data says what is in
       # it. Evidence is only written here when Settings -> Evidence is set to a directory on disk.

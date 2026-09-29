@@ -107,6 +107,11 @@ public static class ApiSurface
         services.TryAddSingleton(sp => Core.Configuration.DemoMode.From(
             sp.GetService<Core.Configuration.ModbotEnvironment>() ?? new Core.Configuration.ModbotEnvironment()));
 
+        // What the setup wizard asks for until the first account exists: MODBOT_SETUP_CODE, or a
+        // random one made once per process (first-run setup code design).
+        services.TryAddSingleton(sp => new Features.Onboarding.SetupCode(
+            sp.GetService<Core.Configuration.ModbotEnvironment>()?.SetupCode));
+
         // Pictures and video fetched from VRChat on Modbot's session, and the disk cache that
         // keeps them (VRChat files design). The folder sits under the same /app/data mount the
         // evidence store uses, because it is the same disk.

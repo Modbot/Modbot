@@ -423,6 +423,11 @@ finish() {
 	say "Modbot is at $address"
 	say "Its files are in $DIR/modbot-data"
 	say ''
+	# The code is printed once Modbot has set up its database, a few seconds after this, so the
+	# command to find it is given rather than the code.
+	say 'The setup wizard asks for a setup code. To see it:'
+	say "  cd $DIR && ${DOCKER} compose logs modbot | grep \"Setup code\""
+	say ''
 	say "To stop it:    cd $DIR && ${DOCKER} compose down"
 	say "To update it:  cd $DIR && ${DOCKER} compose pull && ${DOCKER} compose up -d"
 	say ''

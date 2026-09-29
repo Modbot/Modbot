@@ -24,10 +24,12 @@ public class OnboardingAccessTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task BeforeAnyAccountExists_TheWizardIsOpen()
+    public async Task BeforeAnyAccountExists_TheWizardIsOpenWithTheSetupCode()
     {
         await using var host = await OnboardingTestContext.FreshAsync(_db, null, Ct);
 
+        // PostAsync sends the host's setup code when there is no session. SetupCodeTests covers
+        // what happens without it.
         var response = await host.PostAsync(
             "/api/onboarding/administrator",
             new { username = "first", password = "a-long-enough-password", email = "first@example.com" },

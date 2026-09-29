@@ -7,6 +7,10 @@ import { WIZARD_FORM_ID, type StepProps } from './types'
 
 /** Spec 7.1 step 1. */
 export function AdministratorStep({ eyebrow, status, run, refresh }: StepProps) {
+  // Asked for only while no account exists (first-run setup code design). Afterwards this step
+  // runs signed in, and the session is what the server checks.
+  const needsCode = !status.hasAdministrator
+  const [setupCode, setSetupCode] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -34,13 +38,16 @@ export function AdministratorStep({ eyebrow, status, run, refresh }: StepProps) 
       }
 
       try {
-        await api.createAdministrator({
-          username,
-          password,
-          confirmPassword: confirm,
-          email,
-          subscribeToUpdates: updates,
-        })
+        await api.createAdministrator(
+          {
+            username,
+            password,
+            confirmPassword: confirm,
+            email,
+            subscribeToUpdates: updates,
+          },
+          needsCode ? setupCode : undefined,
+        )
         await refresh()
         return true
       } catch (e) {
@@ -54,11 +61,25 @@ export function AdministratorStep({ eyebrow, status, run, refresh }: StepProps) 
     <form id={WIZARD_FORM_ID} onSubmit={submit}>
       <WizardHeader eyebrow={eyebrow} title="Create your administrator account" />
       <WizardBody>
+        {needsCode && (
+          <Field label="Setup code" htmlFor="admin-setup-code">
+            <Input
+              id="admin-setup-code"
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="characters"
+              autoFocus
+              required
+              value={setupCode}
+              onChange={(e) => setSetupCode(e.target.value)}
+            />
+          </Field>
+        )}
         <Field label="Username" htmlFor="admin-username">
           <Input
             id="admin-username"
             autoComplete="username"
-            autoFocus
+            autoFocus={!needsCode}
             required
             value={username}
             onChange={(e) => setUsername(e.target.value)}

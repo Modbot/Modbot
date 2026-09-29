@@ -33,4 +33,11 @@ public static class LogArea
 
     /// <summary>The Discord bot: connection, commands, channel posting.</summary>
     public const string Discord = "Discord";
+
+    /// <summary>
+    /// Printed to the console and nowhere else: not the log files, not Seq, and not the database
+    /// log, which is sent on to Modbot Cloud. For the setup code, which only whoever can read this
+    /// server's console should see (first-run setup code design §2).
+    /// </summary>
+    public const string ConsoleOnly = "ConsoleOnly";
 }

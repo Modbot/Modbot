@@ -56,6 +56,13 @@ public sealed class ApiTestHost : IAsyncDisposable
 
     public IServiceProvider Services => _app.Services;
 
+    /// <summary>
+    /// The code the setup wizard asks for while no account exists, or null once it has been
+    /// dropped. Each host makes its own, as each process does.
+    /// </summary>
+    public string? SetupCode =>
+        Services.GetRequiredService<Modbot.Api.Features.Onboarding.SetupCode>().Current;
+
     /// <summary>The in-process server, for what <see cref="Client"/> cannot do -- opening a WebSocket.</summary>
     public TestServer Server => _app.GetTestServer();
 
