@@ -40,12 +40,14 @@ public class EventSchemaTests
     }
 
     [Fact]
-    public void TwoWordFieldsAreWrittenInSnakeCase()
+    public void TwoWordFieldsCarryTheirOwnNamesWhateverTheSettings()
     {
         var envelope = EventEnvelopes.Test(
             Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UnixEpoch, "actor-id", "Actor");
 
-        var names = Sent(envelope);
+        // The settings the API reference is made with. Only a name written on the field survives them.
+        var camel = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var names = JsonSerializer.SerializeToNode(envelope, camel)!.AsObject().Select(p => p.Key).ToList();
 
         foreach (var name in new[] { "type_raw", "occurred_at", "occurred_before", "observed_at", "world_id", "instance_id" })
             Assert.Contains(name, names);
