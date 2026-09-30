@@ -336,7 +336,7 @@ public static class AiSettingsEndpoints
     /// </remarks>
     public static IReadOnlyList<AiSendLine> AiSends { get; } =
     [
-        new("Moderation rules", "The text being checked, up to 4,000 characters: a Discord message, or a VRChat display name, bio, status or pronouns. The person's name and id are not sent. AI topics only; term lists send nothing."),
+        new("Moderation rules", "The text being checked, up to 4,000 characters: a Discord message, or a VRChat display name, bio, status or pronouns. No separate name or id is sent, but the text can itself be a name. AI topics only; term lists send nothing."),
         new("Conversation, when a rule reads it", "The Discord messages before the one being checked and the one it replied to, each with its author's name, cut to 500 characters."),
         new("Pictures, when a rule looks at them", "Up to four per check: the message's pictures and the author's Discord avatar, or a VRChat profile picture, user icon, profile banner and avatar picture. OpenRouter, OpenAI and xAI get a link to each; any other endpoint gets the picture itself, 4 MB or smaller. A Discord avatar link contains the person's Discord id."),
         new("Opinion on a flag, when a moderator asks", "The rule's name and instructions, the words or picture that matched and why, and the flagged text, with the messages before it and their authors' names when the rule read them."),
