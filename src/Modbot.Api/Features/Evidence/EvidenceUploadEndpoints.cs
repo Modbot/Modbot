@@ -53,6 +53,8 @@ public static class EvidenceUploadEndpoints
 
                 try
                 {
+                    string? canonicalCase = null;
+
                     // An upload begun for a case file is checked against the same rule as its
                     // commit, before anything is measured: the size checks below say what the case
                     // file holds, and that must not be told to somebody who may not change it.
@@ -61,7 +63,9 @@ public static class EvidenceUploadEndpoints
                         if (CaseFileEndpoints.CallerOf(http) is not { } caller)
                             return Results.Forbid();
 
-                        await attachments.RequireEditableAsync(reportId.Trim(), caller, ct);
+                        // The case file's own spelling of its id goes on, not what was typed, so a
+                        // padded or capitalised id cannot pass here and then fail at commit.
+                        canonicalCase = (await attachments.RequireEditableAsync(reportId.Trim(), caller, ct)).Id.ToString();
                     }
 
                     var ticket = await uploads.BeginAsync(
@@ -69,7 +73,7 @@ public static class EvidenceUploadEndpoints
                             body.FileName,
                             body.ContentType,
                             body.Length,
-                            body.ReportId,
+                            canonicalCase,
                             uploader),
                         ct);
 

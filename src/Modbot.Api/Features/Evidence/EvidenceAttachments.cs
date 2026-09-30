@@ -216,7 +216,8 @@ public sealed class EvidenceAttachments
         ArgumentNullException.ThrowIfNull(destroyer);
 
         var key = hash.Hex;
-        var blob = await _db.EvidenceBlobs.AsNoTracking().FirstOrDefaultAsync(b => b.Hash == key, ct);
+        var blob = await _db.EvidenceBlobs.AsNoTracking().FirstOrDefaultAsync(b => b.Hash == key, ct)
+            ?? throw new CaseFileRefused(404, "No evidence with that content address has been stored here.");
 
         var from = string.IsNullOrWhiteSpace(caseId) ? null : await FindCaseAsync(caseId, ct);
 
