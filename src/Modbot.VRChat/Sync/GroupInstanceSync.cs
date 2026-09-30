@@ -284,7 +284,7 @@ public sealed class GroupInstanceSync
         var openFor = now - instance.OpenedAt;
 
         var body = $"A group instance closed with {count} people still in it.\n\n"
-                   + $"It had been open for {Math.Max(1, Math.Round(openFor.TotalMinutes))} minute(s).";
+                   + $"It had been open for {TimeWords.Length(openFor)}.";
 
         await _notifier.RaiseAsync(
             new Notification(

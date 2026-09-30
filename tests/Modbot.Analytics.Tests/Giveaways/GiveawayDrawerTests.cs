@@ -322,7 +322,7 @@ public class GiveawayDrawerTests(PostgresFixture fixture) : GiveawayTestBase(fix
         var result = await DrawAsync(giveaway.Id);
 
         Assert.NotNull(result.Problem);
-        Assert.Contains("kept for 90 days", result.Problem, StringComparison.Ordinal);
+        Assert.Contains("kept for 3mth", result.Problem, StringComparison.Ordinal);
         Assert.Null(result.Draw);
     }
 

@@ -346,7 +346,7 @@ public class GiveawayRuleCheckerTests(PostgresFixture fixture) : GiveawayTestBas
 
         var alice = Assert.Single(match.People);
         Assert.Equal(GiveawayKeptOut.Rules, alice.KeptOut);
-        Assert.Equal("in the group for 30 days or more", alice.Because);
+        Assert.Equal("in the group for 30d or more", alice.Because);
     }
 
     /// <summary>
@@ -504,7 +504,7 @@ public class GiveawayRuleCheckerTests(PostgresFixture fixture) : GiveawayTestBas
             ct: Ct);
 
         Assert.NotNull(match.Unanswerable);
-        Assert.Contains("kept for 90 days", match.Unanswerable, StringComparison.Ordinal);
+        Assert.Contains("kept for 3mth", match.Unanswerable, StringComparison.Ordinal);
         Assert.Contains("365", match.Unanswerable, StringComparison.Ordinal);
 
         // And nothing that looks like an answer came back with it.
@@ -667,6 +667,6 @@ public class GiveawayRuleCheckerTests(PostgresFixture fixture) : GiveawayTestBas
 
         var only = Assert.Single(match.People);
         Assert.Equal(GiveawayKeptOut.Rules, only.KeptOut);
-        Assert.Equal("1 hours or more in our instances", only.Because);
+        Assert.Equal("1h or more in our instances", only.Because);
     }
 }

@@ -406,7 +406,5 @@ public sealed class HealthAlertChecker
 
     private static string Gigabytes(long bytes) => (bytes / 1024d / 1024d / 1024d).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static string Words(TimeSpan span) => span.TotalHours >= 1
-        ? $"{Math.Round(span.TotalHours)} hour(s)"
-        : $"{Math.Max(1, Math.Round(span.TotalMinutes))} minute(s)";
+    private static string Words(TimeSpan span) => TimeWords.Length(span);
 }

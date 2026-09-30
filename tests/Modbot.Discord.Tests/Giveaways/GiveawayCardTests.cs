@@ -99,7 +99,7 @@ public class GiveawayCardTests
         var card = GiveawayCard.For(Giveaway(), GiveawayCardState.Open, 0, []);
 
         Assert.Equal(
-            "• in Discord for 30 days or more\n• 10 hours or more in our instances in the last 90 days",
+            "• in Discord for 30d or more\n• 10h or more in our instances in the last 3mth",
             Field(card, "Rules"));
     }
 

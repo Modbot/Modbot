@@ -86,7 +86,7 @@ public class RepeatOffenderSettingsTests
         // raised the bar must not be shown the rule they replaced.
         var after = await host.GetJsonAsync<RepeatOffenderListResponse>("/api/repeat-offenders", cookie, Ct);
         Assert.Equal(RepeatOffenderStatus.MoreThanOnce, Assert.Single(after.People).Status);
-        Assert.Equal("Repeat: 5 or more actions in the last 30 days.", after.Rule);
+        Assert.Equal("Repeat: 5 or more actions in the last 30d.", after.Rule);
     }
 
     [Fact]

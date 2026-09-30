@@ -25,7 +25,7 @@ namespace Modbot.Overlay.Views;
 /// because the client's device token is ingest-scoped and could not carry a moderation action
 /// even if something here tried.</para>
 /// <para><strong>Freshness is shown, never implied.</strong> Every panel that came from a server
-/// carries the age of what it is showing. "Flagged — as of 20 minutes ago" is something a
+/// carries the age of what it is showing. "Flagged — as of 20m ago" is something a
 /// moderator can act on; a stale panel pretending to be current is not.</para>
 /// <para><strong>Display names are hostile input.</strong> They are arbitrary user-controlled
 /// text, so they are placed as text — never parsed, never interpreted as markup — and given a
@@ -465,9 +465,9 @@ public static class OverlayView
                         window switch
                         {
                             TimeWindow.Any => "Any time",
-                            TimeWindow.FiveMinutes => "Last 5 min",
-                            TimeWindow.FifteenMinutes => "Last 15 min",
-                            TimeWindow.Hour => "Last hour",
+                            TimeWindow.FiveMinutes => "Last 5m",
+                            TimeWindow.FifteenMinutes => "Last 15m",
+                            TimeWindow.Hour => "Last 1h",
                             _ => "Earlier",
                         },
                         filters.Time == window,
@@ -600,9 +600,9 @@ public static class OverlayView
 
     private static string TimeWords(TimeWindow window) => window switch
     {
-        TimeWindow.FiveMinutes => "5 min",
-        TimeWindow.FifteenMinutes => "15 min",
-        TimeWindow.Hour => "1 hour",
+        TimeWindow.FiveMinutes => "5m",
+        TimeWindow.FifteenMinutes => "15m",
+        TimeWindow.Hour => "1h",
         TimeWindow.Earlier => "earlier",
         _ => "any time",
     };

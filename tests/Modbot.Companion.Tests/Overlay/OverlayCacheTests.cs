@@ -57,13 +57,13 @@ public class OverlayCacheTests
         Assert.True(cache.ServerUnreachable);
         Assert.NotNull(cached.Value);
         Assert.Equal(Freshness.Stale, cached.Freshness);
-        Assert.Equal("as of 20 minutes ago", cached.Describe());
+        Assert.Equal("as of 20m ago", cached.Describe());
     }
 
     [Theory]
-    [InlineData(90, "as of 90 seconds ago")]
-    [InlineData(20 * 60, "as of 20 minutes ago")]
-    [InlineData(3 * 60 * 60, "as of 3 hours ago")]
+    [InlineData(45, "as of 45s ago")]
+    [InlineData(20 * 60, "as of 20m ago")]
+    [InlineData(3 * 60 * 60, "as of 3h ago")]
     public void StatesTheAgeInWordsAModeratorCanActOn(int ageSeconds, string expected)
     {
         var clock = new FakeClock();

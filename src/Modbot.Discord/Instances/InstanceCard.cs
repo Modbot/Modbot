@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 using Modbot.Discord.Cards;
 using Modbot.Discord.Gateway;
 
@@ -279,22 +280,9 @@ public static class InstanceCard
     /// </summary>
     /// <remarks>
     /// Seconds are never shown. An instance that has been open for eleven seconds is new, and a card
-    /// that ticks every second would be a card nobody could read.
+    /// that ticks every second would be a card nobody could read. From a minute on it is the shared
+    /// <see cref="TimeWords.Length"/>, so the card and the app agree: "2h 14m", "2h", "2d 4h".
     /// </remarks>
     private static string Duration(TimeSpan open)
-    {
-        if (open < TimeSpan.Zero)
-            open = TimeSpan.Zero;
-
-        if (open.TotalMinutes < 1)
-            return "just now";
-
-        if (open.TotalHours < 1)
-            return $"{(int)open.TotalMinutes}m";
-
-        if (open.TotalDays < 1)
-            return $"{(int)open.TotalHours}h {open.Minutes}m";
-
-        return $"{(int)open.TotalDays}d {open.Hours}h";
-    }
+        => open < TimeSpan.FromMinutes(1) ? "just now" : TimeWords.Length(open);
 }

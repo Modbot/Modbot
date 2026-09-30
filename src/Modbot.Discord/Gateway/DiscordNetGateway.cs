@@ -5,6 +5,7 @@ using Discord.Net;
 using Discord.Rest;
 using Discord.WebSocket;
 using Modbot.Core.Logging;
+using Modbot.Core.Time;
 using DiscordChannelTypes = Modbot.Core.Data.Entities.DiscordChannelTypes;
 using Serilog;
 using Serilog.Events;
@@ -1321,8 +1322,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         {
             null => null,
             0 => "off",
-            1 => "1 second",
-            _ => $"{value} seconds",
+            _ => TimeWords.Length(TimeSpan.FromSeconds(value.Value)),
         };
 
         static string? Kbps(int? value) => value is { } v ? $"{v / 1000} kbps" : null;

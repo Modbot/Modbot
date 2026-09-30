@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Modbot.Core.Time;
 using Modbot.Core.Users;
 
 namespace Modbot.Core.Giveaways;
@@ -311,24 +312,24 @@ public static class GiveawayRules
                 : $"{word}: {string.Join("; ", rule.Rules.Select(r => Line(r, roleNames)))}";
         }
 
-        var within = rule.WithinDays is { } days ? $" in the last {Plain(days)} days" : string.Empty;
+        var within = rule.WithinDays is { } days ? $" in the last {Days(days)}" : string.Empty;
         var amount = rule.Amount ?? 0;
 
         return rule.Kind switch
         {
-            GiveawayRuleKinds.DiscordMemberDays => $"in Discord for {Plain(amount)} days or more",
-            GiveawayRuleKinds.GroupMemberDays => $"in the group for {Plain(amount)} days or more",
+            GiveawayRuleKinds.DiscordMemberDays => $"in Discord for {Days(amount)} or more",
+            GiveawayRuleKinds.GroupMemberDays => $"in the group for {Days(amount)} or more",
             GiveawayRuleKinds.InGroup => "in the group now",
-            GiveawayRuleKinds.InstanceHours => $"{Plain(amount)} hours or more in our instances{within}",
-            GiveawayRuleKinds.OneInstanceHours => $"{Plain(amount)} hours or more in one single instance{within}",
-            GiveawayRuleKinds.VoiceHours => $"{Plain(amount)} hours or more in Discord voice{within}",
+            GiveawayRuleKinds.InstanceHours => $"{Hours(amount)} or more in our instances{within}",
+            GiveawayRuleKinds.OneInstanceHours => $"{Hours(amount)} or more in one single instance{within}",
+            GiveawayRuleKinds.VoiceHours => $"{Hours(amount)} or more in Discord voice{within}",
             GiveawayRuleKinds.Messages => $"{Plain(amount)} Discord messages or more{within}",
-            GiveawayRuleKinds.SeenWithinDays => $"seen in the last {Plain(amount)} days",
+            GiveawayRuleKinds.SeenWithinDays => $"seen in the last {Days(amount)}",
             GiveawayRuleKinds.LinkedAccounts => "Discord and VRChat accounts linked",
             GiveawayRuleKinds.GroupRole => $"holds the group role {RoleName(rule.Id, roleNames)}",
             GiveawayRuleKinds.DiscordRole => $"holds the Discord role {RoleName(rule.Id, roleNames)}",
             GiveawayRuleKinds.NoTrouble => $"no bans, kicks or flags{within}",
-            GiveawayRuleKinds.VRChatAccountDays => $"VRChat account {Plain(amount)} days old or more",
+            GiveawayRuleKinds.VRChatAccountDays => $"VRChat account {Days(amount)} old or more",
             GiveawayRuleKinds.TrustRankAtLeast => $"trust rank {RankName(rule.Id)} or better",
             GiveawayRuleKinds.Age18Plus => "18+ verified",
             _ => rule.Kind,
@@ -348,6 +349,12 @@ public static class GiveawayRules
     }
 
     /// <summary>A number without trailing zeros: <c>10</c>, not <c>10.00</c>.</summary>
+    /// <summary>A number of days as every length is written: "30d", "1mth 15d", "1y".</summary>
+    private static string Days(decimal days) => TimeWords.Length(TimeSpan.FromDays((double)days));
+
+    /// <summary>A number of hours as every length is written: "10h", "1h 30m", "2d 4h".</summary>
+    private static string Hours(decimal hours) => TimeWords.Length(TimeSpan.FromHours((double)hours));
+
     public static string Plain(decimal value)
     {
         var rounded = Math.Round(value, 2);

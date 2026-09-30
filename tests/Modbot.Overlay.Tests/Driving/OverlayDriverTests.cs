@@ -210,7 +210,7 @@ public class OverlayDriverTests
         Assert.NotNull(screen.Roster.Value);
         Assert.Equal("Rin", screen.Roster.Value!.Members[0].DisplayName);
         Assert.Equal(Freshness.Stale, screen.Freshness);
-        Assert.Equal("as of 20 minutes ago", screen.Roster.Describe());
+        Assert.Equal("as of 20m ago", screen.Roster.Describe());
         Assert.Contains("Cannot reach Cat Lounge", screen.Health);
     }
 

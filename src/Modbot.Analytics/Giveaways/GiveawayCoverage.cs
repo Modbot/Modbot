@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
 using Modbot.Core.Giveaways;
+using Modbot.Core.Time;
 
 namespace Modbot.Analytics.Giveaways;
 
@@ -93,11 +94,13 @@ public sealed record GiveawayCoverage(int ModerationDays, int PresenceDays)
 
         var history = rule.Kind == GiveawayRuleKinds.NoTrouble ? "Moderation history" : "Presence history";
 
+        var keptFor = TimeWords.Length(TimeSpan.FromDays((double)kept));
+
         if (asked is null)
-            return $"Modbot cannot answer “{what}”. {history} is kept for {kept} days, and the rule asks about all of it.";
+            return $"Modbot cannot answer “{what}”. {history} is kept for {keptFor}, and the rule asks about all of it.";
 
         return asked > kept
-            ? $"Modbot cannot answer “{what}”. {history} is kept for {kept} days, and the rule asks about {asked}."
+            ? $"Modbot cannot answer “{what}”. {history} is kept for {keptFor}, and the rule asks about {TimeWords.Length(TimeSpan.FromDays((double)asked))}."
             : null;
     }
 
@@ -108,6 +111,6 @@ public sealed record GiveawayCoverage(int ModerationDays, int PresenceDays)
             return null;
 
         return $"Modbot cannot weight by “{GiveawayWeights.Label(weighting)}”. "
-            + $"Presence history is kept for {PresenceDays} days, and a weight counts all of it.";
+            + $"Presence history is kept for {TimeWords.Length(TimeSpan.FromDays(PresenceDays))}, and a weight counts all of it.";
     }
 }

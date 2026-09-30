@@ -125,7 +125,7 @@ public static class RepeatOffenderEndpoints
 
     /// <summary>The status rule in words, so a screen can show it beside the word (spec 5.10.3).</summary>
     public static string Rule(ReviewThresholds thresholds)
-        => $"Repeat: {thresholds.RepeatOffenderActionsIn30Days} or more actions in the last 30 days.";
+        => $"Repeat: {thresholds.RepeatOffenderActionsIn30Days} or more actions in the last {TimeWords.Length(TimeSpan.FromDays(30))}.";
 
     private static async Task<DateTimeOffset?> LastRunAsync(ModbotContext db, CancellationToken ct)
         => await db.ReviewRunState.AsNoTracking().Where(s => s.Id == 1).Select(s => s.UpdatedAt).FirstOrDefaultAsync(ct);

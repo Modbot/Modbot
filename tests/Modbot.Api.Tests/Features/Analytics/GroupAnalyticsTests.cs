@@ -93,10 +93,10 @@ public class GroupAnalyticsTests
         int Members(string label) => page.Tenure.Single(b => b.Label == label).Members;
 
         Assert.Equal(3, page.MembersWithKnownTenure);
-        Assert.Equal(1, Members("Under a week"));
-        Assert.Equal(1, Members("1 to 4 weeks"));
-        Assert.Equal(1, Members("1 to 3 months"));
-        Assert.Equal(0, Members("Over a year"));
+        Assert.Equal(1, Members("Under 7d"));
+        Assert.Equal(1, Members("7d to 28d"));
+        Assert.Equal(1, Members("28d to 3mth"));
+        Assert.Equal(0, Members("Over 1y"));
     }
 
     /// <summary>
@@ -152,11 +152,11 @@ public class GroupAnalyticsTests
         int Members(string label) => page.Tenure.Single(b => b.Label == label).Members;
 
         Assert.Equal(5, page.MembersWithKnownTenure);
-        Assert.Equal(1, Members("Under a week"));
-        Assert.Equal(0, Members("1 to 4 weeks"));
-        Assert.Equal(1, Members("1 to 3 months"));
-        Assert.Equal(1, Members("3 to 12 months"));
-        Assert.Equal(2, Members("Over a year"));
+        Assert.Equal(1, Members("Under 7d"));
+        Assert.Equal(0, Members("7d to 28d"));
+        Assert.Equal(1, Members("28d to 3mth"));
+        Assert.Equal(1, Members("3mth to 1y"));
+        Assert.Equal(2, Members("Over 1y"));
     }
 
     [Fact]

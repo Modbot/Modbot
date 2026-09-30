@@ -19,15 +19,13 @@ public enum Freshness
 public sealed record Cached<T>(T? Value, Freshness Freshness, TimeSpan Age)
 {
     /// <summary>
-    /// The line the overlay puts under a card. "Flagged — as of 20 minutes ago" is actionable;
-    /// a spinner is not.
+    /// The line the overlay puts under a card. "Flagged — as of 20m ago" is actionable; a spinner
+    /// is not. The age is written as every age is (<see cref="TimeWords.Age"/>).
     /// </summary>
     public string Describe() => Freshness switch
     {
         Freshness.Fresh => "up to date",
-        Freshness.Stale when Age < TimeSpan.FromMinutes(2) => $"as of {(int)Age.TotalSeconds} seconds ago",
-        Freshness.Stale when Age < TimeSpan.FromHours(1) => $"as of {(int)Age.TotalMinutes} minutes ago",
-        Freshness.Stale => $"as of {(int)Age.TotalHours} hours ago",
+        Freshness.Stale => $"as of {TimeWords.Age(Age)} ago",
         _ => "not loaded",
     };
 }
@@ -42,7 +40,7 @@ public sealed record Cached<T>(T? Value, Freshness Freshness, TimeSpan Age)
 /// in exactly that window is backwards. The client already buffers presence through
 /// disconnections, and this is the same principle pointed the other way.</para>
 /// <para><strong>Stale data is shown, and said to be stale.</strong> Freshness is displayed rather
-/// than implied. A moderator seeing "flagged — as of 20 minutes ago" can act on it; one seeing a
+/// than implied. A moderator seeing "flagged — as of 20m ago" can act on it; one seeing a
 /// spinner cannot.</para>
 /// <para><strong>Nothing here is transmitted.</strong> This is a cache of what a server told this
 /// client, held in memory only — it is not written to disk, because group context is the

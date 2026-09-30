@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json.Nodes;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 
 namespace Modbot.Analytics.Reviews;
 
@@ -179,7 +180,7 @@ internal static class PatternChecks
             };
 
             var summary =
-                $"Acted on the same person {row.N} times in the last {thresholds.SamePersonDays} days, "
+                $"Acted on the same person {row.N} times in the last {TimeWords.Length(TimeSpan.FromDays(thresholds.SamePersonDays))}, "
                 + $"across {row.Places} different instances or days ({kinds}). {othersSentence}";
 
             var evidence = new JsonObject

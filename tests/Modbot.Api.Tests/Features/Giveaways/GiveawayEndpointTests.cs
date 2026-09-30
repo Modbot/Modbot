@@ -151,7 +151,7 @@ public class GiveawayEndpointTests(PostgresFixture db)
 
         var lines = body.GetProperty("ruleLines").EnumerateArray().Select(l => l.GetString()).ToList();
 
-        Assert.Equal(["in Discord for 30 days or more", "in the group now"], lines);
+        Assert.Equal(["in Discord for 30d or more", "in the group now"], lines);
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using Modbot.Analytics.Activity;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 using Modbot.VRChat.Sync;
 
 namespace Modbot.Api.Features.Analytics.Group;
@@ -29,13 +30,26 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
     public const int InviteFollowUpDays = 7;
 
     /// <summary>The tenure buckets, in order. Plain words; the days are inclusive at the low end.</summary>
+    /// <summary>
+    /// A bucket's name from its bounds, in the units every length uses: "Under 7d", "7d to 28d",
+    /// "28d to 3mth", "3mth to 1y", "Over 1y". No weeks, as nowhere else in Modbot.
+    /// </summary>
+    private static string TenureLabel(int minDays, int? maxDays)
+    {
+        static string Days(int days) => TimeWords.Length(TimeSpan.FromDays(days));
+
+        if (maxDays is null)
+            return $"Over {Days(minDays)}";
+        return minDays == 0 ? $"Under {Days(maxDays.Value)}" : $"{Days(minDays)} to {Days(maxDays.Value)}";
+    }
+
     private static readonly (string Label, int MinDays, int? MaxDays)[] TenureBuckets =
     [
-        ("Under a week", 0, 7),
-        ("1 to 4 weeks", 7, 28),
-        ("1 to 3 months", 28, 91),
-        ("3 to 12 months", 91, 365),
-        ("Over a year", 365, null),
+        (TenureLabel(0, 7), 0, 7),
+        (TenureLabel(7, 28), 7, 28),
+        (TenureLabel(28, 91), 28, 91),
+        (TenureLabel(91, 365), 91, 365),
+        (TenureLabel(365, null), 365, null),
     ];
 
     /// <summary>
@@ -268,7 +282,7 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
     /// From <c>group_member</c>, which the member sweep fills with VRChat's own <c>joinedAt</c> for
     /// every member it lists. Until 2026-09-27 this read joins out of the fact log instead, and the
     /// fact log only reaches as far back as VRChat's audit log did when Modbot first read it (about
-    /// 30 days): on the live group that was 238 of 4,791 members, and "Over a year" read 0 for a
+    /// 30 days): on the live group that was 238 of 4,791 members, and "Over 1y" read 0 for a
     /// group founded in 2022.
     /// </para>
     /// <para>

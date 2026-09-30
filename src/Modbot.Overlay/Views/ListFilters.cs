@@ -1,4 +1,5 @@
 using Modbot.Companion.Overlay;
+using Modbot.Core.Time;
 using Modbot.Core.Users;
 using Modbot.Shared.Names;
 
@@ -268,14 +269,8 @@ public static class ListFiltering
         if (arrived is not { } at)
             return "already here";
 
-        var minutes = (int)Math.Floor((now - at).TotalMinutes);
-        return minutes switch
-        {
-            < 1 => "<1 min",
-            < 60 => minutes + " min",
-            _ when minutes % 60 == 0 => minutes / 60 + " h",
-            _ => $"{minutes / 60} h {minutes % 60} min",
-        };
+        var here = now - at;
+        return here < TimeSpan.FromMinutes(1) ? "<1m" : TimeWords.Length(here);
     }
 
     /// <summary>The name in plain letters, else the name, else the id: what a row sorts by.</summary>

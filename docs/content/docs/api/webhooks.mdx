@@ -308,7 +308,7 @@ event. If a webhook has not had a `2xx` for **24 hours** (the default), Modbot t
 shows as **Turned off by Modbot**, with a reason such as:
 
 ```text
-Failing since 2026-09-15 14:32 UTC: No answer in 10 seconds.
+Failing since 2026-09-15 14:32 UTC: No answer in 10s.
 ```
 
 Turning it off is also recorded in the operational log. Fix your server, then click **Turn on**.
@@ -346,7 +346,7 @@ Errors you may see:
 |---|---|
 | `Answered 500.` (or another status) | Your server answered with that status. |
 | `Answered 301. Redirects are not followed.` | Your server answered with a redirect. Use the final address instead. |
-| `No answer in 10 seconds.` | Your server took too long. |
+| `No answer in 10s.` | Your server took too long. |
 | `That address is private.` | The address is a private one, and private addresses are not allowed. |
 | `Only https addresses are allowed.` | The address starts with `http://`, and private addresses are not allowed. |
 | `example.com resolves to a private address.` | The name led to a private address when Modbot connected. |

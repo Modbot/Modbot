@@ -148,7 +148,7 @@ public sealed class WebhookSender : IDisposable
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             return new WebhookSendResult(
-                WebhookSendOutcome.Retry, null, Took(), $"No answer in {(int)_options.Timeout.TotalSeconds} seconds.", null);
+                WebhookSendOutcome.Retry, null, Took(), $"No answer in {TimeWords.Length(_options.Timeout)}.", null);
         }
         catch (HttpRequestException e)
         {

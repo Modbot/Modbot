@@ -831,13 +831,8 @@ public sealed class CaseFileService
         return sentence;
     }
 
-    private static string Age(TimeSpan span)
-    {
-        if (span < TimeSpan.FromMinutes(1)) return "under a minute";
-        if (span < TimeSpan.FromHours(1)) return $"{Math.Round(span.TotalMinutes)} minutes";
-        if (span < TimeSpan.FromDays(1)) return $"{Math.Round(span.TotalHours, 1)} hours";
-        return $"{Math.Round(span.TotalDays, 1)} days";
-    }
+    /// <summary>How much earlier the profile was fetched, as every length is written: "45s", "3h 20m", "2d 4h".</summary>
+    private static string Age(TimeSpan span) => TimeWords.Length(span);
 
     private static EvidenceObjectView Describe(EvidenceBlob blob) => new(
         blob.Hash,

@@ -216,7 +216,7 @@ public class InstanceAnnouncerTests
         var edit = Assert.Single(gateway.Edits);
         var card = Assert.Single(edit.Embeds);
         Assert.Equal("This instance has closed.", card.Description);
-        Assert.Contains(card.Fields, f => f.Name == "Ran for" && f.Value == "2h 0m");
+        Assert.Contains(card.Fields, f => f.Name == "Ran for" && f.Value == "2h");
 
         Assert.True((await InstanceAsync(services, id, ct)).AnnouncementFinished);
 

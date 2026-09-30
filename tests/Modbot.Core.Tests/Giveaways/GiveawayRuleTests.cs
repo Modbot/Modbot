@@ -148,9 +148,9 @@ public class GiveawayRuleTests
 
         Assert.Equal(
             [
-                "in Discord for 30 days or more",
-                "10 hours or more in our instances in the last 90 days",
-                "3 hours or more in one single instance",
+                "in Discord for 30d or more",
+                "10h or more in our instances in the last 3mth",
+                "3h or more in one single instance",
                 "no bans, kicks or flags",
                 "holds the group role Regulars",
             ],
