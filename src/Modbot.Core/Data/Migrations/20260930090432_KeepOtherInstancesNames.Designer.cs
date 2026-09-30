@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20260930050201_KeepOtherInstancesNames")]
+    [Migration("20260930090432_KeepOtherInstancesNames")]
     partial class KeepOtherInstancesNames
     {
         /// <inheritdoc />
@@ -4019,6 +4019,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("permissions");
 
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
                     b.HasKey("Id")
                         .HasName("pk_modbot_role");
 
@@ -6057,6 +6061,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("group_instances_polled_at");
 
+                    b.Property<DateTimeOffset?>("InstanceEndEntriesStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("instance_end_entries_started_at");
+
                     b.Property<int>("LogRetentionDays")
                         .HasColumnType("integer")
                         .HasColumnName("log_retention_days");
@@ -6192,6 +6200,10 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("ReviewThresholds")
                         .HasColumnType("jsonb")
                         .HasColumnName("review_thresholds");
+
+                    b.Property<bool>("SendUsageReport")
+                        .HasColumnType("boolean")
+                        .HasColumnName("send_usage_report");
 
                     b.Property<bool>("ServerShowOwnerEmail")
                         .HasColumnType("boolean")
@@ -6391,6 +6403,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset?>("EndRecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_recorded_at");
 
                     b.Property<string>("GroupAccessType")
                         .HasMaxLength(32)
