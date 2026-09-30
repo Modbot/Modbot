@@ -3481,7 +3481,7 @@
           "Settings"
         ],
         "summary": "Preview a purge",
-        "description": "What removing everything about one person would destroy, and what it would keep. Counts only; nothing is changed. Every number is counted from the same tables the purge writes to. A field Modbot cannot answer for a platform is null rather than zero: a Discord account has no group ban list and no case files.\n\nNeeds the `Administrator` permission.",
+        "description": "What a purge of one person would erase, and what it would keep. Counts only; nothing is changed. Every number is counted from the same tables the purge writes to. A field Modbot cannot answer for a platform is null rather than zero: a Discord account has no group ban list and no case files.\n\nNeeds the `Administrator` permission.",
         "operationId": "PreviewPurge",
         "parameters": [
           {
