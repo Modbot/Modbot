@@ -67,7 +67,7 @@ test('a day gets a tick every few hours, on the hour', () => {
 
   assert.deepEqual(
     ticks.map((t) => timeLabel(t, DAY, utc)),
-    ['15:00', '18:00', '21:00', '00:00', '03:00', '06:00', '09:00', '12:00'],
+    ['15:00', '18:00', '21:00', '0:00', '3:00', '6:00', '9:00', '12:00'],
   )
 })
 
@@ -77,7 +77,7 @@ test('hour ticks fall on the hour of the viewer’s clock, even half an hour off
   const labels = timeTicks(from, from + DAY, 6, india).map((t) => timeLabel(t, DAY, india))
 
   assert.ok(labels.length >= 4)
-  for (const label of labels) assert.match(label, /^(00|03|06|09|12|15|18|21):00$/)
+  for (const label of labels) assert.match(label, /^(0|3|6|9|12|15|18|21):00$/)
 })
 
 test('a short axis gets ticks on whole minutes', () => {
@@ -145,6 +145,15 @@ test('an axis label is the time of day across a day, the day across a month, the
   assert.equal(timeLabel(at, DAY, utc), '14:05')
   assert.equal(timeLabel(at, 30 * DAY, utc), '16 Jun')
   assert.equal(timeLabel(at, 3 * 365 * DAY, utc), 'Jun 2026')
+})
+
+test('an axis time has no leading zero, the way every other time in the app is written', () => {
+  const us = { locale: 'en-US', timeZone: 'UTC' }
+  const evening = Date.UTC(2026, 8, 30, 19, 0)
+  const spaced = (s: string) => s.replace(/\s/g, ' ')
+
+  assert.equal(spaced(timeLabel(evening, DAY, us)), '7:00 PM')
+  assert.equal(spaced(readingTime(evening, { ...us, now: Date.UTC(2026, 8, 30) })), 'Sep 30, 7:00 PM')
 })
 
 test('the tooltip writes the whole reading time, with the year when it is not this year', () => {

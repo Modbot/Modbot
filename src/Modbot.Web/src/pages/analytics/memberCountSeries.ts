@@ -234,6 +234,10 @@ function localMidnight(year: number, month: number, day: number, timeZone: strin
  * What is written depends on how long the whole axis is: the time of day across a day, the day
  * across weeks and months, the month across years. The same instant is written the same way at
  * every tick of one axis, so the eye reads a scale and not a list.
+ *
+ * A time of day is written the way `timeOfDay` in lib/format writes it, "7:00 PM" and not
+ * "07:00 PM": the axis sits next to times from the rest of the app, and one moment spelled two
+ * ways makes a moderator check whether it is the same one.
  */
 export function timeLabel(ms: number, spanMs: number, format: TimeFormat = {}): string {
   const d = new Date(ms)
@@ -243,7 +247,7 @@ export function timeLabel(ms: number, spanMs: number, format: TimeFormat = {}): 
   // can pin both. No shared helper does either.
   if (spanMs <= 2 * DAY)
     // oxlint-disable-next-line no-restricted-properties
-    return d.toLocaleTimeString(format.locale, { hour: '2-digit', minute: '2-digit', timeZone: format.timeZone })
+    return d.toLocaleTimeString(format.locale, { hour: 'numeric', minute: '2-digit', timeZone: format.timeZone })
 
   if (spanMs <= 400 * DAY)
     // oxlint-disable-next-line no-restricted-properties
@@ -256,7 +260,7 @@ export function timeLabel(ms: number, spanMs: number, format: TimeFormat = {}): 
 /**
  * The full time of one reading, for the tooltip. The year only when it is not this year, the rule
  * every date in the app follows (`needsYear` in lib/format): here the year is read in the caller's
- * time zone, so the tests can pin it.
+ * time zone, so the tests can pin it. The time without a leading zero, as `dateTime` writes it.
  */
 export function readingTime(ms: number, format: TimeFormat = {}): string {
   const year = (t: number) => new Date(t).toLocaleString('en-US', { year: 'numeric', timeZone: format.timeZone })
@@ -266,7 +270,7 @@ export function readingTime(ms: number, format: TimeFormat = {}): string {
     year: withYear ? 'numeric' : undefined,
     month: 'short',
     day: 'numeric',
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
     timeZone: format.timeZone,
   })
