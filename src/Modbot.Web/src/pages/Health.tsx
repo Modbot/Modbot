@@ -489,7 +489,7 @@ function profileDetail(p: NonNullable<SyncHealth['userProfiles']>, now: string):
       <Count n={p.waiting} what="waiting" />
       {reasons && <> ({reasons})</>}
     </>,
-    <Count n={p.refreshesInLastHour} what="refreshed in the last hour" />,
+    <Count n={p.refreshesInLastHour} what="refreshed in the last 1h" />,
     p.oldestRefreshedAt && (
       <>
         oldest refreshed <Ago iso={p.oldestRefreshedAt} now={now} />
@@ -507,7 +507,7 @@ function profileDetail(p: NonNullable<SyncHealth['userProfiles']>, now: string):
 function userReadDetail(u: NonNullable<SyncHealth['userReads']>, now: string): React.ReactNode {
   return dotted(
     <Count n={u.neverRead} what="never read" />,
-    <Count n={u.readsInLastHour} what="read in the last hour" />,
+    <Count n={u.readsInLastHour} what="read in the last 1h" />,
     u.oldestReadAt && (
       <>
         oldest read <Ago iso={u.oldestReadAt} now={now} />
@@ -898,7 +898,7 @@ function AiCalls({ calls }: { calls: AiCallsHealth }) {
       state={<State tone={failing ? 'bad' : 'warn'}>{failing ? 'calls failing' : 'on the fallback model'}</State>}
     >
       <p className={cn('max-w-3xl tabular-nums', failing ? 'text-destructive' : 'text-warn')}>
-        {`${calls.calls} calls in the last hour`}
+        {`${calls.calls} calls in the last 1h`}
         {calls.errors > 0 && ` · ${calls.errors} failed`}
         {calls.timedOut > 0 && ` · ${calls.timedOut} timed out`}
         {calls.fallbacks > 0 && ` · ${calls.fallbacks} on the fallback`}

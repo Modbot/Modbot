@@ -201,7 +201,7 @@ public sealed class ServerAlertChecker(
                 .CountAsync(ct);
 
             if (errors >= alert.ErrorsAnHour)
-                return (true, $"This Modbot has written {errors} error(s) in the last hour.");
+                return (true, $"This Modbot has written {errors} error(s) in the last 1h.");
         }
 
         return (false, "");

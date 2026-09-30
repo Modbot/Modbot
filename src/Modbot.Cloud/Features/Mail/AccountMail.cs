@@ -35,7 +35,7 @@ public static class AccountMail
 
             {Link(publicAddress, "/reset-password", token)}
 
-            The link works for one hour. If you did not ask for this, ignore this message; your
+            The link works for 1h. If you did not ask for this, ignore this message; your
             password has not changed.
             """);
     }

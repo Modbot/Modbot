@@ -182,7 +182,7 @@ public class ServerAlertTests(PostgresFixture db)
         var run = await CheckAsync(host, mailer);
 
         Assert.Equal([id], run.Problems);
-        Assert.Contains("5 error", mailer.Sent[0].Body, StringComparison.Ordinal);
+        Assert.Contains("5 error(s) in the last 1h.", mailer.Sent[0].Body, StringComparison.Ordinal);
     }
 
     [Fact]
