@@ -4264,6 +4264,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("case_file_id");
 
+                    b.Property<bool>("DiscordDone")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_done");
+
+                    b.Property<string>("DiscordError")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_error");
+
                     b.Property<string>("FailureMessage")
                         .HasColumnType("text")
                         .HasColumnName("failure_message");
@@ -5399,6 +5407,54 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("modbot_one_time_link", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.OtherGroupName", b =>
+                {
+                    b.Property<string>("GroupId")
+                        .HasColumnType("text")
+                        .HasColumnName("group_id");
+
+                    b.Property<DateTimeOffset>("AskedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("asked_at");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<bool>("Refused")
+                        .HasColumnType("boolean")
+                        .HasColumnName("refused");
+
+                    b.HasKey("GroupId")
+                        .HasName("pk_other_group_name");
+
+                    b.ToTable("other_group_name", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.OtherInstanceName", b =>
+                {
+                    b.Property<string>("Location")
+                        .HasColumnType("text")
+                        .HasColumnName("location");
+
+                    b.Property<DateTimeOffset>("AskedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("asked_at");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<bool>("Refused")
+                        .HasColumnType("boolean")
+                        .HasColumnName("refused");
+
+                    b.HasKey("Location")
+                        .HasName("pk_other_instance_name");
+
+                    b.ToTable("other_instance_name", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProtectorKey", b =>
                 {
                     b.Property<int>("Id")
@@ -5943,6 +5999,10 @@ namespace Modbot.Core.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("discord_ban_copy_action");
+
+                    b.Property<bool>("DiscordBanSyncFromBots")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_ban_sync_from_bots");
 
                     b.Property<bool>("DiscordBanSyncToDiscord")
                         .HasColumnType("boolean")
