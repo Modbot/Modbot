@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Chat;
+using Modbot.Core.Data;
 using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Auth.Me;
@@ -16,6 +18,7 @@ public static class MeEndpoint
         app.MapGet("/api/auth/me", async (
                 HttpContext http,
                 [FromServices] UserAccountService accounts,
+                [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
                 var id = ModbotAuth.UserIdOf(http.User);
@@ -28,7 +31,7 @@ public static class MeEndpoint
 
                 return user is null
                     ? Results.Unauthorized()
-                    : Results.Ok(SessionUser.From(user));
+                    : Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
             })
             .WithTags("Auth")
             .WithName("GetCurrentUser")

@@ -144,6 +144,11 @@ export type CurrentUser = {
   email: string | null
   discordUserId: string | null
   /**
+   * Whether Chat answers: AI is on and Chat is on (Settings → AI). The page list offers Chat
+   * only while it is (`offered` in lib/nav.ts); a direct link still opens the page.
+   */
+  chatOn: boolean
+  /**
    * The position of the account's highest role, first at 0; null with no role. Compare it with a
    * row's own through `isBelowMe` — Manage users and Manage roles only reach what is below it.
    */

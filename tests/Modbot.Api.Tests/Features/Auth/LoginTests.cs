@@ -1,4 +1,7 @@
 using System.Net;
+using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -112,6 +115,54 @@ public class LoginTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync(ct);
         Assert.Contains(name, body, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The SPA offers Chat in its page list only while this says Chat answers: AI on and Chat on,
+    /// the same rule the Chat page reads (ChatSwitch). Off by default, whatever the person may do.
+    /// </summary>
+    [Fact]
+    public async Task Me_SaysWhetherChatIsOn()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var name = UniqueName();
+        await host.CreateUserAsync(name, "hunter2", ModbotPermissions.UseAiChat, ct);
+        var cookie = await host.LoginAsync(name, "hunter2", ct);
+
+        Assert.False(await ChatOnAsync(host, cookie, ct));
+
+        // Chat on its own is not enough: it needs AI as a whole on too.
+        await SetAiAsync(host, aiEnabled: false, chatEnabled: true, ct);
+        Assert.False(await ChatOnAsync(host, cookie, ct));
+
+        await SetAiAsync(host, aiEnabled: true, chatEnabled: true, ct);
+        Assert.True(await ChatOnAsync(host, cookie, ct));
+
+        await SetAiAsync(host, aiEnabled: true, chatEnabled: false, ct);
+        Assert.False(await ChatOnAsync(host, cookie, ct));
+    }
+
+    private static async Task<bool> ChatOnAsync(ApiTestHost host, string cookie, CancellationToken ct)
+    {
+        var response = await host.Client.SendAsync(
+            host.Authenticated(HttpMethod.Get, "/api/auth/me", cookie), ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+        return json.RootElement.GetProperty("chatOn").GetBoolean();
+    }
+
+    private static async Task SetAiAsync(ApiTestHost host, bool aiEnabled, bool chatEnabled, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var settings = await db.GetSettingsAsync(ct);
+
+        settings.AiEnabled = aiEnabled;
+        settings.AiChatEnabled = chatEnabled;
+
+        await db.SaveChangesAsync(ct);
     }
 
     [Fact]

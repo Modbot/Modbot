@@ -12,6 +12,7 @@ import {
   MEMBERS_PATH,
   mayOpen,
   membersAddress,
+  offered,
   otherWords,
   shownAs,
   sidebarEntry,
@@ -395,4 +396,38 @@ test('the page list leaves out pages that are part of another and pages this per
   assert.ok(!ids.includes('account'))
   assert.ok(!ids.includes('bans'))
   assert.ok(ids.includes('logs'))
+})
+
+test('Chat is offered only while AI chat is on, to somebody who may use it', () => {
+  const chat = NAV.find((n) => n.id === 'chat')
+  assert.ok(chat)
+
+  const on = { permissionNames: ['UseAiChat'], chatOn: true } as CurrentUser
+  const off = { permissionNames: ['UseAiChat'], chatOn: false } as CurrentUser
+  const notAllowed = { permissionNames: ['ViewMembers'], chatOn: true } as CurrentUser
+
+  assert.equal(offered(on, chat), true)
+  assert.equal(offered(off, chat), false)
+  assert.equal(offered(notAllowed, chat), false)
+
+  assert.ok(listedPages(on).some((n) => n.id === 'chat'))
+  assert.ok(!listedPages(off).some((n) => n.id === 'chat'))
+  assert.ok(!listedPages(notAllowed).some((n) => n.id === 'chat'))
+})
+
+test('a direct link to Chat still opens the page while AI chat is off', () => {
+  const off = { permissionNames: ['UseAiChat'], chatOn: false } as CurrentUser
+
+  assert.equal(mayOpen(off, 'chat'), true)
+  assert.equal(mayOpen(person('ViewMembers'), 'chat'), false)
+})
+
+test('pages with no switch are offered to whoever may open them', () => {
+  const now = NAV.find((n) => n.id === 'now')
+  const bans = NAV.find((n) => n.id === 'bans')
+  assert.ok(now && bans)
+
+  assert.equal(offered(person(), now), true)
+  assert.equal(offered(person('ViewAuditLog'), bans), true)
+  assert.equal(offered(person(), bans), false)
 })

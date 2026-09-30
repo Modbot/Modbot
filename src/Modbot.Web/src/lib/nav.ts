@@ -23,7 +23,10 @@ export const NAV = [
   { id: 'now', label: 'Now' },
   // Questions answered from Modbot's own data, with tools that run as the person asking. Beside
   // Now with no heading since 2026-09-27: it asks about every part of the app, not one of them.
-  { id: 'chat', label: 'Chat', needs: 'UseAiChat' },
+  // Offered only while AI chat is on (`on`, since 2026-09-29): before that the sidebar showed Chat
+  // to anybody with the permission, and with AI chat off the page it led to only said "Chat is
+  // off." A direct link still opens the page, which still says so.
+  { id: 'chat', label: 'Chat', needs: 'UseAiChat', on: 'chatOn' },
   // Stats: the charts of every platform on one page, a tab per question (Stats page design, spec
   // 10.1). It took Team's place on 2026-09-27, when Team and Worlds became parts of its Moderation
   // and Activity tabs; their old addresses open those tabs (`MOVED`), and the palette still finds
@@ -257,7 +260,20 @@ export function matchRank(typed: string, label: string, other: readonly string[]
  * phone's Menu sheet. One list for both, so a page added or hidden here is added or hidden in each.
  */
 export function listedPages(me: CurrentUser): NavItem[] {
-  return NAV.filter((item) => !('hidden' in item && item.hidden) && mayOpen(me, item.id))
+  return NAV.filter((item) => !('hidden' in item && item.hidden) && offered(me, item))
+}
+
+/**
+ * Whether a page is offered to this person: in the page list, in the palette and as a `g` chord.
+ * A page they may open, unless it is switched off (`on` names the flag on the signed-in person
+ * that says it is on): Chat with AI chat off would only say "Chat is off.". Every reader of the
+ * page list asks this one question, so none of them has to know about the switch.
+ *
+ * Not `mayOpen`: a switched-off page still opens from a direct link and says so itself.
+ */
+export function offered(me: CurrentUser, item: NavItem): boolean {
+  if (!mayOpen(me, item.id)) return false
+  return 'on' in item ? Boolean(me[item.on]) : true
 }
 
 /** Whether this person may open a page. Pages with no requirement are open to everyone signed in. */

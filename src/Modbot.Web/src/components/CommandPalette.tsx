@@ -6,7 +6,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { Badge } from '@/components/ui/badge'
 import { Kbd } from '@/components/ui/kbd'
 import { api, type CurrentUser, type SearchResults } from '@/lib/api'
-import { NAV, goesByName, matchRank, mayOpen, otherWords, type PageId } from '@/lib/nav'
+import { NAV, goesByName, matchRank, offered, otherWords, type PageId } from '@/lib/nav'
 import { mayDo, splitVerb, verbLabel } from '@/lib/paletteActions'
 import { useModal, useShortcutList } from '@/lib/shortcuts'
 import { openDiscordPerson, openPerson, openSubject, openWorld } from '@/lib/subject'
@@ -135,7 +135,7 @@ function Palette({
   const goTo = useMemo(() => new Map(shortcuts.filter((s) => s.group === 'Go to').map((s) => [s.label, s.keys])), [shortcuts])
 
   const items = useMemo<Item[]>(() => {
-    const pages: (Item & { other: readonly string[] })[] = NAV.filter((n) => goesByName(n) && mayOpen(me, n.id)).map((n) => ({
+    const pages: (Item & { other: readonly string[] })[] = NAV.filter((n) => goesByName(n) && offered(me, n)).map((n) => ({
       id: `page:${n.id}`,
       group: 'Go to',
       label: n.label,

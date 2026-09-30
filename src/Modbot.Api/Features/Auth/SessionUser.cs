@@ -18,6 +18,11 @@ namespace Modbot.Api.Features.Auth;
 /// False until the person has linked their VRChat account (design §4.3). While false the SPA
 /// shows the link page and nothing else, and the server refuses everything but the link.
 /// </param>
+/// <param name="ChatOn">
+/// Whether Chat answers: AI is on and Chat is on (<see cref="Features.Chat.ChatSwitch"/>). The SPA
+/// offers Chat in its page list only while this is true and the person holds <c>UseAiChat</c>;
+/// the page itself still opens from a direct link and says Chat is off.
+/// </param>
 /// <param name="Rank">
 /// The position of the account's highest role, first at 0 (accounts and access design §3.5). Null
 /// with no role. The SPA greys what the server would refuse by comparing it with a row's own;
@@ -34,9 +39,10 @@ public sealed record SessionUser(
     string? VRChatDisplayName,
     string? Email,
     string? DiscordUserId,
+    bool ChatOn,
     int? Rank = null)
 {
-    public static SessionUser From(ModbotUser user)
+    public static SessionUser From(ModbotUser user, bool chatOn)
     {
         ArgumentNullException.ThrowIfNull(user);
 
@@ -53,6 +59,7 @@ public sealed record SessionUser(
             user.VRChatDisplayName,
             user.Email,
             user.DiscordUserId,
+            chatOn,
             user.Roles.Count == 0 ? null : RoleRank.Of(user));
     }
 }

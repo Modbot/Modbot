@@ -2,7 +2,9 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Users;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 using Modbot.Core.Users;
@@ -15,6 +17,7 @@ public static class LoginHandler
     public static async Task<IResult> HandleAsync(
         [FromBody] LoginRequest request,
         [FromServices] UserAccountService accounts,
+        [FromServices] ModbotContext db,
         [FromServices] AccountFacts facts,
         [FromServices] LoginSlowdown slowdown,
         [FromServices] IDelayScheduler delay,
@@ -75,6 +78,6 @@ public static class LoginHandler
         // lengths Modbot set; it never names one.
         await ModbotAuth.SignInAsync(http, user, clock, request.KeepSignedIn);
 
-        return Results.Ok(SessionUser.From(user));
+        return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
     }
 }

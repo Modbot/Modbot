@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
@@ -112,7 +113,7 @@ public static class AccountEndpoints
                 }
 
                 if (from == body.Username.Trim())
-                    return Results.Ok(SessionUser.From(user));
+                    return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
@@ -136,7 +137,7 @@ public static class AccountEndpoints
                 if (signedInAt is { } at)
                     await ModbotAuth.ReissueAsync(http, user, at);
 
-                return Results.Ok(SessionUser.From(user));
+                return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
             })
             .WithName("ChangeUsername")
             .WithSummary("Change your username")
@@ -165,7 +166,7 @@ public static class AccountEndpoints
 
                 return await UserEndpoints.ApplyContactAsync(db, facts, contact, accounts, user, body, actor, ct) is { } problem
                     ? Results.BadRequest(new { error = problem })
-                    : Results.Ok(SessionUser.From(user));
+                    : Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
             })
             .WithName("SetOwnContact")
             .WithSummary("Set your contact details")

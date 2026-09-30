@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Auth;
+using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
 using Modbot.Api.Features.Roles;
 using Modbot.Core.Data;
@@ -288,7 +289,7 @@ public static class InviteEndpoints
 
                 await ModbotAuth.SignInAsync(http, user, clock);
 
-                return Results.Ok(SessionUser.From(user));
+                return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
             })
             .WithName("AcceptInvite")
             .WithSummary("Accept an invite")

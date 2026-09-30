@@ -121,10 +121,7 @@ public static class ChatEndpoints
             {
                 var userId = ModbotAuth.UserIdOf(http.User)!.Value;
 
-                var settings = await db.Settings.AsNoTracking()
-                    .Where(s => s.Id == 1)
-                    .Select(s => new { s.AiEnabled, s.AiChatEnabled, s.AiModel, s.AiChatModel })
-                    .FirstOrDefaultAsync(ct);
+                var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
 
                 var conversations = await db.AiChatConversations.AsNoTracking()
                     .Where(c => c.UserId == userId)
@@ -138,7 +135,7 @@ public static class ChatEndpoints
                     : string.IsNullOrWhiteSpace(settings.AiChatModel) ? settings.AiModel : settings.AiChatModel.Trim();
 
                 return Results.Ok(new ChatHome(
-                    settings is { AiEnabled: true, AiChatEnabled: true },
+                    ChatSwitch.On(settings),
                     string.IsNullOrWhiteSpace(model) ? null : model,
                     conversations));
             })
@@ -369,7 +366,7 @@ public static class ChatEndpoints
         }
 
         var settings = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
-        if (settings is not { AiEnabled: true, AiChatEnabled: true })
+        if (!ChatSwitch.On(settings))
             return Results.Conflict(new { error = "Chat is off." });
 
         var chat = await ai.GetChatAsync(ct);

@@ -21,8 +21,10 @@ import {
   MOVED,
   NAV,
   goesByName,
+  listedPages,
   mayOpen,
   membersAddress,
+  offered,
   shownAs,
   titleWithCount,
   waitingTotal,
@@ -372,11 +374,11 @@ function Shell({
     if (movingToMembers) navigate(movingToMembers, { replace: true })
   }, [movingToMembers, navigate])
 
-  // A page this person may not open shows the first one they may. The server refuses the data
-  // regardless; this only keeps the shell from rendering an empty page with an error in it.
-  const page = mayOpen(me, requested)
-    ? requested
-    : (NAV.find((n) => !('hidden' in n && n.hidden) && mayOpen(me, n.id))?.id ?? 'account')
+  // A page this person may not open shows the first one in their page list. The server refuses
+  // the data regardless; this only keeps the shell from rendering an empty page with an error in
+  // it. `mayOpen`, not `offered`: a page off the list because it is switched off (Chat with AI
+  // chat off) still opens from a direct link and says so itself.
+  const page = mayOpen(me, requested) ? requested : (listedPages(me)[0]?.id ?? 'account')
 
   // Events, Members, Banned Users and Logs opened from the VRChat page's tab row keep its header;
   // Bans opened from the Discord page's row keeps that one.
@@ -517,7 +519,7 @@ function Shell({
   useShortcuts([
     { keys: 'mod+k', label: 'Search and commands', group: 'General', run: () => setPaletteOpen((o) => !o) },
     { keys: '?', label: 'Keyboard shortcuts', group: 'General', run: () => setSheet((s) => (s ? null : 'keys')) },
-    ...NAV.filter((n) => goesByName(n) && mayOpen(me, n.id) && GO_TO_KEYS[n.id]).map((n) => ({
+    ...NAV.filter((n) => goesByName(n) && offered(me, n) && GO_TO_KEYS[n.id]).map((n) => ({
       keys: `g ${GO_TO_KEYS[n.id]}`,
       label: n.label,
       group: 'Go to' as const,

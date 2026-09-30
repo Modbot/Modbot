@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Auth;
+using Modbot.Api.Features.Chat;
 using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
@@ -121,7 +122,7 @@ public static class CreateAdminHandler
         if (firstRun)
             await ModbotAuth.SignInAsync(http, user, clock);
 
-        return Results.Ok(SessionUser.From(user));
+        return Results.Ok(SessionUser.From(user, await ChatSwitch.IsOnAsync(db, ct)));
     }
 
     private static bool IsAuthorised(HttpContext http)
