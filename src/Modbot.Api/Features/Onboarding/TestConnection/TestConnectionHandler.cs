@@ -89,12 +89,12 @@ public static class TestConnectionHandler
             }
 
             // Saved here as well as on Settings → Server, so it is recorded like any settings save.
-            // A login typed into the address is a secret too: it is left out of the address the
-            // entry shows and only counts as the address having changed.
+            // The setup status hides the proxy's address and username from anybody without Manage
+            // settings, and the operational log has its own permission, so all three are recorded
+            // as changed and never by value. That also keeps a login typed into the address out.
             var change = new SettingsChange("proxy")
-                .Field("address", WithoutLogin(proxyBefore), WithoutLogin(settings.ProxyUrl))
-                .Secret("addressLogin", !string.Equals(LoginOf(proxyBefore), LoginOf(settings.ProxyUrl), StringComparison.Ordinal))
-                .Field("username", usernameBefore, settings.ProxyUsername)
+                .Secret("address", !string.Equals(proxyBefore, settings.ProxyUrl, StringComparison.Ordinal))
+                .Secret("username", !string.Equals(usernameBefore, settings.ProxyUsername, StringComparison.Ordinal))
                 .Secret("password", !string.Equals(passwordBefore, settings.ProxyPasswordEncrypted, StringComparison.Ordinal));
 
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -128,12 +128,4 @@ public static class TestConnectionHandler
         // place until it passes (spec 7.1.1).
         return Results.Ok(diagnosis);
     }
-
-    private static string? WithoutLogin(string? url)
-        => Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            ? new UriBuilder(uri) { UserName = string.Empty, Password = string.Empty }.Uri.ToString()
-            : url;
-
-    private static string? LoginOf(string? url)
-        => Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.UserInfo.Length > 0 ? uri.UserInfo : null;
 }

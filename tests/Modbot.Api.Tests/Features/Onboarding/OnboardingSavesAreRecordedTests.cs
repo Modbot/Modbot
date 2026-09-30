@@ -55,11 +55,11 @@ public class OnboardingSavesAreRecordedTests
         var entries = await EntriesAsync(host, "integrations");
         Assert.Equal(2, entries.Count);
 
-        // The first save says what was set; the second changed only the two secrets.
-        Assert.Equal("111", Field(entries[1], "discordGuildId").GetProperty("new").GetString());
-        Assert.Equal("mailer", Field(entries[1], "smtpUsername").GetProperty("new").GetString());
+        // The first save says what was set; the second changed only the two secrets. What the
+        // setup status hides from anybody without Manage settings is only ever said to have changed.
         Assert.Equal(465, Field(entries[1], "smtpPort").GetProperty("new").GetInt32());
-        Assert.Equal("https://modbot.example.com", Field(entries[1], "publicAddress").GetProperty("new").GetString());
+        foreach (var hidden in new[] { "discordGuildId", "instanceChannelId", "smtpHost", "smtpUsername", "smtpFromAddress", "publicAddress" })
+            Assert.True(Field(entries[1], hidden).GetProperty("secret").GetBoolean(), hidden);
 
         Assert.True(Field(entries[0], "discordBotToken").GetProperty("secret").GetBoolean());
         Assert.True(Field(entries[0], "smtpPassword").GetProperty("secret").GetBoolean());
@@ -71,6 +71,10 @@ public class OnboardingSavesAreRecordedTests
             var text = entry.GetRawText();
             Assert.DoesNotContain("bot-token", text, StringComparison.Ordinal);
             Assert.DoesNotContain("smtp-secret", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("mail.example.com", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("mailer", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("modbot.example.com", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("111", text, StringComparison.Ordinal);
         });
 
         // The same values again change nothing, so they write nothing.
@@ -107,7 +111,7 @@ public class OnboardingSavesAreRecordedTests
         var entries = await EntriesAsync(host, "vrchatAccount");
         Assert.Equal(2, entries.Count);
 
-        Assert.Equal("modbot@example.com", Field(entries[1], "username").GetProperty("new").GetString());
+        Assert.True(Field(entries[1], "username").GetProperty("secret").GetBoolean());
         Assert.True(Field(entries[1], "password").GetProperty("secret").GetBoolean());
         Assert.True(Field(entries[1], "authenticatorSecret").GetProperty("secret").GetBoolean());
 
@@ -121,6 +125,7 @@ public class OnboardingSavesAreRecordedTests
             var text = entry.GetRawText();
             Assert.DoesNotContain("vrchat-password", text, StringComparison.Ordinal);
             Assert.DoesNotContain("AAAA", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("modbot@example.com", text, StringComparison.Ordinal);
         });
 
         // Saving exactly the same again is not a change.
@@ -131,7 +136,7 @@ public class OnboardingSavesAreRecordedTests
     // ── Proxy ───────────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task TheProxyIsRecorded_WithItsLoginAndPasswordOnlyAsChanged_AndSwitchingItOffIsRecorded()
+    public async Task TheProxyIsRecorded_WithItsAddressLoginAndPasswordOnlyAsChanged_AndSwitchingItOffIsRecorded()
     {
         var gate = new FakeVRChatGate().SignedInAs();
         var (host, cookie) = await OnboardingTestContext.SetUpAsync(_db, gate, Ct);
@@ -145,22 +150,21 @@ public class OnboardingSavesAreRecordedTests
         Assert.Equal(HttpStatusCode.OK, on.StatusCode);
 
         var entry = (await EntriesAsync(host, "proxy"))[0];
-        Assert.Equal("http://proxy.example.com:8080/", Field(entry, "address").GetProperty("new").GetString());
-        Assert.Equal("second-user", Field(entry, "username").GetProperty("new").GetString());
-        Assert.True(Field(entry, "addressLogin").GetProperty("secret").GetBoolean());
-        Assert.True(Field(entry, "password").GetProperty("secret").GetBoolean());
+        foreach (var hidden in new[] { "address", "username", "password" })
+            Assert.True(Field(entry, hidden).GetProperty("secret").GetBoolean(), hidden);
 
         var text = entry.GetRawText();
+        Assert.DoesNotContain("proxy.example.com", text, StringComparison.Ordinal);
         Assert.DoesNotContain("proxyuser", text, StringComparison.Ordinal);
         Assert.DoesNotContain("proxypass", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("second-user", text, StringComparison.Ordinal);
         Assert.DoesNotContain("proxy-secret", text, StringComparison.Ordinal);
 
         var off = await host.PostAsync("/api/onboarding/connection-test", new { useProxy = false }, cookie, Ct);
         Assert.Equal(HttpStatusCode.OK, off.StatusCode);
 
         var cleared = (await EntriesAsync(host, "proxy"))[0];
-        Assert.Equal("http://proxy.example.com:8080/", Field(cleared, "address").GetProperty("old").GetString());
-        Assert.Equal(JsonValueKind.Null, Field(cleared, "address").GetProperty("new").ValueKind);
+        Assert.True(Field(cleared, "address").GetProperty("secret").GetBoolean());
         Assert.True(Field(cleared, "password").GetProperty("secret").GetBoolean());
     }
 

@@ -71,11 +71,13 @@ public static class VerifyVRChatHandler
 
         if (!unchanged)
         {
-            // The account Modbot signs in as is the most consequential setting there is, so the
-            // entry names the username and says only that the password and the authenticator
-            // secret changed. The session that goes with the old account is dropped, and says so.
+            // The account Modbot signs in as is the most consequential setting there is. The setup
+            // status hides its username from anybody without Manage settings, and the operational
+            // log has its own permission, so the entry says only that the username, the password
+            // and the authenticator secret changed. The session that goes with the old account is
+            // dropped, and says so.
             var change = new SettingsChange("vrchatAccount")
-                .Field("username", settings.VRChatUsername, username)
+                .Secret("username", !usernameSame)
                 .Secret("password", !passwordSame)
                 .Secret("authenticatorSecret", !totpSame)
                 .Field("session", settings.VRChatAuthCookieEncrypted is null ? "signed out" : "signed in", "signed out");

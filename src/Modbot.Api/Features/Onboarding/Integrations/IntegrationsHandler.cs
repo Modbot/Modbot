@@ -221,22 +221,31 @@ public static class IntegrationsHandler
             s.PublicAddress);
     }
 
+    private static bool Differs(string? was, string? now) => !string.Equals(was, now, StringComparison.Ordinal);
+
+    /// <remarks>
+    /// The Discord server and channel, the instance message, the mail server, its login and sender,
+    /// and the public address are what the setup status hides from anybody without Manage
+    /// settings. The operational log is read with its own permission, which somebody without
+    /// Manage settings can hold, so these are recorded as changed and never by value: the audit log
+    /// does not give back what the status hides. The port and TLS say nothing about who or where.
+    /// </remarks>
     private static SettingsChange Changes(Snapshot was, Core.Data.Entities.Settings now)
     {
         var after = Snapshot.Of(now);
 
         return new SettingsChange("integrations")
             .Secret("discordBotToken", !string.Equals(was.BotToken, after.BotToken, StringComparison.Ordinal))
-            .Field("discordGuildId", was.GuildId, after.GuildId)
-            .Field("instanceChannelId", was.InstanceChannelId, after.InstanceChannelId)
-            .Field("instanceMessage", was.InstanceMessage, after.InstanceMessage)
+            .Secret("discordGuildId", Differs(was.GuildId, after.GuildId))
+            .Secret("instanceChannelId", Differs(was.InstanceChannelId, after.InstanceChannelId))
+            .Secret("instanceMessage", Differs(was.InstanceMessage, after.InstanceMessage))
             .Field("instanceShowNames", was.InstanceShowNames, after.InstanceShowNames)
-            .Field("smtpHost", was.SmtpHost, after.SmtpHost)
+            .Secret("smtpHost", Differs(was.SmtpHost, after.SmtpHost))
             .Field("smtpPort", was.SmtpPort, after.SmtpPort)
-            .Field("smtpUsername", was.SmtpUsername, after.SmtpUsername)
+            .Secret("smtpUsername", Differs(was.SmtpUsername, after.SmtpUsername))
             .Secret("smtpPassword", !string.Equals(was.SmtpPassword, after.SmtpPassword, StringComparison.Ordinal))
-            .Field("smtpFromAddress", was.SmtpFromAddress, after.SmtpFromAddress)
+            .Secret("smtpFromAddress", Differs(was.SmtpFromAddress, after.SmtpFromAddress))
             .Field("smtpUseTls", was.SmtpUseTls, after.SmtpUseTls)
-            .Field("publicAddress", was.PublicAddress, after.PublicAddress);
+            .Secret("publicAddress", Differs(was.PublicAddress, after.PublicAddress));
     }
 }
