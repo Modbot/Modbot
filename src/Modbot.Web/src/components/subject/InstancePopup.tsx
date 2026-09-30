@@ -137,7 +137,8 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
         tabs={[
           { value: 'overview', label: 'Overview' },
           { value: 'people', label: 'People', badge: data?.people.length },
-          { value: 'logs', label: 'Activity', badge: data?.log.length },
+          // No count: the tab is the audit log at its own filters, and the rows come in pages.
+          { value: 'logs', label: 'Activity' },
           // Opened from the ⋯ in the header; a tab only while it is open, like the person popup's.
           ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
         ]}
@@ -526,8 +527,8 @@ function People({ view }: { view: InstanceView }) {
  * how the log reads shows here too, and the time can be narrowed the way it is there. The world
  * and the number are pinned and never drawn as chips; the When chip starts on the instance's own
  * run, because VRChat hands a number out again once an instance closes, and the number alone
- * would mix an older instance's facts in. Chips changed here stay for as long as the popup is open
- * and are not written to the address, which belongs to the page under the popup.
+ * would mix an older instance's facts in. Chips changed here last until the tab is left, and are
+ * not written to the address, which belongs to the page under the popup.
  */
 function Activity({ view }: { view: InstanceView }) {
   const { worldId, vrChatInstanceId, openedAt, closedAt } = view.instance
