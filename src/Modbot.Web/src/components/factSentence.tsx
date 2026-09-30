@@ -110,7 +110,7 @@ type Parts = {
    */
   place: React.ReactNode
   text: (key: string) => string | null
-  changed: [string, { old?: unknown; new?: unknown }][]
+  changed: [string, { old?: unknown; new?: unknown; secret?: boolean }][]
 }
 
 /**
@@ -251,11 +251,11 @@ function fieldName(key: string): string {
  */
 const BOOKKEEPING_FIELDS = new Set(['lastupdatedbyuserid', 'updatedat', 'createdat', 'lastpostcreatedat', 'id', 'groupid'])
 
-function changedFields(entry: AuditEntry): [string, { old?: unknown; new?: unknown }][] {
+function changedFields(entry: AuditEntry): [string, { old?: unknown; new?: unknown; secret?: boolean }][] {
   const changed = entry.data?.['changed']
   if (!changed || typeof changed !== 'object') return []
 
-  return Object.entries(changed as Record<string, { old?: unknown; new?: unknown }>).filter(
+  return Object.entries(changed as Record<string, { old?: unknown; new?: unknown; secret?: boolean }>).filter(
     ([key]) => !BOOKKEEPING_FIELDS.has(key.toLowerCase()),
   )
 }
@@ -448,8 +448,12 @@ function Bullets({ heading, items }: { heading: string; items: string[] }) {
 /**
  * One field's change, for a field holding a single value.
  */
-function changePhrase(key: string, pair: { old?: unknown; new?: unknown }): string {
+function changePhrase(key: string, pair: { old?: unknown; new?: unknown; secret?: boolean }): string {
   const field = fieldName(key)
+
+  // A key or a secret: the entry says it changed and never holds either value.
+  if (pair.secret) return `${field} changed`
+
   const was = nameOf(pair.old)
   const now = nameOf(pair.new)
 

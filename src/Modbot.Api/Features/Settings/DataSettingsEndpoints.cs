@@ -166,11 +166,22 @@ public static class DataSettingsEndpoints
 
                 var settings = await db.GetSettingsAsync(ct);
 
+                // Shortening a window schedules history for deletion that cannot be brought back,
+                // so this is the save that most needs a trace of who did it and from what.
+                var change = new SettingsChange("retention")
+                    .Field("moderationFactRetentionDays", settings.ModerationFactRetentionDays, body.ModerationFactRetentionDays)
+                    .Field("presenceFactRetentionDays", settings.PresenceFactRetentionDays, body.PresenceFactRetentionDays)
+                    .Field("discordMessageRetentionDays", settings.DiscordMessageRetentionDays, body.DiscordMessageRetentionDays);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 settings.ModerationFactRetentionDays = body.ModerationFactRetentionDays;
                 settings.PresenceFactRetentionDays = body.PresenceFactRetentionDays;
                 settings.DiscordMessageRetentionDays = body.DiscordMessageRetentionDays;
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(body);
             })

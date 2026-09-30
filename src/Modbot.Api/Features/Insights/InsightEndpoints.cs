@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.AI;
 using Modbot.AI.Insights;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -84,6 +85,7 @@ public static class InsightEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         settings.MapPut("", async (
+                HttpContext http,
                 [FromBody] AiInsightsSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] IAiClients ai,
@@ -106,7 +108,13 @@ public static class InsightEndpoints
                         return Results.BadRequest(new { error = problem });
                 }
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 var stored = await SettingsRowAsync(db, ct);
+                var change = new SettingsChange("aiInsights")
+                    .Field("timeZone", stored.TimeZone, timeZone)
+                    .Field("model", stored.Model, model);
+
                 stored.TimeZone = timeZone;
                 stored.Model = model;
 
@@ -115,17 +123,28 @@ public static class InsightEndpoints
                 foreach (var k in body.Kinds ?? [])
                 {
                     var schedule = schedules.Single(s => s.Kind == k.Kind);
+                    var channel = string.IsNullOrWhiteSpace(k.DiscordChannelId) ? null : k.DiscordChannelId.Trim();
+
+                    change
+                        .Field($"{k.Kind}InsightOn", schedule.Enabled, k.Enabled)
+                        .Field($"{k.Kind}InsightEvery", schedule.Every, k.Every)
+                        .Field($"{k.Kind}InsightHour", schedule.Hour, k.Hour)
+                        .Field($"{k.Kind}InsightWeekday", schedule.Weekday, k.Weekday)
+                        .Field($"{k.Kind}InsightChannelId", schedule.DiscordChannelId, channel);
+
                     schedule.Enabled = k.Enabled;
                     schedule.Every = k.Every;
                     schedule.Hour = k.Hour;
                     schedule.Weekday = k.Weekday;
-                    schedule.DiscordChannelId = string.IsNullOrWhiteSpace(k.DiscordChannelId) ? null : k.DiscordChannelId.Trim();
+                    schedule.DiscordChannelId = channel;
                 }
 
                 // Design §3: turning a kind on at 3 pm with a 9 am time must not write one at once.
                 InsightScheduler.MarkPastMomentsHandled(schedules, timeZone, clock.UtcNow);
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(await ViewAsync(db, ai, ct));
             })

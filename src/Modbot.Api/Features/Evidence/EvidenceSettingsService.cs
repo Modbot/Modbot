@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Security;
@@ -148,8 +149,16 @@ public sealed class EvidenceSettingsService
     /// Runs the round trip and, only if it passed, saves the backend and repoints the live store.
     /// </summary>
     /// <param name="actor">Who is saving. Recorded against a durability acknowledgement.</param>
+    /// <param name="recordAsync">
+    /// Told what changed, once it is saved and before the live store is repointed, so the caller
+    /// can write the audit entry in its own transaction. Never called for a save that changed
+    /// nothing.
+    /// </param>
     public async Task<EvidenceSetupResponse> SaveBackendAsync(
-        EvidenceBackendRequest request, string actor, CancellationToken ct = default)
+        EvidenceBackendRequest request,
+        string actor,
+        Func<SettingsChange, CancellationToken, Task>? recordAsync = null,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -159,6 +168,8 @@ public sealed class EvidenceSettingsService
         if (prepared.Failure is { } refused)
             return refused;
 
+        var before = BackendSnapshot.From(settings);
+
         // Selecting "None" is the one save with nothing to set up: there is no store to write
         // a test file into. It is also the only way back out of a misconfiguration that cannot be
         // fixed in place, so it must not be gated on a round trip that cannot succeed.
@@ -167,6 +178,10 @@ public sealed class EvidenceSettingsService
             settings.EvidenceBackend = (short)EvidenceBackend.None;
             settings.EvidenceStoreId = null;
             await _db.SaveChangesAsync(ct);
+
+            if (recordAsync is not null)
+                await recordAsync(BackendChange(before, BackendSnapshot.From(settings), secretTyped: false), ct);
+
             await ApplyAsync(settings, ct);
 
             return new EvidenceSetupResponse(
@@ -184,14 +199,67 @@ public sealed class EvidenceSettingsService
 
         Persist(settings, request, prepared, actor);
         await _db.SaveChangesAsync(ct);
+
+        // A secret access key left empty keeps the stored one, so only one typed in is a change.
+        // It is never named in the entry beyond "changed".
+        if (recordAsync is not null)
+        {
+            await recordAsync(
+                BackendChange(
+                    before,
+                    BackendSnapshot.From(settings),
+                    secretTyped: prepared.Options.Backend is EvidenceBackend.S3
+                                 && !string.IsNullOrWhiteSpace(request.SecretAccessKey)),
+                ct);
+        }
+
         await ApplyAsync(settings, ct);
 
         return result;
     }
 
+    /// <summary>What the backend screen holds, less the secret, for telling what a save changed.</summary>
+    private readonly record struct BackendSnapshot(
+        string Backend,
+        string? Root,
+        string? Bucket,
+        string? Endpoint,
+        string? AccessKeyId,
+        string? Region,
+        string? Prefix,
+        bool UsePathStyle,
+        bool DiskAcknowledged)
+    {
+        public static BackendSnapshot From(Core.Data.Entities.Settings s) => new(
+            EvidenceSettingsBinder.ToBackend(s.EvidenceBackend).ToString(),
+            s.EvidenceRoot,
+            s.EvidenceS3Bucket,
+            s.EvidenceS3Endpoint,
+            s.EvidenceS3AccessKeyId,
+            s.EvidenceS3Region,
+            s.EvidenceS3Prefix,
+            s.EvidenceS3UsePathStyle,
+            s.EvidenceDiskAcknowledged);
+    }
+
+    private static SettingsChange BackendChange(BackendSnapshot before, BackendSnapshot after, bool secretTyped)
+        => new SettingsChange("evidenceStorage")
+            .Field("backend", before.Backend, after.Backend)
+            .Field("directory", before.Root, after.Root)
+            .Field("bucket", before.Bucket, after.Bucket)
+            .Field("endpoint", before.Endpoint, after.Endpoint)
+            .Field("accessKeyId", before.AccessKeyId, after.AccessKeyId)
+            .Secret("secretAccessKey", secretTyped)
+            .Field("region", before.Region, after.Region)
+            .Field("prefix", before.Prefix, after.Prefix)
+            .Field("usePathStyle", before.UsePathStyle, after.UsePathStyle)
+            .Field("diskWarningAcknowledged", before.DiskAcknowledged, after.DiskAcknowledged);
+
     /// <summary>Saves the caps and the delivery toggle. No round trip: no store is repointed.</summary>
     public async Task<(EvidenceLimitsView? Saved, string? Error)> SaveLimitsAsync(
-        EvidenceLimitsRequest request, CancellationToken ct = default)
+        EvidenceLimitsRequest request,
+        Func<SettingsChange, CancellationToken, Task>? recordAsync = null,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -208,11 +276,20 @@ public sealed class EvidenceSettingsService
 
         var settings = await _db.GetSettingsAsync(ct);
 
+        var change = new SettingsChange("evidenceLimits")
+            .Field("maxFileBytes", settings.EvidenceMaxFileBytes, request.MaxFileBytes)
+            .Field("maxReportBytes", settings.EvidenceMaxReportBytes, request.MaxReportBytes)
+            .Field("maxDeploymentBytes", settings.EvidenceMaxDeploymentBytes, request.MaxDeploymentBytes);
+
         settings.EvidenceMaxFileBytes = request.MaxFileBytes;
         settings.EvidenceMaxReportBytes = request.MaxReportBytes;
         settings.EvidenceMaxDeploymentBytes = request.MaxDeploymentBytes;
 
         await _db.SaveChangesAsync(ct);
+
+        if (recordAsync is not null)
+            await recordAsync(change, ct);
+
         await ApplyAsync(settings, ct);
 
         return (new EvidenceLimitsView(

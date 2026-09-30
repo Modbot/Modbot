@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Settings;
 using Modbot.Api.Tests.Features.Audit;
@@ -314,6 +315,44 @@ public class SyncSettingsTests
         var response = await SendAsync(host, cookie, new SyncSettingsUpdate(BudgetFraction: 0.5));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Somebody dropping the sync rate right before an incident is the change the audit log is
+    /// for: the entry names each value that moved, and a save that moves none writes nothing.
+    /// </summary>
+    [Fact]
+    public async Task ASavedRateIsRecordedWithWhatItWas_AndSavingItAgainIsNot()
+    {
+        await using var host = await StartAsync();
+        var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        async Task<List<JsonElement>> EntriesAsync()
+        {
+            using var scope = host.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+            return [.. (await db.Events.AsNoTracking()
+                    .Where(e => e.Type == FactType.SettingsChanged)
+                    .OrderByDescending(e => e.Id)
+                    .ToListAsync(Ct))
+                .Select(ApiTestHost.DataOf)
+                .Where(data => data.GetProperty("setting").GetString() == "syncPollRates")];
+        }
+
+        var before = (await EntriesAsync()).Count;
+
+        await PutAsync(host, cookie, new SyncSettingsUpdate(BudgetFraction: 0.5));
+        await PutAsync(host, cookie, new SyncSettingsUpdate(BudgetFraction: 0.3));
+        await PutAsync(host, cookie, new SyncSettingsUpdate(BudgetFraction: 0.3));
+
+        var entries = await EntriesAsync();
+
+        Assert.Equal(before + 2, entries.Count);
+
+        var fraction = entries[0].GetProperty("changed").GetProperty("budgetFraction");
+        Assert.Equal(0.5, fraction.GetProperty("old").GetDouble(), 6);
+        Assert.Equal(0.3, fraction.GetProperty("new").GetDouble(), 6);
     }
 
     // ── Scaffolding ─────────────────────────────────────────────────────────────────────────

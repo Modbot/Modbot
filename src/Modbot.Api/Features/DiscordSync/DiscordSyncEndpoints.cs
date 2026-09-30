@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -108,6 +109,7 @@ public static class DiscordSyncEndpoints
             .RequiresFlag(ModbotPermissions.ManageDiscordSync);
 
         group.MapPut("", async (
+                HttpContext http,
                 [FromBody] DiscordSyncSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
@@ -140,6 +142,14 @@ public static class DiscordSyncEndpoints
                 var switchedOn = (body.BanSyncToDiscord && !settings.DiscordBanSyncToDiscord)
                                  || (body.BanSyncToVRChat && !settings.DiscordBanSyncToVRChat);
 
+                var change = new SettingsChange("discordSync")
+                    .Field("roleSyncOn", settings.DiscordRoleSyncOn, body.RoleSyncOn)
+                    .Field("banSyncToDiscord", settings.DiscordBanSyncToDiscord, body.BanSyncToDiscord)
+                    .Field("banSyncToVRChat", settings.DiscordBanSyncToVRChat, body.BanSyncToVRChat)
+                    .Field("banCopyAction", settings.DiscordBanCopyAction, action);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 settings.DiscordRoleSyncOn = body.RoleSyncOn;
                 settings.DiscordBanSyncToDiscord = body.BanSyncToDiscord;
                 settings.DiscordBanSyncToVRChat = body.BanSyncToVRChat;
@@ -149,6 +159,8 @@ public static class DiscordSyncEndpoints
                     await StartFromNowAsync(db, clock, ct);
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(await ViewAsync(db, ct));
             })
@@ -161,6 +173,7 @@ public static class DiscordSyncEndpoints
             .RequiresFlag(ModbotPermissions.ManageDiscordSync);
 
         group.MapPost("/pairs", async (
+                HttpContext http,
                 [FromBody] RolePairUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
@@ -192,9 +205,17 @@ public static class DiscordSyncEndpoints
                     UpdatedAt = now,
                 };
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 db.DiscordRolePairs.Add(pair);
                 await NameRolesAsync(db, pair, ct);
                 await db.SaveChangesAsync(ct);
+
+                await new SettingsChange("discordSyncPairs")
+                    .Items<string>("pairs", [], [Describe(pair)])
+                    .RecordAsync(http, ct);
+
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(await ViewAsync(db, ct));
             })
@@ -207,6 +228,7 @@ public static class DiscordSyncEndpoints
             .RequiresFlag(ModbotPermissions.ManageDiscordSync);
 
         group.MapPut("/pairs/{id:guid}", async (
+                HttpContext http,
                 Guid id,
                 [FromBody] RolePairUpdate body,
                 [FromServices] ModbotContext db,
@@ -232,6 +254,10 @@ public static class DiscordSyncEndpoints
                 if (taken)
                     return Results.BadRequest(new { error = "One of those roles is already paired with another." });
 
+                var pairBefore = Describe(pair);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 pair.VRChatRoleId = vrchatRoleId;
                 pair.DiscordRoleId = discordRoleId;
                 pair.Decides = body.Decides;
@@ -241,6 +267,12 @@ public static class DiscordSyncEndpoints
 
                 await NameRolesAsync(db, pair, ct);
                 await db.SaveChangesAsync(ct);
+
+                await new SettingsChange("discordSyncPairs")
+                    .Items<string>("pairs", [pairBefore], [Describe(pair)])
+                    .RecordAsync(http, ct);
+
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(await ViewAsync(db, ct));
             })
@@ -254,11 +286,26 @@ public static class DiscordSyncEndpoints
             .RequiresFlag(ModbotPermissions.ManageDiscordSync);
 
         group.MapDelete("/pairs/{id:guid}", async (
+                HttpContext http,
                 Guid id,
                 [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                var pair = await db.DiscordRolePairs.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
+
                 await db.DiscordRolePairs.Where(p => p.Id == id).ExecuteDeleteAsync(ct);
+
+                if (pair is not null)
+                {
+                    await new SettingsChange("discordSyncPairs")
+                        .Items<string>("pairs", [Describe(pair)], [])
+                        .RecordAsync(http, ct);
+                }
+
+                await transaction.CommitAsync(ct);
+
                 return Results.Ok(await ViewAsync(db, ct));
             })
             .WithName("DeleteDiscordRolePair")
@@ -292,6 +339,11 @@ public static class DiscordSyncEndpoints
     }
 
     // ── Pieces ─────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>One pair in the words the audit log shows: "Staff with Staff, decided by vrchat, on".</summary>
+    private static string Describe(DiscordRolePair pair)
+        => $"{pair.VRChatRoleName ?? pair.VRChatRoleId} with {pair.DiscordRoleName ?? pair.DiscordRoleId}, "
+           + $"decided by {pair.Decides}, {(pair.Enabled ? "on" : "off")}";
 
     private static string? Refuse(RolePairUpdate body)
     {

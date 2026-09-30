@@ -305,8 +305,18 @@ public static class SyncSettingsEndpoints
                 var json = SyncPacingJson.Write(clamped);
 
                 var settings = await db.GetSettingsAsync(ct);
+
+                // Somebody dropping the sync rate just before an incident is the change this entry
+                // exists to show (spec 5.9.3), so each value that moved is named with what it was.
+                var change = new SettingsChange("syncPollRates")
+                    .Document(SyncPacingJson.Write(SyncPacingJson.Read(settings.SyncPacing)), json);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 settings.SyncPacing = json;
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 // Published rather than left for the cache to notice: the operator is watching
                 // this request, and "it will apply within half a minute" is not an answer when

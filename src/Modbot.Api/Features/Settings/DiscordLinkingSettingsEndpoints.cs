@@ -75,6 +75,7 @@ public static class DiscordLinkingSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         group.MapPut("", async (
+                HttpContext http,
                 [FromBody] DiscordLinkingSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] ISecretProtector protector,
@@ -101,19 +102,35 @@ public static class DiscordLinkingSettingsEndpoints
                 }
 
                 var newSecret = Blank(body.ClientSecret);
+                var secretBefore = settings.DiscordOAuthClientSecretEncrypted;
 
                 if (newSecret is not null)
                     settings.DiscordOAuthClientSecretEncrypted = protector.Protect(newSecret);
                 else if (body.RemoveClientSecret || !string.Equals(settings.DiscordOAuthClientId, clientId, StringComparison.Ordinal))
                     settings.DiscordOAuthClientSecretEncrypted = null;
 
+                var backupChannel = Blank(body.BackupChannelId);
+
+                // The client secret is a secret: the entry says it changed and never what it was.
+                var change = new SettingsChange("discordLinking")
+                    .Field("clientId", settings.DiscordOAuthClientId, clientId)
+                    .Secret("clientSecret", !string.Equals(secretBefore, settings.DiscordOAuthClientSecretEncrypted, StringComparison.Ordinal))
+                    .Field("promptNewMembers", settings.DiscordLinkPromptNewMembers, body.PromptNewMembers)
+                    .Field("backupChannelId", settings.DiscordLinkBackupChannelId, backupChannel)
+                    .Field("linkedRoleId", settings.DiscordLinkedRoleId, linkedRole)
+                    .Field("eighteenPlusRoleId", settings.DiscordEighteenPlusRoleId, eighteenPlusRole);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 settings.DiscordOAuthClientId = clientId;
                 settings.DiscordLinkPromptNewMembers = body.PromptNewMembers;
-                settings.DiscordLinkBackupChannelId = Blank(body.BackupChannelId);
+                settings.DiscordLinkBackupChannelId = backupChannel;
                 settings.DiscordLinkedRoleId = linkedRole;
                 settings.DiscordEighteenPlusRoleId = eighteenPlusRole;
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(View(settings));
             })

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 
@@ -85,6 +86,7 @@ public static class HealthAlertEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapPut("", async (
+                HttpContext http,
                 [FromBody] HealthAlertUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] Modbot.Core.Email.IEmailSender email,
@@ -115,11 +117,24 @@ public static class HealthAlertEndpoints
                     db.HealthAlertSettings.Add(settings);
                 }
 
+                var warnBytes = (long)(body.StorageWarnGb * Gigabyte);
+
+                var change = new SettingsChange("healthAlerts")
+                    .Field("quietHours", settings.QuietHours, body.QuietHours)
+                    .Field("storageWarnGb", settings.StorageWarnBytes / (double)Gigabyte, warnBytes / (double)Gigabyte);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 settings.QuietHours = body.QuietHours;
-                settings.StorageWarnBytes = (long)(body.StorageWarnGb * Gigabyte);
+                settings.StorageWarnBytes = warnBytes;
 
                 var on = body.ChecksOn.ToHashSet(StringComparer.Ordinal);
                 var watches = await db.HealthWatches.ToDictionaryAsync(w => w.Check, ct);
+
+                change.Items(
+                    "checksOn",
+                    HealthChecks.All.Where(c => watches.TryGetValue(c, out var w) && w.On),
+                    HealthChecks.All.Where(on.Contains));
 
                 foreach (var check in HealthChecks.All)
                 {
@@ -155,7 +170,19 @@ public static class HealthAlertEndpoints
                 foreach (var id in real.Where(id => !already.Contains(id)))
                     db.HealthAlertRecipients.Add(new HealthAlertRecipient { UserId = id });
 
+                // Who is emailed, by name: a person removed since would otherwise be an id.
+                var names = await db.Users.AsNoTracking()
+                    .Where(u => already.Contains(u.Id) || real.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
+
+                change.Items(
+                    "emailed",
+                    already.Select(id => names.GetValueOrDefault(id, "an account that no longer exists")).Order(StringComparer.Ordinal),
+                    real.Select(id => names.GetValueOrDefault(id, "an account that no longer exists")).Order(StringComparer.Ordinal));
+
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(await ReadAsync(db, email, ct));
             })

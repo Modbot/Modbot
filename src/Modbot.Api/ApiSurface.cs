@@ -261,6 +261,7 @@ public static class ApiSurface
                 ModbotVersion.Release,
                 ModbotVersion.Api,
                 ModbotVersion.ApiMinimum)))
+            .AllowAnonymous()
             .WithName("GetVersion")
             .WithSummary("Get version")
             .WithDescription(

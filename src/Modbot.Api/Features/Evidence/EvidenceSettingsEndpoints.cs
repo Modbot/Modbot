@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.Api.Auth;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 
 namespace Modbot.Api.Features.Evidence;
@@ -77,6 +78,7 @@ public static class EvidenceSettingsEndpoints
         group.MapPut("/backend", async (
                 HttpContext http,
                 EvidenceBackendRequest body,
+                [FromServices] ModbotContext db,
                 [FromServices] EvidenceSettingsService service,
                 CancellationToken ct) =>
             {
@@ -84,7 +86,15 @@ public static class EvidenceSettingsEndpoints
 
                 var actor = http.User.Identity?.Name ?? "unknown";
 
-                return Results.Ok(await service.SaveBackendAsync(body, actor, ct));
+                // The service shares this request's context, so the save it makes and the audit
+                // entry written from inside it commit together or not at all.
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                var result = await service.SaveBackendAsync(body, actor, (change, token) => change.RecordAsync(http, token), ct);
+
+                await transaction.CommitAsync(ct);
+
+                return Results.Ok(result);
             })
             .WithName("SetEvidenceBackend")
             .WithSummary("Set evidence backend")
@@ -102,12 +112,17 @@ public static class EvidenceSettingsEndpoints
         group.MapPut("/limits", async (
                 HttpContext http,
                 EvidenceLimitsRequest body,
+                [FromServices] ModbotContext db,
                 [FromServices] EvidenceSettingsService service,
                 CancellationToken ct) =>
             {
                 if (Forbidden(http)) return Results.Forbid();
 
-                var (saved, error) = await service.SaveLimitsAsync(body, ct);
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                var (saved, error) = await service.SaveLimitsAsync(body, (change, token) => change.RecordAsync(http, token), ct);
+
+                await transaction.CommitAsync(ct);
 
                 return saved is null
                     ? Results.BadRequest(new { error })

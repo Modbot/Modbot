@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -188,6 +189,7 @@ public static class LogEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         group.MapPut("/settings", async (
+                HttpContext http,
                 [FromBody] LogSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 // Optional, like the rest of the read surface: a host that mapped the API without
@@ -207,10 +209,18 @@ public static class LogEndpoints
 
                 var settings = await db.GetSettingsAsync(ct);
 
+                var change = new SettingsChange("logs")
+                    .Field("keepDays", settings.LogRetentionDays, body.KeepDays)
+                    .Field("sendToCloud", settings.ShipLogsToCloud, body.SendToCloud);
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 settings.LogRetentionDays = body.KeepDays;
                 settings.ShipLogsToCloud = body.SendToCloud;
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(new LogSettings(body.KeepDays, body.SendToCloud, cloud is null || !cloud.Disabled));
             })

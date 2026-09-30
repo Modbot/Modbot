@@ -143,8 +143,10 @@ export function EntryDetail({ entry, around = true }: { entry: AuditEntry; aroun
               {changed.map(([key, pair]) => (
                 <Tr key={key}>
                   <Td>{(entry.type === 'vrchat.group.update' && groupFieldLabel(key)) || fieldName(key)}</Td>
-                  <Td className="min-w-[10rem] break-all whitespace-normal text-muted-foreground">{shown(pair.old)}</Td>
-                  <Td className="min-w-[10rem] break-all whitespace-normal">{shown(pair.new)}</Td>
+                  <Td className="min-w-[10rem] break-all whitespace-normal text-muted-foreground">
+                    {pair.secret ? 'hidden' : shown(pair.old)}
+                  </Td>
+                  <Td className="min-w-[10rem] break-all whitespace-normal">{pair.secret ? 'changed' : shown(pair.new)}</Td>
                 </Tr>
               ))}
             </Table>
@@ -444,10 +446,10 @@ function ProfileAt({ entry }: { entry: AuditEntry }) {
   )
 }
 
-function changedFields(entry: AuditEntry): [string, { old?: unknown; new?: unknown }][] {
+function changedFields(entry: AuditEntry): [string, { old?: unknown; new?: unknown; secret?: boolean }][] {
   const changed = entry.data?.['changed']
   if (!changed || typeof changed !== 'object') return []
-  return Object.entries(changed as Record<string, { old?: unknown; new?: unknown }>)
+  return Object.entries(changed as Record<string, { old?: unknown; new?: unknown; secret?: boolean }>)
 }
 
 function shown(value: unknown): string {

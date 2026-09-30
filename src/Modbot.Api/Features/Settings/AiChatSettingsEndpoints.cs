@@ -60,6 +60,7 @@ public static class AiChatSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         group.MapPut("", async (
+                HttpContext http,
                 [FromBody] AiChatSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] ChatToolRegistry registry,
@@ -74,7 +75,8 @@ public static class AiChatSettingsEndpoints
                     return Results.BadRequest(new { error = problem });
 
                 var settings = await db.GetSettingsAsync(ct);
-                var switches = new Dictionary<string, bool>(ChatToolRegistry.ParseSwitches(settings.AiChatToolSwitches), StringComparer.Ordinal);
+                var switchesBefore = ChatToolRegistry.ParseSwitches(settings.AiChatToolSwitches);
+                var switches = new Dictionary<string, bool>(switchesBefore, StringComparer.Ordinal);
 
                 foreach (var (name, on) in body.Tools ?? new Dictionary<string, bool>())
                 {
@@ -91,6 +93,22 @@ public static class AiChatSettingsEndpoints
                         switches[name] = on;
                 }
 
+                // The tools that are on, before and after, so the entry says which were switched
+                // rather than that "the tool switches" changed.
+                var toolsOn = (IReadOnlyDictionary<string, bool> now) =>
+                    registry.All.Where(t => ChatToolRegistry.IsOn(t, now)).Select(t => t.Name).Order(StringComparer.Ordinal);
+
+                var change = new SettingsChange("aiChat")
+                    .Field("enabled", settings.AiChatEnabled, body.Enabled)
+                    .Field("model", settings.AiChatModel, model)
+                    .Field("instructions", settings.AiChatInstructions, instructions)
+                    .Field("maxToolCalls", settings.AiChatMaxToolCalls, body.MaxToolCalls)
+                    .Field("maxReplyTokens", settings.AiChatMaxReplyTokens, body.MaxReplyTokens)
+                    .Field("timeLimitSeconds", settings.AiChatTimeLimitSeconds, body.TimeLimitSeconds)
+                    .Items("toolsOn", toolsOn(switchesBefore), toolsOn(switches));
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 settings.AiChatEnabled = body.Enabled;
                 settings.AiChatModel = model;
                 settings.AiChatInstructions = instructions;
@@ -100,6 +118,8 @@ public static class AiChatSettingsEndpoints
                 settings.AiChatToolSwitches = JsonSerializer.Serialize(switches);
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(View(settings, registry));
             })

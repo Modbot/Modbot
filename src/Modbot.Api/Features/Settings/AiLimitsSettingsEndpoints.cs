@@ -133,6 +133,7 @@ public static class AiLimitsSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         group.MapPut("/limits", async (
+                HttpContext http,
                 [FromBody] AiLimitsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] AiSpendReport report,
@@ -141,8 +142,10 @@ public static class AiLimitsSettingsEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
-                var roleIds = await db.Roles.AsNoTracking().Select(r => r.Id).ToListAsync(ct);
-                var userIds = await db.Users.AsNoTracking().Select(u => u.Id).ToListAsync(ct);
+                var roleNames = await db.Roles.AsNoTracking().ToDictionaryAsync(r => r.Id, r => r.Name, ct);
+                var userNames = await db.Users.AsNoTracking().ToDictionaryAsync(u => u.Id, u => u.Username, ct);
+                var roleIds = roleNames.Keys;
+                var userIds = userNames.Keys;
                 var seen = new HashSet<(string, string?)>();
                 var rows = new List<AiSpendLimit>();
 
@@ -206,6 +209,26 @@ public static class AiLimitsSettingsEndpoints
                 }
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                // The whole list is replaced, so the entry says which limits were taken away and
+                // which were put in: a raised limit is one of each.
+                var limitsBefore = await db.AiSpendLimits.AsNoTracking().ToListAsync(ct);
+                var tokensBefore = await db.AiFeatureLimits.AsNoTracking()
+                    .Where(l => l.MonthlyTokenLimit != null)
+                    .ToListAsync(ct);
+
+                var change = new SettingsChange("aiLimits")
+                    .Items("spendLimits", limitsBefore.Select(l => Describe(l, roleNames, userNames)).Order(StringComparer.Ordinal),
+                        rows.Select(l => Describe(l, roleNames, userNames)).Order(StringComparer.Ordinal));
+
+                if (tokenRows is not null)
+                {
+                    change.Items("tokenLimits",
+                        tokensBefore.Select(l => TokenLimit(l)).Order(StringComparer.Ordinal),
+                        tokenRows.Where(l => l.MonthlyTokenLimit != null)
+                            .Select(l => TokenLimit(l)).Order(StringComparer.Ordinal));
+                }
+
                 await db.AiSpendLimits.ExecuteDeleteAsync(ct);
                 db.AiSpendLimits.AddRange(rows);
 
@@ -216,6 +239,7 @@ public static class AiLimitsSettingsEndpoints
                 }
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
                 await transaction.CommitAsync(ct);
 
                 return Results.Ok(await ViewAsync(db, report, ct));
@@ -229,6 +253,7 @@ public static class AiLimitsSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         group.MapPut("/prices", async (
+                HttpContext http,
                 [FromBody] AiPricesUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] AiSpendReport report,
@@ -267,9 +292,16 @@ public static class AiLimitsSettingsEndpoints
                 // prices what was used earlier.
                 await using (var transaction = await db.Database.BeginTransactionAsync(ct))
                 {
+                    var pricesBefore = await db.AiModelPrices.AsNoTracking().ToListAsync(ct);
+
+                    var change = new SettingsChange("aiPrices")
+                        .Items("prices", pricesBefore.Select(p => Describe(p)).Order(StringComparer.Ordinal),
+                            rows.Select(p => Describe(p)).Order(StringComparer.Ordinal));
+
                     await db.AiModelPrices.ExecuteDeleteAsync(ct);
                     db.AiModelPrices.AddRange(rows);
                     await db.SaveChangesAsync(ct);
+                    await change.RecordAsync(http, ct);
                     await transaction.CommitAsync(ct);
                 }
 
@@ -312,6 +344,40 @@ public static class AiLimitsSettingsEndpoints
 
         return app;
     }
+
+    /// <summary>One limit in the words the audit log shows: "Everyone: 5 a day, 50 a month".</summary>
+    private static string Describe(
+        AiSpendLimit limit, IReadOnlyDictionary<Guid, string> roles, IReadOnlyDictionary<Guid, string> users)
+    {
+        var who = limit.AppliesTo switch
+        {
+            AiSpendLimit.Everyone => "Everyone",
+            AiSpendLimit.ForFeature => limit.Feature is null ? "A feature" : AiFeatures.LabelOf(limit.Feature),
+            AiSpendLimit.Role => $"Role {(limit.RoleId is { } r && roles.TryGetValue(r, out var role) ? role : "no longer there")}",
+            AiSpendLimit.User => $"User {(limit.UserId is { } u && users.TryGetValue(u, out var user) ? user : "no longer there")}",
+            _ => limit.AppliesTo,
+        };
+
+        var amounts = new List<string>();
+        if (limit.PerDay is { } day)
+            amounts.Add($"{Amount(day)} a day");
+        if (limit.PerMonth is { } month)
+            amounts.Add($"{Amount(month)} a month");
+
+        return $"{who}: {string.Join(", ", amounts)}";
+    }
+
+    /// <summary>One price in the words the audit log shows: "gpt-x: input 2.5, output 10 per million tokens".</summary>
+    private static string Describe(AiModelPrice price)
+    {
+        var cached = price.CachedInputPerMillion is { } c ? $", cached input {Amount(c)}" : string.Empty;
+        return $"{price.Model}: input {Amount(price.InputPerMillion)}{cached}, output {Amount(price.OutputPerMillion)} per million tokens";
+    }
+
+    private static string TokenLimit(AiFeatureLimit limit)
+        => $"{AiFeatures.LabelOf(limit.Feature)}: {(limit.MonthlyTokenLimit ?? 0).ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} tokens a month";
+
+    private static string Amount(decimal value) => value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
 
     internal static async Task<AiLimitsResponse> ViewAsync(ModbotContext db, AiSpendReport report, CancellationToken ct)
     {

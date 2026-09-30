@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -86,9 +87,72 @@ public sealed class ApiTestHost : IAsyncDisposable
 
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
+
+        Register(builder, db.ConnectionString, clock, gate, configure, companion);
+
+        var app = builder.Build();
+
+        app.UseWebSockets();
+        app.UseOldApiPaths();
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        app.MapModbotApi();
+
+        if (companion)
+            app.MapClientApi();
+
+        app.MapGet(OpenProbe, () => Results.Ok("open"));
+        app.MapGet(AuditProbe, () => Results.Ok("audit"))
+           .RequiresFlag(ModbotPermissions.ViewAuditLog);
+        app.MapGet(TwoFlagProbe, () => Results.Ok("both"))
+           .RequiresFlag(ModbotPermissions.ViewAuditLog | ModbotPermissions.ManageSettings);
+
+        await app.StartAsync();
+
+        // https, because the session cookie is marked Secure and a cookie jar would refuse to
+        // store it over plain http -- exactly as a browser would.
+        var client = app.GetTestClient();
+        client.BaseAddress = new Uri("https://localhost/");
+
+        return new ApiTestHost(app, client, clock, gate);
+    }
+
+    /// <summary>
+    /// Every route the shipped API maps, as the framework built them, without a database and
+    /// without starting anything.
+    /// </summary>
+    /// <remarks>
+    /// The same registrations a running test host has, because a handler's parameters are worked
+    /// out from what the container can provide: leave one out and mapping throws, or the
+    /// parameter is read from the body instead. Nothing here opens a connection, so the string
+    /// the context is given is never used.
+    /// </remarks>
+    public static IReadOnlyList<RouteEndpoint> MappedRoutes()
+    {
+        var builder = WebApplication.CreateSlimBuilder();
+
+        Register(builder, "Host=none;Database=none", new FakeClock(), new FakeVRChatGate(), configure: null, companion: false);
+
+        var app = builder.Build();
+        app.MapModbotApi();
+
+        return [.. ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()];
+    }
+
+    private static void Register(
+        WebApplicationBuilder builder,
+        string connectionString,
+        FakeClock clock,
+        FakeVRChatGate gate,
+        Action<IServiceCollection>? configure,
+        bool companion)
+    {
         builder.Logging.QuietForTests();
 
-        builder.Services.AddDbContext<ModbotContext>(o => o.UseNpgsql(db.ConnectionString));
+        builder.Services.AddDbContext<ModbotContext>(o => o.UseNpgsql(connectionString));
         builder.Services.AddSingleton<IModbotClock>(clock);
 
         // Elapsed time and wall-clock time are different questions (spec 4.4). The connection
@@ -145,33 +209,6 @@ public sealed class ApiTestHost : IAsyncDisposable
             builder.Services.AddClientApi();
 
         configure?.Invoke(builder.Services);
-
-        var app = builder.Build();
-
-        app.UseWebSockets();
-        app.UseOldApiPaths();
-        app.UseAuthentication();
-        app.UseAuthorization();
-
-        app.MapModbotApi();
-
-        if (companion)
-            app.MapClientApi();
-
-        app.MapGet(OpenProbe, () => Results.Ok("open"));
-        app.MapGet(AuditProbe, () => Results.Ok("audit"))
-           .RequiresFlag(ModbotPermissions.ViewAuditLog);
-        app.MapGet(TwoFlagProbe, () => Results.Ok("both"))
-           .RequiresFlag(ModbotPermissions.ViewAuditLog | ModbotPermissions.ManageSettings);
-
-        await app.StartAsync();
-
-        // https, because the session cookie is marked Secure and a cookie jar would refuse to
-        // store it over plain http -- exactly as a browser would.
-        var client = app.GetTestClient();
-        client.BaseAddress = new Uri("https://localhost/");
-
-        return new ApiTestHost(app, client, clock, gate);
     }
 
     /// <summary>

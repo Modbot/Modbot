@@ -116,6 +116,7 @@ public static class AiSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         group.MapPut("", async (
+                HttpContext http,
                 [FromBody] AiSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] ISecretProtector protector,
@@ -135,6 +136,7 @@ public static class AiSettingsEndpoints
                     return Results.BadRequest(new { error = "Keep the call log for between 0 and 3650 days." });
 
                 var settings = await db.GetSettingsAsync(ct);
+                var keyBefore = settings.AiApiKeyEncrypted;
                 var endpoint = check.Endpoint?.OriginalString;
                 var newKey = string.IsNullOrWhiteSpace(body.ApiKey) ? null : body.ApiKey.Trim();
 
@@ -152,6 +154,19 @@ public static class AiSettingsEndpoints
                 if (body.Enabled && settings.AiAcknowledgedAt is null)
                     return Results.BadRequest(new { error = "Confirm what is sent to the provider first." });
 
+                // The key is a secret: the entry says it changed and never what it was or became. A
+                // key typed in again always counts, because two encryptions of one key differ.
+                var change = new SettingsChange("ai")
+                    .Field("enabled", settings.AiEnabled, body.Enabled)
+                    .Field("provider", settings.AiProvider, check.Provider!.Id)
+                    .Field("endpoint", settings.AiEndpoint, endpoint)
+                    .Field("model", settings.AiModel, check.Model)
+                    .Field("fallbackModel", settings.AiFallbackModel, fallback)
+                    .Field("callLogKeepDays", settings.AiCallLogKeepDays, body.CallLogKeepDays)
+                    .Secret("apiKey", !string.Equals(keyBefore, settings.AiApiKeyEncrypted, StringComparison.Ordinal));
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 settings.AiEnabled = body.Enabled;
                 settings.AiProvider = check.Provider!.Id;
                 settings.AiEndpoint = endpoint;
@@ -160,6 +175,8 @@ public static class AiSettingsEndpoints
                 settings.AiCallLogKeepDays = body.CallLogKeepDays;
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(View(settings));
             })

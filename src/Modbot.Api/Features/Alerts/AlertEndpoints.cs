@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.AI;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -122,6 +123,7 @@ public static class AlertEndpoints
             .Produces(StatusCodes.Status403Forbidden);
 
         settings.MapPut("", async (
+                HttpContext http,
                 [FromBody] AlertSettingsUpdate body,
                 [FromServices] ModbotContext db,
                 [FromServices] IAiClients ai,
@@ -145,17 +147,31 @@ public static class AlertEndpoints
                         return Results.BadRequest(new { error = "Choose a sensitivity." });
                 }
 
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
                 var stored = await SettingsRowAsync(db, ct);
-                stored.DiscordChannelId = string.IsNullOrEmpty(channel) ? null : channel;
+                var newChannel = string.IsNullOrEmpty(channel) ? null : channel;
+                var change = new SettingsChange("aiAlerts")
+                    .Field("discordChannelId", stored.DiscordChannelId, newChannel)
+                    .Field("quietHours", stored.QuietHours, body.QuietHours)
+                    .Field("writeSentence", stored.WriteSentence, body.WriteSentence);
+
+                stored.DiscordChannelId = newChannel;
                 stored.QuietHours = body.QuietHours;
                 stored.WriteSentence = body.WriteSentence;
 
                 var watches = await WatchesAsync(db, ct);
 
                 foreach (var w in body.Watchers ?? [])
-                    watches.Single(x => x.Watcher == w.Watcher).Sensitivity = w.Sensitivity;
+                {
+                    var watch = watches.Single(x => x.Watcher == w.Watcher);
+                    change.Field($"{w.Watcher}Sensitivity", watch.Sensitivity, w.Sensitivity);
+                    watch.Sensitivity = w.Sensitivity;
+                }
 
                 await db.SaveChangesAsync(ct);
+                await change.RecordAsync(http, ct);
+                await transaction.CommitAsync(ct);
 
                 return Results.Ok(await ViewAsync(db, ai, ct));
             })

@@ -389,4 +389,67 @@ public class EvidenceSettingsTests(PostgresFixture db)
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    /// <summary>
+    /// Changing where evidence lives, or how much of it there may be, is written in the audit log
+    /// with who did it and what it was before.
+    /// </summary>
+    [Fact]
+    public async Task TheBackendAndTheLimitsAreRecordedInTheAuditLog()
+    {
+        await EvidenceApiTestHost.ResetAsync(db, Ct);
+        await using var host = await EvidenceApiTestHost.StartAsync(db);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        async Task<List<System.Text.Json.JsonElement>> EntriesAsync(string setting)
+        {
+            await using var context = db.NewContext();
+
+            return [.. (await context.Events.AsNoTracking()
+                    .Where(e => e.Type == FactType.SettingsChanged)
+                    .OrderByDescending(e => e.Id)
+                    .ToListAsync(Ct))
+                .Select(ApiTestHost.DataOf)
+                .Where(data => data.GetProperty("setting").GetString() == setting)];
+        }
+
+        var limitsBefore = (await EntriesAsync("evidenceLimits")).Count;
+
+        foreach (var maxFile in new[] { 20_000_000L, 30_000_000L, 30_000_000L })
+        {
+            var limits = await host.PutAsync(
+                "/api/settings/evidence/limits",
+                cookie,
+                new { maxFileBytes = maxFile, maxReportBytes = 0, maxDeploymentBytes = 0, directDeliveryEnabled = true },
+                Ct);
+
+            Assert.Equal(HttpStatusCode.OK, limits.StatusCode);
+        }
+
+        var limitEntries = await EntriesAsync("evidenceLimits");
+        Assert.Equal(limitsBefore + 2, limitEntries.Count);
+
+        var size = limitEntries[0].GetProperty("changed").GetProperty("maxFileBytes");
+        Assert.Equal(20_000_000L, size.GetProperty("old").GetInt64());
+        Assert.Equal(30_000_000L, size.GetProperty("new").GetInt64());
+
+        var saved = await host.ReadAsync<EvidenceSetupResponse>(
+            await host.PutAsync(
+                "/api/settings/evidence/backend",
+                cookie,
+                new { backend = "Filesystem", root = host.Root },
+                Ct),
+            Ct);
+
+        Assert.True(saved.Succeeded, saved.Message);
+
+        var backend = (await EntriesAsync("evidenceStorage"))[0];
+        Assert.Equal("None", backend.GetProperty("changed").GetProperty("backend").GetProperty("old").GetString());
+        Assert.Equal("Filesystem", backend.GetProperty("changed").GetProperty("backend").GetProperty("new").GetString());
+        Assert.Equal(host.Root, backend.GetProperty("changed").GetProperty("directory").GetProperty("new").GetString());
+
+        // A filesystem store has no secret, so none is named.
+        Assert.False(backend.GetProperty("changed").TryGetProperty("secretAccessKey", out _));
+    }
 }
