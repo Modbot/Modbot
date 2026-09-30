@@ -242,6 +242,7 @@ test('missing accounts are named in one line', () => {
 
 test('past a month a length reads as months and days, and past a year as years and months', () => {
   assert.equal(lengthOfTime(30 * 24 * 60), '30d')
+  assert.equal(lengthOfTime(30.44 * 24 * 60), '1mth')
   assert.equal(lengthOfTime(31 * 24 * 60), '1mth 1d')
   assert.equal(lengthOfTime(45 * 24 * 60), '1mth 15d')
   assert.equal(lengthOfTime(61 * 24 * 60), '2mth')
@@ -253,6 +254,13 @@ test('past a month a length reads as months and days, and past a year as years a
 
 test('there are no weeks: ten days are ten days', () => {
   assert.equal(lengthOfTime(10 * 24 * 60), '10d')
+})
+
+test('a length or a duration is never negative, and zero is zero', () => {
+  assert.equal(lengthOfTime(0), '0m')
+  assert.equal(lengthOfTime(-30), '0m')
+  assert.equal(duration(0), '0s')
+  assert.equal(duration(-5), '0s')
 })
 
 test('how long a call took keeps a decimal past a second', () => {

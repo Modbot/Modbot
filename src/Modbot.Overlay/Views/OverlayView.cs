@@ -366,7 +366,7 @@ public static class OverlayView
         if (list is OverlayPage.Events)
             row.Children.Add(FilterChip(list, FilterPart.Kind, filters, filters.Kinds.IsEmpty ? null : KindWords(filters.Kinds)));
 
-        row.Children.Add(FilterChip(list, FilterPart.Time, filters, filters.Time is TimeWindow.Any ? null : TimeWords(filters.Time)));
+        row.Children.Add(FilterChip(list, FilterPart.Time, filters, filters.Time is TimeWindow.Any ? null : WindowWords(filters.Time)));
 
         if (!screen.NoKeyboard || filters.Name is not null)
             row.Children.Add(FilterChip(list, FilterPart.Name, filters, filters.Name));
@@ -598,7 +598,8 @@ public static class OverlayView
         };
     }
 
-    private static string TimeWords(TimeWindow window) => window switch
+    /// <summary>The time filter's chip, as a window rather than a length: "5m", "15m", "1h", "earlier".</summary>
+    private static string WindowWords(TimeWindow window) => window switch
     {
         TimeWindow.FiveMinutes => "5m",
         TimeWindow.FifteenMinutes => "15m",

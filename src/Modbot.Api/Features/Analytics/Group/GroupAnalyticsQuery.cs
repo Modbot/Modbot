@@ -29,7 +29,6 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
     /// <summary>How long after an invite a join still counts as having followed from it.</summary>
     public const int InviteFollowUpDays = 7;
 
-    /// <summary>The tenure buckets, in order. Plain words; the days are inclusive at the low end.</summary>
     /// <summary>
     /// A bucket's name from its bounds, in the units every length uses: "Under 7d", "7d to 28d",
     /// "28d to 3mth", "3mth to 1y", "Over 1y". No weeks, as nowhere else in Modbot.
@@ -43,6 +42,7 @@ public sealed class GroupAnalyticsQuery(ModbotContext db)
         return minDays == 0 ? $"Under {Days(maxDays.Value)}" : $"{Days(minDays)} to {Days(maxDays.Value)}";
     }
 
+    /// <summary>The tenure buckets, in order. The days are inclusive at the low end.</summary>
     private static readonly (string Label, int MinDays, int? MaxDays)[] TenureBuckets =
     [
         (TenureLabel(0, 7), 0, 7),

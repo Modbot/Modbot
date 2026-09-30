@@ -348,13 +348,13 @@ public static class GiveawayRules
         return roleNames is not null && roleNames.TryGetValue(id, out var name) && name.Length > 0 ? name : id;
     }
 
-    /// <summary>A number without trailing zeros: <c>10</c>, not <c>10.00</c>.</summary>
     /// <summary>A number of days as every length is written: "30d", "1mth 15d", "1y".</summary>
     private static string Days(decimal days) => TimeWords.Length(TimeSpan.FromDays((double)days));
 
     /// <summary>A number of hours as every length is written: "10h", "1h 30m", "2d 4h".</summary>
     private static string Hours(decimal hours) => TimeWords.Length(TimeSpan.FromHours((double)hours));
 
+    /// <summary>A number without trailing zeros: <c>10</c>, not <c>10.00</c>.</summary>
     public static string Plain(decimal value)
     {
         var rounded = Math.Round(value, 2);

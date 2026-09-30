@@ -444,10 +444,10 @@ function ActivePanel({
 }
 
 const TENURE: { key: keyof MembersNow['tenure']; label: string; slot: SeriesSlot }[] = [
-  { key: 'underAMonth', label: 'Under a month', slot: 1 },
+  { key: 'underAMonth', label: 'Under 1mth', slot: 1 },
   { key: 'oneToSixMonths', label: '1–6mth', slot: 2 },
   { key: 'sixToTwelveMonths', label: '6–12mth', slot: 3 },
-  { key: 'yearOrMore', label: 'A year or more', slot: 4 },
+  { key: 'yearOrMore', label: '1y or more', slot: 4 },
 ]
 
 /**
@@ -472,7 +472,7 @@ function MembersNowPart({ now }: { now: MembersNow }) {
           noteMono
         />
         <Stat
-          label="Here a year or more"
+          label="Here 1y or more"
           value={percent(now.tenure.yearOrMore, now.members)}
           note={`${compactNumber(now.tenure.yearOrMore)} of ${compactNumber(now.members)}`}
           noteMono

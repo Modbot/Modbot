@@ -79,6 +79,6 @@ public sealed class ResetLinkDelivery
 
     private static string Text(string username, string url) =>
         $"Somebody asked to reset the password for the Modbot account \"{username}\".\n\n"
-        + $"If that was you, open this link within 24 hours:\n{url}\n\n"
+        + $"If that was you, open this link within 24h:\n{url}\n\n"
         + "If it wasn't you, you can ignore this message. Nothing has changed.";
 }

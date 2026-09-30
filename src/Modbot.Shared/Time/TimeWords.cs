@@ -28,7 +28,9 @@ public static class TimeWords
     /// <remarks>
     /// Rounded to the second under a minute, to the minute under a day, to the hour under a month
     /// and to the day past it, before the unit is chosen, so 59.7 minutes reads "1h" and not "60m".
-    /// A negative span reads as nothing having passed.
+    /// From one month (30.44 days) on it is the nearest month, not the month begun, so a 90-day
+    /// setting reads "3mth" and not "2mth 29d". A negative span reads "0s", as it does in the app.
+    /// Step for step the same as <c>lengthOfTime</c> in the web app's <c>format.ts</c>.
     /// </remarks>
     public static string Length(TimeSpan span)
     {
@@ -45,13 +47,15 @@ public static class TimeWords
         if (minutes < 24 * 60)
             return Units(minutes / 60, "h", minutes % 60, "m");
 
-        var hours = Whole(span.TotalHours);
-        var days = Whole(span.TotalDays);
-        if (days < 31)
+        var days = minutes / (24d * 60);
+        if (days < DaysInMonth)
+        {
+            var hours = Whole(span.TotalHours);
             return Units(hours / 24, "d", hours % 24, "h");
+        }
 
-        // The nearest month, not the month begun, so a 90-day setting reads "3mth" and not "2mth 29d".
-        if (days < DaysInYear)
+        var wholeDays = Whole(days);
+        if (wholeDays < DaysInYear)
         {
             var months = Whole(days / DaysInMonth);
             if (months >= 12)
@@ -59,8 +63,8 @@ public static class TimeWords
             return Units(months, "mth", Math.Max(0, Whole(days - months * DaysInMonth)), "d");
         }
 
-        var years = days / DaysInYear;
-        var restMonths = Whole((days - years * DaysInYear) / DaysInMonth);
+        var years = wholeDays / DaysInYear;
+        var restMonths = Whole((wholeDays - years * DaysInYear) / DaysInMonth);
         return restMonths >= 12 ? Units(years + 1, "y") : Units(years, "y", restMonths, "mth");
     }
 

@@ -117,10 +117,13 @@ function costTicks(max: number): Scale {
   return { values, hi, label: (v) => `$${v.toFixed(decimals)}` }
 }
 
+/** "In 9mth", "In 1y", "In 1y 6mth": whole months from the count itself, in the units every length uses. */
 function inMonths(days: number): string {
   const m = Math.round(days / DAYS_PER_MONTH)
-  // Whole months as a length ("9mth", "1y", "1y 6mth"): a month is the 30.44 days lengthOfTime counts.
-  return `In ${lengthOfTime(m * 30.44 * 24 * 60)}`
+  const years = Math.floor(m / 12)
+  const months = m % 12
+  if (years === 0) return `In ${months}mth`
+  return months === 0 ? `In ${years}y` : `In ${years}y ${months}mth`
 }
 
 function dayIndex(ms: number): number {

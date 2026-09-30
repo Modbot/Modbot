@@ -505,7 +505,7 @@ public class GiveawayRuleCheckerTests(PostgresFixture fixture) : GiveawayTestBas
 
         Assert.NotNull(match.Unanswerable);
         Assert.Contains("kept for 3mth", match.Unanswerable, StringComparison.Ordinal);
-        Assert.Contains("365", match.Unanswerable, StringComparison.Ordinal);
+        Assert.Contains("asks about 1y", match.Unanswerable, StringComparison.Ordinal);
 
         // And nothing that looks like an answer came back with it.
         Assert.Empty(match.People);

@@ -127,6 +127,6 @@ public class RuleGuardsTests
         var reason = RunawayGuard.Reason(24, 336);
 
         Assert.Contains("24 times in an hour", reason, StringComparison.Ordinal);
-        Assert.Contains("2 an hour over the last 7 days", reason, StringComparison.Ordinal);
+        Assert.Contains("2 an hour over the last 7d", reason, StringComparison.Ordinal);
     }
 }

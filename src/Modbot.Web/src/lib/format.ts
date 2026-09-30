@@ -180,8 +180,10 @@ function units(big: number, bigUnit: string, small = 0, smallUnit = ''): string 
  * that, whole months and then whole years that have passed, the way people say an age: something
  * a year and a half old is "1y" until it is two. "563d" made the reader do the sum.
  */
-function age(seconds: number): string {
-  if (seconds < 60) return units(Math.max(0, seconds), 's')
+function age(totalSeconds: number): string {
+  // Whole seconds first, and never negative, exactly as TimeWords.Age does on the server.
+  const seconds = Math.max(0, Math.round(totalSeconds))
+  if (seconds < 60) return units(seconds, 's')
   if (seconds < 3600) return units(Math.round(seconds / 60), 'm')
   if (seconds < DAY_SECONDS) return units(Math.round(seconds / 3600), 'h')
 
@@ -265,34 +267,40 @@ export function howLong(iso: string | null, now: string): string {
  * past a day the minutes are noise, past a month the hours are. Rounded to the minute, to the
  * hour past a day, and to the day past a month, before the unit is chosen, so 59.7 minutes reads
  * "1h" and not "60m". A month is 30.44 days and a year 365, as in an age; there are no weeks.
- * Every length on every page comes through here, so they all read alike.
+ * From one month on it is the nearest month, not the month begun, so a 90-day setting reads
+ * "3mth" and not "2mth 29d", and 30.44 days is exactly "1mth". Nothing is ever negative: a
+ * length that ran backwards is "0m". The server's TimeWords.Length follows the same steps, so a
+ * Discord card and the page it links to never disagree. Every length on every page comes
+ * through here, so they all read alike.
  */
 export function lengthOfTime(totalMinutes: number): string {
-  const minutes = Math.round(totalMinutes)
+  const minutes = Math.max(0, Math.round(totalMinutes))
   if (minutes < 60) return units(minutes, 'm')
   if (minutes < 24 * 60) return units(Math.floor(minutes / 60), 'h', minutes % 60, 'm')
 
-  const hours = Math.round(totalMinutes / 60)
-  const days = Math.round(totalMinutes / (24 * 60))
-  if (days < 31) return units(Math.floor(hours / 24), 'd', hours % 24, 'h')
+  const days = minutes / (24 * 60)
+  if (days < DAYS_IN_MONTH) {
+    const hours = Math.round(totalMinutes / 60)
+    return units(Math.floor(hours / 24), 'd', hours % 24, 'h')
+  }
 
-  // The nearest month, not the month begun, so a 90-day setting reads "3mth" and not "2mth 29d".
-  if (days < DAYS_IN_YEAR) {
+  const wholeDays = Math.round(days)
+  if (wholeDays < DAYS_IN_YEAR) {
     const months = Math.round(days / DAYS_IN_MONTH)
     if (months >= 12) return units(1, 'y')
     return units(months, 'mth', Math.max(0, Math.round(days - months * DAYS_IN_MONTH)), 'd')
   }
 
-  const years = Math.floor(days / DAYS_IN_YEAR)
-  const months = Math.round((days - years * DAYS_IN_YEAR) / DAYS_IN_MONTH)
+  const years = Math.floor(wholeDays / DAYS_IN_YEAR)
+  const months = Math.round((wholeDays - years * DAYS_IN_YEAR) / DAYS_IN_MONTH)
   return months >= 12 ? units(years + 1, 'y') : units(years, 'y', months, 'mth')
 }
 
-/** A duration in seconds: "45s" under a minute, and {@link lengthOfTime} from there. */
+/** A duration in seconds: "45s" under a minute, and {@link lengthOfTime} from there. Never negative: "0s". */
 export function duration(seconds: number): string {
-  const wholeSeconds = Math.round(seconds)
+  const wholeSeconds = Math.max(0, Math.round(seconds))
   if (wholeSeconds < 60) return units(wholeSeconds, 's')
-  return lengthOfTime(seconds / 60)
+  return lengthOfTime(wholeSeconds / 60)
 }
 
 /**

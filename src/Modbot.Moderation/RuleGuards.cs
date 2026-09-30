@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Time;
 
 namespace Modbot.Moderation;
 
@@ -165,6 +166,6 @@ public static class RunawayGuard
     public static string Reason(int actionsInTheLastHour, int actionsInTheLastSevenDays)
     {
         var average = actionsInTheLastSevenDays / HoursInSevenDays;
-        return $"Acted {actionsInTheLastHour} times in an hour, against {average:0.#} an hour over the last 7 days.";
+        return $"Acted {actionsInTheLastHour} times in an hour, against {average:0.#} an hour over the last {TimeWords.Length(TimeSpan.FromDays(7))}.";
     }
 }
