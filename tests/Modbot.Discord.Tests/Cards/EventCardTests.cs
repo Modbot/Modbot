@@ -545,7 +545,8 @@ public class EventCardTests
 
         var by = Field(EventCard.For(e, Style, CardPicture.None), "By")!;
 
-        Assert.Contains("modbot_alpha", by, StringComparison.Ordinal);
+        // The underscore is escaped in the link's text, or Discord would read it as the start of italics.
+        Assert.Contains("modbot\\_alpha", by, StringComparison.Ordinal);
     }
 
     [Fact]

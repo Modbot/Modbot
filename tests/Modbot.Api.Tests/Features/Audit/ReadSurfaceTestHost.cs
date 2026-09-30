@@ -229,6 +229,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.VRChatUsers.ExecuteDeleteAsync(ct);
         await context.GroupMemberCounts.ExecuteDeleteAsync(ct);
         await context.VRChatInstances.ExecuteDeleteAsync(ct);
+        await context.WorldHeadCounts.ExecuteDeleteAsync(ct);
         await context.VRChatWorlds.ExecuteDeleteAsync(ct);
         await context.GroupMembers.ExecuteDeleteAsync(ct);
         await context.GroupBans.ExecuteDeleteAsync(ct);
@@ -247,6 +248,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.DiscordRoles.ExecuteDeleteAsync(ct);
         await context.DiscordServers.ExecuteDeleteAsync(ct);
         await context.DiscordMembers.ExecuteDeleteAsync(ct);
+        await context.DiscordBans.ExecuteDeleteAsync(ct);
         await context.DiscordEventRoutes.ExecuteDeleteAsync(ct);
         await context.DiscordAccountLinks.ExecuteDeleteAsync(ct);
         await context.DiscordEventChannels.ExecuteDeleteAsync(ct);
