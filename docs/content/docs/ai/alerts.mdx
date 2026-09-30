@@ -108,8 +108,11 @@ The **Alerts** card:
 The **What is watched** card has one control per watcher.
 
 Alert sentences are real AI requests and count towards spend under **Insights** on
-[Limits and spend](/ai/limits-and-spend). If AI is off, or that limit is reached, alerts still go
-out — with their figures and no sentence.
+[Limits and spend](/ai/limits-and-spend). They are made like every other AI call: with the feature's
+time limit, the fallback model when the first one fails, and a row in the [call log](/ai/call-log)
+under **Insights**, with nobody in **Asked by** because nobody pressed anything. If AI is off, or that
+limit is reached, or the model does not answer, alerts still go out — with their figures and no
+sentence, and the call log says why.
 
 ## When the checks run
 

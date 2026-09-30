@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.AI.Alerts;
 using Modbot.AI.Tests.Insights;
+using Modbot.AI.Usage;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 
@@ -146,6 +147,59 @@ public class AlertCheckerTests : AlertTestBase
 
         Assert.Null(Assert.Single(await AlertsAsync()).Text);
         Assert.Empty(Model.Requests);
+
+        // The call that was never made is in the call log, as a limit and not as nothing.
+        var row = Assert.Single(await CallsAsync());
+        Assert.Equal(AiFeatures.Insights, row.Feature);
+        Assert.Equal(AiCallOutcomes.Limited, row.Outcome);
+        Assert.Null(row.UserId);
+    }
+
+    [Fact]
+    public async Task TheSentenceIsAnAiCallLikeAnyOther_InTheCallLogUnderInsights_WithNoPersonBehindIt()
+    {
+        Answer = _ => Completion("Forty people joined in the last hour.");
+
+        await TurnAiOnAsync();
+        await SetWatchAsync(AlertWatchers.VRChatJoins, AlertSensitivities.Normal);
+        await AddHistoryAsync(FactType.MemberJoined, 4);
+        await AddFactsAsync(InWindow(), FactType.MemberJoined, 40);
+
+        Assert.Equal(1, await RunAtAsync(Start));
+
+        var row = Assert.Single(await CallsAsync());
+        Assert.Equal(AiFeatures.Insights, row.Feature);
+        Assert.Equal(AiCallOutcomes.Answered, row.Outcome);
+        Assert.Null(row.UserId);
+
+        // Nobody pressed a button, so the call log keeps the counts and not what was sent.
+        Assert.Null(row.Prompt);
+
+        // And it is in the usage the limits count, under Insights.
+        await using var context = NewContext();
+        Assert.Single(await context.AiUsage.AsNoTracking().Where(u => u.Feature == AiFeatures.Insights).ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AModelThatFails_LeavesTheAlertWithoutASentence_AndAnErrorInTheCallLog()
+    {
+        Answer = _ => Refused("No credit left");
+
+        await TurnAiOnAsync();
+        await SetWatchAsync(AlertWatchers.VRChatJoins, AlertSensitivities.Normal);
+        await AddHistoryAsync(FactType.MemberJoined, 4);
+        await AddFactsAsync(InWindow(), FactType.MemberJoined, 40);
+
+        Assert.Equal(1, await RunAtAsync(Start));
+
+        var alert = Assert.Single(await AlertsAsync());
+        Assert.Null(alert.Text);
+        Assert.Equal(40m, alert.Now);
+
+        var row = Assert.Single(await CallsAsync());
+        Assert.Equal(AiFeatures.Insights, row.Feature);
+        Assert.NotEqual(AiCallOutcomes.Answered, row.Outcome);
+        Assert.False(string.IsNullOrEmpty(row.Error));
     }
 
     [Fact]

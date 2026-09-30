@@ -29,7 +29,8 @@ public abstract class AlertTestBase : InsightTestBase
             NewUsage(context),
             new FactWriter(context, Clock),
             new EventPartitionMaintainer(context, Clock),
-            Clock);
+            Clock,
+            NewRunner(context));
 
     /// <summary>One fact of each of these types, at <paramref name="at"/>, with ids of their own.</summary>
     protected async Task AddFactsAsync(DateTimeOffset at, string type, int count, string prefix = "usr_")
@@ -114,6 +115,13 @@ public abstract class AlertTestBase : InsightTestBase
         Clock.UtcNow = now;
         await using var context = NewContext();
         return await NewChecker(context).RunDueAsync(Ct);
+    }
+
+    /// <summary>Every row of the call log, oldest first.</summary>
+    protected async Task<List<AiCall>> CallsAsync()
+    {
+        await using var context = NewContext();
+        return await context.AiCalls.AsNoTracking().OrderBy(c => c.At).ToListAsync(Ct);
     }
 
     protected async Task<List<Alert>> AlertsAsync()

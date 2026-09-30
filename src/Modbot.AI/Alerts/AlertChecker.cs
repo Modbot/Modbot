@@ -1,11 +1,14 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Modbot.AI.Calls;
 using Modbot.AI.Usage;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Logging;
 using Modbot.Core.Time;
 using OpenAI.Chat;
+using Serilog;
 
 namespace Modbot.AI.Alerts;
 
@@ -30,8 +33,11 @@ public sealed class AlertChecker(
     IAiUsage usage,
     IFactWriter facts,
     EventPartitionMaintainer partitions,
-    IModbotClock clock)
+    IModbotClock clock,
+    AiCallRunner runner)
 {
+    private readonly ILogger _log = Log.Logger.ForContext(LogArea.Name, LogArea.Analytics);
+
     /// <summary>How often the watchers run.</summary>
     public static readonly TimeSpan CheckEvery = TimeSpan.FromMinutes(15);
 
@@ -270,6 +276,12 @@ public sealed class AlertChecker(
     /// One AI sentence, or none. An alert with no sentence is a complete alert: the figures are the
     /// alert, and the sentence is a courtesy that AI being off or out of budget must not withhold.
     /// </summary>
+    /// <remarks>
+    /// Made through <see cref="AiCallRunner"/>, like an insight: the feature's timeout, the fallback
+    /// model, and a row in the call log whatever comes of it, so a moderator looking at the call log
+    /// can see why an alert has no sentence. It counts under Insights and asks for no person: an
+    /// alert is nobody's request, so it counts against no team member's allowance.
+    /// </remarks>
     private async Task WriteSentenceAsync(Alert alert, AlertFigures figures, CancellationToken ct)
     {
         try
@@ -279,43 +291,62 @@ public sealed class AlertChecker(
                 return;
 
             // The same budget as insights, read through the shared place every AI feature asks.
-            if (await usage.LimitReachedAsync(AiFeatures.Insights, ct) is not null)
+            if (await usage.LimitReachedAsync(AiFeatures.Insights, ct) is { } reached)
+            {
+                await runner.RecordLimitedAsync(AiFeatures.Insights, chat.Model, chat.Provider, reached.Message, null, ct);
                 return;
+            }
 
             var stored = await db.InsightSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, ct);
             var model = string.IsNullOrWhiteSpace(stored?.Model) ? chat.Model : stored.Model.Trim();
-            var client = model == chat.Model ? chat.Chat : chat.Client.GetChatClient(model);
 
-            var options = new ChatCompletionOptions { MaxOutputTokenCount = AlertPrompt.MaxOutputTokens };
-            AiReportedCost.AskFor(options, chat.Provider);
+            var instructions = AlertPrompt.Instructions();
+            var question = AlertPrompt.Figures(figures);
 
-            ChatCompletion completion = await client.CompleteChatAsync(
-                [
-                    new SystemChatMessage(AlertPrompt.Instructions()),
-                    new UserChatMessage(AlertPrompt.Figures(figures)),
-                ],
-                options,
-                ct);
+            // KeepText stays off: nobody pressed a button, so the call log keeps counts, not the text.
+            var plan = new AiCallPlan(
+                AiFeatures.Insights, chat, model,
+                Prompt: $"{instructions}\n\n{question}");
 
-            var text = string.Concat(completion.Content
-                .Where(p => p.Kind == ChatMessageContentPartKind.Text)
-                .Select(p => p.Text)).Trim();
+            var result = await runner.RunAsync(plan, async (client, token) =>
+            {
+                var options = new ChatCompletionOptions { MaxOutputTokenCount = AlertPrompt.MaxOutputTokens };
+                AiReportedCost.AskFor(options, chat.Provider);
 
-            await usage.RecordAsync(AiFeatures.Insights, null, model, chat.Provider, completion.Usage, ct);
+                ChatCompletion completion = await client.CompleteChatAsync(
+                    [
+                        new SystemChatMessage(instructions),
+                        new UserChatMessage(question),
+                    ],
+                    options,
+                    token);
 
+                var answer = string.Concat(completion.Content
+                    .Where(p => p.Kind == ChatMessageContentPartKind.Text)
+                    .Select(p => p.Text)).Trim();
+
+                return new AiCallAnswer<string>(answer, completion.Model, completion.Usage, answer);
+            }, ct);
+
+            // A call that did not answer is in the call log with its error; the alert goes out without.
+            var text = result.Answered ? result.Value ?? string.Empty : string.Empty;
             if (text.Length == 0)
                 return;
 
             alert.Text = text.Length <= AlertPrompt.MaxTextLength
                 ? text
                 : string.Concat(text.AsSpan(0, AlertPrompt.MaxTextLength), "…");
-            alert.Model = completion.Model is { Length: > 0 and <= AiSettingsRules.MaxModelLength } reported ? reported : model;
+
+            // The model that answered, which may be the fallback rather than the one asked for.
+            alert.Model = result.Model.Length <= AiSettingsRules.MaxModelLength ? result.Model : model;
             alert.Provider = chat.Provider;
         }
-        catch (Exception) when (!ct.IsCancellationRequested)
+        catch (Exception e) when (!ct.IsCancellationRequested)
         {
-            // Deliberately swallowed and not stored. An alert is about the figures, and a provider
-            // having a bad afternoon is not something to put in front of a moderator on this card.
+            // Not put on the alert: it is about the figures, and a provider having a bad afternoon is
+            // not something to show a moderator on this card. What the runner could record is in the
+            // call log; this catches only what it could not.
+            _log.Warning(e, "Could not write the sentence for an alert on {Watcher}", figures.Watcher);
         }
     }
 }
