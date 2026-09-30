@@ -45,8 +45,8 @@ public sealed record ShipResult(
 /// </summary>
 /// <remarks>
 /// <para>
-/// On by default and turned off in <strong>Settings</strong>, <strong>Host &amp; Database</strong>,
-/// <strong>Logs</strong>, and off entirely when <c>MODBOT_CLOUD_DISABLED</c> is set — that variable
+/// On by default and turned off in <strong>Settings</strong>, <strong>Server</strong>, on the <strong>Keep for (days)</strong> card,
+/// with <strong>Send logs to Modbot Cloud</strong>, and off entirely when <c>MODBOT_CLOUD_DISABLED</c> is set — that variable
 /// wins over the switch, always (central services spec 1.1).
 /// </para>
 /// <para>

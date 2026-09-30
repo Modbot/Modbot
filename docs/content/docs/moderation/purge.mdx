@@ -66,8 +66,12 @@ Everything is done in one go, or not at all.
   entry on the ban list, their Discord member row and their account link. A purge of somebody who is
   still in the group or the server does not remove them from it, and the next sync writes those
   rows again.
-- **Flags** themselves, with the words that matched, **reviews**, and entries in the
-  [AI call log](/ai/call-log).
+- **Flags** themselves, which still name the person and carry the words that matched, **reviews**,
+  entries in the [AI call log](/ai/call-log), and sign-in records.
+- **The repeat-offender row,** with how many times they were kicked, banned, removed or rejected,
+  the dates and the last moderator's id. A purge does not delete it. The daily review job rebuilds
+  these rows from the history records, so it goes the next time the job refreshes it or is rebuilt in
+  full, not at the moment of the purge.
 - **Modbot's own log** and its log files. See [Logs](/self-hosting/logs).
 - **Copies elsewhere:** anything already sent to Modbot Cloud, to an AI provider, to a Discord
   channel by an event route, to a webhook or to Seq, and any backup of your database. A purge only

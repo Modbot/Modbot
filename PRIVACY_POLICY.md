@@ -186,7 +186,8 @@ return, as the person who connected it. Where that app sends it is up to the app
 - *An email address,* only if someone ticked the box to receive news from Modbot when making their
   account.
 
-All four can be turned off by the operator, or by setting `MODBOT_CLOUD_DISABLED`.
+The operator can turn off the first three in Settings, and each person decides whether their own
+email address is sent by leaving the box unticked. Setting `MODBOT_CLOUD_DISABLED` stops all four.
 
 **To Modbot Cloud, from a moderator's Windows client, if the group's moderators run it.** The client
 reads the VRChat log on that moderator's PC and sends us the events in it: someone joined an
@@ -238,6 +239,10 @@ draws.
   member's profile again.
 - Flags themselves, which still name the person and carry the words that matched, reviews, entries
   in the AI call log, and sign-in records.
+- The repeat-offender row, which holds how many times they were kicked, banned, removed or rejected,
+  the dates and the last moderator's id. A purge does not delete it. Modbot's daily review job
+  rebuilds these rows from the history records, so a purged person's row goes the next time it is
+  refreshed or the job is rebuilt in full, but not at the moment of the purge.
 - Other people's messages that mention or reply to them.
 - Modbot's own log, log files, backups, and anything already sent to Modbot Cloud or an AI provider.
 
@@ -291,7 +296,8 @@ something to it.
 
 ## What does my server send to Modbot Cloud?
 
-**Four things.** Each has its own switch, and `MODBOT_CLOUD_DISABLED` turns all four off at once.
+**Four things.** Three have a switch in Settings and one is a tickbox on a person's account, and
+`MODBOT_CLOUD_DISABLED` turns all four off at once.
 
 | | When | How to turn it off |
 |---|---|---|
@@ -300,7 +306,7 @@ something to it.
 | **Modbot's own log** | About once a minute, in batches | Settings → Server, the **Keep for (days)** card: *Send logs to Modbot Cloud*, then **Save** |
 | **An email address** | Once, when someone makes an account and ticks the box | Do not tick it |
 
-All three switches are on when Modbot is installed. The email box is off.
+All three switches are on when Modbot is installed. The tickbox is off.
 
 ### Open instances
 
@@ -552,7 +558,7 @@ encrypted in its own database.
 
 | | What it is for | What Modbot sends |
 |---|---|---|
-| **VRChat** | The service account Modbot acts as | API calls as that account. VRChat is told who runs this Modbot: the User-Agent carries Modbot's version and **the email address of the group's oldest enabled administrator account that has one** (the developer's address when there is none), and two headers carry the developer's contact email and address |
+| **VRChat** | The service account Modbot acts as | API calls as that account. VRChat is told who runs this Modbot: the User-Agent carries Modbot's version and **the email address of the group's oldest enabled administrator account that has one** (the developer's address when there is none), and two headers carry the developer's contact email and a web address for the project |
 | **Discord** | The bot, and account linking | Bot calls to Discord for the server you name, and the sign-in exchange when somebody links their accounts |
 | **An AI provider** | AI moderation, chat, insights and alerts | See [Is any of that sent anywhere else?](#is-any-of-that-sent-anywhere-else) — off until you switch it on, and you choose the endpoint. While AI is on and the provider is OpenRouter, Modbot also asks `openrouter.ai` once a day for its list of model prices, with no data about your group. Picture downloads for AI come from Discord and VRChat addresses, public ones only |
 | **An AI app you connect through MCP** | Using Chat's lookups from another app | What the lookups return, for the person who connected it. Off until you switch MCP on |
@@ -579,8 +585,9 @@ You are the one handing data to each of these. Their privacy policies are theirs
     and when it registered and was last seen. And the events those clients send, for 365 days by
     default, each with the client's version, the time its clock showed and how far out it was.
   - *Servers:* what [the usage report](#the-usage-report) carries, as one row of latest values, and
-    as a row for each report with the version, platform, group id and name, the counts and the
-    address it came from. Nothing deletes these on a schedule.
+    as a row for each report with the server's public address, version and platform, the group's id
+    and name, whether a Discord bot token is stored, the ids of the imported word lists, the two
+    counts, whether AutoMod is on, and the address it came from. Nothing deletes these on a schedule.
   - *Logs:* what [Modbot's own log](#the-log) carries, for 180 days by default.
   - *The open instances reports,* until they are dropped.
   - *The mailing list:* the addresses described above.
