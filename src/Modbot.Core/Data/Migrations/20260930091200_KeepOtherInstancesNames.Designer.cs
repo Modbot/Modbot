@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20260930090432_KeepOtherInstancesNames")]
+    [Migration("20260930091200_KeepOtherInstancesNames")]
     partial class KeepOtherInstancesNames
     {
         /// <inheritdoc />
@@ -4206,6 +4206,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("case_file_id");
 
+                    b.Property<bool>("DiscordDone")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_done");
+
+                    b.Property<string>("DiscordError")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_error");
+
                     b.Property<string>("FailureMessage")
                         .HasColumnType("text")
                         .HasColumnName("failure_message");
@@ -5933,6 +5941,10 @@ namespace Modbot.Core.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("discord_ban_copy_action");
+
+                    b.Property<bool>("DiscordBanSyncFromBots")
+                        .HasColumnType("boolean")
+                        .HasColumnName("discord_ban_sync_from_bots");
 
                     b.Property<bool>("DiscordBanSyncToDiscord")
                         .HasColumnType("boolean")
