@@ -53,7 +53,7 @@ Three roles exist on every Modbot from the start. They cannot be deleted or rena
 | Role | Holds | Can be changed |
 |---|---|---|
 | **Administrator** | **Administrator**: everything, including permissions added in future versions. | No. It always means everything. |
-| **Moderator** | **See members**, **See profiles**, **See analytics**, **See the audit log**, **Kick**, **Ban**, **Unban**, **Warn**, **View evidence**, **Upload evidence**. | Yes: its description and permissions. |
+| **Moderator** | **See members**, **See profiles**, **See analytics**, **See the audit log**, **Kick**, **Ban**, **Unban**, **Warn**, **View evidence**, **Upload evidence**, **Pair a companion**. | Yes: its description and permissions. |
 | **Viewer** | **See members**, **See profiles**, **See analytics**, **See the audit log**. | Yes: its description and permissions. |
 
 Some permissions are deliberately not in Moderator or Viewer, because they reach further than
@@ -352,6 +352,23 @@ Name: `EditAgeVerification`
 
 A sync can set the mark but never clears it, so clearing it is always a person's decision, and it is
 recorded with their name.
+
+### Pair a companion
+
+Name: `PairCompanion`
+
+- Opens the pairing page, `/pair`, and pairs the [companion](/companion/pairing) to this account.
+  Without it the page says *Your account does not have "Pair a companion".*
+- Opens **Settings**, **Paired companions**, with this person's own companions and a **Remove**
+  button on each. Somebody holding **Manage users** sees everybody's there, with whose each one is,
+  and can remove any of them.
+- Keeps this person's companions working. It is checked on every request a companion makes, so
+  taking it away from a person's roles stops their companions straight away, and giving it back
+  starts them again.
+
+In the built-in Moderator role. When it was added, it was also given to every role held by somebody
+whose companion was working at the time, so no companion stopped on the update. Take it off a role
+you do not want pairing.
 
 ## Administration
 

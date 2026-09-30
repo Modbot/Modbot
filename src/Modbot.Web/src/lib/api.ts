@@ -597,6 +597,21 @@ export type GroupCandidates = {
  */
 export type IssuedPairingCode = { code: string; expiresAt: string }
 
+/**
+ * A companion paired to this server. Your own, or everybody's when you hold Manage users. Removed
+ * ones come back with `revokedAt` set; the settings list leaves them out.
+ */
+export type PairedCompanion = {
+  id: string
+  companionVersion: string
+  platform: string
+  issuedAt: string
+  lastSeenAt: string | null
+  revokedAt: string | null
+  ownerId: string
+  ownerName: string | null
+}
+
 /** One recorded size per UTC day. `day` is `yyyy-mm-dd`. */
 export type StorageDay = { day: string; bytes: number }
 
@@ -4296,8 +4311,14 @@ export const api = {
 
   // ── Companion ──────────────────────────────────────────────────────────────────────
 
-  /** Signed-in staff only. A device token can never mint another device token. */
+  /** Needs Pair a companion. A device token can never mint another device token. */
   issuePairingCode: () => post<IssuedPairingCode>('/api/companion-devices/pairing-code'),
+
+  /** Your own companions; everybody's with Manage users. */
+  pairedCompanions: () => request<PairedCompanion[]>('/api/companion-devices'),
+
+  /** Your own, or anybody's with Manage users. The companion is refused from its next request. */
+  removePairedCompanion: (id: string) => del<void>(`/api/companion-devices/${encodeURIComponent(id)}`),
 
   /**
    * Capacity is a what-if input answered against, never stored — nothing in Modbot behaves

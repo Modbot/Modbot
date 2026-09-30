@@ -24,6 +24,17 @@ public class PermissionCatalogTests
     }
 
     [Fact]
+    public void PairACompanionIsDescribedUnderModeration()
+    {
+        var pair = Assert.Single(PermissionCatalog.All, p => p.Name == nameof(ModbotPermissions.PairCompanion));
+
+        Assert.Equal("Pair a companion", pair.Label);
+        Assert.Equal("Moderation", pair.Group);
+        Assert.Equal(ModbotPermissions.PairCompanion, PermissionCatalog.Parse(["PairCompanion"], out var error));
+        Assert.Null(error);
+    }
+
+    [Fact]
     public void NamesRoundTripThroughParse()
     {
         var held = ModbotPermissions.Ban | ModbotPermissions.EditAgeVerification | ModbotPermissions.ViewProfile;

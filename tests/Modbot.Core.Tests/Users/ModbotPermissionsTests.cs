@@ -38,6 +38,7 @@ public class ModbotPermissionsTests
         Assert.Equal(1L << 40, (long)ModbotPermissions.ManageGroupRoles);
         Assert.Equal(1L << 41, (long)ModbotPermissions.ManageGroupInvites);
         Assert.Equal(1L << 42, (long)ModbotPermissions.ManageGroupGallery);
+        Assert.Equal(1L << 43, (long)ModbotPermissions.PairCompanion);
         Assert.Equal(1L << 18, (long)ModbotPermissions.EditAgeVerification);
         Assert.Equal(1L << 62, (long)ModbotPermissions.Administrator);
     }
@@ -147,5 +148,17 @@ public class ModbotPermissionsTests
             Assert.False(BuiltInRoles.ModeratorPermissions.HasFlag(permission));
             Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(permission));
         }
+    }
+
+    /// <summary>
+    /// Pairing a companion is its own permission, held by moderators and not by viewers: a viewer
+    /// changes nothing, and a companion reports what its moderator sees.
+    /// </summary>
+    [Fact]
+    public void PairingACompanionIsAModeratorsPermissionAndNotAViewers()
+    {
+        Assert.True(BuiltInRoles.ModeratorPermissions.HasFlag(ModbotPermissions.PairCompanion));
+        Assert.False(BuiltInRoles.ViewerPermissions.HasFlag(ModbotPermissions.PairCompanion));
+        Assert.False(ModbotPermissions.ManageUsers.HasFlag(ModbotPermissions.PairCompanion));
     }
 }

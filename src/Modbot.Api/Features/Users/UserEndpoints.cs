@@ -224,6 +224,10 @@ public static class UserEndpoints
                 // old cookie does not come back to life with it.
                 await accounts.EndSessionsAsync(user, ct);
 
+                // The same for their companions: revoked, so enabling the account again does not
+                // bring them back. They pair again if they need one.
+                await accounts.RevokeCompanionDevicesAsync(user.Id, ct);
+
                 await facts.RecordAsync(FactType.UserDisabled, user, Actor.Of(http), null, ct);
 
                 await transaction.CommitAsync(ct);

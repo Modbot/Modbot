@@ -87,6 +87,10 @@ public static class BuiltInRoles
     public const ModbotPermissions AdministratorPermissions = ModbotPermissions.Administrator;
 
     /// <summary>Moderation plus the evidence to back it up, and the history to check first.</summary>
+    /// <remarks>
+    /// <see cref="ModbotPermissions.PairCompanion"/> was added by a data migration
+    /// (<c>LetModeratorsPairACompanion</c>) rather than by the seed, which ran before it existed.
+    /// </remarks>
     public const ModbotPermissions ModeratorPermissions =
         ModbotPermissions.ViewMembers
         | ModbotPermissions.ViewProfile
@@ -97,7 +101,8 @@ public static class BuiltInRoles
         | ModbotPermissions.Unban
         | ModbotPermissions.Warn
         | ModbotPermissions.ViewEvidence
-        | ModbotPermissions.UploadEvidence;
+        | ModbotPermissions.UploadEvidence
+        | ModbotPermissions.PairCompanion;
 
     /// <summary>Read-only: the same views a moderator has, and nothing that changes anything.</summary>
     public const ModbotPermissions ViewerPermissions =

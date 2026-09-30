@@ -50,6 +50,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.WriteNotes, "Write notes", "Write a note about somebody, and take one back. Reading notes needs the audit log.", "Moderation"),
         Describe(ModbotPermissions.ManageDiscordLinks, "Manage Discord links", "Unlink a member's Discord and VRChat accounts. Removes the roles Modbot gave them.", "Moderation"),
         Describe(ModbotPermissions.EditAgeVerification, "Edit 18+ verified", "Set or clear the 18+ verified mark on a VRChat user by hand. Syncs can only set it.", "Moderation"),
+        Describe(ModbotPermissions.PairCompanion, "Pair a companion", "Pair the Windows companion to this account. Taking it away stops their companions.", "Moderation"),
         Describe(ModbotPermissions.EditGroupProfile, "Edit the group's profile", "Change the group's name, description, rules, languages, links and who can join, on VRChat.", "Administration"),
         Describe(ModbotPermissions.ManageGroupPosts, "Manage group posts", "Post in the group on VRChat, change a post and delete one.", "Administration"),
         Describe(ModbotPermissions.ManageGroupRoles, "Manage group roles", "Create, change and delete the group's roles and their permissions, on VRChat.", "Administration"),

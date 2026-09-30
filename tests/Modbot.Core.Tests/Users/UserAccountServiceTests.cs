@@ -235,4 +235,69 @@ public class UserAccountServiceTests
 
         Assert.True((await service.StateAsync(user.Id, Ct))!.Value.VRChatLinked);
     }
+
+    // ── Companions (disable and delete revoke them) ─────────────────────────────────────────
+
+    private static Guid AddDevice(Modbot.Core.Data.ModbotContext context, Guid ownerId, DateTimeOffset? revokedAt = null)
+    {
+        var id = Guid.NewGuid();
+        context.CompanionDevices.Add(new CompanionDeviceRecord
+        {
+            Id = id,
+            TokenHash = Guid.NewGuid().ToString("N"),
+            CompanionVersion = "2026.9.0",
+            Platform = "windows",
+            IssuedToUserId = ownerId,
+            IssuedAt = new FakeClock().UtcNow,
+            RevokedAt = revokedAt,
+        });
+        return id;
+    }
+
+    [Fact]
+    public async Task RevokeCompanionDevicesAsync_RevokesOnlyThatAccountsWorkingDevices()
+    {
+        var clock = new FakeClock();
+        await using var context = _db.NewContext();
+        var service = Create(context, clock);
+        var owner = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), NoRoles, Ct);
+        var other = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), NoRoles, Ct);
+
+        var earlier = clock.UtcNow.AddDays(-3);
+        var working = AddDevice(context, owner.Id);
+        var alreadyRevoked = AddDevice(context, owner.Id, earlier);
+        var someoneElses = AddDevice(context, other.Id);
+        await context.SaveChangesAsync(Ct);
+
+        clock.Advance(TimeSpan.FromMinutes(1));
+        var revoked = await service.RevokeCompanionDevicesAsync(owner.Id, Ct);
+
+        Assert.Equal(1, revoked);
+
+        var rows = await context.CompanionDevices.AsNoTracking()
+            .Where(d => d.Id == working || d.Id == alreadyRevoked || d.Id == someoneElses)
+            .ToDictionaryAsync(d => d.Id, d => d.RevokedAt, Ct);
+
+        Assert.Equal(clock.UtcNow, rows[working]);
+
+        // The first revocation time is kept: it is the moment that device's later facts became suspect.
+        Assert.Equal(earlier, rows[alreadyRevoked]);
+        Assert.Null(rows[someoneElses]);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RevokesTheAccountsCompanions()
+    {
+        await using var context = _db.NewContext();
+        var service = Create(context, new FakeClock());
+        var user = await service.CreateAsync(UniqueName(), "pw", UniqueEmail(), Viewer, Ct);
+        var device = AddDevice(context, user.Id);
+        await context.SaveChangesAsync(Ct);
+
+        await service.DeleteAsync(user, Ct);
+
+        var revokedAt = await context.CompanionDevices.AsNoTracking()
+            .Where(d => d.Id == device).Select(d => d.RevokedAt).SingleAsync(Ct);
+        Assert.NotNull(revokedAt);
+    }
 }

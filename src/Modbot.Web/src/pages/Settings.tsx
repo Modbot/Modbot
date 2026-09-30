@@ -13,6 +13,7 @@ import { AiSection } from '@/components/settings/ai/AiSection'
 import { ApiSection } from '@/components/settings/api/ApiSection'
 import { VRChatProxySection } from '@/components/settings/proxy/VRChatProxySection'
 import { PurgeSection } from '@/components/settings/PurgeSection'
+import { PairedCompanionsSection } from '@/components/settings/PairedCompanionsSection'
 import { api, ApiError, type CurrentUser, type OnboardingStatus } from '@/lib/api'
 import { canAny } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
@@ -29,7 +30,8 @@ import { cn } from '@/lib/utils'
  * `needs` is the permission a topic asks for. Most are a setting of the deployment and ask for
  * Manage settings; People and roles is Modbot's own accounts and roles, which are managed by their
  * own two permissions (accounts and access design §3, §4); Purge a person asks for Administrator,
- * the permission evidence storage design §14 already gives it.
+ * the permission evidence storage design §14 already gives it. Paired companions opens for
+ * somebody who may pair one (their own) or who manages users (everybody's).
  */
 const TABS = [
   { value: 'moderation', label: 'Moderation', group: 'Your group', needs: ['ManageSettings'] },
@@ -37,6 +39,7 @@ const TABS = [
   { value: 'auto-invites', label: 'Auto-invites', group: 'Your group', needs: ['ManageAutoInvites'] },
   { value: 'evidence', label: 'Evidence', group: 'Your group', needs: ['ManageSettings'] },
   { value: 'iam', label: 'People and roles', group: 'People', needs: ['ManageUsers', 'ManageRoles'] },
+  { value: 'companions', label: 'Paired companions', group: 'People', needs: ['PairCompanion', 'ManageUsers'] },
   { value: 'purge', label: 'Purge a person', group: 'People', needs: ['Administrator'] },
   { value: 'vrchat', label: "Modbot's VRChat login", group: 'Connections', needs: ['ManageSettings'] },
   { value: 'discord', label: 'Discord', group: 'Connections', needs: ['ManageSettings'] },
@@ -273,5 +276,7 @@ function Panel({
       return <AutoInvitesSection />
     case 'purge':
       return <PurgeSection />
+    case 'companions':
+      return <PairedCompanionsSection />
   }
 }

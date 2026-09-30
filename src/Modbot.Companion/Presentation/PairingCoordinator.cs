@@ -82,12 +82,44 @@ public sealed class PairingCoordinator
         return new PairingAttemptResult(false, Explain(result, token.Server));
     }
 
-    /// <summary>Removes a pairing, and with it the token and anything queued for that server.</summary>
+    /// <summary>
+    /// Removes a pairing, and with it the token and anything queued for that server, then asks the
+    /// server once to revoke the device.
+    /// </summary>
     /// <remarks>
+    /// <para>
     /// Uninstalling or unpairing stops reporting without the group's operator having to do
     /// anything, which is what makes consent revocable from the moderator's side too.
+    /// </para>
+    /// <para>
+    /// <strong>Removed here first, whatever the server says.</strong> The pairing is gone from this
+    /// machine before the request leaves, so an unreachable server, an old one that has no such
+    /// endpoint, or a token it already refuses never leaves a pairing behind. The request is tried
+    /// once and never retried; if it did not land, the device shows in Modbot's settings and the
+    /// moderator or an operator removes it there.
+    /// </para>
     /// </remarks>
-    public void Unpair(string serverId) => _store.Remove(serverId);
+    /// <returns>Whether the server said it revoked the device.</returns>
+    public async Task<bool> UnpairAsync(string serverId, CancellationToken cancellationToken = default)
+    {
+        var pairing = _store.Load().FirstOrDefault(p => p.ServerId == serverId)?.Pairing;
+
+        _store.Remove(serverId);
+
+        if (pairing is null)
+            return false;
+
+        try
+        {
+            return await _client.RemoveDeviceAsync(pairing, cancellationToken).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // Unpairing has already happened here; nothing the server does may undo or fail it.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return false;
+        }
+    }
 
     public IReadOnlyList<LoadedPairing> Load() => _store.Load();
 

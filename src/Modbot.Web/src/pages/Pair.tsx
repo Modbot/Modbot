@@ -45,7 +45,14 @@ export function Pair() {
           setSecondsLeft(secondsUntil(next.expiresAt))
         })
         .catch((e: unknown) =>
-          setError(e instanceof ApiError ? e.message : 'Could not reach the Modbot server.'),
+          setError(
+            // A 403 arrives with no body, which would read "The server answered 403."
+            e instanceof ApiError && e.status === 403
+              ? 'Your account does not have "Pair a companion".'
+              : e instanceof ApiError
+                ? e.message
+                : 'Could not reach the Modbot server.',
+          ),
         )
         .finally(() => setBusy(false)),
     [],

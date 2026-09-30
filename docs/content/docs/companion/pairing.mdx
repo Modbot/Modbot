@@ -11,9 +11,10 @@ code or a name for your computer: it all happens with a button in your browser.
 
 - [Install the client](/companion/install) and run it once. Running it is what tells Windows
   that Modbot pairing links open the client.
-- Have a staff account on your group's Modbot. Any signed-in staff account can pair a client; no
-  particular permission is needed. The server records that the paired client is yours. See
-  [Staff accounts](/accounts/staff-accounts).
+- Have a staff account on your group's Modbot that holds
+  [**Pair a companion**](/accounts/roles-and-permissions#pair-a-companion). The built-in Moderator
+  role has it. Without it the pairing page says *Your account does not have "Pair a companion".*
+  The server records that the paired client is yours. See [Staff accounts](/accounts/staff-accounts).
 - Link your VRChat account to your Modbot account. If you have not, signing in shows **Link your
   VRChat account** first, and you cannot reach the pairing page until you do.
 - The server itself must be set up (the [setup wizard](/setup-wizard) finished, with a group
@@ -62,6 +63,11 @@ group's instances.
 
 A pairing link works **once**, and only for **five minutes**. The page counts down (**Expires in**)
 and shows **This link has expired.** when time is up. Press **Get a new link** for a fresh one.
+
+Wrong or used codes sent from one internet address make the server wait before it checks the next
+code from that address: one second after the first, then two, four, and so on up to twenty. A
+right code still pairs after the wait. Behind a reverse proxy that does not pass on each visitor's
+address, every client shares one count.
 
 ## If the button did nothing
 
@@ -125,9 +131,10 @@ does not pause any other.
 ### Unpair
 
 **Unpair** removes that server's token, its queue and its card from your PC, and the client stops
-reporting to it at once. It does not tell the server. The server keeps its record of the device
-until an operator [revokes it](#paired-devices-on-the-server), but the token is no longer on your
-PC to be used.
+reporting to it at once. It then asks the server, once, to remove this device too, so the token
+stops working there as well. If the server cannot be reached, or runs a Modbot too old to know the
+request, the pairing is still gone from your PC; the device then stays in
+[Paired companions](#paired-devices-on-the-server) until you or an operator removes it there.
 
 ## What pairing sends
 
@@ -152,11 +159,14 @@ Modbot.
 The pairing link itself only holds the one-time code and the server's address. Links end up in
 browser history, but a used or expired code is worthless.
 
+**Unpair** sends one more request to that server: the token, asking it to remove this device.
+Nothing else goes with it.
+
 ## Messages when pairing
 
 | The client says | What happened | What to do |
 |---|---|---|
-| *This pairing link has expired or was already used.* | The code was used, is older than five minutes, or never existed. | Open the pairing page again and use the new link. |
+| *This pairing link has expired or was already used.* | The code was used, is older than five minutes, or never existed, or the account that made it can no longer pair (disabled, deleted, or without **Pair a companion**). | Open the pairing page again and use the new link. |
 | *That is not a Modbot pairing token.* | Something other than the token was pasted. | Press **Copy pairing token** again and paste all of it. |
 | *Paste the pairing token from your group's Modbot pairing page.* | **Use pairing token** was pressed with the box empty. | Paste the token first. |
 | *This pairing token points at …, which is not a secure (https) address.* | The link names a server that is not on HTTPS. | Ask your group's operator. The client only pairs over HTTPS. |
@@ -167,30 +177,54 @@ browser history, but a used or expired code is worthless.
 
 ## Paired devices on the server
 
-Every paired client is recorded on the server as a device, with its client version, platform, when
-it was paired, when it last reported, and when it was revoked. The web app does not have a screen
-for this list yet. An operator can read it and revoke a device through two endpoints, which need a
-signed-in account and are not listed in the [API reference](/api/reference):
+Every paired client is recorded on the server as a device, with its client version, platform, whose
+it is, when it was paired, when it last reported, and when it was removed.
+
+In the web app, open **Settings**, **Paired companions**. It lists your own companions: who, the
+platform, the client version and when each last reported. Somebody holding **Manage users** sees
+everybody's. **Remove** takes one away; the companion is refused from its next request. Removed
+companions are not listed.
+
+**Last seen** is written at most once every five minutes, and straight away when the client
+reports a new version, so it can be up to five minutes behind.
+
+The same list and the same removal are two endpoints, which need a signed-in account and are not
+listed in the [API reference](/api/reference):
 
 ```http
 GET /api/companion-devices
 ```
 
-Lists every device, newest first, including revoked ones. It never shows a token.
+Lists your own devices, or every device with **Manage users**, newest first, including removed
+ones. Each says whose it is. It never shows a token.
 
 ```http
 DELETE /api/companion-devices/{deviceId}
 ```
 
-Revokes one device. It answers `204` when revoked, and `404` when there is no such device or it was
-already revoked. A revoked device stays in the list, with the time it was revoked.
+Removes one device: your own, or anybody's with **Manage users**. It answers `204` when removed,
+`403` for somebody else's device without **Manage users**, and `404` when there is no such device
+or it was already removed. A removed device stays in the list, with the time it was removed.
 
-Removing someone from your staff does not revoke their client on its own. Revoke the device too.
+### When a companion stops by itself
+
+A companion works only while all of these hold. It is checked on every request the client makes:
+
+- It has not been removed.
+- It has reported in the last **90 days**. One unused for longer is refused and has to be paired
+  again. Its **Last seen** in the list shows when it last reported.
+- The account it is paired to is enabled, not deleted, and holds **Pair a companion**.
+
+Disabling or deleting an account removes its companions. Enabling the account again does not bring
+them back: that person pairs again. Taking **Pair a companion** off a role stops the companions of
+everybody who held it only through that role, and giving it back starts them again.
 
 ## When a token is revoked
 
-Revoking takes effect at the client's next request to that server: its next batch of events, its
-next time check (at most two hours away), or its next overlay read. From then on:
+A token stops working when the device is removed, and for the other reasons in
+[When a companion stops by itself](#when-a-companion-stops-by-itself). It takes effect at the
+client's next request to that server: its next batch of events, its next time check (at most two
+hours away), or its next overlay read. From then on:
 
 - The server card shows **Stopped**, and the window shows a warning that the server rejected this
   device and reporting will not restart on its own.

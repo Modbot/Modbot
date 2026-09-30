@@ -364,6 +364,22 @@ public enum ModbotPermissions : long
     /// <summary>Remove an image from one of the group's galleries on VRChat.</summary>
     ManageGroupGallery = 1L << 42,
 
+    // --- The companion. Bit 43. ---
+
+    /// <summary>
+    /// Pair a companion to this account, and keep the ones already paired working.
+    /// </summary>
+    /// <remarks>
+    /// Checked when a pairing code is made and again on every request a paired companion makes, so
+    /// taking it away from somebody's roles stops their companions at the next request. Until it
+    /// existed any signed-in account could pair, including one holding no permission at all, and
+    /// the device it got could read who is flagged in every instance. The migration that added it
+    /// gave it to the built-in Moderator role and to every role held by somebody with a working
+    /// companion at the time, so nothing already paired stopped on update. Administrator already
+    /// holds it.
+    /// </remarks>
+    PairCompanion = 1L << 43,
+
     /// <summary>
     /// Satisfies every requirement, including flags added after this account was created. Checked
     /// explicitly rather than defined as an OR of the others, so a new flag does not quietly go

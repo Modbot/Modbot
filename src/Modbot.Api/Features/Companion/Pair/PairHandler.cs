@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Core.Data;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
+using Modbot.VRChat.RateLimiting;
 
 namespace Modbot.Api.Features.Companion.Pair;
 
@@ -48,6 +50,12 @@ public sealed record PairResponse(
 /// from "never existed" helps only somebody guessing.</para>
 /// <para><strong>The device inherits the moderator who issued the code</strong>, which is how
 /// "whose client is this" is answered, and what revoking a moderator's access cascades from.</para>
+/// <para><strong>Wrong codes are slowed per address</strong> (<see cref="PairingSlowdown"/>). The
+/// wait comes before the code is checked, and applies to a right code too, which is what makes it
+/// a slowdown and not a lockout.</para>
+/// <para><strong>The owner is checked again when the code is used.</strong> A code made by an
+/// account that has since been disabled, deleted or lost "Pair a companion" is refused like any
+/// other bad code, so no device is ever made for somebody who could not make one now.</para>
 /// </remarks>
 public static class PairHandler
 {
@@ -57,11 +65,17 @@ public static class PairHandler
     public static async Task<IResult> HandleAsync(
         int apiVersion,
         PairRequest? request,
+        HttpContext context,
         ICompanionDeviceStore devices,
+        UserAccountService accounts,
+        PairingSlowdown slowdown,
+        IDelayScheduler delay,
         ModbotContext database,
         IModbotClock clock,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         if (!CompanionApiVersion.IsSupported(apiVersion))
             return CompanionApiErrors.VersionUnsupported(apiVersion);
 
@@ -73,13 +87,24 @@ public static class PairHandler
         if (settings.ManagedGroupId is not { Length: > 0 } managedGroupId)
             return CompanionApiErrors.NotReady();
 
+        var address = context.Connection.RemoteIpAddress?.ToString();
+
+        var wait = slowdown.WaitFor(address);
+        if (wait > TimeSpan.Zero)
+            await delay.DelayAsync(wait, ct);
+
         var code = typed.Length > 0
             ? await devices.TryRedeemCodeAsync(
                 DeviceTokens.Hash(DeviceTokens.NormaliseCode(typed)), clock.UtcNow, ct)
             : null;
 
+        if (code is not null && !DeviceStanding.OwnerMayUse(await accounts.StateAsync(code.IssuedToUserId, ct)))
+            code = null;
+
         if (code is null)
         {
+            slowdown.RecordFailure(address);
+
             // One answer for expired, already-redeemed and never-existed. The client shows it as
             // "that code was not accepted"; the moderator generates another one, which costs them
             // a few seconds and costs a guesser everything.
@@ -89,6 +114,8 @@ public static class PairHandler
                     "That pairing code is not valid. Generate a new one in Modbot's settings."),
                 statusCode: StatusCodes.Status400BadRequest);
         }
+
+        slowdown.RecordSuccess(address);
 
         var token = DeviceTokens.NewToken();
         await devices.AddDeviceAsync(

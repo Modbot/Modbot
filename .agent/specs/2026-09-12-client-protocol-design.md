@@ -141,6 +141,38 @@ Stored per server using DPAPI (`CurrentUser` scope), never in plaintext. Revocat
 and immediate; the client treats `401` as terminal for that pairing and surfaces it rather than
 retrying — a revoked moderator's client must stop, visibly.
 
+### 3.3 A token is tied to its owner's standing *(2026-09-30)*
+
+Until this date a token was checked for "revoked?" and nothing else. Disabling or deleting the
+moderator it was paired to left it working, it never expired, any signed-in account could make a
+pairing code (including one holding no permission at all), `/pair` answered wrong codes as fast as
+they came, and the staff list and revoke endpoints showed and revoked every device to anybody signed
+in. A removed moderator's PC kept reading who was flagged in every instance.
+
+- **New permission, Pair a companion (`PairCompanion`, bit 43).** Making a pairing code needs it.
+  A data migration (`LetModeratorsPairACompanion`) gave it to the built-in Moderator role and to
+  every role held by an account owning a working (not revoked) companion at the time, so nothing
+  stopped on update; that second part was the maintainer's decision. Administrator already covers it.
+- **Checked on every use** (`DeviceStanding`): the device is refused, with the same `401` as an
+  unknown token, when it is revoked, when it has not been heard from for **90 days** (counted from
+  last seen, or from pairing if never seen), or when its owner is missing, disabled or lacks the
+  permission. The authenticator and the live stream's periodic re-check call the same code, so an
+  open socket ends at its next heartbeat. The owner is also checked when a code is redeemed. The
+  90 days is fixed and has no column: last-seen already says it.
+- **Disable and delete revoke** the person's devices in the same transaction as the change.
+  Re-enabling the account does not bring them back.
+- **Last-seen is written at most every 5 minutes**, and whenever the reported version changes, in one
+  conditional `UPDATE`.
+- **Wrong codes are slowed per address** (`PairingSlowdown`, the sign-in slowdown's counter). Behind
+  a proxy that does not pass the client address on, everybody shares one count.
+- **Staff endpoints.** `GET /api/companion-devices` lists the caller's own devices, and every device,
+  with the owner's name, for Manage users. `DELETE /api/companion-devices/{id}` needs the owner or
+  Manage users (`403` otherwise). The web app lists them under Settings, Paired companions.
+- **Self-removal.** `DELETE /api/v{n}/companion/device`, authenticated with the device's own token,
+  revokes it. The client's Unpair removes the pairing locally first and then sends this once; a
+  server that predates it answers `404` and the local removal stands. The protocol version is
+  unchanged: the endpoint is an addition an older client never calls.
+
 ---
 
 ## 4. Ingest

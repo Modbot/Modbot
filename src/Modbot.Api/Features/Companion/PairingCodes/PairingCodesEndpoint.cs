@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Devices;
+using Modbot.Core.Data;
+using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Companion.PairingCodes;
@@ -17,7 +20,13 @@ public sealed record IssuedPairingCode(string Code, DateTimeOffset ExpiresAt);
 
 /// <param name="LastSeenAt">
 /// Null means this install has never reported. Surfaced so an operator can see which moderators
-/// are actually covering their instances and which installs have gone stale.
+/// are actually covering their instances and which installs have gone stale. Written at most once
+/// every few minutes (<see cref="DeviceStanding.SeenWriteEvery"/>).
+/// </param>
+/// <param name="OwnerId">The account the device was paired to.</param>
+/// <param name="OwnerName">
+/// That account's username, or null when the account row is gone. A deleted account keeps its row
+/// under a <c>deleted_user_</c> name, so null is rare.
 /// </param>
 public sealed record PairedDevice(
     Guid Id,
@@ -25,7 +34,9 @@ public sealed record PairedDevice(
     string Platform,
     DateTimeOffset IssuedAt,
     DateTimeOffset? LastSeenAt,
-    DateTimeOffset? RevokedAt);
+    DateTimeOffset? RevokedAt,
+    Guid OwnerId,
+    string? OwnerName);
 
 /// <summary>
 /// The staff side of pairing: generate a code, see which devices are reporting, revoke one.
@@ -34,6 +45,12 @@ public sealed record PairedDevice(
 /// <para><strong>Authenticated as a person, never as a device.</strong> A device token must not be
 /// able to mint another device token, or a single compromised client could quietly grant itself
 /// permanent, unrevocable access under a different name.</para>
+/// <para><strong>Making a code needs "Pair a companion".</strong> Before that permission existed
+/// any signed-in account could make one, including an account holding no permission at all, and
+/// the device it became could read who is flagged in every instance.</para>
+/// <para><strong>Your own devices, or everyone's with Manage users.</strong> The list shows the
+/// caller's own devices; an account holding Manage users sees every device, with whose each one
+/// is. Removing one needs the same: it is yours, or you hold Manage users.</para>
 /// <para><strong>Installing is a decision by the moderator, not a policy pushed at them.</strong>
 /// A group owner can ask; they cannot silently enrol somebody. The code exists so the moderator
 /// has to take a deliberate action on their own machine for anything to start reporting.</para>
@@ -70,7 +87,8 @@ public static class PairingCodesEndpoint
             .WithName("IssuePairingCode")
             .WithSummary("Make a pairing code")
             .WithDescription(
-                "Short, single-use, and valid for five minutes — long enough to click through "
+                "Needs Pair a companion. "
+                + "Short, single-use, and valid for five minutes — long enough to click through "
                 + "from the pairing page to the client, short enough that a code left in a "
                 + "browser history, a screenshot or a stream is worthless by the time anybody "
                 + "sees it.\n\n"
@@ -79,21 +97,45 @@ public static class PairingCodesEndpoint
                 + "and never displayed: a credential a human has to read out or retype ends up "
                 + "pasted into a chat message.")
             .Produces<IssuedPairingCode>()
-            .RequireAuthorization();
+            .Produces(StatusCodes.Status403Forbidden)
+            .RequiresFlag(ModbotPermissions.PairCompanion);
 
-        codes.MapGet("/", async (ICompanionDeviceStore devices, CancellationToken ct) =>
+        codes.MapGet("/", async (
+                HttpContext context,
+                ICompanionDeviceStore devices,
+                ModbotContext db,
+                CancellationToken ct) =>
             {
-                var paired = await devices.ListDevicesAsync(ct);
+                if (ModbotAuth.UserIdOf(context.User) is not { } userId)
+                    return Results.Unauthorized();
+
+                var paired = ModbotAuth.Allows(ModbotAuth.PermissionsOf(context.User), ModbotPermissions.ManageUsers)
+                    ? await devices.ListDevicesAsync(ct)
+                    : await devices.ListDevicesForAsync(userId, ct);
+
+                var ownerIds = paired.Select(d => d.IssuedToUserId).Distinct().ToList();
+                var names = await db.Users.AsNoTracking()
+                    .Where(u => ownerIds.Contains(u.Id))
+                    .Select(u => new { u.Id, u.Username })
+                    .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
 
                 return Results.Ok(paired
                     .Select(d => new PairedDevice(
-                        d.Id, d.CompanionVersion, d.Platform, d.IssuedAt, d.LastSeenAt, d.RevokedAt))
+                        d.Id,
+                        d.CompanionVersion,
+                        d.Platform,
+                        d.IssuedAt,
+                        d.LastSeenAt,
+                        d.RevokedAt,
+                        d.IssuedToUserId,
+                        names.GetValueOrDefault(d.IssuedToUserId)))
                     .ToList());
             })
             .WithName("ListPairedDevices")
             .WithSummary("List paired clients")
             .WithDescription(
-                "Never returns a token or a token hash. The list answers two operational "
+                "Your own devices; every device, with whose it is, when you hold Manage users. "
+                + "Never returns a token or a token hash. The list answers two operational "
                 + "questions: which moderators are actually reporting, and how much of the "
                 + "group's coverage is running a stale build whose log parser may have stopped "
                 + "recognising anything.")
@@ -102,11 +144,25 @@ public static class PairingCodesEndpoint
 
         codes.MapDelete("/{deviceId:guid}", async (
                 Guid deviceId,
+                HttpContext context,
                 ICompanionDeviceStore devices,
                 AlertHub alerts,
                 IModbotClock clock,
                 CancellationToken ct) =>
             {
+                if (ModbotAuth.UserIdOf(context.User) is not { } userId)
+                    return Results.Unauthorized();
+
+                if (await devices.FindByIdAsync(deviceId, ct) is not { } device)
+                    return Results.NotFound();
+
+                // Somebody else's device needs Manage users, the same permission that shows it.
+                if (device.IssuedToUserId != userId
+                    && !ModbotAuth.Allows(ModbotAuth.PermissionsOf(context.User), ModbotPermissions.ManageUsers))
+                {
+                    return Results.Forbid();
+                }
+
                 if (!await devices.RevokeAsync(deviceId, clock.UtcNow, ct))
                     return Results.NotFound();
 
@@ -119,13 +175,15 @@ public static class PairingCodesEndpoint
             .WithName("RevokeClientDevice")
             .WithSummary("Revoke a device")
             .WithDescription(
-                "Immediate: the client is refused at its next request and stops visibly rather "
+                "Your own device, or anybody's when you hold Manage users. "
+                + "Immediate: the client is refused at its next request and stops visibly rather "
                 + "than retrying.\n\n"
                 + "The device record is kept rather than deleted, because the facts it reported "
                 + "still point at it — which is what makes a misbehaving client's contributions "
                 + "identifiable as a set.\n\n"
                 + "One moderator leaving never requires rotating anybody else's token.")
             .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .RequireAuthorization();
 

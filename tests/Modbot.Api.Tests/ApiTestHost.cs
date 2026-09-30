@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Companion;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Security;
@@ -70,10 +71,15 @@ public sealed class ApiTestHost : IAsyncDisposable
     /// Last word on the container, after every registration the host makes: a test substitutes
     /// the email sender or the delay scheduler here, and the later registration wins.
     /// </param>
+    /// <param name="companion">
+    /// Also map the companion's surface, pairing codes and paired devices included. The shipped
+    /// host maps it beside the API (<c>MapClientApi</c>); most tests here have no use for it.
+    /// </param>
     public static async Task<ApiTestHost> StartAsync(
         PostgresFixture db,
         FakeVRChatGate? gate = null,
-        Action<IServiceCollection>? configure = null)
+        Action<IServiceCollection>? configure = null,
+        bool companion = false)
     {
         var clock = new FakeClock();
         gate ??= new FakeVRChatGate();
@@ -135,6 +141,9 @@ public sealed class ApiTestHost : IAsyncDisposable
         builder.Services.AddModbotAi();
         builder.Services.AddModbotApi();
 
+        if (companion)
+            builder.Services.AddClientApi();
+
         configure?.Invoke(builder.Services);
 
         var app = builder.Build();
@@ -145,6 +154,10 @@ public sealed class ApiTestHost : IAsyncDisposable
         app.UseAuthorization();
 
         app.MapModbotApi();
+
+        if (companion)
+            app.MapClientApi();
+
         app.MapGet(OpenProbe, () => Results.Ok("open"));
         app.MapGet(AuditProbe, () => Results.Ok("audit"))
            .RequiresFlag(ModbotPermissions.ViewAuditLog);

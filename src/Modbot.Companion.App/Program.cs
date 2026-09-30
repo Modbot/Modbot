@@ -3137,10 +3137,25 @@ internal sealed class CompanionHost : IOverlayListener
         if (_state is null || _pairing is null)
             return;
 
-        _pairing.Unpair(serverId);
+        // Removed from this machine before this returns; the server is asked once, in the
+        // background, to revoke the device too. Its answer changes nothing here, so it only goes
+        // to the log.
+        var removed = _pairing.UnpairAsync(serverId);
         Disconnect(serverId);
         _state.UnusablePairings.RemoveAll(p => p.ServerId == serverId);
         Render();
+
+        _ = removed.ContinueWith(
+            unpaired =>
+            {
+                if (unpaired.IsFaulted)
+                    Log.Warning(unpaired.Exception, "Unpairing {Server} hit a problem", serverId);
+                else if (unpaired.IsCompletedSuccessfully && unpaired.Result)
+                    Log.Information("Unpaired {Server}; it revoked this device", serverId);
+                else
+                    Log.Information("Unpaired {Server} on this machine; it did not confirm revoking this device", serverId);
+            },
+            TaskScheduler.Default);
     }
 
     /// <summary>

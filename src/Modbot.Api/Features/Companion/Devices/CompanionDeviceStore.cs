@@ -72,15 +72,31 @@ public interface ICompanionDeviceStore
     Task<CompanionDevice> AddDeviceAsync(CompanionDevice device, CancellationToken ct);
 
     /// <summary>Resolves a presented token. Returns null for unknown <em>and</em> for revoked.</summary>
+    /// <remarks>
+    /// Whether the device may still be used is more than this: its owner and how long it has been
+    /// idle decide too, and <see cref="DeviceStanding"/> checks both.
+    /// </remarks>
     Task<CompanionDevice?> FindByTokenHashAsync(string tokenHash, CancellationToken ct);
+
+    /// <summary>One device by its id, revoked or not. Null when there is no such device.</summary>
+    Task<CompanionDevice?> FindByIdAsync(Guid deviceId, CancellationToken ct);
 
     /// <summary>
     /// Records that this device was heard from, so an operator can see which moderators are
     /// actually reporting and which installs are stale.
     /// </summary>
+    /// <remarks>
+    /// Written at most once every <see cref="DeviceStanding.SeenWriteEvery"/>, and whenever the
+    /// version changes. A companion calls several times a minute, and a write on each one was a
+    /// row update per request for a time nobody reads closer than a few minutes.
+    /// </remarks>
     Task TouchAsync(Guid deviceId, DateTimeOffset seenAt, string companionVersion, CancellationToken ct);
 
+    /// <summary>Every device, revoked ones included.</summary>
     Task<IReadOnlyList<CompanionDevice>> ListDevicesAsync(CancellationToken ct);
+
+    /// <summary>The devices paired to one account, revoked ones included.</summary>
+    Task<IReadOnlyList<CompanionDevice>> ListDevicesForAsync(Guid userId, CancellationToken ct);
 
     Task<bool> RevokeAsync(Guid deviceId, DateTimeOffset revokedAt, CancellationToken ct);
 }
@@ -147,12 +163,21 @@ public sealed class InMemoryClientDeviceStore : ICompanionDeviceStore
         }
     }
 
+    public Task<CompanionDevice?> FindByIdAsync(Guid deviceId, CancellationToken ct)
+    {
+        lock (_gate)
+            return Task.FromResult(_devices.TryGetValue(deviceId, out var device) ? device : null);
+    }
+
     public Task TouchAsync(Guid deviceId, DateTimeOffset seenAt, string companionVersion, CancellationToken ct)
     {
         lock (_gate)
         {
-            if (_devices.TryGetValue(deviceId, out var device))
+            if (_devices.TryGetValue(deviceId, out var device)
+                && DeviceStanding.SeenIsDue(device.LastSeenAt, device.CompanionVersion, seenAt, companionVersion))
+            {
                 _devices[deviceId] = device with { LastSeenAt = seenAt, CompanionVersion = companionVersion };
+            }
         }
 
         return Task.CompletedTask;
@@ -162,6 +187,15 @@ public sealed class InMemoryClientDeviceStore : ICompanionDeviceStore
     {
         lock (_gate)
             return Task.FromResult<IReadOnlyList<CompanionDevice>>([.. _devices.Values.OrderBy(d => d.IssuedAt)]);
+    }
+
+    public Task<IReadOnlyList<CompanionDevice>> ListDevicesForAsync(Guid userId, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            return Task.FromResult<IReadOnlyList<CompanionDevice>>(
+                [.. _devices.Values.Where(d => d.IssuedToUserId == userId).OrderBy(d => d.IssuedAt)]);
+        }
     }
 
     public Task<bool> RevokeAsync(Guid deviceId, DateTimeOffset revokedAt, CancellationToken ct)

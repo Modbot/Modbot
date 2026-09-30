@@ -134,7 +134,8 @@ public sealed class UserAccountService
     /// <para>
     /// Roles are cleared, so a deleted account holds no permissions whatever anybody does to the
     /// row afterwards. Sessions end on the spot and the password becomes one nobody typed, so
-    /// there is no way back in.
+    /// there is no way back in. Its companions are revoked too
+    /// (<see cref="RevokeCompanionDevicesAsync"/>).
     /// </para>
     /// <para>
     /// Writes no fact — the fact writer lives a layer up, as everywhere else here — so the caller
@@ -177,9 +178,35 @@ public sealed class UserAccountService
         user.DeletedAt = _clock.UtcNow;
         user.SessionsValidAfter = _clock.UtcNow;
 
+        await RevokeCompanionDevicesAsync(user.Id, ct);
         await _db.SaveChangesAsync(ct);
 
         return name;
+    }
+
+    /// <summary>
+    /// Revokes every companion this account paired that is not revoked already. Returns how many.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For disabling and deleting. A companion is refused anyway once its owner is disabled (the
+    /// companion's own check reads <see cref="StateAsync"/> on every request), but that refusal
+    /// lifts again if the account is enabled. Revoking is what makes it final: re-enabling somebody
+    /// gives them their browser back, and their companions stay stopped until they pair again.
+    /// </para>
+    /// <para>
+    /// A bare <c>UPDATE</c>, so it joins the transaction the caller opened for the change and its
+    /// fact, and commits or rolls back with them. Revoked rows are kept, never deleted, because the
+    /// facts those devices reported still point at them.
+    /// </para>
+    /// </remarks>
+    public Task<int> RevokeCompanionDevicesAsync(Guid userId, CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+
+        return _db.CompanionDevices
+            .Where(d => d.IssuedToUserId == userId && d.RevokedAt == null)
+            .ExecuteUpdateAsync(u => u.SetProperty(d => d.RevokedAt, now), ct);
     }
 
     /// <summary>

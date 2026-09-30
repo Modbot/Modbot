@@ -107,18 +107,41 @@ public sealed class DatabaseCompanionDeviceStore(ModbotContext db) : ICompanionD
         return row is null ? null : Map(row);
     }
 
+    public async Task<CompanionDevice?> FindByIdAsync(Guid deviceId, CancellationToken ct)
+    {
+        var row = await db.CompanionDevices.AsNoTracking()
+            .SingleOrDefaultAsync(d => d.Id == deviceId, ct);
+
+        return row is null ? null : Map(row);
+    }
+
     /// <remarks>
-    /// A bare <c>UPDATE</c> rather than load-modify-save: this runs on every batch a client sends,
-    /// and it must never be the thing that makes ingest slow or that fails a report because a
-    /// concurrent write touched the same row.
+    /// <para>
+    /// A bare <c>UPDATE</c> rather than load-modify-save: this runs on every request a client
+    /// makes, and it must never be the thing that makes ingest slow or that fails a report because
+    /// a concurrent write touched the same row.
+    /// </para>
+    /// <para>
+    /// One conditional <c>UPDATE</c>, the same rule <see cref="DeviceStanding.SeenIsDue"/> states:
+    /// the row is only written when it was last written <see cref="DeviceStanding.SeenWriteEvery"/>
+    /// ago or more, or the companion now reports another version. Every other request matches no
+    /// row and writes nothing.
+    /// </para>
     /// </remarks>
-    public Task TouchAsync(Guid deviceId, DateTimeOffset seenAt, string companionVersion, CancellationToken ct) =>
-        db.CompanionDevices
-            .Where(d => d.Id == deviceId)
+    public Task TouchAsync(Guid deviceId, DateTimeOffset seenAt, string companionVersion, CancellationToken ct)
+    {
+        var due = seenAt - DeviceStanding.SeenWriteEvery;
+
+        return db.CompanionDevices
+            .Where(d => d.Id == deviceId
+                        && (d.LastSeenAt == null
+                            || d.LastSeenAt <= due
+                            || d.CompanionVersion != companionVersion))
             .ExecuteUpdateAsync(
                 u => u.SetProperty(d => d.LastSeenAt, seenAt)
                       .SetProperty(d => d.CompanionVersion, companionVersion),
                 ct);
+    }
 
     /// <summary>
     /// Every device, revoked ones included.
@@ -130,6 +153,16 @@ public sealed class DatabaseCompanionDeviceStore(ModbotContext db) : ICompanionD
     public async Task<IReadOnlyList<CompanionDevice>> ListDevicesAsync(CancellationToken ct)
     {
         var rows = await db.CompanionDevices.AsNoTracking()
+            .OrderByDescending(d => d.IssuedAt)
+            .ToListAsync(ct);
+
+        return rows.Select(Map).ToList();
+    }
+
+    public async Task<IReadOnlyList<CompanionDevice>> ListDevicesForAsync(Guid userId, CancellationToken ct)
+    {
+        var rows = await db.CompanionDevices.AsNoTracking()
+            .Where(d => d.IssuedToUserId == userId)
             .OrderByDescending(d => d.IssuedAt)
             .ToListAsync(ct);
 

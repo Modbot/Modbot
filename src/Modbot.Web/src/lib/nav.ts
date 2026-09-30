@@ -105,8 +105,9 @@ export const NAV = [
   { id: 'logs', label: "Modbot's log", group: 'System', needs: 'ViewOperationalLog' },
   // Users and Roles are tabs inside Settings (the IAM tab), so somebody who may manage either but
   // not the settings themselves still needs the page to open. Which tabs they see is the page's
-  // own check.
-  { id: 'settings', label: 'Settings', group: 'System', needsAny: ['ManageSettings', 'ManageUsers', 'ManageRoles'] },
+  // own check. Pair a companion opens it too, for the Paired companions topic: a moderator's own
+  // companions are listed there.
+  { id: 'settings', label: 'Settings', group: 'System', needsAny: ['ManageSettings', 'ManageUsers', 'ManageRoles', 'PairCompanion'] },
   { id: 'account', label: 'Your account', hidden: true },
   // Reached from the Bans page and the subject pane, not from the sidebar. The server gates
   // reads on ViewProfile and writes on Ban; the page shows the refusal in words.

@@ -511,4 +511,220 @@ public class IngestTests
 
         Assert.Equal(host.Clock.UtcNow, Assert.Single(await host.Devices.ListDevicesAsync(ct)).LastSeenAt);
     }
+
+    // ── A device is only as good as its owner (DeviceStanding) ────────────────────────────────
+
+    /// <summary>What the events endpoint answers this token, with a batch nobody else has sent.</summary>
+    private static async Task<HttpStatusCode> StatusAsync(
+        CompanionApiTestHost host, string token, CancellationToken ct, string? version = null)
+    {
+        var request = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", token);
+        request.Content = JsonContent.Create(Batch(Event(subject: $"usr_{Guid.NewGuid():N}")));
+        if (version is not null)
+            request.Headers.Add("X-Modbot-Companion-Version", version);
+
+        return (await host.Client.SendAsync(request, ct)).StatusCode;
+    }
+
+    [Fact]
+    public async Task ADeviceStopsWhenItsOwnerIsDisabled()
+    {
+        // The whole reason for the check: a removed moderator's PC must stop reading who is flagged.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, _) = await ReadyAsync(ct);
+        await using var __ = host;
+
+        var owner = await host.CreateOwnerAsync(Core.Data.Entities.ModbotPermissions.PairCompanion, ct);
+        var (token, _) = await host.PairDeviceToAsync(owner.Id, ct);
+        Assert.Equal(HttpStatusCode.OK, await StatusAsync(host, token, ct));
+
+        await using (var db = host.Database)
+        {
+            db.Users.Single(u => u.Id == owner.Id).IsDisabled = true;
+            await db.SaveChangesAsync(ct);
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(host, token, ct));
+    }
+
+    [Fact]
+    public async Task ADeviceStopsWhenItsOwnerIsDeleted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, _) = await ReadyAsync(ct);
+        await using var __ = host;
+
+        var owner = await host.CreateOwnerAsync(Core.Data.Entities.ModbotPermissions.PairCompanion, ct);
+        var (token, deviceId) = await host.PairDeviceToAsync(owner.Id, ct);
+
+        await using (var db = host.Database)
+        {
+            var accounts = new Core.Users.UserAccountService(
+                db, new Microsoft.AspNetCore.Identity.PasswordHasher<Core.Data.Entities.ModbotUser>(), host.Clock);
+            await accounts.DeleteAsync((await accounts.FindAsync(owner.Id, ct))!, ct);
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(host, token, ct));
+        Assert.NotNull((await host.Devices.FindByIdAsync(deviceId, ct))!.RevokedAt);
+    }
+
+    [Fact]
+    public async Task ADeviceStopsWhenItsOwnersRoleLosesThePermission_AndWorksAgainWhenItComesBack()
+    {
+        // Nothing is revoked by a role change: the check reads the roles on every request, so the
+        // companion follows the role both ways, as a browser session does.
+        var ct = TestContext.Current.CancellationToken;
+        var (host, _) = await ReadyAsync(ct);
+        await using var __ = host;
+
+        var owner = await host.CreateOwnerAsync(Core.Data.Entities.ModbotPermissions.None, ct);
+        var roleId = Guid.NewGuid();
+
+        await using (var db = host.Database)
+        {
+            var name = $"pairing_{roleId:N}";
+            db.Roles.Add(new Core.Data.Entities.ModbotRole
+            {
+                Id = roleId,
+                Name = name,
+                NameNormalized = Core.Data.Entities.ModbotRole.Normalize(name),
+                Permissions = Core.Data.Entities.ModbotPermissions.PairCompanion,
+                CreatedAt = host.Clock.UtcNow,
+            });
+            db.UserRoles.Add(new Core.Data.Entities.ModbotUserRole { UserId = owner.Id, RoleId = roleId });
+            await db.SaveChangesAsync(ct);
+        }
+
+        var (token, _) = await host.PairDeviceToAsync(owner.Id, ct);
+        Assert.Equal(HttpStatusCode.OK, await StatusAsync(host, token, ct));
+
+        await SetRolePermissionsAsync(host, roleId, Core.Data.Entities.ModbotPermissions.ViewMembers, ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(host, token, ct));
+
+        await SetRolePermissionsAsync(host, roleId, Core.Data.Entities.ModbotPermissions.PairCompanion, ct);
+        Assert.Equal(HttpStatusCode.OK, await StatusAsync(host, token, ct));
+    }
+
+    private static async Task SetRolePermissionsAsync(
+        CompanionApiTestHost host, Guid roleId, Core.Data.Entities.ModbotPermissions permissions, CancellationToken ct)
+    {
+        await using var db = host.Database;
+        db.Roles.Single(r => r.Id == roleId).Permissions = permissions;
+        await db.SaveChangesAsync(ct);
+    }
+
+    [Fact]
+    public async Task ADeviceOnTheBuiltInModeratorRoleWorks()
+    {
+        // A companion paired before this version, to a moderator on the built-in role, keeps
+        // working: the migration gave that role "Pair a companion".
+        var ct = TestContext.Current.CancellationToken;
+        var (host, _) = await ReadyAsync(ct);
+        await using var __ = host;
+
+        var owner = await host.CreateOwnerAsync(Core.Data.Entities.ModbotPermissions.None, ct);
+        await using (var db = host.Database)
+        {
+            db.UserRoles.Add(new Core.Data.Entities.ModbotUserRole
+            {
+                UserId = owner.Id,
+                RoleId = Core.Data.Entities.BuiltInRoles.ModeratorId,
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        var (token, _) = await host.PairDeviceToAsync(owner.Id, ct);
+
+        Assert.Equal(HttpStatusCode.OK, await StatusAsync(host, token, ct));
+    }
+
+    [Theory]
+    [InlineData(91, false)]
+    [InlineData(89, true)]
+    public async Task ADeviceUnusedForNinetyDaysIsRefused(int daysUnused, bool works)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, _) = await ReadyAsync(ct);
+        await using var __ = host;
+
+        var owner = await host.CreateOwnerAsync(Core.Data.Entities.ModbotPermissions.PairCompanion, ct);
+        var (token, deviceId) = await host.PairDeviceToAsync(
+            owner.Id,
+            ct,
+            issuedAt: host.Clock.UtcNow.AddDays(-365),
+            lastSeenAt: host.Clock.UtcNow.AddDays(-daysUnused));
+
+        Assert.Equal(works ? HttpStatusCode.OK : HttpStatusCode.Unauthorized, await StatusAsync(host, token, ct));
+
+        // A refused device is not touched, so it stays refused.
+        if (!works)
+        {
+            Assert.Equal(
+                host.Clock.UtcNow.AddDays(-daysUnused),
+                (await host.Devices.FindByIdAsync(deviceId, ct))!.LastSeenAt);
+        }
+    }
+
+    [Fact]
+    public async Task ADeviceNeverSeenCountsFromWhenItWasPaired()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, _) = await ReadyAsync(ct);
+        await using var __ = host;
+
+        var owner = await host.CreateOwnerAsync(Core.Data.Entities.ModbotPermissions.PairCompanion, ct);
+        var (token, _) = await host.PairDeviceToAsync(owner.Id, ct, issuedAt: host.Clock.UtcNow.AddDays(-91));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(host, token, ct));
+    }
+
+    [Fact]
+    public async Task LastSeenIsWrittenAtMostOnceEveryFiveMinutes_OrWhenTheVersionChanges()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, _) = await ReadyAsync(ct);
+        await using var __ = host;
+
+        var owner = await host.CreateOwnerAsync(Core.Data.Entities.ModbotPermissions.PairCompanion, ct);
+        var (token, deviceId) = await host.PairDeviceToAsync(owner.Id, ct);
+
+        async Task<DateTimeOffset?> LastSeenAsync() => (await host.Devices.FindByIdAsync(deviceId, ct))!.LastSeenAt;
+
+        await StatusAsync(host, token, ct, version: "2026.9.0");
+        var first = host.Clock.UtcNow;
+        Assert.Equal(first, await LastSeenAsync());
+
+        host.Clock.Advance(TimeSpan.FromMinutes(4));
+        await StatusAsync(host, token, ct, version: "2026.9.0");
+        Assert.Equal(first, await LastSeenAsync());
+
+        // A new version is written at once, so settings never shows the build it replaced.
+        await StatusAsync(host, token, ct, version: "2026.9.1");
+        Assert.Equal(host.Clock.UtcNow, await LastSeenAsync());
+        Assert.Equal("2026.9.1", (await host.Devices.FindByIdAsync(deviceId, ct))!.CompanionVersion);
+
+        var second = host.Clock.UtcNow;
+        host.Clock.Advance(TimeSpan.FromMinutes(5));
+        await StatusAsync(host, token, ct, version: "2026.9.1");
+        Assert.NotEqual(second, await LastSeenAsync());
+        Assert.Equal(host.Clock.UtcNow, await LastSeenAsync());
+    }
+
+    [Fact]
+    public async Task ACompanionCanRemoveItself()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var removed = await host.Client.SendAsync(host.WithToken(HttpMethod.Delete, "/api/v1/companion/device", token), ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        Assert.NotNull(Assert.Single(await host.Devices.ListDevicesAsync(ct)).RevokedAt);
+        Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(host, token, ct));
+
+        // Asked again, with a token that no longer works: the same 401 as any refused token.
+        var again = await host.Client.SendAsync(host.WithToken(HttpMethod.Delete, "/api/v1/companion/device", token), ct);
+        Assert.Equal(HttpStatusCode.Unauthorized, again.StatusCode);
+    }
 }

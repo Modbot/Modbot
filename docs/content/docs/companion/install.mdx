@@ -21,8 +21,10 @@ runs; on Linux it is an ordinary window.
   for your own account.
 - **SteamVR**, only if you want the [overlay](/companion/overlay). Without SteamVR the client
   still reports presence as normal.
-- **A staff account on your group's Modbot**, to [pair](/companion/pairing) the client with
-  it. Until you pair, the client reports to no group server.
+- **A staff account on your group's Modbot** holding
+  [**Pair a companion**](/accounts/roles-and-permissions#pair-a-companion), to
+  [pair](/companion/pairing) the client with it. Until you pair, the client reports to no group
+  server.
 
 ## Download
 
@@ -363,8 +365,10 @@ which does no harm, and you can delete it at any time.
 
 On Linux, delete `Modbot.AppImage` and, to remove everything, `~/.config/Modbot`.
 
-Uninstalling does not tell your group's server. The token simply stops being used. An operator
-can also [revoke it](/companion/pairing#paired-devices-on-the-server).
+Uninstalling does not tell your group's server. The token simply stops being used, and after 90
+days unused the server refuses it anyway. To remove it sooner, press **Unpair** on each server
+before you uninstall, or remove it in **Settings**, **Paired companions**
+([Paired devices on the server](/companion/pairing#paired-devices-on-the-server)).
 
 ## Building it yourself
 

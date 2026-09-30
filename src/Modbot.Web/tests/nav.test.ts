@@ -90,6 +90,10 @@ test('Settings opens for somebody who may manage only users or only roles', () =
   assert.equal(mayOpen(person('ViewMembers'), 'settings'), false)
 })
 
+test('Settings opens for somebody who may pair a companion, for their Paired companions', () => {
+  assert.equal(mayOpen(person('PairCompanion'), 'settings'), true)
+})
+
 test('People opens with See profiles, and with See members for the Members view', () => {
   assert.equal(mayOpen(person('ViewProfile'), 'people'), true)
   assert.equal(mayOpen(person('ViewMembers'), 'people'), true)

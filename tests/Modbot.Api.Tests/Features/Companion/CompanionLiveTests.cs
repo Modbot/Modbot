@@ -34,10 +34,11 @@ public class CompanionLiveTests
 
     private const string OtherWorld = "wrld_elsewhere";
 
-    private async Task<(CompanionApiTestHost Host, string Token)> ReadyAsync()
+    private async Task<(CompanionApiTestHost Host, string Token)> ReadyAsync(EventSocketOptions? options = null)
     {
         await CompanionApiTestHost.ResetAsync(_db, Ct);
-        var host = await CompanionApiTestHost.StartAsync(_db);
+        var host = await CompanionApiTestHost.StartAsync(
+            _db, options is null ? null : services => services.AddSingleton(options));
         await host.ConfigureGroupAsync(_db, Group, Ct);
 
         // The reset empties the log while the id sequence carries on, so "from now" would be 0
@@ -394,5 +395,40 @@ public class CompanionLiveTests
             host.WithToken(HttpMethod.Get, "/api/v1/companion/alerts?wait=1", token), Ct);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DisablingTheOwner_EndsAnOpenSocket_AtTheNextHeartbeat()
+    {
+        // The socket checks the device again at each heartbeat, the same check every request makes,
+        // so a disabled moderator's open overlay stops rather than outliving their next request.
+        var (host, _) = await ReadyAsync(new EventSocketOptions
+        {
+            PollInterval = TimeSpan.FromMilliseconds(50),
+            HeartbeatInterval = TimeSpan.FromMilliseconds(200),
+        });
+        await using var keep = host;
+
+        var owner = await host.CreateOwnerAsync(ModbotPermissions.PairCompanion, Ct);
+        var (token, _) = await host.PairDeviceToAsync(owner.Id, Ct);
+
+        using var socket = await ConnectAsync(host, token);
+        Assert.Equal("hello", (await NextAsync(socket)).Message.GetProperty("kind").GetString());
+
+        await using (var db = host.Database)
+        {
+            db.Users.Single(u => u.Id == owner.Id).IsDisabled = true;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        while (true)
+        {
+            var (_, closed, _) = await NextAsync(socket);
+            if (closed is null)
+                continue;
+
+            Assert.Equal(EventCloseCodes.NoAccess, closed);
+            break;
+        }
     }
 }

@@ -1,8 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Companion.Devices;
 using Modbot.Api.Features.Companion.Pair;
+using Modbot.Api.Features.Companion.PairingCodes;
+using Modbot.Core.Data;
+using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
+using Modbot.VRChat.RateLimiting;
 
 namespace Modbot.Api.Tests.Features.Companion;
 
@@ -23,15 +28,32 @@ public class PairingTests
     private static PairRequest Request(string code) =>
         new(code, "2026.9.0", "windows");
 
-    private async Task<(CompanionApiTestHost Host, string Code)> ReadyAsync(CancellationToken ct)
+    private sealed class RecordingDelay : IDelayScheduler
+    {
+        public List<TimeSpan> Waits { get; } = [];
+
+        public Task DelayAsync(TimeSpan delay, CancellationToken ct = default)
+        {
+            Waits.Add(delay);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// A host with a group, and a code made by an account that holds "Pair a companion" -- a code
+    /// from anybody else is refused when it is used.
+    /// </summary>
+    private async Task<(CompanionApiTestHost Host, string Code)> ReadyAsync(
+        CancellationToken ct, Action<IServiceCollection>? configure = null)
     {
         await CompanionApiTestHost.ResetAsync(_db, ct);
-        var host = await CompanionApiTestHost.StartAsync(_db);
+        var host = await CompanionApiTestHost.StartAsync(_db, configure);
         await host.ConfigureGroupAsync(_db, Group, ct);
 
+        var owner = await host.CreateOwnerAsync(ModbotPermissions.PairCompanion, ct);
         var code = DeviceTokens.NewPairingCode();
         await host.Devices.IssueCodeAsync(
-            PairingCodeLifetime.Issue(host.Clock, Guid.NewGuid(), code), ct);
+            PairingCodeLifetime.Issue(host.Clock, owner.Id, code), ct);
 
         return (host, code);
     }
@@ -139,8 +161,9 @@ public class PairingTests
         await using var _ = host;
 
         await host.ConfigureGroupAsync(_db, Group, ct);
+        var owner = await host.CreateOwnerAsync(ModbotPermissions.PairCompanion, ct);
         await host.Devices.IssueCodeAsync(
-            PairingCodeLifetime.Issue(host.Clock, Guid.NewGuid(), "AB12-CD34"), ct);
+            PairingCodeLifetime.Issue(host.Clock, owner.Id, "AB12-CD34"), ct);
 
         var response = await host.Client.PostAsJsonAsync("/api/v1/companion/pair", Request(variation), ct);
 
@@ -236,5 +259,189 @@ public class PairingTests
             ct);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ACodeFromAnAccountWithoutThePermissionIsRefusedLikeABadCode()
+    {
+        // The code was made while its account could pair, and the role changed before it was used.
+        // No device is made for somebody who could not make the code now.
+        var ct = TestContext.Current.CancellationToken;
+        await CompanionApiTestHost.ResetAsync(_db, ct);
+        var host = await CompanionApiTestHost.StartAsync(_db);
+        await using var _ = host;
+        await host.ConfigureGroupAsync(_db, Group, ct);
+
+        var owner = await host.CreateOwnerAsync(ModbotPermissions.ViewMembers, ct);
+        var code = DeviceTokens.NewPairingCode();
+        await host.Devices.IssueCodeAsync(PairingCodeLifetime.Issue(host.Clock, owner.Id, code), ct);
+
+        var response = await host.Client.PostAsJsonAsync("/api/v1/companion/pair", Request(code), ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("pairing_code", await response.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        Assert.Empty(await host.Devices.ListDevicesAsync(ct));
+    }
+
+    [Fact]
+    public async Task ACodeFromADisabledAccountIsRefusedLikeABadCode()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, code) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        await using (var db = host.Database)
+        {
+            var codeOwner = db.CompanionPairingCodes.Single(c => c.CodeHash == DeviceTokens.Hash(code)).IssuedToUserId;
+            db.Users.Single(u => u.Id == codeOwner).IsDisabled = true;
+            await db.SaveChangesAsync(ct);
+        }
+
+        var response = await host.Client.PostAsJsonAsync("/api/v1/companion/pair", Request(code), ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task RepeatedWrongCodesFromOneAddressAreSlowed_ButARightCodeStillPairs()
+    {
+        // A slowdown, not a lockout: each wrong code doubles the wait before the next attempt is
+        // checked, and a right code after the wait still pairs.
+        var ct = TestContext.Current.CancellationToken;
+        var delay = new RecordingDelay();
+        var (host, code) = await ReadyAsync(ct, s => s.AddSingleton<IDelayScheduler>(delay));
+        await using var _ = host;
+
+        for (var i = 0; i < 3; i++)
+            await host.Client.PostAsJsonAsync("/api/v1/companion/pair", Request("ZZZZ-ZZZZ"), ct);
+
+        Assert.Equal([TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)], delay.Waits);
+
+        var right = await host.Client.PostAsJsonAsync("/api/v1/companion/pair", Request(code), ct);
+
+        Assert.Equal(HttpStatusCode.OK, right.StatusCode);
+        Assert.Equal(TimeSpan.FromSeconds(4), delay.Waits[^1]);
+    }
+
+    // ── The staff side: making codes, the list, removing (signed in, in a browser) ──────────────
+
+    private static async Task<(string Token, Guid Id)> PairToAsync(ApiTestHost host, Guid ownerId, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var store = new DatabaseCompanionDeviceStore(scope.ServiceProvider.GetRequiredService<ModbotContext>());
+
+        var token = DeviceTokens.NewToken();
+        var id = Guid.NewGuid();
+        await store.AddDeviceAsync(
+            new CompanionDevice(id, DeviceTokens.Hash(token), "2026.9.0", "windows", ownerId, host.Clock.UtcNow), ct);
+
+        return (token, id);
+    }
+
+    private static async Task<List<PairedDevice>> ListAsync(ApiTestHost host, string cookie, CancellationToken ct)
+    {
+        var response = await host.SendJsonAsync(HttpMethod.Get, "/api/companion-devices", null, cookie, ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<List<PairedDevice>>(ct))!;
+    }
+
+    [Fact]
+    public async Task MakingACode_NeedsPairACompanion()
+    {
+        // Until the permission existed, an account holding nothing at all could pair, and the
+        // device it got could read who is flagged in every instance.
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ApiTestHost.StartAsync(_db, companion: true);
+
+        var (_, nothing) = await host.SignedInAsync(ModbotPermissions.None, ct);
+        var (_, viewer) = await host.SignedInAsync(ModbotPermissions.ViewMembers, ct);
+        var (_, pairer) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(
+            HttpMethod.Post, "/api/companion-devices/pairing-code", null, nothing, ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(
+            HttpMethod.Post, "/api/companion-devices/pairing-code", null, viewer, ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(
+            HttpMethod.Post, "/api/companion-devices/pairing-code", null, pairer, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task TheList_ShowsYourOwnDevices_AndEveryonesWithManageUsers()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await CompanionApiTestHost.ResetAsync(_db, ct);
+        await using var host = await ApiTestHost.StartAsync(_db, companion: true);
+
+        var (moderator, moderatorCookie) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
+        var (colleague, _) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
+        var (_, managerCookie) = await host.SignedInAsync(ModbotPermissions.ManageUsers, ct);
+
+        var (_, mine) = await PairToAsync(host, moderator.Id, ct);
+        var (_, theirs) = await PairToAsync(host, colleague.Id, ct);
+
+        var own = await ListAsync(host, moderatorCookie, ct);
+        var row = Assert.Single(own);
+        Assert.Equal(mine, row.Id);
+        Assert.Equal(moderator.Username, row.OwnerName);
+
+        var everyone = await ListAsync(host, managerCookie, ct);
+        Assert.Contains(everyone, d => d.Id == mine && d.OwnerName == moderator.Username);
+        Assert.Contains(everyone, d => d.Id == theirs && d.OwnerName == colleague.Username);
+    }
+
+    [Fact]
+    public async Task RemovingSomebodyElsesDevice_NeedsManageUsers()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ApiTestHost.StartAsync(_db, companion: true);
+
+        var (owner, ownerCookie) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
+        var (_, colleagueCookie) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
+        var (_, managerCookie) = await host.SignedInAsync(ModbotPermissions.ManageUsers, ct);
+
+        var (_, first) = await PairToAsync(host, owner.Id, ct);
+        var (_, second) = await PairToAsync(host, owner.Id, ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.SendJsonAsync(
+            HttpMethod.Delete, $"/api/companion-devices/{first}", null, colleagueCookie, ct)).StatusCode);
+
+        // The owner removes their own; a manager removes anybody's.
+        Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(
+            HttpMethod.Delete, $"/api/companion-devices/{first}", null, ownerCookie, ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(
+            HttpMethod.Delete, $"/api/companion-devices/{second}", null, managerCookie, ct)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await host.SendJsonAsync(
+            HttpMethod.Delete, $"/api/companion-devices/{Guid.NewGuid()}", null, managerCookie, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task DisablingAnAccount_RevokesItsCompanions_AndEnablingItDoesNotBringThemBack()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ApiTestHost.StartAsync(_db, companion: true);
+
+        var (_, managerCookie) = await host.SignedInAsync(ModbotPermissions.ManageUsers | ModbotPermissions.PairCompanion, ct);
+        var (moderator, _) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
+        var (token, deviceId) = await PairToAsync(host, moderator.Id, ct);
+
+        var alerts = new HttpRequestMessage(HttpMethod.Get, "/api/v1/companion/alerts?wait=1");
+        alerts.Headers.Add("Authorization", $"Bearer {token}");
+        Assert.Equal(HttpStatusCode.NoContent, (await host.Client.SendAsync(alerts, ct)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(
+            HttpMethod.Post, $"/api/users/{moderator.Id}/disable", null, managerCookie, ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(
+            HttpMethod.Post, $"/api/users/{moderator.Id}/enable", null, managerCookie, ct)).StatusCode);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var store = new DatabaseCompanionDeviceStore(scope.ServiceProvider.GetRequiredService<ModbotContext>());
+            Assert.NotNull((await store.FindByIdAsync(deviceId, ct))!.RevokedAt);
+        }
+
+        var after = new HttpRequestMessage(HttpMethod.Get, "/api/v1/companion/alerts?wait=1");
+        after.Headers.Add("Authorization", $"Bearer {token}");
+        Assert.Equal(HttpStatusCode.Unauthorized, (await host.Client.SendAsync(after, ct)).StatusCode);
     }
 }

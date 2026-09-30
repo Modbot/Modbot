@@ -66,6 +66,10 @@ public static class CompanionApi
         services.AddSingleton<AlertHub>();
         services.AddScoped<DeviceAuthenticator>();
 
+        // One count for the life of the process, like sign-in's: wrong pairing codes from one
+        // address slow that address down.
+        services.AddSingleton<PairingSlowdown>();
+
         // The live stream shares the event stream's pacing, connection count and wake-up signal
         // (live updates design §4). TryAdd, because the API surface registers the same three.
         services.TryAddSingleton(new EventSocketOptions());
@@ -92,7 +96,8 @@ public static class CompanionApi
             .WithDescription(
                 "Unauthenticated because the client has no credential yet — the code is the "
                 + "credential. It is single-use, expires in minutes, and is issued only to a "
-                + "signed-in staff account.\n\n"
+                + "signed-in account holding Pair a companion. Wrong codes from one address are "
+                + "slowed down.\n\n"
                 + "Returns the device token once and never again, plus the group this deployment "
                 + "manages, so the client can decide locally which events this server may hear "
                 + "about, and the server's current time, so its first report is already "
@@ -223,12 +228,57 @@ public static class CompanionApi
             .Produces(StatusCodes.Status429TooManyRequests)
             .AllowAnonymous();
 
+        // The companion's own Unpair. A companion built before this gets a 404 here, and one
+        // talking to a server built before this gets the same; both still remove the pairing on
+        // their own side, which is all an unpair ever did before.
+        companion.MapDelete("/device", RemoveThisDeviceAsync)
+            .WithName("RemoveThisCompanion")
+            .WithSummary("Remove this companion")
+            .WithDescription(
+                "Revokes the device whose token is on the request. Sent once by the companion's "
+                + "Unpair, which removes the pairing on its own side whatever the answer.")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
+            .Produces<CompanionError>(StatusCodes.Status409Conflict)
+            .AllowAnonymous();
+
         // The staff side of pairing: a signed-in moderator generating a code, seeing which of
         // their devices are reporting, and revoking one. Cookie-authenticated as a person, because
         // a device token must never be able to mint another device token.
         app.MapPairingCodes();
 
         return app;
+    }
+
+    /// <summary>
+    /// A companion unpairing itself: its device is revoked, and anything waiting for it dropped.
+    /// </summary>
+    /// <remarks>
+    /// Authenticated the way every other companion request is, so a device that is already
+    /// refused (revoked, idle, or its owner stopped) gets the same 401 and simply forgets its
+    /// token -- there is nothing left on this side to remove.
+    /// </remarks>
+    private static async Task<IResult> RemoveThisDeviceAsync(
+        int apiVersion,
+        HttpContext context,
+        DeviceAuthenticator authenticator,
+        ICompanionDeviceStore devices,
+        AlertHub alerts,
+        IModbotClock clock,
+        CancellationToken ct)
+    {
+        if (!CompanionApiVersion.IsSupported(apiVersion))
+            return CompanionApiErrors.VersionUnsupported(apiVersion);
+
+        var authentication = await authenticator.AuthenticateAsync(context, ct);
+        if (!authentication.Succeeded)
+            return authentication.Failure!;
+
+        var device = authentication.Device!;
+        await devices.RevokeAsync(device.Id, clock.UtcNow, ct);
+        alerts.Forget(device.Id);
+
+        return Results.NoContent();
     }
 }
 

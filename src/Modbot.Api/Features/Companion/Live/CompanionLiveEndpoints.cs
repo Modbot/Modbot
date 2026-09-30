@@ -6,6 +6,7 @@ using Modbot.Api.Features.Events;
 using Modbot.Api.Features.Live.Stream;
 using Modbot.Core.Data;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Companion.Live;
 
@@ -119,11 +120,19 @@ public static class CompanionLiveEndpoints
             limit: null);
     }
 
-    /// <summary>The same check the authenticator makes: a revoked device no longer resolves.</summary>
+    /// <summary>
+    /// The same check the authenticator makes (<see cref="DeviceStanding"/>): a revoked device, an
+    /// idle one, and one whose owner was disabled, deleted or lost "Pair a companion" no longer
+    /// resolves, and the stream ends.
+    /// </summary>
     private static LiveScopeRefresh DeviceRefresh(string tokenHash) => async (services, current, ct) =>
     {
-        var devices = services.GetRequiredService<ICompanionDeviceStore>();
-        var device = await devices.FindByTokenHashAsync(tokenHash, ct);
+        var device = await DeviceStanding.ResolveAsync(
+            tokenHash,
+            services.GetRequiredService<ICompanionDeviceStore>(),
+            services.GetRequiredService<UserAccountService>(),
+            services.GetRequiredService<IModbotClock>().UtcNow,
+            ct);
 
         return device is null ? null : current;
     };

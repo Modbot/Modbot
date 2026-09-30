@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,6 +11,12 @@ namespace Modbot.Companion.Pairing;
 public interface IPairingClient
 {
     Task<PairingResult> PairAsync(PairingAttempt attempt, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Asks the server to revoke this device, once. True when it said it did; false for any other
+    /// answer, or none. Never throws: unpairing goes ahead on this side whatever happens here.
+    /// </summary>
+    Task<bool> RemoveDeviceAsync(ServerPairing pairing, CancellationToken cancellationToken);
 }
 
 /// <param name="BaseUri">
@@ -33,7 +40,8 @@ public readonly record struct PairingAttempt(Uri BaseUri, string Code, string Se
 /// carries three things and no more: the pairing code, the client's own version, and the string
 /// <c>windows</c>. It does not send the machine name, a name for this device, the Windows account
 /// name, a hardware identifier, the VRChat account, a list of the moderator's other paired
-/// servers, or anything read from the log.</para>
+/// servers, or anything read from the log. Unpairing sends one more request, to the same address,
+/// carrying the device token and nothing else (<see cref="RemoveDeviceAsync"/>).</para>
 /// <para><strong>What comes back</strong> is a device token, the group the server manages, and the
 /// server's current time. The token is ingest-scoped — stolen, it can submit presence facts and
 /// nothing else; it cannot read the member list, read a profile, or ban anybody. The group id is
@@ -129,6 +137,38 @@ public sealed class HttpPairingClient : IPairingClient
             };
 
             return new PairingResult(PairingOutcome.Paired, pairing, parsed.ServerTime);
+        }
+    }
+
+    /// <summary>
+    /// <c>DELETE /api/v{n}/companion/device</c> with this device's own token: the server revokes it,
+    /// so the token stops working there too and not only on this machine.
+    /// </summary>
+    /// <remarks>
+    /// Sends the token as every other request does, and nothing else. A server built before this
+    /// endpoint existed answers 404, and that is fine: the pairing is removed here either way, and
+    /// the operator can still remove the device from Modbot's settings.
+    /// </remarks>
+    public async Task<bool> RemoveDeviceAsync(ServerPairing pairing, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pairing);
+
+        try
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Delete, new Uri(pairing.BaseUri, $"/api/v{pairing.ApiVersion}/companion/device"));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", pairing.DeviceToken);
+
+            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
     }
 

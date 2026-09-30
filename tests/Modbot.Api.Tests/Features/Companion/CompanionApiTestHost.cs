@@ -68,7 +68,12 @@ public sealed class CompanionApiTestHost : IAsyncDisposable
     /// </summary>
     public static readonly DateTimeOffset Now = new(2026, 9, 12, 12, 0, 0, TimeSpan.Zero);
 
-    public static async Task<CompanionApiTestHost> StartAsync(PostgresFixture db)
+    /// <param name="configure">
+    /// Last word on the container: a test substitutes the delay scheduler here, so a slowed
+    /// pairing attempt is recorded rather than waited out.
+    /// </param>
+    public static async Task<CompanionApiTestHost> StartAsync(
+        PostgresFixture db, Action<IServiceCollection>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(db);
 
@@ -83,6 +88,8 @@ public sealed class CompanionApiTestHost : IAsyncDisposable
         builder.Services.AddModbotAnalytics();
         builder.Services.AddModbotAuth();
         builder.Services.AddClientApi();
+
+        configure?.Invoke(builder.Services);
 
         var app = builder.Build();
         app.UseWebSockets();
@@ -115,22 +122,47 @@ public sealed class CompanionApiTestHost : IAsyncDisposable
         await context.SaveChangesAsync(ct);
     }
 
-    /// <summary>Pairs a device directly, skipping the code exchange the pairing tests cover.</summary>
+    /// <summary>
+    /// Pairs a device directly, skipping the code exchange the pairing tests cover. Its owner is a
+    /// fresh account holding "Pair a companion", because a device is refused without one.
+    /// </summary>
     public async Task<string> PairDeviceAsync(CancellationToken ct)
     {
+        var owner = await CreateOwnerAsync(ModbotPermissions.PairCompanion, ct);
+        var (token, _) = await PairDeviceToAsync(owner.Id, ct);
+        return token;
+    }
+
+    /// <summary>An account for a device to belong to, holding exactly these permissions.</summary>
+    public Task<ModbotUser> CreateOwnerAsync(ModbotPermissions permissions, CancellationToken ct)
+        => TestAccounts.CreateAsync(
+            NewContext(), $"owner_{Guid.NewGuid():N}", TestAccounts.Password, permissions, linked: true, ct);
+
+    /// <summary>
+    /// Pairs a device to this account directly. <paramref name="lastSeenAt"/> and
+    /// <paramref name="issuedAt"/> let a test make a device that has sat unused.
+    /// </summary>
+    public async Task<(string Token, Guid DeviceId)> PairDeviceToAsync(
+        Guid ownerId,
+        CancellationToken ct,
+        DateTimeOffset? issuedAt = null,
+        DateTimeOffset? lastSeenAt = null)
+    {
         var token = DeviceTokens.NewToken();
+        var deviceId = Guid.NewGuid();
 
         await Devices.AddDeviceAsync(
             new CompanionDevice(
-                Guid.NewGuid(),
+                deviceId,
                 DeviceTokens.Hash(token),
                 "2026.9.0",
                 "windows",
-                Guid.NewGuid(),
-                Clock.UtcNow),
+                ownerId,
+                issuedAt ?? Clock.UtcNow,
+                lastSeenAt),
             ct);
 
-        return token;
+        return (token, deviceId);
     }
 
     /// <summary>
@@ -140,18 +172,14 @@ public sealed class CompanionApiTestHost : IAsyncDisposable
     /// </summary>
     public async Task<(string Token, Guid DeviceId, string VRChatUserId)> PairModeratorAsync(CancellationToken ct)
     {
-        var moderator = await TestAccounts.CreateAsync(
-            NewContext(), $"mod_{Guid.NewGuid():N}", TestAccounts.Password, ModbotPermissions.None, linked: true, ct);
-
-        var token = DeviceTokens.NewToken();
-        var deviceId = Guid.NewGuid();
-
-        await Devices.AddDeviceAsync(
-            new CompanionDevice(deviceId, DeviceTokens.Hash(token), "2026.9.0", "windows", moderator.Id, Clock.UtcNow),
-            ct);
+        var moderator = await CreateOwnerAsync(ModbotPermissions.PairCompanion, ct);
+        var (token, deviceId) = await PairDeviceToAsync(moderator.Id, ct);
 
         return (token, deviceId, moderator.VRChatUserId!);
     }
+
+    /// <summary>A fresh context of its own, for a test that changes an account directly.</summary>
+    public ModbotContext Database => NewContext();
 
     public HttpRequestMessage WithToken(HttpMethod method, string path, string? token)
     {

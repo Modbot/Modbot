@@ -19,10 +19,23 @@ public class PairingCoordinatorTests
     {
         public List<PairingAttempt> Attempts { get; } = [];
 
+        public List<ServerPairing> RemoveRequests { get; } = [];
+
+        /// <summary>What the server says to a removal. Null throws, the way a broken client might.</summary>
+        public bool? RemoveAnswer { get; set; } = true;
+
         public Task<PairingResult> PairAsync(PairingAttempt attempt, CancellationToken cancellationToken)
         {
             Attempts.Add(attempt);
             return Task.FromResult(result);
+        }
+
+        public Task<bool> RemoveDeviceAsync(ServerPairing pairing, CancellationToken cancellationToken)
+        {
+            RemoveRequests.Add(pairing);
+            return RemoveAnswer is { } answer
+                ? Task.FromResult(answer)
+                : throw new InvalidOperationException("the server went away");
         }
     }
 
@@ -32,7 +45,9 @@ public class PairingCoordinatorTests
 
         public List<string> Removed { get; } = [];
 
-        public IReadOnlyList<LoadedPairing> Load() => [];
+        public List<LoadedPairing> Stored { get; } = [];
+
+        public IReadOnlyList<LoadedPairing> Load() => Stored;
 
         public void Save(ServerPairing pairing) => Saved.Add(pairing);
 
@@ -226,12 +241,43 @@ public class PairingCoordinatorTests
     }
 
     [Fact]
-    public void UnpairingRemovesTheStoredCredential()
+    public async Task UnpairingRemovesTheStoredCredential()
     {
         var (coordinator, _, store) = Build(new PairingResult(PairingOutcome.Paired, Pairing()));
 
-        coordinator.Unpair("modbot.example");
+        await coordinator.UnpairAsync("modbot.example", TestContext.Current.CancellationToken);
 
+        Assert.Equal("modbot.example", Assert.Single(store.Removed));
+    }
+
+    [Fact]
+    public async Task UnpairingAsksTheServerOnceToRevokeTheDevice()
+    {
+        var (coordinator, client, store) = Build(new PairingResult(PairingOutcome.Paired, Pairing()));
+        store.Stored.Add(new LoadedPairing("modbot.example", Pairing()));
+
+        var revoked = await coordinator.UnpairAsync("modbot.example", TestContext.Current.CancellationToken);
+
+        Assert.True(revoked);
+        Assert.Equal("dev_token", Assert.Single(client.RemoveRequests).DeviceToken);
+        Assert.Equal("modbot.example", Assert.Single(store.Removed));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(null)]
+    public async Task UnpairingRemovesThePairingHereWhateverTheServerSays(bool? answer)
+    {
+        // A server that is unreachable, too old to know the endpoint, or already refusing the
+        // token must never leave the pairing behind on this machine.
+        var (coordinator, client, store) = Build(new PairingResult(PairingOutcome.Paired, Pairing()));
+        store.Stored.Add(new LoadedPairing("modbot.example", Pairing()));
+        client.RemoveAnswer = answer;
+
+        var revoked = await coordinator.UnpairAsync("modbot.example", TestContext.Current.CancellationToken);
+
+        Assert.False(revoked);
+        Assert.Single(client.RemoveRequests);
         Assert.Equal("modbot.example", Assert.Single(store.Removed));
     }
 

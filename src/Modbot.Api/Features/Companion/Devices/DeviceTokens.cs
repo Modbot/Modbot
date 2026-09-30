@@ -31,7 +31,7 @@ public static class DeviceTokens
     /// misread, and the last so no combination spells something a moderator has to read aloud in
     /// a voice call. Eight characters of it is about 38 bits, which is far too little to survive
     /// guessing on its own; what makes it safe is that it is single-use, expires in minutes, and
-    /// is rate-limited, not its length.
+    /// that wrong codes from one address are slowed down (<c>PairingSlowdown</c>), not its length.
     /// </remarks>
     public const string CodeAlphabet = "23456789ABCDEFGHJKMNPQRSTVWXYZ";
 
