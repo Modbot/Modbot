@@ -52,6 +52,18 @@ namespace Modbot.Discord.Sync;
 /// </item>
 /// </list>
 /// <para>
+/// <strong>Another bot's ban is not a moderator's decision.</strong> A Discord ban made by somebody
+/// else's bot is skipped unless the operator switched <c>DiscordBanSyncFromBots</c> on. The audit
+/// log names the banner, so whether it is a bot costs nothing; a fact from before that was
+/// recorded is checked against the member list, and a ban nobody is named for is treated as a
+/// person's.
+/// </para>
+/// <para>
+/// <strong>A ban made through Modbot is also made in Discord by <see cref="LinkedDiscordBans"/>,</strong>
+/// with a copy record of its own. Both directions drop what comes back from it: the Discord ban by
+/// the actor check or the record, and the VRChat half in the group's audit log by the record.
+/// </para>
+/// <para>
 /// <strong>Somebody with no link is left alone.</strong> Most people on either platform have no
 /// account tied to them on the other, and there is nothing to copy for them. They are counted, so
 /// an operator can see how much of their server the sync does not reach, and otherwise untouched.
@@ -140,6 +152,7 @@ public sealed class BanSync
                 s.ManagedGroupId,
                 s.DiscordBanSyncToDiscord,
                 s.DiscordBanSyncToVRChat,
+                s.DiscordBanSyncFromBots,
                 s.DiscordBanCopyAction,
             })
             .FirstOrDefaultAsync(ct)
@@ -189,16 +202,36 @@ public sealed class BanSync
                             && botUserId is not null
                             && string.Equals(fact.ActorId, botUserId, StringComparison.Ordinal);
 
-            // Guard one: a copy Modbot sent this way, not yet answered for.
+            // Guard one: a copy Modbot sent this way, not yet answered for. On the Discord side
+            // that includes a ban made through Modbot, which Modbot also made in Discord itself
+            // (LinkedDiscordBans) and which comes back as a Discord ban like any copy.
             var wasOurCopy = wanted
                              && !wasTheBot
-                             && await _copies.WasOursAsync(
-                                 fromDiscord ? CopyDirections.ToDiscord : CopyDirections.ToVRChat,
-                                 banning ? CopyKinds.Ban : CopyKinds.Unban,
-                                 fact.SubjectId,
-                                 null,
-                                 fact.OccurredAt,
-                                 ct).ConfigureAwait(false);
+                             && (await _copies.WasOursAsync(
+                                     fromDiscord ? CopyDirections.ToDiscord : CopyDirections.ToVRChat,
+                                     banning ? CopyKinds.Ban : CopyKinds.Unban,
+                                     fact.SubjectId,
+                                     null,
+                                     fact.OccurredAt,
+                                     ct).ConfigureAwait(false)
+                                 || (fromDiscord
+                                     && await _copies.WasOursAsync(
+                                         CopyDirections.ToDiscord,
+                                         banning ? CopyKinds.ModbotBan : CopyKinds.ModbotUnban,
+                                         fact.SubjectId,
+                                         null,
+                                         fact.OccurredAt,
+                                         ct).ConfigureAwait(false)));
+
+            // Another bot's ban is somebody else's rule, not a moderator's decision, so it is only
+            // copied when an operator has asked for that. Modbot's own bot is handled above and is
+            // never copied whatever the switch says.
+            var byOtherBot = wanted
+                             && fromDiscord
+                             && !wasTheBot
+                             && !wasOurCopy
+                             && !settings.DiscordBanSyncFromBots
+                             && await ActorIsBotAsync(guildId, fact.ActorId, fact.Data, ct).ConfigureAwait(false);
 
             // A removal cannot be undone, so a copy sent as a removal leaves no ban in Discord to
             // lift, and a later VRChat unban has nothing to copy.
@@ -209,7 +242,10 @@ public sealed class BanSync
             if (wasTheBot || wasOurCopy)
                 tally.Dropped++;
 
-            if (wanted && !wasTheBot && !wasOurCopy && !nothingToLift)
+            if (byOtherBot)
+                tally.FromBots++;
+
+            if (wanted && !wasTheBot && !wasOurCopy && !byOtherBot && !nothingToLift)
             {
                 var link = await LinkAsync(fromDiscord, fact.SubjectId, ct).ConfigureAwait(false);
 
@@ -217,13 +253,26 @@ public sealed class BanSync
                 {
                     tally.NotLinked++;
                 }
+                else if (!fromDiscord
+                         && await _copies.WasDoneAsync(
+                             CopyDirections.ToDiscord,
+                             banning ? CopyKinds.ModbotBan : CopyKinds.ModbotUnban,
+                             link.Value.DiscordUserId,
+                             fact.OccurredAt,
+                             ct).ConfigureAwait(false))
+                {
+                    // A ban made through Modbot is made in Discord by Modbot itself, at the same
+                    // moment. The group's audit log records only the VRChat half, so copying it
+                    // as well would ban the same person twice.
+                    tally.Dropped++;
+                }
                 else
                 {
                     Add(changes, Plan(fromDiscord, banning, settings.DiscordBanCopyAction, link.Value, NameIn(fact.Data) ?? link.Value.Name, fact.Type));
 
                     await CopyAsync(
                             gateway, guildId, fromDiscord, banning, settings.DiscordBanCopyAction,
-                            link.Value, fact.Id, fact.Type, tally, ct)
+                            link.Value, fact.Id, fact.Type, ReasonIn(fact.Data), tally, ct)
                         .ConfigureAwait(false);
                 }
             }
@@ -238,7 +287,7 @@ public sealed class BanSync
         state.BansProblem = tally.Problem;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
-        return new BanSyncPass(tally.Copied, tally.Dropped, tally.NotLinked, tally.Left, tally.Problem, changes);
+        return new BanSyncPass(tally.Copied, tally.Dropped, tally.NotLinked, tally.Left, tally.Problem, changes, tally.FromBots);
     }
 
     // ── The first run: what the two ban lists already disagree about ───────────────────────
@@ -263,6 +312,7 @@ public sealed class BanSync
                 s.ManagedGroupId,
                 s.DiscordBanSyncToDiscord,
                 s.DiscordBanSyncToVRChat,
+                s.DiscordBanSyncFromBots,
                 s.DiscordBanCopyAction,
             })
             .FirstOrDefaultAsync(ct)
@@ -281,6 +331,13 @@ public sealed class BanSync
         }
 
         var inDiscord = bannedInDiscord.Select(b => b.UserId).ToHashSet(StringComparer.Ordinal);
+
+        // What Discord's own ban list says the reason was, by person. The list carries it; a ban
+        // made before Modbot was watching has no fact to read it from.
+        var discordReasons = bannedInDiscord
+            .Where(b => b.Reason is not null)
+            .GroupBy(b => b.UserId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().Reason, StringComparer.Ordinal);
 
         var links = await _db.DiscordAccountLinks.AsNoTracking()
             .Where(l => l.UnlinkedAt == null)
@@ -318,6 +375,16 @@ public sealed class BanSync
             if (!toDiscord && !toVRChat)
                 continue;
 
+            // The same rule as the minute-by-minute pass: a ban another bot made is not copied
+            // unless an operator asked for that. Where nothing records who banned them, it is
+            // treated as a person's, as it is there.
+            if (toVRChat
+                && !settings!.DiscordBanSyncFromBots
+                && await LatestDiscordBanWasByABotAsync(guildId, link.DiscordUserId, ct).ConfigureAwait(false))
+            {
+                continue;
+            }
+
             total++;
 
             var pair = new Linked(link.VRChatUserId, link.DiscordUserId, link.VRChatDisplayName ?? link.DiscordUsername);
@@ -332,7 +399,9 @@ public sealed class BanSync
 
             await CopyAsync(
                     gateway, guildId, fromDiscord: toVRChat, banning: true, settings.DiscordBanCopyAction,
-                    pair, causedByFactId: null, causeType: null, tally, ct)
+                    pair, causedByFactId: null, causeType: null,
+                    discordReason: toVRChat && discordReasons.TryGetValue(link.DiscordUserId, out var said) ? said : null,
+                    tally, ct)
                 .ConfigureAwait(false);
 
             done += tally.Copied;
@@ -358,6 +427,7 @@ public sealed class BanSync
         Linked link,
         long? causedByFactId,
         string? causeType,
+        string? discordReason,
         Tally tally,
         CancellationToken ct)
     {
@@ -427,6 +497,11 @@ public sealed class BanSync
             ["description"] = Describe(fromDiscord, banning, removing),
         };
 
+        // What the person who banned them said in Discord. VRChat's ban call takes no reason, so
+        // this record is the only place it survives.
+        if (discordReason is not null)
+            data["discordReason"] = discordReason;
+
         var platform = fromDiscord ? FactPlatform.VRChat : FactPlatform.Discord;
 
         if (done && !nothingHappened)
@@ -493,6 +568,90 @@ public sealed class BanSync
         _ => "Unbanned in the group, so unbanned in Discord too.",
     };
 
+    /// <summary>
+    /// Whether the Discord account that banned somebody is a bot: what the audit log said when the
+    /// fact was written, or, for a fact older than that, what the member list says.
+    /// </summary>
+    /// <remarks>
+    /// Nobody named, or somebody the member list does not know, counts as a person: that is what
+    /// happened before this check existed, and a ban whose author cannot be seen is not something
+    /// to quietly stop copying.
+    /// </remarks>
+    private async Task<bool> ActorIsBotAsync(string guildId, string? actorId, string? data, CancellationToken ct)
+    {
+        if (BoolIn(data, "actorIsBot") is { } known)
+            return known;
+
+        if (actorId is null)
+            return false;
+
+        return await _db.DiscordMembers.AsNoTracking()
+            .AnyAsync(m => m.GuildId == guildId && m.UserId == actorId && m.IsBot, ct)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<bool> LatestDiscordBanWasByABotAsync(string guildId, string discordUserId, CancellationToken ct)
+    {
+        var latest = await _db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.DiscordMemberBanned
+                        && e.SubjectPlatform == FactPlatform.Discord
+                        && e.SubjectId == discordUserId)
+            .OrderByDescending(e => e.Id)
+            .Select(e => new { e.ActorId, e.Data })
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        return latest is not null
+               && await ActorIsBotAsync(guildId, latest.ActorId, latest.Data, ct).ConfigureAwait(false);
+    }
+
+    private static bool? BoolIn(string? data, string property)
+    {
+        if (data is null)
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(data);
+
+            if (document.RootElement.TryGetProperty(property, out var value)
+                && value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                return value.GetBoolean();
+            }
+
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ReasonIn(string? data)
+    {
+        if (data is null)
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(data);
+
+            if (document.RootElement.TryGetProperty("reason", out var reason)
+                && reason.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(reason.GetString()))
+            {
+                return reason.GetString();
+            }
+
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private static string? NameIn(string? data)
     {
         if (data is null)
@@ -553,6 +712,7 @@ public sealed class BanSync
         public int Copied;
         public int Dropped;
         public int NotLinked;
+        public int FromBots;
         public int Left;
         public string? Problem;
 

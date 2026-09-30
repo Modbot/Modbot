@@ -178,6 +178,63 @@ public class ModerationEngineTests
         Assert.True(JsonDocument.Parse(fact.Data).RootElement.GetProperty("done").GetBoolean());
     }
 
+    /// <summary>
+    /// A ban made through Modbot lands everywhere: AutoMod's group ban asks for the person's linked
+    /// Discord account to be banned too, without any ban sync switch.
+    /// </summary>
+    [Fact]
+    public async Task AGroupBanByAutoModAlsoBansTheLinkedDiscordAccount()
+    {
+        var vrchat = new CountingVRChat();
+        var linked = new CountingLinkedDiscord();
+        await using var engine = await StartAsync(aiOn: false, vrchat: vrchat, linked: linked);
+
+        await engine.ListAsync("Impersonation", "official modbot", targets: ModerationTargets.DisplayName, groupBan: true, acting: true);
+
+        var outcome = await engine.Engine.CheckProfileAsync(new ProfileToCheck("usr_9", "Official Modbot", null, null, null), Ct);
+
+        Assert.True(outcome.GroupBanned);
+        var (person, by, why) = Assert.Single(linked.Banned);
+        Assert.Equal("usr_9", person);
+        Assert.Equal("AutoMod", by);
+        Assert.Equal("Impersonation", why);
+    }
+
+    [Fact]
+    public async Task AGroupBanThatFailedIsNeverAskedOfDiscord_AndNeitherIsATrialOne()
+    {
+        var linked = new CountingLinkedDiscord();
+
+        await using (var failing = await StartAsync(aiOn: false, vrchat: new CountingVRChat { BanFails = true }, linked: linked))
+        {
+            await failing.ListAsync("Impersonation", "official modbot", targets: ModerationTargets.DisplayName, groupBan: true, acting: true);
+            await failing.Engine.CheckProfileAsync(new ProfileToCheck("usr_9", "Official Modbot", null, null, null), Ct);
+        }
+
+        await using (var trial = await StartAsync(aiOn: false, vrchat: new CountingVRChat(), linked: linked))
+        {
+            await trial.ListAsync("Impersonation", "official modbot", targets: ModerationTargets.DisplayName, groupBan: true, acting: false);
+            await trial.Engine.CheckProfileAsync(new ProfileToCheck("usr_9", "Official Modbot", null, null, null), Ct);
+        }
+
+        Assert.Empty(linked.Banned);
+    }
+
+    [Fact]
+    public async Task ADiscordFailureNeverUndoesAGroupBan()
+    {
+        var vrchat = new CountingVRChat();
+        var linked = new CountingLinkedDiscord { Throws = true };
+        await using var engine = await StartAsync(aiOn: false, vrchat: vrchat, linked: linked);
+
+        await engine.ListAsync("Impersonation", "official modbot", targets: ModerationTargets.DisplayName, groupBan: true, acting: true);
+
+        var outcome = await engine.Engine.CheckProfileAsync(new ProfileToCheck("usr_9", "Official Modbot", null, null, null), Ct);
+
+        Assert.True(outcome.GroupBanned);
+        Assert.Equal(["usr_9"], vrchat.Banned);
+    }
+
     [Fact]
     public async Task ABanThatWorkedMeansNoRemovalIsSent_ButAFailedBanStillTriesTheRemoval()
     {
@@ -296,7 +353,8 @@ public class ModerationEngineTests
         bool autoModOn = true,
         string tools = "{}",
         CountingDiscord? discord = null,
-        CountingVRChat? vrchat = null)
+        CountingVRChat? vrchat = null,
+        CountingLinkedDiscord? linked = null)
     {
         await using (var reset = _db.NewContext())
         {
@@ -327,6 +385,7 @@ public class ModerationEngineTests
             clock,
             discord ?? new CountingDiscord(),
             vrchat ?? new CountingVRChat(),
+            linked ?? new CountingLinkedDiscord(),
             new CompiledTermLists(),
             new TextLanguage(),
             new ReviewFacts(facts, partitions, clock),
@@ -448,6 +507,27 @@ public class ModerationEngineTests
             TimedOut.Add((guildId, userId, duration));
             return Task.FromResult(DiscordActionOutcome.Ok);
         }
+    }
+
+    private sealed class CountingLinkedDiscord : ILinkedDiscordBans
+    {
+        public List<(string VRChatUserId, string By, string? Why)> Banned { get; } = [];
+
+        public bool Throws { get; set; }
+
+        public Task<LinkedDiscordOutcome> BanAsync(
+            string vrchatUserId, string by, string? why, long? causedByFactId, CancellationToken ct = default)
+        {
+            if (Throws)
+                throw new InvalidOperationException("Discord fell over.");
+
+            Banned.Add((vrchatUserId, by, why));
+            return Task.FromResult(new LinkedDiscordOutcome(LinkedDiscordStatus.Done));
+        }
+
+        public Task<LinkedDiscordOutcome> UnbanAsync(
+            string vrchatUserId, string by, string? why, long? causedByFactId, CancellationToken ct = default)
+            => Task.FromResult(LinkedDiscordOutcome.Skipped);
     }
 
     private sealed class CountingVRChat : IVRChatModerationActions

@@ -24,11 +24,19 @@ namespace Modbot.Discord.Sync;
 /// to travel round. That is why role sync needs no loop check of its own while ban sync does.
 /// </para>
 /// <para>
-/// <strong>Nobody unpaired is touched, and nobody unlinked is touched</strong> (§3.2). Only roles
-/// somebody has explicitly paired here are looked at — never "everything except" — and only people
-/// whose Discord and VRChat accounts have been proved to be the same person. Most members of a
-/// Discord server have no VRChat account tied to them, and every one of them is left exactly as
-/// they are.
+/// <strong>Nobody unpaired is touched, and nobody who was never linked is touched</strong> (§3.2).
+/// Only roles somebody has explicitly paired here are looked at — never "everything except" — and
+/// only people whose Discord and VRChat accounts have been proved to be the same person. Most
+/// members of a Discord server have no VRChat account tied to them, and every one of them is left
+/// exactly as they are.
+/// </para>
+/// <para>
+/// <strong>The one exception is taking back.</strong> When somebody unlinks their accounts, the
+/// Discord roles this sync gave them go with the link, the same way the linked-member roles do.
+/// Only a role Modbot's own records show it gave to that Discord account, and only while nothing
+/// has taken it back since. A role somebody gave them by hand, or one they held before the sync
+/// ever ran, is never touched; and the group role is left where it is, because the person is still
+/// in the group.
 /// </para>
 /// <para>
 /// <strong>Somebody has to be on both sides to be mirrored.</strong> A linked person who has left
@@ -63,6 +71,10 @@ public sealed class RoleSync
     public static readonly TimeSpan SaysAgainAfter = TimeSpan.FromDays(7);
 
     private const string Reason = "Modbot: keeping roles in step across platforms";
+
+    private const string UnlinkedReason = "Modbot: their accounts were unlinked, so the role Modbot gave is taken back";
+
+    private const string UnlinkedBecause = "Their accounts were unlinked, so the role Modbot gave them is taken back.";
 
     private readonly ModbotContext _db;
     private readonly IModbotClock _clock;
@@ -225,6 +237,8 @@ public sealed class RoleSync
             }
         }
 
+        await TakeBackFromUnlinkedAsync(gateway, guildId, pairs, discordRoles, apply, changes, tally, ct).ConfigureAwait(false);
+
         if (apply)
             await NoteRanAsync(tally.Problem, ct).ConfigureAwait(false);
 
@@ -243,7 +257,8 @@ public sealed class RoleSync
         bool give,
         IReadOnlyDictionary<string, DiscordRole> discordRoles,
         Tally tally,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? because = null)
     {
         var kind = give ? CopyKinds.RoleGiven : CopyKinds.RoleTaken;
         var roleId = toDiscord ? pair.DiscordRoleId : pair.VRChatRoleId;
@@ -271,7 +286,8 @@ public sealed class RoleSync
                 return;
             }
 
-            var outcome = await gateway.ChangeRoleAsync(guildId, discordUserId, pair.DiscordRoleId, give, Reason, ct)
+            var outcome = await gateway.ChangeRoleAsync(
+                    guildId, discordUserId, pair.DiscordRoleId, give, because is null ? Reason : UnlinkedReason, ct)
                 .ConfigureAwait(false);
 
             // Somebody who left the server between the read and the write is not a failure worth
@@ -313,8 +329,11 @@ public sealed class RoleSync
             ["discordUserId"] = discordUserId,
             ["vrchatRoleId"] = pair.VRChatRoleId,
             ["discordRoleId"] = pair.DiscordRoleId,
-            ["description"] = Why(pair.Decides, give),
+            ["description"] = because ?? Why(pair.Decides, give),
         };
+
+        if (because is not null)
+            data["because"] = "unlinked";
 
         if (done)
         {
@@ -342,6 +361,117 @@ public sealed class RoleSync
                     data,
                     ct)
                 .ConfigureAwait(false);
+        }
+    }
+
+    // ── Taking back after an unlink ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Takes back the Discord roles this sync gave to somebody whose accounts are no longer linked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What is taken is decided from Modbot's own copy records, not from what the person holds:
+    /// the latest record for that account and that role must be a role given, and done. That is
+    /// what "the role Modbot gave" means, and it is why a role somebody gave by hand, or that the
+    /// person held before the sync ran, is never touched.
+    /// </para>
+    /// <para>
+    /// A Discord account that is linked again is left to the ordinary pass. Only pairs that are
+    /// still on count, for the same reason nothing else is touched: a role nobody has paired is
+    /// not Modbot's business.
+    /// </para>
+    /// </remarks>
+    private async Task TakeBackFromUnlinkedAsync(
+        IDiscordGateway? gateway,
+        string guildId,
+        IReadOnlyList<DiscordRolePair> pairs,
+        IReadOnlyDictionary<string, DiscordRole> discordRoles,
+        bool apply,
+        List<PlannedChange> changes,
+        Tally tally,
+        CancellationToken ct)
+    {
+        var unlinked = await _db.DiscordAccountLinks.AsNoTracking()
+            .Where(l => l.UnlinkedAt != null
+                        && !_db.DiscordAccountLinks.Any(a => a.DiscordUserId == l.DiscordUserId && a.UnlinkedAt == null))
+            .Select(l => new { l.DiscordUserId, l.VRChatUserId, l.VRChatDisplayName, l.DiscordUsername, l.UnlinkedAt })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        if (unlinked.Count == 0)
+            return;
+
+        // Newest unlink per account, for the name and the VRChat id the fact will carry.
+        var latest = unlinked
+            .GroupBy(l => l.DiscordUserId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(l => l.UnlinkedAt).First(), StringComparer.Ordinal);
+
+        var accountIds = latest.Keys.ToList();
+        var pairedRoleIds = pairs.Select(p => p.DiscordRoleId).ToList();
+
+        var records = await _db.CopiedActions.AsNoTracking()
+            .Where(c => c.Direction == CopyDirections.ToDiscord
+                        && c.Done == true
+                        && (c.Kind == CopyKinds.RoleGiven || c.Kind == CopyKinds.RoleTaken)
+                        && c.RoleId != null
+                        && pairedRoleIds.Contains(c.RoleId)
+                        && accountIds.Contains(c.SubjectId))
+            .Select(c => new { c.SubjectId, c.RoleId, c.Kind, c.StartedAt })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        // Given, and not taken since: the newest record for that account and role says "given".
+        var gave = records
+            .GroupBy(c => (c.SubjectId, RoleId: c.RoleId!))
+            .Where(g => g.OrderByDescending(c => c.StartedAt).First().Kind == CopyKinds.RoleGiven)
+            .Select(g => g.Key)
+            .ToHashSet();
+
+        if (gave.Count == 0)
+            return;
+
+        var stillHere = await _db.DiscordMembers.AsNoTracking()
+            .Where(m => m.GuildId == guildId && m.LeftAt == null && accountIds.Contains(m.UserId))
+            .Select(m => new { m.UserId, m.DisplayName, m.Roles })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var member in stillHere.OrderBy(m => m.UserId, StringComparer.Ordinal))
+        {
+            var held = Ids(member.Roles);
+            var link = latest[member.UserId];
+
+            foreach (var pair in pairs)
+            {
+                if (!held.Contains(pair.DiscordRoleId) || !gave.Contains((member.UserId, pair.DiscordRoleId)))
+                    continue;
+
+                tally.Found++;
+
+                Add(changes, new PlannedChange(
+                    CopyKinds.RoleTaken,
+                    SyncPlatforms.Discord,
+                    link.VRChatUserId,
+                    member.UserId,
+                    link.VRChatDisplayName ?? member.DisplayName,
+                    NameOf(pair, discordRoles),
+                    UnlinkedBecause));
+
+                if (!apply)
+                    continue;
+
+                if (tally.Given + tally.Taken >= MaxChangesPerPass)
+                {
+                    tally.Left++;
+                    continue;
+                }
+
+                await ChangeAsync(
+                        gateway, guildId, pair, link.VRChatUserId, member.UserId,
+                        toDiscord: true, give: false, discordRoles, tally, ct, because: UnlinkedBecause)
+                    .ConfigureAwait(false);
+            }
         }
     }
 

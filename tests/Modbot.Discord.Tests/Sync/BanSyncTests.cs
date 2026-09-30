@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Modbot.Analytics.Facts;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Discord.Tests.Fakes;
 using Modbot.TestSupport;
 
@@ -48,8 +49,18 @@ public class BanSyncTests
         }, Ct);
 
     /// <summary>A ban in Discord, as the server's audit log records it.</summary>
-    private static Task<long> DiscordBanAsync(TestServices services, string userId, string? actorId)
-        => services.WriteFactAsync(new FactRecord
+    private static Task<long> DiscordBanAsync(
+        TestServices services, string userId, string? actorId, bool? actorIsBot = null, string? reason = null)
+    {
+        var data = new JsonObject { ["displayName"] = "Member" };
+
+        if (actorIsBot is { } bot)
+            data["actorIsBot"] = bot;
+
+        if (reason is not null)
+            data["reason"] = reason;
+
+        return services.WriteFactAsync(new FactRecord
         {
             Type = FactType.DiscordMemberBanned,
             OccurredAt = services.Clock.UtcNow,
@@ -58,8 +69,19 @@ public class BanSyncTests
             ActorPlatform = actorId is null ? null : FactPlatform.Discord,
             ActorId = actorId,
             Source = FactSource.Discord,
-            Data = new JsonObject { ["displayName"] = "Member" },
+            Data = data,
         }, Ct);
+    }
+
+    private static Task<TestServices> DiscordIntoTheGroupAsync(PostgresFixture db, bool fromBots)
+        => SyncSetUp.CreateAsync(db, s =>
+        {
+            s.DiscordBanSyncToVRChat = true;
+            s.DiscordBanSyncFromBots = fromBots;
+        }, Ct);
+
+    private static string TextIn(ModbotEvent fact, string property)
+        => System.Text.Json.JsonDocument.Parse(fact.Data ?? "{}").RootElement.GetProperty(property).GetString()!;
 
     [Fact]
     public async Task AVRChatBanBecomesADiscordBan()
@@ -351,6 +373,285 @@ public class BanSyncTests
         var run = await SyncSetUp.CatchUpAsync(services, gateway, apply: true, Ct);
 
         Assert.Equal(1, run.Total);
+        Assert.Single(gateway.Moderation);
+    }
+
+    // ── Other bots' bans ───────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A ban another bot made is somebody else's rule. Off by default: it is skipped, counted, and
+    /// leaves no record and no VRChat request behind.
+    /// </summary>
+    [Fact]
+    public async Task ABanAnotherBotMadeIsSkippedUnlessCopyingThemIsSwitchedOn()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        await DiscordBanAsync(services, Discord, actorId: "3131", actorIsBot: true);
+
+        var pass = await SyncSetUp.BanPassAsync(services, Gateway(), Ct);
+
+        Assert.Equal(0, pass.Copied);
+        Assert.Equal(1, pass.FromBots);
+        Assert.Empty(services.VRChat.Actions);
+        Assert.Empty(await SyncSetUp.CopiesAsync(services, Ct));
+    }
+
+    [Fact]
+    public async Task ABanAnotherBotMadeIsCopiedWhenTheSwitchIsOn()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: true);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        await DiscordBanAsync(services, Discord, actorId: "3131", actorIsBot: true);
+
+        var pass = await SyncSetUp.BanPassAsync(services, Gateway(), Ct);
+
+        Assert.Equal(1, pass.Copied);
+        Assert.Equal(0, pass.FromBots);
+        Assert.Equal(Person, Assert.Single(services.VRChat.Actions).UserId);
+    }
+
+    /// <summary>A person's ban is copied whether or not the switch for bots is on.</summary>
+    [Fact]
+    public async Task ABanAPersonMadeIsCopiedWhateverTheBotSwitchSays()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        await DiscordBanAsync(services, Discord, actorId: "4242", actorIsBot: false);
+
+        var pass = await SyncSetUp.BanPassAsync(services, Gateway(), Ct);
+
+        Assert.Equal(1, pass.Copied);
+        Assert.Equal(0, pass.FromBots);
+    }
+
+    /// <summary>
+    /// A fact from before the audit log said whether a bot did it is checked against the member
+    /// list, which knows which of the server's members are bots.
+    /// </summary>
+    [Fact]
+    public async Task AnOlderBanIsCheckedAgainstTheMemberList()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+        await SyncSetUp.LinkAsync(services, "usr_other", "5002", [], [], Ct);
+        await SyncSetUp.AddBotMemberAsync(services, "3131", Ct);
+
+        // No actorIsBot on either: the shape of every fact written before the field existed.
+        await DiscordBanAsync(services, Discord, actorId: "3131");
+        await DiscordBanAsync(services, "5002", actorId: "4242");
+
+        var pass = await SyncSetUp.BanPassAsync(services, Gateway(), Ct);
+
+        Assert.Equal(1, pass.Copied);
+        Assert.Equal(1, pass.FromBots);
+        Assert.Equal("usr_other", Assert.Single(services.VRChat.Actions).UserId);
+    }
+
+    /// <summary>
+    /// A ban nobody is named for cannot be told apart from a person's, so it is copied, as it was
+    /// before this check existed.
+    /// </summary>
+    [Fact]
+    public async Task ABanWithNoNamedAuthorIsTreatedAsAPersons()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        await DiscordBanAsync(services, Discord, actorId: null);
+
+        var pass = await SyncSetUp.BanPassAsync(services, Gateway(), Ct);
+
+        Assert.Equal(1, pass.Copied);
+        Assert.Equal(0, pass.FromBots);
+    }
+
+    /// <summary>Unbans follow their bans: another bot lifting a ban is no more a moderator's decision than banning was.</summary>
+    [Fact]
+    public async Task AnUnbanAnotherBotMadeIsSkippedToo()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        await services.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.DiscordMemberUnbanned,
+            OccurredAt = services.Clock.UtcNow,
+            SubjectPlatform = FactPlatform.Discord,
+            SubjectId = Discord,
+            ActorPlatform = FactPlatform.Discord,
+            ActorId = "3131",
+            Source = FactSource.Discord,
+            Data = new JsonObject { ["actorIsBot"] = true },
+        }, Ct);
+
+        var pass = await SyncSetUp.BanPassAsync(services, Gateway(), Ct);
+
+        Assert.Equal(0, pass.Copied);
+        Assert.Equal(1, pass.FromBots);
+        Assert.Empty(services.VRChat.Actions);
+    }
+
+    // ── Discord's reason ───────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task TheReasonGivenInDiscordIsKeptOnTheCopiedBan()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        await DiscordBanAsync(services, Discord, actorId: "4242", actorIsBot: false, reason: "spam links");
+
+        await SyncSetUp.BanPassAsync(services, Gateway(), Ct);
+
+        var copied = Assert.Single(await services.FactsOfTypeAsync(FactType.CopiedBan, Ct));
+        Assert.Equal("spam links", TextIn(copied, "discordReason"));
+    }
+
+    [Fact]
+    public async Task ACopiedBanWithNoReasonInDiscordCarriesNone()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        await DiscordBanAsync(services, Discord, actorId: "4242", actorIsBot: false);
+
+        await SyncSetUp.BanPassAsync(services, Gateway(), Ct);
+
+        var copied = Assert.Single(await services.FactsOfTypeAsync(FactType.CopiedBan, Ct));
+        Assert.False(System.Text.Json.JsonDocument.Parse(copied.Data ?? "{}").RootElement.TryGetProperty("discordReason", out _));
+    }
+
+    /// <summary>"Copy what is different" reads the reason off Discord's own ban list.</summary>
+    [Fact]
+    public async Task CopyWhatIsDifferentCarriesTheReasonFromDiscordsBanList()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var gateway = Gateway();
+        gateway.Banned = [Discord];
+        gateway.BanReasons[Discord] = "raid";
+
+        var run = await SyncSetUp.CatchUpAsync(services, gateway, apply: true, Ct);
+
+        Assert.Equal(1, run.Total);
+        var copied = Assert.Single(await services.FactsOfTypeAsync(FactType.CopiedBan, Ct));
+        Assert.Equal("raid", TextIn(copied, "discordReason"));
+    }
+
+    /// <summary>The first run follows the same rule about other bots as the pass does.</summary>
+    [Fact]
+    public async Task CopyWhatIsDifferentSkipsABanAnotherBotMadeUnlessCopyingThemIsOn()
+    {
+        await using var off = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(off, Person, Discord, [], [], Ct);
+        await DiscordBanAsync(off, Discord, actorId: "3131", actorIsBot: true);
+
+        var skipped = Gateway();
+        skipped.Banned = [Discord];
+
+        var offRun = await SyncSetUp.CatchUpAsync(off, skipped, apply: true, Ct);
+
+        Assert.Equal(0, offRun.Total);
+        Assert.Empty(off.VRChat.Actions);
+
+        await using var on = await DiscordIntoTheGroupAsync(_db, fromBots: true);
+        await SyncSetUp.LinkAsync(on, Person, Discord, [], [], Ct);
+        await DiscordBanAsync(on, Discord, actorId: "3131", actorIsBot: true);
+
+        var copying = Gateway();
+        copying.Banned = [Discord];
+
+        var onRun = await SyncSetUp.CatchUpAsync(on, copying, apply: true, Ct);
+
+        Assert.Equal(1, onRun.Total);
+        Assert.Equal(Person, Assert.Single(on.VRChat.Actions).UserId);
+    }
+
+    // ── A ban made through Modbot ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A ban a moderator made in Modbot is made in Discord by Modbot itself, and that Discord ban
+    /// coming back round is not a reason to ban in VRChat again -- with the bot named in the audit
+    /// log, and with nobody named because the bot may not read it.
+    /// </summary>
+    [Fact]
+    public async Task TheDiscordBanModbotMadeForAModbotBanDoesNotComeBackToVRChat()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var gateway = Gateway();
+        var made = await SyncSetUp.ModbotBanAsync(services, gateway, banning: true, Person, Ct);
+        Assert.Equal(LinkedDiscordStatus.Done, made.Status);
+
+        await DiscordBanAsync(services, Discord, actorId: Bot, actorIsBot: true);
+        await DiscordBanAsync(services, Discord, actorId: null);
+
+        var pass = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+
+        Assert.Equal(0, pass.Copied);
+        Assert.Equal(2, pass.Dropped);
+        Assert.Empty(services.VRChat.Actions);
+    }
+
+    /// <summary>The same guard with the gateway not there to name the bot: only the copy record can tell.</summary>
+    [Fact]
+    public async Task TheCopyRecordAloneStopsAModbotBansDiscordHalfComingBack()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: true);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        await SyncSetUp.ModbotBanAsync(services, Gateway(), banning: true, Person, Ct);
+        await DiscordBanAsync(services, Discord, actorId: null);
+
+        // No gateway, so no bot id to compare against.
+        var pass = await SyncSetUp.BanPassAsync(services, null, Ct);
+
+        Assert.Equal(1, pass.Dropped);
+        Assert.Empty(services.VRChat.Actions);
+    }
+
+    /// <summary>
+    /// The VRChat half of the same ban shows in the group's audit log as a ban by Modbot's own
+    /// account. With copying group bans into Discord on, it must not be copied a second time.
+    /// </summary>
+    [Fact]
+    public async Task TheVRChatHalfOfAModbotBanIsNotCopiedIntoDiscordAgain()
+    {
+        await using var services = await BothWaysAsync(_db);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var gateway = Gateway();
+        await SyncSetUp.ModbotBanAsync(services, gateway, banning: true, Person, Ct);
+        Assert.Single(gateway.Moderation);
+
+        gateway.Moderation.Clear();
+        await GroupBanAsync(services, Person, actorId: "usr_modbot");
+
+        var pass = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+
+        Assert.Equal(0, pass.Copied);
+        Assert.Equal(1, pass.Dropped);
+        Assert.Empty(gateway.Moderation);
+    }
+
+    [Fact]
+    public async Task ABanAModeratorMadeInVRChatItselfIsStillCopiedWhenThatSwitchIsOn()
+    {
+        await using var services = await BothWaysAsync(_db);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var gateway = Gateway();
+        await GroupBanAsync(services, Person, actorId: "usr_moderator");
+
+        var pass = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+
+        Assert.Equal(1, pass.Copied);
         Assert.Single(gateway.Moderation);
     }
 }

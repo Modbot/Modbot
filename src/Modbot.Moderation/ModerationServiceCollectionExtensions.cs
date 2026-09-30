@@ -39,6 +39,7 @@ public static class ModerationServiceCollectionExtensions
         services.TryAddScoped<IAiCallTexts, NoAiCallTexts>();
         services.TryAddSingleton<IDiscordModerationActions, NoDiscordModerationActions>();
         services.TryAddScoped<IVRChatModerationActions, NoVRChatModerationActions>();
+        services.TryAddScoped<ILinkedDiscordBans, NoLinkedDiscordBans>();
 
         return services;
     }

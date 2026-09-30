@@ -96,6 +96,19 @@ public static class CopyKinds
     public const string Remove = "remove";
     public const string RoleGiven = "role-given";
     public const string RoleTaken = "role-taken";
+
+    /// <summary>
+    /// A ban a person or AutoMod made through Modbot, which Modbot then made in Discord as well.
+    /// </summary>
+    /// <remarks>
+    /// Its own kind, not <see cref="Ban"/>, because ban sync has to tell it from a ban it copied:
+    /// the group's audit log shows the VRChat half of it as a ban by Modbot's own account, and
+    /// copying that into Discord would make the same ban twice.
+    /// </remarks>
+    public const string ModbotBan = "modbot-ban";
+
+    /// <summary>The unban twin of <see cref="ModbotBan"/>.</summary>
+    public const string ModbotUnban = "modbot-unban";
 }
 
 /// <summary>

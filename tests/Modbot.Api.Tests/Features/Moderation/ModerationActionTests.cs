@@ -8,6 +8,7 @@ using Modbot.Api.Tests.Fakes;
 using Modbot.Api.Tests.Features.Audit;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.TestSupport;
 using Modbot.VRChat;
 
@@ -776,5 +777,202 @@ public class ModerationActionTests
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.DoesNotContain(gate.Calls, c => c.Endpoint.Class == VRChatEndpointClass.GroupsModerate);
+    }
+
+    // ── A ban made through Modbot lands on the linked Discord account too ──────────────────
+
+    private static Task<ReadSurfaceTestHost> StartWithDiscordAsync(
+        PostgresFixture db, FakeVRChatGate gate, RecordingLinkedDiscord discord)
+        => ReadSurfaceTestHost.StartAsync(
+            db, gate, configure: services => services.AddScoped<ILinkedDiscordBans>(_ => discord));
+
+    [Fact]
+    public async Task ABan_AlsoBansTheLinkedDiscordAccount_AndSaysSo()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord();
+
+        await using var host = await StartWithDiscordAsync(_db, Accepting(), discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-discord-1", reason), cookie, ct), ct);
+
+        Assert.True(result.Done);
+        Assert.True(result.DiscordDone);
+        Assert.Null(result.DiscordError);
+
+        var (banned, why, causedBy) = Assert.Single(discord.Banned);
+        Assert.Equal(Person, banned);
+        Assert.Equal("Harassment", why);
+
+        // It cites the ban Modbot recorded, so the audit log ties the two together.
+        var fact = Assert.Single(await FactsAboutAsync(host, Person, ct), e => e.Type == FactType.ActionBan);
+        Assert.Equal(fact.Id, causedBy);
+    }
+
+    /// <summary>
+    /// Discord saying no is shown, and the VRChat ban stands: the ban is on the ban list and its
+    /// case file is written whatever the bot was allowed to do.
+    /// </summary>
+    [Fact]
+    public async Task ADiscordRefusal_IsShown_AndTheVRChatBanStands()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord { Answer = LinkedDiscordOutcome.Failed("The bot may not ban in this server.") };
+
+        await using var host = await StartWithDiscordAsync(_db, Accepting(), discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-discord-2", reason), cookie, ct), ct);
+
+        Assert.True(result.Done);
+        Assert.False(result.DiscordDone);
+        Assert.Equal("The bot may not ban in this server.", result.DiscordError);
+        Assert.NotNull(result.CaseId);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        Assert.Null((await db.GroupBans.AsNoTracking().SingleAsync(b => b.UserId == Person, ct)).LiftedAt);
+    }
+
+    [Fact]
+    public async Task ADiscordSideThatFallsOver_NeverTakesTheBanDownWithIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord { Throws = true };
+
+        await using var host = await StartWithDiscordAsync(_db, Accepting(), discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var response = await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-discord-3", reason), cookie, ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var result = await ResultOf(response, ct);
+        Assert.True(result.Done);
+        Assert.False(result.DiscordDone);
+        Assert.Equal("Modbot could not reach Discord.", result.DiscordError);
+    }
+
+    [Fact]
+    public async Task ABanVRChatRefused_IsNeverAskedOfDiscord()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord();
+
+        var gate = new FakeVRChatGate()
+            .SignedInAs()
+            .Returns("BanGroupMember", VRChatResult<VRChatGroupMember>.Failure(
+                403, "You do not have permission to ban members of this group."));
+
+        await using var host = await StartWithDiscordAsync(_db, gate, discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-discord-4", reason), cookie, ct), ct);
+
+        Assert.False(result.Done);
+        Assert.False(result.DiscordDone);
+        Assert.Null(result.DiscordError);
+        Assert.Empty(discord.Banned);
+    }
+
+    [Fact]
+    public async Task AnUnban_AlsoLiftsTheLinkedDiscordBan_ButAKickTouchesNothingInDiscord()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord();
+
+        await using var host = await StartWithDiscordAsync(_db, Accepting(), discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct, banned: true);
+
+        var unbanner = await host.SignedInAsync(ModbotPermissions.Unban, ct);
+        var unbanned = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-discord-5"), unbanner, ct), ct);
+
+        Assert.True(unbanned.Done);
+        Assert.True(unbanned.DiscordDone);
+        Assert.Equal(Person, Assert.Single(discord.Unbanned));
+
+        var kicker = await host.SignedInAsync(ModbotPermissions.Kick, ct);
+        var kicked = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/kick", Body(Person, "key-discord-6"), kicker, ct), ct);
+
+        Assert.True(kicked.Done);
+        Assert.False(kicked.DiscordDone);
+        Assert.Empty(discord.Banned);
+        Assert.Single(discord.Unbanned);
+    }
+
+    /// <summary>Somebody with no linked Discord account, or a group with no Discord: nothing said, nothing shown.</summary>
+    [Fact]
+    public async Task WithNothingToDoInDiscord_TheAnswerSaysNothingAboutIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord { Answer = LinkedDiscordOutcome.Skipped };
+
+        await using var host = await StartWithDiscordAsync(_db, Accepting(), discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-discord-7", reason), cookie, ct), ct);
+
+        Assert.True(result.Done);
+        Assert.False(result.DiscordDone);
+        Assert.Null(result.DiscordError);
+    }
+
+    private sealed class RecordingLinkedDiscord : ILinkedDiscordBans
+    {
+        public List<(string VRChatUserId, string? Why, long? CausedBy)> Banned { get; } = [];
+
+        public List<string> Unbanned { get; } = [];
+
+        public bool Throws { get; set; }
+
+        public LinkedDiscordOutcome Answer { get; set; } = new(LinkedDiscordStatus.Done);
+
+        public Task<LinkedDiscordOutcome> BanAsync(
+            string vrchatUserId, string by, string? why, long? causedByFactId, CancellationToken ct = default)
+        {
+            if (Throws)
+                throw new InvalidOperationException("Discord fell over.");
+
+            Banned.Add((vrchatUserId, why, causedByFactId));
+            return Task.FromResult(Answer);
+        }
+
+        public Task<LinkedDiscordOutcome> UnbanAsync(
+            string vrchatUserId, string by, string? why, long? causedByFactId, CancellationToken ct = default)
+        {
+            if (Throws)
+                throw new InvalidOperationException("Discord fell over.");
+
+            Unbanned.Add(vrchatUserId);
+            return Task.FromResult(Answer);
+        }
     }
 }

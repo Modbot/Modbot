@@ -405,6 +405,12 @@ public sealed class DiscordEventRecorder
         if (entry.ActorId is { } actor && await NameAsync(guildId, actor, ct).ConfigureAwait(false) is { } actorName)
             data["actorDisplayName"] = actorName;
 
+        // Written whenever the audit log named the account, true or false, so ban sync can tell a
+        // fact that says "a person did this" from one older than this field, which says nothing and
+        // is checked against the member list instead.
+        if (entry.ActorIsBot is { } actorIsBot)
+            data["actorIsBot"] = actorIsBot;
+
         async Task<JsonObject> AboutMemberAsync()
         {
             var copy = (JsonObject)data.DeepClone();

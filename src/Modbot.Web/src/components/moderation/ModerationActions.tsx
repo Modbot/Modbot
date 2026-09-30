@@ -22,6 +22,7 @@ import {
 import {
   actionsFor,
   confirmTitle,
+  discordText,
   noPermissionText,
   reasonRequired,
   resultText,
@@ -242,6 +243,10 @@ function ConfirmAction({
       .finally(() => setSending(false))
   }
 
+  // The Discord half of a ban or unban, said under the VRChat result. It never replaces it: the
+  // VRChat action stands whatever Discord answered.
+  const discord = result?.done ? discordText(action, result) : null
+
   return (
     <DialogContent
       title={confirmTitle(action, name, isMember)}
@@ -356,6 +361,8 @@ function ConfirmAction({
                 {writesCaseFile && result.done && result.caseId ? ' Case file written.' : ''}
               </p>
             )}
+
+            {discord && <p className={discord.failed ? 'text-destructive' : ''}>{discord.text}</p>}
 
             {writesCaseFile && <BanFileList items={files.items} />}
           </>

@@ -50,13 +50,15 @@ public sealed record RoleSyncPass(
 /// <param name="Dropped">Events recognised as Modbot's own copies coming back, and left alone.</param>
 /// <param name="NotLinked">Events about somebody with no link to the other platform.</param>
 /// <param name="Left">Facts this pass did not get to. The next pass carries on.</param>
+/// <param name="FromBots">Discord bans made by another bot, skipped because copying those is off.</param>
 public sealed record BanSyncPass(
     int Copied,
     int Dropped,
     int NotLinked,
     int Left,
     string? Problem,
-    IReadOnlyList<PlannedChange> Changes);
+    IReadOnlyList<PlannedChange> Changes,
+    int FromBots = 0);
 
 /// <summary>
 /// What a first run would do, or has done, across both halves.

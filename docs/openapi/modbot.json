@@ -14220,7 +14220,7 @@
           "Moderation"
         ],
         "summary": "Ban a person",
-        "description": "Works on anybody, member or not: VRChat's group ban takes a user id, so somebody who has never joined can be kept out before they arrive. A person Modbot has never seen is recorded as a person by the ban, and their profile is fetched afterwards. A reason is required, and the ban's case file is written from it and the note. Nothing is recorded as done unless VRChat accepted it. The key makes one confirmation act once.\n\nNeeds the `Ban` permission.",
+        "description": "Works on anybody, member or not: VRChat's group ban takes a user id, so somebody who has never joined can be kept out before they arrive. A person Modbot has never seen is recorded as a person by the ban, and their profile is fetched afterwards. A reason is required, and the ban's case file is written from it and the note. Nothing is recorded as done unless VRChat accepted it. When Discord is set up and the person has linked their Discord account, that account is banned too, whatever the ban sync switches say; if Discord refuses, the VRChat ban stands and the answer says what Discord said. The key makes one confirmation act once.\n\nNeeds the `Ban` permission.",
         "operationId": "BanPerson",
         "requestBody": {
           "content": {
@@ -14296,7 +14296,7 @@
           "Moderation"
         ],
         "summary": "Unban a person",
-        "description": "There has to be a ban to lift; VRChat answers an unban of anybody who is not banned with \"they are not banned\". Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. The key makes one confirmation act once.\n\nNeeds the `Unban` permission.",
+        "description": "There has to be a ban to lift; VRChat answers an unban of anybody who is not banned with \"they are not banned\". Nothing is recorded as done unless VRChat accepted it. A reason is optional unless the group has asked for one. When the person has a linked Discord account, its ban is lifted too. The key makes one confirmation act once.\n\nNeeds the `Unban` permission.",
         "operationId": "UnbanPerson",
         "requestBody": {
           "content": {
@@ -24235,6 +24235,12 @@
               "null",
               "string"
             ]
+          },
+          "banSyncFromBots": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -24243,6 +24249,7 @@
           "roleSyncOn",
           "banSyncToDiscord",
           "banSyncToVRChat",
+          "banSyncFromBots",
           "banCopyAction",
           "botCanBanMembers",
           "botCanRemoveMembers",
@@ -24263,6 +24270,9 @@
             "type": "boolean"
           },
           "banSyncToVRChat": {
+            "type": "boolean"
+          },
+          "banSyncFromBots": {
             "type": "boolean"
           },
           "banCopyAction": {
@@ -31801,6 +31811,16 @@
               {
                 "$ref": "#/components/schemas/MissingGroupPermission"
               }
+            ]
+          },
+          "discordDone": {
+            "type": "boolean",
+            "default": false
+          },
+          "discordError": {
+            "type": [
+              "null",
+              "string"
             ]
           }
         }

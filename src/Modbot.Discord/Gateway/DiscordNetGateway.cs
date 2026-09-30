@@ -1238,7 +1238,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         var actor = entry.User is { } user ? Text(user.Id) : null;
         var reason = string.IsNullOrWhiteSpace(entry.Reason) ? null : entry.Reason;
 
-        return entry.Data switch
+        DiscordAuditEntry? described = entry.Data switch
         {
             BanAuditLogData ban => new(id, entry.CreatedAt, DiscordAuditKinds.Ban, actor, Target(ban.Target), reason),
             UnbanAuditLogData unban => new(id, entry.CreatedAt, DiscordAuditKinds.Unban, actor, Target(unban.Target), reason),
@@ -1283,6 +1283,10 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
             _ => null,
         };
+
+        // Whether a bot did it is on the entry already, so a ban by somebody else's bot can be told
+        // from a ban by a person without asking Discord anything more.
+        return described is not null && entry.User is { } who ? described with { ActorIsBot = who.IsBot } : described;
 
         static string? Target(IUser? target) => target is null ? null : Text(target.Id);
     }

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { actionsFor, confirmTitle, reasonRequired, resultText } from '../src/lib/moderationActions.ts'
+import { actionsFor, confirmTitle, discordText, reasonRequired, resultText } from '../src/lib/moderationActions.ts'
 import type { CurrentUser } from '../src/lib/api.ts'
 
 /** A signed-in person holding exactly these permissions. */
@@ -104,4 +104,23 @@ test('a repeat of one confirmation reads as already sent, not as a second action
 
   assert.equal(again, 'Banned. Already sent.')
   assert.equal(resultText('ban', { done: true, error: null, rateLimited: false, repeat: false }), 'Banned.')
+})
+
+test('the Discord half of a ban is said only when there was one', () => {
+  assert.equal(discordText('ban', { discordDone: false, discordError: null }), null)
+  assert.equal(discordText('ban', {}), null)
+  assert.deepEqual(discordText('ban', { discordDone: true, discordError: null }), {
+    text: 'Also banned in Discord.',
+    failed: false,
+  })
+  assert.deepEqual(discordText('unban', { discordDone: true, discordError: null }), {
+    text: 'Also unbanned in Discord.',
+    failed: false,
+  })
+})
+
+test('a Discord refusal is shown as a failure, and says what Discord said', () => {
+  const refused = discordText('ban', { discordDone: false, discordError: 'The bot may not ban in this server.' })
+
+  assert.deepEqual(refused, { text: 'Not banned in Discord: The bot may not ban in this server.', failed: true })
 })

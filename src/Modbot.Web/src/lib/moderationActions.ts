@@ -109,6 +109,21 @@ export function resultText(
   return result.error ?? 'VRChat refused it and did not say why.'
 }
 
+/**
+ * What the Discord half of a ban or unban says, or null when there was none (no Discord server, or
+ * no linked account). Shown under the result line, so a moderator sees a Discord refusal at once.
+ */
+export function discordText(
+  action: ModerationActionName,
+  result: { discordDone?: boolean; discordError?: string | null },
+): { text: string; failed: boolean } | null {
+  const past = action === 'unban' ? 'unbanned' : 'banned'
+
+  if (result.discordError) return { text: `Not ${past} in Discord: ${result.discordError}`, failed: true }
+  if (result.discordDone) return { text: `Also ${past} in Discord.`, failed: false }
+  return null
+}
+
 function at(action: ModerationActionName): OfferedAction {
   return { action, label: LABELS[action], destructive: action !== 'unban' }
 }

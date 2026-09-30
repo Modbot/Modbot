@@ -68,6 +68,7 @@ public sealed class ModerationEngine : IModerationChecker
     private readonly IModbotClock _clock;
     private readonly IDiscordModerationActions _discord;
     private readonly IVRChatModerationActions _vrchat;
+    private readonly ILinkedDiscordBans _linkedDiscord;
     private readonly CompiledTermLists _compiled;
     private readonly TextLanguage _language;
     private readonly ReviewFacts _reviewFacts;
@@ -82,6 +83,7 @@ public sealed class ModerationEngine : IModerationChecker
         IModbotClock clock,
         IDiscordModerationActions discord,
         IVRChatModerationActions vrchat,
+        ILinkedDiscordBans linkedDiscord,
         CompiledTermLists compiled,
         TextLanguage language,
         ReviewFacts reviewFacts,
@@ -94,6 +96,7 @@ public sealed class ModerationEngine : IModerationChecker
         ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(discord);
         ArgumentNullException.ThrowIfNull(vrchat);
+        ArgumentNullException.ThrowIfNull(linkedDiscord);
         ArgumentNullException.ThrowIfNull(compiled);
         ArgumentNullException.ThrowIfNull(language);
         ArgumentNullException.ThrowIfNull(reviewFacts);
@@ -106,6 +109,7 @@ public sealed class ModerationEngine : IModerationChecker
         _clock = clock;
         _discord = discord;
         _vrchat = vrchat;
+        _linkedDiscord = linkedDiscord;
         _compiled = compiled;
         _language = language;
         _reviewFacts = reviewFacts;
@@ -990,7 +994,10 @@ public sealed class ModerationEngine : IModerationChecker
             // A ban takes the person out of the group as well, so a removal on top of one that
             // worked would be a second request for something VRChat has already done.
             if (outcome.Done)
+            {
                 removers = [];
+                await AlsoBanInDiscordAsync(person.Id, banners, ct).ConfigureAwait(false);
+            }
         }
 
         if (removers.Count > 0)
@@ -1000,6 +1007,24 @@ public sealed class ModerationEngine : IModerationChecker
         }
 
         return new Actions(done);
+    }
+
+    /// <summary>
+    /// A ban AutoMod made in the group is made on the person's linked Discord account too, like a
+    /// ban a moderator makes in Modbot. The service says what happened in the audit log; a failure
+    /// here is not the ban's failure and does not stop the rest of the pass.
+    /// </summary>
+    private async Task AlsoBanInDiscordAsync(string vrchatUserId, IReadOnlyList<ModerationMatch> banners, CancellationToken ct)
+    {
+        try
+        {
+            var why = Clip(string.Join(", ", banners.Select(m => m.RuleName).Distinct()), 300);
+            await _linkedDiscord.BanAsync(vrchatUserId, "AutoMod", why, null, ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.Warning(e, "Could not ban the linked Discord account after an AutoMod group ban");
+        }
     }
 
     /// <summary>

@@ -59,6 +59,7 @@ function SyncForm({
   const [roleSyncOn, setRoleSyncOn] = useState(settings.roleSyncOn)
   const [toDiscord, setToDiscord] = useState(settings.banSyncToDiscord)
   const [toVRChat, setToVRChat] = useState(settings.banSyncToVRChat)
+  const [fromBots, setFromBots] = useState(settings.banSyncFromBots)
   const [banCopyAction, setBanCopyAction] = useState(settings.banCopyAction)
 
   const [busy, setBusy] = useState(false)
@@ -74,6 +75,7 @@ function SyncForm({
     setRoleSyncOn(next.roleSyncOn)
     setToDiscord(next.banSyncToDiscord)
     setToVRChat(next.banSyncToVRChat)
+    setFromBots(next.banSyncFromBots)
     setBanCopyAction(next.banCopyAction)
   }
 
@@ -113,7 +115,15 @@ function SyncForm({
             size="xs"
             disabled={busy}
             onClick={() =>
-              run(() => api.setDiscordSync({ roleSyncOn, banSyncToDiscord: toDiscord, banSyncToVRChat: toVRChat, banCopyAction }))
+              run(() =>
+                api.setDiscordSync({
+                  roleSyncOn,
+                  banSyncToDiscord: toDiscord,
+                  banSyncToVRChat: toVRChat,
+                  banSyncFromBots: fromBots,
+                  banCopyAction,
+                }),
+              )
             }
           >
             {busy ? 'Saving…' : 'Save sync'}
@@ -188,6 +198,11 @@ function SyncForm({
         <Switch checked={toVRChat} onChange={setToVRChat}>
           Copy Discord bans into the group
         </Switch>
+        {toVRChat && (
+          <Switch checked={fromBots} onChange={setFromBots}>
+            Copy bans made by other bots
+          </Switch>
+        )}
       </div>
 
       <Pairs settings={settings} busy={busy} onChanged={after} onProblem={setProblem} />

@@ -53,6 +53,15 @@ public sealed record ModerationActionRequest(
 /// one, the account's roles when known, and the group, for the link to its roles page. Null for
 /// every other outcome.
 /// </param>
+/// <param name="DiscordDone">
+/// True when a ban or unban was also made on the person's linked Discord account. False when they
+/// have none, when Discord is not set up, or when Discord did not do it (see
+/// <paramref name="DiscordError"/>).
+/// </param>
+/// <param name="DiscordError">
+/// What Discord said when it refused, or that the bot is not connected. The VRChat action stands
+/// whatever this says. Null when Discord did it, or when there was nothing to do there.
+/// </param>
 public sealed record ModerationActionResult(
     string Action,
     string UserId,
@@ -63,4 +72,6 @@ public sealed record ModerationActionResult(
     bool RateLimited,
     bool Repeat,
     bool Gone = false,
-    MissingGroupPermission? MissingGroupPermission = null);
+    MissingGroupPermission? MissingGroupPermission = null,
+    bool DiscordDone = false,
+    string? DiscordError = null);

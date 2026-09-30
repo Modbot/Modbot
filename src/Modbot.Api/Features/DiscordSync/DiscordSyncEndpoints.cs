@@ -26,6 +26,10 @@ public sealed record RolePairView(
     bool BotCanAssign,
     string? Problem);
 
+/// <param name="BanSyncFromBots">
+/// Whether a Discord ban made by another bot is copied into the group too. Only asked about while
+/// <paramref name="BanSyncToVRChat"/> is on.
+/// </param>
 /// <param name="BanCopyAction">ban or remove.</param>
 /// <param name="BotCanBanMembers">Whether the bot holds Ban Members in the server.</param>
 /// <param name="BotCanRemoveMembers">Whether the bot holds Kick Members in the server.</param>
@@ -34,6 +38,7 @@ public sealed record DiscordSyncSettingsView(
     bool RoleSyncOn,
     bool BanSyncToDiscord,
     bool BanSyncToVRChat,
+    bool BanSyncFromBots,
     string BanCopyAction,
     bool BotCanBanMembers,
     bool BotCanRemoveMembers,
@@ -48,11 +53,13 @@ public sealed record DiscordSyncSettingsView(
 /// <summary>One of the managed group's roles, for the pair form to pick from.</summary>
 public sealed record GroupRoleView(string Id, string Name);
 
+/// <param name="BanSyncFromBots">Null leaves it as it is.</param>
 public sealed record DiscordSyncSettingsUpdate(
     bool RoleSyncOn,
     bool BanSyncToDiscord,
     bool BanSyncToVRChat,
-    string? BanCopyAction);
+    string? BanCopyAction,
+    bool? BanSyncFromBots = null);
 
 public sealed record RolePairUpdate(string VRChatRoleId, string DiscordRoleId, string Decides, bool Enabled);
 
@@ -153,6 +160,7 @@ public static class DiscordSyncEndpoints
                 settings.DiscordRoleSyncOn = body.RoleSyncOn;
                 settings.DiscordBanSyncToDiscord = body.BanSyncToDiscord;
                 settings.DiscordBanSyncToVRChat = body.BanSyncToVRChat;
+                settings.DiscordBanSyncFromBots = body.BanSyncFromBots ?? settings.DiscordBanSyncFromBots;
                 settings.DiscordBanCopyAction = action;
 
                 if (switchedOn)
@@ -424,6 +432,7 @@ public static class DiscordSyncEndpoints
             settings.DiscordRoleSyncOn,
             settings.DiscordBanSyncToDiscord,
             settings.DiscordBanSyncToVRChat,
+            settings.DiscordBanSyncFromBots,
             settings.DiscordBanCopyAction,
             server?.BotCanBanMembers ?? false,
             server?.BotCanRemoveMembers ?? false,

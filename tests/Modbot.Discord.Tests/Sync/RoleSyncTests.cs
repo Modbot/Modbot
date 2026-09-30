@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Discord.Tests.Fakes;
 using Modbot.TestSupport;
 
@@ -241,6 +243,162 @@ public class RoleSyncTests
         await SyncSetUp.LinkAsync(services, Person, Discord, inGroup: [SyncSetUp.GroupRole], inServer: [SyncSetUp.DiscordRole], ct: Ct);
 
         var gateway = new FakeGateway();
+        var pass = await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
+
+        Assert.Equal(0, pass.Found);
+        Assert.Empty(gateway.RoleChanges);
+    }
+
+    // ── Unlinking takes back what Modbot gave ──────────────────────────────────────────────
+
+    /// <summary>The Discord role Modbot gave a linked person, held now, with the link since ended.</summary>
+    private async Task<(TestServices Services, FakeGateway Gateway)> GaveARoleThenUnlinkedAsync()
+    {
+        var services = await OnAsync(_db);
+        await SyncSetUp.PairAsync(services, RoleSyncDecides.VRChat, Ct);
+        await SyncSetUp.LinkAsync(services, Person, Discord, inGroup: [SyncSetUp.GroupRole], inServer: [], ct: Ct);
+
+        var gateway = new FakeGateway();
+        var first = await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
+        Assert.Equal(1, first.Given);
+
+        // Discord now shows them holding it, and then they unlink.
+        await SyncSetUp.SetServerRolesAsync(services, Discord, [SyncSetUp.DiscordRole], Ct);
+        await SyncSetUp.UnlinkAsync(services, Discord, Ct);
+
+        gateway.RoleChanges.Clear();
+        return (services, gateway);
+    }
+
+    [Fact]
+    public async Task UnlinkingTakesBackTheDiscordRoleModbotGave_AndLeavesTheGroupRoleAlone()
+    {
+        var (services, gateway) = await GaveARoleThenUnlinkedAsync();
+        await using var owned = services;
+
+        var pass = await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
+
+        Assert.Equal(1, pass.Taken);
+        var (added, _, userId, roleId) = Assert.Single(gateway.RoleChanges);
+        Assert.False(added);
+        Assert.Equal(Discord, userId);
+        Assert.Equal(SyncSetUp.DiscordRole, roleId);
+
+        // Option B: the group role stays. They are still in the group.
+        Assert.Empty(services.VRChat.Actions);
+
+        var taken = Assert.Single(await services.FactsOfTypeAsync(FactType.CopiedRoleTaken, Ct));
+        Assert.Equal("unlinked", System.Text.Json.JsonDocument.Parse(taken.Data ?? "{}").RootElement.GetProperty("because").GetString());
+        Assert.Contains("unlinked", gateway.RoleReasons[^1], StringComparison.Ordinal);
+
+        // Recorded like any copy, so the next pass sees the last word is "taken".
+        var last = (await SyncSetUp.CopiesAsync(services, Ct))[^1];
+        Assert.Equal(CopyKinds.RoleTaken, last.Kind);
+        Assert.Equal(CopyDirections.ToDiscord, last.Direction);
+    }
+
+    [Fact]
+    public async Task ARoleTakenBackIsNotTakenAgainOnTheNextPass()
+    {
+        var (services, gateway) = await GaveARoleThenUnlinkedAsync();
+        await using var owned = services;
+
+        await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
+        await SyncSetUp.SetServerRolesAsync(services, Discord, [], Ct);
+        gateway.RoleChanges.Clear();
+
+        var again = await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
+
+        Assert.Equal(0, again.Found);
+        Assert.Empty(gateway.RoleChanges);
+    }
+
+    /// <summary>
+    /// A role somebody gave by hand, or that they held before the sync ever ran, is not one Modbot
+    /// gave, and is never touched.
+    /// </summary>
+    [Fact]
+    public async Task ARoleModbotNeverGaveIsLeftAloneWhenTheyUnlink()
+    {
+        await using var services = await OnAsync(_db);
+        await SyncSetUp.PairAsync(services, RoleSyncDecides.VRChat, Ct);
+        await SyncSetUp.LinkAsync(services, Person, Discord, inGroup: [SyncSetUp.GroupRole], inServer: [SyncSetUp.DiscordRole], ct: Ct);
+        await SyncSetUp.UnlinkAsync(services, Discord, Ct);
+
+        var gateway = new FakeGateway();
+        var pass = await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
+
+        Assert.Equal(0, pass.Found);
+        Assert.Empty(gateway.RoleChanges);
+    }
+
+    /// <summary>A role Modbot took away since is not Modbot's to take again, whatever was given before.</summary>
+    [Fact]
+    public async Task ARoleAlreadyTakenBackIsNotTakenAgain()
+    {
+        var (services, gateway) = await GaveARoleThenUnlinkedAsync();
+        await using var owned = services;
+
+        using (var scope = services.Scope())
+        {
+            await scope.ServiceProvider.GetRequiredService<Modbot.Discord.Sync.CopyRecords>().RecordAsync(
+                CopyDirections.ToDiscord, CopyKinds.RoleTaken, Discord, Person, SyncSetUp.DiscordRole, true, null, Ct);
+        }
+
+        var pass = await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
+
+        Assert.Equal(0, pass.Found);
+        Assert.Empty(gateway.RoleChanges);
+    }
+
+    /// <summary>Somebody who links again is the ordinary pass's business, not a take-back.</summary>
+    [Fact]
+    public async Task ARelinkedPersonIsNotTakenFrom()
+    {
+        var (services, gateway) = await GaveARoleThenUnlinkedAsync();
+        await using var owned = services;
+
+        await SyncSetUp.RelinkAsync(services, Person, Discord, Ct);
+
+        var pass = await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
+
+        // Group role held, Discord role held: the two sides agree and nothing is asked of anybody.
+        Assert.Equal(0, pass.Found);
+        Assert.Empty(gateway.RoleChanges);
+    }
+
+    [Fact]
+    public async Task ADryRunListsTheTakeBackAndMakesNone()
+    {
+        var (services, gateway) = await GaveARoleThenUnlinkedAsync();
+        await using var owned = services;
+
+        var copiesBefore = (await SyncSetUp.CopiesAsync(services, Ct)).Count;
+        var pass = await SyncSetUp.RolePassAsync(services, gateway, apply: false, Ct);
+
+        Assert.Equal(1, pass.Found);
+        var change = Assert.Single(pass.Changes);
+        Assert.Equal(CopyKinds.RoleTaken, change.What);
+        Assert.Equal(SyncPlatforms.Discord, change.Platform);
+        Assert.Equal(Discord, change.DiscordUserId);
+
+        Assert.Empty(gateway.RoleChanges);
+        Assert.Equal(copiesBefore, (await SyncSetUp.CopiesAsync(services, Ct)).Count);
+        Assert.Empty(await services.FactsOfTypeAsync(FactType.CopiedRoleTaken, Ct));
+    }
+
+    /// <summary>Only paired roles count. A pair switched off is not Modbot's business any more.</summary>
+    [Fact]
+    public async Task APairThatIsSwitchedOffTakesNothingBack()
+    {
+        var (services, gateway) = await GaveARoleThenUnlinkedAsync();
+        await using var owned = services;
+
+        await using (var db = services.Database.NewContext())
+        {
+            await db.DiscordRolePairs.ExecuteUpdateAsync(u => u.SetProperty(p => p.Enabled, false), Ct);
+        }
+
         var pass = await SyncSetUp.RolePassAsync(services, gateway, apply: true, Ct);
 
         Assert.Equal(0, pass.Found);

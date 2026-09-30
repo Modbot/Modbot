@@ -91,6 +91,10 @@ public static class DiscordAuditKinds
 /// </param>
 /// <param name="PermissionsGiven">For a role that was edited, the permissions it gained, by Discord's own names.</param>
 /// <param name="PermissionsTaken">For a role that was edited, the permissions it lost.</param>
+/// <param name="ActorIsBot">
+/// Whether the account that did it is a bot. The audit log names it, so this costs no request.
+/// Null when Discord gave no account at all.
+/// </param>
 public sealed record DiscordAuditEntry(
     string Id,
     DateTimeOffset At,
@@ -105,7 +109,8 @@ public sealed record DiscordAuditEntry(
     IReadOnlyList<DiscordRoleChange>? Roles = null,
     IReadOnlyList<DiscordFieldChange>? Changes = null,
     IReadOnlyList<string>? PermissionsGiven = null,
-    IReadOnlyList<string>? PermissionsTaken = null);
+    IReadOnlyList<string>? PermissionsTaken = null,
+    bool? ActorIsBot = null);
 
 /// <summary>One field of a channel or role, before and after an edit.</summary>
 /// <param name="Field">The field, in a plain word: <c>name</c>, <c>color</c>, <c>slowMode</c>.</param>

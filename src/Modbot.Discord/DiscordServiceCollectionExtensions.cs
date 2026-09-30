@@ -1,7 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Modbot.Analytics.Facts;
+using Modbot.Core.Data;
 using Modbot.Core.Discord;
 using Modbot.Core.Moderation;
+using Modbot.Core.Time;
 using Modbot.Discord.Alerts;
 using Modbot.Discord.Bot;
 using Modbot.Discord.Commands;
@@ -85,6 +88,17 @@ public static class DiscordServiceCollectionExtensions
         services.AddScoped<Sync.BanSync>();
         services.AddHostedService<Sync.DiscordSyncService>();
         services.AddSingleton<IDiscordSyncRunner, Sync.DiscordSyncRunner>();
+
+        // A ban or unban made through Modbot reaches the person's linked Discord account too,
+        // whatever the ban sync switches say. Registered after the API's and the AutoMod engine's
+        // stand-ins, so it is the one they get where the bot exists.
+        services.AddScoped<ILinkedDiscordBans>(provider => new Sync.LinkedDiscordBans(
+            provider.GetRequiredService<ModbotContext>(),
+            provider.GetRequiredService<IModbotClock>(),
+            provider.GetRequiredService<IFactWriter>(),
+            provider.GetRequiredService<EventPartitionMaintainer>(),
+            provider.GetRequiredService<Sync.CopyRecords>(),
+            () => provider.GetRequiredService<DiscordBotService>().ReadyGateway));
 
         services.AddScoped<LookupQuery>();
         services.AddScoped<DiscordCommandHandler>();

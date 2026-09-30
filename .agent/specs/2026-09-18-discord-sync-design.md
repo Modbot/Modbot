@@ -85,6 +85,19 @@ Three separate restrictions, all of them narrowing:
    server, is skipped. A role cannot be mirrored onto a platform the person is not on, and asking
    VRChat to give a group role to a non-member only earns a refusal every minute forever.
 
+**Narrowed 2026-09-30: an unlink takes back what the sync gave.** Restriction 2 said an unlinked
+member is never in the query's result. One exception was added, and it is as structural as the rule
+it bends: when a Discord account has had a link and has none now, the sync takes back the **Discord**
+role of a pair, and only when Modbot's own copy records show it gave that role to that account and
+nothing has taken it back since (`role-given`, then no later `role-taken`, both done). A role given
+by hand, one held before the sync ran, a pair switched off or deleted, and an account that is linked
+again are all left alone. The **group** role is not touched: the person is still in the group, and
+Modbot did not decide that they should lose it. It follows the linked-member roles job, which has
+always taken its roles back on unlink. The limit is the one that job has: a role somebody also gave
+by hand after the sync gave it is taken. It is reported like any other take, as
+`modbot.copy.role.take` with `because: unlinked`, appears in the dry run, and counts against the
+same fifty changes a pass.
+
 ### 3.3 Reverting is reported
 
 M5 §3.1 asks that a change made on the mirror side be reverted and the revert reported rather than
@@ -171,6 +184,23 @@ That second guard is worthless in the other direction, and saying why is the rea
 **VRChat attributes everything Modbot does to Modbot's own account**. A ban a moderator pressed in
 the Modbot UI and a ban Modbot copied from Discord are indistinguishable by actor — and the first
 should cross over while the second must not. Only the copy record separates them.
+
+**Added 2026-09-30: another bot's ban, and a ban made in Modbot.**
+
+- A ban made by somebody else's bot is a rule its owner wrote, not a moderator's decision. The audit
+  entry already names the account, so whether it is a bot costs no request: the fact records
+  `actorIsBot`, and ban sync skips a bot's ban (and unban) unless **Copy bans made by other bots** is
+  on. Off by default. A fact older than the field is checked against the member list; one with no
+  named author is treated as a person's, as it was. Modbot's own bot is never copied, whatever the
+  switch says.
+- A ban or unban made **through Modbot** (a moderator, or AutoMod's group ban) is also made on the
+  person's linked Discord account, with no switch: Modbot is the one tool that knows both accounts
+  are one person, and it is the only ban that lands everywhere. It writes a copy record first, of
+  its own kinds (`modbot-ban`, `modbot-unban`), and both guards close the circle: the Discord ban
+  coming back is dropped by the bot check or the record, and the VRChat half showing in the group's
+  audit log as a ban by Modbot's own account is dropped by the same record. A refusal, or a bot that
+  is not connected, is written as `modbot.copy.failed` and handed back to the moderator; the group
+  ban stands. Nobody with no link, or no Discord server, hears about it.
 
 ### 4.4 Unbans follow their bans
 
@@ -358,6 +388,7 @@ did.
 2. **Reading Discord's ban list on a very large server.** It pages a thousand at a time and the
    first-run compare reads all of it. A server with tens of thousands of bans will make that press
    slow; nothing paces it yet because nothing has hit it.
-3. **Whether a copied ban should carry the other platform's reason text.** Discord's audit log
-   carries the reason a moderator typed; VRChat's ban endpoint takes none. Copying it into the fact
-   payload would be easy and would tell a moderator more.
+3. **Whether a copied ban should carry the other platform's reason text.** Answered 2026-09-30:
+   yes, for a ban copied from Discord. The reason is stored as `discordReason` on the copy's fact
+   (VRChat's ban takes none), and shown in the audit log sentence. Not a case file or a reason from
+   the group's list: that stays §12.

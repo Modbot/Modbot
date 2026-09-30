@@ -399,6 +399,19 @@ public class Settings
     public bool DiscordBanSyncToVRChat { get; set; }
 
     /// <summary>
+    /// Whether a Discord ban made by another bot (Dyno, Carl-bot and the like) is copied into the
+    /// group as well. Off by default, and only asked about while <see cref="DiscordBanSyncToVRChat"/>
+    /// is on.
+    /// </summary>
+    /// <remarks>
+    /// A bot bans on rules its owner wrote, often for chat behaviour, and often in bulk. A group
+    /// that copies what its moderators do in Discord does not necessarily want to copy what
+    /// somebody else's bot does. Modbot's own bot is never copied whatever this says: that is
+    /// Modbot's own work coming back round.
+    /// </remarks>
+    public bool DiscordBanSyncFromBots { get; set; }
+
+    /// <summary>
     /// What a copied VRChat ban does in Discord: one of <see cref="DiscordBanCopyActions"/>.
     /// </summary>
     /// <remarks>

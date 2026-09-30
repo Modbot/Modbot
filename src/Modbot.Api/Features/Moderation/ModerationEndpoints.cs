@@ -7,6 +7,7 @@ using Modbot.Api.Auth;
 using Modbot.Api.Features.Cases;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Discord;
 using Modbot.Core.Time;
 using Modbot.Evidence.Health;
 using Modbot.Evidence.Options;
@@ -64,7 +65,10 @@ public static class ModerationEndpoints
                 + "who has never joined can be kept out before they arrive. A person Modbot has "
                 + "never seen is recorded as a person by the ban, and their profile is fetched "
                 + "afterwards. A reason is required, and the ban's case file is written from it "
-                + "and the note. Nothing is recorded as done unless VRChat accepted it. The key "
+                + "and the note. Nothing is recorded as done unless VRChat accepted it. When "
+                + "Discord is set up and the person has linked their Discord account, that "
+                + "account is banned too, whatever the ban sync switches say; if Discord "
+                + "refuses, the VRChat ban stands and the answer says what Discord said. The key "
                 + "makes one confirmation act once.");
 
         Map(group, ModerationActionService.Unban, ModbotPermissions.Unban)
@@ -73,7 +77,8 @@ public static class ModerationEndpoints
             .WithDescription(
                 "There has to be a ban to lift; VRChat answers an unban of anybody who is not "
                 + "banned with \"they are not banned\". Nothing is recorded as done unless VRChat "
-                + "accepted it. A reason is optional unless the group has asked for one. The key "
+                + "accepted it. A reason is optional unless the group has asked for one. When "
+                + "the person has a linked Discord account, its ban is lifted too. The key "
                 + "makes one confirmation act once.");
 
         return app;
@@ -97,6 +102,7 @@ public static class ModerationEndpoints
                 [FromServices] EvidenceOptions? evidenceOptions,
                 [FromServices] IEvidenceStore? store,
                 [FromServices] EvidenceStoreMonitor? monitor,
+                [FromServices] ILinkedDiscordBans? discord,
                 CancellationToken ct) =>
             {
                 ArgumentNullException.ThrowIfNull(body);
@@ -117,7 +123,7 @@ public static class ModerationEndpoints
 
                 var caller = new Caller(actor, http.User.Identity?.Name ?? string.Empty, ModbotAuth.PermissionsOf(http.User));
                 var cases = new CaseFileService(db, clock, facts, partitions, profiles, evidenceOptions, store, monitor);
-                var service = new ModerationActionService(db, clock, vrchat, facts, partitions, cases, profiles: profiles);
+                var service = new ModerationActionService(db, clock, vrchat, facts, partitions, cases, profiles: profiles, discord: discord);
 
                 try
                 {

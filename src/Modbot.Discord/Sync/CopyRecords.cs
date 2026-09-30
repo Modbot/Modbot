@@ -160,6 +160,27 @@ public sealed class CopyRecords
     }
 
     /// <summary>
+    /// Whether Modbot has already made this change itself, without answering for anything.
+    /// Unlike <see cref="WasOursAsync"/> it closes nothing: it is for asking "is this already
+    /// done?" and leaves the row for the event that really is its own coming back.
+    /// </summary>
+    public Task<bool> WasDoneAsync(
+        string direction, string kind, string subjectId, DateTimeOffset at, CancellationToken ct)
+    {
+        var from = at - LooksBack;
+        var to = at + LooksForward;
+
+        return _db.CopiedActions.AsNoTracking()
+            .AnyAsync(c => c.Done == true
+                           && c.Direction == direction
+                           && c.Kind == kind
+                           && c.SubjectId == subjectId
+                           && c.RoleId == null
+                           && c.StartedAt >= from
+                           && c.StartedAt <= to, ct);
+    }
+
+    /// <summary>
     /// Records a change made and finished in one step, for the sort where nothing comes back to
     /// recognise — a role change, whose sync compares both sides and so cannot loop.
     /// </summary>

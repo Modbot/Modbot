@@ -1508,7 +1508,12 @@ const SENTENCES: Record<string, Sentence> = {
   // ── Bans and roles copied between VRChat and Discord ────────────────────────────────────────
   'modbot.copy.ban': (p) =>
     p.text('direction') === 'to-vrchat' ? (
-      <>Modbot banned {p.subject} from the group, because they were banned on Discord.</>
+      <>
+        Modbot banned {p.subject} from the group, because they were banned on Discord
+        {p.text('discordReason') ? <>: “{p.text('discordReason')}”</> : null}.
+      </>
+    ) : p.text('by') ? (
+      <>Modbot banned {p.subject} from the Discord server, because {p.text('by')} banned them in Modbot.</>
     ) : (
       <>Modbot banned {p.subject} from the Discord server, because they were banned from the group.</>
     ),
@@ -1516,6 +1521,8 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.copy.unban': (p) =>
     p.text('direction') === 'to-vrchat' ? (
       <>Modbot lifted the ban on {p.subject} in the group, because it was lifted on Discord.</>
+    ) : p.text('by') ? (
+      <>Modbot lifted the ban on {p.subject} on the Discord server, because {p.text('by')} unbanned them in Modbot.</>
     ) : (
       <>Modbot lifted the ban on {p.subject} on the Discord server, because it was lifted in the group.</>
     ),
@@ -1536,7 +1543,12 @@ const SENTENCES: Record<string, Sentence> = {
     ),
 
   'modbot.copy.role.take': (p) =>
-    p.entry.subjectPlatform === 'Discord' ? (
+    p.text('because') === 'unlinked' ? (
+      <>
+        Modbot took {named(p.text('roleName'), 'Discord role')} away from {p.subject}, because their accounts were
+        unlinked.
+      </>
+    ) : p.entry.subjectPlatform === 'Discord' ? (
       <>
         Modbot took {named(p.text('roleName'), 'Discord role')} away from {p.subject}, to match their roles in the
         group.
@@ -1551,7 +1563,12 @@ const SENTENCES: Record<string, Sentence> = {
   // The ban copy says which kind it was; the role copy carries the role instead.
   'modbot.copy.failed': (p) => (
     <>
-      {p.text('kind') ? (
+      {p.text('kind') && p.text('by') ? (
+        <>
+          Modbot could not {p.text('kind') === 'unban' ? 'lift the ban on' : 'ban'} {p.subject} on the Discord server
+          after {p.text('by')} {p.text('kind') === 'unban' ? 'unbanned' : 'banned'} them in Modbot
+        </>
+      ) : p.text('kind') ? (
         <>
           Modbot could not copy {p.text('kind') === 'unban' ? 'the unban of' : 'the ban on'} {p.subject} to{' '}
           {p.text('direction') === 'to-vrchat' ? 'the group' : 'the Discord server'}

@@ -309,6 +309,8 @@ export type DiscordSyncSettings = {
   roleSyncOn: boolean
   banSyncToDiscord: boolean
   banSyncToVRChat: boolean
+  /** Whether a Discord ban made by another bot is copied into the group too. */
+  banSyncFromBots: boolean
   /** ban or remove. */
   banCopyAction: string
   botCanBanMembers: boolean
@@ -326,6 +328,7 @@ export type DiscordSyncSettingsInput = {
   roleSyncOn: boolean
   banSyncToDiscord: boolean
   banSyncToVRChat: boolean
+  banSyncFromBots: boolean
   banCopyAction: string
 }
 
@@ -1172,6 +1175,10 @@ export type ModerationActionResult = {
   gone: boolean
   /** Set when VRChat refused because Modbot's own VRChat account lacks a group permission. */
   missingGroupPermission?: MissingGroupPermission | null
+  /** A ban or unban was also made on the person's linked Discord account. */
+  discordDone: boolean
+  /** What Discord said when it refused. The VRChat action stands whatever this says. */
+  discordError: string | null
 }
 
 /**

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Core.Data;
@@ -28,8 +29,9 @@ public class DiscordSyncSettingsTests
         bool roleSyncOn = false,
         bool banSyncToDiscord = false,
         bool banSyncToVRChat = false,
-        string banCopyAction = "ban")
-        => new { roleSyncOn, banSyncToDiscord, banSyncToVRChat, banCopyAction };
+        string banCopyAction = "ban",
+        bool? banSyncFromBots = null)
+        => new { roleSyncOn, banSyncToDiscord, banSyncToVRChat, banCopyAction, banSyncFromBots };
 
     /// <summary>A server the bot is in, with exactly the permissions asked for.</summary>
     private static async Task ServerAsync(
@@ -165,6 +167,40 @@ public class DiscordSyncSettingsTests
             Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Copying what other bots ban is off until somebody asks for it, it saves, it survives a save
+    /// that does not mention it, and it needs the same permission as every other switch here.
+    /// </summary>
+    [Fact]
+    public async Task CopyingBansFromOtherBotsIsOffByDefault_AndSaves()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageDiscordSync, Ct);
+
+        static bool FromBots(string json) => JsonDocument.Parse(json).RootElement.GetProperty("banSyncFromBots").GetBoolean();
+
+        var start = await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct);
+        Assert.False(FromBots(await start.Content.ReadAsStringAsync(Ct)));
+
+        var on = await host.SendJsonAsync(
+            HttpMethod.Put, Path, Switches(banSyncToVRChat: true, banSyncFromBots: true), cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, on.StatusCode);
+        Assert.True(FromBots(await on.Content.ReadAsStringAsync(Ct)));
+
+        // A save that does not mention it leaves it as it was.
+        var kept = await host.SendJsonAsync(HttpMethod.Put, Path, Switches(banSyncToVRChat: true), cookie, Ct);
+        Assert.True(FromBots(await kept.Content.ReadAsStringAsync(Ct)));
+
+        var off = await host.SendJsonAsync(
+            HttpMethod.Put, Path, Switches(banSyncToVRChat: true, banSyncFromBots: false), cookie, Ct);
+        Assert.False(FromBots(await off.Content.ReadAsStringAsync(Ct)));
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        Assert.False((await db.GetSettingsAsync(Ct)).DiscordBanSyncFromBots);
     }
 
     /// <summary>

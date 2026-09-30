@@ -8,7 +8,10 @@ Role and ban sync keeps your VRChat group and your Discord server in step with e
 - a **role pair** says that one group role goes with one Discord role, and which side decides;
 - **ban sync** copies a ban in one place into the other.
 
-Everything here is **off** until you switch it on, and each direction is its own switch.
+Everything here is **off** until you switch it on, and each direction is its own switch. A ban made
+directly in VRChat and a ban made directly in Discord stay separate until you switch copying on.
+The one exception is a ban made in Modbot, which reaches both places without any switch: see
+[Bans made in Modbot](#bans-made-in-modbot).
 
 <Callout type="warn">
 This only ever touches people who have [linked their accounts](/discord/account-linking). Somebody
@@ -31,6 +34,10 @@ The bot needs permissions in your Discord server, and only the ones you actually
 
 Re-invite the bot with the link on **Settings → Discord → Account linking** after switching one on:
 the link asks for exactly what your settings need.
+
+A ban made in Modbot also needs **Ban members** to reach Discord, and no switch here asks the link
+for it. If you want those bans to reach Discord, give the bot **Ban members** yourself; until you do,
+the ban still stands in the group and Modbot tells you Discord refused.
 
 ## Pair a role
 
@@ -71,13 +78,34 @@ change your mind later.
 
 </Steps>
 
+## When somebody unlinks
+
+Unlinking takes back the **Discord** roles this sync gave them, within a minute. It only takes a role
+Modbot's own records show it gave to that Discord account, and only while nothing has taken it back
+since. A role somebody gave them by hand, or one they held before the sync ever ran, stays, and so
+does a role on a pair you have switched off or removed.
+
+The **group** role stays too: the person is still in your group. **Show what would change** lists
+the roles it would take back, like any other change.
+
 ## Copy bans
 
-Two switches, one for each direction.
+Two switches, one for each direction, and a third that only appears while the second is on.
 
 - **Copy group bans into Discord** — somebody banned from your VRChat group is banned in Discord, or
   removed from the server, whichever you pick.
 - **Copy Discord bans into the group** — somebody banned in Discord is banned from your VRChat group.
+- **Copy bans made by other bots** — shown while the switch above is on, and **off** by default.
+  Bans made by another bot in your server (a moderation bot with rules of its own) are skipped,
+  and so are the unbans it makes. Switch it on if you want those copied as well. Modbot's own bot is never copied, whatever this
+  says.
+
+A ban made by a person is copied whichever way that switch is set. When Modbot cannot tell who made
+a ban, it treats it as a person's.
+
+Each copied ban records the reason the moderator typed in Discord, when there was one, in the
+**Ban copied from the other platform** entry of the [audit log](/moderation/audit-log). VRChat's
+ban has nowhere to put a reason, so that entry is the only place it is kept.
 
 Unbans follow the same switches. If group bans are copied into Discord, lifting a group ban lifts
 the Discord one too.
@@ -100,6 +128,21 @@ switch on cannot ban a hundred people at once. Use **Copy what is different** wh
 older ones as well.
 
 Modbot never copies a ban it made itself, in either direction.
+
+## Bans made in Modbot
+
+A ban or unban made **in Modbot**, by a moderator or by an [AutoMod](/moderation/automod) rule, is
+made on both platforms: in your VRChat group, and on the person's linked Discord account, when
+Discord is set up and they have [linked their accounts](/discord/account-linking). No switch on this
+page is involved.
+
+Somebody with no linked Discord account is banned in the group and nothing else happens. If Discord
+refuses, for instance because the bot has no **Ban members**, the group ban still stands: the
+confirmation says what Discord answered, and the audit log has a **A copy between platforms failed**
+entry.
+
+Modbot does not copy that Discord ban back into the group, or the group ban into Discord a second
+time.
 
 ## See what would change first
 
@@ -131,7 +174,8 @@ fix it.
 
 Every copy is recorded against the person it happened to:
 
-- **Ban copied from the other platform**, **Unban copied from the other platform**
+- **Ban copied from the other platform**, **Unban copied from the other platform**. A ban or unban
+  made in Modbot and made in Discord as well is recorded the same way, and says who made it.
 - **Removed from Discord for a VRChat ban**
 - **Role given to match the other platform**, **Role taken away to match the other platform**
 
