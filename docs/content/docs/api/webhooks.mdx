@@ -456,8 +456,9 @@ instance events, even when its account holds that permission.
 - When the key is revoked or expires, the webhook is turned off with the reason
   `The API key that set it up was revoked.` or `The API key that set it up has expired.` Turning it
   back on while the key is still revoked turns it off again on the next pass.
-- A webhook made with a key before Modbot recorded which key made it keeps sending what its account
-  may see.
+- A webhook made with a key before this update can only be edited from the browser, or with a key
+  that holds **Administrator**, and it keeps sending everything its account may see until you make
+  it again.
 
 ## What is recorded
 

@@ -108,9 +108,11 @@ The key may do only what both allow. So:
 A key with **Manage API keys and webhooks** can make more keys. Those keys belong to the same
 account and can hold no more than the key that made them.
 
-Anything done with a key is recorded in the [audit log](/moderation/audit-log) as done by the key's
-owner, and the entry's raw data carries the key's id as `apiKeyId`. An entry made in the browser
-has none.
+What a key's account does with a key is recorded in the [audit log](/moderation/audit-log) as done
+by that account, and the entry's raw data carries the key's id as `apiKeyId`. An entry made in the
+browser has none. Two things are not marked: records a key imports from a file, which keep the
+actor the file names, and entries Modbot writes later in the background, such as when an import
+finishes.
 
 A [webhook](/api/webhooks#webhooks-made-with-a-key) made with a key sends only what that key may
 see, and is turned off when the key is revoked or expires.

@@ -77,15 +77,22 @@ public sealed class KeyAttributingFactWriter : IFactWriter
 
 public static class KeyAttributingFactWriterRegistration
 {
+    private const string InnerKey = "modbot:fact-writer:inner";
+
     private sealed class Marker;
 
     /// <summary>
     /// Puts <see cref="KeyAttributingFactWriter"/> in front of the fact writer registered so far.
-    /// Does nothing when none is, and when it has been done already.
+    /// Does nothing when it has been done already.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// No fact writer is registered yet. The fact writer belongs to <c>AddModbotAnalytics</c>, which
+    /// must come first: left to carry on, every fact made through a key would be written unmarked,
+    /// and nothing would say so.
+    /// </exception>
     /// <remarks>
-    /// The fact writer belongs to <c>AddModbotAnalytics</c>, which the host calls before
-    /// <c>AddModbotApi</c>; every host and test host does.
+    /// The writer already registered is moved to a keyed registration of its own, so the container
+    /// still makes it, owns it and disposes it with its scope.
     /// </remarks>
     public static IServiceCollection AddKeyAttribution(this IServiceCollection services)
     {
@@ -94,32 +101,33 @@ public static class KeyAttributingFactWriterRegistration
         if (services.Any(d => d.ServiceType == typeof(Marker)))
             return services;
 
-        var inner = services.LastOrDefault(d => d.ServiceType == typeof(IFactWriter));
-        if (inner is null)
-            return services;
+        var inner = services.LastOrDefault(d => d.ServiceType == typeof(IFactWriter) && !d.IsKeyedService)
+            ?? throw new InvalidOperationException(
+                "AddModbotApi needs the fact writer registered first: call AddModbotAnalytics before it.");
 
         services.AddSingleton<Marker>();
         services.TryAddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         services.Remove(inner);
+        services.Add(Keyed(inner));
 
         services.Add(new ServiceDescriptor(
             typeof(IFactWriter),
             provider => new KeyAttributingFactWriter(
-                Resolve(provider, inner),
+                provider.GetRequiredKeyedService<IFactWriter>(InnerKey),
                 provider.GetRequiredService<IHttpContextAccessor>()),
             inner.Lifetime));
 
         return services;
     }
 
-    private static IFactWriter Resolve(IServiceProvider provider, ServiceDescriptor descriptor)
+    private static ServiceDescriptor Keyed(ServiceDescriptor descriptor)
     {
-        if (descriptor.ImplementationInstance is IFactWriter instance)
-            return instance;
+        if (descriptor.ImplementationInstance is { } instance)
+            return new ServiceDescriptor(typeof(IFactWriter), InnerKey, instance);
 
         if (descriptor.ImplementationFactory is { } factory)
-            return (IFactWriter)factory(provider);
+            return new ServiceDescriptor(typeof(IFactWriter), InnerKey, (provider, _) => factory(provider), descriptor.Lifetime);
 
-        return (IFactWriter)ActivatorUtilities.CreateInstance(provider, descriptor.ImplementationType!);
+        return new ServiceDescriptor(typeof(IFactWriter), InnerKey, descriptor.ImplementationType!, descriptor.Lifetime);
     }
 }
