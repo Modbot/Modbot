@@ -10,6 +10,10 @@ namespace Modbot.Core.Data.Entities;
 /// would hand you their view of the log.
 /// </para>
 /// <para>
+/// One made with an API key sends only what the key allows (§3.2), computed afresh on every pass,
+/// and turns itself off when the key is revoked or expires. Only that key may repoint it.
+/// </para>
+/// <para>
 /// The secret is encrypted rather than hashed because it has to be read back to sign each
 /// delivery. It is never returned by the API after the response that made it.
 /// </para>
@@ -34,6 +38,17 @@ public class Webhook
     public string SecretEncrypted { get; set; } = string.Empty;
 
     public Guid CreatedByUserId { get; set; }
+
+    /// <summary>
+    /// The API key it was made with, or null when a person made it in the browser. Also null on a
+    /// webhook made with a key before this was recorded, which keeps sending what its account may
+    /// see: there is no telling those from the browser's.
+    /// </summary>
+    /// <remarks>
+    /// No foreign key: keys are never deleted, and a missing one is read as "revoked", which turns
+    /// the webhook off rather than widening what it sends.
+    /// </remarks>
+    public Guid? CreatedByKeyId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

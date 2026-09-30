@@ -434,6 +434,290 @@ public class WebhookTests
         Assert.Single(await host.FactsAsync(FactType.WebhookDeleted, id.ToString(), Ct));
     }
 
+    private static async Task<(Guid Id, string Key)> MakeKeyAsync(
+        ApiTestHost host, string cookie, string[] permissions, DateTimeOffset? expiresAt = null)
+    {
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/api-keys", new { name = "Bot", permissions, expiresAt }, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await ApiTestHost.BodyOf(response, Ct);
+        return (body.GetProperty("apiKey").GetProperty("id").GetGuid(), body.GetProperty("key").GetString()!);
+    }
+
+    private static Task<HttpResponseMessage> WithKeyAsync(ApiTestHost host, HttpMethod method, string path, string key, object? body = null)
+    {
+        var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
+
+        if (body is not null)
+            request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+
+        return host.Client.SendAsync(request, Ct);
+    }
+
+    private static async Task<Guid> CreateWithKeyAsync(ApiTestHost host, string key, string[] types, string url)
+    {
+        var response = await WithKeyAsync(
+            host, HttpMethod.Post, Path, key, new { name = "Receiver", url, eventTypes = types, subjectIds = Array.Empty<string>(), enabled = true });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        return (await ApiTestHost.BodyOf(response, Ct)).GetProperty("webhook").GetProperty("id").GetGuid();
+    }
+
+    private static object WebhookBody(string url, bool enabled)
+        => new { name = "Receiver", url, eventTypes = new[] { "*" }, subjectIds = Array.Empty<string>(), enabled };
+
+    private static string[] EventTypesSentTo(FakeReceiver receiver, string address)
+        => receiver.Requests
+            .Where(r => r.Url.AbsoluteUri == address)
+            .Select(r => r.Headers["Modbot-Event-Type"])
+            .ToArray();
+
+    [Fact]
+    public async Task AWebhookMadeWithAKey_SendsOnlyWhatTheKeyAllows_WhateverItsAccountMaySee()
+    {
+        var (host, receiver) = await StartAsync();
+        await using var _ = host;
+        var (owner, cookie) = await host.SignedInAsync(
+            ModbotPermissions.ManageApiKeys | ModbotPermissions.ViewAuditLog | ModbotPermissions.ViewLiveInstances, Ct);
+        var (keyId, key) = await MakeKeyAsync(host, cookie, ["ManageApiKeys", "ViewAuditLog"]);
+
+        var byKey = await CreateWithKeyAsync(host, key, ["*"], "https://hooks.example.com/key");
+        await CreateAsync(host, cookie, ["*"], "https://hooks.example.com/browser");
+
+        var row = await RowAsync(byKey);
+        Assert.Equal(keyId, row.CreatedByKeyId);
+        Assert.Equal(owner.Id, row.CreatedByUserId);
+
+        var subject = Subject();
+        await WriteFactAsync(host, FactType.MemberBanned, subject);
+        await WriteFactAsync(host, FactType.InstanceJoined, subject);
+
+        await RunAsync(host);
+
+        // The key was not given ViewLiveInstances; the browser's webhook has all the account's.
+        Assert.Equal([FactType.MemberBanned], EventTypesSentTo(receiver, "https://hooks.example.com/key"));
+        Assert.Equal([FactType.MemberBanned, FactType.InstanceJoined], EventTypesSentTo(receiver, "https://hooks.example.com/browser"));
+    }
+
+    [Fact]
+    public async Task AWebhookMadeWithAKey_LosesWhatItsAccountLoses()
+    {
+        var (host, receiver) = await StartAsync();
+        await using var _ = host;
+        var (owner, cookie) = await host.SignedInAsync(ModbotPermissions.ManageApiKeys | ModbotPermissions.ViewAuditLog, Ct);
+        var (_, key) = await MakeKeyAsync(host, cookie, ["ManageApiKeys", "ViewAuditLog"]);
+        await CreateWithKeyAsync(host, key, ["*"], "https://hooks.example.com/key");
+
+        await WriteFactAsync(host, FactType.MemberBanned, Subject());
+        await RunAsync(host);
+        Assert.Single(receiver.Requests);
+
+        // The account gives up the audit log: the key is capped by that on the very next pass.
+        await using (var db = _db.NewContext())
+        {
+            var lesser = await TestAccounts.RoleForAsync(db, ModbotPermissions.ManageApiKeys, Ct);
+            await db.UserRoles.Where(ur => ur.UserId == owner.Id).ExecuteDeleteAsync(Ct);
+            db.UserRoles.Add(new ModbotUserRole { UserId = owner.Id, RoleId = lesser });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await WriteFactAsync(host, FactType.MemberBanned, Subject());
+        await RunAsync(host);
+        Assert.Single(receiver.Requests);
+    }
+
+    [Fact]
+    public async Task ARevokedKey_TurnsItsWebhookOff_WithTheReason_AndABrowserOneKeepsSending()
+    {
+        var (host, receiver) = await StartAsync();
+        await using var _ = host;
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageApiKeys | ModbotPermissions.ViewAuditLog, Ct);
+        var (keyId, key) = await MakeKeyAsync(host, cookie, ["ManageApiKeys", "ViewAuditLog"]);
+        var byKey = await CreateWithKeyAsync(host, key, ["*"], "https://hooks.example.com/key");
+        var byBrowser = (await CreateAsync(host, cookie, ["*"], "https://hooks.example.com/browser")).Id;
+
+        Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(HttpMethod.Delete, $"/api/api-keys/{keyId}", null, cookie, Ct)).StatusCode);
+
+        await WriteFactAsync(host, FactType.MemberBanned, Subject());
+        await RunAsync(host);
+
+        Assert.Empty(EventTypesSentTo(receiver, "https://hooks.example.com/key"));
+        Assert.Single(EventTypesSentTo(receiver, "https://hooks.example.com/browser"));
+
+        var stopped = await RowAsync(byKey);
+        Assert.False(stopped.Enabled);
+        Assert.Equal("The API key that set it up was revoked.", stopped.DisabledReason);
+        Assert.Single(await host.FactsAsync(FactType.WebhookDisabled, byKey.ToString(), Ct));
+        Assert.True((await RowAsync(byBrowser)).Enabled);
+
+        var view = (await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct))
+            .GetProperty("webhooks").EnumerateArray().Single(w => w.GetProperty("id").GetGuid() == byKey);
+        Assert.Equal("stopped", view.GetProperty("state").GetString());
+
+        // Turned back on while the key is still revoked, it stops again on the next pass.
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{byKey}", WebhookBody("https://hooks.example.com/key", true), cookie, Ct)).StatusCode);
+        await WriteFactAsync(host, FactType.MemberBanned, Subject());
+        await RunAsync(host);
+        Assert.False((await RowAsync(byKey)).Enabled);
+        Assert.Empty(EventTypesSentTo(receiver, "https://hooks.example.com/key"));
+    }
+
+    [Fact]
+    public async Task AKeyThatExpires_TurnsItsWebhookOff_WithTheReason()
+    {
+        var (host, receiver) = await StartAsync();
+        await using var _ = host;
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageApiKeys | ModbotPermissions.ViewAuditLog, Ct);
+        var (_, key) = await MakeKeyAsync(host, cookie, ["ManageApiKeys", "ViewAuditLog"], host.Clock.UtcNow.AddHours(1));
+        var id = await CreateWithKeyAsync(host, key, ["*"], "https://hooks.example.com/key");
+
+        await WriteFactAsync(host, FactType.MemberBanned, Subject());
+        await RunAsync(host);
+        Assert.Single(receiver.Requests);
+
+        host.Clock.Advance(TimeSpan.FromHours(2));
+        await WriteFactAsync(host, FactType.MemberBanned, Subject());
+        await RunAsync(host);
+
+        Assert.Single(receiver.Requests);
+        var row = await RowAsync(id);
+        Assert.False(row.Enabled);
+        Assert.Equal("The API key that set it up has expired.", row.DisabledReason);
+    }
+
+    [Fact]
+    public async Task AKey_ChangesOnlyTheWebhooksItMade_AndABrowserSessionKeepsItsOwnRule()
+    {
+        var (host, _) = await StartAsync();
+        await using var _host = host;
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageApiKeys | ModbotPermissions.ViewAuditLog, Ct);
+        var (_, key) = await MakeKeyAsync(host, cookie, ["ManageApiKeys", "ViewAuditLog"]);
+        var (_, otherKey) = await MakeKeyAsync(host, cookie, ["ManageApiKeys", "ViewAuditLog"]);
+
+        var (browserMade, _) = await CreateAsync(host, cookie, ["*"]);
+        var ownMade = await CreateWithKeyAsync(host, key, ["*"], "https://hooks.example.com/own");
+
+        // A webhook made in the browser sends what the whole account may see, which is more than
+        // the key may: repointing it would hand the key that view.
+        Assert.Equal(HttpStatusCode.Forbidden, (await WithKeyAsync(host, HttpMethod.Put, $"{Path}/{browserMade}", key, WebhookBody("https://attacker.example.com/", true))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await WithKeyAsync(host, HttpMethod.Post, $"{Path}/{browserMade}/secret", key)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await WithKeyAsync(host, HttpMethod.Post, $"{Path}/{browserMade}/test", key)).StatusCode);
+
+        // So is one made with another key, though it is the same account's.
+        Assert.Equal(HttpStatusCode.Forbidden, (await WithKeyAsync(host, HttpMethod.Put, $"{Path}/{ownMade}", otherKey, WebhookBody("https://attacker.example.com/", true))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await WithKeyAsync(host, HttpMethod.Post, $"{Path}/{ownMade}/secret", otherKey)).StatusCode);
+
+        // Its own: changed, secret replaced, tested.
+        Assert.Equal(HttpStatusCode.OK, (await WithKeyAsync(host, HttpMethod.Put, $"{Path}/{ownMade}", key, WebhookBody("https://hooks.example.com/moved", true))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await WithKeyAsync(host, HttpMethod.Post, $"{Path}/{ownMade}/secret", key)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await WithKeyAsync(host, HttpMethod.Post, $"{Path}/{ownMade}/test", key)).StatusCode);
+
+        // Turning one off is still anybody's.
+        Assert.Equal(HttpStatusCode.OK, (await WithKeyAsync(host, HttpMethod.Put, $"{Path}/{browserMade}", otherKey, WebhookBody("https://hooks.example.com/modbot", false))).StatusCode);
+
+        // The account in the browser keeps what it had: both webhooks are its own.
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, $"{Path}/{ownMade}", WebhookBody("https://hooks.example.com/back", true), cookie, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Post, $"{Path}/{browserMade}/secret", null, cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task EverythingDoneThroughAKey_RecordsTheKey_AndTheBrowsersDoesNot()
+    {
+        var (host, _) = await StartAsync();
+        await using var _host = host;
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageApiKeys | ModbotPermissions.ViewAuditLog, Ct);
+        var (keyId, key) = await MakeKeyAsync(host, cookie, ["ManageApiKeys", "ViewAuditLog"]);
+
+        var byKey = await CreateWithKeyAsync(host, key, ["*"], "https://hooks.example.com/key");
+        var (byBrowser, _) = await CreateAsync(host, cookie, ["*"], "https://hooks.example.com/browser");
+
+        Assert.Equal(HttpStatusCode.OK, (await WithKeyAsync(host, HttpMethod.Post, $"{Path}/{byKey}/secret", key)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await WithKeyAsync(host, HttpMethod.Delete, $"{Path}/{byKey}", key)).StatusCode);
+
+        // Made, secret replaced, deleted: three facts, each naming the key.
+        foreach (var type in new[] { FactType.WebhookCreated, FactType.WebhookSecretChanged, FactType.WebhookDeleted })
+        {
+            var fact = Assert.Single(await host.FactsAsync(type, byKey.ToString(), Ct));
+            Assert.Equal(keyId.ToString(), ApiTestHost.DataOf(fact).GetProperty("apiKeyId").GetString());
+        }
+
+        var browserFact = Assert.Single(await host.FactsAsync(FactType.WebhookCreated, byBrowser.ToString(), Ct));
+        Assert.False(ApiTestHost.DataOf(browserFact).TryGetProperty("apiKeyId", out _));
+
+        // The key itself was made in the browser.
+        var keyMade = Assert.Single(await host.FactsAsync(FactType.ApiKeyCreated, keyId.ToString(), Ct));
+        Assert.False(ApiTestHost.DataOf(keyMade).TryGetProperty("apiKeyId", out _));
+    }
+
+    [Fact]
+    public async Task TheFactWriter_MarksOnlyAFactWhoseActorIsTheKeysAccount_OnARequestWithAKey()
+    {
+        var accountId = Guid.NewGuid();
+        var keyId = Guid.NewGuid();
+        var caller = new Modbot.Api.Auth.ApiCaller(accountId, "someone", keyId, ModbotPermissions.ViewAuditLog);
+        var now = DateTimeOffset.UnixEpoch;
+
+        FactRecord Fact(FactPlatform? platform, string? actor) => new()
+        {
+            Type = FactType.WebhookCreated,
+            OccurredAt = now,
+            SubjectPlatform = FactPlatform.Modbot,
+            SubjectId = "x",
+            ActorPlatform = platform,
+            ActorId = actor,
+            Source = FactSource.Modbot,
+            Data = new JsonObject { ["name"] = "n" },
+        };
+
+        async Task<FactRecord> WrittenAsync(System.Security.Claims.ClaimsPrincipal? user, FactRecord fact)
+        {
+            var inner = new CapturingFactWriter();
+            var accessor = new Microsoft.AspNetCore.Http.HttpContextAccessor
+            {
+                HttpContext = user is null ? null : new Microsoft.AspNetCore.Http.DefaultHttpContext { User = user },
+            };
+
+            await new Modbot.Api.Auth.KeyAttributingFactWriter(inner, accessor).WriteAsync(fact, Ct);
+            return Assert.Single(inner.Written);
+        }
+
+        var keyRequest = Modbot.Api.Auth.ApiKeyAuthentication.CreatePrincipal(caller, now);
+        var sessionRequest = Modbot.Api.Auth.ApiKeyAuthentication.CreatePrincipal(caller with { ApiKeyId = null }, now);
+
+        var marked = await WrittenAsync(keyRequest, Fact(FactPlatform.Modbot, accountId.ToString()));
+        Assert.Equal(keyId.ToString(), marked.Data!["apiKeyId"]!.GetValue<string>());
+        Assert.Equal("n", marked.Data["name"]!.GetValue<string>());
+
+        // Not the caller's own doing, not from a key, or not in a request at all.
+        Assert.False((await WrittenAsync(keyRequest, Fact(FactPlatform.Modbot, Guid.NewGuid().ToString()))).Data!.ContainsKey("apiKeyId"));
+        Assert.False((await WrittenAsync(keyRequest, Fact(FactPlatform.VRChat, accountId.ToString()))).Data!.ContainsKey("apiKeyId"));
+        Assert.False((await WrittenAsync(keyRequest, Fact(null, null))).Data!.ContainsKey("apiKeyId"));
+        Assert.False((await WrittenAsync(sessionRequest, Fact(FactPlatform.Modbot, accountId.ToString()))).Data!.ContainsKey("apiKeyId"));
+        Assert.False((await WrittenAsync(null, Fact(FactPlatform.Modbot, accountId.ToString()))).Data!.ContainsKey("apiKeyId"));
+    }
+
+    private sealed class CapturingFactWriter : IFactWriter
+    {
+        public List<FactRecord> Written { get; } = [];
+
+        public Task<FactWriteResult> WriteAsync(FactRecord fact, CancellationToken ct = default)
+        {
+            Written.Add(fact);
+            return Task.FromResult(new FactWriteResult(Written.Count, false));
+        }
+
+        public Task<IReadOnlyList<FactWriteResult>> WriteManyAsync(IEnumerable<FactRecord> facts, CancellationToken ct = default)
+        {
+            var results = facts.Select(f => WriteAsync(f, ct).Result).ToList();
+            return Task.FromResult<IReadOnlyList<FactWriteResult>>(results);
+        }
+
+        public Task<long?> AlreadyRecordedAsync(FactRecord fact, TimeSpan within, CancellationToken ct = default)
+            => Task.FromResult<long?>(null);
+    }
+
     [Fact]
     public async Task ManagingWebhooks_NeedsThePermission_AndTheAddressSettingNeedsSettings()
     {

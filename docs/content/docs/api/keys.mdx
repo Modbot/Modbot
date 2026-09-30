@@ -109,7 +109,11 @@ A key with **Manage API keys and webhooks** can make more keys. Those keys belon
 account and can hold no more than the key that made them.
 
 Anything done with a key is recorded in the [audit log](/moderation/audit-log) as done by the key's
-owner.
+owner, and the entry's raw data carries the key's id as `apiKeyId`. An entry made in the browser
+has none.
+
+A [webhook](/api/webhooks#webhooks-made-with-a-key) made with a key sends only what that key may
+see, and is turned off when the key is revoked or expires.
 
 ## The key list
 
@@ -140,6 +144,9 @@ little later:
   seconds. See [events over WebSocket](/api/events-websocket).
 - A long poll that is waiting stops within a few seconds and answers `401`. See
   [long polling](/api/long-polling).
+
+Any webhook the key made is turned off on the next delivery pass, with the reason
+`The API key that set it up was revoked.`
 
 Revoke a key as soon as you think someone else may have it, and make a new one.
 

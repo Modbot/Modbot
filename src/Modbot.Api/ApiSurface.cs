@@ -84,6 +84,10 @@ public static class ApiSurface
         // The MCP server: the same tools for a person's own AI app (MCP server design).
         services.AddModbotMcp();
 
+        // Every fact written on a request made with an API key says which key (API keys design §3).
+        // After the host's fact writer is registered, which it always is before this.
+        Auth.KeyAttributingFactWriterRegistration.AddKeyAttribution(services);
+
         // Discord account linking (design 2026-09-15). The signal is shared with the bot's role job,
         // which the host registers in the same container.
         services.AddScoped<Features.Auth.VRChatLink.VRChatBioCheck>();

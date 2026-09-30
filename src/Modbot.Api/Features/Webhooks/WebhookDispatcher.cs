@@ -87,10 +87,16 @@ public sealed class WebhookDispatcher
 
     private async Task<int> DeliverAsync(Webhook hook, bool allowPrivate, CancellationToken ct)
     {
-        var owner = await _callers.ForUserAsync(hook.CreatedByUserId, ct);
+        // What it may send is worked out again on every pass, so a permission taken away stops
+        // events at once. A webhook made with a key sends what that key may see: the key's own
+        // permissions, capped by its account's now (§3.2). Without one, what its account may see.
+        var owner = hook.CreatedByKeyId is { } keyId
+            ? await _callers.ForKeyIdAsync(keyId, ct)
+            : await _callers.ForUserAsync(hook.CreatedByUserId, ct);
+
         if (owner is null)
         {
-            await TurnOffAsync(hook, "The account that set it up is disabled.", ct);
+            await TurnOffAsync(hook, await WhyOwnerIsGoneAsync(hook, ct), ct);
             return 0;
         }
 
@@ -177,6 +183,26 @@ public sealed class WebhookDispatcher
 
         await _db.SaveChangesAsync(ct);
         return sent;
+    }
+
+    /// <summary>What to say when nothing may be sent for a webhook: its key, or else its account, is no longer good.</summary>
+    private async Task<string> WhyOwnerIsGoneAsync(Webhook hook, CancellationToken ct)
+    {
+        if (hook.CreatedByKeyId is { } keyId)
+        {
+            var key = await _db.ApiKeys.AsNoTracking()
+                .Where(k => k.Id == keyId)
+                .Select(k => new { k.RevokedAt, k.ExpiresAt })
+                .FirstOrDefaultAsync(ct);
+
+            if (key is null || key.RevokedAt is not null)
+                return "The API key that set it up was revoked.";
+
+            if (key.ExpiresAt is { } expires && _clock.UtcNow >= expires)
+                return "The API key that set it up has expired.";
+        }
+
+        return "The account that set it up is disabled.";
     }
 
     /// <summary>Writes one attempt to the delivery log and trims the log to the newest few.</summary>

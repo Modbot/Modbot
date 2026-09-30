@@ -130,6 +130,11 @@ never deleted: facts reference them.
 actor the account, payload name, visible start and (for create) permission names and expiry.
 Never the key or its hash (§5.9.3). Operational log, kept forever.
 
+**Every fact made through a key carries the key's id** (2026-09-30): the payload gets `apiKeyId`
+when the request was made with a key and the fact's actor is that key's account. One wrapper
+around `IFactWriter` in the API does it (`KeyAttributingFactWriter`), so no writer has to remember.
+Background jobs and browser sessions are unchanged.
+
 ## 4. Events
 
 ### 4.1 An event is a fact
@@ -341,6 +346,14 @@ error.
 secret, or send a test**, because a webhook delivers what *its owner* may see (§6.4) — letting
 somebody else repoint it would hand them the owner's view of the log.
 
+**A webhook made with a key remembers the key** (2026-09-30; `api_webhook.created_by_key_id`, no
+foreign key: keys are never deleted, and a missing one reads as revoked). It sends what the *key*
+may see (§6.4), and a key may change, test or replace the secret of only the webhooks it made
+(or any, holding Administrator). Before this a webhook made through a key sent the whole account's
+view, and a key with `ManageApiKeys` could repoint a browser-made one and receive it. Webhooks made
+with a key before the column existed have none and keep sending the account's view: they cannot be
+told from browser-made ones.
+
 ### 6.3 Delivery
 
 - One event per request: an HTTPS `POST` of the envelope (§4.4), `Content-Type: application/json`.
@@ -352,11 +365,15 @@ somebody else repoint it would hand them the owner's view of the log.
 - **The VRChat egress proxy is not used** (foundation §2.3.1: that proxy exists for VRChat's WAF,
   and a receiver is not VRChat).
 - A webhook whose owner account is disabled, gone or unlinked is turned off, with that as the
-  reason.
+  reason. So is one whose key was revoked or has expired ("The API key that set it up was revoked."
+  / "…has expired."); turned back on while the key is still unusable, it goes off again next pass.
 
 ### 6.4 What a webhook may send
 
-The events its types and subjects choose, narrowed to what **its owner** may see now (§4.3).
+The events its types and subjects choose, narrowed to what **its owner** may see now (§4.3). For a
+webhook made with a key, the owner is the *key*: its permissions capped by its account's, worked out
+again on every pass (§3.2), so a key without `ViewLiveInstances` never receives `vrchat.instance.*`
+even when its account may.
 
 ### 6.5 Signing
 

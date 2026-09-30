@@ -25,6 +25,10 @@ Everyone with the permission sees every webhook and its **Delivery log**, and ca
 That is because a webhook sends what **the person who set it up** may see. Letting someone else
 point it at a new address would hand them that person's view of the log.
 
+A webhook set up with an [API key](/api/keys) is narrower still: it sends only what **that key**
+may see. And an API key can edit, test or roll the secret of only the webhooks it made itself. See
+[webhooks made with a key](#webhooks-made-with-a-key).
+
 ## Setting one up
 
 <Steps>
@@ -88,7 +92,8 @@ moment each event is sent**, by the same rules as the WebSocket (see
 **See the audit log**, the webhook stops sending moderation events.
 
 If the account that set the webhook up is disabled or no longer linked to VRChat, Modbot
-turns the webhook off.
+turns the webhook off. A webhook set up with an API key is also turned off when the key is revoked
+or expires.
 
 ## The webhook list
 
@@ -312,6 +317,8 @@ Modbot also turns a webhook off, with a reason, when:
 
 - the account that set it up is disabled or no longer linked to VRChat:
   `The account that set it up is disabled.`
+- the API key that set it up was revoked or has expired: `The API key that set it up was revoked.`
+  or `The API key that set it up has expired.`
 - its saved address or event types are no longer valid: `Its address or event types are not valid.`
 
 ### Turning a webhook back on
@@ -431,10 +438,29 @@ Content-Type: application/json
 }
 ```
 
-The webhook belongs to the account that owns the key, and sends what that account may see.
+The webhook is remembered as made with that key. It sends only what the key may see, which is never
+more than the account that owns the key may see, and it is turned off when the key is revoked or
+expires.
+
+### Webhooks made with a key
+
+A webhook made in the browser sends what its account may see. A webhook made with an API key sends
+what **the key** may see: the permissions the key was given, limited to what the account holds at
+the moment each event is sent. A key without **See live instances**, for example, never receives
+instance events, even when its account holds that permission.
+
+- The key can edit, test and roll the secret of the webhooks **it made**, and no others. On a
+  webhook made in the browser, or with another key, it is answered with `403`. It can still turn
+  any webhook off or delete it, as anyone with the permission can. A key that holds
+  **Administrator** can change any.
+- When the key is revoked or expires, the webhook is turned off with the reason
+  `The API key that set it up was revoked.` or `The API key that set it up has expired.` Turning it
+  back on while the key is still revoked turns it off again on the next pass.
+- A webhook made with a key before Modbot recorded which key made it keeps sending what its account
+  may see.
 
 ## What is recorded
 
 Setting up, changing, rolling the secret of, deleting, and Modbot turning off a webhook are each
-recorded in the operational log, with who did it, the webhook's name, address and event types. The
-secret never is. Individual deliveries are not recorded there: the delivery log keeps the last 50.
+recorded in the operational log, with who did it, the webhook's name, address and event types. When
+it was done with an API key, the entry's data says which key (`apiKeyId`). The secret never is. Individual deliveries are not recorded there: the delivery log keeps the last 50.

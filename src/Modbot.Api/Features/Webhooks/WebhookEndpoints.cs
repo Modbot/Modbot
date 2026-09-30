@@ -14,7 +14,10 @@ using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Webhooks;
 
-/// <param name="CanEdit">Whether the caller may change it or send a test: its owner, or an administrator.</param>
+/// <param name="CanEdit">
+/// Whether the caller may change it or send a test: its owner, or an administrator. A key: the
+/// webhooks it made, or any when it holds Administrator.
+/// </param>
 /// <param name="State"><c>working</c>, <c>failing</c>, <c>stopped</c> (turned off by Modbot) or <c>off</c>.</param>
 public sealed record WebhookView(
     Guid Id,
@@ -76,7 +79,8 @@ public sealed record WebhookSettingsResponse(bool AllowPrivateAddresses);
 /// Everyone holding <see cref="ModbotPermissions.ManageApiKeys"/> sees every webhook and may turn
 /// one off or delete it. Changing a webhook's address, events or secret, or sending a test, is for
 /// the account that set it up or an administrator: a webhook sends what its owner may see, so
-/// repointing somebody else's would hand you their view of the log.
+/// repointing somebody else's would hand you their view of the log. A key is narrower still: it
+/// changes only the webhooks it made itself.
 /// </para>
 /// <para>
 /// "Allow private addresses" is a setting, not a webhook property, and needs
@@ -149,6 +153,9 @@ public static class WebhookEndpoints
                     Enabled = body.Enabled,
                     SecretEncrypted = protector.Protect(secret)!,
                     CreatedByUserId = actor.Id,
+                    // A webhook made with a key sends only what that key allows, and stops when
+                    // it does (API keys design §6.2).
+                    CreatedByKeyId = ApiKeyAuthentication.KeyIdOf(http.User),
                     CreatedAt = now,
                     UpdatedAt = now,
                     // From now on: a new webhook does not replay history at its receiver.
@@ -472,9 +479,19 @@ public static class WebhookEndpoints
         return null;
     }
 
+    /// <remarks>
+    /// A key may change only what it made: the account's other webhooks, and any made in the
+    /// browser, send everything the account may see, which is more than the key may.
+    /// </remarks>
     private static bool CanEdit(Webhook hook, HttpContext http)
-        => ModbotAuth.UserIdOf(http.User) == hook.CreatedByUserId
-           || ModbotAuth.PermissionsOf(http.User).HasFlag(ModbotPermissions.Administrator);
+    {
+        if (ModbotAuth.PermissionsOf(http.User).HasFlag(ModbotPermissions.Administrator))
+            return true;
+
+        return ApiKeyAuthentication.KeyIdOf(http.User) is { } keyId
+            ? hook.CreatedByKeyId == keyId
+            : ModbotAuth.UserIdOf(http.User) == hook.CreatedByUserId;
+    }
 
     private static bool Same(List<string> stored, IReadOnlyList<string>? asked)
         => stored.SequenceEqual((asked ?? []).Select(s => s.Trim()).Where(s => s.Length > 0), StringComparer.Ordinal);
