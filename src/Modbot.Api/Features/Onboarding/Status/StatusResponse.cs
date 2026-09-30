@@ -81,6 +81,11 @@ public sealed record IntegrationStatus(
 /// <summary>
 /// Everything the wizard needs to decide what to show, and nothing that is a secret.
 /// </summary>
+/// <remarks>
+/// <see cref="VRChat"/>, <see cref="Connection"/> and <see cref="Integrations"/> hold real values
+/// only for a caller who may read them (see <see cref="StatusHandler"/>); for anybody else they are
+/// present but empty, so the shape never changes and a page that ignores them keeps working.
+/// </remarks>
 /// <param name="HasAdministrator">
 /// False only on a genuinely fresh deployment. While it is false the wizard is open to anyone who
 /// can reach the URL, which is exactly what spec 7.1 intends and exactly why it stops being true

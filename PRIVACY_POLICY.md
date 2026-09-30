@@ -269,12 +269,14 @@ A few things are open to anyone who can reach the server, without signing in:
   public address if one is set and — unless the operator turned it off in Settings → Server — the
   email address of the group's oldest enabled administrator account that has one. Any website can
   read it.
-- **The setup status page the web app reads before sign-in.** It carries the username and display
-  name of the VRChat account Modbot signs in as, the address and username of the proxy if one is set,
-  the Discord server and channel ids, the instance announcement text, the mail server's host name,
-  the group's id, name and pictures, when the VRChat account last signed in, and whether a password
-  or token is stored (never the password or token). Anyone can also open the setup steps themselves
-  until the first account exists.
+- **The setup status page the web app reads before sign-in.** Once the first account exists it tells
+  anyone only whether setup is finished, which step is next, the group's id, name and pictures, and
+  a few switches the web app needs to draw itself. The username and display name of the VRChat account
+  Modbot signs in as, the address and username of the proxy, the Discord server and channel ids, the
+  instance announcement text, the mail server's host name, the public address, when the VRChat account
+  last signed in, and whether a password or token is stored (never the password or token) go only to
+  a signed-in account that may change settings. Until the first account exists, anyone can read all of
+  it and open the setup steps, which then ask for the setup code.
 - **The calendar feed,** to anyone holding the link a moderator made, which lists the group's events
   and their worlds.
 - **Invite and password-reset links,** to whoever holds one: the invite shows the inviter's username

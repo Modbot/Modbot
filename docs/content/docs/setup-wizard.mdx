@@ -262,6 +262,11 @@ group's data.
 - **After that:** only someone signed in with the **Change settings** permission, or the
   **Administrator** role. Anyone else who opens `/setup` is asked to sign in.
 - **Steps 5 and 6, and finishing,** also need that person's own VRChat account to be linked.
+- **Seeing what is saved** follows the same rule. The web app asks Modbot for setup's state before
+  anyone has signed in, and Modbot answers that with only whether setup is finished, which step is
+  next and the group's name and pictures. The VRChat account's username, the proxy, the Discord and
+  email details and the public address are sent only before the first account exists, and after that
+  only to a signed-in account with **Change settings** or **Administrator**.
 
 A signed-in person on a Modbot whose setup was never finished is sent back to the wizard at the first
 unfinished step.

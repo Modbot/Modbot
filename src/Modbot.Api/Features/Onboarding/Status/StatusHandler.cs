@@ -1,5 +1,8 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Modbot.Api.Auth;
 using Modbot.Core.Data;
+using Modbot.Core.Data.Entities;
 using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Onboarding.Status;
@@ -54,14 +57,31 @@ public static class StatusHandler
         var authenticated = http.User.Identity?.IsAuthenticated == true;
 
         // From the claim the session check keeps current, so this costs no second read.
-        var linked = authenticated && Modbot.Api.Auth.ModbotAuth.IsVRChatLinked(http.User);
+        var linked = authenticated && ModbotAuth.IsVRChatLinked(http.User);
+
+        // Worked out from the real values before any of them is left out: the short answer still
+        // says which step comes next.
+        var nextStep = NextStep(hasAdministrator, vrchat, connection, linked, group, settings.OnboardingComplete);
+
+        // The account details go only to somebody who may change them. Until the first account
+        // exists there is nobody to sign in as and the wizard runs on the setup code, so that stays
+        // as it was; from then on it is a signed-in account holding Manage settings, the permission
+        // every wizard step asks for (OnboardingAccessFilter). The group's name and pictures stay
+        // in the short answer: the sign-in page and the sidebar draw them, and GET /api/server
+        // already gives them to anyone.
+        if (hasAdministrator && !MayReadDetails(http.User))
+        {
+            vrchat = new VRChatAccountStatus(null, null, null);
+            connection = new ConnectionStatus(null, null, null, false);
+            integrations = new IntegrationStatus(false, null, null, null, false, false, null, null, null);
+        }
 
         return Results.Ok(new OnboardingStatusResponse(
             hasAdministrator,
             authenticated,
             linked,
             settings.OnboardingComplete,
-            NextStep(hasAdministrator, vrchat, connection, linked, group, settings.OnboardingComplete),
+            nextStep,
             vrchat,
             connection,
             group,
@@ -74,6 +94,14 @@ public static class StatusHandler
             settings.VRChatImagesProxied,
             Modbot.Api.Features.Users.NewAccount.CanSubscribe(http)));
     }
+
+    /// <summary>
+    /// Whether the caller is a signed-in account that may change settings, and so may read back
+    /// what the wizard's steps show: the VRChat account, the proxy, Discord and mail.
+    /// </summary>
+    private static bool MayReadDetails(ClaimsPrincipal user)
+        => user.Identity?.IsAuthenticated == true
+           && ModbotAuth.Allows(ModbotAuth.PermissionsOf(user), ModbotPermissions.ManageSettings);
 
     /// <summary>
     /// The first step that is not done yet, in spec 7.1's order.

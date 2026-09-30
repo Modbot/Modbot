@@ -71,6 +71,11 @@ export type DemoStatus = {
   resetHours: number
 }
 
+/**
+ * What GET /api/onboarding/status says. `vrChat`, `connection` and `integrations` hold real values
+ * only while no administrator exists yet and for an account with Manage settings; for anybody else
+ * they come back empty, and only the settings topics that need them (all Manage settings) read them.
+ */
 export type OnboardingStatus = {
   hasAdministrator: boolean
   authenticated: boolean

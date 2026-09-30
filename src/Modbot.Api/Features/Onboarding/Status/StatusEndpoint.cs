@@ -24,9 +24,17 @@ public static class StatusEndpoint
                 + "Returns no secret: never the VRChat password, the TOTP secret, the proxy "
                 + "password, the Discord token or the SMTP password — only whether each is "
                 + "stored (spec 5.9.3).\n\n"
-                + "Unauthenticated deliberately and permanently. What it discloses to a stranger "
-                + "is whether this deployment has finished being set up, which is already "
-                + "obvious from whether the login page works.")
+                + "Open to anyone, and what it answers depends on who asks. The short answer is "
+                + "whether an administrator exists, whether the caller is signed in, whether setup "
+                + "is finished, the next step, the managed group's id, name and pictures (which "
+                + "GET /api/server already gives to anyone), the selector's address, whether pictures "
+                + "load through this server, and whether the updates checkbox is offered. The "
+                + "account details — the VRChat username and display name and when it last signed "
+                + "in, the proxy address and username, the Discord server, channel and instance "
+                + "message, the mail server's host and the public address — come back only while "
+                + "no administrator exists yet, when the wizard has nobody to sign in as, and "
+                + "afterwards only to a signed-in account holding ManageSettings. Everyone else "
+                + "gets those fields empty.")
             .Produces<OnboardingStatusResponse>()
             .AllowAnonymous();
 
