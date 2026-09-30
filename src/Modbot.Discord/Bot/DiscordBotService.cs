@@ -80,6 +80,13 @@ public sealed class DiscordBotService : BackgroundService
     private int _commandsRegistered;
 
     /// <summary>
+    /// Whether the commands registered on the server include <c>/me</c>, or null when nothing was
+    /// registered this session. Compared with the switch on every pass, so turning it on or off
+    /// registers the commands again without a reconnect (Discord /me design §5).
+    /// </summary>
+    private bool? _registeredMe;
+
+    /// <summary>
     /// One write to the channel and role lists at a time. The gateway raises its events on the
     /// thread pool, and a full refresh racing a channel update would insert the same row twice.
     /// </summary>
@@ -221,6 +228,17 @@ public sealed class DiscordBotService : BackgroundService
 
         }
 
+        // "Members can use /me" changed since the commands were registered: register them again.
+        // Discord limits how often a server's commands may be replaced, but an operator flipping
+        // a switch is nowhere near it.
+        if (_gateway is { State: DiscordGatewayState.Ready } registering
+            && _guildId is { } registerGuild
+            && _registeredMe is { } registered
+            && registered != config.MeCommand)
+        {
+            await RegisterCommandsAsync(registering, registerGuild, config.MeCommand).ConfigureAwait(false);
+        }
+
         // An event can be missed. If the gateway can post but the status says otherwise, the
         // status is what is wrong.
         if (_gateway is { State: DiscordGatewayState.Ready } && _status.State != DiscordBotState.Connected)
@@ -285,6 +303,7 @@ public sealed class DiscordBotService : BackgroundService
         gateway.Resumed += OnResumedAsync;
         gateway.Disconnected += OnDisconnectedAsync;
         gateway.CommandReceived += OnCommandAsync;
+        gateway.ButtonPressed += OnButtonAsync;
         gateway.ChannelChanged += OnChannelChangedAsync;
         gateway.ChannelRemoved += OnChannelRemovedAsync;
         gateway.ServerChanged += OnServerChangedAsync;
@@ -338,28 +357,63 @@ public sealed class DiscordBotService : BackgroundService
         if (_sessionOptions is { MemberEvents: true, MessageContent: true })
             _status.IntentsAllowed();
 
+        var meCommand = await ReadMeCommandAsync().ConfigureAwait(false);
+
+        // A refusal leaves the bot connected but useless. It says so and stays signed in: the
+        // channel poster still works, and a fixed guild id is picked up by the settings poll
+        // without a restart.
+        if (await RegisterCommandsAsync(gateway, guildId, meCommand).ConfigureAwait(false))
+            _log.Information("Discord bot connected; {Count} slash commands registered on the guild", _commandsRegistered);
+
+        await RefreshServerIndexAsync().ConfigureAwait(false);
+        StartReading(signedIn: true);
+    }
+
+    /// <summary>
+    /// Replaces the server's slash commands with the ones for the current <c>/me</c> switch.
+    /// Returns whether Discord took them.
+    /// </summary>
+    /// <remarks>
+    /// A refusal is remembered as done, so the settings poll does not ask again every few seconds;
+    /// the Health page says what went wrong, and the next sign-in or switch change tries again.
+    /// </remarks>
+    private async Task<bool> RegisterCommandsAsync(IDiscordGateway gateway, string guildId, bool meCommand)
+    {
+        _registeredMe = meCommand;
+
         try
         {
             var count = await gateway
-                .RegisterGuildCommandsAsync(guildId, DiscordCommands.All, CancellationToken.None)
+                .RegisterGuildCommandsAsync(guildId, DiscordCommands.For(meCommand), CancellationToken.None)
                 .ConfigureAwait(false);
 
             _commandsRegistered = count;
             _status.Connected(_clock.UtcNow, count);
-            _log.Information("Discord bot connected; {Count} slash commands registered on the guild", count);
+            return true;
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
-            // Connected but useless. Say so and stay signed in: the channel poster still works,
-            // and a fixed guild id is picked up by the settings poll without a restart.
+            // Connected first: coming up from not connected clears the last problem, and this one
+            // has to stay on the card.
             _commandsRegistered = 0;
             _status.Connected(_clock.UtcNow, 0);
             _status.Problem($"Could not register the slash commands: {e.Message}", _clock.UtcNow);
-            _log.Warning("Discord bot connected but could not register its commands: {Reason}", e.Message);
+            _log.Warning("Discord bot could not register its commands: {Reason}", e.Message);
+            return false;
         }
+    }
 
-        await RefreshServerIndexAsync().ConfigureAwait(false);
-        StartReading(signedIn: true);
+    /// <summary>Whether "Members can use /me" is on.</summary>
+    private async Task<bool> ReadMeCommandAsync()
+    {
+        using var scope = _scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+        return await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.DiscordMeCommand)
+            .FirstOrDefaultAsync(CancellationToken.None)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -849,11 +903,41 @@ public sealed class DiscordBotService : BackgroundService
         }
     }
 
+    /// <summary>A press on one of the bot's buttons: answered like a command, only to the person who pressed.</summary>
+    private async Task OnButtonAsync(DiscordButtonPress press)
+    {
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var handler = scope.ServiceProvider.GetRequiredService<DiscordCommandHandler>();
+            var reply = await handler.HandleButtonAsync(press, ReadyGateway, CancellationToken.None).ConfigureAwait(false);
+            await press.ReplyAsync(reply, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            _log.Error(e, "The {Button} button failed", press.ButtonId);
+            _status.Problem($"A button failed: {e.Message}", _clock.UtcNow);
+
+            try
+            {
+                await press.ReplyAsync(
+                        DiscordReply.Say("Something went wrong on Modbot's side. The operator can find the details in the log."),
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception replyError)
+            {
+                _log.Debug(replyError, "Could not tell Discord that the button failed");
+            }
+        }
+    }
+
     private async Task TearDownAsync()
     {
         var gateway = _gateway;
         _gateway = null;
         _guildId = null;
+        _registeredMe = null;
         _disconnectedAt = null;
 
         StopReading();
@@ -867,6 +951,7 @@ public sealed class DiscordBotService : BackgroundService
         gateway.Resumed -= OnResumedAsync;
         gateway.Disconnected -= OnDisconnectedAsync;
         gateway.CommandReceived -= OnCommandAsync;
+        gateway.ButtonPressed -= OnButtonAsync;
         gateway.ChannelChanged -= OnChannelChangedAsync;
         gateway.ChannelRemoved -= OnChannelRemovedAsync;
         gateway.ServerChanged -= OnServerChangedAsync;
@@ -901,12 +986,12 @@ public sealed class DiscordBotService : BackgroundService
 
         var settings = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
-            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers })
+            .Select(s => new { s.DiscordBotTokenEncrypted, s.DiscordGuildId, s.DiscordLinkPromptNewMembers, s.DiscordMeCommand })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 
         if (settings is null)
-            return new BotConfig(null, null, false, false);
+            return new BotConfig(null, null, false, false, false);
 
         var token = protector.Unprotect(settings.DiscordBotTokenEncrypted);
 
@@ -918,7 +1003,8 @@ public sealed class DiscordBotService : BackgroundService
             string.IsNullOrWhiteSpace(token) ? null : token,
             string.IsNullOrWhiteSpace(settings.DiscordGuildId) ? null : settings.DiscordGuildId.Trim(),
             sendsEvents,
-            settings.DiscordLinkPromptNewMembers);
+            settings.DiscordLinkPromptNewMembers,
+            settings.DiscordMeCommand);
 
     }
 
@@ -928,6 +1014,6 @@ public sealed class DiscordBotService : BackgroundService
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
-    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents);
+    private sealed record BotConfig(string? Token, string? GuildId, bool LogChannelConfigured, bool MemberEvents, bool MeCommand);
 
 }

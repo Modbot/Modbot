@@ -236,6 +236,10 @@ public static class AuditVisibility
         [FactType.DiscordCommandRun] = AuditCategory.Operational,
         [FactType.DiscordLogPosted] = AuditCategory.Operational,
 
+        // A member asking for their data to be deleted is about them and is something the team
+        // answers, so it sits in the log the team reads, beside the review it opens.
+        [FactType.DataDeletionAsked] = AuditCategory.Moderation,
+
         // A case file is the group's written record of why somebody was banned (spec 5.8.3). Its
         // writing, editing and withdrawal are moderation history about the banned person and sit
         // beside the ban in the same timeline. The reason list is a setting, and goes with the

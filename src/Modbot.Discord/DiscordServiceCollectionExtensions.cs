@@ -101,6 +101,8 @@ public static class DiscordServiceCollectionExtensions
             () => provider.GetRequiredService<DiscordBotService>().ReadyGateway));
 
         services.AddScoped<LookupQuery>();
+        services.TryAddSingleton<MemberCommandLimits>();
+        services.AddScoped<MeCommand>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<InstanceAnnouncer>();

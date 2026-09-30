@@ -281,6 +281,8 @@ export type DiscordLinkingSettings = {
   backupChannelId: string | null
   linkedRoleId: string | null
   eighteenPlusRoleId: string | null
+  /** Members can use /me. Always false in a demo. */
+  meCommand: boolean
   available: boolean
 }
 
@@ -293,6 +295,7 @@ export type DiscordLinkingSettingsInput = {
   backupChannelId: string
   linkedRoleId: string
   eighteenPlusRoleId: string
+  meCommand: boolean
 }
 
 /** One VRChat group role paired with one Discord role (M5 §3). */
@@ -2701,6 +2704,11 @@ export type ReviewEvidence = {
   aiOpinion?: 'keep' | 'dismiss' | null
   aiOpinionReason?: string | null
   aiProposedAction?: string | null
+  /** Set only on a member's request to delete their data, from /me in Discord. */
+  discordUserId?: string
+  discordUsername?: string | null
+  vrchatUserId?: string | null
+  vrchatDisplayName?: string | null
   firstAt: string
   lastAt: string
   threshold: Record<string, number>

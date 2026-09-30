@@ -864,6 +864,8 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  'modbot.member.delete-asked': (p) => <>{p.subject} asked the staff to delete their data.</>,
+
   'modbot.discord.posted': (p) => {
     const count = p.entry.data?.['count']
     return (

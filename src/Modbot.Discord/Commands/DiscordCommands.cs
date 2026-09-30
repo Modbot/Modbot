@@ -8,10 +8,12 @@ namespace Modbot.Discord.Commands;
 /// each needs.
 /// </summary>
 /// <remarks>
-/// Every command but <see cref="Link"/> needs a Modbot account linked to the caller's Discord user
-/// id. The permission on top of that is the same one the equivalent web page asks for, so the bot
-/// never shows anybody more than the web app would. <see cref="Link"/> is for every member: it
-/// answers with the link page's address and nothing else (Discord account linking design §2).
+/// Every command but <see cref="Link"/> and <see cref="Me"/> needs a Modbot account linked to the
+/// caller's Discord user id. The permission on top of that is the same one the equivalent web page
+/// asks for, so the bot never shows anybody more than the web app would. <see cref="Link"/> is for
+/// every member: it answers with the link page's address and nothing else (Discord account linking
+/// design §2). <see cref="Me"/> is for every member too, and only ever about the member who ran it;
+/// it is registered only while the operator has switched it on (Discord /me design).
 /// </remarks>
 public static class DiscordCommands
 {
@@ -19,6 +21,7 @@ public static class DiscordCommands
     public const string Recent = "recent";
     public const string Modbot = "modbot";
     public const string Link = "link";
+    public const string Me = "me";
 
     public const string LookupUserOption = "user";
     public const string RecentCountOption = "count";
@@ -44,10 +47,22 @@ public static class DiscordCommands
             Link,
             "Link your VRChat account",
             []),
+        new(
+            Me,
+            "What Modbot holds about you",
+            []),
     ];
 
+    /// <summary>
+    /// The commands to register on the server: all of them, less <see cref="Me"/> while the
+    /// operator has it switched off. Not registered is cleaner than registered and refusing: a
+    /// member never sees a command that would only tell them it is off.
+    /// </summary>
+    public static IReadOnlyList<DiscordCommandDefinition> For(bool meCommand)
+        => meCommand ? All : [.. All.Where(c => c.Name != Me)];
+
     /// <summary>Commands any member may run, with no Modbot account.</summary>
-    public static bool IsForEveryone(string command) => command == Link;
+    public static bool IsForEveryone(string command) => command is Link or Me;
 
     /// <summary>
     /// The permission a command needs beyond a linked account. <see cref="ModbotPermissions.None"/>

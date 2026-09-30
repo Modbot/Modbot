@@ -250,7 +250,9 @@ with the message because VRChat refuses anyone else's server.
 ## 8. Non-goals
 
 - Multi-guild support. One deployment, one group, one guild (foundation §2.4).
-- Discord-side appeals or ticket UI beyond the accountability tickets of M4.
+- Discord-side appeals or ticket UI beyond the accountability tickets of M4. (Narrowed on
+  2026-09-30: members may see their own standing and ask for deletion with `/me`; appeals are still
+  out. See the Discord /me design.)
 
 ---
 

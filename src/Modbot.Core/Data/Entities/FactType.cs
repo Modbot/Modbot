@@ -325,6 +325,14 @@ public static class FactType
     public const string DiscordCommandRun = "modbot.discord.command";
 
     /// <summary>
+    /// A member pressed "Ask to delete my data" under <c>/me</c> (Discord /me design §4). Subject is
+    /// the Discord account that asked; no actor. Payload: the Discord username, the linked VRChat
+    /// id and name when there is a link, and the review it opened. It deletes nothing: it is a
+    /// request the staff answer from the Reviews page.
+    /// </summary>
+    public const string DataDeletionAsked = "modbot.member.delete-asked";
+
+    /// <summary>
     /// The bot posted a batch of moderation events to the log channel. Subject is the channel.
     /// Payload: how many, and the first and last fact id. Presence class -- it is plumbing.
     /// </summary>

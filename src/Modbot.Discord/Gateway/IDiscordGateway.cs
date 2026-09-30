@@ -103,14 +103,30 @@ public sealed record DiscordEmbedContent(
 /// <summary>A button under a message that opens a web address. Only an https address is used.</summary>
 public sealed record DiscordLinkButton(string Label, string Url);
 
+/// <summary>
+/// A button under a reply that asks the bot to do something, rather than opening an address. A
+/// press arrives as a <see cref="DiscordButtonPress"/> carrying <see cref="Id"/>.
+/// </summary>
+/// <param name="Id">
+/// What the press asks for. Always starts with <see cref="Prefix"/>, so a press on a button some
+/// other bot or an older Modbot put there is told apart and left alone. Discord allows 100
+/// characters.
+/// </param>
+public sealed record DiscordActionButton(string Label, string Id)
+{
+    public const string Prefix = "modbot:";
+}
+
 /// <summary>What the bot says back to a command. Always visible only to the person who asked.</summary>
 /// <param name="Links">Buttons under the reply that open a web address, or null for none.</param>
 /// <param name="Pictures">Files the reply's cards point at by <c>attachment://name</c>.</param>
+/// <param name="Actions">Buttons under the reply that the bot answers when pressed, after the links.</param>
 public sealed record DiscordReply(
     string? Text,
     IReadOnlyList<DiscordEmbedContent> Embeds,
     IReadOnlyList<DiscordLinkButton>? Links = null,
-    IReadOnlyList<DiscordPicture>? Pictures = null)
+    IReadOnlyList<DiscordPicture>? Pictures = null,
+    IReadOnlyList<DiscordActionButton>? Actions = null)
 {
     public static DiscordReply Say(string text) => new(text, []);
 
@@ -157,6 +173,40 @@ public sealed class DiscordCommandCall
 
     public string? Option(string name)
         => Options.TryGetValue(name, out var value) ? value : null;
+
+    public Task ReplyAsync(DiscordReply reply, CancellationToken ct = default) => _reply(reply, ct);
+}
+
+/// <summary>
+/// Somebody pressed one of the bot's <see cref="DiscordActionButton"/>s, with a way to answer. The
+/// answer is visible only to them, like a command's.
+/// </summary>
+public sealed class DiscordButtonPress
+{
+    private readonly Func<DiscordReply, CancellationToken, Task> _reply;
+
+    public DiscordButtonPress(
+        string discordUserId,
+        string discordUsername,
+        string buttonId,
+        Func<DiscordReply, CancellationToken, Task> reply)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(buttonId);
+        ArgumentNullException.ThrowIfNull(reply);
+
+        DiscordUserId = discordUserId;
+        DiscordUsername = discordUsername;
+        ButtonId = buttonId;
+        _reply = reply;
+    }
+
+    public string DiscordUserId { get; }
+
+    public string DiscordUsername { get; }
+
+    /// <summary>The <see cref="DiscordActionButton.Id"/> of the button pressed.</summary>
+    public string ButtonId { get; }
 
     public Task ReplyAsync(DiscordReply reply, CancellationToken ct = default) => _reply(reply, ct);
 }
@@ -405,6 +455,12 @@ public interface IDiscordGateway : IAsyncDisposable
     /// (<see cref="DiscordGatewayOptions.GuildId"/>). Commands from anywhere else are never raised.
     /// </summary>
     event Func<DiscordCommandCall, Task>? CommandReceived;
+
+    /// <summary>
+    /// Somebody pressed a button the bot put under one of its replies. Only presses whose id
+    /// starts with <see cref="DiscordActionButton.Prefix"/> are raised.
+    /// </summary>
+    event Func<DiscordButtonPress, Task>? ButtonPressed;
 
     /// <summary>
     /// A channel was created or changed -- renamed, moved, or its permission overwrites edited.

@@ -379,6 +379,13 @@ public class Settings
     /// <summary>The role a linked member whose VRChat record is 18+ verified is given. Null means none.</summary>
     public string? DiscordEighteenPlusRoleId { get; set; }
 
+    /// <summary>
+    /// "Members can use /me": the private command that shows a member what Modbot holds about them
+    /// and lets them ask the staff to delete it (Discord /me design, 2026-09-30). Off by default;
+    /// while off the command is not registered on the server at all.
+    /// </summary>
+    public bool DiscordMeCommand { get; set; }
+
     // --- Role and ban sync (M5 §3 and §4; Discord sync design) ---
     //
     // Three switches, all off, because each one is a different decision. Turning any of them on

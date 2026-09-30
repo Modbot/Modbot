@@ -69,6 +69,9 @@ public sealed class TestServices : IAsyncDisposable
         services.AddScoped<IFactWriter, FactWriter>();
         services.AddScoped<EventPartitionMaintainer>();
         services.AddScoped<LookupQuery>();
+        services.AddScoped<Modbot.Analytics.Reviews.ReviewFacts>();
+        services.AddSingleton<MemberCommandLimits>();
+        services.AddScoped<MeCommand>();
         services.AddScoped<DiscordCommandHandler>();
         services.AddScoped<ModerationLogPoster>();
         services.AddScoped<Modbot.Discord.Instances.InstanceAnnouncer>();

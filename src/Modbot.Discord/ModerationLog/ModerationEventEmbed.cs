@@ -96,5 +96,8 @@ public static class DiscordTime
 
     public static string Day(DateTimeOffset at) => $"<t:{Unix(at)}:d>";
 
+    /// <summary>The day with the month in words: "March 3, 2026" in the reader's own language.</summary>
+    public static string LongDay(DateTimeOffset at) => $"<t:{Unix(at)}:D>";
+
     private static string Unix(DateTimeOffset at) => at.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
 }

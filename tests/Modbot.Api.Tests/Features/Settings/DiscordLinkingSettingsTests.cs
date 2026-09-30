@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -120,5 +121,62 @@ public class DiscordLinkingSettingsTests
 
         var twice = await host.SendJsonAsync(HttpMethod.Put, Path, Update(linkedRoleId: "5", eighteenPlusRoleId: "5"), cookie, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, twice.StatusCode);
+    }
+
+    // ── /me (Discord /me design §5) ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task MeIsOffByDefault_TurningItOnIsSaved_AndRecorded()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var before = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
+        Assert.False(before.GetProperty("meCommand").GetBoolean());
+
+        var on = new { clientId = "1234567890", removeClientSecret = false, promptNewMembers = false, meCommand = true };
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, Path, on, cookie, Ct)).StatusCode);
+
+        var after = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
+        Assert.True(after.GetProperty("meCommand").GetBoolean());
+
+        var entry = (await host.FactsAsync(FactType.SettingsChanged, "settings", Ct))
+            .Select(ApiTestHost.DataOf)
+            .Last(data => data.GetProperty("setting").GetString() == "discordLinking");
+        var changed = entry.GetProperty("changed").GetProperty("meCommand");
+        Assert.False(changed.GetProperty("old").GetBoolean());
+        Assert.True(changed.GetProperty("new").GetBoolean());
+
+        // A save that does not mention it (an older page) keeps it on.
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, Path, Update(), cookie, Ct)).StatusCode);
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        Assert.True((await db.Settings.AsNoTracking().SingleAsync(s => s.Id == 1, Ct)).DiscordMeCommand);
+
+        // Put back for the next test, which shares the settings row.
+        var off = new { clientId = "1234567890", removeClientSecret = false, promptNewMembers = false, meCommand = false };
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, Path, off, cookie, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task InADemo_MeCannotBeTurnedOn()
+    {
+        var demo = new DemoMode { Requested = true };
+        demo.Decide(hasStaffAccount: false, onboardingComplete: false, holdsDemoData: true);
+
+        await using var host = await ApiTestHost.StartAsync(_db, configure: services => services.AddSingleton(demo));
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var on = new { clientId = "1234567890", removeClientSecret = false, promptNewMembers = false, meCommand = true };
+        var response = await host.SendJsonAsync(HttpMethod.Put, Path, on, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("demo", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var stored = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, Ct);
+        Assert.False(stored?.DiscordMeCommand ?? false);
     }
 }

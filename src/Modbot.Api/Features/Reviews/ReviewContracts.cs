@@ -52,6 +52,7 @@ public static class ReviewSignals
         ReviewSignal.SamePerson => "Keeps acting on one person",
         ReviewSignal.FarAboveTeam => "Far more actions than the rest of the team",
         ReviewSignal.AiFlag => "Flagged by a moderation rule",
+        ReviewSignal.DataDeletion => "Asked to delete their data",
         _ => signal,
     };
 }

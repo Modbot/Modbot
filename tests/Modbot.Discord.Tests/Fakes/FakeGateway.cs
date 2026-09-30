@@ -442,6 +442,11 @@ public sealed class FakeGateway : IDiscordGateway
     public Task RaiseCommandAsync(DiscordCommandCall call)
         => CommandReceived?.Invoke(call) ?? Task.CompletedTask;
 
+    public event Func<DiscordButtonPress, Task>? ButtonPressed;
+
+    public Task RaiseButtonAsync(DiscordButtonPress press)
+        => ButtonPressed?.Invoke(press) ?? Task.CompletedTask;
+
     // ── Messages ─────────────────────────────────────────────────────────────────────────────
 
     public event Func<DiscordMessageSnapshot, Task>? MessageReceived;

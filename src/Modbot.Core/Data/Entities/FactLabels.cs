@@ -214,6 +214,7 @@ public static class FactLabels
         [FactType.Unrecognised] = "Event Modbot has no name for yet",
 
         [FactType.DiscordCommandRun] = "Discord command used",
+        [FactType.DataDeletionAsked] = "Asked to delete their data",
         [FactType.DiscordLogPosted] = "Posted to the Discord log channel",
 
         // AutoMod (AutoMod design §7).

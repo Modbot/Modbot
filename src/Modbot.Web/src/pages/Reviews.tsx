@@ -164,6 +164,8 @@ function ReviewCard({
   const [showFacts, setShowFacts] = useState(false)
 
   const flagReview = review.signal === 'ai-flag'
+  // A member's request from /me: the "moderator" is the Discord account that asked.
+  const deletionReview = review.signal === 'data-deletion'
 
   const card = useRef<HTMLDivElement>(null)
   const brought = useRef(false)
@@ -203,6 +205,8 @@ function ReviewCard({
           {/* The "moderator" of a flag review is the rule, not a person, so it is not a link. */}
           {flagReview ? (
             (review.evidence.ruleName ?? '')
+          ) : deletionReview ? (
+            <AskedBy review={review} onOpenSubject={onOpenSubject} />
           ) : (
             <SubjectLink id={review.moderator.id} name={review.moderator.name} onOpen={onOpenSubject} />
           )}
@@ -237,6 +241,8 @@ function ReviewCard({
 
         {flagReview ? (
           <FlagEvidence review={review} />
+        ) : deletionReview ? (
+          <DeletionEvidence review={review} onOpenSubject={onOpenSubject} />
         ) : (
           <>
             <Evidence review={review} onOpenSubject={onOpenSubject} />
@@ -353,6 +359,38 @@ function FlagEvidence({ review }: { review: ReviewView }) {
       {e.aiProposedAction && e.aiProposedAction !== 'none' && (
         <Row label="AI proposed" value={PROPOSED_ACTION_LABELS[e.aiProposedAction as ProposedAction] ?? e.aiProposedAction} />
       )}
+    </Facts>
+  )
+}
+
+/** Who asked for their data to be deleted: their VRChat account when linked, else their Discord name. */
+function AskedBy({ review, onOpenSubject }: { review: ReviewView; onOpenSubject: (id: string) => void }) {
+  const e = review.evidence
+  return e.vrchatUserId ? (
+    <SubjectLink id={e.vrchatUserId} name={e.vrchatDisplayName ?? null} onOpen={onOpenSubject} />
+  ) : (
+    <>{e.discordUsername ?? review.moderator.id}</>
+  )
+}
+
+/** A member's request from /me in Discord: both accounts, as Modbot knew them when they asked. */
+function DeletionEvidence({ review, onOpenSubject }: { review: ReviewView; onOpenSubject: (id: string) => void }) {
+  const e = review.evidence
+
+  return (
+    <Facts>
+      <Row label="Discord" value={e.discordUsername ?? review.moderator.id} />
+      <Row label="Discord id" value={e.discordUserId ?? review.moderator.id} mono />
+      <Row
+        label="VRChat"
+        value={
+          e.vrchatUserId ? (
+            <PersonLink person={{ platform: 'vrchat', id: e.vrchatUserId, name: e.vrchatDisplayName ?? null }} onOpen={onOpenSubject} />
+          ) : (
+            'Not linked'
+          )
+        }
+      />
     </Facts>
   )
 }

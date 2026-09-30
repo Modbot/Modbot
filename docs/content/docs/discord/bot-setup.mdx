@@ -9,7 +9,7 @@ Modbot can run a Discord bot for your community's server. Once it is connected i
 - announces your group's open instances in a channel ([Instance announcements](/discord/instance-announcements));
 - lets members link their Discord and VRChat accounts, and gives linked members a role ([Account linking](/discord/account-linking));
 - keeps a copy of the server's messages, members and voice time, for the **Discord members** list and the **Discord** analytics page ([Messages and analytics](/discord/messages-and-analytics));
-- answers four slash commands (see [Slash commands](#slash-commands)).
+- answers four slash commands, and a fifth for members when you switch it on (see [Slash commands](#slash-commands)).
 
 The bot is optional. Until you give Modbot a token and a server id, the bot does not start and the
 rest of Modbot works as normal.
@@ -188,10 +188,11 @@ ran the command. One Discord bot can serve several Modbots: each one answers onl
 | `/recent count:` | The latest moderation events, newest first. Every name opens that person in Modbot. `count` is 1 to 25; 10 if you leave it out. | **See the audit log** |
 | `/modbot` | Whether the bot is connected, whether any channel is set to receive events, and the web app's address. | Anyone with a linked Modbot account |
 | `/link` | A **Link VRChat account** button that opens the account linking page. | Anyone in the server |
+| `/me` | What Modbot holds about the member who ran it, with **What Modbot keeps** and **Ask to delete my data** buttons. Only there when **Members can use /me** is on; see [What members can see: /me](/discord/account-linking#what-members-can-see-me). | Anyone in the server |
 
 ### Letting moderators use the commands
 
-Every command except `/link` only answers people Modbot can match to a Modbot account. Each
+Every command except `/link` and `/me` only answers people Modbot can match to a Modbot account. Each
 moderator enters their **Discord user id** on their own **Your account** page. Someone with
 **Manage users** can also set it for them on the **Users** page. To find your id, turn on Developer
 Mode in Discord, right-click your own name and choose **Copy User ID**.

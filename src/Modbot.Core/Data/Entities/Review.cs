@@ -110,6 +110,14 @@ public static class ReviewSignal
     /// review flow handles it (AI moderation design §19). The "moderator" is the rule.
     /// </summary>
     public const string AiFlag = "ai-flag";
+
+    /// <summary>
+    /// A member asked, from <c>/me</c> in Discord, for their data to be deleted (Discord /me design
+    /// §4). The "moderator" is the Discord account that asked, and <c>About</c> is the same id, so
+    /// the open-review index allows one open request per account. Nothing is deleted until a
+    /// person with the purge tool decides to.
+    /// </summary>
+    public const string DataDeletion = "data-deletion";
 }
 
 /// <summary>

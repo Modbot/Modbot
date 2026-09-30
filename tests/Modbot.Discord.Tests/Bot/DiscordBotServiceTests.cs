@@ -78,10 +78,10 @@ public class DiscordBotServiceTests
         await gateway.RaiseReadyAsync();
 
         Assert.Equal("424242", gateway.RegisteredGuildId);
-        Assert.Equal(DiscordCommands.All.Select(c => c.Name), gateway.RegisteredCommands.Select(c => c.Name));
+        Assert.Equal(DiscordCommands.For(meCommand: false).Select(c => c.Name), gateway.RegisteredCommands.Select(c => c.Name));
         var snapshot = services.Status.Snapshot();
         Assert.Equal(DiscordBotState.Connected, snapshot.State);
-        Assert.Equal(DiscordCommands.All.Count, snapshot.CommandsRegistered);
+        Assert.Equal(DiscordCommands.For(meCommand: false).Count, snapshot.CommandsRegistered);
         Assert.Equal(services.Clock.UtcNow, snapshot.ConnectedSince);
         Assert.Same(gateway, bot.ReadyGateway);
 
@@ -120,6 +120,63 @@ public class DiscordBotServiceTests
         Assert.Equal("515151", moved.Options.GuildId);
         Assert.Equal("515151", moved.RegisteredGuildId);
         Assert.Same(moved, bot.ReadyGateway);
+    }
+
+    [Fact]
+    public async Task TurningMeOnOrOff_RegistersTheCommandsAgain_WithoutReconnecting()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next();
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await bot.TickAsync(ct);
+        await gateway.RaiseReadyAsync();
+
+        // Off by default: /me is not on the server at all.
+        Assert.Equal(1, gateway.RegisterCalls);
+        Assert.DoesNotContain(gateway.RegisteredCommands, c => c.Name == DiscordCommands.Me);
+
+        // A tick with nothing changed registers nothing.
+        await bot.TickAsync(ct);
+        Assert.Equal(1, gateway.RegisterCalls);
+
+        await services.ConfigureAsync(s => s.DiscordMeCommand = true, ct);
+        await bot.TickAsync(ct);
+
+        Assert.Equal(2, gateway.RegisterCalls);
+        Assert.Contains(gateway.RegisteredCommands, c => c.Name == DiscordCommands.Me);
+        Assert.Equal(DiscordCommands.All.Count, services.Status.Snapshot().CommandsRegistered);
+        Assert.Single(gateways.Created);
+
+        await services.ConfigureAsync(s => s.DiscordMeCommand = false, ct);
+        await bot.TickAsync(ct);
+
+        Assert.Equal(3, gateway.RegisterCalls);
+        Assert.DoesNotContain(gateway.RegisteredCommands, c => c.Name == DiscordCommands.Me);
+        Assert.Single(gateways.Created);
+    }
+
+    [Fact]
+    public async Task WithMeOnAtSignIn_ItIsRegisteredOnReady()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var gateway = gateways.Next();
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await services.ConfigureAsync(s => s.DiscordMeCommand = true, ct);
+        await bot.TickAsync(ct);
+        await gateway.RaiseReadyAsync();
+
+        Assert.Equal(DiscordCommands.All.Select(c => c.Name), gateway.RegisteredCommands.Select(c => c.Name));
+
+        await bot.TickAsync(ct);
+        Assert.Equal(1, gateway.RegisterCalls);
     }
 
     [Fact]
@@ -401,7 +458,7 @@ public class DiscordBotServiceTests
 
         var snapshot = services.Status.Snapshot();
         Assert.Equal(DiscordBotState.Connected, snapshot.State);
-        Assert.Equal(DiscordCommands.All.Count, snapshot.CommandsRegistered);
+        Assert.Equal(DiscordCommands.For(meCommand: false).Count, snapshot.CommandsRegistered);
         Assert.Null(snapshot.LastError);
         Assert.Same(gateway, bot.ReadyGateway);
         Assert.Equal(1, gateway.RegisterCalls);

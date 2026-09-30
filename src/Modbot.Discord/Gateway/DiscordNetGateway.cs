@@ -91,6 +91,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.Ready += OnReady;
         _client.Disconnected += OnDisconnected;
         _client.SlashCommandExecuted += OnSlashCommand;
+        _client.ButtonExecuted += OnButton;
 
         _client.ChannelCreated += OnChannelCreated;
         _client.ChannelUpdated += OnChannelUpdated;
@@ -136,6 +137,8 @@ public sealed class DiscordNetGateway : IDiscordGateway
     public event Func<DiscordDisconnect, Task>? Disconnected;
 
     public event Func<DiscordCommandCall, Task>? CommandReceived;
+
+    public event Func<DiscordButtonPress, Task>? ButtonPressed;
 
     public event Func<DiscordMessageSnapshot, Task>? MessageReceived;
 
@@ -922,6 +925,7 @@ public sealed class DiscordNetGateway : IDiscordGateway
         _client.Ready -= OnReady;
         _client.Disconnected -= OnDisconnected;
         _client.SlashCommandExecuted -= OnSlashCommand;
+        _client.ButtonExecuted -= OnButton;
         _client.ChannelCreated -= OnChannelCreated;
         _client.ChannelUpdated -= OnChannelUpdated;
         _client.ChannelDestroyed -= OnChannelDestroyed;
@@ -1782,11 +1786,39 @@ public sealed class DiscordNetGateway : IDiscordGateway
             await handler(call).ConfigureAwait(false);
     }
 
-    /// <summary>One answer to a slash command, with the pictures its cards point at.</summary>
-    private static async Task AnswerAsync(SocketSlashCommand command, DiscordReply reply)
+    private Task OnButton(SocketMessageComponent press)
+    {
+        // Somebody else's button, or one from before Modbot used this prefix: not ours to answer.
+        // Discord shows the presser "This interaction failed" after three seconds, which is right.
+        if (press.Data.CustomId is not { } id || !id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal))
+            return Task.CompletedTask;
+
+        _ = Task.Run(() => Guard(DispatchButtonAsync(press, id), "button"));
+        return Task.CompletedTask;
+    }
+
+    private async Task DispatchButtonAsync(SocketMessageComponent press, string id)
+    {
+        // The same three seconds as a command, deferred the same way: a new private message is
+        // coming, rather than a change to the card the button sits on, which stays as it is.
+        await press.DeferLoadingAsync(ephemeral: true).ConfigureAwait(false);
+
+        var call = new DiscordButtonPress(
+            press.User.Id.ToString(CultureInfo.InvariantCulture),
+            press.User.Username,
+            id,
+            (reply, _) => AnswerAsync(press, reply));
+
+        var handler = ButtonPressed;
+        if (handler is not null)
+            await handler(call).ConfigureAwait(false);
+    }
+
+    /// <summary>One answer to a slash command or a button, with the pictures its cards point at.</summary>
+    private static async Task AnswerAsync(SocketInteraction command, DiscordReply reply)
     {
         var embeds = reply.Embeds.Count == 0 ? null : reply.Embeds.Select(ToEmbed).ToArray();
-        var buttons = Buttons(reply.Links) is { Components.Count: > 0 } b ? b : null;
+        var buttons = Buttons(reply.Links, reply.Actions) is { Components.Count: > 0 } b ? b : null;
         var files = Files(reply.Pictures);
 
         try
@@ -1999,6 +2031,13 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     /// <summary>Link buttons on one row. An address that is not plain https is left off.</summary>
     private static MessageComponent Buttons(IReadOnlyList<DiscordLinkButton>? links)
+        => Buttons(links, actions: null);
+
+    /// <summary>
+    /// Link buttons, then action buttons, on one row. An address that is not plain https is left
+    /// off, and so is an action whose id is not Modbot's.
+    /// </summary>
+    private static MessageComponent Buttons(IReadOnlyList<DiscordLinkButton>? links, IReadOnlyList<DiscordActionButton>? actions)
     {
         var builder = new ComponentBuilder();
 
@@ -2006,6 +2045,16 @@ public sealed class DiscordNetGateway : IDiscordGateway
         {
             if (IsHttps(link.Url) && link.Label is { Length: > 0 })
                 builder.WithButton(label: link.Label, style: ButtonStyle.Link, url: link.Url);
+        }
+
+        foreach (var action in actions ?? [])
+        {
+            if (action.Label is { Length: > 0 }
+                && action.Id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal)
+                && action.Id.Length <= 100)
+            {
+                builder.WithButton(label: action.Label, customId: action.Id, style: ButtonStyle.Secondary);
+            }
         }
 
         return builder.Build();

@@ -29,7 +29,9 @@ namespace Modbot.Discord.Commands;
 /// </para>
 /// <para>
 /// <strong>Unlinked callers learn nothing.</strong> Not whether a name exists, not whether the bot
-/// is healthy: one sentence telling them to link, and that is all. Every command, answered or
+/// is healthy: one sentence telling them to link, and that is all. The two exceptions are
+/// <c>/link</c> and <c>/me</c>, which are for every member and only ever about the caller
+/// (<see cref="MeCommand"/>). Every command, answered or
 /// refused, is a <c>modbot.discord.command</c> fact -- who looked at whom through Discord is an
 /// access record, like opening evidence.
 /// </para>
@@ -47,6 +49,7 @@ public sealed class DiscordCommandHandler
     private readonly DiscordBotStatus _status;
     private readonly LookupQuery _lookup;
     private readonly CardPictures _pictures;
+    private readonly MeCommand? _me;
 
     public DiscordCommandHandler(
         ModbotContext db,
@@ -54,7 +57,8 @@ public sealed class DiscordCommandHandler
         IModbotClock clock,
         DiscordBotStatus status,
         LookupQuery lookup,
-        CardPictures? pictures = null)
+        CardPictures? pictures = null,
+        MeCommand? me = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(facts);
@@ -68,11 +72,15 @@ public sealed class DiscordCommandHandler
         _status = status;
         _lookup = lookup;
         _pictures = pictures ?? new CardPictures();
+        _me = me;
     }
 
     public async Task<DiscordReply> HandleAsync(DiscordCommandCall call, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(call);
+
+        if (call.CommandName == DiscordCommands.Me)
+            return await MeAsync(call, ct).ConfigureAwait(false);
 
         if (DiscordCommands.IsForEveryone(call.CommandName))
         {
@@ -124,6 +132,51 @@ public sealed class DiscordCommandHandler
 
         await RecordAsync(call, user, outcome, target, ct).ConfigureAwait(false);
         return reply;
+    }
+
+    /// <summary>
+    /// <c>/me</c>: any member, about themselves only (Discord /me design). Answered only while the
+    /// operator has it switched on; a call that arrives after it was switched off, before Discord
+    /// dropped the command, is told so. A call over the per-person limit is refused and not
+    /// recorded, so holding a key down cannot fill the audit log.
+    /// </summary>
+    private async Task<DiscordReply> MeAsync(DiscordCommandCall call, CancellationToken ct)
+    {
+        if (_me is null || !await _me.IsOnAsync(ct).ConfigureAwait(false))
+        {
+            await RecordAsync(call, null, "off", null, ct).ConfigureAwait(false);
+            return DiscordReply.Say(MeCommand.OffMessage);
+        }
+
+        if (!_me.TryUse(call.DiscordUserId))
+            return DiscordReply.Say(MeCommand.TooFastMessage);
+
+        var reply = await _me.AnswerAsync(call.DiscordUserId, call.DiscordUsername, ct).ConfigureAwait(false);
+        await RecordAsync(call, null, "answered", null, ct).ConfigureAwait(false);
+        return reply;
+    }
+
+    /// <summary>
+    /// A press on one of the bot's buttons. Today only the two under <c>/me</c> exist, and they
+    /// follow the same switch and the same per-person limit as the command.
+    /// </summary>
+    /// <param name="gateway">The session, for the line a deletion request posts to the alerts channel.</param>
+    public async Task<DiscordReply> HandleButtonAsync(DiscordButtonPress press, IDiscordGateway? gateway, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(press);
+
+        if (press.ButtonId is not (MeCommand.KeepsButton or MeCommand.DeleteButton))
+            return DiscordReply.Say("Modbot does not know that button.");
+
+        if (_me is null || !await _me.IsOnAsync(ct).ConfigureAwait(false))
+            return DiscordReply.Say(MeCommand.OffMessage);
+
+        if (!_me.TryUse(press.DiscordUserId))
+            return DiscordReply.Say(MeCommand.TooFastMessage);
+
+        return press.ButtonId == MeCommand.KeepsButton
+            ? MeCommand.KeepsReply()
+            : await _me.AskToDeleteAsync(press.DiscordUserId, press.DiscordUsername, gateway, ct).ConfigureAwait(false);
     }
 
     private async Task<(DiscordReply Reply, string? Target)> LookupAsync(DiscordCommandCall call, CancellationToken ct)

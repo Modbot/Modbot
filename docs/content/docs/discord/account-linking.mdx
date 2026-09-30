@@ -199,6 +199,94 @@ history.
 The **Discord** card in a VRChat person's popup shows the Discord name and id, when they linked,
 the roles Modbot gave, **Not in the server** when they have left, and any problem giving a role.
 
+## What members can see: /me
+
+`/me` lets any member of your Discord server see what your Modbot holds about them. It is **off**
+until you turn it on: open **Settings → Discord**, find the **Account linking** card, switch on
+**Members can use /me**, and press **Save account linking**. The bot adds the command to your
+server within a few seconds, and takes it away again when you switch it off. It cannot be turned
+on in the demo.
+
+The reply is visible only to the member who ran it. It shows:
+
+| Field | What it says |
+|---|---|
+| **VRChat** | The linked VRChat name, followed by "(linked)", or **Not linked**. |
+| **Discord** | Their Discord username. |
+| **Member since** | When they joined your VRChat group, or **Not in the group**. Only shown when they are linked. |
+| **Roles from Modbot** | The Discord roles Modbot gave them and they still hold: the linked role, the 18+ role, and roles from [role sync](/discord/role-and-ban-sync). **None** when there are none. A role somebody gave by hand is never listed. |
+| **Standing** | **Banned** if they are banned from your VRChat group or your Discord server, otherwise **Good**. Nothing else: no reason, no rule, no case file. |
+
+A member who is not linked also gets a **Link your VRChat account** button, when linking is set up.
+
+`/me` never shows anybody else, who they were in an instance with, who reported them, anything a
+moderator wrote, flags or evidence. It reads only what Modbot has stored and asks VRChat nothing.
+
+Each member can use `/me` and its buttons 5 times a minute. Each time a member runs it, a
+**Discord command used** entry is added to the audit log.
+
+### What Modbot keeps
+
+The **What Modbot keeps** button shows the same list to everyone. It is what a Modbot can keep at
+most, depending on what the group has switched on, cut down from the
+[privacy policy](/privacy):
+
+**From VRChat**
+
+- Your display name, and the names, bios and status you had before
+- Your VRChat id, bio, status, pronouns and picture links
+- Whether you are age-verified
+- The group you show on your profile
+
+**About the group**
+
+- That you are a member, when you joined, your roles, and whether you left
+- Notes moderators keep on your membership
+- Bans and unbans
+
+**Where you have been**
+
+- Which of the group's instances you joined and left, and when
+- Your avatar changes
+- Who else was in the instance when something happened
+
+**Moderation**
+
+- Kicks, bans and notes about you, and why
+- Case files and the evidence attached to them
+- Flags raised by the group's word lists and AI rules
+
+**Discord**
+
+- Your messages in full, with edits and deletes
+- Your Discord id, names, avatar link, roles, and when you joined and left
+- When you were in voice channels, never the audio
+- Your account link and giveaway entries
+
+**If you have a Modbot account**
+
+- Your username, email address and sign-ins
+- What you did in Modbot
+
+### Ask to delete my data
+
+The **Ask to delete my data** button sends a request to your staff. **It deletes nothing by
+itself.** When a member presses it:
+
+- a review opens on the **Reviews** page, titled **Asked to delete their data**, with their Discord
+  name and id and their linked VRChat account;
+- an **Asked to delete their data** entry is added to the audit log;
+- if a **Discord channel** is set on the **Alerts** card under **Settings → AI → Alerts**, the bot
+  posts one line there naming them, with an **Open review** button when a public address is set;
+- the member is told "Sent to the group's staff. Case files are kept."
+
+A member can have one open request at a time; pressing again says "You have already asked. The
+group's staff have it." Your whole server can receive 20 requests a day; after that members are
+told to try again tomorrow.
+
+To act on a request, an administrator uses [Purge a person](/moderation/purge), which keeps case
+files and their evidence. Then close the review with a note saying what you did.
+
 ## What is recorded
 
 These events appear in the audit log and can be sent to [event channels](/discord/event-channels):
