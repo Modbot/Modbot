@@ -442,7 +442,7 @@ export const moderationApi = {
   askAiAboutFlag: (id: string) => http.post<ModerationFlag>(`/api/moderation-flags/${id}/ai-opinion`),
 }
 
-/** "Flag only", "Delete", "Time out 1hr", "Delete, time out 1hr", "Ban from group". */
+/** "Flag only", "Delete", "Time out 1h", "Delete, time out 1h", "Ban from group". */
 export function actionLabel(rule: {
   deleteMessage: boolean
   timeoutMinutes: number | null

@@ -6,7 +6,7 @@ import type { AuditEntry } from '@/lib/api'
 import { followLink } from '@/lib/router'
 import { openPersonVersion } from '@/lib/subject'
 import { avatarWorn, timeInInstance } from '@/lib/factDetails'
-import { dateTimeWithWeekday, duration, timeOfDay } from '@/lib/format'
+import { dateTimeWithWeekday, duration, lengthOfTime, timeOfDay } from '@/lib/format'
 import { countReadings, withPlainNames } from '@/lib/groupDetails'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { VRCHAT_PERMISSIONS } from '@/lib/vrchatPermissions'
@@ -1989,7 +1989,7 @@ const CALENDAR_FIELDS: Record<string, Say> = {
   postToChannel: { toggle: 'the channel post' },
   channelId: 'the channel',
   autoOpen: { toggle: 'opening the instance' },
-  openMinutesBefore: { word: 'how early the instance opens', show: (v) => `${plain(v)} minutes` },
+  openMinutesBefore: { word: 'how early the instance opens', show: (v) => (typeof v === 'number' ? lengthOfTime(v) : plain(v)) },
 }
 
 const GIVEAWAY_FIELDS: Record<string, Say> = {

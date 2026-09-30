@@ -21,14 +21,14 @@ test('an avatar id, if VRChat ever sent one, is not mistaken for a name', () => 
 test('a kick with a watched arrival says exactly how long they had been there', () => {
   assert.equal(
     timeInInstance({ inInstanceSeconds: 720, seenArriving: true }),
-    'after 12min in the instance',
+    'after 12m in the instance',
   )
 })
 
 test('a kick with no watched arrival says at least how long', () => {
   assert.equal(
     timeInInstance({ inInstanceSeconds: 720, seenArriving: false }),
-    'after at least 12min in the instance',
+    'after at least 12m in the instance',
   )
 })
 
@@ -44,10 +44,10 @@ test('a nonsense duration is not shown', () => {
 })
 
 test('somebody seen arriving and kicked in the same second is a real measurement of nothing', () => {
-  assert.equal(timeInInstance({ inInstanceSeconds: 0, seenArriving: true }), 'after 0 seconds in the instance')
+  assert.equal(timeInInstance({ inInstanceSeconds: 0, seenArriving: true }), 'after 0s in the instance')
 })
 
 test('the steps read the way a person says them', () => {
-  assert.equal(timeInInstance({ inInstanceSeconds: 45, seenArriving: true }), 'after 45 seconds in the instance')
-  assert.equal(timeInInstance({ inInstanceSeconds: 5400, seenArriving: true }), 'after 1hr 30min in the instance')
+  assert.equal(timeInInstance({ inInstanceSeconds: 45, seenArriving: true }), 'after 45s in the instance')
+  assert.equal(timeInInstance({ inInstanceSeconds: 5400, seenArriving: true }), 'after 1h 30m in the instance')
 })

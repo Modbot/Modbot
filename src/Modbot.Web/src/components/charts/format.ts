@@ -3,7 +3,7 @@
  * exports these keeps its fast-refresh boundary.
  */
 
-import { lengthOfTime, needsYear } from '../../lib/format.ts'
+import { duration, needsYear } from '../../lib/format.ts'
 
 export type DayPoint = { day: string; value: number }
 
@@ -47,11 +47,10 @@ export const compactNumber = (n: number): string =>
       ? n.toLocaleString()
       : n.toFixed(1)
 
-/** Minutes, said the way a person would say them: "16min", "3hr 6min", "2d 4hr" (`lengthOfTime`). */
+/** Minutes, said the way a person would say them: "30s", "16m", "3h 6m", "2d 4h" (`lengthOfTime`). */
 export function minutes(total: number): string {
   if (!Number.isFinite(total) || total < 0) return '—'
-  if (total < 1) return 'under a minute'
-  return lengthOfTime(total)
+  return duration(total * 60)
 }
 
 /** A whole-number percentage, or a dash when the denominator is zero. */

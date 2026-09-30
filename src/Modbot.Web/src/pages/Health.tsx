@@ -531,13 +531,11 @@ function dotted(...parts: React.ReactNode[]): React.ReactNode {
   ))
 }
 
-/** "in 12 minutes" or "any moment now", against the server's clock. */
+/** "in 12m" or "any moment now", against the server's clock, in the units every length uses. */
 function nextAt(iso: string, now: string): string {
   const seconds = Math.round((Date.parse(iso) - Date.parse(now)) / 1000)
   if (seconds <= 5) return 'any moment now'
-  if (seconds < 60) return `in ${seconds} seconds`
-  if (seconds < 3600) return `in ${Math.round(seconds / 60)} minutes`
-  return `in ${(seconds / 3600).toFixed(1)} hours`
+  return `in ${duration(seconds)}`
 }
 
 function waitingByReason(counts: Record<string, number>): React.ReactNode {

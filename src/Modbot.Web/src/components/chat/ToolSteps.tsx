@@ -6,6 +6,7 @@ import { JsonView } from '@/components/JsonView'
 import { Badge } from '@/components/ui/badge'
 import { Row } from '@/components/ui/fact-row'
 import type { ChatMessage, ChatReference, ChatToolCall } from '@/lib/api'
+import { elapsed } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /** One lookup: what the model asked for, and what came back — or nothing yet, while it runs. */
@@ -222,6 +223,4 @@ function parse(json: string): unknown {
   }
 }
 
-function took(ms: number): string {
-  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`
-}
+const took = elapsed

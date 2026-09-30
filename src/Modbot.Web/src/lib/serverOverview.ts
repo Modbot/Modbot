@@ -159,8 +159,8 @@ export function accountMadeAt(id: string): number | null {
 export const NEW_ACCOUNT_DAYS = 30
 
 /**
- * A Discord account's age in plain words against the server's clock: "12 days", "7 months",
- * "4 years". `fresh` when it is under {@link NEW_ACCOUNT_DAYS}. Null when the id carries no date.
+ * A Discord account's age in Modbot's units against the server's clock: "12d", "7mth", "4y".
+ * `fresh` when it is under {@link NEW_ACCOUNT_DAYS}. Null when the id carries no date.
  */
 export function accountAge(id: string, nowIso: string): { text: string; fresh: boolean } | null {
   const made = accountMadeAt(id)
@@ -172,8 +172,9 @@ export function accountAge(id: string, nowIso: string): { text: string; fresh: b
 }
 
 /**
- * How long ago something was, the way Discord's Members page writes it: "today", "11 days ago",
- * "7 months ago", "4 years ago". Against the server's clock. Null when either time is unreadable.
+ * How long ago something was, in the steps of Discord's Members page ("today", then days, months,
+ * years) and Modbot's units: "today", "11d ago", "7mth ago", "4y ago". Against the server's
+ * clock. Null when either time is unreadable.
  */
 export function timeAgo(iso: string, nowIso: string): string | null {
   const at = Date.parse(iso)
@@ -190,7 +191,7 @@ export function timeAgo(iso: string, nowIso: string): string | null {
  * them; days divided by an average month reads 6 for that same stretch.
  */
 function span(days: number, fromMs: number, toMs: number): string {
-  if (days < 60) return `${days} ${days === 1 ? 'day' : 'days'}`
+  if (days < 60) return `${days}d`
 
   const from = new Date(fromMs)
   const to = new Date(toMs)
@@ -200,10 +201,9 @@ function span(days: number, fromMs: number, toMs: number): string {
   const lastWhole = new Date(fromMs)
   lastWhole.setUTCMonth(from.getUTCMonth() + months)
   if (lastWhole.getTime() > toMs) months -= 1
-  if (months < 12) return `${months} months`
+  if (months < 12) return `${months}mth`
 
-  const years = Math.floor(months / 12)
-  return `${years} ${years === 1 ? 'year' : 'years'}`
+  return `${Math.floor(months / 12)}y`
 }
 
 /** Which of Discord's channel pictures a stored channel kind is drawn with. */

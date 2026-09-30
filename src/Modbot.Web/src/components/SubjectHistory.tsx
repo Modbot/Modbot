@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Ago } from '@/components/Freshness'
 import { Footer, Panel } from '@/components/subject/shared'
-import { formatDay } from '@/lib/format'
+import { formatDay, lengthOfTime } from '@/lib/format'
 import { api, ApiError, type RepeatOffenderView, type SubjectHistory as History } from '@/lib/api'
 
 /**
@@ -79,7 +79,7 @@ function Counts({ counts, rule, now }: { counts: RepeatOffenderView; rule: strin
         Acted on {times} {by}
         {counts.actionsLast30Days > 0 && (
           <>
-            , <span className="font-mono">{counts.actionsLast30Days}</span> in the last 30 days
+            , <span className="font-mono">{counts.actionsLast30Days}</span> in the last {lengthOfTime(30 * 24 * 60)}
           </>
         )}
         .

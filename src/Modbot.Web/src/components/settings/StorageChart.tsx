@@ -25,7 +25,7 @@ import {
 } from './storageChartTheme'
 import type { DataSettings } from '@/lib/api'
 import { DAY_MS, GB, bytes, gigabytes, hasPlentyOfStorage } from './units'
-import { formatDay } from '@/lib/format'
+import { formatDay, lengthOfTime } from '@/lib/format'
 
 /**
  * Storage over time: the past year as recorded, today as measured, and the year ahead as an
@@ -119,8 +119,8 @@ function costTicks(max: number): Scale {
 
 function inMonths(days: number): string {
   const m = Math.round(days / DAYS_PER_MONTH)
-  if (m % 12 === 0) return m === 12 ? 'In 1 year' : `In ${m / 12} years`
-  return m === 1 ? 'In 1 month' : `In ${m} months`
+  // Whole months as a length ("9mth", "1y", "1y 6mth"): a month is the 30.44 days lengthOfTime counts.
+  return `In ${lengthOfTime(m * 30.44 * 24 * 60)}`
 }
 
 function dayIndex(ms: number): number {
@@ -200,7 +200,7 @@ export function StorageChart({
   const costOf = (size: number) =>
     costPerGbMonth === null ? undefined : (size / GB) * costPerGbMonth
 
-  // One estimate point per month, so the hover snaps to whole months and reads "In 9 months".
+  // One estimate point per month, so the hover snaps to whole months and reads "In 9mth".
   const future: Point[] = Array.from({ length: 13 }, (_, m) => {
     const x = m * DAYS_PER_MONTH
     return {
@@ -277,8 +277,8 @@ export function StorageChart({
           role="img"
           aria-label={
             past.length > 0
-              ? `Database size over the past ${pastDays} days, and estimated over the next year`
-              : 'Estimated database size over the next year'
+              ? `Database size over the past ${lengthOfTime(pastDays * 24 * 60)}, and estimated over the next ${lengthOfTime(365 * 24 * 60)}`
+              : `Estimated database size over the next ${lengthOfTime(365 * 24 * 60)}`
           }
         >
           <CartesianGrid
@@ -524,7 +524,7 @@ function Caption({ storage, capacityBytes }: { storage: Storage; capacityBytes: 
       style={{ fontSize: 'var(--text-small)' }}
     >
       <p>
-        This estimate is based on {days} {days === 1 ? 'day' : 'days'} of data.
+        This estimate is based on {lengthOfTime(days * 24 * 60)} of data.
       </p>
       {capacityBytes !== null && (
         <p>

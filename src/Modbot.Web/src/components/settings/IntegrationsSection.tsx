@@ -8,6 +8,7 @@ import { Checkbox, Fact, Field, Outcome, PasswordField, Placeholder } from './fi
 import { HealthAlertsCard } from './HealthAlertsCard'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { dateTime } from '@/components/charts/format'
+import { lengthOfTime } from '@/lib/format'
 
 /**
  * Email and alerts — spec 7.1 step 5, re-run. The public address moved to Server, and so did the
@@ -205,7 +206,7 @@ function IntegrationsForm({
 
           <div className="grid items-start gap-3 sm:grid-cols-4">
             <label className="flex flex-col gap-1" style={{ fontSize: 'var(--text-small)' }}>
-              <span className="text-muted-foreground">Email limit per 24 hours</span>
+              <span className="text-muted-foreground">Email limit per {lengthOfTime(24 * 60)}</span>
               <Input
                 type="number"
                 inputMode="numeric"
@@ -218,7 +219,7 @@ function IntegrationsForm({
             </label>
             {email && (
               <>
-                <Fact label="Sent in the last 24 hours" value={`${email.sentInLast24Hours} of ${email.limitPer24Hours}`} mono />
+                <Fact label={`Sent in the last ${lengthOfTime(24 * 60)}`} value={`${email.sentInLast24Hours} of ${email.limitPer24Hours}`} mono />
                 <Fact label="Queued" value={String(email.queued)} mono />
                 <Fact label="Next queued email" value={email.nextSendAt ? when(email.nextSendAt) : '—'} mono={!!email.nextSendAt} />
               </>

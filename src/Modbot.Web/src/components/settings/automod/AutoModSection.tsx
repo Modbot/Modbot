@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
-import { ago } from '@/lib/format'
+import { ago, lengthOfTime } from '@/lib/format'
 import {
   actionLabel,
   failure,
@@ -635,7 +635,7 @@ function TryCard({ aiEnabled }: { aiEnabled: boolean }) {
   const outcome = result
     ? [
         result.wouldDeleteMessage ? 'Delete the message' : null,
-        result.wouldTimeOutMinutes ? `Time out for ${result.wouldTimeOutMinutes} minutes` : null,
+        result.wouldTimeOutMinutes ? `Time out for ${lengthOfTime(result.wouldTimeOutMinutes)}` : null,
         result.wouldGroupBan ? 'Ban from the group' : null,
         result.wouldGroupRemove ? 'Remove from the group' : null,
       ].filter(Boolean)

@@ -294,8 +294,8 @@ export function DiscordMetrics({ id }: { id: string }) {
     <>
       <Panel title="Activity" flush>
         <StatStrip className="m-0 md:grid-cols-3 xl:grid-cols-3">
-          <Stat label="Messages, 30 days" value={compactNumber(sum(data.messagesPerDay))} />
-          <Stat label="Voice, 30 days" value={minutes(sum(data.voiceMinutesPerDay))} />
+          <Stat label="Messages, 30d" value={compactNumber(sum(data.messagesPerDay))} />
+          <Stat label="Voice, 30d" value={minutes(sum(data.voiceMinutesPerDay))} />
           <Stat label="Messages, all time" value={compactNumber(data.messagesAllTime)} />
           <Stat label="Voice, all time" value={minutes(data.voiceMinutesAllTime)} />
           <Stat label="First seen" value={data.firstSeenAt ? formatDay(data.firstSeenAt) : '—'} />

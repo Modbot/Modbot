@@ -8,7 +8,7 @@ import type { ChatConversationSummary } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /** The headings a conversation list is broken into, newest first. */
-const GROUPS = ['Today', 'Yesterday', 'Previous 7 days', 'Older'] as const
+const GROUPS = ['Today', 'Yesterday', 'Previous 7d', 'Older'] as const
 
 type Group = (typeof GROUPS)[number]
 
@@ -277,6 +277,6 @@ function groupOf(iso: string): Group {
 
   if (days <= 0) return 'Today'
   if (days === 1) return 'Yesterday'
-  if (days <= 7) return 'Previous 7 days'
+  if (days <= 7) return 'Previous 7d'
   return 'Older'
 }

@@ -6,7 +6,7 @@ import { MemberCountChart } from './MemberCountChart'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { PageMessage, Panel, Stat, StatStrip } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
-import { plural } from '@/lib/format'
+import { lengthOfTime, plural } from '@/lib/format'
 
 /**
  * The VRChat group's part of the Stats page's Growth tab: is the community growing or shrinking,
@@ -91,9 +91,7 @@ export function GroupGrowth({ data }: { data: GroupAnalytics }) {
             note={
               <>
                 <span className="font-mono">{compactNumber(data.invites.joinedAfterInvite)}</span> joined within{' '}
-                <span className="font-mono">
-                  {data.invites.followUpDays} {plural(data.invites.followUpDays, 'day')}
-                </span>
+                <span className="font-mono">{lengthOfTime(data.invites.followUpDays * 24 * 60)}</span>
               </>
             }
           />
@@ -213,7 +211,7 @@ function PeaksCoverage({ peaks }: { peaks: MemberCountPeaks }) {
     return (
       <PageMessage>
         Readings on <span className="font-mono">{coverage.daysWithReadings}</span> of{' '}
-        <span className="font-mono">{coverage.windowDays}</span> {plural(coverage.windowDays, 'day')} in this range.
+        <span className="font-mono">{lengthOfTime(coverage.windowDays * 24 * 60)}</span> in this range.
       </PageMessage>
     )
   }

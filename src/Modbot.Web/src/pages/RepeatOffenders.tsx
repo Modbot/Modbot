@@ -111,7 +111,7 @@ export function RepeatOffendersTab({ onOpenSubject }: { onOpenSubject: (id: stri
               <Th>Person</Th>
               <Th>Status</Th>
               <Th className="text-right">Actions</Th>
-              <Th className="text-right">Last 30 days</Th>
+              <Th className="text-right">Last 30d</Th>
               <Th className="text-right">Kicks</Th>
               <Th className="text-right">Warns</Th>
               <Th className="text-right">Bans</Th>

@@ -200,7 +200,7 @@ function MostAtOnce({ world }: { world: WorldSummary }) {
   )
 }
 
-/** A world's second line on a phone or in VR: "2 instances · 10 h 50 min open · 53 of 80". */
+/** A world's second line on a phone or in VR: "2 instances · 10h 50m open · 53 of 80". */
 function secondLine(w: WorldSummary): React.ReactNode[] {
   return [
     <span key="instances" className="font-mono">{`${compactNumber(w.instances)} ${plural(w.instances, 'instance')}`}</span>,

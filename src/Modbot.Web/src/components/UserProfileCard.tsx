@@ -7,7 +7,7 @@ import { ProfileHeader } from '@/components/ProfileHeader'
 import { Empty, Field } from '@/components/subject/shared'
 import { Field as TextField } from '@/components/settings/fields'
 import { Ago, Unread } from '@/components/Freshness'
-import { ago, formatDay } from '@/lib/format'
+import { ago, duration, formatDay } from '@/lib/format'
 import { api, ApiError, type CurrentUser, type VRChatUserProfile } from '@/lib/api'
 import { can } from '@/lib/permissions'
 import { useStoredProfile, type StoredProfile } from '@/lib/useStoredProfile'
@@ -149,7 +149,7 @@ function Freshness({
         {profile.stale ? <Unread><span>{refreshed}</span></Unread> : <span className="font-medium">{refreshed}</span>}
         {profile.stale && profile.lastRefreshedAt && (
           <span className="text-warn">
-            stale, older than {Math.round(profile.staleAfterSeconds / 3600)} hours
+            stale, older than {duration(profile.staleAfterSeconds)}
           </span>
         )}
         {refreshing && (

@@ -6,7 +6,7 @@ import { dayRange, longDay } from '@/components/charts'
 import { Ago } from '@/components/Freshness'
 import { Row } from '@/components/ui/fact-row'
 import type { AnalyticsCoverage } from '@/lib/api'
-import { needsYear, plural } from '@/lib/format'
+import { lengthOfTime, needsYear } from '@/lib/format'
 import type { PageId } from '@/lib/nav'
 import { followLink } from '@/lib/router'
 import { SwitchBank } from '@/components/ui/switch-bank'
@@ -357,7 +357,7 @@ export function CoverageNote({ coverage, generatedAt }: { coverage: AnalyticsCov
     )
   }
   const kept = (days: number) =>
-    days > 0 ? <span className="font-mono">{days} {plural(days, 'day')}</span> : 'forever'
+    days > 0 ? <span className="font-mono">{lengthOfTime(days * 24 * 60)}</span> : 'forever'
 
   return (
     <Card>

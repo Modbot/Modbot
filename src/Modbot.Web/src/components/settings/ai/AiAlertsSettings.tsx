@@ -12,6 +12,7 @@ import {
 import { Outcome, Placeholder } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { dateTime } from '@/components/charts/format'
+import { lengthOfTime } from '@/lib/format'
 
 /**
  * Settings → AI → Alerts: what Modbot watches for unusual activity, how sensitive each watcher
@@ -141,7 +142,7 @@ function Form({ stored, onSaved }: { stored: Stored; onSaved: (next: Stored) => 
               <option value="0">None</option>
               {QUIET_HOURS.map((h) => (
                 <option key={h} value={h}>
-                  {h === 1 ? '1 hour' : `${h} hours`}
+                  {lengthOfTime(h * 60)}
                 </option>
               ))}
             </Select>

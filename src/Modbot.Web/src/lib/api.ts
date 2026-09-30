@@ -2284,7 +2284,7 @@ export type DiscordReadBackHealth = {
 
 /**
  * Where a member or ban sweep has got to. `phase` is the service's own word -- sweeping,
- * resting, cold-stopped, retrying, idle -- because "last ran 9 minutes ago" cannot tell a
+ * resting, cold-stopped, retrying, idle -- because "last ran 9m ago" cannot tell a
  * deliberate rest from a stuck producer.
  */
 export type SweepHealth = {

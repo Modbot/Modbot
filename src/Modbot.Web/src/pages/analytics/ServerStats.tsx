@@ -21,7 +21,7 @@ import { followLink } from '@/lib/router'
 import { channelLook, serverTabHref, type ChannelLook } from '@/lib/serverOverview'
 import { CoverageLine, Panel, Stat, StatStrip, Toggle } from './shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
-import { plural } from '@/lib/format'
+import { lengthOfTime, plural } from '@/lib/format'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const HOURS = Array.from({ length: 24 }, (_, h) => `${h}:00`)
@@ -80,7 +80,7 @@ export function ServerGrowth({ data }: { data: ServerAnalytics }) {
         />
         <Stat label="Joined" value={compactNumber(sum(data.joined))} />
         <Stat
-          label="Still here after 7 days"
+          label="Still here after 7d"
           value={firstWeek ? percent(firstWeek.stillHere, firstWeek.joined) : '—'}
           note={
             firstWeek && firstWeek.joined > 0
@@ -141,9 +141,7 @@ export function ServerGrowth({ data }: { data: ServerAnalytics }) {
         >
           {data.newMembers.map((n) => (
             <Tr key={n.days}>
-              <Td>
-                {n.days} {plural(n.days, 'day')}
-              </Td>
+              <Td>{lengthOfTime(n.days * 24 * 60)}</Td>
               <Td className="text-right font-mono">{compactNumber(n.joined)}</Td>
               <Td className="text-right font-mono">
                 {compactNumber(n.stillHere)}{' '}
@@ -197,7 +195,8 @@ export function ServerActivity({ data }: { data: ServerAnalytics }) {
             to={data.to}
             missing={data.daysWithoutBot}
             today={data.today}
-            series={[{ key: 'voice', label: 'minutes', one: 'minute', points: data.voiceMinutes, slot: 5 }]}
+            series={[{ key: 'voice', label: 'in voice', points: data.voiceMinutes, slot: 5 }]}
+            format={(v) => lengthOfTime(v)}
           />
         </Panel>
 
@@ -411,8 +410,8 @@ function ActivePanel({
           onChange={onSpan}
           options={[
             { value: 'daily', label: 'Day' },
-            { value: 'weekly', label: '7 days' },
-            { value: 'monthly', label: '30 days' },
+            { value: 'weekly', label: '7d' },
+            { value: 'monthly', label: '30d' },
           ]}
         />
       }
@@ -436,8 +435,8 @@ function ActivePanel({
       {last && (
         <StatStrip className="m-0 grid-cols-3 xl:grid-cols-3">
           <Stat label="Day" value={compactNumber(last.daily)} />
-          <Stat label="7 days" value={compactNumber(last.weekly)} />
-          <Stat label="30 days" value={compactNumber(last.monthly)} />
+          <Stat label="7d" value={compactNumber(last.weekly)} />
+          <Stat label="30d" value={compactNumber(last.monthly)} />
         </StatStrip>
       )}
     </Panel>
@@ -446,8 +445,8 @@ function ActivePanel({
 
 const TENURE: { key: keyof MembersNow['tenure']; label: string; slot: SeriesSlot }[] = [
   { key: 'underAMonth', label: 'Under a month', slot: 1 },
-  { key: 'oneToSixMonths', label: '1–6 months', slot: 2 },
-  { key: 'sixToTwelveMonths', label: '6–12 months', slot: 3 },
+  { key: 'oneToSixMonths', label: '1–6mth', slot: 2 },
+  { key: 'sixToTwelveMonths', label: '6–12mth', slot: 3 },
   { key: 'yearOrMore', label: 'A year or more', slot: 4 },
 ]
 

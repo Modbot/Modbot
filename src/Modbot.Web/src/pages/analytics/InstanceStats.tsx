@@ -151,7 +151,7 @@ export function InstanceStats({
             missing={data.daysWithoutHeadCounts}
             today={data.today}
             series={[{ key: 'busy', label: 'people-hours', one: 'person-hour', points: toHours(data.peaks.peopleMinutesPerDay), slot: 1 }]}
-            format={(v) => `${compactNumber(v)} h`}
+            format={(v) => `${compactNumber(v)}h`}
           />
         </Panel>
       </PanelGrid>
@@ -253,7 +253,7 @@ function Peaks({ peaks }: { peaks: InstancePeaks }) {
         />
         {/*
           Both are picked by people-time -- everyone's minutes in the group's instances added up --
-          and neither shows it. Printed as a length of time, "4 h 22 min" read as how long
+          and neither shows it. Printed as a length of time, "4h 22m" read as how long
           something lasted, and divided back into people it gave 1.4 of a person. The hour shows
           its average in whole people, the exact figure on hover; the day shows the most at once
           that day, because a day's average is always nearly nobody.

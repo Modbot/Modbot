@@ -159,27 +159,41 @@ export function dateTimeWithWeekday(iso: string, withYear: boolean = needsYear(i
 }
 
 const DAY_SECONDS = 86_400
+const DAYS_IN_MONTH = 30.44
+const DAYS_IN_YEAR = 365
 
 /**
- * An age in the largest unit that still reads at a glance: "40s", "12m", "5h", "30d", "3 mo",
- * "1 yr". Days up to 45, because "38d" is still easy to picture and more exact than "1 mo". Past
+ * A number with its unit, and a second one when it is not zero: "4h", "4h 40m".
+ *
+ * Every length and every age in Modbot is written in the same six units -- y, mth, d, h, m, s --
+ * and never in weeks. The unit sits against its number, one space parts the two units, and the
+ * smaller is left out when it is zero: "4h 40m" is read as one length, where "4 h 40 min" broke
+ * into four words and the eye paired the wrong ones.
+ */
+function units(big: number, bigUnit: string, small = 0, smallUnit = ''): string {
+  return small ? `${big}${bigUnit} ${small}${smallUnit}` : `${big}${bigUnit}`
+}
+
+/**
+ * An age in the largest unit that still reads at a glance: "40s", "12m", "5h", "30d", "3mth",
+ * "1y". Days up to 45, because "38d" is still easy to picture and more exact than "1mth". Past
  * that, whole months and then whole years that have passed, the way people say an age: something
- * a year and a half old is "1 yr" until it is two. "563d" made the reader do the sum.
+ * a year and a half old is "1y" until it is two. "563d" made the reader do the sum.
  */
 function age(seconds: number): string {
-  if (seconds < 60) return `${Math.max(0, seconds)}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  if (seconds < DAY_SECONDS) return `${Math.round(seconds / 3600)}h`
+  if (seconds < 60) return units(Math.max(0, seconds), 's')
+  if (seconds < 3600) return units(Math.round(seconds / 60), 'm')
+  if (seconds < DAY_SECONDS) return units(Math.round(seconds / 3600), 'h')
 
   const days = Math.round(seconds / DAY_SECONDS)
-  if (days < 45) return `${days}d`
-  if (days < 365) return `${Math.floor(days / 30.44)} mo`
-  return `${Math.floor(days / 365)} yr`
+  if (days < 45) return units(days, 'd')
+  if (days < DAYS_IN_YEAR) return units(Math.floor(days / DAYS_IN_MONTH), 'mth')
+  return units(Math.floor(days / DAYS_IN_YEAR), 'y')
 }
 
 /**
  * How long ago, measured against the server's clock rather than the browser's, in the steps of
- * {@link age}: "5h ago", "30d ago", "3 mo ago", "1 yr ago".
+ * {@link age}: "5h ago", "30d ago", "3mth ago", "1y ago".
  *
  * The browser's clock is not the authority for anything here and is routinely wrong on a machine
  * that has been asleep, so every screen showing an age passes the `now` the server sent.
@@ -233,7 +247,7 @@ export function notLinkedTo(names: string[]): string {
 
 /**
  * How long something has been going on, against the server's clock, in the same steps as
- * {@link ago} and without the "ago". "Last seen 2d ago" and "known for 1 yr" are different
+ * {@link ago} and without the "ago". "Last seen 2d ago" and "known for 1y" are different
  * questions about the same person, and the People page asks both.
  */
 export function howLong(iso: string | null, now: string): string {
@@ -243,39 +257,50 @@ export function howLong(iso: string | null, now: string): string {
 }
 
 /**
- * A length of time given in minutes, in whole units: "16min", "3hr 6min", "2d 4hr".
+ * A length of time given in minutes, in whole {@link units}: "16m", "3h 6m", "2d 4h", "1mth 3d",
+ * "1y 2mth".
  *
- * Never a decimal. "3.1hr" makes the reader work out that .1 of an hour is six minutes, and most
- * do not. Two units at most, the larger first, and the smaller left out when it is zero ("3hr"):
- * past a day the minutes are noise. Rounded to the minute, or to the hour past a day, before the
- * unit is chosen, so 59.7 minutes reads "1hr" and not "60min".
- *
- * The unit sits against its number, and one space parts the two units: "4hr 40min" is read as one
- * length, where "4 h 40 min" broke into four words and the eye paired the wrong ones. Every length
- * on every page comes through here, so they all read alike.
+ * Never a decimal. "3.1h" makes the reader work out that .1 of an hour is six minutes, and most
+ * do not. Two units at most, the larger first, and the smaller left out when it is zero ("3h"):
+ * past a day the minutes are noise, past a month the hours are. Rounded to the minute, to the
+ * hour past a day, and to the day past a month, before the unit is chosen, so 59.7 minutes reads
+ * "1h" and not "60m". A month is 30.44 days and a year 365, as in an age; there are no weeks.
+ * Every length on every page comes through here, so they all read alike.
  */
 export function lengthOfTime(totalMinutes: number): string {
-  const wholeMinutes = Math.round(totalMinutes)
+  const minutes = Math.round(totalMinutes)
+  if (minutes < 60) return units(minutes, 'm')
+  if (minutes < 24 * 60) return units(Math.floor(minutes / 60), 'h', minutes % 60, 'm')
 
-  if (wholeMinutes < 60) return `${wholeMinutes}min`
+  const hours = Math.round(totalMinutes / 60)
+  const days = Math.round(totalMinutes / (24 * 60))
+  if (days < 31) return units(Math.floor(hours / 24), 'd', hours % 24, 'h')
 
-  if (wholeMinutes < 24 * 60) {
-    const hours = Math.floor(wholeMinutes / 60)
-    const rest = wholeMinutes % 60
-    return rest ? `${hours}hr ${rest}min` : `${hours}hr`
+  // The nearest month, not the month begun, so a 90-day setting reads "3mth" and not "2mth 29d".
+  if (days < DAYS_IN_YEAR) {
+    const months = Math.round(days / DAYS_IN_MONTH)
+    if (months >= 12) return units(1, 'y')
+    return units(months, 'mth', Math.max(0, Math.round(days - months * DAYS_IN_MONTH)), 'd')
   }
 
-  const wholeHours = Math.round(totalMinutes / 60)
-  const days = Math.floor(wholeHours / 24)
-  const rest = wholeHours % 24
-  return rest ? `${days}d ${rest}hr` : `${days}d`
+  const years = Math.floor(days / DAYS_IN_YEAR)
+  const months = Math.round((days - years * DAYS_IN_YEAR) / DAYS_IN_MONTH)
+  return months >= 12 ? units(years + 1, 'y') : units(years, 'y', months, 'mth')
 }
 
-/** A duration in seconds: "45 seconds" under a minute, and {@link lengthOfTime} from there. */
+/** A duration in seconds: "45s" under a minute, and {@link lengthOfTime} from there. */
 export function duration(seconds: number): string {
   const wholeSeconds = Math.round(seconds)
-  if (wholeSeconds < 60) return `${wholeSeconds} ${plural(wholeSeconds, 'second')}`
+  if (wholeSeconds < 60) return units(wholeSeconds, 's')
   return lengthOfTime(seconds / 60)
+}
+
+/**
+ * How long a call took, from milliseconds: "412ms", then "1.2s". A measurement of a machine, not
+ * a length a person lived through, so it keeps a decimal where {@link duration} never would.
+ */
+export function elapsed(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
 export const compact = (n: number): string =>

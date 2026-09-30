@@ -19,6 +19,7 @@ import { count, money } from '@/lib/aiSpend'
 import { Outcome } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
 import { dateTime } from '@/components/charts/format'
+import { elapsed } from '@/lib/format'
 
 /** `#ai/calls/<id>` opens that call, which is where a flag's "AI call" link goes. */
 function callFromHash(): string | null {
@@ -35,7 +36,7 @@ const failure = (e: unknown) =>
       ? e.message
       : 'Could not reach the Modbot server.'
 
-const took = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`)
+const took = elapsed
 
 const tone = (outcome: string) =>
   outcome === 'answered' ? undefined : outcome === 'limited' ? 'text-warn' : 'text-destructive'

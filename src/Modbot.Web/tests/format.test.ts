@@ -10,6 +10,7 @@ import {
   formatDayRange,
   headCountText,
   howLong,
+  elapsed,
   lengthOfTime,
   needsYear,
   notLinkedTo,
@@ -27,7 +28,7 @@ test('how long says the same steps as ago, without the ago', () => {
   assert.equal(howLong('2026-09-18T11:30:00Z', NOW), '30m')
   assert.equal(howLong('2026-09-18T06:00:00Z', NOW), '6h')
   assert.equal(howLong('2026-08-19T12:00:00Z', NOW), '30d')
-  assert.equal(howLong('2026-06-20T12:00:00Z', NOW), '2 mo')
+  assert.equal(howLong('2026-06-20T12:00:00Z', NOW), '2mth')
 
   assert.equal(ago('2026-08-19T12:00:00Z', NOW), '30d ago')
 })
@@ -46,21 +47,21 @@ test('an age stays in days up to 45 of them', () => {
 })
 
 test('past 45 days an age is whole months passed', () => {
-  assert.equal(ago('2026-08-04T12:00:00Z', NOW), '1 mo ago')
-  assert.equal(ago('2026-06-20T12:00:00Z', NOW), '2 mo ago')
-  assert.equal(ago('2026-03-02T12:00:00Z', NOW), '6 mo ago')
-  assert.equal(ago('2025-09-19T12:00:00Z', NOW), '11 mo ago')
+  assert.equal(ago('2026-08-04T12:00:00Z', NOW), '1mth ago')
+  assert.equal(ago('2026-06-20T12:00:00Z', NOW), '2mth ago')
+  assert.equal(ago('2026-03-02T12:00:00Z', NOW), '6mth ago')
+  assert.equal(ago('2025-09-19T12:00:00Z', NOW), '11mth ago')
 })
 
 test('past a year an age is whole years passed, so a year and a half is still one', () => {
-  assert.equal(ago('2025-09-18T12:00:00Z', NOW), '1 yr ago')
-  assert.equal(ago('2025-03-04T12:00:00Z', NOW), '1 yr ago')
-  assert.equal(ago('2024-09-18T12:00:00Z', NOW), '2 yr ago')
+  assert.equal(ago('2025-09-18T12:00:00Z', NOW), '1y ago')
+  assert.equal(ago('2025-03-04T12:00:00Z', NOW), '1y ago')
+  assert.equal(ago('2024-09-18T12:00:00Z', NOW), '2y ago')
 })
 
 test('how long goes on past days in the same steps', () => {
-  assert.equal(howLong('2026-03-02T12:00:00Z', NOW), '6 mo')
-  assert.equal(howLong('2025-03-04T12:00:00Z', NOW), '1 yr')
+  assert.equal(howLong('2026-03-02T12:00:00Z', NOW), '6mth')
+  assert.equal(howLong('2025-03-04T12:00:00Z', NOW), '1y')
 })
 
 // Written without naming a locale or a time zone, because timeOfDay uses the viewer's: the tests
@@ -80,29 +81,29 @@ test('a time of day is the time alone, with no date in it', () => {
 // ── Lengths of time ──────────────────────────────────────────────────────────────────────────
 
 test('a length of time is whole units, never a decimal', () => {
-  assert.equal(lengthOfTime(16), '16min')
-  assert.equal(lengthOfTime(186), '3hr 6min')
-  assert.equal(lengthOfTime(84), '1hr 24min')
-  assert.equal(lengthOfTime(52 * 60), '2d 4hr')
+  assert.equal(lengthOfTime(16), '16m')
+  assert.equal(lengthOfTime(186), '3h 6m')
+  assert.equal(lengthOfTime(84), '1h 24m')
+  assert.equal(lengthOfTime(52 * 60), '2d 4h')
 })
 
 test('the smaller unit is left out when it is zero', () => {
-  assert.equal(lengthOfTime(180), '3hr')
+  assert.equal(lengthOfTime(180), '3h')
   assert.equal(lengthOfTime(48 * 60), '2d')
 })
 
 test('a length of time is rounded before its unit is chosen', () => {
-  assert.equal(lengthOfTime(59.7), '1hr')
+  assert.equal(lengthOfTime(59.7), '1h')
   assert.equal(lengthOfTime(24 * 60 - 0.2), '1d')
-  assert.equal(lengthOfTime(24 * 60 + 40), '1d 1hr')
+  assert.equal(lengthOfTime(24 * 60 + 40), '1d 1h')
 })
 
 test('a duration in seconds says seconds under a minute, and whole units after', () => {
-  assert.equal(duration(1), '1 second')
-  assert.equal(duration(45), '45 seconds')
-  assert.equal(duration(59.6), '1min')
-  assert.equal(duration(720), '12min')
-  assert.equal(duration(5400), '1hr 30min')
+  assert.equal(duration(1), '1s')
+  assert.equal(duration(45), '45s')
+  assert.equal(duration(59.6), '1m')
+  assert.equal(duration(720), '12m')
+  assert.equal(duration(5400), '1h 30m')
 })
 
 // ── Plurals ──────────────────────────────────────────────────────────────────────────────────
@@ -237,4 +238,24 @@ test('missing accounts are named in one line', () => {
   assert.equal(notLinkedTo(['Modbot']), 'Not linked to Modbot')
   assert.equal(notLinkedTo(['Discord', 'Modbot']), 'Not linked to Discord or Modbot')
   assert.equal(notLinkedTo(['VRChat', 'Discord', 'Modbot']), 'Not linked to VRChat, Discord or Modbot')
+})
+
+test('past a month a length reads as months and days, and past a year as years and months', () => {
+  assert.equal(lengthOfTime(30 * 24 * 60), '30d')
+  assert.equal(lengthOfTime(31 * 24 * 60), '1mth 1d')
+  assert.equal(lengthOfTime(45 * 24 * 60), '1mth 15d')
+  assert.equal(lengthOfTime(61 * 24 * 60), '2mth')
+  assert.equal(lengthOfTime(90 * 24 * 60), '3mth')
+  assert.equal(lengthOfTime(180 * 24 * 60), '6mth')
+  assert.equal(lengthOfTime(365 * 24 * 60), '1y')
+  assert.equal(lengthOfTime(430 * 24 * 60), '1y 2mth')
+})
+
+test('there are no weeks: ten days are ten days', () => {
+  assert.equal(lengthOfTime(10 * 24 * 60), '10d')
+})
+
+test('how long a call took keeps a decimal past a second', () => {
+  assert.equal(elapsed(412), '412ms')
+  assert.equal(elapsed(1234), '1.2s')
 })

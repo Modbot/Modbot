@@ -5,15 +5,15 @@ import { ApiError } from '@/lib/api'
  * The date range every Analytics page offers, and the hook that loads a page for it.
  *
  * In its own file, with no components, so the pages' fast-refresh boundary holds and so every
- * page means exactly the same thing by "30 days": the same query string, built in one place.
+ * page means exactly the same thing by "30d": the same query string, built in one place.
  */
 
 export type Range = 7 | 30 | 90 | 'all'
 
 export const RANGES: { range: Range; label: string }[] = [
-  { range: 7, label: '7 days' },
-  { range: 30, label: '30 days' },
-  { range: 90, label: '90 days' },
+  { range: 7, label: '7d' },
+  { range: 30, label: '30d' },
+  { range: 90, label: '90d' },
   { range: 'all', label: 'All time' },
 ]
 

@@ -5,7 +5,7 @@
  * a module that exports both components and helpers reloads the whole page on every edit.
  */
 
-import { lengthOfTime } from '@/lib/format'
+import { duration } from '@/lib/format'
 
 /** Binary, because that is how disks are sized and how most providers bill. */
 export const GB = 1024 * 1024 * 1024
@@ -57,12 +57,13 @@ export function bytes(n: number): string {
 }
 
 /**
- * A wait in seconds: "45s" under a minute, and the shared length of time from there ("2min",
- * "1hr 30min"), so a wait on a settings screen reads like a length anywhere else.
+ * A wait in seconds, as the shared length of time writes it ("45s", "2m", "1h 30m"), so a wait on
+ * a settings screen reads like a length anywhere else. A part of a second keeps its decimal, since
+ * a pacing floor can be half a second.
  */
 export function seconds(n: number): string {
-  if (n < 60) return `${n % 1 === 0 ? n : n.toFixed(1)}s`
-  return lengthOfTime(n / 60)
+  if (n < 60 && n % 1 !== 0) return `${n.toFixed(1)}s`
+  return duration(n)
 }
 
 /**

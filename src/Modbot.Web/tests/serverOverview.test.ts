@@ -55,14 +55,14 @@ test('only Bans opened from the server’s row draws the server’s header', () 
   assert.equal(serverTabFrom('calendar', new URLSearchParams('from=server')), null)
 })
 
-test('a time ago is written the way Discord’s Members page writes it', () => {
+test('a time ago steps like Discord’s Members page, in Modbot’s units', () => {
   const now = '2026-09-27T12:00:00Z'
   assert.equal(timeAgo('2026-09-27T01:00:00Z', now), 'today')
-  assert.equal(timeAgo('2026-09-26T11:00:00Z', now), '1 day ago')
-  assert.equal(timeAgo('2026-09-16T12:00:00Z', now), '11 days ago')
-  assert.equal(timeAgo('2026-02-27T12:00:00Z', now), '7 months ago')
-  assert.equal(timeAgo('2022-09-01T12:00:00Z', now), '4 years ago')
-  assert.equal(timeAgo('2025-09-01T12:00:00Z', now), '1 year ago')
+  assert.equal(timeAgo('2026-09-26T11:00:00Z', now), '1d ago')
+  assert.equal(timeAgo('2026-09-16T12:00:00Z', now), '11d ago')
+  assert.equal(timeAgo('2026-02-27T12:00:00Z', now), '7mth ago')
+  assert.equal(timeAgo('2022-09-01T12:00:00Z', now), '4y ago')
+  assert.equal(timeAgo('2025-09-01T12:00:00Z', now), '1y ago')
   assert.equal(timeAgo('not a time', now), null)
 })
 
@@ -150,10 +150,10 @@ test("an account's age reads in days, then months, then years, and is new under 
   const now = '2026-09-27T12:00:00Z'
 
   assert.deepEqual(accountAge(madeOn('2026-09-27T08:00:00Z'), now), { text: 'today', fresh: true })
-  assert.deepEqual(accountAge(madeOn('2026-09-15T12:00:00Z'), now), { text: '12 days', fresh: true })
-  assert.deepEqual(accountAge(madeOn('2026-08-20T12:00:00Z'), now), { text: '38 days', fresh: false })
-  assert.deepEqual(accountAge(madeOn('2026-02-10T12:00:00Z'), now), { text: '7 months', fresh: false })
-  assert.deepEqual(accountAge(madeOn('2022-06-01T12:00:00Z'), now), { text: '4 years', fresh: false })
+  assert.deepEqual(accountAge(madeOn('2026-09-15T12:00:00Z'), now), { text: '12d', fresh: true })
+  assert.deepEqual(accountAge(madeOn('2026-08-20T12:00:00Z'), now), { text: '38d', fresh: false })
+  assert.deepEqual(accountAge(madeOn('2026-02-10T12:00:00Z'), now), { text: '7mth', fresh: false })
+  assert.deepEqual(accountAge(madeOn('2022-06-01T12:00:00Z'), now), { text: '4y', fresh: false })
   assert.equal(accountAge('abc', now), null)
 })
 
