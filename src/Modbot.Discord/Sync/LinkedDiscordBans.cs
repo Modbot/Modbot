@@ -107,12 +107,30 @@ public sealed class LinkedDiscordBans : ILinkedDiscordBans
             return LinkedDiscordOutcome.Skipped;
 
         var reason = Reason(banning, by, why);
-        var kind = banning ? CopyKinds.ModbotBan : CopyKinds.ModbotUnban;
 
-        // Written before the call, never after: this row is what stops the ban Modbot is about to
-        // send from coming back round as a reason to ban again.
+        // Written before the call, never after: these rows are what stop what is about to happen
+        // from coming back round as a reason to ban again. One is the Discord ban itself, which
+        // comes back as a Discord ban event and is recognised like any copy. The other is the
+        // VRChat half, which the group's audit log shows as a ban by Modbot's own account: it says
+        // Modbot acted there, so that entry is not copied into Discord a second time.
         var record = await _copies.StartAsync(
-                CopyDirections.ToDiscord, kind, link.DiscordUserId, vrchatUserId, null, causedByFactId, ct)
+                CopyDirections.ToDiscord,
+                banning ? CopyKinds.Ban : CopyKinds.Unban,
+                link.DiscordUserId,
+                vrchatUserId,
+                null,
+                causedByFactId,
+                ct)
+            .ConfigureAwait(false);
+
+        var vrchatHalf = await _copies.StartAsync(
+                CopyDirections.ToVRChat,
+                banning ? CopyKinds.ModbotBan : CopyKinds.ModbotUnban,
+                vrchatUserId,
+                link.DiscordUserId,
+                null,
+                causedByFactId,
+                ct)
             .ConfigureAwait(false);
 
         var done = false;
@@ -137,6 +155,10 @@ public sealed class LinkedDiscordBans : ILinkedDiscordBans
         }
 
         await _copies.FinishAsync(record, done, error, nothingHappened, ct).ConfigureAwait(false);
+
+        // Discord not having done it means the ordinary copy is free to try when the group's audit
+        // log shows the VRChat ban, so this row answers for nothing then.
+        await _copies.FinishAsync(vrchatHalf, done, error, nothingHappened, ct).ConfigureAwait(false);
 
         var data = new JsonObject
         {

@@ -119,6 +119,13 @@ test('the Discord half of a ban is said only when there was one', () => {
   })
 })
 
+test('an unban VRChat said "not banned" to can still say it lifted the Discord ban', () => {
+  assert.deepEqual(discordText('unban', { done: false, discordDone: true, discordError: null }), {
+    text: 'Unbanned in Discord.',
+    failed: false,
+  })
+})
+
 test('a Discord refusal is shown as a failure, and says what Discord said', () => {
   const refused = discordText('ban', { discordDone: false, discordError: 'The bot may not ban in this server.' })
 

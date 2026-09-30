@@ -195,12 +195,18 @@ should cross over while the second must not. Only the copy record separates them
   switch says.
 - A ban or unban made **through Modbot** (a moderator, or AutoMod's group ban) is also made on the
   person's linked Discord account, with no switch: Modbot is the one tool that knows both accounts
-  are one person, and it is the only ban that lands everywhere. It writes a copy record first, of
-  its own kinds (`modbot-ban`, `modbot-unban`), and both guards close the circle: the Discord ban
-  coming back is dropped by the bot check or the record, and the VRChat half showing in the group's
-  audit log as a ban by Modbot's own account is dropped by the same record. A refusal, or a bot that
-  is not connected, is written as `modbot.copy.failed` and handed back to the moderator; the group
-  ban stands. Nobody with no link, or no Discord server, hears about it.
+  are one person, and it is the only ban that lands everywhere. It writes two copy records before
+  the call. One is an ordinary `to-discord` `ban` (or `unban`) row, so the Discord ban coming back
+  is dropped by the bot check or the record like any copy. The other is a `to-vrchat` `modbot-ban`
+  (or `modbot-unban`) row, which says Modbot itself acted in VRChat: the group's audit log shows
+  that as a ban by Modbot's own account, and the row drops that one entry (when the actor is
+  Modbot's own account or unnamed) and then closes, so a moderator's own ban of the same person
+  later in the hour is copied as usual. It matches while the Discord half is still in flight, and
+  it answers for nothing when the Discord half failed, leaving the ordinary copy free to try. A
+  refusal, or a bot that is not connected, is written as `modbot.copy.failed` and handed back to
+  the moderator; the group ban stands, and a second press of the same confirmation is told the same
+  Discord answer (kept on the action's row). An unban that VRChat answers "not banned" to still
+  lifts the Discord ban. Nobody with no link, or no Discord server, hears about it.
 
 ### 4.4 Unbans follow their bans
 

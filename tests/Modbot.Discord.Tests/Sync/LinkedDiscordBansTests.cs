@@ -54,13 +54,21 @@ public class LinkedDiscordBansTests
         Assert.Equal("Mod Person", TextIn(fact, "by"));
         Assert.Equal(CopyDirections.ToDiscord, TextIn(fact, "direction"));
 
-        // And the record that stops it coming back as a copy, written for it.
-        var record = Assert.Single(await SyncSetUp.CopiesAsync(services, Ct));
-        Assert.Equal(CopyKinds.ModbotBan, record.Kind);
-        Assert.Equal(CopyDirections.ToDiscord, record.Direction);
+        // And the two records that stop it coming back as a copy: the Discord ban, recognised like
+        // any copy, and the VRChat half, which says Modbot itself acted there.
+        var copies = await SyncSetUp.CopiesAsync(services, Ct);
+        Assert.Equal(2, copies.Count);
+
+        var record = Assert.Single(copies, c => c.Direction == CopyDirections.ToDiscord);
+        Assert.Equal(CopyKinds.Ban, record.Kind);
         Assert.Equal(Discord, record.SubjectId);
         Assert.Equal(Person, record.OtherSideId);
         Assert.Equal(true, record.Done);
+
+        var vrchatHalf = Assert.Single(copies, c => c.Direction == CopyDirections.ToVRChat);
+        Assert.Equal(CopyKinds.ModbotBan, vrchatHalf.Kind);
+        Assert.Equal(Person, vrchatHalf.SubjectId);
+        Assert.Equal(Discord, vrchatHalf.OtherSideId);
 
         // It names the fact that recorded the ban in VRChat, so the two read as one action.
         Assert.Equal(42, JsonDocument.Parse(fact.Data ?? "{}").RootElement.GetProperty("causedBy").GetInt64());
@@ -80,8 +88,9 @@ public class LinkedDiscordBansTests
         Assert.Equal("unban", Assert.Single(gateway.Moderation).Action);
         Assert.Single(await services.FactsOfTypeAsync(FactType.CopiedUnban, Ct));
 
-        var record = Assert.Single(await SyncSetUp.CopiesAsync(services, Ct));
-        Assert.Equal(CopyKinds.ModbotUnban, record.Kind);
+        var copies = await SyncSetUp.CopiesAsync(services, Ct);
+        Assert.Equal(CopyKinds.Unban, Assert.Single(copies, c => c.Direction == CopyDirections.ToDiscord).Kind);
+        Assert.Equal(CopyKinds.ModbotUnban, Assert.Single(copies, c => c.Direction == CopyDirections.ToVRChat).Kind);
     }
 
     [Fact]
@@ -154,9 +163,14 @@ public class LinkedDiscordBansTests
         Assert.Equal("Mod Person", TextIn(failed, "by"));
         Assert.Empty(await services.FactsOfTypeAsync(FactType.CopiedBan, Ct));
 
-        var record = Assert.Single(await SyncSetUp.CopiesAsync(services, Ct));
-        Assert.Equal(false, record.Done);
-        Assert.NotNull(record.SeenBackAt);
+        // Both rows say it failed and excuse nothing: the ordinary copy is free to try later.
+        var copies = await SyncSetUp.CopiesAsync(services, Ct);
+        Assert.Equal(2, copies.Count);
+        Assert.All(copies, record =>
+        {
+            Assert.Equal(false, record.Done);
+            Assert.NotNull(record.SeenBackAt);
+        });
     }
 
     [Fact]
@@ -218,6 +232,7 @@ public class LinkedDiscordBansTests
         Assert.Equal(Discord, Assert.Single(gateway.Moderation).UserId);
 
         await using var db = services.Database.NewContext();
-        Assert.Equal(1, await db.CopiedActions.CountAsync(Ct));
+        Assert.Equal(2, await db.CopiedActions.CountAsync(Ct));
+        Assert.All(await db.CopiedActions.AsNoTracking().ToListAsync(Ct), c => Assert.DoesNotContain("5002", c.SubjectId + c.OtherSideId, StringComparison.Ordinal));
     }
 }

@@ -654,4 +654,101 @@ public class BanSyncTests
         Assert.Equal(1, pass.Copied);
         Assert.Single(gateway.Moderation);
     }
+
+    private static Task<TestServices> BothWaysAsModbotAsync(PostgresFixture db)
+        => SyncSetUp.CreateAsync(db, s =>
+        {
+            s.DiscordBanSyncToDiscord = true;
+            s.DiscordBanSyncToVRChat = true;
+            s.VRChatSessionUserId = "usr_modbot";
+        }, Ct);
+
+    private static Task<long> GroupUnbanAsync(TestServices services, string userId, string actorId)
+        => services.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.MemberUnbanned,
+            OccurredAt = services.Clock.UtcNow,
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = userId,
+            ActorPlatform = FactPlatform.VRChat,
+            ActorId = actorId,
+            Source = FactSource.AuditLog,
+        }, Ct);
+
+    /// <summary>
+    /// The VRChat half of a Modbot ban answers for one audit entry and then stops: a moderator who
+    /// bans the same person by hand later in the hour is copied like anybody else.
+    /// </summary>
+    [Fact]
+    public async Task AHandBanAfterAModbotBanAndUnbanInTheSameHourIsStillCopied()
+    {
+        await using var services = await BothWaysAsModbotAsync(_db);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var gateway = Gateway();
+
+        // Ban in Modbot; the group's audit log shows it as Modbot's own account's ban, and it is dropped.
+        await SyncSetUp.ModbotBanAsync(services, gateway, banning: true, Person, Ct);
+        await GroupBanAsync(services, Person, actorId: "usr_modbot");
+        var first = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+        Assert.Equal(1, first.Dropped);
+
+        // Lifted in Modbot, and dropped the same way.
+        await SyncSetUp.ModbotBanAsync(services, gateway, banning: false, Person, Ct);
+        await GroupUnbanAsync(services, Person, actorId: "usr_modbot");
+        var second = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+        Assert.Equal(1, second.Dropped);
+
+        gateway.Moderation.Clear();
+
+        // Another moderator bans them by hand in VRChat, inside the same hour.
+        await GroupBanAsync(services, Person, actorId: "usr_moderator");
+        var third = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+
+        Assert.Equal(1, third.Copied);
+        Assert.Equal(0, third.Dropped);
+        Assert.Equal("ban", Assert.Single(gateway.Moderation).Action);
+    }
+
+    /// <summary>Even before Modbot's own audit entry has arrived, a ban by a different account is not the VRChat half of it.</summary>
+    [Fact]
+    public async Task AHandBanByAnotherAccountIsNotTakenForTheVRChatHalfOfAModbotBan()
+    {
+        await using var services = await BothWaysAsModbotAsync(_db);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var gateway = Gateway();
+        await SyncSetUp.ModbotBanAsync(services, gateway, banning: true, Person, Ct);
+        gateway.Moderation.Clear();
+
+        await GroupBanAsync(services, Person, actorId: "usr_moderator");
+        var pass = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+
+        Assert.Equal(1, pass.Copied);
+        Assert.Equal(0, pass.Dropped);
+    }
+
+    /// <summary>
+    /// When the Discord half failed, nothing was made in Discord, so the group's audit entry is
+    /// copied by the ordinary sync -- which then tries again.
+    /// </summary>
+    [Fact]
+    public async Task AModbotBanWhoseDiscordHalfFailedIsLeftToTheOrdinaryCopy()
+    {
+        await using var services = await BothWaysAsModbotAsync(_db);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var refusing = Gateway();
+        refusing.ModerationRefused = "The bot may not ban in this server.";
+        var failed = await SyncSetUp.ModbotBanAsync(services, refusing, banning: true, Person, Ct);
+        Assert.Equal(LinkedDiscordStatus.Failed, failed.Status);
+
+        await GroupBanAsync(services, Person, actorId: "usr_modbot");
+
+        var working = Gateway();
+        var pass = await SyncSetUp.BanPassAsync(services, working, Ct);
+
+        Assert.Equal(1, pass.Copied);
+        Assert.Equal("ban", Assert.Single(working.Moderation).Action);
+    }
 }

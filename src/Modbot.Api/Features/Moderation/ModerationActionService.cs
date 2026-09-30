@@ -173,7 +173,7 @@ public sealed class ModerationActionService
         var (row, alreadyRan) = await ClaimAsync(action, key, userId, groupId, caller, reasons, note, ct);
 
         if (alreadyRan)
-            return Describe(row, repeat: true, MissingPermissionOf(row, settings), discord: null);
+            return Describe(row, repeat: true, MissingPermissionOf(row, settings));
 
         return await SendAsync(row, action, userId, groupId, caller, reasons, note, settings, ct);
     }
@@ -204,7 +204,15 @@ public sealed class ModerationActionService
         if (!accepted)
         {
             await RecordFailureAsync(row, action, userId, caller, reasons, note, message, statusCode, now, ct);
-            return Describe(row, repeat: false, missing, discord: null);
+
+            // "They are not banned" from VRChat is not a reason to leave a Discord ban standing:
+            // a ban made through Modbot is lifted everywhere, and Discord answering "not banned"
+            // is a harmless nothing to do. Any other refusal means nothing was changed, so
+            // nothing is asked of Discord.
+            if (action == Unban && statusCode == 404)
+                await AlsoInDiscordAsync(row, action, userId, caller, reasons, causedByFactId: null, ct);
+
+            return Describe(row, repeat: false, missing);
         }
 
         var factId = await RecordSuccessAsync(row, action, userId, groupId, caller, reasons, note, now, ct);
@@ -223,11 +231,10 @@ public sealed class ModerationActionService
 
         // Last, and after everything VRChat's half needed is saved: the ban above stands whatever
         // Discord says next.
-        var discord = action is Ban or Unban
-            ? await AlsoInDiscordAsync(action, userId, caller, reasons, factId, ct)
-            : null;
+        if (action is Ban or Unban)
+            await AlsoInDiscordAsync(row, action, userId, caller, reasons, factId, ct);
 
-        return Describe(row, repeat: false, missing: null, discord);
+        return Describe(row, repeat: false, missing: null);
     }
 
     /// <summary>
@@ -239,31 +246,40 @@ public sealed class ModerationActionService
     /// Never throws. VRChat has already said yes, and a Discord failure that took the answer down
     /// with it would tell a moderator a ban did not happen when it did.
     /// </remarks>
-    private async Task<LinkedDiscordOutcome?> AlsoInDiscordAsync(
+    private async Task AlsoInDiscordAsync(
+        ModerationAction row,
         string action,
         string userId,
         Caller caller,
         IReadOnlyList<BanReason> reasons,
-        long factId,
+        long? causedByFactId,
         CancellationToken ct)
     {
         if (_discord is null)
-            return null;
+            return;
 
         var why = reasons.Count == 0 ? null : string.Join(", ", reasons.Select(r => r.Label));
 
+        LinkedDiscordOutcome outcome;
+
         try
         {
-            return action == Ban
-                ? await _discord.BanAsync(userId, caller.Username, why, factId, ct)
-                : await _discord.UnbanAsync(userId, caller.Username, why, factId, ct);
+            outcome = action == Ban
+                ? await _discord.BanAsync(userId, caller.Username, why, causedByFactId, ct)
+                : await _discord.UnbanAsync(userId, caller.Username, why, causedByFactId, ct);
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {
             Log.Logger.ForContext(LogArea.Name, LogArea.Moderation)
                 .Warning(e, "Could not {Action} the linked Discord account after doing it in VRChat", action);
-            return LinkedDiscordOutcome.Failed("Modbot could not reach Discord.");
+            outcome = LinkedDiscordOutcome.Failed("Modbot could not reach Discord.");
         }
+
+        // Kept on the row, so a second press of the same key is told what the first press was.
+        row.DiscordDone = outcome.Status == LinkedDiscordStatus.Done;
+        row.DiscordError = outcome.Status == LinkedDiscordStatus.Failed ? outcome.Error : null;
+
+        await _db.SaveChangesAsync(ct);
     }
 
     private async Task<(bool Accepted, int StatusCode, string? Message, bool RateLimited, MissingGroupPermission? Missing)> AskVRChatAsync(
@@ -750,8 +766,7 @@ public sealed class ModerationActionService
         return $"{verb} by {username} from Modbot{why}";
     }
 
-    private static ModerationActionResult Describe(
-        ModerationAction row, bool repeat, MissingGroupPermission? missing, LinkedDiscordOutcome? discord)
+    private static ModerationActionResult Describe(ModerationAction row, bool repeat, MissingGroupPermission? missing)
     {
         // Three states, not two. A key claimed a moment ago whose call has not come back yet is
         // neither done nor refused, and telling a moderator "VRChat refused it" when it is still
@@ -776,7 +791,7 @@ public sealed class ModerationActionService
             // same key is told the same thing the first one was.
             Gone: row.Succeeded == false && row.StatusCode == 404,
             MissingGroupPermission: missing,
-            DiscordDone: discord?.Status == LinkedDiscordStatus.Done,
-            DiscordError: discord?.Status == LinkedDiscordStatus.Failed ? discord.Error : null);
+            DiscordDone: row.DiscordDone,
+            DiscordError: row.DiscordError);
     }
 }

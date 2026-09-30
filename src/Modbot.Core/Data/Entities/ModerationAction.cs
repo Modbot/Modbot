@@ -97,4 +97,13 @@ public class ModerationAction
 
     /// <summary>The case file a successful ban wrote or updated, when one was written.</summary>
     public Guid? CaseFileId { get; set; }
+
+    /// <summary>
+    /// Whether a ban or unban was also made on the person's linked Discord account. Kept on the row
+    /// so a second press of the same key is told what the first was.
+    /// </summary>
+    public bool DiscordDone { get; set; }
+
+    /// <summary>What Discord said when it refused. Null when it did it, or when there was nothing to do there.</summary>
+    public string? DiscordError { get; set; }
 }

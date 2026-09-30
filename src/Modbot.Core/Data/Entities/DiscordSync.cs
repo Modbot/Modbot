@@ -99,11 +99,12 @@ public static class CopyKinds
 
     /// <summary>
     /// A ban a person or AutoMod made through Modbot, which Modbot then made in Discord as well.
+    /// The row is on the VRChat side (<see cref="CopyDirections.ToVRChat"/>).
     /// </summary>
     /// <remarks>
-    /// Its own kind, not <see cref="Ban"/>, because ban sync has to tell it from a ban it copied:
-    /// the group's audit log shows the VRChat half of it as a ban by Modbot's own account, and
-    /// copying that into Discord would make the same ban twice.
+    /// Its own kind, not <see cref="Ban"/>, because it does not say Modbot copied something into
+    /// VRChat: it says Modbot itself acted there. The group's audit log shows that as a ban by
+    /// Modbot's own account, and copying it into Discord as well would make the same ban twice.
     /// </remarks>
     public const string ModbotBan = "modbot-ban";
 

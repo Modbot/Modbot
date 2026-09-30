@@ -923,6 +923,84 @@ public class ModerationActionTests
         Assert.Single(discord.Unbanned);
     }
 
+    /// <summary>
+    /// "They are not banned" from VRChat still lifts the Discord ban: a ban made through Modbot is
+    /// lifted everywhere, and the moderator is told VRChat had nothing to lift and Discord did.
+    /// </summary>
+    [Fact]
+    public async Task AnUnbanVRChatSaysIsNotBanned_StillLiftsTheDiscordBan()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord();
+
+        var gate = new FakeVRChatGate()
+            .SignedInAs()
+            .Returns("UnbanGroupMember", VRChatResult<VRChatGroupMember>.Failure(404, "404 Not Found"));
+
+        await using var host = await StartWithDiscordAsync(_db, gate, discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Unban, ct);
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-discord-8"), cookie, ct), ct);
+
+        Assert.False(result.Done);
+        Assert.Equal("VRChat says they are not banned.", result.Error);
+        Assert.True(result.DiscordDone);
+        Assert.Equal(Person, Assert.Single(discord.Unbanned));
+    }
+
+    /// <summary>Any other VRChat refusal changed nothing, so Discord is not asked.</summary>
+    [Fact]
+    public async Task AnUnbanVRChatRefusedForAnotherReason_IsNotAskedOfDiscord()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord();
+
+        var gate = new FakeVRChatGate()
+            .SignedInAs()
+            .Returns("UnbanGroupMember", VRChatResult<VRChatGroupMember>.Failure(403, "No permission."));
+
+        await using var host = await StartWithDiscordAsync(_db, gate, discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Unban, ct);
+        var result = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/unban", Body(Person, "key-discord-9"), cookie, ct), ct);
+
+        Assert.False(result.Done);
+        Assert.False(result.DiscordDone);
+        Assert.Empty(discord.Unbanned);
+    }
+
+    /// <summary>A second press of the same key is told what the first press was, Discord line included.</summary>
+    [Fact]
+    public async Task ARepeatPress_GetsTheSameDiscordAnswerAsTheFirst()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var discord = new RecordingLinkedDiscord { Answer = LinkedDiscordOutcome.Failed("The bot may not ban in this server.") };
+
+        await using var host = await StartWithDiscordAsync(_db, Accepting(), discord);
+        await host.ResetAsync(ct);
+        await SeedAsync(host, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.Ban, ct);
+        var reason = await ReasonAsync(host, cookie, ct);
+
+        var first = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-discord-10", reason), cookie, ct), ct);
+        var again = await ResultOf(
+            await host.PostJsonAsync("/api/moderation/ban", Body(Person, "key-discord-10", reason), cookie, ct), ct);
+
+        Assert.False(first.Repeat);
+        Assert.True(again.Repeat);
+        Assert.Equal(first.DiscordDone, again.DiscordDone);
+        Assert.Equal("The bot may not ban in this server.", again.DiscordError);
+        Assert.Single(discord.Banned);
+    }
+
     /// <summary>Somebody with no linked Discord account, or a group with no Discord: nothing said, nothing shown.</summary>
     [Fact]
     public async Task WithNothingToDoInDiscord_TheAnswerSaysNothingAboutIt()

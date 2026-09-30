@@ -115,12 +115,19 @@ export function resultText(
  */
 export function discordText(
   action: ModerationActionName,
-  result: { discordDone?: boolean; discordError?: string | null },
+  result: { done?: boolean; discordDone?: boolean; discordError?: string | null },
 ): { text: string; failed: boolean } | null {
   const past = action === 'unban' ? 'unbanned' : 'banned'
 
   if (result.discordError) return { text: `Not ${past} in Discord: ${result.discordError}`, failed: true }
-  if (result.discordDone) return { text: `Also ${past} in Discord.`, failed: false }
+
+  // "Also" only when VRChat did it too. An unban VRChat answered "not banned" to can still lift the
+  // Discord ban, and then Discord is the only place anything changed.
+  if (result.discordDone) {
+    const said = result.done === false ? `${past[0].toUpperCase()}${past.slice(1)}` : `Also ${past}`
+    return { text: `${said} in Discord.`, failed: false }
+  }
+
   return null
 }
 

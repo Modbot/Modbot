@@ -60,8 +60,9 @@ namespace Modbot.Discord.Sync;
 /// </para>
 /// <para>
 /// <strong>A ban made through Modbot is also made in Discord by <see cref="LinkedDiscordBans"/>,</strong>
-/// with a copy record of its own. Both directions drop what comes back from it: the Discord ban by
-/// the actor check or the record, and the VRChat half in the group's audit log by the record.
+/// with two copy records: one for the Discord ban coming back, which the bot check or the record
+/// drops, and one for the VRChat half showing in the group's audit log as a ban by Modbot's own
+/// account, which <see cref="CopyRecords.WasModbotsOwnAsync"/> drops and closes.
 /// </para>
 /// <para>
 /// <strong>Somebody with no link is left alone.</strong> Most people on either platform have no
@@ -154,6 +155,7 @@ public sealed class BanSync
                 s.DiscordBanSyncToVRChat,
                 s.DiscordBanSyncFromBots,
                 s.DiscordBanCopyAction,
+                s.VRChatSessionUserId,
             })
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
@@ -202,26 +204,35 @@ public sealed class BanSync
                             && botUserId is not null
                             && string.Equals(fact.ActorId, botUserId, StringComparison.Ordinal);
 
-            // Guard one: a copy Modbot sent this way, not yet answered for. On the Discord side
-            // that includes a ban made through Modbot, which Modbot also made in Discord itself
-            // (LinkedDiscordBans) and which comes back as a Discord ban like any copy.
+            // Guard one: a copy Modbot sent this way, not yet answered for. A ban made through
+            // Modbot leaves a row of this kind on the Discord side too (LinkedDiscordBans), so the
+            // Discord ban it makes is recognised here like any other copy.
             var wasOurCopy = wanted
                              && !wasTheBot
-                             && (await _copies.WasOursAsync(
-                                     fromDiscord ? CopyDirections.ToDiscord : CopyDirections.ToVRChat,
-                                     banning ? CopyKinds.Ban : CopyKinds.Unban,
-                                     fact.SubjectId,
-                                     null,
-                                     fact.OccurredAt,
-                                     ct).ConfigureAwait(false)
-                                 || (fromDiscord
-                                     && await _copies.WasOursAsync(
-                                         CopyDirections.ToDiscord,
-                                         banning ? CopyKinds.ModbotBan : CopyKinds.ModbotUnban,
-                                         fact.SubjectId,
-                                         null,
-                                         fact.OccurredAt,
-                                         ct).ConfigureAwait(false)));
+                             && await _copies.WasOursAsync(
+                                 fromDiscord ? CopyDirections.ToDiscord : CopyDirections.ToVRChat,
+                                 banning ? CopyKinds.Ban : CopyKinds.Unban,
+                                 fact.SubjectId,
+                                 null,
+                                 fact.OccurredAt,
+                                 ct).ConfigureAwait(false);
+
+            // The VRChat half of a ban made through Modbot: the group's audit log records it as a
+            // ban by Modbot's own account, which is not something to copy into Discord, where
+            // Modbot has made it itself. Only when Modbot's own account did it -- a moderator's own
+            // ban of the same person in VRChat is theirs to have copied.
+            var wasModbotsOwn = wanted
+                                && !fromDiscord
+                                && !wasOurCopy
+                                && (settings.VRChatSessionUserId is not { Length: > 0 } own
+                                    || fact.ActorId is null
+                                    || string.Equals(fact.ActorId, own, StringComparison.Ordinal))
+                                && await _copies.WasModbotsOwnAsync(
+                                    CopyDirections.ToVRChat,
+                                    banning ? CopyKinds.ModbotBan : CopyKinds.ModbotUnban,
+                                    fact.SubjectId,
+                                    fact.OccurredAt,
+                                    ct).ConfigureAwait(false);
 
             // Another bot's ban is somebody else's rule, not a moderator's decision, so it is only
             // copied when an operator has asked for that. Modbot's own bot is handled above and is
@@ -239,32 +250,19 @@ public sealed class BanSync
                                 && !banning
                                 && settings.DiscordBanCopyAction == DiscordBanCopyActions.Remove;
 
-            if (wasTheBot || wasOurCopy)
+            if (wasTheBot || wasOurCopy || wasModbotsOwn)
                 tally.Dropped++;
 
             if (byOtherBot)
                 tally.FromBots++;
 
-            if (wanted && !wasTheBot && !wasOurCopy && !byOtherBot && !nothingToLift)
+            if (wanted && !wasTheBot && !wasOurCopy && !wasModbotsOwn && !byOtherBot && !nothingToLift)
             {
                 var link = await LinkAsync(fromDiscord, fact.SubjectId, ct).ConfigureAwait(false);
 
                 if (link is null)
                 {
                     tally.NotLinked++;
-                }
-                else if (!fromDiscord
-                         && await _copies.WasDoneAsync(
-                             CopyDirections.ToDiscord,
-                             banning ? CopyKinds.ModbotBan : CopyKinds.ModbotUnban,
-                             link.Value.DiscordUserId,
-                             fact.OccurredAt,
-                             ct).ConfigureAwait(false))
-                {
-                    // A ban made through Modbot is made in Discord by Modbot itself, at the same
-                    // moment. The group's audit log records only the VRChat half, so copying it
-                    // as well would ban the same person twice.
-                    tally.Dropped++;
                 }
                 else
                 {

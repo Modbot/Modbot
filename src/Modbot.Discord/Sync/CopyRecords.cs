@@ -160,24 +160,42 @@ public sealed class CopyRecords
     }
 
     /// <summary>
-    /// Whether Modbot has already made this change itself, without answering for anything.
-    /// Unlike <see cref="WasOursAsync"/> it closes nothing: it is for asking "is this already
-    /// done?" and leaves the row for the event that really is its own coming back.
+    /// Whether an event Modbot has just seen is the VRChat half of a ban or unban made through
+    /// Modbot, and if it is, closes the row that says so.
     /// </summary>
-    public Task<bool> WasDoneAsync(
+    /// <remarks>
+    /// The same job as <see cref="WasOursAsync"/>, for a row that says Modbot itself acted rather
+    /// than that Modbot copied something. It also matches a row whose Discord half is still in
+    /// flight, because the group's audit log can be read at any moment; and, like every row, it
+    /// answers for one returning event and then stops, so a moderator's own ban of the same person
+    /// an hour later is not swallowed. A row whose Discord half failed answers for nothing: the
+    /// ordinary copy is then free to try.
+    /// </remarks>
+    public async Task<bool> WasModbotsOwnAsync(
         string direction, string kind, string subjectId, DateTimeOffset at, CancellationToken ct)
     {
         var from = at - LooksBack;
         var to = at + LooksForward;
 
-        return _db.CopiedActions.AsNoTracking()
-            .AnyAsync(c => c.Done == true
-                           && c.Direction == direction
-                           && c.Kind == kind
-                           && c.SubjectId == subjectId
-                           && c.RoleId == null
-                           && c.StartedAt >= from
-                           && c.StartedAt <= to, ct);
+        var row = await _db.CopiedActions
+            .Where(c => c.SeenBackAt == null
+                        && c.Done != false
+                        && c.Direction == direction
+                        && c.Kind == kind
+                        && c.SubjectId == subjectId
+                        && c.RoleId == null
+                        && c.StartedAt >= from
+                        && c.StartedAt <= to)
+            .OrderBy(c => c.StartedAt)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        if (row is null)
+            return false;
+
+        row.SeenBackAt = _clock.UtcNow;
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return true;
     }
 
     /// <summary>

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260930090517_KeepTheDiscordAnswerOnAModerationAction")]
+    partial class KeepTheDiscordAnswerOnAModerationAction
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -423,31 +426,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_ai_limit_reached");
 
                     b.ToTable("ai_limit_reached", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.AiMemberAllowance", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<decimal?>("MonthlyMoney")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)")
-                        .HasColumnName("monthly_money");
-
-                    b.Property<long?>("MonthlyTokens")
-                        .HasColumnType("bigint")
-                        .HasColumnName("monthly_tokens");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_ai_member_allowance");
-
-                    b.ToTable("ai_member_allowance", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiModelPrice", b =>
@@ -4353,10 +4331,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("dismissed_by_username");
 
-                    b.Property<bool>("Exempt")
-                        .HasColumnType("boolean")
-                        .HasColumnName("exempt");
-
                     b.Property<DateTimeOffset>("FlaggedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("flagged_at");
@@ -4627,11 +4601,6 @@ namespace Modbot.Core.Data.Migrations
                         .IsRequired()
                         .HasColumnType("jsonb")
                         .HasColumnName("excluded_terms");
-
-                    b.Property<string>("ExemptGroupRoles")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("exempt_group_roles");
 
                     b.Property<string>("ExemptRoles")
                         .IsRequired()
@@ -4948,11 +4917,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<bool>("Enabled")
                         .HasColumnType("boolean")
                         .HasColumnName("enabled");
-
-                    b.Property<string>("ExemptGroupRoles")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("exempt_group_roles");
 
                     b.Property<string>("ExemptRoles")
                         .IsRequired()
@@ -5727,15 +5691,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("AiFallbackModel")
                         .HasColumnType("text")
                         .HasColumnName("ai_fallback_model");
-
-                    b.Property<decimal?>("AiMemberMonthlyMoney")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("numeric(18,6)")
-                        .HasColumnName("ai_member_monthly_money");
-
-                    b.Property<long?>("AiMemberMonthlyTokens")
-                        .HasColumnType("bigint")
-                        .HasColumnName("ai_member_monthly_tokens");
 
                     b.Property<string>("AiModel")
                         .HasColumnType("text")
@@ -6823,10 +6778,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<Guid?>("CreatedByKeyId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_key_id");
-
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("created_by_user_id");
@@ -7039,18 +6990,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_ai_chat_message_ai_chat_conversation_conversation_id");
 
                     b.Navigation("Conversation");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.AiMemberAllowance", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.ModbotUser", "UserRow")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_ai_member_allowance_modbot_user_user_id");
-
-                    b.Navigation("UserRow");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiSpendLimit", b =>

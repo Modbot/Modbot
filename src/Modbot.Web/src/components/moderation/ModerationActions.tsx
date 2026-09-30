@@ -245,7 +245,7 @@ function ConfirmAction({
 
   // The Discord half of a ban or unban, said under the VRChat result. It never replaces it: the
   // VRChat action stands whatever Discord answered.
-  const discord = result?.done ? discordText(action, result) : null
+  const discord = result ? discordText(action, result) : null
 
   return (
     <DialogContent
