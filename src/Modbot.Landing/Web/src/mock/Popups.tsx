@@ -294,7 +294,7 @@ function PersonBody({ id, live, onOpen }: { id: string; live: LiveState; onOpen:
                   <Figure label="Instances visited" value={String(sheet.metrics.instances)} />
                   <Figure label="Worlds visited" value={String(sheet.metrics.worlds)} />
                   <Figure label="Arrivals" value={String(sheet.metrics.arrivals)} />
-                  <Figure label="Last seen" value={here ? 'now' : '2 days ago'} />
+                  <Figure label="Last seen" value={here ? 'now' : '2d ago'} />
                   <Figure label="First seen" value={sheet.metrics.firstSeen} />
                 </div>
               </div>

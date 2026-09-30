@@ -38,8 +38,9 @@ export function regionName(region?: string | null): string | null {
 }
 
 /**
- * How long the instance has been open, in the largest unit that is still a whole number. Empty for a
- * time that cannot be read, so a bad value shows nothing rather than "NaN min".
+ * How long the instance has been open, in the largest unit that is still a whole number, written
+ * the way Modbot writes every length ("14m", "1h", "1d": the unit against its number). Empty for a
+ * time that cannot be read, so a bad value shows nothing rather than "NaNm".
  */
 export function openFor(openedAt: string, now: number): string {
   const started = Date.parse(openedAt)
@@ -47,12 +48,12 @@ export function openFor(openedAt: string, now: number): string {
 
   const minutes = Math.floor((now - started) / 60000)
   if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes} min`
+  if (minutes < 60) return `${minutes}m`
 
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} hr`
+  if (hours < 24) return `${hours}h`
 
-  return `${Math.floor(hours / 24)} d`
+  return `${Math.floor(hours / 24)}d`
 }
 
 /** Groups with instances open first, then by name. A group with nothing open is still listed. */

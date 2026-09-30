@@ -28,10 +28,10 @@ test('how long an instance has been open is the largest whole unit', () => {
   const at = (minutes: number) => Date.parse(opened) + minutes * 60_000
 
   assert.equal(openFor(opened, at(0)), 'Just now')
-  assert.equal(openFor(opened, at(14)), '14 min')
-  assert.equal(openFor(opened, at(59)), '59 min')
-  assert.equal(openFor(opened, at(60)), '1 hr')
-  assert.equal(openFor(opened, at(60 * 25)), '1 d')
+  assert.equal(openFor(opened, at(14)), '14m')
+  assert.equal(openFor(opened, at(59)), '59m')
+  assert.equal(openFor(opened, at(60)), '1h')
+  assert.equal(openFor(opened, at(60 * 25)), '1d')
 })
 
 test('a time that cannot be read shows nothing rather than NaN', () => {

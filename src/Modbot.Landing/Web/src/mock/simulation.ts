@@ -177,11 +177,12 @@ export function clock(minute: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-/** "1h 44m" for a stretch of minutes, as the app and the Discord card write it. */
+/** "1h 44m", "2h" or "44m" for a stretch of minutes, as the app and the Discord card write it. */
 export function duration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  return h > 0 ? `${h}h ${m}m` : `${m}m`
+  if (h === 0) return `${m}m`
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
 
 export const personById = (id: string): SamplePerson =>
