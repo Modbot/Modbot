@@ -123,6 +123,8 @@ instance warnings, with the place they happened.
 - If you linked your Discord and VRChat accounts through Modbot, the link between them, with both
   names.
 - If you entered a giveaway, your entry, with your name and account ids.
+- If the group turned on `/me`, each time you used it, and any request you made through it to have
+  your data deleted.
 
 **If you have an account on the group's Modbot**
 
@@ -220,6 +222,10 @@ What does have a schedule when Modbot is installed:
 ## How do I get my information removed?
 
 **Ask the group's moderators.** They control the database.
+
+If the group has turned on `/me` in its Discord server, you can also ask from there: run `/me` and
+press **Ask to delete my data**. The request goes to the group's staff. Nothing is deleted
+automatically; they decide what to remove.
 
 Being honest about what the software can do for them today: **Modbot has a "Purge a person" tool, and
 it does not delete everything about a person.** An administrator types a VRChat or Discord id, sees
