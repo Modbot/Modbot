@@ -635,7 +635,7 @@ tools read them, and the conversation's id — never the words. The conversation
 and this is a record of access rather than of what was said (§6, §8).
 
 **It is moderation history, not the operator's log.** `AuditVisibility` files it as
-`AuditCategory.Moderation`, beside `modbot.evidence.access`, for the same reason: who opened a
+`AuditCategory.Moderation`, beside `modbot.evidence.view`, for the same reason: who opened a
 record about somebody belongs in that person's timeline, where the person and their team can see
 it, not in a log only operators read.
 

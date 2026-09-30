@@ -60,8 +60,10 @@ Everything is done in one go, or not at all.
   was banned. Erasing it because the moderator asked would delete somebody else's moderation
   history.
 - **Case files about them, and the evidence on those case files.** These are kept, with the profile
-  copy each case file holds. The card counts them so you can see what is left.
-  [Evidence](/moderation/evidence) cannot be destroyed from the web app.
+  copy each case file holds. The card counts them so you can see what is left. A purge does not
+  destroy [evidence](/moderation/evidence); somebody with **Destroy evidence** does that, one file
+  at a time, from the case file. The audit log's entries about evidence (who attached, viewed,
+  downloaded or destroyed a file) are about the case file, so they stay too.
 - **The rows that say who someone is now:** their VRChat profile, their place in the group, their
   entry on the ban list, their Discord member row and their account link. A purge of somebody who is
   still in the group or the server does not remove them from it, and the next sync writes those

@@ -9,12 +9,22 @@ namespace Modbot.Evidence.Tests.Fakes;
 /// not own.
 /// </summary>
 /// <remarks>
+/// <para>
 /// It records the order it was called in relative to the store, which is what lets the
 /// object-before-metadata rule be asserted rather than assumed.
+/// </para>
+/// <para>
+/// Which case files hold a file is not the upload pipeline's business any more: putting a file on
+/// a case file is a separate step the API makes once the bytes are recorded. So a test that needs a
+/// file to be held says so with <see cref="PutOn"/>, the way the API's own step would, and lets go
+/// of it with <see cref="TakeOff"/>. A file can be held by several case files at once, as it can in
+/// the real table.
+/// </para>
 /// </remarks>
 public sealed class InMemoryEvidenceMetadata : IEvidenceMetadata
 {
-    private readonly ConcurrentDictionary<string, List<string>> _references = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, List<string>> _holds = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, long> _sizes = new(StringComparer.Ordinal);
 
     public List<EvidenceBlobRecord> Records { get; } = [];
 
@@ -29,14 +39,24 @@ public sealed class InMemoryEvidenceMetadata : IEvidenceMetadata
             await OnRecording(record);
 
         Records.Add(record);
-
-        if (record.ReportId is { } report)
-            _references.GetOrAdd(record.Hash.Hex, _ => []).Add(report);
+        _sizes[record.Hash.Hex] = record.ByteSize;
     }
 
     public Task<IReadOnlyList<string>> ReferencesAsync(EvidenceHash hash, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<string>>(
-            _references.TryGetValue(hash.Hex, out var reports) ? [.. reports] : []);
+            _holds.TryGetValue(hash.Hex, out var reports) ? [.. reports] : []);
+
+    public Task<long> BytesOnReportAsync(string reportId, EvidenceHash? except = null, CancellationToken ct = default)
+        => Task.FromResult(
+            _holds
+                .Where(pair => pair.Value.Contains(reportId) && pair.Key != except?.Hex && !IsDestroyed(pair.Key))
+                .Sum(pair => _sizes.GetValueOrDefault(pair.Key)));
+
+    public Task<long> BytesStoredAsync(EvidenceHash? except = null, CancellationToken ct = default)
+        => Task.FromResult(
+            _sizes
+                .Where(pair => pair.Key != except?.Hex && !IsDestroyed(pair.Key))
+                .Sum(pair => pair.Value));
 
     public Task MarkDestroyedAsync(
         EvidenceHash hash, string actor, string reason, CancellationToken ct = default)
@@ -45,10 +65,21 @@ public sealed class InMemoryEvidenceMetadata : IEvidenceMetadata
         return Task.CompletedTask;
     }
 
-    /// <summary>Simulates a moderator detaching the file from one report.</summary>
-    public void Detach(EvidenceHash hash, string reportId)
+    /// <summary>Simulates the step after a commit: the file goes on a case file.</summary>
+    public void PutOn(EvidenceHash hash, string reportId)
     {
-        if (_references.TryGetValue(hash.Hex, out var reports))
+        var holds = _holds.GetOrAdd(hash.Hex, _ => []);
+
+        if (!holds.Contains(reportId))
+            holds.Add(reportId);
+    }
+
+    /// <summary>Simulates a moderator taking the file off one case file.</summary>
+    public void TakeOff(EvidenceHash hash, string reportId)
+    {
+        if (_holds.TryGetValue(hash.Hex, out var reports))
             reports.Remove(reportId);
     }
+
+    private bool IsDestroyed(string hash) => Destroyed.Any(d => d.Hash == hash);
 }

@@ -13,10 +13,11 @@ namespace Modbot.Api.Features.Events;
 /// against operational, so a type added to that table is classified for the live feed too.
 /// </para>
 /// <para>
-/// <strong>One narrowing.</strong> Presence -- where somebody is standing -- additionally needs
-/// <see cref="ModbotPermissions.ViewLiveInstances"/>. The audit log shows an instance join afterwards
-/// to anyone who reads it; a live feed says where the person is now, which M3 section 7.4 made its
-/// own permission.
+/// <strong>Two narrowings.</strong> A fact about evidence additionally needs
+/// <see cref="ModbotPermissions.ViewEvidence"/>, because its line names the file. Presence --
+/// where somebody is standing -- additionally needs <see cref="ModbotPermissions.ViewLiveInstances"/>.
+/// The audit log shows an instance join afterwards to anyone who reads it; a live feed says where
+/// the person is now, which M3 section 7.4 made its own permission.
 /// </para>
 /// </remarks>
 public static class EventVisibility
@@ -38,7 +39,7 @@ public static class EventVisibility
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        if (!AuditVisibility.CanSee(held, AuditVisibility.CategoryOf(type)))
+        if (!AuditVisibility.CanSeeType(held, type))
             return false;
 
         return !IsPresence(type) || ModbotAuth.Allows(held, ModbotPermissions.ViewLiveInstances);

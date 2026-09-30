@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Cases;
+using Modbot.Api.Features.Users;
 using Modbot.Core.Data.Entities;
 using Modbot.Evidence.Options;
 using Modbot.Evidence.Storage;
@@ -132,10 +134,15 @@ public static class EvidenceUploadEndpoints
                 string uploadId,
                 EvidenceCommitRequest body,
                 [FromServices] EvidenceUploadService uploads,
+                [FromServices] IEvidenceUploadRegistry registry,
+                [FromServices] EvidenceAttachments attachments,
                 CancellationToken ct) =>
             {
                 if (!EvidenceUploadId.TryParse(uploadId, out var id))
                     return Results.NotFound(new { error = "That is not an upload id." });
+
+                if (CaseFileEndpoints.CallerOf(http) is not { } caller || Actor.Of(http) is not { } actor)
+                    return Results.Forbid();
 
                 EvidenceHash? expected = null;
                 if (body.ExpectedHash is { Length: > 0 } claimed)
@@ -153,7 +160,22 @@ public static class EvidenceUploadEndpoints
 
                 try
                 {
-                    var result = await uploads.CommitAsync(id, expected, body.ReportId?.Trim(), ct);
+                    // The case file is checked before anything is promoted or recorded: it has to
+                    // exist, not be withdrawn, and be the caller's to change. A file with no case
+                    // file to go on is refused rather than stored and forgotten. An upload that is
+                    // not in flight falls through to the pipeline, which says so.
+                    var begunFor = (await registry.FindAsync(id, ct))?.ReportId;
+                    var caseFile = await attachments.RequireEditableAsync(
+                        body.ReportId is { Length: > 0 } ? body.ReportId.Trim() : begunFor,
+                        caller,
+                        ct);
+
+                    var result = await uploads.CommitAsync(id, expected, caseFile.Id.ToString(), ct);
+
+                    // Put on the case file only now that the bytes are safe in the store, in one
+                    // step with the fact that says who did it. Retrying a commit that already
+                    // worked puts on nothing twice.
+                    await attachments.AttachAsync(caseFile, result, actor, ct);
 
                     // The outcome — whether these bytes were already in the store — is deliberately
                     // not returned. Telling a moderator "you have already uploaded this file" tells
@@ -173,12 +195,16 @@ public static class EvidenceUploadEndpoints
                 "Phase 3: hash it, decide what it is, and attach it. "
                 + "Modbot reads the staged bytes back, hashes them, decides the content type from "
                 + "the bytes themselves — never from the filename and never from what the client "
-                + "claimed — checks the size that was actually stored, promotes the object to its "
-                + "content-addressed key and only then writes the metadata. SVG and HTML are "
-                + "refused outright. Idempotent on the upload id. "
+                + "claimed — checks the size that was actually stored against the per-file limit "
+                + "and the per-case-file and whole-install totals, promotes the object to its "
+                + "content-addressed key, writes the metadata and puts the file on the case file. "
+                + "SVG and HTML are refused outright. Idempotent on the upload id. "
                 + "reportId names the case file to attach to when the upload was begun without "
                 + "one, so a file can be sent before its case file is written; naming a different "
-                + "case file from the one the upload was begun for is refused with 409.")
+                + "case file from the one the upload was begun for is refused with 409. The case "
+                + "file must exist (404), must not be withdrawn (409), and must be the caller's own "
+                + "or the caller must be allowed to ban (403); with no case file at all the commit "
+                + "is refused with 400. Recorded as a fact against your account.")
             .Produces<EvidenceCommitResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -203,6 +229,8 @@ public static class EvidenceUploadEndpoints
     /// </remarks>
     private static IResult Failure(Exception e) => e switch
     {
+        CaseFileRefused refused => CaseFileEndpoints.Refusal(refused),
+
         EvidenceTooLargeException tooLarge => Results.Json(
             new { error = tooLarge.Message },
             statusCode: StatusCodes.Status413PayloadTooLarge),
@@ -219,13 +247,14 @@ public static class EvidenceUploadEndpoints
             new { error = unavailable.Message },
             statusCode: StatusCodes.Status503ServiceUnavailable),
 
-        // Unreachable: the catch filters admit only the five above. Kept total so that adding a
-        // sixth cannot silently become a 500 with no message.
+        // Unreachable: the catch filters admit only the six above. Kept total so that adding a
+        // seventh cannot silently become a 500 with no message.
         _ => Results.Json(new { error = e.Message }, statusCode: StatusCodes.Status500InternalServerError),
     };
 
     private static bool IsExpected(Exception e)
-        => e is EvidenceTooLargeException
+        => e is CaseFileRefused
+            or EvidenceTooLargeException
             or EvidenceRejectedException
             or EvidenceStagingNotFoundException
             or EvidenceReportMismatchException

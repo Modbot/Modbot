@@ -21,7 +21,8 @@ public class AuditVisibilityTests
         // an invisible fact type nobody notices for a year.
         var unclassified = FactType.All
             .Where(t => !AuditVisibility.VisibleTypes(ModbotPermissions.ViewAuditLog
-                    | ModbotPermissions.ViewOperationalLog)
+                    | ModbotPermissions.ViewOperationalLog
+                    | ModbotPermissions.ViewEvidence)
                 .Contains(t))
             .ToList();
 
@@ -37,6 +38,66 @@ public class AuditVisibilityTests
         Assert.DoesNotContain(FactType.SettingsChanged, visible);
         Assert.DoesNotContain(FactType.ApiKeyCreated, visible);
         Assert.DoesNotContain(FactType.LoginFailed, visible);
+    }
+
+    private static readonly string[] EvidenceFacts =
+    [
+        FactType.EvidenceAttached,
+        FactType.EvidenceDetached,
+        FactType.EvidenceViewed,
+        FactType.EvidenceDownloaded,
+        FactType.EvidenceDestroyed,
+    ];
+
+    /// <summary>
+    /// An evidence line names the file, and a file's name says what it is a picture of. The
+    /// built-in Viewer role reads the audit log and may not open evidence, so it must not read the
+    /// names of files either.
+    /// </summary>
+    [Fact]
+    public void ViewAuditLog_AloneDoesNotReachEvidenceFacts()
+    {
+        var viewer = AuditVisibility.VisibleTypes(BuiltInRoles.ViewerPermissions);
+
+        Assert.Contains(FactType.MemberBanned, viewer);
+        Assert.All(EvidenceFacts, type => Assert.DoesNotContain(type, viewer));
+        Assert.All(EvidenceFacts, type => Assert.False(AuditVisibility.CanSeeType(BuiltInRoles.ViewerPermissions, type)));
+    }
+
+    [Fact]
+    public void ViewAuditLog_WithViewEvidence_ReachesEvidenceFacts()
+    {
+        var moderator = AuditVisibility.VisibleTypes(BuiltInRoles.ModeratorPermissions);
+
+        Assert.All(EvidenceFacts, type => Assert.Contains(type, moderator));
+    }
+
+    /// <summary>The permission to view evidence without the audit log reads no log at all.</summary>
+    [Fact]
+    public void ViewEvidence_WithoutTheAuditLog_ReachesNothing()
+        => Assert.Empty(AuditVisibility.VisibleTypes(ModbotPermissions.ViewEvidence));
+
+    [Fact]
+    public void AskingForEvidenceFactsWithoutViewEvidence_NarrowsThemAway()
+    {
+        var resolved = AuditVisibility.Resolve(
+            BuiltInRoles.ViewerPermissions,
+            [FactType.MemberBanned, FactType.EvidenceViewed, FactType.EvidenceDownloaded]);
+
+        Assert.Equal([FactType.MemberBanned], resolved);
+    }
+
+    /// <summary>The live feed and webhooks follow the same rule, so a Viewer's stream never carries a file's name.</summary>
+    [Fact]
+    public void TheLiveFeedFollowsTheSameRule()
+    {
+        Assert.All(
+            EvidenceFacts,
+            type => Assert.False(Modbot.Api.Features.Events.EventVisibility.CanSee(BuiltInRoles.ViewerPermissions, type)));
+
+        Assert.All(
+            EvidenceFacts,
+            type => Assert.True(Modbot.Api.Features.Events.EventVisibility.CanSee(BuiltInRoles.ModeratorPermissions, type)));
     }
 
     [Fact]
@@ -103,6 +164,11 @@ public class AuditVisibilityTests
     [InlineData(FactType.JoinRequestCreated, AuditCategory.Moderation)]
     [InlineData(FactType.GroupPostCreated, AuditCategory.Moderation)]
     [InlineData(FactType.CalendarEventCreated, AuditCategory.Moderation)]
+    [InlineData(FactType.EvidenceAttached, AuditCategory.Moderation)]
+    [InlineData(FactType.EvidenceDetached, AuditCategory.Moderation)]
+    [InlineData(FactType.EvidenceViewed, AuditCategory.Moderation)]
+    [InlineData(FactType.EvidenceDownloaded, AuditCategory.Moderation)]
+    [InlineData(FactType.EvidenceDestroyed, AuditCategory.Moderation)]
     [InlineData(FactType.SettingsChanged, AuditCategory.Operational)]
     [InlineData(FactType.RateLimitColdStop, AuditCategory.Operational)]
     [InlineData(FactType.UserPurged, AuditCategory.Operational)]

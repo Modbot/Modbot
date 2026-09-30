@@ -270,7 +270,9 @@ public static class AuditVisibility
         // Evidence is moderation history, not plumbing: who attached what to a case, who opened
         // it, and who destroyed it are all part of the accountability record spec 5.8 exists for.
         [FactType.EvidenceAttached] = AuditCategory.Moderation,
-        [FactType.EvidenceAccessed] = AuditCategory.Moderation,
+        [FactType.EvidenceDetached] = AuditCategory.Moderation,
+        [FactType.EvidenceViewed] = AuditCategory.Moderation,
+        [FactType.EvidenceDownloaded] = AuditCategory.Moderation,
         [FactType.EvidenceDestroyed] = AuditCategory.Moderation,
 
         // AutoMod. What a rule flagged, dismissed or did to somebody is moderation history about
@@ -340,11 +342,44 @@ public static class AuditVisibility
             : held.HasFlag(ModbotPermissions.ViewOperationalLog);
     }
 
+    /// <summary>The fact types that are about a piece of evidence: who put it on, took it off, looked at it, copied it or destroyed it.</summary>
+    private static readonly HashSet<string> EvidenceTypes =
+    [
+        FactType.EvidenceAttached,
+        FactType.EvidenceDetached,
+        FactType.EvidenceViewed,
+        FactType.EvidenceDownloaded,
+        FactType.EvidenceDestroyed,
+    ];
+
+    /// <summary>Whether this is one of the facts about a piece of evidence.</summary>
+    public static bool IsEvidence(string type) => EvidenceTypes.Contains(type);
+
+    /// <summary>
+    /// Whether this caller may read a fact of this type: its log's permission, and for a fact
+    /// about evidence also <see cref="ModbotPermissions.ViewEvidence"/>.
+    /// </summary>
+    /// <remarks>
+    /// An evidence line carries the name of the file, and a file's name says what it is a picture
+    /// of. The built-in Viewer role reads the audit log and is not allowed to open evidence, so
+    /// without this it could read the names of files it may not open.
+    /// </remarks>
+    public static bool CanSeeType(ModbotPermissions held, string type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        if (!CanSee(held, CategoryOf(type)))
+            return false;
+
+        return !IsEvidence(type)
+            || held.HasFlag(ModbotPermissions.Administrator)
+            || held.HasFlag(ModbotPermissions.ViewEvidence);
+    }
+
     /// <summary>Every fact type this caller may read. Empty means they may read none.</summary>
     public static IReadOnlyList<string> VisibleTypes(ModbotPermissions held)
-        => Categories
-            .Where(pair => CanSee(held, pair.Value))
-            .Select(pair => pair.Key)
+        => Categories.Keys
+            .Where(type => CanSeeType(held, type))
             .Order()
             .ToList();
 

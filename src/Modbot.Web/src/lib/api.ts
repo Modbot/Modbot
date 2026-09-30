@@ -3122,12 +3122,17 @@ export type CaseSnapshot = {
   explanation: string
 }
 
-/** One piece of evidence as the blob record knows it. `destroyed`: the bytes are gone, the record is not. */
+/**
+ * One piece of evidence as one case file holds it. `destroyed`: the bytes are gone, the record is
+ * not. `takenOffAt` set: the case file let go of it, and this is the line that says so -- the file
+ * itself is still in the store, on any other case file that holds it.
+ */
 export type EvidenceItem = {
   hash: string
   byteSize: number
   contentType: string
   fileName: string | null
+  /** Who put it on this case file. */
   uploaderId: string | null
   reportId: string | null
   origin: 'Uploaded' | 'Captured'
@@ -3136,6 +3141,16 @@ export type EvidenceItem = {
   destroyedAt: string | null
   destroyedBy: string | null
   destroyedReason: string | null
+  attachedAt: string | null
+  takenOffAt: string | null
+  takenOffBy: string | null
+}
+
+/** What a destroy answers. A refusal is `destroyed: false` with the case files in the way named in `message`. */
+export type EvidenceDestroyed = {
+  destroyed: boolean
+  blockedByReports: string[]
+  message: string
 }
 
 /** How evidence bytes travel, in the Settings evidence card's own words, so the two never disagree. */
@@ -3176,6 +3191,8 @@ export type CaseFileView = {
   canAttach: boolean
   canViewEvidence: boolean
   now: string
+  /** Whether Destroy shows on this case file's evidence. */
+  canDestroyEvidence: boolean
 }
 
 export type CaseFileCreated = {
@@ -4982,8 +4999,31 @@ export const api = {
   /** Upload limits for a screen with no case file yet — the ban dialog. */
   evidenceDelivery: () => request<EvidenceDelivery>('/api/cases/evidence-delivery'),
 
-  /** Where the bytes of a piece of evidence are served from. Same-origin, authenticated by the cookie. */
-  evidenceUrl: (hash: string) => `/api/evidence/${encodeURIComponent(hash)}`,
+  /**
+   * Where the bytes of a piece of evidence are served from. Same-origin, authenticated by the cookie.
+   *
+   * `caseId` says which case file's page is asking, so the audit log names it. `view` is for a page
+   * showing the file: it is written to the log as "Evidence viewed", at most once per person per
+   * file every ten minutes. Without it the request is a download and is written every time, so a
+   * Download link must not pass it.
+   */
+  evidenceUrl: (hash: string, options?: { caseId?: string; view?: boolean }) => {
+    const query = new URLSearchParams()
+    if (options?.caseId) query.set('case', options.caseId)
+    if (options?.view) query.set('view', 'true')
+    const text = query.toString()
+    return `/api/evidence/${encodeURIComponent(hash)}${text ? `?${text}` : ''}`
+  },
+
+  /** Ends this case file's hold on the file. The bytes and every other case file's hold stay. */
+  takeEvidenceOff: (caseId: string, hash: string) =>
+    post<{ caseId: string; hash: string }>(
+      `/api/cases/${encodeURIComponent(caseId)}/evidence/${encodeURIComponent(hash)}/take-off`,
+    ),
+
+  /** Destroys the bytes, from a case file. There is no undo. */
+  destroyEvidence: (hash: string, caseId: string, reason: string) =>
+    post<EvidenceDestroyed>(`/api/evidence/${encodeURIComponent(hash)}/destroy`, { reason, caseId }),
 
   // ── Moderation actions (M4 §4). The only calls that change anything in VRChat. ────────────
 

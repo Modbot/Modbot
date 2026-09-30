@@ -71,15 +71,20 @@ public sealed class DestroyTests : IAsyncLifetime
         using var body = new MemoryStream(content, writable: false);
         await _uploads.ReceiveAsync(ticket.UploadId, body, content.Length, Ct);
 
-        return (await _uploads.CommitAsync(ticket.UploadId, null, Ct)).Hash;
+        var hash = (await _uploads.CommitAsync(ticket.UploadId, null, Ct)).Hash;
+
+        // The step the API makes after a commit: the file goes on the case file.
+        _metadata.PutOn(hash, reportId);
+
+        return hash;
     }
 
     /// <summary>
     /// The failure this exists to prevent: one moderator's evidence vanishing because somebody
-    /// tidied up an unrelated report.
+    /// tidied up an unrelated case file.
     /// </summary>
     [Fact]
-    public async Task DestroyingAFileTwoReportsShareIsRefusedAndBothAreNamed()
+    public async Task DestroyingAFileTwoCaseFilesShareIsRefusedAndBothAreNamed()
     {
         var content = SampleMedia.Mp4(size: 2048);
 
@@ -98,21 +103,81 @@ public sealed class DestroyTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task DestroyingProceedsOnceTheLastAttachmentIsGone()
+    public async Task DestroyingProceedsOnceTheLastCaseFileHasLetGo()
     {
         var content = SampleMedia.Mp4(size: 2048);
 
         var hash = await AttachAsync(content, "report-1");
         await AttachAsync(content, "report-2");
 
-        _metadata.Detach(hash, "report-1");
+        _metadata.TakeOff(hash, "report-1");
         Assert.False((await _destroyer.DestroyAsync(hash, "Administrator", "cleanup", Ct)).Destroyed);
 
-        _metadata.Detach(hash, "report-2");
+        _metadata.TakeOff(hash, "report-2");
         var result = await _destroyer.DestroyAsync(hash, "Administrator", "cleanup", Ct);
 
         Assert.True(result.Destroyed);
         Assert.Null(await _store.StatAsync(hash, Ct));
+    }
+
+    /// <summary>
+    /// Destroying from a case file: that case file's hold does not stand in the way, but another
+    /// case file's does, and nothing is taken off or deleted while it does.
+    /// </summary>
+    [Fact]
+    public async Task DestroyingFromOneCaseFileIsStillStoppedByAnotherAndTakesNothingOff()
+    {
+        var content = SampleMedia.Mp4(size: 2048);
+
+        var hash = await AttachAsync(content, "report-1");
+        await AttachAsync(content, "report-2");
+
+        var tookOff = false;
+        var result = await _destroyer.DestroyAsync(
+            hash,
+            "Administrator",
+            "cleanup",
+            Ct,
+            ignoreReports: ["report-1"],
+            beforeDelete: _ =>
+            {
+                tookOff = true;
+                return Task.CompletedTask;
+            });
+
+        Assert.False(result.Destroyed);
+        Assert.Equal(["report-2"], result.BlockedByReports);
+        Assert.False(tookOff);
+        Assert.NotNull(await _store.StatAsync(hash, Ct));
+        Assert.Empty(_metadata.Destroyed);
+    }
+
+    /// <summary>
+    /// Destroying from the only case file that holds the file is one act: it is taken off, with the
+    /// bytes still in the store, and only then deleted.
+    /// </summary>
+    [Fact]
+    public async Task DestroyingFromTheOnlyCaseFileTakesItOffBeforeTheBytesGo()
+    {
+        var hash = await AttachAsync(SampleMedia.Png(1024), "report-1");
+
+        ObjectStat? presentWhenTakenOff = null;
+        var result = await _destroyer.DestroyAsync(
+            hash,
+            "Administrator",
+            "cleanup",
+            Ct,
+            ignoreReports: ["report-1"],
+            beforeDelete: async token =>
+            {
+                presentWhenTakenOff = await _store.StatAsync(hash, token);
+                _metadata.TakeOff(hash, "report-1");
+            });
+
+        Assert.True(result.Destroyed);
+        Assert.NotNull(presentWhenTakenOff);
+        Assert.Null(await _store.StatAsync(hash, Ct));
+        Assert.Empty(await _metadata.ReferencesAsync(hash, Ct));
     }
 
     /// <summary>
@@ -123,7 +188,7 @@ public sealed class DestroyTests : IAsyncLifetime
     public async Task DestructionRecordsWhoDidItAndWhy()
     {
         var hash = await AttachAsync(SampleMedia.Png(1024), "report-1");
-        _metadata.Detach(hash, "report-1");
+        _metadata.TakeOff(hash, "report-1");
 
         await _destroyer.DestroyAsync(hash, "Gunner24", "the subject asked and the case is closed", Ct);
 
@@ -145,7 +210,7 @@ public sealed class DestroyTests : IAsyncLifetime
     public async Task NothingIsDestroyedWhileTheStoreStateIsUnresolved()
     {
         var hash = await AttachAsync(SampleMedia.Png(1024), "report-1");
-        _metadata.Detach(hash, "report-1");
+        _metadata.TakeOff(hash, "report-1");
 
         File.Delete(Path.Combine(_root, EvidenceKeys.StoreMarkerKey));
         await _monitor.CheckAsync(Ct);

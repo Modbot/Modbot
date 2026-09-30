@@ -581,11 +581,84 @@ public class CaseFilesTests
         var summary = Assert.Single((await host.GetJsonAsync<CaseFileListResponse>($"/api/cases?userId={Banned}", moderator, ct)).Cases);
         Assert.Equal(1, summary.EvidenceCount);
 
+        // Attaching and taking off are the author's; destroying needs its own permission.
+        Assert.True(view.CanAttach);
+        Assert.False(view.CanDestroyEvidence);
+        Assert.Null(item.TakenOffAt);
+        Assert.Equal(host.Clock.UtcNow, item.AttachedAt);
+
         // Without ViewEvidence the case file reads, and the evidence list is withheld.
         var reader = await host.SignedInAsync(ModbotPermissions.ViewProfile, ct);
         var withheld = await host.GetJsonAsync<CaseFileView>($"/api/cases/{written.Id}", reader, ct);
         Assert.Null(withheld.Evidence);
         Assert.False(withheld.CanViewEvidence);
+    }
+
+    /// <summary>
+    /// One file on two case files shows on both. Taken off one, that case file keeps one line saying
+    /// so and stops counting it; the other is untouched. Put back, it shows once, as it stands now.
+    /// </summary>
+    [Fact]
+    public async Task AFileOnTwoCaseFiles_ShowsOnBoth_AndATakeOffLeavesATrace()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await SeedBanAsync(host, ct);
+
+        var admin = await host.SignedInAsync(ModbotPermissions.Administrator, ct);
+        var configured = await host.PutJsonAsync("/api/settings/evidence/backend", new { backend = "Filesystem", root = host.EvidenceRoot }, admin, ct);
+        Assert.True(Read<EvidenceSetupResponse>(await configured.Content.ReadAsStringAsync(ct)).Succeeded);
+
+        var moderator = await host.SignedInAsync(
+            ModbotPermissions.Ban | ModbotPermissions.ViewProfile | ModbotPermissions.UploadEvidence | ModbotPermissions.ViewEvidence, ct);
+
+        var first = await WriteAsync(host, moderator, ct);
+        var second = await WriteAsync(host, moderator, ct, userId: "usr_second_person", text: "");
+
+        var png = new byte[] { 0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A }
+            .Concat(Encoding.UTF8.GetBytes($"two-case-files-{Guid.NewGuid():N}"))
+            .ToArray();
+
+        async Task<EvidenceCommitResponse> AttachAsync(Guid caseId, string name)
+        {
+            var begun = await host.PostJsonAsync("/api/evidence/uploads", new { fileName = name, contentType = "image/png", length = png.Length, reportId = caseId.ToString() }, moderator, ct);
+            var ticket = Read<EvidenceUploadTicketView>(await begun.Content.ReadAsStringAsync(ct));
+            (await host.PutBytesAsync(ticket.TransferUrl, png, moderator, ct)).EnsureSuccessStatusCode();
+            var committed = await host.PostJsonAsync($"/api/evidence/uploads/{ticket.UploadId}/commit", new { }, moderator, ct);
+            Assert.Equal(HttpStatusCode.OK, committed.StatusCode);
+            return Read<EvidenceCommitResponse>(await committed.Content.ReadAsStringAsync(ct));
+        }
+
+        var stored = await AttachAsync(first.Id, "first.png");
+        await AttachAsync(second.Id, "second.png");
+
+        var onFirst = await host.GetJsonAsync<CaseFileView>($"/api/cases/{first.Id}", moderator, ct);
+        var onSecond = await host.GetJsonAsync<CaseFileView>($"/api/cases/{second.Id}", moderator, ct);
+        Assert.Equal("first.png", Assert.Single(onFirst.Evidence!).FileName);
+        Assert.Equal("second.png", Assert.Single(onSecond.Evidence!).FileName);
+
+        (await host.PostJsonAsync($"/api/cases/{first.Id}/evidence/{stored.Hash}/take-off", new { }, moderator, ct)).EnsureSuccessStatusCode();
+
+        onFirst = await host.GetJsonAsync<CaseFileView>($"/api/cases/{first.Id}", moderator, ct);
+        var trace = Assert.Single(onFirst.Evidence!);
+        Assert.NotNull(trace.TakenOffAt);
+        Assert.False(string.IsNullOrEmpty(trace.TakenOffBy));
+        Assert.Equal("first.png", trace.FileName);
+
+        // Not counted on the case file that let go of it, still counted on the other.
+        var counts = (await host.GetJsonAsync<CaseFileListResponse>("/api/cases", moderator, ct)).Cases
+            .ToDictionary(c => c.Id, c => c.EvidenceCount);
+        Assert.Equal(0, counts[first.Id]);
+        Assert.Equal(1, counts[second.Id]);
+
+        onSecond = await host.GetJsonAsync<CaseFileView>($"/api/cases/{second.Id}", moderator, ct);
+        Assert.Null(Assert.Single(onSecond.Evidence!).TakenOffAt);
+
+        // Put back: the case file shows the file once, as it stands now.
+        await AttachAsync(first.Id, "first.png");
+        onFirst = await host.GetJsonAsync<CaseFileView>($"/api/cases/{first.Id}", moderator, ct);
+        Assert.Null(Assert.Single(onFirst.Evidence!).TakenOffAt);
     }
 
     /// <summary>

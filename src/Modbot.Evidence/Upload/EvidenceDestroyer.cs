@@ -5,27 +5,32 @@ namespace Modbot.Evidence.Upload;
 
 /// <param name="Destroyed">Whether the bytes are gone.</param>
 /// <param name="BlockedByReports">
-/// The reports still referencing these bytes, named. Empty when <paramref name="Destroyed"/>.
+/// The case files still holding these bytes, by id. Empty when <paramref name="Destroyed"/>.
 /// </param>
 /// <param name="Message">What to tell the administrator.</param>
 public sealed record DestroyResult(bool Destroyed, IReadOnlyList<string> BlockedByReports, string Message);
 
 /// <summary>
-/// Deletes evidence bytes, and refuses to when anything still references them
+/// Deletes evidence bytes, and refuses to when a case file still holds them
 /// (design section 6).
 /// </summary>
 /// <remarks>
 /// <para>
 /// <strong>Refcounted, because deduplication makes it have to be.</strong> Two moderators
-/// attaching the same clip to two reports store one object. If destroying one case file deleted
-/// that object, the other moderator's evidence would vanish because somebody tidied up an
-/// unrelated report — easy to miss while writing the happy path, and catastrophic when discovered
-/// by the person who needed it.
+/// attaching the same clip to two case files store one object. If destroying it for one case file
+/// deleted that object, the other moderator's evidence would vanish because somebody tidied up an
+/// unrelated case file — easy to miss while writing the happy path, and catastrophic when
+/// discovered by the person who needed it.
 /// </para>
 /// <para>
-/// So the bytes go only when the last attachment referencing them is gone, and an administrator
-/// who tries sooner is told which reports are in the way, by name, before anything happens. The
-/// remedy is to detach it from those reports first, which is a reversible act; this one is not.
+/// So the bytes go only when no case file holds them, and an administrator who tries sooner is told
+/// which case files are in the way, by name, before anything happens. The remedy is to take it off
+/// those case files first, which is a reversible act; this one is not.
+/// </para>
+/// <para>
+/// The case file the destroy is being done from is the one exception: it is named in
+/// <c>ignoreReports</c> and taken off by <c>beforeDelete</c>, after the check and before the first
+/// byte goes, so a destroy from the case file that holds the file is one act rather than two.
 /// </para>
 /// <para>
 /// <strong>There is no undo and Modbot does not pretend otherwise.</strong> Railway Buckets has no
@@ -60,8 +65,16 @@ public sealed class EvidenceDestroyer
     /// <param name="hash">The bytes to destroy.</param>
     /// <param name="actor">Who is destroying them. Recorded permanently.</param>
     /// <param name="reason">Why. Also recorded permanently.</param>
+    /// <param name="ct">Cancels the destroy.</param>
+    /// <param name="ignoreReports">Case files whose hold does not count, because this destroy is taking the file off them.</param>
+    /// <param name="beforeDelete">Runs once nothing else holds the file and before the bytes are deleted.</param>
     public async Task<DestroyResult> DestroyAsync(
-        EvidenceHash hash, string actor, string reason, CancellationToken ct = default)
+        EvidenceHash hash,
+        string actor,
+        string reason,
+        CancellationToken ct = default,
+        IReadOnlyCollection<string>? ignoreReports = null,
+        Func<CancellationToken, Task>? beforeDelete = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actor);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
@@ -75,7 +88,9 @@ public sealed class EvidenceDestroyer
                 "Evidence cannot be destroyed while the store's state is unresolved: " + health.Explanation);
         }
 
-        var references = await _metadata.ReferencesAsync(hash, ct).ConfigureAwait(false);
+        var references = (await _metadata.ReferencesAsync(hash, ct).ConfigureAwait(false))
+            .Where(r => ignoreReports is null || !ignoreReports.Contains(r, StringComparer.Ordinal))
+            .ToList();
 
         if (references.Count > 0)
         {
@@ -83,10 +98,13 @@ public sealed class EvidenceDestroyer
                 false,
                 references,
                 references.Count == 1
-                    ? $"This file is still attached to report {references[0]}."
-                    : $"This file is attached to {references.Count} reports "
+                    ? $"This file is still on case file {references[0]}."
+                    : $"This file is still on {references.Count} case files "
                       + $"({string.Join(", ", references)}).");
         }
+
+        if (beforeDelete is not null)
+            await beforeDelete(ct).ConfigureAwait(false);
 
         await _store.DeleteAsync(hash, ct).ConfigureAwait(false);
         await _metadata.MarkDestroyedAsync(hash, actor, reason, ct).ConfigureAwait(false);

@@ -139,7 +139,12 @@ public class PurgePreviewerTests : AnalyticsTestBase
             ByteSize = 10,
             ContentType = "image/png",
             FirstStoredAt = Start,
-            ReportId = caseFile.Id.ToString(),
+        });
+        context.EvidenceAttachments.Add(new EvidenceAttachment
+        {
+            Hash = new string('a', 64),
+            CaseId = caseFile.Id.ToString(),
+            AttachedAt = Start,
         });
 
         // Somebody else's case file, and a file on it, so a wrong join shows up as a wrong count.
@@ -161,15 +166,86 @@ public class PurgePreviewerTests : AnalyticsTestBase
             ByteSize = 10,
             ContentType = "image/png",
             FirstStoredAt = Start,
-            ReportId = other.Id.ToString(),
+        });
+        context.EvidenceAttachments.Add(new EvidenceAttachment
+        {
+            Hash = new string('b', 64),
+            CaseId = other.Id.ToString(),
+            AttachedAt = Start,
+        });
+
+        // A file the person's case file took off is not kept: nothing holds it. And one file on two
+        // of their case files is one file kept, not two.
+        var again = new CaseFile
+        {
+            UserId = Subject,
+            AuthorUserId = Guid.CreateVersion7(),
+            AuthorUsername = "mod",
+            WrittenReason = "A second case file.",
+            CreatedAt = Start,
+            UpdatedAt = Start,
+            SnapshotTakenAt = Start,
+        };
+
+        context.CaseFiles.Add(again);
+        context.EvidenceBlobs.Add(new EvidenceBlob
+        {
+            Hash = new string('c', 64),
+            ByteSize = 10,
+            ContentType = "image/png",
+            FirstStoredAt = Start,
+        });
+        context.EvidenceAttachments.Add(new EvidenceAttachment
+        {
+            Hash = new string('c', 64),
+            CaseId = caseFile.Id.ToString(),
+            AttachedAt = Start,
+            TakenOffAt = Start.AddHours(1),
+        });
+        context.EvidenceAttachments.Add(new EvidenceAttachment
+        {
+            Hash = new string('a', 64),
+            CaseId = again.Id.ToString(),
+            AttachedAt = Start,
         });
 
         await context.SaveChangesAsync(Ct);
 
         var preview = await NewPreviewer(context).PreviewAsync(FactPlatform.VRChat, Subject, Ct);
 
-        Assert.Equal(1, preview.CaseFilesKept);
+        Assert.Equal(2, preview.CaseFilesKept);
         Assert.Equal(1, preview.EvidenceFilesKept);
+    }
+
+    /// <summary>
+    /// The facts about evidence are about the case file, not the person, so erasing the person
+    /// leaves them: who looked at a video of somebody is the first thing a purge must not take.
+    /// </summary>
+    [Fact]
+    public async Task ThePurgeLeavesTheFactsAboutEvidenceAlone()
+    {
+        var caseId = Guid.NewGuid().ToString();
+
+        await WriteAsync(
+            Fact(FactType.MemberBanned, Start, subjectId: Subject),
+            new FactRecord
+            {
+                Type = FactType.EvidenceViewed,
+                OccurredAt = Start,
+                SubjectPlatform = FactPlatform.Modbot,
+                SubjectId = caseId,
+                ActorPlatform = FactPlatform.Modbot,
+                ActorId = Guid.NewGuid().ToString(),
+                Source = FactSource.Modbot,
+            });
+
+        await using var context = Database.NewContext();
+        await NewPurger(context).PurgeAsync(FactPlatform.VRChat, Subject, ct: Ct);
+
+        Assert.Single(await context.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.EvidenceViewed && e.SubjectId == caseId).ToListAsync(Ct));
+        Assert.Empty(await context.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.MemberBanned && e.SubjectId == Subject).ToListAsync(Ct));
     }
 
     /// <summary>

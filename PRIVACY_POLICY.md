@@ -92,7 +92,9 @@ instance warnings, with the place they happened.
   its text in the history.
 - Case files: a written record of why someone was banned, with a copy of that person's profile,
   group membership and ban entry as they were at the time.
-- Evidence a moderator attached: screenshots, clips, files.
+- Evidence a moderator attached: screenshots, clips, files. Modbot also writes down who attached,
+  took off, viewed, downloaded or destroyed each file, and when. It says so here because a file
+  may be a picture or a clip of a person: who looked at it is part of the record.
 - Flags raised by the group's word lists and AI topics: which rule matched, the words that matched
   (up to 1,000 characters) or, for a picture, its address and a label, and where it was. The AI call
   log keeps the whole prompt and answer (each up to 20,000 characters) for a call that produced a flag, and for a call a person
@@ -249,9 +251,11 @@ draws.
 A purge leaves one record that it happened: which account did it, when, which platform and how much
 was erased, never who it was about.
 
-Other removals are narrower. Evidence cannot be destroyed from Modbot's web app, and a file attached
-to a case file cannot be destroyed at all today. An account link can be ended, which marks the link
-ended and keeps the row.
+Other removals are narrower. Evidence can be taken off a case file and destroyed from Modbot's web
+app by staff who are allowed to. Taking a file off a case file only ends that case file's hold on
+it and keeps a line saying it was there. Destroying a file deletes it permanently and keeps who did
+it, when and why, and Modbot will not do it while another case file still holds the file. A purge
+does not do either. An account link can be ended, which marks the link ended and keeps the row.
 
 If the law where you live gives you a right to have your data erased, that right is against the
 group's operator, who decides what is kept. We cannot act on it for you, because we do not hold it.

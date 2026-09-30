@@ -267,14 +267,15 @@ Name: `ViewEvidence`
 
 - Opens the screenshots and video attached to a case file, and lists them on the case file.
 
-Without it, a person who can read a case file sees the case file but not its evidence.
+Without it, a person who can read a case file sees the case file but not its evidence. It is also
+needed to read the audit log's entries about evidence, which name the files.
 
 ### Upload evidence
 
 Name: `UploadEvidence`
 
-- Attaches screenshots and video to a case file. In the web app the upload shows on case files the
-  person may also edit: ones they wrote, or any case file if they hold **Ban**.
+- Attaches screenshots and video to a case file, and takes them off it. In the web app both show on
+  case files the person may also edit: ones they wrote, or any case file if they hold **Ban**.
 
 Choosing where evidence is stored is a setting and needs **Change settings**, not this.
 
@@ -284,8 +285,10 @@ Name: `DestroyEvidence`
 
 - Permanently deletes the file behind a piece of evidence. The record that it existed stays: its
   size, type, who destroyed it, when and why. A reason is required, and there is no undo.
+- Works from any case file, including a withdrawn one. A file that is still on another case file is
+  not destroyed until it has been taken off there.
 
-There is no button for this in the web app yet. It is available through the [API](/api/reference).
+In the web app this is the **Destroy** button on a file in the case file's **Evidence** section.
 
 ## Moderation
 

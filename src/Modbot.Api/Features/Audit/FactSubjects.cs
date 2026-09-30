@@ -150,8 +150,13 @@ public static class FactSubjects
         // The link role and prompt facts are about a Discord account, so they take the default:
         // a person, with the subject platform saying Discord, which opens the Discord person popup
         // rather than the VRChat one. The link facts themselves are about the VRChat person.
+
+        // About a case file, not about the person on it: the subject is the case file's id, so a
+        // purge of the person leaves these behind.
         [FactType.EvidenceAttached] = SubjectKind.Other,
-        [FactType.EvidenceAccessed] = SubjectKind.Other,
+        [FactType.EvidenceDetached] = SubjectKind.Other,
+        [FactType.EvidenceViewed] = SubjectKind.Other,
+        [FactType.EvidenceDownloaded] = SubjectKind.Other,
         [FactType.EvidenceDestroyed] = SubjectKind.Other,
     };
 

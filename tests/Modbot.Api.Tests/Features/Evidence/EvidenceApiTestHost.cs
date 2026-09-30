@@ -48,6 +48,8 @@ public sealed class EvidenceApiTestHost : IAsyncDisposable
         Root = root;
     }
 
+    private readonly Dictionary<string, (Guid Id, string Username)> _signedIn = [];
+
     public HttpClient Client { get; }
 
     public FakeClock Clock { get; }
@@ -127,7 +129,9 @@ public sealed class EvidenceApiTestHost : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(db);
 
         await using var context = db.NewContext();
+        await context.EvidenceAttachments.ExecuteDeleteAsync(ct);
         await context.EvidenceBlobs.ExecuteDeleteAsync(ct);
+        await context.CaseFiles.ExecuteDeleteAsync(ct);
         await context.Users.ExecuteDeleteAsync(ct);
         await context.Settings.ExecuteDeleteAsync(ct);
     }
@@ -136,11 +140,12 @@ public sealed class EvidenceApiTestHost : IAsyncDisposable
     public async Task<string> SignedInAsync(ModbotPermissions permissions, CancellationToken ct)
     {
         var username = $"u_{Guid.NewGuid():N}";
+        Guid userId;
 
         using (var scope = Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
-            await TestAccounts.CreateAsync(db, username, "hunter2", permissions, linked: true, ct);
+            userId = (await TestAccounts.CreateAsync(db, username, "hunter2", permissions, linked: true, ct)).Id;
         }
 
         var response = await Client.PostAsync(
@@ -152,7 +157,45 @@ public sealed class EvidenceApiTestHost : IAsyncDisposable
             response.Headers.GetValues("Set-Cookie"),
             v => v.StartsWith(ModbotAuth.CookieName, StringComparison.Ordinal));
 
-        return setCookie.Split(';')[0];
+        var cookie = setCookie.Split(';')[0];
+        _signedIn[cookie] = (userId, username);
+
+        return cookie;
+    }
+
+    /// <summary>The account a cookie from <see cref="SignedInAsync"/> belongs to.</summary>
+    public (Guid Id, string Username) WhoIs(string cookie) => _signedIn[cookie];
+
+    /// <summary>
+    /// A case file written by the account behind <paramref name="cookie"/>, about a person of its
+    /// own, put straight into the database: what a test about evidence needs a case file for is
+    /// somewhere to put a file, not a ban.
+    /// </summary>
+    /// <returns>The case file's id, as the text evidence uses for it.</returns>
+    public async Task<string> NewCaseAsync(string cookie, CancellationToken ct, bool withdrawn = false)
+    {
+        var (id, username) = WhoIs(cookie);
+        var row = new CaseFile
+        {
+            UserId = $"usr_case_{Guid.NewGuid():N}",
+            AuthorUserId = id,
+            AuthorUsername = username,
+            ReasonIds = "[]",
+            WrittenReason = "test",
+            CreatedAt = Clock.UtcNow,
+            UpdatedAt = Clock.UtcNow,
+            SnapshotTakenAt = Clock.UtcNow,
+            WithdrawnAt = withdrawn ? Clock.UtcNow : null,
+            WithdrawnByUsername = withdrawn ? username : null,
+            WithdrawnNote = withdrawn ? "test" : null,
+        };
+
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        db.CaseFiles.Add(row);
+        await db.SaveChangesAsync(ct);
+
+        return row.Id.ToString();
     }
 
     public Task<HttpResponseMessage> GetAsync(string path, string cookie, CancellationToken ct)

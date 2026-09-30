@@ -31,6 +31,14 @@ public static class AuditRecords
         FactType.ReportUpdated,
         FactType.ReportWithdrawn,
         FactType.ReportSnapshotRecaptured,
+
+        // Evidence facts carry the case file's id too, so a line about a file leads to the case
+        // file it was on.
+        FactType.EvidenceAttached,
+        FactType.EvidenceDetached,
+        FactType.EvidenceViewed,
+        FactType.EvidenceDownloaded,
+        FactType.EvidenceDestroyed,
     ];
 
     private static readonly HashSet<string> ReviewFacts = [FactType.ReviewOpened, FactType.ReviewClosed];

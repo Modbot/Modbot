@@ -96,9 +96,13 @@ public sealed record EvidenceDeliveryView(
     long MaxFileBytes,
     IReadOnlyList<string> AcceptedTypes);
 
-/// <param name="Evidence">Null when the caller may not view evidence; the list otherwise, destroyed items included.</param>
+/// <param name="Evidence">
+/// Null when the caller may not view evidence; the list otherwise: each file on the case file, destroyed
+/// ones included, and one line for each file that was taken off (<c>takenOffAt</c> set).
+/// </param>
 /// <param name="CanEdit">The author, or anyone holding <c>Ban</c>, while the case file is not withdrawn.</param>
-/// <param name="CanAttach"><see cref="CanEdit"/> and <c>UploadEvidence</c>.</param>
+/// <param name="CanAttach"><see cref="CanEdit"/> and <c>UploadEvidence</c>. It is also what lets a file be taken off.</param>
+/// <param name="CanDestroyEvidence"><c>ViewEvidence</c> and <c>DestroyEvidence</c>, on any case file, withdrawn ones too.</param>
 public sealed record CaseFileView(
     Guid Id,
     string UserId,
@@ -125,7 +129,8 @@ public sealed record CaseFileView(
     bool CanEdit,
     bool CanAttach,
     bool CanViewEvidence,
-    DateTimeOffset Now);
+    DateTimeOffset Now,
+    bool CanDestroyEvidence = false);
 
 /// <param name="RefreshOutcome">What asking VRChat for a fresher profile came back with: Queued, Promoted, AlreadyQueued, FreshEnough or NotAvailable.</param>
 public sealed record CaseFileCreatedResponse(

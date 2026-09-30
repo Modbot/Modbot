@@ -168,8 +168,14 @@ public sealed class PurgePreviewer
         if (ids.Count == 0)
             return (0, 0);
 
-        var files = await _db.EvidenceBlobs.AsNoTracking()
-            .CountAsync(b => b.ReportId != null && ids.Contains(b.ReportId) && b.DestroyedAt == null, ct);
+        // Files, not holds: one file on two of this person's case files is one file kept.
+        var files = await (
+                from a in _db.EvidenceAttachments.AsNoTracking()
+                join b in _db.EvidenceBlobs.AsNoTracking() on a.Hash equals b.Hash
+                where ids.Contains(a.CaseId) && a.TakenOffAt == null && b.DestroyedAt == null
+                select a.Hash)
+            .Distinct()
+            .CountAsync(ct);
 
         return (ids.Count, files);
     }

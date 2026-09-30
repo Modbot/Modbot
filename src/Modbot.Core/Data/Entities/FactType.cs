@@ -639,19 +639,45 @@ public static class FactType
     public const string ActionJoinRequestRejected = "modbot.action.request.reject";
 
     // ── Evidence (evidence design §6, §14.1) ───────────────────────────────────────────────
+    //
+    // Every one of these is about a case file, not about the person the case file is about: the
+    // subject is the case file's id, on the Modbot platform. That is deliberate. A purge erases the
+    // facts whose subject is the person and keeps the case file and its evidence (§15), so a fact
+    // about the person would vanish while the file it names stayed, and "who opened this video"
+    // would be the first thing a purge took. The payload names the case file, the file (its hash and
+    // the name it was attached under) and, for the person's id, `userId`.
 
-    /// <summary>Evidence was attached to a case file.</summary>
+    /// <summary>Evidence was put on a case file.</summary>
     public const string EvidenceAttached = "modbot.evidence.attach";
 
     /// <summary>
-    /// Somebody opened a piece of evidence.
+    /// Evidence was taken off a case file. The bytes were not touched, and it can be put back by
+    /// attaching the same file again.
+    /// </summary>
+    public const string EvidenceDetached = "modbot.evidence.detach";
+
+    /// <summary>
+    /// Somebody looked at a piece of evidence on a case file's page.
     /// </summary>
     /// <remarks>
     /// Evidence may be video of the person a ban was applied to, so who looked at it is part of the
-    /// accountability record rather than incidental. Moderation retention: the point of recording
-    /// an access is that it is still answerable long afterwards.
+    /// accountability record rather than incidental. A page shows a file every time it is opened
+    /// and a video asks for its bytes in pieces, so this is written at most once per person per
+    /// file every ten minutes: a record of who looked, not of how many times the page reloaded.
+    /// Downloading is <see cref="EvidenceDownloaded"/>, written every time. Kept forever: the point
+    /// of recording a look is that it is still answerable long afterwards.
     /// </remarks>
-    public const string EvidenceAccessed = "modbot.evidence.access";
+    public const string EvidenceViewed = "modbot.evidence.view";
+
+    /// <summary>
+    /// Somebody downloaded a piece of evidence. Written for every download.
+    /// </summary>
+    /// <remarks>
+    /// A download is a copy that leaves Modbot, so unlike a look it is never thinned out. Where the
+    /// store hands the browser a link, this records that a link was handed out: the fetch itself
+    /// never reaches Modbot.
+    /// </remarks>
+    public const string EvidenceDownloaded = "modbot.evidence.download";
 
     /// <summary>
     /// The bytes were destroyed; the record that they existed was not.

@@ -27,9 +27,9 @@ public enum EvidenceOriginKind : short
 ///   </item>
 ///   <item>
 ///     <strong>Refcounted deletion.</strong> Content addressing means two case files can share one
-///     object, so deleting a report must not delete bytes another report still cites. Getting that
+///     object, so destroying it must not take bytes another case file still holds. Getting that
 ///     wrong is catastrophic in a quiet way: a moderator's evidence vanishes because somebody
-///     tidied an unrelated report.
+///     tidied an unrelated case file. Which case files hold it is in <see cref="EvidenceAttachment"/>.
 ///   </item>
 ///   <item>
 ///     <strong>Rendering a case file without touching the store at all</strong> — which on S3
@@ -38,7 +38,9 @@ public enum EvidenceOriginKind : short
 /// </list>
 /// <para>
 /// The row is keyed on <see cref="Hash"/> because the store is content-addressed: the same bytes
-/// uploaded twice are one object and one row, cited by two reports.
+/// uploaded twice are one object and one row, held by two case files. The row says nothing about
+/// which case files hold it: that is one <see cref="EvidenceAttachment"/> per case file, so a file
+/// can sit on several at once and be taken off one without touching the others.
 /// </para>
 /// </remarks>
 public class EvidenceBlob
@@ -72,9 +74,6 @@ public class EvidenceBlob
     public string? FileName { get; set; }
 
     public string? UploaderId { get; set; }
-
-    /// <summary>Which case file cites it. Null for a blob nothing references yet.</summary>
-    public string? ReportId { get; set; }
 
     public EvidenceOriginKind Origin { get; set; }
 

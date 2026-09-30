@@ -152,6 +152,7 @@ public sealed class DemoSeeder
         await _db.AiCalls.ExecuteDeleteAsync(ct);
         await _db.AiUsage.ExecuteDeleteAsync(ct);
 
+        await _db.EvidenceAttachments.ExecuteDeleteAsync(ct);
         await _db.EvidenceBlobs.ExecuteDeleteAsync(ct);
         await _db.CompanionDevices.ExecuteDeleteAsync(ct);
         await _db.CompanionPairingCodes.ExecuteDeleteAsync(ct);

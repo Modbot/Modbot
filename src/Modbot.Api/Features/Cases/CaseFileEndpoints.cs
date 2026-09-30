@@ -292,7 +292,7 @@ public static class CaseFileEndpoints
     /// <summary>
     /// The signed-in account. Null only on a misconfigured host: the cookie always carries the id.
     /// </summary>
-    private static Caller? CallerOf(HttpContext http)
+    internal static Caller? CallerOf(HttpContext http)
         => ModbotAuth.UserIdOf(http.User) is { } id
             ? new Caller(id, http.User.Identity?.Name ?? string.Empty, ModbotAuth.PermissionsOf(http.User))
             : null;
@@ -306,11 +306,19 @@ public static class CaseFileEndpoints
         }
         catch (CaseFileRefused refused)
         {
-            return refused.Status == StatusCodes.Status403Forbidden
-                ? Results.Json(new { error = refused.Message }, statusCode: StatusCodes.Status403Forbidden)
-                : Results.Json(
-                    new { error = refused.Message, caseId = refused.ExistingCaseId },
-                    statusCode: refused.Status);
+            return Refusal(refused);
         }
+    }
+
+    /// <summary>The answer for a refused write: its status and its sentence.</summary>
+    internal static IResult Refusal(CaseFileRefused refused)
+    {
+        ArgumentNullException.ThrowIfNull(refused);
+
+        return refused.Status == StatusCodes.Status403Forbidden
+            ? Results.Json(new { error = refused.Message }, statusCode: StatusCodes.Status403Forbidden)
+            : Results.Json(
+                new { error = refused.Message, caseId = refused.ExistingCaseId },
+                statusCode: refused.Status);
     }
 }

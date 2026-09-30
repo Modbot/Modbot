@@ -19,9 +19,13 @@ public enum EvidenceOrigin
 /// <param name="Backend">Which store held it when it was committed.</param>
 /// <param name="FirstStoredAt">From <c>IModbotClock</c>.</param>
 /// <param name="FileName">The uploader's filename — metadata, displayed, never part of a key.</param>
-/// <param name="UploaderId">Becomes the attachment fact's actor.</param>
-/// <param name="ReportId">Which case file it hangs off.</param>
+/// <param name="UploaderId">Who sent it, as their username.</param>
 /// <param name="Origin">Uploaded or captured.</param>
+/// <remarks>
+/// Says nothing about which case file holds the file. Putting a file on a case file is a separate
+/// step, made after the bytes are recorded, because a file can be held by several case files and
+/// taken off one of them.
+/// </remarks>
 public sealed record EvidenceBlobRecord(
     EvidenceHash Hash,
     long ByteSize,
@@ -30,7 +34,6 @@ public sealed record EvidenceBlobRecord(
     DateTimeOffset FirstStoredAt,
     string? FileName,
     string? UploaderId,
-    string? ReportId,
     EvidenceOrigin Origin);
 
 /// <summary>
@@ -55,20 +58,32 @@ public sealed record EvidenceBlobRecord(
 public interface IEvidenceMetadata
 {
     /// <summary>
-    /// Records a blob and its attachment. Called after, and only after, the bytes are confirmed
-    /// present in the store.
+    /// Records a blob. Called after, and only after, the bytes are confirmed present in the store.
     /// </summary>
     Task RecordAsync(EvidenceBlobRecord record, CancellationToken ct = default);
 
     /// <summary>
-    /// Which reports currently reference these bytes.
+    /// Which case files hold these bytes right now: the ones that have not taken the file off.
     /// </summary>
     /// <remarks>
-    /// Deduplication means one object can belong to two case files, so deleting one case file must
-    /// not delete the object. Missing that is catastrophic in a quiet way: a moderator's evidence
-    /// vanishes because somebody else tidied up an unrelated report.
+    /// Deduplication means one object can be held by several case files, so destroying it for one
+    /// must not take it from the others. Missing that is catastrophic in a quiet way: a moderator's
+    /// evidence vanishes because somebody else tidied up an unrelated case file.
     /// </remarks>
     Task<IReadOnlyList<string>> ReferencesAsync(EvidenceHash hash, CancellationToken ct = default);
+
+    /// <summary>
+    /// The bytes this case file holds now, not counting <paramref name="except"/>. Destroyed files
+    /// count for nothing, and the file being added is left out so that putting on one the case file
+    /// already holds cannot push it over its limit.
+    /// </summary>
+    Task<long> BytesOnReportAsync(string reportId, EvidenceHash? except = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// The bytes the deployment holds, not counting <paramref name="except"/>. Destroyed files
+    /// count for nothing, and a file that is already stored adds nothing when it arrives again.
+    /// </summary>
+    Task<long> BytesStoredAsync(EvidenceHash? except = null, CancellationToken ct = default);
 
     /// <summary>
     /// Marks the blob destroyed, keeping everything except the bytes.

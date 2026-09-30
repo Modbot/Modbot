@@ -210,8 +210,17 @@ public sealed record EvidenceCommitRequest(string? ExpectedHash = null, string? 
 public sealed record EvidenceCommitResponse(
     string Hash, long ByteSize, string ContentType);
 
-/// <param name="FileName">What the uploader called it. Display only.</param>
+/// <summary>One evidence file, as one case file holds it (or held it).</summary>
+/// <param name="UploaderId">
+/// Who put it on this case file, as their username. On a file's own record (no case file), who
+/// sent it.
+/// </param>
+/// <param name="ReportId">The case file it is on. Null on a file's own record, which says nothing about where it is.</param>
+/// <param name="FileName">What it was put on under. Display only.</param>
 /// <param name="Destroyed">Whether the bytes were deliberately erased. The record remains.</param>
+/// <param name="AttachedAt">When it was put on this case file.</param>
+/// <param name="TakenOffAt">When it was taken off this case file. Null while it is on.</param>
+/// <param name="TakenOffBy">Who took it off, as their username.</param>
 public sealed record EvidenceObjectView(
     string Hash,
     long ByteSize,
@@ -224,14 +233,26 @@ public sealed record EvidenceObjectView(
     bool Destroyed,
     DateTimeOffset? DestroyedAt,
     string? DestroyedBy,
-    string? DestroyedReason);
+    string? DestroyedReason,
+    DateTimeOffset? AttachedAt = null,
+    DateTimeOffset? TakenOffAt = null,
+    string? TakenOffBy = null);
 
 /// <param name="Reason">Recorded permanently, alongside who did it and when.</param>
-public sealed record EvidenceDestroyRequest(string Reason);
+/// <param name="CaseId">
+/// The case file it is being destroyed from. That case file lets go of it as part of the destroy;
+/// any other case file still holding it stops the destroy.
+/// </param>
+public sealed record EvidenceDestroyRequest(string Reason, string? CaseId = null);
 
 /// <param name="BlockedByReports">
-/// Reports still citing these bytes, by name. Content addressing means two case files can share
-/// one object, so destroying it would take evidence out of a report nobody was looking at.
+/// Case files still holding these bytes, by id. Content addressing means two case files can share
+/// one object, so destroying it would take evidence off a case file nobody was looking at.
 /// </param>
+/// <param name="Message">What to tell the person: on a refusal, which case files are in the way.</param>
 public sealed record EvidenceDestroyResponse(
     bool Destroyed, IReadOnlyList<string> BlockedByReports, string Message);
+
+/// <param name="CaseId">The case file the file is now off.</param>
+/// <param name="Hash">The file.</param>
+public sealed record EvidenceTakenOffResponse(string CaseId, string Hash);

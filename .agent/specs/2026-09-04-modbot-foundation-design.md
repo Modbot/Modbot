@@ -1669,7 +1669,7 @@ the authoritative one wins and the inference is superseded.
 #### 5.3.1 Fact types are hierarchical strings, not an enum
 
 > **Revised 2026-09-13.** `type` was a `smallint` enum with a "never renumber" rule. It is now a
-> `platform.domain.action` string — `vrchat.group.member.ban`, `modbot.evidence.access` — stored
+> `platform.domain.action` string — `vrchat.group.member.ban`, `modbot.evidence.view` — stored
 > as text, with a `type_raw` column beside it.
 
 The enum's storage saving was real and irrelevant: about 20% on a fact measured at 326 bytes, which

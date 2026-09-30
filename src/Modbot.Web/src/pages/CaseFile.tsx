@@ -189,6 +189,7 @@ export function CaseFile({
               items={view.evidence}
               delivery={view.evidenceDelivery}
               canAttach={view.canAttach}
+              canDestroy={view.canDestroyEvidence}
               onChanged={() => void load()}
               onImageReady={noteImage}
             />

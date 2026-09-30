@@ -349,6 +349,83 @@
         ]
       }
     },
+    "/api/cases/{id}/evidence/{hash}/take-off": {
+      "post": {
+        "tags": [
+          "Evidence"
+        ],
+        "summary": "Take evidence off a case file",
+        "description": "Ends this case file's hold on the file and keeps a line saying it was there. The bytes stay, and so does every other case file's hold on them; putting the file back is attaching it again. For the author of the case file or anyone who may ban, while it is not withdrawn (409 once it is). Recorded as a fact against your account. 404 when the file is not on this case file.\n\nNeeds the `UploadEvidence` permission.",
+        "operationId": "TakeEvidenceOffCaseFile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceTakenOffResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/search": {
       "get": {
         "tags": [
@@ -10596,7 +10673,7 @@
           "Evidence"
         ],
         "summary": "Finish the upload",
-        "description": "Phase 3: hash it, decide what it is, and attach it. Modbot reads the staged bytes back, hashes them, decides the content type from the bytes themselves — never from the filename and never from what the client claimed — checks the size that was actually stored, promotes the object to its content-addressed key and only then writes the metadata. SVG and HTML are refused outright. Idempotent on the upload id. reportId names the case file to attach to when the upload was begun without one, so a file can be sent before its case file is written; naming a different case file from the one the upload was begun for is refused with 409.\n\nNeeds the `UploadEvidence` permission.",
+        "description": "Phase 3: hash it, decide what it is, and attach it. Modbot reads the staged bytes back, hashes them, decides the content type from the bytes themselves — never from the filename and never from what the client claimed — checks the size that was actually stored against the per-file limit and the per-case-file and whole-install totals, promotes the object to its content-addressed key, writes the metadata and puts the file on the case file. SVG and HTML are refused outright. Idempotent on the upload id. reportId names the case file to attach to when the upload was begun without one, so a file can be sent before its case file is written; naming a different case file from the one the upload was begun for is refused with 409. The case file must exist (404), must not be withdrawn (409), and must be the caller's own or the caller must be allowed to ban (403); with no case file at all the commit is refused with 400. Recorded as a fact against your account.\n\nNeeds the `UploadEvidence` permission.",
         "operationId": "CommitEvidenceUpload",
         "parameters": [
           {
@@ -10712,7 +10789,7 @@
           "Evidence"
         ],
         "summary": "List evidence",
-        "description": "What is attached to a case file. Answered entirely from the blob record, so listing evidence costs the store no request and no egress. Destroyed items are listed too, because a case file that looks like it never had evidence is indistinguishable from one nobody ever documented. Returns at most 500 items, newest first.\n\nNeeds the `ViewEvidence` permission.",
+        "description": "What is on a case file, or on any case file. Answered entirely from the database, so listing evidence costs the store no request and no egress. Destroyed items are listed too, because a case file that looks like it never had evidence is indistinguishable from one nobody ever documented. A file taken off a case file is left out unless includeTakenOff is true. One file on two case files is listed once for each. Returns at most 500 items, newest first.\n\nNeeds the `ViewEvidence` permission.",
         "operationId": "ListEvidence",
         "parameters": [
           {
@@ -10720,6 +10797,13 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "includeTakenOff",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -10760,7 +10844,7 @@
           "Evidence"
         ],
         "summary": "Get evidence details",
-        "description": "Everything about a piece of evidence except its bytes.\n\nNeeds the `ViewEvidence` permission.",
+        "description": "Everything about a piece of evidence except its bytes. It is the file's own record, so it says nothing about which case files hold it and reportId is null.\n\nNeeds the `ViewEvidence` permission.",
         "operationId": "GetEvidenceMetadata",
         "parameters": [
           {
@@ -10818,7 +10902,7 @@
           "Evidence"
         ],
         "summary": "Download evidence",
-        "description": "Served with Content-Disposition: attachment, the content type Modbot determined from the bytes themselves, X-Content-Type-Options: nosniff and a sandbox CSP. On a store that can presign and with direct delivery on, this redirects to a five-minute URL and the bucket serves the bytes; otherwise they stream through Modbot and are re-hashed on the way past. Range requests are answered where the backend supports them, because that is what makes video seeking work.\n\nNeeds the `ViewEvidence` permission.",
+        "description": "Served with Content-Disposition: attachment, the content type Modbot determined from the bytes themselves, X-Content-Type-Options: nosniff and a sandbox CSP. Every request is written to the audit log against your account: as \"Evidence downloaded\" every time, or as \"Evidence viewed\" when the request says view=true, at most once per person per file every ten minutes. case names the case file the page was opened from. On a store that can presign and with direct delivery on, this redirects to a five-minute URL and the bucket serves the bytes; otherwise they stream through Modbot and are re-hashed on the way past. Range requests are answered where the backend supports them, because that is what makes video seeking work.\n\nNeeds the `ViewEvidence` permission.",
         "operationId": "GetEvidence",
         "parameters": [
           {
@@ -10829,6 +10913,20 @@
               "maxLength": 64,
               "minLength": 64,
               "type": "string"
+            }
+          },
+          {
+            "name": "case",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -10891,7 +10989,7 @@
           "Evidence"
         ],
         "summary": "Destroy evidence",
-        "description": "Refcounted: content addressing means two case files can cite one object, so the reports still referencing these bytes are named back rather than having their evidence quietly removed. There is no undo — no backend Modbot supports could implement one — and what survives is the hash, the size, the type, who destroyed it and why.\n\nNeeds the `DestroyEvidence` permission.",
+        "description": "Refcounted: content addressing means two case files can hold one object, so the case files still holding these bytes are named back rather than having their evidence quietly removed. caseId is the case file it is being destroyed from, withdrawn or not: that case file lets go of it as part of the destroy, and only the others stop it. There is no undo — no backend Modbot supports could implement one — and what survives is the hash, the size, the type, who destroyed it and why. Recorded as a fact against your account.\n\nNeeds the `DestroyEvidence` permission.",
         "operationId": "DestroyEvidence",
         "parameters": [
           {
@@ -21885,6 +21983,10 @@
           "now": {
             "type": "string",
             "format": "date-time"
+          },
+          "canDestroyEvidence": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -24940,6 +25042,12 @@
         "properties": {
           "reason": {
             "type": "string"
+          },
+          "caseId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -25262,6 +25370,26 @@
               "null",
               "string"
             ]
+          },
+          "attachedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "takenOffAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "takenOffBy": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -25477,6 +25605,21 @@
               "string"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "EvidenceTakenOffResponse": {
+        "required": [
+          "caseId",
+          "hash"
+        ],
+        "type": "object",
+        "properties": {
+          "caseId": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
           }
         }
       },

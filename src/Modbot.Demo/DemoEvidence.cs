@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
+using Modbot.Core.Data.Entities;
 using Modbot.Evidence.Options;
 using Modbot.Evidence.Storage;
 using Modbot.Evidence.Upload;
@@ -66,7 +67,7 @@ public sealed class DemoEvidence
         var cases = await _db.CaseFiles.AsNoTracking()
             .OrderByDescending(c => c.CreatedAt)
             .Take(14)
-            .Select(c => new { c.Id, c.AuthorUsername, c.CreatedAt })
+            .Select(c => new { c.Id, c.AuthorUserId, c.AuthorUsername, c.CreatedAt })
             .ToListAsync(ct);
 
         for (var index = 0; index < cases.Count; index++)
@@ -89,9 +90,20 @@ public sealed class DemoEvidence
                     file.CreatedAt,
                     $"screenshot-{index + 1}.svg",
                     file.AuthorUsername,
-                    file.Id.ToString(),
                     EvidenceOrigin.Uploaded),
                 ct);
+
+            // On the case file it was made for, put there by the person who wrote it up.
+            _db.EvidenceAttachments.Add(new EvidenceAttachment
+            {
+                Hash = staged.Hash.Hex,
+                CaseId = file.Id.ToString(),
+                AttachedAt = file.CreatedAt,
+                AttachedByUserId = file.AuthorUserId,
+                AttachedByName = file.AuthorUsername,
+                FileName = $"screenshot-{index + 1}.svg",
+            });
+            await _db.SaveChangesAsync(ct);
         }
     }
 

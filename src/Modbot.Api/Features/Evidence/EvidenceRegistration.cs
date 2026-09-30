@@ -73,6 +73,12 @@ public static class EvidenceRegistration
 
         services.AddScoped<EvidenceSettingsService>();
 
+        // Who put a file on which case file, and who looked at it. The throttle is a singleton
+        // because it remembers across requests: a look is written once per person per file per
+        // ten minutes, not once per request.
+        services.AddSingleton<EvidenceViewThrottle>();
+        services.AddScoped<EvidenceAttachments>();
+
         return services;
     }
 

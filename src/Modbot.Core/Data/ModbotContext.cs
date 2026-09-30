@@ -97,6 +97,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     public DbSet<CompanionPairingCodeRecord> CompanionPairingCodes => Set<CompanionPairingCodeRecord>();
     public DbSet<EvidenceBlob> EvidenceBlobs => Set<EvidenceBlob>();
 
+    /// <summary>Which case files hold which evidence files, and which have been taken off.</summary>
+    public DbSet<EvidenceAttachment> EvidenceAttachments => Set<EvidenceAttachment>();
+
     /// <summary>
     /// Every VRChat user Modbot has ever seen, with their profile as last fetched. Not derived
     /// from facts and not rebuildable from them -- see <see cref="VRChatUser"/>.
@@ -714,12 +717,36 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.ContentType).HasMaxLength(128);
             entity.Property(e => e.FileName).HasMaxLength(256);
             entity.Property(e => e.UploaderId).HasMaxLength(128);
-            entity.Property(e => e.ReportId).HasMaxLength(128);
             entity.Property(e => e.DestroyedBy).HasMaxLength(128);
             entity.Property(e => e.DestroyedReason).HasMaxLength(512);
+        });
 
-            // Rendering a case file is "every blob for this report", and it must not scan.
-            entity.HasIndex(e => e.ReportId);
+        builder.Entity<EvidenceAttachment>(entity =>
+        {
+            entity.ToTable("modbot_evidence_attachment");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.Hash).HasMaxLength(64);
+            entity.Property(e => e.CaseId).HasMaxLength(128);
+            entity.Property(e => e.AttachedByName).HasMaxLength(64);
+            entity.Property(e => e.FileName).HasMaxLength(256);
+            entity.Property(e => e.TakenOffByName).HasMaxLength(64);
+
+            // Rendering a case file is "every file this case file holds or held", and it must not
+            // scan.
+            entity.HasIndex(e => e.CaseId).HasDatabaseName("ix_evidence_attachment_case");
+
+            // "Which case files hold this file" is asked before every destroy.
+            entity.HasIndex(e => e.Hash).HasDatabaseName("ix_evidence_attachment_hash");
+
+            // A case file holds a file once. Putting one back after it was taken off is a new row,
+            // so the rule only covers the rows that are still on.
+            entity.HasIndex(e => new { e.Hash, e.CaseId })
+                .IsUnique()
+                .HasDatabaseName("ux_evidence_attachment_on")
+                .HasFilter("taken_off_at IS NULL");
         });
 
         builder.Entity<VRChatUser>(entity =>

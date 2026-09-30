@@ -180,10 +180,12 @@ meant to answer. The screen refreshes itself while you have it open.
 
 - **Case files** are never deleted. A case file can be withdrawn, with a note; it stays readable.
   See [Bans and case files](/moderation/case-files).
-- **Evidence files** can be destroyed one at a time by somebody holding **Destroy evidence**. The
-  file is deleted permanently and a reason is required. The record that it existed stays: its size,
-  type, who destroyed it, when and why. There is no button for this in the web app yet; it is done
-  through the [API](/api/reference). See [Evidence](/moderation/evidence).
+- **Evidence files** can be destroyed one at a time by somebody holding **Destroy evidence**, with
+  the **Destroy** button on the case file. The file is deleted permanently and a reason is
+  required. The record that it existed stays: its size, type, who destroyed it, when and why. A file
+  that is on more than one case file has to be taken off the others first. Taking a file off a case
+  file only ends that case file's hold and keeps a line saying so. See
+  [Evidence](/moderation/evidence).
 - **Staff accounts** are never deleted, because every recorded action points at the account that
   did it. Disable them instead.
 

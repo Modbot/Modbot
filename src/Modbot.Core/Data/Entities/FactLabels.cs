@@ -193,7 +193,9 @@ public static class FactLabels
         [FactType.ActionJoinRequestRejected] = "Join request turned down from Modbot",
 
         [FactType.EvidenceAttached] = "Evidence attached",
-        [FactType.EvidenceAccessed] = "Evidence opened",
+        [FactType.EvidenceDetached] = "Evidence taken off",
+        [FactType.EvidenceViewed] = "Evidence viewed",
+        [FactType.EvidenceDownloaded] = "Evidence downloaded",
         [FactType.EvidenceDestroyed] = "Evidence destroyed",
 
         [FactType.SyncFailed] = "Sync failed",

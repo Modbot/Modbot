@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Cases;
+using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Evidence.Health;
@@ -45,30 +47,38 @@ public static class EvidenceObjectEndpoints
         group.MapGet("/", async (
                 [FromServices] ModbotContext db,
                 [FromQuery] string? reportId,
+                [FromQuery] bool? includeTakenOff,
                 CancellationToken ct) =>
             {
-                var query = db.EvidenceBlobs.AsNoTracking();
+                var query =
+                    from a in db.EvidenceAttachments.AsNoTracking()
+                    join b in db.EvidenceBlobs.AsNoTracking() on a.Hash equals b.Hash
+                    select new { Attachment = a, Blob = b };
 
-                query = reportId is { Length: > 0 }
-                    ? query.Where(b => b.ReportId == reportId)
-                    : query.Where(b => b.ReportId != null);
+                if (reportId is { Length: > 0 })
+                    query = query.Where(x => x.Attachment.CaseId == reportId);
+
+                if (includeTakenOff != true)
+                    query = query.Where(x => x.Attachment.TakenOffAt == null);
 
                 var rows = await query
-                    .OrderByDescending(b => b.FirstStoredAt)
+                    .OrderByDescending(x => x.Attachment.AttachedAt)
                     .Take(500)
                     .ToListAsync(ct);
 
-                return Results.Ok(rows.Select(Describe).ToList());
+                return Results.Ok(rows.Select(x => EvidenceViews.Of(x.Blob, x.Attachment)).ToList());
             })
             .RequiresFlag(ModbotPermissions.ViewEvidence)
             .WithName("ListEvidence")
             .WithSummary("List evidence")
             .WithDescription(
-                "What is attached to a case file. "
-                + "Answered entirely from the blob record, so listing evidence costs the store "
+                "What is on a case file, or on any case file. "
+                + "Answered entirely from the database, so listing evidence costs the store "
                 + "no request and no egress. Destroyed items are listed too, because a case file "
                 + "that looks like it never had evidence is indistinguishable from one nobody ever "
-                + "documented. Returns at most 500 items, newest first.")
+                + "documented. A file taken off a case file is left out unless includeTakenOff is "
+                + "true. One file on two case files is listed once for each. Returns at most 500 "
+                + "items, newest first.")
             .Produces<IReadOnlyList<EvidenceObjectView>>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -79,12 +89,15 @@ public static class EvidenceObjectEndpoints
             {
                 var row = await db.EvidenceBlobs.AsNoTracking().FirstOrDefaultAsync(b => b.Hash == hash, ct);
 
-                return row is null ? NeverExisted() : Results.Ok(Describe(row));
+                return row is null ? NeverExisted() : Results.Ok(EvidenceViews.Of(row));
             })
             .RequiresFlag(ModbotPermissions.ViewEvidence)
             .WithName("GetEvidenceMetadata")
             .WithSummary("Get evidence details")
-            .WithDescription("Everything about a piece of evidence except its bytes.")
+            .WithDescription(
+                "Everything about a piece of evidence except its bytes. "
+                + "It is the file's own record, so it says nothing about which case files hold it "
+                + "and reportId is null.")
             .Produces<EvidenceObjectView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -92,6 +105,9 @@ public static class EvidenceObjectEndpoints
         group.MapGet("/{hash:length(64)}", async (
                 HttpContext http,
                 string hash,
+                [FromQuery(Name = "case")] string? caseId,
+                [FromQuery] bool? view,
+                [FromServices] EvidenceAttachments attachments,
                 [FromServices] ModbotContext db,
                 [FromServices] IEvidenceStore store,
                 [FromServices] EvidenceStoreMonitor monitor,
@@ -127,6 +143,12 @@ public static class EvidenceObjectEndpoints
 
                 var fileName = SafeFileName(row.FileName, hash, row.ContentType);
 
+                // Written once the file is really going out and not before, so a download the
+                // store then could not serve leaves no line. A page showing the file passes
+                // view=true and is written at most once per person per file every ten minutes;
+                // everything else is a download and is written every time.
+                Task RecordAccess() => attachments.RecordAccessAsync(hash, caseId, Actor.Of(http), download: view != true, ct);
+
                 // The cheap path, and on Railway the free one: the bucket talks to the browser and
                 // Modbot steps out of the way. It is honestly a little weaker — a presigned GET can
                 // pin the disposition and the type by signing them but cannot add nosniff or a CSP,
@@ -143,6 +165,10 @@ public static class EvidenceObjectEndpoints
 
                     if (url is not null)
                     {
+                        // Here the fact says a link was handed out, not that the bytes were
+                        // fetched: the fetch goes to the bucket and never touches Modbot.
+                        await RecordAccess();
+
                         // The URL must not be cached anywhere shared: anyone holding it within its
                         // window can fetch the object without authenticating, which is intrinsic to
                         // presigning and is why the window is five minutes.
@@ -186,6 +212,8 @@ public static class EvidenceObjectEndpoints
 
                 await using (body)
                 {
+                    await RecordAccess();
+
                     ApplyHeaders(http.Response, row.ContentType, fileName);
 
                     if (slice is { } served)
@@ -238,7 +266,11 @@ public static class EvidenceObjectEndpoints
             .WithSummary("Download evidence")
             .WithDescription(
                 "Served with Content-Disposition: attachment, the content type Modbot determined "
-                + "from the bytes themselves, X-Content-Type-Options: nosniff and a sandbox CSP. On "
+                + "from the bytes themselves, X-Content-Type-Options: nosniff and a sandbox CSP. "
+                + "Every request is written to the audit log against your account: as "
+                + "\"Evidence downloaded\" every time, or as \"Evidence viewed\" when the request "
+                + "says view=true, at most once per person per file every ten minutes. case names "
+                + "the case file the page was opened from. On "
                 + "a store that can presign and with direct delivery on, this redirects to a "
                 + "five-minute URL and the bucket serves the bytes; otherwise they stream through "
                 + "Modbot and are re-hashed on the way past. Range requests are answered where the "
@@ -257,6 +289,8 @@ public static class EvidenceObjectEndpoints
                 string hash,
                 EvidenceDestroyRequest body,
                 [FromServices] EvidenceDestroyer destroyer,
+                [FromServices] EvidenceAttachments attachments,
+                [FromServices] ModbotContext db,
                 CancellationToken ct) =>
             {
                 if (!EvidenceHash.TryParse(hash, out var parsed))
@@ -270,14 +304,20 @@ public static class EvidenceObjectEndpoints
                     });
                 }
 
-                var actor = http.User.Identity?.Name ?? "unknown";
+                if (Actor.Of(http) is not { } actor)
+                    return Results.Forbid();
+
+                if (!await db.EvidenceBlobs.AsNoTracking().AnyAsync(b => b.Hash == hash, ct))
+                    return NeverExisted();
 
                 try
                 {
-                    var result = await destroyer.DestroyAsync(parsed, actor, body.Reason.Trim(), ct);
-
-                    return Results.Ok(new EvidenceDestroyResponse(
-                        result.Destroyed, result.BlockedByReports, result.Message));
+                    return Results.Ok(await attachments.DestroyAsync(
+                        parsed, body.CaseId?.Trim(), actor, body.Reason.Trim(), destroyer, ct));
+                }
+                catch (CaseFileRefused refused)
+                {
+                    return CaseFileEndpoints.Refusal(refused);
                 }
                 catch (EvidenceStoreUnavailableException e)
                 {
@@ -290,16 +330,56 @@ public static class EvidenceObjectEndpoints
             .WithName("DestroyEvidence")
             .WithSummary("Destroy evidence")
             .WithDescription(
-                "Refcounted: content addressing means two case files can cite one object, so the "
-                + "reports still referencing these bytes are named back rather than having their "
-                + "evidence quietly removed. There is no undo — no backend Modbot supports could "
+                "Refcounted: content addressing means two case files can hold one object, so the "
+                + "case files still holding these bytes are named back rather than having their "
+                + "evidence quietly removed. caseId is the case file it is being destroyed from, "
+                + "withdrawn or not: that case file lets go of it as part of the destroy, and only "
+                + "the others stop it. There is no undo — no backend Modbot supports could "
                 + "implement one — and what survives is the hash, the size, the type, who "
-                + "destroyed it and why.")
+                + "destroyed it and why. Recorded as a fact against your account.")
             .Produces<EvidenceDestroyResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status503ServiceUnavailable);
+
+        app.MapPost("/api/cases/{id:guid}/evidence/{hash:length(64)}/take-off", async (
+                HttpContext http,
+                [FromRoute] Guid id,
+                string hash,
+                [FromServices] EvidenceAttachments attachments,
+                CancellationToken ct) =>
+            {
+                if (CaseFileEndpoints.CallerOf(http) is not { } caller || Actor.Of(http) is not { } actor)
+                    return Results.Forbid();
+
+                try
+                {
+                    var caseFile = await attachments.RequireEditableAsync(id.ToString(), caller, ct);
+                    await attachments.TakeOffAsync(caseFile, hash, actor, ct);
+
+                    return Results.Ok(new EvidenceTakenOffResponse(caseFile.Id.ToString(), hash));
+                }
+                catch (CaseFileRefused refused)
+                {
+                    return CaseFileEndpoints.Refusal(refused);
+                }
+            })
+            .WithTags("Evidence")
+            .RequireAuthorization()
+            .RequiresFlag(ModbotPermissions.UploadEvidence)
+            .WithName("TakeEvidenceOffCaseFile")
+            .WithSummary("Take evidence off a case file")
+            .WithDescription(
+                "Ends this case file's hold on the file and keeps a line saying it was there. "
+                + "The bytes stay, and so does every other case file's hold on them; putting the "
+                + "file back is attaching it again. For the author of the case file or anyone who "
+                + "may ban, while it is not withdrawn (409 once it is). Recorded as a fact against "
+                + "your account. 404 when the file is not on this case file.")
+            .Produces<EvidenceTakenOffResponse>()
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status409Conflict);
 
         return app;
     }
@@ -308,20 +388,6 @@ public static class EvidenceObjectEndpoints
     {
         error = "No evidence with that content address has been stored here.",
     });
-
-    private static EvidenceObjectView Describe(EvidenceBlob blob) => new(
-        blob.Hash,
-        blob.ByteSize,
-        blob.ContentType,
-        blob.FileName,
-        blob.UploaderId,
-        blob.ReportId,
-        blob.Origin.ToString(),
-        blob.FirstStoredAt,
-        blob.IsDestroyed,
-        blob.DestroyedAt,
-        blob.DestroyedBy,
-        blob.DestroyedReason);
 
     /// <summary>The four headers of design §10.2, on every byte Modbot serves itself.</summary>
     private static void ApplyHeaders(HttpResponse response, string contentType, string fileName)

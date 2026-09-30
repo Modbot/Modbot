@@ -67,8 +67,15 @@ public sealed record UploadTicket(
 /// moderator "you have already uploaded this file" tells them something about a case file they may
 /// have no right to see.
 /// </param>
+/// <param name="FileName">What the uploader called it, for the case file that now holds it.</param>
+/// <param name="ReportId">The case file the upload was begun for or committed to, if it named one.</param>
 public sealed record CommitResult(
-    EvidenceHash Hash, long ByteSize, string ContentType, CommitOutcome Outcome);
+    EvidenceHash Hash,
+    long ByteSize,
+    string ContentType,
+    CommitOutcome Outcome,
+    string? FileName = null,
+    string? ReportId = null);
 
 /// <summary>
 /// The three-phase upload of design section 9.1, which is the same on every backend.
@@ -136,6 +143,11 @@ public sealed class EvidenceUploadService
         // it is caught while streaming, and the stored size is checked again at commit.
         if (request.DeclaredLength is { } declared && declared > _options.MaxFileBytes)
             throw new EvidenceTooLargeException(_options.MaxFileBytes);
+
+        // The totals too, on the size the client says it will send. A lie about it is caught at
+        // commit, which checks them again against the bytes that were stored.
+        if (request.DeclaredLength is { } declaredSize)
+            await RequireRoomAsync(request.ReportId, declaredSize, except: null, ct).ConfigureAwait(false);
 
         if (request.DeclaredContentType is not null
             && !EvidenceContentType.IsPlausibleDeclaredType(request.DeclaredContentType))
@@ -263,7 +275,12 @@ public sealed class EvidenceUploadService
         if (upload is { Status: EvidenceUploadStatus.Committed, StagedHash: { } done })
         {
             return new CommitResult(
-                done, upload.StagedBytes ?? 0, upload.CommittedContentType!, CommitOutcome.AlreadyPresent);
+                done,
+                upload.StagedBytes ?? 0,
+                upload.CommittedContentType!,
+                CommitOutcome.AlreadyPresent,
+                upload.FileName,
+                upload.ReportId);
         }
 
         var staged = await _store.OpenStagedAsync(uploadId, ct).ConfigureAwait(false)
@@ -302,6 +319,18 @@ public sealed class EvidenceUploadService
             throw new EvidenceTooLargeException(_options.MaxFileBytes);
         }
 
+        // The two totals, against what was actually stored and with this file left out of the sum,
+        // so a file the case file (or the deployment) already holds never counts twice.
+        try
+        {
+            await RequireRoomAsync(upload.ReportId, size, hash, ct).ConfigureAwait(false);
+        }
+        catch (EvidenceTooLargeException)
+        {
+            await DiscardAsync(uploadId, ct).ConfigureAwait(false);
+            throw;
+        }
+
         var outcome = await _store.CommitAsync(uploadId, hash, ct).ConfigureAwait(false);
 
         // A row in the blob record is a claim that the bytes were confirmed present at least
@@ -329,7 +358,6 @@ public sealed class EvidenceUploadService
                 _clock.UtcNow,
                 upload.FileName,
                 upload.UploaderId,
-                upload.ReportId,
                 EvidenceOrigin.Uploaded),
             ct).ConfigureAwait(false);
 
@@ -343,7 +371,7 @@ public sealed class EvidenceUploadService
             },
             ct).ConfigureAwait(false);
 
-        return new CommitResult(hash, size, verdict.ContentType!, outcome);
+        return new CommitResult(hash, size, verdict.ContentType!, outcome, upload.FileName, upload.ReportId);
     }
 
     /// <summary>
@@ -364,6 +392,42 @@ public sealed class EvidenceUploadService
 
         return (counting.Hash, counting.BytesRead, EvidenceContentType.Sniff(prefix.AsSpan(0, prefixLength)));
     }
+
+    /// <summary>
+    /// Refuses a file that would take the case file, or the deployment, over its total limit.
+    /// Zero means no limit.
+    /// </summary>
+    private async Task RequireRoomAsync(string? reportId, long size, EvidenceHash? except, CancellationToken ct)
+    {
+        if (_options.MaxReportBytes > 0 && reportId is { Length: > 0 })
+        {
+            var held = await _metadata.BytesOnReportAsync(reportId, except, ct).ConfigureAwait(false);
+
+            if (held + size > _options.MaxReportBytes)
+            {
+                throw new EvidenceTooLargeException(
+                    $"This case file can hold {Megabytes(_options.MaxReportBytes)} of evidence and already holds "
+                    + $"{Megabytes(held)}. This file is {Megabytes(size)}.");
+            }
+        }
+
+        if (_options.MaxDeploymentBytes > 0)
+        {
+            var stored = await _metadata.BytesStoredAsync(except, ct).ConfigureAwait(false);
+
+            if (stored + size > _options.MaxDeploymentBytes)
+            {
+                throw new EvidenceTooLargeException(
+                    $"Evidence storage is limited to {Megabytes(_options.MaxDeploymentBytes)} in all and "
+                    + $"already holds {Megabytes(stored)}. This file is {Megabytes(size)}.");
+            }
+        }
+    }
+
+    private static string Megabytes(long bytes)
+        => bytes >= 1024 * 1024
+            ? $"{bytes / (1024.0 * 1024.0):0.#} MB"
+            : $"{bytes / 1024.0:0.#} KB";
 
     private void RequireHealthyStore()
     {

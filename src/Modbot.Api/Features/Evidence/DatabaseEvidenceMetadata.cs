@@ -19,26 +19,32 @@ namespace Modbot.Api.Features.Evidence;
 /// <para>
 /// The blob record is what makes three otherwise impossible things work: §8's detection of a lost
 /// store (the database believes objects exist and the store cannot find them), refcounted deletion
-/// (two case files can cite one object, so deleting a report must not delete bytes another report
+/// (two case files can hold one object, so destroying it for one must not take the bytes another
 /// still needs), and rendering a case file without touching the store at all — which on S3 means
 /// listing evidence costs no request and no egress.
+/// </para>
+/// <para>
+/// Which case files hold a file is <see cref="EvidenceAttachment"/>, one row per case file. This
+/// class only reads those (to answer "who still holds it" and "how many bytes"); putting a file on
+/// a case file and taking it off are <see cref="EvidenceAttachments"/>, which writes the fact that
+/// says who did it in the same transaction.
 /// </para>
 /// </remarks>
 public sealed class DatabaseEvidenceMetadata(ModbotContext db, IModbotClock clock) : IEvidenceMetadata
 {
     /// <summary>
-    /// Records a blob and its attachment, after the bytes are confirmed present.
+    /// Records a blob, after the bytes are confirmed present.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Idempotent by hash, because the store is content-addressed and the same bytes genuinely
-    /// arrive twice: the same screenshot attached to two reports, or a commit retried after a
-    /// timeout. A duplicate is the expected case, not an error.
+    /// arrive twice: the same screenshot for two case files, or a commit retried after a timeout. A
+    /// duplicate is the expected case, not an error.
     /// </para>
     /// <para>
     /// A re-record never overwrites <see cref="EvidenceBlob.FirstStoredAt"/> or the destruction
-    /// columns. First-stored is a fact about the bytes rather than about this attachment, and
-    /// silently resurrecting a destroyed row by re-uploading the same file would defeat the
+    /// columns. First-stored is a fact about the bytes rather than about who sent them this time,
+    /// and silently resurrecting a destroyed row by re-uploading the same file would defeat the
     /// deletion it records.
     /// </para>
     /// </remarks>
@@ -47,18 +53,9 @@ public sealed class DatabaseEvidenceMetadata(ModbotContext db, IModbotClock cloc
         ArgumentNullException.ThrowIfNull(record);
 
         var hash = record.Hash.ToString();
-        var existing = await db.EvidenceBlobs.FirstOrDefaultAsync(b => b.Hash == hash, ct);
 
-        if (existing is not null)
-        {
-            // Attach it to this report if it was not attached to one before. Anything else about
-            // the bytes is already true and is not this upload's to restate.
-            if (existing.ReportId is null && record.ReportId is not null)
-                existing.ReportId = record.ReportId;
-
-            await db.SaveChangesAsync(ct);
+        if (await db.EvidenceBlobs.AnyAsync(b => b.Hash == hash, ct))
             return;
-        }
 
         db.EvidenceBlobs.Add(new EvidenceBlob
         {
@@ -69,7 +66,6 @@ public sealed class DatabaseEvidenceMetadata(ModbotContext db, IModbotClock cloc
             FirstStoredAt = record.FirstStoredAt,
             FileName = record.FileName,
             UploaderId = record.UploaderId,
-            ReportId = record.ReportId,
             Origin = record.Origin is EvidenceOrigin.Captured
                 ? EvidenceOriginKind.Captured
                 : EvidenceOriginKind.Uploaded,
@@ -78,11 +74,12 @@ public sealed class DatabaseEvidenceMetadata(ModbotContext db, IModbotClock cloc
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>Which reports currently cite these bytes.</summary>
+    /// <summary>Which case files hold these bytes right now.</summary>
     /// <remarks>
-    /// Destroyed rows are excluded: their bytes are already gone, so they cannot be a reason to
-    /// keep an object alive. Including them would make an object undeletable forever after the
-    /// one report citing it was erased.
+    /// A file that was taken off a case file is not held by it, and a destroyed file is held by
+    /// nobody: its bytes are already gone, so it cannot be a reason to keep an object alive.
+    /// Counting destroyed rows would make an object undeletable forever after the one case file
+    /// holding it was erased.
     /// </remarks>
     public async Task<IReadOnlyList<string>> ReferencesAsync(
         EvidenceHash hash,
@@ -90,11 +87,45 @@ public sealed class DatabaseEvidenceMetadata(ModbotContext db, IModbotClock cloc
     {
         var key = hash.ToString();
 
-        return await db.EvidenceBlobs.AsNoTracking()
-            .Where(b => b.Hash == key && b.ReportId != null && b.DestroyedAt == null)
-            .Select(b => b.ReportId!)
+        return await (
+                from a in db.EvidenceAttachments.AsNoTracking()
+                join b in db.EvidenceBlobs.AsNoTracking() on a.Hash equals b.Hash
+                where a.Hash == key && a.TakenOffAt == null && b.DestroyedAt == null
+                select a.CaseId)
             .Distinct()
             .ToListAsync(ct);
+    }
+
+    /// <summary>The bytes one case file holds, leaving out one file.</summary>
+    public async Task<long> BytesOnReportAsync(
+        string reportId,
+        EvidenceHash? except = null,
+        CancellationToken ct = default)
+    {
+        var skip = except?.ToString();
+
+        var sizes = await (
+                from a in db.EvidenceAttachments.AsNoTracking()
+                join b in db.EvidenceBlobs.AsNoTracking() on a.Hash equals b.Hash
+                where a.CaseId == reportId
+                    && a.TakenOffAt == null
+                    && b.DestroyedAt == null
+                    && (skip == null || b.Hash != skip)
+                select new { b.Hash, b.ByteSize })
+            .Distinct()
+            .ToListAsync(ct);
+
+        return sizes.Sum(s => s.ByteSize);
+    }
+
+    /// <summary>The bytes the deployment holds, leaving out one file.</summary>
+    public async Task<long> BytesStoredAsync(EvidenceHash? except = null, CancellationToken ct = default)
+    {
+        var skip = except?.ToString();
+
+        return await db.EvidenceBlobs.AsNoTracking()
+            .Where(b => b.DestroyedAt == null && (skip == null || b.Hash != skip))
+            .SumAsync(b => b.ByteSize, ct);
     }
 
     /// <summary>Marks the blob destroyed, keeping everything except the bytes.</summary>

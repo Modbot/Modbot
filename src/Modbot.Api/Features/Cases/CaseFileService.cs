@@ -393,13 +393,7 @@ public sealed class CaseFileService
         IReadOnlyList<EvidenceObjectView>? evidence = null;
         if (canViewEvidence)
         {
-            var key = row.Id.ToString();
-            var blobs = await _db.EvidenceBlobs.AsNoTracking()
-                .Where(b => b.ReportId == key)
-                .OrderBy(b => b.FirstStoredAt)
-                .ToListAsync(ct);
-
-            evidence = blobs.Select(Describe).ToList();
+            evidence = await EvidenceOfAsync(row.Id.ToString(), ct);
         }
 
         var newer = NewerProfileExists(row.ProfileRefreshedAt, user?.LastRefreshedAt);
@@ -440,7 +434,35 @@ public sealed class CaseFileService
             canEdit,
             canEdit && caller.Has(ModbotPermissions.UploadEvidence),
             canViewEvidence,
-            now);
+            now,
+            canViewEvidence && caller.Has(ModbotPermissions.DestroyEvidence));
+    }
+
+    /// <summary>
+    /// What a case file holds and what it once held: each file on it, and a trace of each one taken
+    /// off. A file that was taken off and put back shows once, as it stands now.
+    /// </summary>
+    private async Task<IReadOnlyList<EvidenceObjectView>> EvidenceOfAsync(string caseId, CancellationToken ct)
+    {
+        var held = await (
+                from a in _db.EvidenceAttachments.AsNoTracking()
+                join b in _db.EvidenceBlobs.AsNoTracking() on a.Hash equals b.Hash
+                where a.CaseId == caseId
+                orderby a.AttachedAt, a.Id
+                select new { Attachment = a, Blob = b })
+            .ToListAsync(ct);
+
+        var on = held.Where(h => h.Attachment.IsOn).Select(h => h.Attachment.Hash).ToHashSet(StringComparer.Ordinal);
+
+        var latestOff = held
+            .Where(h => !h.Attachment.IsOn && !on.Contains(h.Attachment.Hash))
+            .GroupBy(h => h.Attachment.Hash)
+            .ToDictionary(g => g.Key, g => g.Max(h => h.Attachment.TakenOffAt), StringComparer.Ordinal);
+
+        return held
+            .Where(h => h.Attachment.IsOn || latestOff.GetValueOrDefault(h.Attachment.Hash) == h.Attachment.TakenOffAt)
+            .Select(h => EvidenceViews.Of(h.Blob, h.Attachment))
+            .ToList();
     }
 
     public async Task<CaseFileListResponse> ListAsync(
@@ -583,7 +605,7 @@ public sealed class CaseFileService
             throw new CaseFileRefused(503, "Case files cannot be written in this process: the fact log is not available here.");
     }
 
-    private static void RequireEditable(CaseFile row, Caller caller)
+    internal static void RequireEditable(CaseFile row, Caller caller)
     {
         if (!caller.Has(ModbotPermissions.Ban) && row.AuthorUserId != caller.UserId)
             throw new CaseFileRefused(403, "Only the author, or somebody who may ban, can change a case file.");
@@ -740,10 +762,12 @@ public sealed class CaseFileService
         var names = await PeopleNames.LookupAsync(_db, rows.Select(r => r.UserId).ToList(), ct);
 
         var keys = rows.Select(r => r.Id.ToString()).ToList();
-        var counts = await _db.EvidenceBlobs.AsNoTracking()
-            .Where(b => b.ReportId != null && keys.Contains(b.ReportId) && b.DestroyedAt == null)
-            .GroupBy(b => b.ReportId!)
-            .Select(g => new { ReportId = g.Key, Count = g.Count() })
+        var counts = await (
+                from a in _db.EvidenceAttachments.AsNoTracking()
+                join b in _db.EvidenceBlobs.AsNoTracking() on a.Hash equals b.Hash
+                where keys.Contains(a.CaseId) && a.TakenOffAt == null && b.DestroyedAt == null
+                group a by a.CaseId into g
+                select new { ReportId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.ReportId, g => g.Count, ct);
 
         return rows.Select(r => new CaseFileSummary(
@@ -833,20 +857,6 @@ public sealed class CaseFileService
 
     /// <summary>How much earlier the profile was fetched, as every length is written: "45s", "3h 20m", "2d 4h".</summary>
     private static string Age(TimeSpan span) => TimeWords.Length(span);
-
-    private static EvidenceObjectView Describe(EvidenceBlob blob) => new(
-        blob.Hash,
-        blob.ByteSize,
-        blob.ContentType,
-        blob.FileName,
-        blob.UploaderId,
-        blob.ReportId,
-        blob.Origin.ToString(),
-        blob.FirstStoredAt,
-        blob.IsDestroyed,
-        blob.DestroyedAt,
-        blob.DestroyedBy,
-        blob.DestroyedReason);
 
     private static string Json(IEnumerable<Guid> ids)
         => JsonSerializer.Serialize(ids.Select(id => id.ToString()).ToList(), Web);

@@ -75,7 +75,14 @@ public sealed class UploadPipelineTests : IAsyncLifetime
         using var body = new MemoryStream(content, writable: false);
         await _uploads.ReceiveAsync(ticket.UploadId, body, claimedLength ?? content.Length, Ct);
 
-        return await _uploads.CommitAsync(ticket.UploadId, null, Ct);
+        var result = await _uploads.CommitAsync(ticket.UploadId, null, Ct);
+
+        // The step the API makes after a commit: the file goes on the case file. It is what the
+        // total limits count.
+        if (reportId is not null)
+            _metadata.PutOn(result.Hash, reportId);
+
+        return result;
     }
 
     /// <summary>Opens and closes, so an assertion never leaves a handle on the staging file.</summary>
@@ -109,10 +116,10 @@ public sealed class UploadPipelineTests : IAsyncLifetime
     /// <summary>
     /// The ban dialog sends a screenshot while the moderator is still typing, before the case file
     /// it belongs to exists. The upload begins with no report and the commit names the one the ban
-    /// wrote.
+    /// wrote, which the commit says back so the API can put the file on it.
     /// </summary>
     [Fact]
-    public async Task AnUploadBegunWithNoReportIsAttachedToTheReportItsCommitNames()
+    public async Task AnUploadBegunWithNoReportIsForTheReportItsCommitNames()
     {
         var content = SampleMedia.Png(2048);
         var ticket = await _uploads.BeginAsync(
@@ -121,10 +128,11 @@ public sealed class UploadPipelineTests : IAsyncLifetime
         using var body = new MemoryStream(content, writable: false);
         await _uploads.ReceiveAsync(ticket.UploadId, body, content.Length, Ct);
 
-        await _uploads.CommitAsync(ticket.UploadId, null, "case-7", Ct);
+        var result = await _uploads.CommitAsync(ticket.UploadId, null, "case-7", Ct);
 
-        var record = Assert.Single(_metadata.Records);
-        Assert.Equal("case-7", record.ReportId);
+        Assert.Equal("case-7", result.ReportId);
+        Assert.Equal("shot.png", result.FileName);
+        Assert.Single(_metadata.Records);
     }
 
     [Fact]
@@ -137,9 +145,10 @@ public sealed class UploadPipelineTests : IAsyncLifetime
         using var body = new MemoryStream(content, writable: false);
         await _uploads.ReceiveAsync(ticket.UploadId, body, content.Length, Ct);
 
-        await _uploads.CommitAsync(ticket.UploadId, null, "case-7", Ct);
+        var result = await _uploads.CommitAsync(ticket.UploadId, null, "case-7", Ct);
 
-        Assert.Equal("case-7", Assert.Single(_metadata.Records).ReportId);
+        Assert.Equal("case-7", result.ReportId);
+        Assert.Single(_metadata.Records);
     }
 
     /// <summary>
@@ -233,12 +242,12 @@ public sealed class UploadPipelineTests : IAsyncLifetime
             () => _uploads.BeginAsync(new BeginUploadRequest("drawing.svg", "image/svg+xml"), Ct));
 
     /// <summary>
-    /// Deduplication: the same bytes on two reports are one object. The uploader is told nothing
+    /// Deduplication: the same bytes for two case files are one object. The uploader is told nothing
     /// about it, because "you have already uploaded this file" reveals a case file they may have no
     /// right to see.
     /// </summary>
     [Fact]
-    public async Task TheSameFileOnTwoReportsStoresOneObjectAndRecordsTwoAttachments()
+    public async Task TheSameFileForTwoCaseFilesStoresOneObjectAndIsHeldByBoth()
     {
         var content = SampleMedia.Webm(3000);
 
@@ -249,9 +258,97 @@ public sealed class UploadPipelineTests : IAsyncLifetime
         Assert.Equal(CommitOutcome.Created, first.Outcome);
         Assert.Equal(CommitOutcome.AlreadyPresent, second.Outcome);
 
-        // Two attachments, one blob, and two reports now share the bytes.
-        Assert.Equal(2, _metadata.Records.Count);
+        // One object, and two case files now hold it.
         Assert.Equal(2, (await _metadata.ReferencesAsync(first.Hash, Ct)).Count);
+    }
+
+    // ── The totals (design §9.3) ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// One case file may hold only so much. The second file that would take it over is refused at
+    /// the beginning on its declared size, and the message says what the case file holds.
+    /// </summary>
+    [Fact]
+    public async Task AFileThatWouldTakeACaseFileOverItsTotalIsRefusedAtTheBeginning()
+    {
+        _options.MaxReportBytes = 6000;
+
+        await UploadAsync(SampleMedia.Mp4(size: 4000), reportId: "report-1", fileName: "first.mp4");
+
+        var refused = await Assert.ThrowsAsync<EvidenceTooLargeException>(
+            () => _uploads.BeginAsync(
+                new BeginUploadRequest("second.mp4", "video/mp4", 4000, "report-1", "Gunner24"), Ct));
+
+        Assert.Contains("This case file can hold", refused.Message, StringComparison.Ordinal);
+
+        // Another case file has room for it: the limit is per case file.
+        await UploadAsync(SampleMedia.Mp4(size: 4000), reportId: "report-2", fileName: "second.mp4");
+    }
+
+    /// <summary>
+    /// A lie about the size gets past the beginning and is caught at commit, on the bytes that were
+    /// stored, with the staged object removed.
+    /// </summary>
+    [Fact]
+    public async Task ACaseFileTotalIsCheckedAgainAtCommitOnTheStoredSize()
+    {
+        _options.MaxReportBytes = 6000;
+
+        await UploadAsync(SampleMedia.Mp4(size: 4000), reportId: "report-1", fileName: "first.mp4");
+
+        var ticket = await _uploads.BeginAsync(
+            new BeginUploadRequest("second.mp4", "video/mp4", 100, "report-1", "Gunner24"), Ct);
+
+        // A different file from the first (a different size gives different bytes here).
+        using var body = new MemoryStream(SampleMedia.Mp4(size: 4500), writable: false);
+        await _uploads.ReceiveAsync(ticket.UploadId, body, null, Ct);
+
+        await Assert.ThrowsAsync<EvidenceTooLargeException>(
+            () => _uploads.CommitAsync(ticket.UploadId, null, Ct));
+
+        Assert.False(await StagedExistsAsync(ticket.UploadId));
+    }
+
+    /// <summary>
+    /// Putting on a file the case file already holds adds nothing, so it cannot push the case file
+    /// over its total however close to the limit it already is.
+    /// </summary>
+    [Fact]
+    public async Task AFileTheCaseFileAlreadyHoldsDoesNotCountTwice()
+    {
+        _options.MaxReportBytes = 6000;
+
+        var content = SampleMedia.Mp4(size: 4000);
+
+        await UploadAsync(content, reportId: "report-1");
+        await UploadAsync(content, reportId: "report-1");
+
+        Assert.Equal(2, _metadata.Records.Count);
+    }
+
+    /// <summary>The whole install may hold only so much, across every case file.</summary>
+    [Fact]
+    public async Task AFileThatWouldTakeTheInstallOverItsTotalIsRefused()
+    {
+        _options.MaxDeploymentBytes = 6000;
+
+        await UploadAsync(SampleMedia.Mp4(size: 4000), reportId: "report-1", fileName: "first.mp4");
+
+        var refused = await Assert.ThrowsAsync<EvidenceTooLargeException>(
+            () => _uploads.BeginAsync(
+                new BeginUploadRequest("second.mp4", "video/mp4", 4000, "report-2", "Gunner24"), Ct));
+
+        Assert.Contains("Evidence storage is limited to", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Zero means no limit, which is what a fresh install has.</summary>
+    [Fact]
+    public async Task NoTotalsAreCheckedWhileTheyAreZero()
+    {
+        await UploadAsync(SampleMedia.Mp4(size: 4000), reportId: "report-1", fileName: "first.mp4");
+        await UploadAsync(SampleMedia.Mp4(size: 5000), reportId: "report-1", fileName: "second.mp4");
+
+        Assert.Equal(2, _metadata.Records.Count);
     }
 
     /// <summary>

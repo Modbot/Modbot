@@ -30,31 +30,49 @@ public class EvidenceMetadataTests(PostgresFixture db)
     /// </summary>
     private static EvidenceHash Hash(char fill) => EvidenceHash.Parse(new string(fill, 64));
 
-    private static EvidenceBlobRecord Record(EvidenceHash hash, string? reportId) => new(
+    private static EvidenceBlobRecord Record(EvidenceHash hash, long size = 4096) => new(
         hash,
-        ByteSize: 4096,
+        ByteSize: size,
         ContentType: "image/png",
         Backend: EvidenceBackend.Filesystem,
         FirstStoredAt: Now,
         FileName: "proof.png",
         UploaderId: "usr_alice",
-        ReportId: reportId,
         Origin: EvidenceOrigin.Uploaded);
+
+    /// <summary>A case file holding a file, the way the API's own step leaves it after a commit.</summary>
+    private static async Task PutOnAsync(
+        Core.Data.ModbotContext context, EvidenceHash hash, string caseId, DateTimeOffset? takenOffAt = null)
+    {
+        context.EvidenceAttachments.Add(new EvidenceAttachment
+        {
+            Hash = hash.ToString(),
+            CaseId = caseId,
+            AttachedAt = Now,
+            AttachedByName = "usr_alice",
+            FileName = "proof.png",
+            TakenOffAt = takenOffAt,
+        });
+
+        await context.SaveChangesAsync(Ct);
+    }
 
     [Fact]
     public async Task ABlobIsRecordedWithEverythingButTheBytes()
     {
         await using var context = db.NewContext();
         var key = Hash('a').ToString();
-        await New(context).RecordAsync(Record(Hash('a'), "report-1"), Ct);
+        await New(context).RecordAsync(Record(Hash('a')), Ct);
 
         var row = await context.EvidenceBlobs.AsNoTracking().Where(b => b.Hash == key).SingleAsync(Ct);
 
         Assert.Equal(new string('a', 64), row.Hash);
         Assert.Equal(4096, row.ByteSize);
         Assert.Equal("image/png", row.ContentType);
-        Assert.Equal("report-1", row.ReportId);
         Assert.False(row.IsDestroyed);
+
+        // Recording the bytes puts them on no case file: that is a separate step.
+        Assert.Empty(await New(context).ReferencesAsync(Hash('a'), Ct));
     }
 
     /// <summary>
@@ -62,7 +80,7 @@ public class EvidenceMetadataTests(PostgresFixture db)
     /// </summary>
     /// <remarks>
     /// A duplicate is the expected case, not an error: the same screenshot attached to two
-    /// reports, or a commit retried after a timeout. Treating it as a conflict would fail an
+    /// case files, or a commit retried after a timeout. Treating it as a conflict would fail an
     /// upload that had already succeeded.
     /// </remarks>
     [Fact]
@@ -71,8 +89,8 @@ public class EvidenceMetadataTests(PostgresFixture db)
         await using var context = db.NewContext();
         var metadata = New(context);
 
-        await metadata.RecordAsync(Record(Hash('b'), "report-1"), Ct);
-        await metadata.RecordAsync(Record(Hash('b'), "report-1"), Ct);
+        await metadata.RecordAsync(Record(Hash('b')), Ct);
+        await metadata.RecordAsync(Record(Hash('b')), Ct);
 
         var key = Hash('b').ToString();
         Assert.Equal(1, await context.EvidenceBlobs.CountAsync(b => b.Hash == key, Ct));
@@ -93,10 +111,10 @@ public class EvidenceMetadataTests(PostgresFixture db)
         var metadata = New(context);
 
         var key = Hash('c').ToString();
-        await metadata.RecordAsync(Record(Hash('c'), "report-1"), Ct);
+        await metadata.RecordAsync(Record(Hash('c')), Ct);
         await metadata.MarkDestroyedAsync(Hash('c'), "admin", "erasure request", Ct);
 
-        await metadata.RecordAsync(Record(Hash('c'), "report-1"), Ct);
+        await metadata.RecordAsync(Record(Hash('c')), Ct);
 
         var row = await context.EvidenceBlobs.AsNoTracking().Where(b => b.Hash == key).SingleAsync(Ct);
 
@@ -120,7 +138,8 @@ public class EvidenceMetadataTests(PostgresFixture db)
         var metadata = New(context);
 
         var key = Hash('d').ToString();
-        await metadata.RecordAsync(Record(Hash('d'), "report-9"), Ct);
+        await metadata.RecordAsync(Record(Hash('d')), Ct);
+        await PutOnAsync(context, Hash('d'), "report-9");
         await metadata.MarkDestroyedAsync(Hash('d'), "usr_owner", "subject erasure request", Ct);
 
         var row = await context.EvidenceBlobs.AsNoTracking().Where(b => b.Hash == key).SingleAsync(Ct);
@@ -129,10 +148,11 @@ public class EvidenceMetadataTests(PostgresFixture db)
         Assert.Equal("usr_owner", row.DestroyedBy);
         Assert.Equal("subject erasure request", row.DestroyedReason);
 
-        // Still knowable: which case it belonged to, how big it was, what kind of file it was.
-        Assert.Equal("report-9", row.ReportId);
+        // Still knowable: how big it was and what kind of file it was, and which case file held
+        // it, because the case file's own row survives the destruction.
         Assert.Equal(4096, row.ByteSize);
         Assert.Equal("image/png", row.ContentType);
+        Assert.Equal(1, await context.EvidenceAttachments.CountAsync(a => a.Hash == key && a.CaseId == "report-9", Ct));
     }
 
     /// <summary>The first destruction wins; a later one cannot move the timestamp.</summary>
@@ -147,7 +167,7 @@ public class EvidenceMetadataTests(PostgresFixture db)
         var metadata = New(context);
 
         var key = Hash('e').ToString();
-        await metadata.RecordAsync(Record(Hash('e'), "report-1"), Ct);
+        await metadata.RecordAsync(Record(Hash('e')), Ct);
         await metadata.MarkDestroyedAsync(Hash('e'), "first", "erasure request", Ct);
 
         _clock.Advance(TimeSpan.FromDays(30));
@@ -160,32 +180,53 @@ public class EvidenceMetadataTests(PostgresFixture db)
     }
 
     /// <summary>
-    /// Reporting who cites these bytes is what stops one deletion taking another case's evidence.
+    /// Reporting who holds these bytes is what stops one deletion taking another case's evidence.
     /// </summary>
     /// <remarks>
-    /// Content addressing means the same screenshot attached to two case files is one object.
-    /// Deleting a report must therefore consult this before deleting anything, and the failure
-    /// mode of getting it wrong is quiet and unrecoverable: a moderator's evidence disappears
-    /// because somebody tidied an unrelated report months later.
+    /// Content addressing means the same screenshot on two case files is one object. Destroying it
+    /// must therefore consult this before deleting anything, and the failure mode of getting it
+    /// wrong is quiet and unrecoverable: a moderator's evidence disappears because somebody tidied
+    /// an unrelated case file months later.
     /// </remarks>
     [Fact]
-    public async Task ReferencesReportsWhoStillCitesTheBytes()
+    public async Task ReferencesNamesEveryCaseFileThatStillHoldsTheBytes()
     {
         await using var context = db.NewContext();
         var metadata = New(context);
 
-        await metadata.RecordAsync(Record(Hash('f'), "report-1"), Ct);
+        await metadata.RecordAsync(Record(Hash('f')), Ct);
+        await PutOnAsync(context, Hash('f'), "report-1");
+        await PutOnAsync(context, Hash('f'), "report-2");
 
-        Assert.Equal(["report-1"], await metadata.ReferencesAsync(Hash('f'), Ct));
+        var references = await metadata.ReferencesAsync(Hash('f'), Ct);
+
+        Assert.Equal(["report-1", "report-2"], references.Order().ToList());
     }
 
     /// <summary>
-    /// A destroyed blob cites nothing.
+    /// A case file that took the file off no longer holds it, so it no longer stands in the way of
+    /// destroying it: that is what makes "take it off, then destroy" work.
+    /// </summary>
+    [Fact]
+    public async Task ACaseFileThatTookTheFileOffIsNotAReference()
+    {
+        await using var context = db.NewContext();
+        var metadata = New(context);
+
+        await metadata.RecordAsync(Record(Hash('2')), Ct);
+        await PutOnAsync(context, Hash('2'), "report-1", takenOffAt: Now);
+        await PutOnAsync(context, Hash('2'), "report-2");
+
+        Assert.Equal(["report-2"], await metadata.ReferencesAsync(Hash('2'), Ct));
+    }
+
+    /// <summary>
+    /// A destroyed blob is held by nobody.
     /// </summary>
     /// <remarks>
     /// Its bytes are already gone, so it cannot be a reason to keep an object alive. Counting it
-    /// would make the object permanently undeletable after the one report citing it was erased —
-    /// a store that can only ever grow.
+    /// would make the object permanently undeletable after the one case file holding it was
+    /// erased -- a store that can only ever grow.
     /// </remarks>
     [Fact]
     public async Task ADestroyedBlobIsNotAReferenceKeepingBytesAlive()
@@ -193,10 +234,59 @@ public class EvidenceMetadataTests(PostgresFixture db)
         await using var context = db.NewContext();
         var metadata = New(context);
 
-        await metadata.RecordAsync(Record(Hash('1'), "report-1"), Ct);
+        await metadata.RecordAsync(Record(Hash('1')), Ct);
+        await PutOnAsync(context, Hash('1'), "report-1");
         await metadata.MarkDestroyedAsync(Hash('1'), "admin", "erasure request", Ct);
 
         Assert.Empty(await metadata.ReferencesAsync(Hash('1'), Ct));
+    }
+
+    /// <summary>
+    /// What a case file holds counts against its total: files it holds now, once each, and nothing
+    /// for a file it took off or one that was destroyed. The file being added is left out.
+    /// </summary>
+    [Fact]
+    public async Task BytesOnACaseFileCountOnlyWhatItHoldsNow()
+    {
+        await using var context = db.NewContext();
+        var metadata = New(context);
+
+        await metadata.RecordAsync(Record(Hash('3'), size: 1000), Ct);
+        await metadata.RecordAsync(Record(Hash('4'), size: 2000), Ct);
+        await metadata.RecordAsync(Record(Hash('5'), size: 4000), Ct);
+        await metadata.RecordAsync(Record(Hash('6'), size: 8000), Ct);
+
+        await PutOnAsync(context, Hash('3'), "report-bytes");
+        await PutOnAsync(context, Hash('4'), "report-bytes");
+        await PutOnAsync(context, Hash('5'), "report-bytes", takenOffAt: Now);
+        await PutOnAsync(context, Hash('6'), "report-bytes");
+        await metadata.MarkDestroyedAsync(Hash('6'), "admin", "erasure request", Ct);
+
+        Assert.Equal(3000, await metadata.BytesOnReportAsync("report-bytes", null, Ct));
+        Assert.Equal(2000, await metadata.BytesOnReportAsync("report-bytes", Hash('3'), Ct));
+        Assert.Equal(0, await metadata.BytesOnReportAsync("report-nothing", null, Ct));
+    }
+
+    /// <summary>
+    /// What the install holds counts every stored file once whichever case files hold it, and
+    /// nothing for a destroyed one. The total is asked with one file left out.
+    /// </summary>
+    [Fact]
+    public async Task BytesStoredCountEveryLiveFileOnce()
+    {
+        await using var context = db.NewContext();
+        var metadata = New(context);
+
+        var before = await metadata.BytesStoredAsync(null, Ct);
+
+        await metadata.RecordAsync(Record(Hash('7'), size: 500), Ct);
+        await metadata.RecordAsync(Record(Hash('8'), size: 700), Ct);
+        await PutOnAsync(context, Hash('7'), "report-a");
+        await PutOnAsync(context, Hash('7'), "report-b");
+        await metadata.MarkDestroyedAsync(Hash('8'), "admin", "erasure request", Ct);
+
+        Assert.Equal(before + 500, await metadata.BytesStoredAsync(null, Ct));
+        Assert.Equal(before, await metadata.BytesStoredAsync(Hash('7'), Ct));
     }
 
     /// <summary>Bytes nothing has recorded cite nothing, rather than throwing.</summary>

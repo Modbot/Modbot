@@ -339,6 +339,25 @@ administrator destroying evidence attached to two reports is told so, by name, b
 enabled, and a filesystem unlink is a filesystem unlink. Modbot must not offer a trash can it cannot
 implement on the backend the operator is actually running.
 
+> **Amended 2026-09-30 (TASK-005).** Detach is built, called **take off**, and narrows the table above:
+>
+> - **A row per case file.** Which case file holds a file is `modbot_evidence_attachment`
+>   (hash, case file id, who put it on and the name it went on under, when, and when and by whom it
+>   was taken off), not a column on the blob. One file can be on several case files, and the blob's
+>   old `report_id` is gone.
+> - **A trace, not a disappearance.** Taking a file off keeps the row and the case file shows one
+>   line where the file was: its name, who took it off, when. "This case had a file" stays answerable
+>   the way a destroyed file's row does. Putting it back is attaching it again, which is a new row;
+>   the old one stays as history. There is no "put back" button.
+> - **Permission.** Take off needs `UploadEvidence` (the permission the built code has; there is no
+>   `ManageEvidence`) and the same standing as editing the case file: its author or `Ban`, and not
+>   withdrawn.
+> - **Destroy from a case file.** `DestroyEvidence` works on any case file, withdrawn included. It
+>   takes the file off that case file, then destroys; another case file still holding the file stops
+>   it and is named, and nothing changes.
+> - **Facts.** `modbot.evidence.attach`, `.detach`, `.view`, `.download` and `.destroy`, each naming
+>   the case file, the file's hash and the name it was put on under.
+
 ---
 
 ## 7. Metadata always lives in Postgres
@@ -988,6 +1007,24 @@ Attaching evidence **to a report you are filing** is covered by the action permi
 moment of granting it. It is not granted by any default role.
 
 ### 14.1 Access is a fact
+
+> **Amended 2026-09-30 (TASK-005).** Access is two facts, not one, and the paragraphs below are
+> read with these changes:
+>
+> - **`EvidenceViewed`** (`modbot.evidence.view`, "Evidence viewed") is written when a file is shown
+>   on the case file page, at most once per person per file every ten minutes: a page shows a file on
+>   every load and a video asks for its bytes in pieces, so a line per request would bury the ones
+>   that matter. **`EvidenceDownloaded`** (`modbot.evidence.download`, "Evidence downloaded") is a
+>   copy leaving Modbot and is written every time. A request that does not say it is showing the
+>   file (`view=true`) is a download.
+> - **The subject is the case file**, on the Modbot platform, not the person on it. A purge of the
+>   person erases the facts whose subject they are and keeps the case file and its evidence (§15), so
+>   a fact about the person would vanish while the file stayed.
+> - **Kept forever**, not `Presence`-class: the retention default already keeps them
+>   (`FactRetention`), and "who looked at this" has to stay answerable long after.
+> - **Reading them needs `ViewEvidence` as well as `ViewAuditLog`.** A line names the file, and a
+>   file's name says what it shows. The built-in Viewer role reads the audit log and may not open
+>   evidence; it does not see these lines, in the log, the live feed or a webhook.
 
 Every view and every download writes an `EvidenceAccessed` fact: who, which blob, which report, when.
 

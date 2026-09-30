@@ -242,6 +242,7 @@ public sealed class ReadSurfaceTestHost : IAsyncDisposable
         await context.CaseFiles.ExecuteDeleteAsync(ct);
         await context.ModerationActions.ExecuteDeleteAsync(ct);
         await context.BanReasons.ExecuteDeleteAsync(ct);
+        await context.EvidenceAttachments.ExecuteDeleteAsync(ct);
         await context.EvidenceBlobs.ExecuteDeleteAsync(ct);
         await context.DiscordChannels.ExecuteDeleteAsync(ct);
         await context.DiscordReadBacks.ExecuteDeleteAsync(ct);

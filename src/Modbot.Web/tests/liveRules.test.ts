@@ -68,6 +68,10 @@ test('each screen knows which fact types change it', () => {
 
   assert.ok(changesCases(fact({ type: 'modbot.report.created' })))
   assert.ok(changesCases(fact({ type: 'modbot.evidence.attach' })))
+  assert.ok(changesCases(fact({ type: 'modbot.evidence.detach' })))
+  assert.ok(changesCases(fact({ type: 'modbot.evidence.destroy' })))
+  assert.ok(!changesCases(fact({ type: 'modbot.evidence.view' })), 'a look changes nothing, and redrawing would look again')
+  assert.ok(!changesCases(fact({ type: 'modbot.evidence.download' })))
   assert.ok(changesFlags(fact({ type: 'modbot.ai-moderation.flag' })))
   assert.ok(changesReviews(fact({ type: 'modbot.review.opened' })))
   assert.ok(changesCalendar(fact({ type: 'modbot.calendar.event.create' })))

@@ -33,6 +33,12 @@ export const DISCORD_BAN_TYPES = ['discord.member.ban', 'discord.member.unban'] 
 /** Case files and the reports in them. */
 export const CASE_TYPES = ['modbot.report.', 'modbot.evidence.'] as const
 
+/**
+ * Evidence facts that change nothing on a case file: somebody looked at a file, or downloaded it.
+ * A page that redrew for these would fetch the file again, which writes the fact again.
+ */
+const LOOKS_AT_EVIDENCE = ['modbot.evidence.view', 'modbot.evidence.download'] as const
+
 /** Flags from moderation rules. */
 export const FLAG_TYPES = ['modbot.ai-moderation.'] as const
 
@@ -47,7 +53,7 @@ export const changesMembers = (e: LiveEvent) => startsWithAny(e.type, MEMBER_TYP
 export const changesDiscordMembers = (e: LiveEvent) => startsWithAny(e.type, DISCORD_MEMBER_TYPES)
 export const changesBans = (e: LiveEvent) => startsWithAny(e.type, BAN_TYPES)
 export const changesDiscordBans = (e: LiveEvent) => startsWithAny(e.type, DISCORD_BAN_TYPES)
-export const changesCases = (e: LiveEvent) => startsWithAny(e.type, CASE_TYPES)
+export const changesCases = (e: LiveEvent) => startsWithAny(e.type, CASE_TYPES) && !(LOOKS_AT_EVIDENCE as readonly string[]).includes(e.type)
 export const changesFlags = (e: LiveEvent) => startsWithAny(e.type, FLAG_TYPES)
 export const changesReviews = (e: LiveEvent) => startsWithAny(e.type, REVIEW_TYPES)
 export const changesCalendar = (e: LiveEvent) => startsWithAny(e.type, CALENDAR_TYPES)

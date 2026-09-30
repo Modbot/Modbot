@@ -1058,21 +1058,37 @@ const SENTENCES: Record<string, Sentence> = {
   ),
 
   // ── Evidence ────────────────────────────────────────────────────────────────────────────────
+  //
+  // Each of these is about a case file, and the "Case file" link after the sentence opens it. The
+  // file is named as it was put on, which is what the person doing it saw.
   'modbot.evidence.attach': (p) => (
     <>
       {p.actor} attached {p.text('fileName') ?? 'a file'} to a case file.
     </>
   ),
 
-  'modbot.evidence.access': (p) => (
+  'modbot.evidence.detach': (p) => (
     <>
-      {p.actor} opened {p.text('fileName') ?? 'a piece of evidence'}.
+      {p.actor} took {p.text('fileName') ?? 'a file'} off a case file.
+    </>
+  ),
+
+  'modbot.evidence.view': (p) => (
+    <>
+      {p.actor} viewed {p.text('fileName') ?? 'a file'}.
+    </>
+  ),
+
+  'modbot.evidence.download': (p) => (
+    <>
+      {p.actor} downloaded {p.text('fileName') ?? 'a file'}.
     </>
   ),
 
   'modbot.evidence.destroy': (p) => (
     <>
-      {p.actor} destroyed {p.text('fileName') ?? 'a piece of evidence'}.
+      {p.actor} destroyed {p.text('fileName') ?? 'a file'}
+      {p.text('reason') ? <>: {p.text('reason')}</> : null}.
     </>
   ),
 

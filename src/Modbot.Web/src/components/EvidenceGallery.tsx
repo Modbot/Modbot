@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CardFooter } from '@/components/ui/card'
-import { api, type EvidenceDelivery, type EvidenceItem } from '@/lib/api'
+import { Input } from '@/components/ui/input'
+import { api, ApiError, type EvidenceDelivery, type EvidenceItem } from '@/lib/api'
 import { attach, busy, failure, send, tooLarge, type Progress } from '@/lib/evidenceUpload'
 import { formatDay } from '@/lib/format'
 import { bytes } from '@/components/settings/units'
@@ -22,12 +23,19 @@ import { cn } from '@/lib/utils'
  * a raw body with a real progress indicator, commit. The bytes go where the ticket says -- to
  * Modbot, or straight to the bucket -- and the store's delivery behaviour is stated in the same
  * words the Settings evidence card uses, because it is the same fact.
+ *
+ * A file can sit on several case files. **Take off** ends this case file's hold and leaves a line
+ * saying it was there; the file stays for every other case file. **Destroy** takes it off this
+ * case file and deletes the bytes, and the server refuses while another case file holds it. Every
+ * request for the bytes names this case file (`case`), and the pictures and the video, which a
+ * page shows, say so (`view`), so the audit log tells a look from a download.
  */
 export function EvidenceGallery({
   caseId,
   items,
   delivery,
   canAttach,
+  canDestroy,
   onChanged,
   onImageReady,
 }: {
@@ -35,21 +43,44 @@ export function EvidenceGallery({
   items: EvidenceItem[]
   delivery: EvidenceDelivery
   canAttach: boolean
+  /** Whether Destroy shows: the person may destroy evidence, on any case file, withdrawn or not. */
+  canDestroy: boolean
   onChanged: () => void
   /** Tells the page an image's object URL, so the written reason can show `evidence:` references inline. */
   onImageReady?: (hash: string, url: string) => void
 }) {
+  // What the case file holds, and a trace of what it let go of.
+  const held = items.filter((item) => !item.takenOffAt)
+  const off = items.filter((item) => item.takenOffAt)
+
   return (
     <div className="flex flex-col">
-      {items.length === 0 ? (
-        <EmptyRow>Nothing attached.</EmptyRow>
-      ) : (
+      {held.length === 0 && <EmptyRow>Nothing attached.</EmptyRow>}
+
+      {held.length > 0 && (
         // Edge to edge in its panel, so each item's lines are the panel's own. Two across only when
         // there are two to put side by side; a lone item takes the width.
-        <PanelGrid as="ul" className={cn('m-0', items.length > 1 && 'sm:grid-cols-2')}>
-          {items.map((item) => (
+        <PanelGrid as="ul" className={cn('m-0', held.length > 1 && 'sm:grid-cols-2')}>
+          {held.map((item) => (
             <li key={item.hash} className="p-(--panel-pad)">
-              <Item item={item} onImageReady={onImageReady} />
+              <Item
+                item={item}
+                caseId={caseId}
+                canTakeOff={canAttach}
+                canDestroy={canDestroy}
+                onChanged={onChanged}
+                onImageReady={onImageReady}
+              />
+            </li>
+          ))}
+        </PanelGrid>
+      )}
+
+      {off.length > 0 && (
+        <PanelGrid as="ul" className="m-0">
+          {off.map((item) => (
+            <li key={`${item.hash}-${item.takenOffAt}`} className="px-(--panel-pad) py-2">
+              <Trace item={item} caseId={caseId} canDestroy={canDestroy} onChanged={onChanged} />
             </li>
           ))}
         </PanelGrid>
@@ -60,7 +91,21 @@ export function EvidenceGallery({
   )
 }
 
-function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash: string, url: string) => void }) {
+function Item({
+  item,
+  caseId,
+  canTakeOff,
+  canDestroy,
+  onChanged,
+  onImageReady,
+}: {
+  item: EvidenceItem
+  caseId: string
+  canTakeOff: boolean
+  canDestroy: boolean
+  onChanged: () => void
+  onImageReady?: (hash: string, url: string) => void
+}) {
   const name = item.fileName ?? `${item.hash.slice(0, 12)}…`
 
   return (
@@ -76,9 +121,14 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
           {item.destroyedBy ? ` by ${item.destroyedBy}` : ''}.{item.destroyedReason ? ` ${item.destroyedReason}` : ''}
         </EmptyRow>
       ) : item.contentType.startsWith('video/') ? (
-        <video controls preload="metadata" src={api.evidenceUrl(item.hash)} className="max-h-80 w-full bg-black" />
+        <video
+          controls
+          preload="metadata"
+          src={api.evidenceUrl(item.hash, { caseId, view: true })}
+          className="max-h-80 w-full bg-black"
+        />
       ) : (
-        <Picture item={item} onImageReady={onImageReady} />
+        <Picture item={item} caseId={caseId} onImageReady={onImageReady} />
       )}
 
       <div className="flex flex-wrap items-baseline gap-x-2">
@@ -92,10 +142,17 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
           {item.origin === 'Captured' ? ' · captured by Modbot' : ''}
         </span>
         {!item.destroyed && (
-          <a href={api.evidenceUrl(item.hash)} className="underline underline-offset-2" download>
+          <a href={api.evidenceUrl(item.hash, { caseId })} className="underline underline-offset-2" download>
             Download
           </a>
         )}
+        <Actions
+          item={item}
+          caseId={caseId}
+          canTakeOff={canTakeOff && !item.destroyed}
+          canDestroy={canDestroy && !item.destroyed}
+          onChanged={onChanged}
+        />
       </div>
       <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }} title={item.hash}>
         sha256 {item.hash}
@@ -104,8 +161,180 @@ function Item({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash
   )
 }
 
+/**
+ * The one line a file leaves behind when it is taken off a case file: what it was, who took it
+ * off and when. If the bytes were destroyed since, it says that too.
+ */
+function Trace({
+  item,
+  caseId,
+  canDestroy,
+  onChanged,
+}: {
+  item: EvidenceItem
+  caseId: string
+  canDestroy: boolean
+  onChanged: () => void
+}) {
+  const name = item.fileName ?? `${item.hash.slice(0, 12)}…`
+
+  return (
+    <div className="flex flex-col gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="truncate font-medium" title={name}>
+          {name}
+        </span>
+        <span className="text-muted-foreground">
+          taken off{item.takenOffBy ? ` by ${item.takenOffBy}` : ''}
+          {item.takenOffAt && (
+            <>
+              {', '}
+              <span className="font-mono">{formatDay(item.takenOffAt)}</span>
+            </>
+          )}
+          {item.destroyed && (
+            <>
+              {' · destroyed'}
+              {item.destroyedBy ? ` by ${item.destroyedBy}` : ''}
+              {item.destroyedAt && (
+                <>
+                  {', '}
+                  <span className="font-mono">{formatDay(item.destroyedAt)}</span>
+                </>
+              )}
+              {item.destroyedReason ? `: ${item.destroyedReason}` : ''}
+            </>
+          )}
+        </span>
+        <Actions
+          item={item}
+          caseId={caseId}
+          canTakeOff={false}
+          canDestroy={canDestroy && !item.destroyed}
+          onChanged={onChanged}
+        />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Take off and Destroy, each asking before it does anything.
+ *
+ * Take off asks only whether. Destroy asks for the reason, which is written into the log beside who
+ * did it, and has no way back. A refusal -- the file is still on another case file, the store is
+ * down -- is the server's own sentence, shown here and nothing is reloaded.
+ */
+function Actions({
+  item,
+  caseId,
+  canTakeOff,
+  canDestroy,
+  onChanged,
+}: {
+  item: EvidenceItem
+  caseId: string
+  canTakeOff: boolean
+  canDestroy: boolean
+  onChanged: () => void
+}) {
+  const [mode, setMode] = useState<'idle' | 'takeOff' | 'destroy'>('idle')
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  if (!canTakeOff && !canDestroy) return null
+
+  const close = () => {
+    setMode('idle')
+    setReason('')
+    setProblem(null)
+  }
+
+  const takeOff = () => {
+    setBusy(true)
+    setProblem(null)
+
+    api
+      .takeEvidenceOff(caseId, item.hash)
+      .then(() => onChanged())
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not take it off.'))
+      .finally(() => setBusy(false))
+  }
+
+  const destroy = () => {
+    setBusy(true)
+    setProblem(null)
+
+    api
+      .destroyEvidence(item.hash, caseId, reason.trim())
+      .then((result) => {
+        if (result.destroyed) onChanged()
+        else setProblem(result.message)
+      })
+      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not destroy it.'))
+      .finally(() => setBusy(false))
+  }
+
+  if (mode === 'idle') {
+    return (
+      <span className="flex items-center gap-1">
+        {canTakeOff && (
+          <Button type="button" size="xs" variant="ghost" onClick={() => setMode('takeOff')}>
+            Take off
+          </Button>
+        )}
+        {canDestroy && (
+          <Button type="button" size="xs" variant="ghost" onClick={() => setMode('destroy')}>
+            Destroy
+          </Button>
+        )}
+      </span>
+    )
+  }
+
+  return (
+    <div className="flex basis-full flex-wrap items-center gap-2">
+      {mode === 'takeOff' ? (
+        <>
+          <span>Take it off this case file?</span>
+          <Button type="button" size="xs" variant="outline" onClick={takeOff} disabled={busy}>
+            {busy ? 'Taking off…' : 'Take off'}
+          </Button>
+        </>
+      ) : (
+        <>
+          <Input
+            aria-label="Why it is being destroyed"
+            placeholder="Reason"
+            value={reason}
+            maxLength={500}
+            onChange={(e) => setReason(e.target.value)}
+            className="min-w-40 flex-1"
+          />
+          <Button type="button" size="xs" variant="destructive" onClick={destroy} disabled={busy || reason.trim().length === 0}>
+            {busy ? 'Destroying…' : 'Destroy'}
+          </Button>
+        </>
+      )}
+      <Button type="button" size="xs" variant="ghost" onClick={close} disabled={busy}>
+        Cancel
+      </Button>
+      {problem && <span className="basis-full text-destructive">{problem}</span>}
+    </div>
+  )
+}
+
 /** An image, fetched with credentials and shown from a typed object URL. */
-function Picture({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (hash: string, url: string) => void }) {
+function Picture({
+  item,
+  caseId,
+  onImageReady,
+}: {
+  item: EvidenceItem
+  caseId: string
+  onImageReady?: (hash: string, url: string) => void
+}) {
   const [url, setUrl] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -113,7 +342,7 @@ function Picture({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (h
     let objectUrl: string | null = null
     let cancelled = false
 
-    fetch(api.evidenceUrl(item.hash), { credentials: 'same-origin' })
+    fetch(api.evidenceUrl(item.hash, { caseId, view: true }), { credentials: 'same-origin' })
       .then(async (response) => {
         if (!response.ok) {
           const text = await response.text().catch(() => '')
@@ -143,13 +372,13 @@ function Picture({ item, onImageReady }: { item: EvidenceItem; onImageReady?: (h
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [item.hash, item.contentType, onImageReady])
+  }, [item.hash, item.contentType, caseId, onImageReady])
 
   if (problem) {
     return (
       <EmptyRow className="bg-strip">
         Could not show this image: {problem}{' '}
-        <a href={api.evidenceUrl(item.hash)} className="underline underline-offset-2">
+        <a href={api.evidenceUrl(item.hash, { caseId })} className="underline underline-offset-2">
           Download
         </a>
       </EmptyRow>
