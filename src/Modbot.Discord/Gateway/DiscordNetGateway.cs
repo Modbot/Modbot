@@ -1788,14 +1788,32 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     private Task OnButton(SocketMessageComponent press)
     {
-        // Somebody else's button, or one from before Modbot used this prefix: not ours to answer.
-        // Discord shows the presser "This interaction failed" after three seconds, which is right.
-        if (press.Data.CustomId is not { } id || !id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal))
+        if (!IsOurButton(_guildId, press.GuildId, press.Data.CustomId))
+        {
+            // Not even deferred: another Modbot on the same bot may own it (see IsForThisServer).
+            _log.Debug("Ignored a button press that is not this Modbot's to answer");
             return Task.CompletedTask;
+        }
 
-        _ = Task.Run(() => Guard(DispatchButtonAsync(press, id), "button"));
+        _ = Task.Run(() => Guard(DispatchButtonAsync(press, press.Data.CustomId), "button"));
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Whether a button press is this Modbot's to answer: pressed in its own server
+    /// (<see cref="IsForThisServer"/>), on a button whose id carries
+    /// <see cref="DiscordActionButton.Prefix"/>.
+    /// </summary>
+    /// <remarks>
+    /// Checked before the press is acknowledged, for the same reason as a command: several Modbots
+    /// can share one bot, and only the one whose server it came from may answer. A button from
+    /// another bot, or from before Modbot used the prefix, is left alone too; Discord shows the
+    /// presser "This interaction failed", which is right.
+    /// </remarks>
+    public static bool IsOurButton(string? ourGuildId, ulong? fromGuildId, string? buttonId)
+        => IsForThisServer(ourGuildId, fromGuildId)
+            && buttonId is { } id
+            && id.StartsWith(DiscordActionButton.Prefix, StringComparison.Ordinal);
 
     private async Task DispatchButtonAsync(SocketMessageComponent press, string id)
     {

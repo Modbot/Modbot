@@ -457,8 +457,9 @@ public interface IDiscordGateway : IAsyncDisposable
     event Func<DiscordCommandCall, Task>? CommandReceived;
 
     /// <summary>
-    /// Somebody pressed a button the bot put under one of its replies. Only presses whose id
-    /// starts with <see cref="DiscordActionButton.Prefix"/> are raised.
+    /// Somebody pressed a button the bot put under one of its replies. Only presses in the
+    /// session's own server (<see cref="DiscordGatewayOptions.GuildId"/>) whose id starts with
+    /// <see cref="DiscordActionButton.Prefix"/> are raised.
     /// </summary>
     event Func<DiscordButtonPress, Task>? ButtonPressed;
 

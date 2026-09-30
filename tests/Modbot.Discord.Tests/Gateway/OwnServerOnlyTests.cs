@@ -33,4 +33,32 @@ public class OwnServerOnlyTests
     [Fact]
     public void ServerIdsAreComparedWhole_NotByTheirStart()
         => Assert.False(DiscordNetGateway.IsForThisServer("4242", 424242UL));
+
+    // Buttons (the two under /me) follow the same rule before they are acknowledged.
+
+    [Fact]
+    public void OurButtonInOurServer_IsOurs()
+        => Assert.True(DiscordNetGateway.IsOurButton("424242", 424242UL, "modbot:me:keeps"));
+
+    [Fact]
+    public void OurButtonInAnotherServer_IsLeftAlone()
+        => Assert.False(DiscordNetGateway.IsOurButton("424242", 999999UL, "modbot:me:delete"));
+
+    [Fact]
+    public void AButtonInADirectMessage_IsLeftAlone()
+        => Assert.False(DiscordNetGateway.IsOurButton("424242", null, "modbot:me:keeps"));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void WithNoServerSet_NoButtonIsAnswered(string? ours)
+        => Assert.False(DiscordNetGateway.IsOurButton(ours, 424242UL, "modbot:me:keeps"));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("other-bot:vote")]
+    [InlineData("me:keeps")]
+    public void AButtonWithoutModbotsPrefix_IsLeftAlone_EvenInOurServer(string? buttonId)
+        => Assert.False(DiscordNetGateway.IsOurButton("424242", 424242UL, buttonId));
 }
