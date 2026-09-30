@@ -21,14 +21,14 @@ test('an avatar id, if VRChat ever sent one, is not mistaken for a name', () => 
 test('a kick with a watched arrival says exactly how long they had been there', () => {
   assert.equal(
     timeInInstance({ inInstanceSeconds: 720, seenArriving: true }),
-    'after 12 min in the instance',
+    'after 12min in the instance',
   )
 })
 
 test('a kick with no watched arrival says at least how long', () => {
   assert.equal(
     timeInInstance({ inInstanceSeconds: 720, seenArriving: false }),
-    'after at least 12 min in the instance',
+    'after at least 12min in the instance',
   )
 })
 

@@ -273,28 +273,26 @@ function Overview({
       <InstanceWorld id={view.instance.id} live={live} />
 
       {view.canSeeWhoWasThere ? (
-        <>
-          <Panel
-            title="Seen longest"
-            right={<More onClick={() => onMore('people')}>Everybody</More>}
-            flush={longest.length === 0}
-          >
-            {longest.length === 0 ? (
-              <EmptyRow>Nobody seen.</EmptyRow>
-            ) : (
-              <ul className="flex flex-wrap gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
-                {longest.map((p) => (
-                  <li key={p.userId}>
-                    <Badge variant="outline" className="gap-1.5 text-foreground">
-                      <SubjectLink id={p.userId} name={p.displayName} />
-                      <span className="font-mono text-muted-foreground">{minutes(p.minutesSeen)}</span>
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-        </>
+        <Panel
+          title="Seen longest"
+          right={<More onClick={() => onMore('people')}>Everybody</More>}
+          flush={longest.length === 0}
+        >
+          {longest.length === 0 ? (
+            <EmptyRow>Nobody seen.</EmptyRow>
+          ) : (
+            <ul className="flex flex-wrap gap-1.5" style={{ fontSize: 'var(--text-small)' }}>
+              {longest.map((p) => (
+                <li key={p.userId}>
+                  <Badge variant="outline" className="gap-1.5 text-foreground">
+                    <SubjectLink id={p.userId} name={p.displayName} />
+                    <span className="font-mono text-muted-foreground">{minutes(p.minutesSeen)}</span>
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
       ) : (
         <Empty>You do not have permission to see who was here.</Empty>
       )}

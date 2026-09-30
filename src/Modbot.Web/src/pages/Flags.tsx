@@ -163,7 +163,7 @@ export function Flags({
                     <span className="font-medium">{flag.ruleName}</span>
                     {flag.messageDeleted && <Badge variant="destructive">Message deleted</Badge>}
                     {flag.timedOutMinutes && (
-                      <Badge variant="destructive">Timed out {flag.timedOutMinutes} min</Badge>
+                      <Badge variant="destructive">Timed out {lengthOfTime(flag.timedOutMinutes)}</Badge>
                     )}
                     {flag.groupBanned && <Badge variant="destructive">Banned from the group</Badge>}
                     {flag.groupRemoved && <Badge variant="destructive">Removed from the group</Badge>}

@@ -4,7 +4,7 @@ import { SwitchBank } from '@/components/ui/switch-bank'
 import { EmptyRow } from '@/components/PanelGrid'
 import { More, Panel } from '@/components/subject/shared'
 import { moderationApi, targetLabel, type ModerationFlag } from '@/lib/autoMod'
-import { ago } from '@/lib/format'
+import { ago, lengthOfTime } from '@/lib/format'
 import { go } from '@/lib/router'
 import { useLoad } from '@/lib/useLoad'
 
@@ -69,7 +69,7 @@ function FlagRow({ flag }: { flag: ModerationFlag }) {
         <Badge variant="outline">{flag.subjectPlatform === 'discord' ? 'Discord' : 'VRChat'}</Badge>
         <Badge variant="outline">{targetLabel(flag.target)}</Badge>
         {flag.messageDeleted && <Badge variant="destructive">Message deleted</Badge>}
-        {flag.timedOutMinutes && <Badge variant="destructive">Timed out {flag.timedOutMinutes} min</Badge>}
+        {flag.timedOutMinutes && <Badge variant="destructive">Timed out {lengthOfTime(flag.timedOutMinutes)}</Badge>}
         {flag.groupBanned && <Badge variant="destructive">Banned from the group</Badge>}
         {flag.groupRemoved && <Badge variant="destructive">Removed from the group</Badge>}
         {flag.trial && <Badge variant="secondary">Trial</Badge>}
