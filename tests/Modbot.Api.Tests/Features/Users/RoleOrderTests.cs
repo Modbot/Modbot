@@ -330,8 +330,12 @@ public class RoleOrderTests
             HttpMethod.Post, $"/api/roles/{BuiltInRoles.AdministratorId}/move", new { direction = "down" }, cookie, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, moveAdministrator.StatusCode);
 
+        // The first role that is not an administrator role cannot go up past them.
+        var rolesNow = (await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/roles", null, cookie, Ct), Ct))
+            .GetProperty("roles").EnumerateArray().ToList();
+        var firstBelow = rolesNow.First(r => r.GetProperty("position").GetInt32() != int.MinValue).GetProperty("id").GetGuid();
         var overAdministrator = await host.SendJsonAsync(
-            HttpMethod.Post, $"/api/roles/{BuiltInRoles.ModeratorId}/move", new { direction = "up" }, cookie, Ct);
+            HttpMethod.Post, $"/api/roles/{firstBelow}/move", new { direction = "up" }, cookie, Ct);
         Assert.Equal(HttpStatusCode.BadRequest, overAdministrator.StatusCode);
 
         var nonsense = await host.SendJsonAsync(HttpMethod.Post, $"/api/roles/{first}/move", new { direction = "sideways" }, cookie, Ct);
@@ -375,6 +379,75 @@ public class RoleOrderTests
         Assert.Equal(HttpStatusCode.OK, move.StatusCode);
 
         Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(HttpMethod.Delete, $"/api/roles/{mine}", null, cookie, Ct)).StatusCode);
+    }
+
+    /// <summary>Gives an existing account one more role, straight in the database.</summary>
+    private async Task GiveAsync(Guid userId, Guid roleId)
+    {
+        await using var db = _db.NewContext();
+        db.UserRoles.Add(new ModbotUserRole { UserId = userId, RoleId = roleId });
+        await db.SaveChangesAsync(Ct);
+    }
+
+    [Fact]
+    public async Task ARoleThatCarriesAdministrator_CountsAsFirst_WhereverItIsStored()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, lead) = await host.SignedInAsync(Lead, Ct);
+
+        // Made at the very bottom by number, but holding it is being an administrator.
+        var custom = await RoleAtAsync(ModbotPermissions.Administrator, 100_000);
+        var holder = await host.CreateUserAsync($"u_{Guid.NewGuid():N}", TestAccounts.Password, ModbotPermissions.None, Ct);
+        await GiveAsync(holder.Id, custom);
+
+        foreach (var (what, method, path, body) in SixChanges(holder, []))
+        {
+            var response = await host.SendJsonAsync(method, path, body, lead, Ct);
+            await AssertRefusedAsync(response, AccountsBelow, $"{what} on an account whose only role carries Administrator");
+        }
+
+        // The list puts it first, ahead of Moderator, and says so.
+        var roles = (await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/roles", null, lead, Ct), Ct))
+            .GetProperty("roles").EnumerateArray().ToList();
+        var ids = roles.Select(r => r.GetProperty("id").GetGuid()).ToList();
+        Assert.True(ids.IndexOf(custom) < ids.IndexOf(BuiltInRoles.ModeratorId));
+        Assert.Equal(int.MinValue, roles[ids.IndexOf(custom)].GetProperty("position").GetInt32());
+
+        var users = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, "/api/users", null, lead, Ct), Ct);
+        Assert.Equal(
+            int.MinValue,
+            users.EnumerateArray().Single(u => u.GetProperty("id").GetGuid() == holder.Id).GetProperty("rank").GetInt32());
+    }
+
+    [Fact]
+    public async Task ARoleThatCarriesAdministrator_CannotBeEditedMovedOrDeletedByANonAdministrator()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageRoles | ModbotPermissions.ViewMembers, Ct);
+        var custom = await RoleAtAsync(ModbotPermissions.Administrator, 100_000);
+
+        var body = new { name = UniqueName(), description = "", permissions = new[] { "ViewMembers" } };
+
+        await AssertRefusedAsync(
+            await host.SendJsonAsync(HttpMethod.Put, $"/api/roles/{custom}", body, cookie, Ct), RolesBelow, "editing it");
+        await AssertRefusedAsync(
+            await host.SendJsonAsync(HttpMethod.Delete, $"/api/roles/{custom}", null, cookie, Ct), RolesBelow, "deleting it");
+        await AssertRefusedAsync(
+            await host.SendJsonAsync(HttpMethod.Post, $"/api/roles/{custom}/move", new { direction = "up" }, cookie, Ct), RolesBelow, "moving it up");
+        await AssertRefusedAsync(
+            await host.SendJsonAsync(HttpMethod.Post, $"/api/roles/{custom}/move", new { direction = "down" }, cookie, Ct), RolesBelow, "moving it down");
+    }
+
+    [Fact]
+    public async Task ARoleThatCarriesAdministrator_IsNotMovedByAnAdministratorEither()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        var custom = await RoleAtAsync(ModbotPermissions.Administrator, 100_000);
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, $"/api/roles/{custom}/move", new { direction = "up" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

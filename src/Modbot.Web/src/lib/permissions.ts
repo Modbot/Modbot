@@ -22,6 +22,12 @@ export function can(user: CurrentUser | null, permission: string): boolean {
  * Manage users and Manage roles only reach what is below the caller, and the same rank is
  * refused. This decides what to grey; the server refuses on every request.
  */
+/**
+ * The position the server gives the Administrator role, and any role that carries the
+ * Administrator permission: always first, above every number a role can be moved to.
+ */
+export const FIRST_POSITION = -2147483648
+
 export function isBelowMe(me: CurrentUser, rank: number | null): boolean {
   if (me.permissionNames.includes('Administrator')) return true
   return (rank ?? Infinity) > (me.rank ?? Infinity)

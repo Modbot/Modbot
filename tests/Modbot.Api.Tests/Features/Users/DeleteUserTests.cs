@@ -186,6 +186,22 @@ public class DeleteUserTests
     }
 
     [Fact]
+    public async Task AnAdministrator_MayDeleteAnotherAdministrator_WhileTheyRemain()
+    {
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
+        var other = await host.CreateUserAsync($"u_{Guid.NewGuid():N}", TestAccounts.Password, ModbotPermissions.Administrator, Ct);
+
+        var response = await host.SendJsonAsync(
+            HttpMethod.Post, Path(other.Id), new { username = other.Username }, cookie, Ct);
+
+        // The last-administrator guard only ever stops a delete when nobody else would be left to
+        // do it: the caller here is an enabled administrator, so it lets this through. A demotion
+        // of the last administrator is what reaches it (UsersTests).
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task DeletingNeedsManageUsers()
     {
         await using var host = await ApiTestHost.StartAsync(_db);

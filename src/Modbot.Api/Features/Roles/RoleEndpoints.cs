@@ -122,13 +122,15 @@ public static class RoleEndpoints
                     Description = body.Description?.Trim() ?? string.Empty,
                     Permissions = permissions,
                     CreatedAt = clock.UtcNow,
-
-                    // At the bottom, below every role that exists (design §3.5): a person making
-                    // a role never makes one that outranks themselves.
-                    Position = (await db.Roles.MaxAsync(r => (int?)r.Position, ct) ?? -1) + 1,
                 };
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockOrderAsync(db, ct);
+
+                // At the bottom, below every role that exists (design §3.5): a person making a
+                // role never makes one that outranks themselves. Read under the lock, so two made
+                // at once cannot take the same place.
+                role.Position = (await db.Roles.MaxAsync(r => (int?)r.Position, ct) ?? -1) + 1;
 
                 db.Roles.Add(role);
                 await db.SaveChangesAsync(ct);
@@ -306,6 +308,11 @@ public static class RoleEndpoints
                 if (!up && !string.Equals(body.Direction, "down", StringComparison.OrdinalIgnoreCase))
                     return Results.BadRequest(new { error = "Direction is up or down." });
 
+                // The order is read and written under one lock, so two moves at once cannot leave
+                // two roles in the same place.
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                await LockOrderAsync(db, ct);
+
                 var roles = await OrderedAsync(db, ct);
                 var index = roles.FindIndex(r => r.Id == id);
                 if (index < 0)
@@ -316,7 +323,9 @@ public static class RoleEndpoints
                 if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, [role], ct) is { } outranked)
                     return outranked;
 
-                if (role.Id == BuiltInRoles.AdministratorId)
+                // Administrator, and any role that carries the Administrator permission, is
+                // always first: nothing moves it and nothing moves above it.
+                if (RoleRank.IsAdministrator(role))
                     return Results.BadRequest(new { error = "The Administrator role is always first." });
 
                 var otherIndex = up ? index - 1 : index + 1;
@@ -325,7 +334,7 @@ public static class RoleEndpoints
 
                 var other = roles[otherIndex];
 
-                if (other.Id == BuiltInRoles.AdministratorId)
+                if (RoleRank.IsAdministrator(other))
                     return Results.BadRequest(new { error = "The Administrator role is always first." });
 
                 // The role it changes places with moves too. Moving up, that is the one above,
@@ -333,8 +342,6 @@ public static class RoleEndpoints
                 // caller's own place and push the caller down.
                 if (up && await RoleOrder.MayNotChangeRolesAsync(http, accounts, [other], ct) is { } blocked)
                     return blocked;
-
-                await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
                 if (role.Position != other.Position)
                 {
@@ -384,21 +391,35 @@ public static class RoleEndpoints
         return app;
     }
 
-    /// <summary>The roles highest first: by position, then the older first, so ties are stable.</summary>
-    private static Task<List<ModbotRole>> OrderedAsync(ModbotContext db, CancellationToken ct)
-        => db.Roles
-            .OrderBy(r => r.Position)
+    /// <summary>
+    /// Names the lock so two people changing the order at the same moment take turns. Any stable
+    /// string works; the prefix matches the other locks Modbot takes.
+    /// </summary>
+    private const string OrderLock = "modbot:roles:order";
+
+    private static Task LockOrderAsync(ModbotContext db, CancellationToken ct)
+        => db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({OrderLock}))", ct);
+
+    /// <summary>
+    /// The roles highest first: by where they count as sitting (Administrator first whatever
+    /// number is stored), then by stored position, then the older first, so ties are stable.
+    /// </summary>
+    private static async Task<List<ModbotRole>> OrderedAsync(ModbotContext db, CancellationToken ct)
+    {
+        var roles = await db.Roles.ToListAsync(ct);
+        return Sorted(roles);
+    }
+
+    private static List<ModbotRole> Sorted(IEnumerable<ModbotRole> roles)
+        => [.. roles
+            .OrderBy(RoleRank.PositionOf)
+            .ThenBy(r => r.Position)
             .ThenBy(r => r.CreatedAt)
-            .ThenBy(r => r.Id)
-            .ToListAsync(ct);
+            .ThenBy(r => r.Id)];
 
     private static async Task<RolesResponse> ListAsync(ModbotContext db, CancellationToken ct)
     {
-        var roles = await db.Roles.AsNoTracking()
-            .OrderBy(r => r.Position)
-            .ThenBy(r => r.CreatedAt)
-            .ThenBy(r => r.Id)
-            .ToListAsync(ct);
+        var roles = Sorted(await db.Roles.AsNoTracking().ToListAsync(ct));
 
         var counts = await db.UserRoles.AsNoTracking()
             .GroupBy(ur => ur.RoleId)

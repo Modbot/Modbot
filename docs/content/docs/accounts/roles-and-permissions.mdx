@@ -68,7 +68,10 @@ Roles are in a line, highest first, like roles in Discord. **Administrator** is 
 (the arrows at its right end, which work on a phone too). A role you make yourself starts at the
 bottom.
 
-A person's **rank** is their highest role. Somebody with no role is at the bottom.
+A person's **rank** is their highest role. Somebody with no role is at the bottom. Rank follows the
+order of the list, not what a role allows, so a role placed low can still hold permissions that
+people ranked above it lack. Any role that includes **Administrator** counts as first, wherever it
+is in the list.
 
 **Manage users** and **Manage roles** only reach what is below your own highest role. The same rank
 doesn't count as below. That is what stops somebody with **Manage users** from making a reset link
@@ -488,7 +491,8 @@ A person with this only reaches accounts **below their own highest role** (see
 enable or delete an account whose highest role is the same as theirs or higher, or remove its
 companions, and they can only give or take roles that sit below their own highest role. They see
 "You can only change accounts below your highest role." or "You can only change roles below your
-highest role." An administrator can change anyone, including other administrators.
+highest role." An administrator can change anyone, including other administrators. You can still
+change your own contact details, but you can't take your own highest role off yourself.
 
 ### Manage roles
 

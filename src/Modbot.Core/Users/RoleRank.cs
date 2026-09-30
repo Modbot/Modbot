@@ -19,13 +19,21 @@ public static class RoleRank
     public const int Top = int.MinValue;
 
     /// <summary>
-    /// Where a role counts as sitting. Administrator is always first, whatever number is stored, so
-    /// the rule cannot be bent by a row that says otherwise.
+    /// Where a role counts as sitting. The Administrator role, and any role that carries the
+    /// Administrator permission, is always first whatever number is stored: holding it is being an
+    /// administrator, so it must never rank below somebody who is not one.
     /// </summary>
     public static int PositionOf(ModbotRole role)
     {
         ArgumentNullException.ThrowIfNull(role);
-        return role.Id == BuiltInRoles.AdministratorId ? Top : role.Position;
+        return IsAdministrator(role) ? Top : role.Position;
+    }
+
+    /// <summary>Whether this role is the Administrator role or carries the Administrator permission.</summary>
+    public static bool IsAdministrator(ModbotRole role)
+    {
+        ArgumentNullException.ThrowIfNull(role);
+        return role.Id == BuiltInRoles.AdministratorId || role.Permissions.HasFlag(ModbotPermissions.Administrator);
     }
 
     /// <summary>The rank of this set of roles: the position of the highest. <see cref="Bottom"/> when empty.</summary>

@@ -85,8 +85,12 @@ while another administrator remained. The first answer checked that the caller h
 permission the target held. The user replaced it with what Discord does: **roles have an order**,
 and the two permissions only reach what is below the caller.
 
-- **Order.** `modbot_role.position`, first at 0. Administrator is always first, whatever number is
-  stored (`RoleRank.PositionOf`). A new role is made at the bottom. The migration numbers what
+- **Order.** `modbot_role.position`, first at 0. The Administrator role, and any role that carries
+  the `Administrator` permission, is always first whatever number is stored (`RoleRank.PositionOf`):
+  holding one is being an administrator, so it can never rank below somebody who is not. Rank
+  follows the list, not what a role allows, so a role placed low can hold permissions that people
+  ranked above it lack. Changing the order takes an advisory lock, and so does making a role, so
+  two at once cannot share a place. A new role is made at the bottom. The migration numbers what
   exists: Administrator, then Moderator and every custom role by how many permissions each allows
   (most first, older first between equals), then Viewer. Operators reorder from the roles page
   with Move up and Move down. Only the order matters, so numbers may have gaps.
@@ -100,9 +104,10 @@ and the two permissions only reach what is below the caller.
   still runs first.
 - **Administrators** (the caller holds the `Administrator` permission) are above the rule and may
   act on anyone, including other administrators.
-- **Own account.** Passes the account check, so what may be done to it is settled by each
-  endpoint's own rules ("You cannot disable your own account."). Taking your own highest role off
-  yourself is a role change and is refused like any other.
+- **Own account.** Passes the account check, so your own contact details and reset link stay yours
+  and the other rules of each endpoint still answer ("You cannot disable your own account.").
+  Roles are the exception: taking your own highest role off yourself is a role change, which the
+  role rule refuses like any other (decided 2026-09-30; before the order existed it was allowed).
 - **Last administrator** (§3.4) is unchanged.
 - **Manage roles.** Editing, deleting and moving a role are refused with 403 "You can only change
   roles below your highest role." unless the role is below the caller's highest role. A role can

@@ -8,7 +8,7 @@ import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type CurrentUser, type PermissionInfo, type RoleView } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { isBelowMe } from '@/lib/permissions'
+import { FIRST_POSITION, isBelowMe } from '@/lib/permissions'
 import { Empty } from '@/components/ListParts'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
@@ -54,9 +54,9 @@ export function Roles({ me }: { me: CurrentUser }) {
   // stays first, and nothing goes above it.
   const canMove = (i: number, direction: 'up' | 'down') => {
     const role = roles[i]
-    if (role.locked || !isBelowMe(me, role.position)) return false
+    if (role.locked || role.position === FIRST_POSITION || !isBelowMe(me, role.position)) return false
     if (direction === 'down') return i < roles.length - 1
-    return i > 0 && !roles[i - 1].locked && isBelowMe(me, roles[i - 1].position)
+    return i > 0 && roles[i - 1].position !== FIRST_POSITION && isBelowMe(me, roles[i - 1].position)
   }
 
   const move = (id: string, direction: 'up' | 'down') => {

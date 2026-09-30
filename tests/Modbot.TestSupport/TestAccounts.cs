@@ -64,8 +64,8 @@ public static class TestAccounts
     /// </remarks>
     public static int PositionFor(ModbotPermissions permissions)
         => permissions.HasFlag(ModbotPermissions.Administrator)
-            ? -2000
-            : -1000 + (64 - BitOperations.PopCount((ulong)permissions));
+            ? RoleRank.Top
+            :-1000 + (64 - BitOperations.PopCount((ulong)permissions));
 
     /// <summary>The role holding exactly these flags, created on first use.</summary>
     public static async Task<Guid> RoleForAsync(ModbotContext db, ModbotPermissions permissions, CancellationToken ct = default)
