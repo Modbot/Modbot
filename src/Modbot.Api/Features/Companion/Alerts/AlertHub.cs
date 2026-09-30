@@ -8,6 +8,10 @@ namespace Modbot.Api.Features.Companion.Alerts;
 
 /// <param name="Reason">Already resolved server-side, and shown verbatim in the headset.</param>
 /// <param name="TrustRank">The person's VRChat trust rank as stored, when known.</param>
+/// <param name="WorldId">
+/// The world the instance is in. An instance number is only unique inside one world, so the alert
+/// names both. Older clients ignore it.
+/// </param>
 public sealed record FlaggedJoinAlertDto(
     [property: JsonPropertyName("alertId")] string AlertId,
     [property: JsonPropertyName("subjectId")] string SubjectId,
@@ -16,7 +20,8 @@ public sealed record FlaggedJoinAlertDto(
     [property: JsonPropertyName("reason")] string Reason,
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("raisedAt")] DateTimeOffset RaisedAt,
-    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
+    [property: JsonPropertyName("worldId")] string? WorldId = null);
 
 /// <summary>
 /// The one thing in the protocol that is pushed rather than polled.
@@ -83,7 +88,7 @@ public sealed class AlertHub
         {
             foreach (var deviceId in deviceIds)
             {
-                if (deviceId == reportedByDeviceId || !_locations.IsIn(deviceId, alert.InstanceId, now))
+                if (deviceId == reportedByDeviceId || !_locations.IsIn(deviceId, alert.InstanceId, now, alert.WorldId))
                     continue;
 
                 QueueFor(deviceId).Writer.TryWrite(alert);
@@ -166,7 +171,8 @@ public sealed class AlertHub
         string? displayName,
         string instanceId,
         FlagMatch match,
-        TrustRank? trustRank = null)
+        TrustRank? trustRank = null,
+        string? worldId = null)
     {
         ArgumentNullException.ThrowIfNull(match);
 
@@ -178,6 +184,7 @@ public sealed class AlertHub
             match.Reason ?? string.Empty,
             match.PriorActions,
             clock.UtcNow,
-            trustRank);
+            trustRank,
+            worldId);
     }
 }

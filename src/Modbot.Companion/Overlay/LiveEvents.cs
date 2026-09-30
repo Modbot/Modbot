@@ -40,6 +40,10 @@ public sealed record LivePerson(
 /// Information to display, never a command. <see cref="Cursor"/> is what the client sends back to
 /// carry on after a dropped connection; it is text with no meaning of its own.
 /// </remarks>
+/// <param name="WorldId">
+/// The world the instance is in. An instance number is only unique inside one world, so the client
+/// compares both. Null from a server that does not say, and then the number alone is compared.
+/// </param>
 /// <param name="ByThisDevice">The server says this client reported the fact itself. A flagged join is still a card: the log never says a person is flagged.</param>
 public sealed record LiveEvent(
     [property: JsonPropertyName("id")] string Id,
@@ -50,7 +54,8 @@ public sealed record LiveEvent(
     [property: JsonPropertyName("person")] LivePerson? Person,
     [property: JsonPropertyName("flagged")] bool Flagged,
     [property: JsonPropertyName("reason")] string? Reason,
-    [property: JsonPropertyName("byThisDevice")] bool ByThisDevice)
+    [property: JsonPropertyName("byThisDevice")] bool ByThisDevice,
+    [property: JsonPropertyName("worldId")] string? WorldId = null)
 {
     /// <summary>The card a flagged join becomes, or null for anything else.</summary>
     public FlaggedJoinAlert? ToAlert()
@@ -65,7 +70,8 @@ public sealed record LiveEvent(
             InstanceId,
             Reason ?? "prior moderation actions",
             Person.PriorActions,
-            At);
+            At,
+            WorldId: WorldId);
     }
 }
 

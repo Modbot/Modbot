@@ -56,7 +56,8 @@ public class OverlayReadTests
         DateTimeOffset at,
         string? displayName = null,
         string? instance = Instance,
-        Guid? device = null)
+        Guid? device = null,
+        string world = "wrld_4b34")
     {
         var data = new System.Text.Json.Nodes.JsonObject();
         if (displayName is not null)
@@ -70,7 +71,7 @@ public class OverlayReadTests
             OccurredAt = at,
             SubjectPlatform = FactPlatform.VRChat,
             SubjectId = subject,
-            WorldId = "wrld_4b34",
+            WorldId = world,
             InstanceId = instance,
             Source = FactSource.Modbot,
             Data = data.Count == 0 ? null : data,
@@ -96,10 +97,14 @@ public class OverlayReadTests
     /// why this is a roster read and not a new call.
     /// </remarks>
     private static async Task StandingInAsync(
-        CompanionApiTestHost host, string token, string instance, CancellationToken ct)
+        CompanionApiTestHost host, string token, string instance, CancellationToken ct, string? world = null)
     {
         var response = await host.Client.SendAsync(
-            host.WithToken(HttpMethod.Get, $"/api/v1/companion/context?instanceId={instance}", token), ct);
+            host.WithToken(
+                HttpMethod.Get,
+                $"/api/v1/companion/context?instanceId={instance}" + (world is null ? "" : $"&worldId={world}"),
+                token),
+            ct);
 
         response.EnsureSuccessStatusCode();
     }
@@ -110,7 +115,8 @@ public class OverlayReadTests
         string subject,
         CancellationToken ct,
         string instance = Instance,
-        string? displayName = null)
+        string? displayName = null,
+        string world = "wrld_4b34")
     {
         var report = host.WithToken(HttpMethod.Post, "/api/v1/companion/events", token);
         report.Content = JsonContent.Create(new EventBatchDto(
@@ -118,7 +124,7 @@ public class OverlayReadTests
             [
                 new CompanionEventDto(
                     Guid.NewGuid().ToString("n"), "InstanceJoined", Noon, null, subject,
-                    "wrld_4b34", instance, Group,
+                    world, instance, Group,
                     displayName is null ? null : new Dictionary<string, string> { ["displayName"] = displayName }),
             ]));
 
@@ -159,6 +165,52 @@ public class OverlayReadTests
     /// left, so "last fact per person wins" kept everyone they saw present for twelve hours, long
     /// after the instance had closed.
     /// </summary>
+    /// <summary>
+    /// An instance is its world and its number, and a number alone is only unique inside one world.
+    /// Two open instances both called "39911", one in each of two worlds.
+    /// </summary>
+    [Fact]
+    public async Task TwoOpenInstancesWithTheSameNumberInTwoWorlds_AreTwoRosters()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var inA = await host.PairModeratorAsync(ct);
+        var inB = await host.PairModeratorAsync(ct);
+
+        await WriteAsync(host,
+            Fact(FactType.InstanceJoined, inA.VRChatUserId, Noon.AddMinutes(-40), device: inA.DeviceId, world: "wrld_a"),
+            Fact(FactType.InstanceJoined, "usr_ana", Noon.AddMinutes(-30), "Ana", device: inA.DeviceId, world: "wrld_a"),
+            Fact(FactType.InstanceJoined, inB.VRChatUserId, Noon.AddMinutes(-40), device: inB.DeviceId, world: "wrld_b"),
+            Fact(FactType.InstanceJoined, "usr_bob", Noon.AddMinutes(-30), "Bob", device: inB.DeviceId, world: "wrld_b"));
+
+        var inWorldA = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}&worldId=wrld_a", ct);
+        Assert.Contains(inWorldA.Members, m => m.SubjectId == "usr_ana");
+        Assert.DoesNotContain(inWorldA.Members, m => m.SubjectId == "usr_bob");
+
+        var inWorldB = await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}&worldId=wrld_b", ct);
+        Assert.Contains(inWorldB.Members, m => m.SubjectId == "usr_bob");
+        Assert.DoesNotContain(inWorldB.Members, m => m.SubjectId == "usr_ana");
+
+        // A client that sends no world is answered by the number alone, as it always was, and an
+        // empty world counts as none.
+        foreach (var path in (string[])[
+            $"/api/v1/companion/context?instanceId={Instance}",
+            $"/api/v1/companion/context?instanceId={Instance}&worldId="])
+        {
+            var merged = await GetAsync<InstanceContextDto>(host, token, path, ct);
+            Assert.Contains(merged.Members, m => m.SubjectId == "usr_ana");
+            Assert.Contains(merged.Members, m => m.SubjectId == "usr_bob");
+        }
+
+        // A world nobody has reported that number in has nobody in it.
+        Assert.Empty((await GetAsync<InstanceContextDto>(
+            host, token, $"/api/v1/companion/context?instanceId={Instance}&worldId=wrld_nowhere", ct)).Members);
+    }
+
     [Fact]
     public async Task WhenTheLastModeratorLeaves_NobodyIsStillListedAsHere()
     {
@@ -633,6 +685,61 @@ public class OverlayReadTests
         await ReportJoinAsync(host, reporter, "usr_flag", ct);
 
         Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, elsewhere, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task AFlaggedArrivalInAnotherWorldWithTheSameNumberIsNotQueuedForADeviceHere()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, reporter) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var here = await host.PairDeviceAsync(ct);
+        var older = await host.PairDeviceAsync(ct);
+        await StandingInAsync(host, here, Instance, ct, world: "wrld_a");
+
+        // A client built before the world was sent names the number alone, and is matched by it.
+        await StandingInAsync(host, older, Instance, ct);
+
+        await WriteAsync(host,
+            Fact(FactType.MemberBanned, "usr_flag_a", Noon.AddDays(-10), instance: null),
+            Fact(FactType.MemberBanned, "usr_flag_b", Noon.AddDays(-10), instance: null));
+
+        await ReportJoinAsync(host, reporter, "usr_flag_b", ct, world: "wrld_b");
+
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, here, ct)).StatusCode);
+
+        var forOlder = await PollAsync(host, older, ct);
+        Assert.Equal(HttpStatusCode.OK, forOlder.StatusCode);
+        Assert.Equal("wrld_b", (await forOlder.Content.ReadFromJsonAsync<FlaggedJoinAlertDto>(ct))!.WorldId);
+
+        // The same device is told about its own world's instance.
+        await ReportJoinAsync(host, reporter, "usr_flag_a", ct, world: "wrld_a");
+
+        var alert = await (await PollAsync(host, here, ct)).Content.ReadFromJsonAsync<FlaggedJoinAlertDto>(ct);
+        Assert.Equal("usr_flag_a", alert!.SubjectId);
+        Assert.Equal("wrld_a", alert.WorldId);
+    }
+
+    [Fact]
+    public async Task AnIngestBatchPlacesADeviceByWorldAndNumber()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, reporter) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var watcher = await host.PairDeviceAsync(ct);
+        await ReportJoinAsync(host, watcher, "usr_ordinary", ct, world: "wrld_a");
+
+        await WriteAsync(host,
+            Fact(FactType.MemberBanned, "usr_flag_a", Noon.AddDays(-10), instance: null),
+            Fact(FactType.MemberBanned, "usr_flag_b", Noon.AddDays(-10), instance: null));
+
+        await ReportJoinAsync(host, reporter, "usr_flag_b", ct, world: "wrld_b");
+        Assert.Equal(HttpStatusCode.NoContent, (await PollAsync(host, watcher, ct)).StatusCode);
+
+        await ReportJoinAsync(host, reporter, "usr_flag_a", ct, world: "wrld_a");
+        Assert.Equal(HttpStatusCode.OK, (await PollAsync(host, watcher, ct)).StatusCode);
     }
 
     [Fact]

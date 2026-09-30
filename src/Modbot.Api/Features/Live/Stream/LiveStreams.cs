@@ -52,7 +52,7 @@ public static class LiveStreams
         LiveScopeRefresh refresh,
         long? after,
         string connectionKey,
-        Action<string>? instanceNamed = null)
+        Action<string, string?>? instanceNamed = null)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(socket);

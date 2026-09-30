@@ -299,6 +299,18 @@ watching. It used to be "last fact per person wins" over twelve hours, which kep
 moderator saw "present" for up to twelve hours after they left, because nobody is told that anyone
 else left once the last moderator walks out.
 
+> **Changed 2026-09-29: an instance is its world and its number** (`vrchat-log-format.md` §1.3.1).
+> An instance number is only unique inside one world, and groups can name instances in plain words,
+> so two instances in two worlds can both be called "Main" and used to share a roster and a
+> flagged-join card. `context`, `ws` and `poll` now take an optional `worldId` beside `instanceId`,
+> and the socket's `subscribe` message takes one too. The server matches on both when it is given
+> one: the roster, whether the instance has closed, which events a connection is sent, and which
+> devices a flagged-join alert is queued for (the alert gains a `worldId`, and the live events
+> already carried one). A client that sends no world, or an empty one, is matched by the number
+> alone, exactly as before; the server does not guess a world for it. The API version stays 1,
+> because this is an addition (§6.1). A new client against a server that has not been updated sends
+> a `worldId` nothing reads, and its own check drops another world's events.
+
 ### 6.1 Push, only where it earns it
 
 One case genuinely needs push: **a flagged user joins the instance a moderator is currently in.** By

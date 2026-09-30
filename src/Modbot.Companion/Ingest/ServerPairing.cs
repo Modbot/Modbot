@@ -88,8 +88,12 @@ public sealed record ServerPairing
     /// <summary>
     /// The roster-with-context read the overlay's local cache is filled from. Read-only and small.
     /// </summary>
-    public Uri ContextEndpoint(string instanceId)
-        => new(BaseUri, $"/api/v{ApiVersion}/companion/context?instanceId={Uri.EscapeDataString(instanceId)}");
+    /// <remarks>
+    /// An instance is its world and its number, and a number alone is only unique inside one world,
+    /// so the world goes with it. It is left off only when it is not known.
+    /// </remarks>
+    public Uri ContextEndpoint(string instanceId, string? worldId = null)
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/context?{Address(instanceId, worldId)}");
 
     /// <summary>One person's profile summary — prior actions, roles, join date, current flags.</summary>
     public Uri UserEndpoint(string subjectId)
@@ -99,19 +103,23 @@ public sealed record ServerPairing
     /// Live updates over a WebSocket: who joins and leaves the instance the moderator is standing
     /// in, flagged joins included. <paramref name="after"/> is the cursor to carry on from.
     /// </summary>
-    public Uri LiveSocketEndpoint(string instanceId, string? after)
+    public Uri LiveSocketEndpoint(string instanceId, string? after, string? worldId = null)
     {
         var scheme = BaseUri.Scheme == Uri.UriSchemeHttps ? "wss" : "ws";
-        var builder = new UriBuilder(BaseUri) { Scheme = scheme, Path = $"/api/v{ApiVersion}/companion/ws", Query = Query(instanceId, after) };
+        var builder = new UriBuilder(BaseUri) { Scheme = scheme, Path = $"/api/v{ApiVersion}/companion/ws", Query = Query(instanceId, worldId, after) };
         return builder.Uri;
     }
 
     /// <summary>The same updates by long polling, the backup for the WebSocket.</summary>
-    public Uri LivePollEndpoint(string instanceId, string? after, int waitSeconds)
-        => new(BaseUri, $"/api/v{ApiVersion}/companion/poll?{Query(instanceId, after)}&wait={waitSeconds}");
+    public Uri LivePollEndpoint(string instanceId, string? after, int waitSeconds, string? worldId = null)
+        => new(BaseUri, $"/api/v{ApiVersion}/companion/poll?{Query(instanceId, worldId, after)}&wait={waitSeconds}");
 
-    private static string Query(string instanceId, string? after)
-        => $"instanceId={Uri.EscapeDataString(instanceId)}" + (after is null ? "" : $"&after={Uri.EscapeDataString(after)}");
+    private static string Address(string instanceId, string? worldId)
+        => $"instanceId={Uri.EscapeDataString(instanceId)}"
+            + (worldId is { Length: > 0 } ? $"&worldId={Uri.EscapeDataString(worldId)}" : "");
+
+    private static string Query(string instanceId, string? worldId, string? after)
+        => Address(instanceId, worldId) + (after is null ? "" : $"&after={Uri.EscapeDataString(after)}");
 
     public override string ToString() => $"{ServerId} ({BaseUri})";
 }

@@ -33,6 +33,7 @@ public static class CompanionLiveEndpoints
     public static async Task<IResult> SocketAsync(
         int apiVersion,
         string? instanceId,
+        string? worldId,
         string? after,
         HttpContext context,
         DeviceAuthenticator authenticator,
@@ -67,16 +68,16 @@ public static class CompanionLiveEndpoints
         }
 
         if (instanceId is { Length: > 0 })
-            locations.Record(device.Id, instanceId, clock.UtcNow);
+            locations.Record(device.Id, instanceId, clock.UtcNow, worldId);
 
         await LiveStreams.RunSocketAsync(
             context,
             socket,
-            LiveScope.ForDevice(device.Id, instanceId),
+            LiveScope.ForDevice(device.Id, instanceId, worldId),
             DeviceRefresh(tokenHash),
             cursor,
             $"live:device:{device.Id}",
-            named => locations.Record(device.Id, named, clock.UtcNow));
+            (named, namedWorld) => locations.Record(device.Id, named, clock.UtcNow, namedWorld));
 
         return Results.Empty;
     }
@@ -84,6 +85,7 @@ public static class CompanionLiveEndpoints
     public static async Task<IResult> PollAsync(
         int apiVersion,
         string? instanceId,
+        string? worldId,
         string? after,
         int? wait,
         HttpContext context,
@@ -104,12 +106,12 @@ public static class CompanionLiveEndpoints
         var tokenHash = DeviceTokens.Hash(DeviceAuthenticator.ReadBearer(context)!);
 
         if (instanceId is { Length: > 0 })
-            locations.Record(device.Id, instanceId, clock.UtcNow);
+            locations.Record(device.Id, instanceId, clock.UtcNow, worldId);
 
         return await LiveStreams.PollAsync(
             context,
             database,
-            LiveScope.ForDevice(device.Id, instanceId),
+            LiveScope.ForDevice(device.Id, instanceId, worldId),
             DeviceRefresh(tokenHash),
             $"live:device:{device.Id}",
             after,

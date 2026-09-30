@@ -43,7 +43,7 @@ internal sealed class LiveSocketSession
     private readonly EventSocketOptions _options;
     private readonly LiveScopeRefresh _refresh;
     private readonly FactSignal _signal;
-    private readonly Action<string>? _instanceNamed;
+    private readonly Action<string, string?>? _instanceNamed;
     private readonly string _caller;
     private readonly ILogger _log;
 
@@ -58,7 +58,7 @@ internal sealed class LiveSocketSession
     /// <param name="scope">What this connection may be sent, as first resolved.</param>
     /// <param name="refresh">Re-resolves that at each heartbeat.</param>
     /// <param name="startAfter">The cursor from the address, or null for "from now".</param>
-    /// <param name="instanceNamed">Told each time a companion names the instance it is in.</param>
+    /// <param name="instanceNamed">Told each time a companion names the instance it is in: its number, and its world when it said.</param>
     public LiveSocketSession(
         WebSocket socket,
         IServiceScopeFactory scopes,
@@ -70,7 +70,7 @@ internal sealed class LiveSocketSession
         LiveScopeRefresh refresh,
         long? startAfter,
         string caller,
-        Action<string>? instanceNamed = null)
+        Action<string, string?>? instanceNamed = null)
     {
         _socket = socket;
         _scopes = scopes;
@@ -86,7 +86,7 @@ internal sealed class LiveSocketSession
         _log = Log.Logger.ForContext<LiveSocketSession>();
     }
 
-    private sealed record Change(long? Cursor, string? InstanceId);
+    private sealed record Change(long? Cursor, string? InstanceId, string? WorldId);
 
     public async Task RunAsync(CancellationToken requestAborted)
     {
@@ -157,8 +157,8 @@ internal sealed class LiveSocketSession
             {
                 if (change.InstanceId is { } instance && _scope.IsDevice)
                 {
-                    _scope = _scope.InInstance(instance);
-                    _instanceNamed?.Invoke(instance);
+                    _scope = _scope.InInstance(instance, change.WorldId);
+                    _instanceNamed?.Invoke(instance, change.WorldId);
                 }
 
                 if (change.Cursor is { } moved)
@@ -375,7 +375,21 @@ internal sealed class LiveSocketSession
             instance = named;
         }
 
-        change = new Change(cursor, instance);
+        // Optional, and only meaningful beside an instance: the world that number is in. Left out
+        // (or empty) by a client that does not send one, and then the number alone is matched.
+        string? world = null;
+        if (root.TryGetProperty("worldId", out var w) && w.ValueKind != JsonValueKind.Null)
+        {
+            if (w.ValueKind != JsonValueKind.String || w.GetString() is not { Length: <= 256 } named)
+            {
+                error = "'worldId' must be text.";
+                return false;
+            }
+
+            world = named.Length > 0 ? named : null;
+        }
+
+        change = new Change(cursor, instance, world);
         return true;
     }
 

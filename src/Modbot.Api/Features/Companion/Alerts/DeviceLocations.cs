@@ -55,12 +55,16 @@ public sealed class DeviceLocations
     /// Notes that this device just named this instance in a request it was making anyway.
     /// </summary>
     /// <remarks>
+    /// <para><strong>The instance is its world and its number, and neither alone.</strong> A number
+    /// is only unique inside one world, so a device that names its world is placed by both. A
+    /// client built before it sent one names the number alone and is placed by that, as it always
+    /// was; an empty world counts as none.</para>
     /// A client replaying an offline buffer names the instance those observations came from, which
     /// it may since have left. That is left uncorrected on purpose: guessing at which reports are
     /// "current enough" would add a second threshold nobody can tune, and the error it would guard
     /// against is one stale alert that the receiving client already drops.
     /// </remarks>
-    public void Record(Guid deviceId, string instanceId, DateTimeOffset now)
+    public void Record(Guid deviceId, string instanceId, DateTimeOffset now, string? worldId = null)
     {
         if (instanceId is not { Length: > 0 })
             return;
@@ -76,7 +80,7 @@ public sealed class DeviceLocations
                     _known.Remove(id);
             }
 
-            _known[deviceId] = new Entry(instanceId, now);
+            _known[deviceId] = new Entry(instanceId, worldId is { Length: > 0 } ? worldId : null, now);
         }
     }
 
@@ -84,18 +88,25 @@ public sealed class DeviceLocations
     /// Whether this device is believed to be standing in this instance right now.
     /// </summary>
     /// <remarks>
-    /// A device that has never said where it is answers <c>false</c>, so an alert reaches nobody
+    /// <para>A device that has never said where it is answers <c>false</c>, so an alert reaches nobody
     /// rather than everybody. That is the right default for the same reason the client filters
     /// again on receipt: the failure worth designing against is context reaching somewhere it was
-    /// not needed, not a card arriving a refresh late.
+    /// not needed, not a card arriving a refresh late.</para>
+    /// <para><strong>The world counts when both sides know it.</strong> A device that named its
+    /// world is in an instance of that world and no other, whatever the number. A device that named
+    /// only a number (an older client) is matched by the number alone, as before, and so is a
+    /// question that names no world.</para>
     /// </remarks>
-    public bool IsIn(Guid deviceId, string instanceId, DateTimeOffset now)
+    public bool IsIn(Guid deviceId, string instanceId, DateTimeOffset now, string? worldId = null)
     {
         lock (_gate)
         {
             return _known.TryGetValue(deviceId, out var entry)
                 && now - entry.At <= RememberedFor
-                && string.Equals(entry.InstanceId, instanceId, StringComparison.Ordinal);
+                && string.Equals(entry.InstanceId, instanceId, StringComparison.Ordinal)
+                && (entry.WorldId is null
+                    || worldId is not { Length: > 0 }
+                    || string.Equals(entry.WorldId, worldId, StringComparison.Ordinal));
         }
     }
 
@@ -106,5 +117,5 @@ public sealed class DeviceLocations
             _known.Remove(deviceId);
     }
 
-    private readonly record struct Entry(string InstanceId, DateTimeOffset At);
+    private readonly record struct Entry(string InstanceId, string? WorldId, DateTimeOffset At);
 }

@@ -44,10 +44,10 @@ public class OverlayListenerTests
         /// <summary>Live updates by long polling: the driver is built without a socket here.</summary>
         public Queue<ReadResult<LivePollPage>> Live { get; } = new();
 
-        public Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
+        public Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, string? worldId, CancellationToken cancellationToken)
             => Task.FromResult(Contexts.Count > 0 ? Contexts.Dequeue() : new ReadResult<InstanceContext>(ReadOutcome.Unreachable));
 
-        public Task<ReadResult<LivePollPage>> PollLiveAsync(ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
+        public Task<ReadResult<LivePollPage>> PollLiveAsync(ServerPairing pairing, string instanceId, string? worldId, string? after, int waitSeconds, CancellationToken cancellationToken)
             => Task.FromResult(Live.Count > 0
                 ? Live.Dequeue()
                 : new ReadResult<LivePollPage>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(waitSeconds)));

@@ -25,8 +25,8 @@ public interface ILiveSocket : IDisposable
     /// <summary>The next message, or null once the connection has closed.</summary>
     Task<LiveSocketMessage?> ReceiveAsync(CancellationToken cancellationToken);
 
-    /// <summary>Tells the server the instance the moderator is standing in now.</summary>
-    Task SubscribeAsync(string instanceId, CancellationToken cancellationToken);
+    /// <summary>Tells the server the instance the moderator is standing in now: its number, and its world.</summary>
+    Task SubscribeAsync(string instanceId, string? worldId, CancellationToken cancellationToken);
 
     Task CloseAsync();
 }
@@ -34,7 +34,7 @@ public interface ILiveSocket : IDisposable
 /// <summary>Opens the live WebSocket to one paired server.</summary>
 public interface ILiveSocketFactory
 {
-    Task<LiveConnect> ConnectAsync(ServerPairing pairing, string instanceId, string? after, CancellationToken cancellationToken);
+    Task<LiveConnect> ConnectAsync(ServerPairing pairing, string instanceId, string? worldId, string? after, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -42,10 +42,10 @@ public interface ILiveSocketFactory
 /// </summary>
 /// <remarks>
 /// <para><strong>What this sends.</strong> One WebSocket connection to one paired server, opened
-/// with the device token as a bearer header, naming the instance the moderator is standing in and
-/// the cursor of the last event received -- which that server already knows, because it is the
+/// with the device token as a bearer header, naming the instance the moderator is standing in (its
+/// world and its number) and the cursor of the last event received -- which that server already knows, because it is the
 /// group's own instance and this client has been reporting presence for it. Afterwards the only
-/// thing sent is the instance the moderator walked into, when they change instances, and nothing else:
+/// thing sent is the instance (world and number) the moderator walked into, when they change instances, and nothing else:
 /// no log lines, nothing about the machine, nothing about instances belonging to any other
 /// group.</para>
 /// <para><strong>What comes back is data to display</strong> -- who joined or left the instance --
@@ -63,6 +63,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
     public async Task<LiveConnect> ConnectAsync(
         ServerPairing pairing,
         string instanceId,
+        string? worldId,
         string? after,
         CancellationToken cancellationToken)
     {
@@ -78,7 +79,7 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
 
         try
         {
-            await socket.ConnectAsync(pairing.LiveSocketEndpoint(instanceId, after), timeout.Token).ConfigureAwait(false);
+            await socket.ConnectAsync(pairing.LiveSocketEndpoint(instanceId, after, worldId), timeout.Token).ConfigureAwait(false);
             return new LiveConnect(LiveConnectOutcome.Connected, new ClientLiveSocket(socket));
         }
         catch (WebSocketException) when (socket.HttpStatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
@@ -144,9 +145,9 @@ public sealed class ClientLiveSocketFactory : ILiveSocketFactory
             }
         }
 
-        public Task SubscribeAsync(string instanceId, CancellationToken cancellationToken)
+        public Task SubscribeAsync(string instanceId, string? worldId, CancellationToken cancellationToken)
         {
-            var bytes = JsonSerializer.SerializeToUtf8Bytes(new { op = "subscribe", instanceId }, Json);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(new { op = "subscribe", instanceId, worldId }, Json);
             return _socket.SendAsync(bytes, WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
         }
 

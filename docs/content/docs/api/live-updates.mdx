@@ -100,7 +100,9 @@ Somebody with none of these cannot open the stream (403). If a permission is tak
 connected, the events it allowed stop from then on; if none are left, the connection closes with
 `4003`.
 
-The companion is sent presence in the one instance it is standing in, and nothing else.
+The companion is sent presence in the one instance it is standing in, and nothing else. It names
+that instance by its number (`instanceId`) and its world (`worldId`), because a number is only unique
+inside one world. A companion that names no world is matched by the number alone.
 
 ## Two ways to read it
 

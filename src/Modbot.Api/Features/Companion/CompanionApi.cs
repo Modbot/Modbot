@@ -150,7 +150,10 @@ public static class CompanionApi
             .WithName("GetClientInstanceContext")
             .WithSummary("Get instance roster")
             .WithDescription(
-                "Roster for one instance, with flags and prior-action counts. "
+                "Roster for one instance, with flags and prior-action counts. `instanceId` is the "
+                + "instance's number and `worldId` the world it is in: a number is only unique inside "
+                + "one world, so send both. A client that sends no `worldId` is answered by the "
+                + "number alone. "
                 + "Fills the overlay's local cache. The overlay renders from that cache and never "
                 + "from a live request, so a slow or unreachable server produces stale data with "
                 + "its age shown rather than a blank panel.\n\n"
@@ -200,8 +203,9 @@ public static class CompanionApi
             .WithDescription(
                 "Live updates for the instance this device is in, over a WebSocket. "
                 + "Authenticate with the device token in the Authorization header. `instanceId` names "
-                + "the instance the client is standing in; `after` is the cursor to carry on from. "
-                + "Send `{\"op\":\"subscribe\",\"instanceId\":\"...\"}` on walking into another.")
+                + "the instance the client is standing in and `worldId` its world (optional; without it the "
+                + "number alone is matched); `after` is the cursor to carry on from. "
+                + "Send `{\"op\":\"subscribe\",\"instanceId\":\"...\",\"worldId\":\"...\"}` on walking into another.")
             .Produces<CompanionError>(StatusCodes.Status400BadRequest)
             .Produces<CompanionError>(StatusCodes.Status401Unauthorized)
             .AllowAnonymous();
@@ -210,7 +214,8 @@ public static class CompanionApi
             .WithName("ClientLivePoll")
             .WithSummary("Client live polling")
             .WithDescription(
-                "The same events as the WebSocket: those after `after`, at once when there are any, "
+                "The same events as the WebSocket, for the same `instanceId` and optional `worldId`: "
+                + "those after `after`, at once when there are any, "
                 + "otherwise after waiting up to `wait` seconds for one. Send the returned `cursor` "
                 + "back as `after`.")
             .Produces<LivePollResponse>()

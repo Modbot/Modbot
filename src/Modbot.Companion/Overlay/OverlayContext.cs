@@ -75,6 +75,10 @@ public sealed record UserSummary(
 /// By the time a thirty-second poll notices, the moment has passed. Everything else — roster
 /// refresh, flag updates, health — rides the ordinary batch cycle.
 /// </remarks>
+/// <param name="WorldId">
+/// The world the instance is in, when the server says. An instance number is only unique inside
+/// one world, so the overlay compares both. Null from a server that does not say.
+/// </param>
 public sealed record FlaggedJoinAlert(
     [property: JsonPropertyName("alertId")] string AlertId,
     [property: JsonPropertyName("subjectId")] string SubjectId,
@@ -83,4 +87,5 @@ public sealed record FlaggedJoinAlert(
     [property: JsonPropertyName("reason")] string Reason,
     [property: JsonPropertyName("priorActions")] int PriorActions,
     [property: JsonPropertyName("raisedAt")] DateTimeOffset RaisedAt,
-    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null);
+    [property: JsonPropertyName("trustRank")] TrustRank? TrustRank = null,
+    [property: JsonPropertyName("worldId")] string? WorldId = null);

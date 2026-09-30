@@ -13,6 +13,8 @@ namespace Modbot.Companion.Tests.Overlay;
 public class LiveLinkTests
 {
     private const string Instance = "39911";
+    private const string WorldA = "wrld_a";
+    private const string WorldB = "wrld_b";
 
     private static readonly ServerPairing Pairing =
         new("cats", new Uri("https://modbot.example"), "token", "grp_cats");
@@ -25,6 +27,8 @@ public class LiveLinkTests
 
         public List<string> Subscribed { get; } = [];
 
+        public List<string?> SubscribedWorlds { get; } = [];
+
         public bool Closed { get; private set; }
 
         public void Deliver(LiveSocketMessage message) => _incoming.Writer.TryWrite(message);
@@ -35,9 +39,10 @@ public class LiveLinkTests
         public async Task<LiveSocketMessage?> ReceiveAsync(CancellationToken cancellationToken)
             => await _incoming.Reader.ReadAsync(cancellationToken);
 
-        public Task SubscribeAsync(string instanceId, CancellationToken cancellationToken)
+        public Task SubscribeAsync(string instanceId, string? worldId, CancellationToken cancellationToken)
         {
             Subscribed.Add(instanceId);
+            SubscribedWorlds.Add(worldId);
             return Task.CompletedTask;
         }
 
@@ -56,6 +61,8 @@ public class LiveLinkTests
 
         public List<(string Instance, string? After)> Connects { get; } = [];
 
+        public List<string?> ConnectWorlds { get; } = [];
+
         public FakeSocket Accept()
         {
             var socket = new FakeSocket();
@@ -66,9 +73,10 @@ public class LiveLinkTests
         public void Refuse(LiveConnectOutcome outcome = LiveConnectOutcome.Unreachable)
             => Answers.Enqueue(() => new LiveConnect(outcome));
 
-        public Task<LiveConnect> ConnectAsync(ServerPairing pairing, string instanceId, string? after, CancellationToken cancellationToken)
+        public Task<LiveConnect> ConnectAsync(ServerPairing pairing, string instanceId, string? worldId, string? after, CancellationToken cancellationToken)
         {
             Connects.Add((instanceId, after));
+            ConnectWorlds.Add(worldId);
             return Task.FromResult(Answers.Count > 0 ? Answers.Dequeue()() : new LiveConnect(LiveConnectOutcome.Unreachable));
         }
     }
@@ -79,26 +87,29 @@ public class LiveLinkTests
 
         public List<(string Instance, string? After, int Wait)> Polls { get; } = [];
 
+        public List<string?> PollWorlds { get; } = [];
+
         public Task<ReadResult<LivePollPage>> PollLiveAsync(
-            ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
+            ServerPairing pairing, string instanceId, string? worldId, string? after, int waitSeconds, CancellationToken cancellationToken)
         {
             Polls.Add((instanceId, after, waitSeconds));
+            PollWorlds.Add(worldId);
             return Task.FromResult(Pages.Count > 0
                 ? Pages.Dequeue()
                 : new ReadResult<LivePollPage>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(waitSeconds)));
         }
 
-        public Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
+        public Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, string? worldId, CancellationToken cancellationToken)
             => throw new NotSupportedException();
 
         public Task<ReadResult<UserSummary>> GetUserAsync(ServerPairing pairing, string subjectId, CancellationToken cancellationToken)
             => throw new NotSupportedException();
     }
 
-    private static LiveEvent Event(string id, string kind = LiveEventKinds.PersonJoined, string instance = Instance, bool byThisDevice = false) => new(
+    private static LiveEvent Event(string id, string kind = LiveEventKinds.PersonJoined, string instance = Instance, bool byThisDevice = false, string? world = null) => new(
         id, id, kind, new DateTimeOffset(2026, 9, 16, 20, 0, 0, TimeSpan.Zero), instance,
         new LivePerson("usr_" + id, "Person " + id, null, kind == LiveEventKinds.FlaggedJoin ? RosterStanding.Flagged : RosterStanding.Ordinary, kind == LiveEventKinds.FlaggedJoin ? 2 : 0, []),
-        kind == LiveEventKinds.FlaggedJoin, kind == LiveEventKinds.FlaggedJoin ? "2 prior moderation actions" : null, byThisDevice);
+        kind == LiveEventKinds.FlaggedJoin, kind == LiveEventKinds.FlaggedJoin ? "2 prior moderation actions" : null, byThisDevice, world);
 
     private static (LiveLink Link, FakeSockets Sockets, ScriptedReads Reads, FakeClock Clock) Build(bool withSockets = true)
     {
@@ -287,6 +298,55 @@ public class LiveLinkTests
         Assert.Equal(["85019"], socket.Subscribed);
         Assert.Single(sockets.Connects);
         Assert.Equal(LiveLinkState.Live, link.State);
+    }
+
+    [Fact]
+    public async Task TheWorldGoesWithTheNumber_OnTheSocket_OnASubscribe_AndOnAPoll()
+    {
+        var (link, sockets, reads, _) = Build();
+        var socket = sockets.Accept();
+
+        link.Follow(Instance, WorldA);
+        await link.PumpAsync(Ct);
+        await link.PumpAsync(Ct);
+        Assert.Equal([WorldA], sockets.ConnectWorlds);
+
+        // Same number, another world: another instance, so the server is told.
+        link.Follow(Instance, WorldB);
+        await link.PumpAsync(Ct);
+        Assert.Equal([Instance], socket.Subscribed);
+        Assert.Equal([WorldB], socket.SubscribedWorlds);
+        Assert.Single(sockets.Connects);
+
+        // Nothing changed: nothing is sent.
+        link.Follow(Instance, WorldB);
+        await link.PumpAsync(Ct);
+        Assert.Single(socket.Subscribed);
+
+        var (polling, noSockets, pollReads, _) = Build(withSockets: false);
+        polling.Follow(Instance, WorldA);
+        await polling.PumpAsync(Ct);
+        Assert.Equal([WorldA], pollReads.PollWorlds);
+        Assert.Empty(noSockets.Connects);
+    }
+
+    [Fact]
+    public async Task ALinkThatIsNotToldTheWorld_SendsNone()
+    {
+        var (link, sockets, _, _) = Build();
+        sockets.Accept();
+
+        link.Follow(Instance);
+        await link.PumpAsync(Ct);
+
+        Assert.Equal([null], sockets.ConnectWorlds);
+    }
+
+    [Fact]
+    public void AFlaggedJoinCardCarriesTheWorldItWasIn()
+    {
+        Assert.Equal(WorldB, Event("54", LiveEventKinds.FlaggedJoin, world: WorldB).ToAlert()!.WorldId);
+        Assert.Null(Event("55", LiveEventKinds.FlaggedJoin).ToAlert()!.WorldId);
     }
 
     [Fact]

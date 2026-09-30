@@ -71,7 +71,9 @@ public sealed class LiveLink : IDisposable
     private readonly Queue<DateTimeOffset> _drops = new();
 
     private string? _instanceId;
+    private string? _worldId;
     private string? _connectingFor;
+    private string? _connectingForWorld;
     private Task<LiveConnect>? _connecting;
     private ILiveSocket? _socket;
     private Task? _receiving;
@@ -117,15 +119,23 @@ public sealed class LiveLink : IDisposable
     };
 
     /// <summary>
-    /// The instance to follow, or null to close everything. A change while the socket is open is
-    /// sent as a subscribe rather than a reconnect.
+    /// The instance to follow (its number and its world), or null to close everything. A change
+    /// while the socket is open is sent as a subscribe rather than a reconnect. A number is only
+    /// unique inside one world, so the same number in another world is another instance.
     /// </summary>
-    public void Follow(string? instanceId)
+    public void Follow(string? instanceId, string? worldId = null)
     {
-        if (string.Equals(_instanceId, instanceId, StringComparison.Ordinal))
+        if (instanceId is null)
+            worldId = null;
+
+        if (string.Equals(_instanceId, instanceId, StringComparison.Ordinal)
+            && string.Equals(_worldId, worldId, StringComparison.Ordinal))
+        {
             return;
+        }
 
         _instanceId = instanceId;
+        _worldId = worldId;
 
         if (instanceId is null)
         {
@@ -138,7 +148,7 @@ public sealed class LiveLink : IDisposable
         }
 
         if (_socket is not null && State is LiveLinkState.Live)
-            _ = SubscribeAsync(_socket, instanceId);
+            _ = SubscribeAsync(_socket, instanceId, worldId);
     }
 
     /// <summary>Everything received since the last drain, oldest first.</summary>
@@ -159,6 +169,8 @@ public sealed class LiveLink : IDisposable
     {
         if (State is LiveLinkState.Stopped || _instanceId is not { } instance)
             return;
+
+        var world = _worldId;
 
         var now = _clock.UtcNow;
 
@@ -186,8 +198,11 @@ public sealed class LiveLink : IDisposable
                     StartReceiving(result.Socket);
 
                     // The moderator may have changed instances while the connect was in flight.
-                    if (!string.Equals(_connectingFor, instance, StringComparison.Ordinal))
-                        _ = SubscribeAsync(result.Socket, instance);
+                    if (!string.Equals(_connectingFor, instance, StringComparison.Ordinal)
+                        || !string.Equals(_connectingForWorld, world, StringComparison.Ordinal))
+                    {
+                        _ = SubscribeAsync(result.Socket, instance, world);
+                    }
                     break;
 
                 case LiveConnectOutcome.Unauthorised:
@@ -242,7 +257,7 @@ public sealed class LiveLink : IDisposable
         if (_sockets is null || (_pollUntil is { } spell && now < spell))
         {
             State = LiveLinkState.Polling;
-            _polling ??= _reads.PollLiveAsync(_pairing, instance, Cursor, PollWaitSeconds, cancellationToken);
+            _polling ??= _reads.PollLiveAsync(_pairing, instance, world, Cursor, PollWaitSeconds, cancellationToken);
             return;
         }
 
@@ -252,7 +267,8 @@ public sealed class LiveLink : IDisposable
         if (_connecting is null)
         {
             _connectingFor = instance;
-            _connecting = _sockets.ConnectAsync(_pairing, instance, Cursor, cancellationToken);
+            _connectingForWorld = world;
+            _connecting = _sockets.ConnectAsync(_pairing, instance, world, Cursor, cancellationToken);
         }
     }
 
@@ -337,11 +353,11 @@ public sealed class LiveLink : IDisposable
             _dropped = true;
     }
 
-    private static async Task SubscribeAsync(ILiveSocket socket, string instanceId)
+    private static async Task SubscribeAsync(ILiveSocket socket, string instanceId, string? worldId)
     {
         try
         {
-            await socket.SubscribeAsync(instanceId, CancellationToken.None).ConfigureAwait(false);
+            await socket.SubscribeAsync(instanceId, worldId, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception e) when (e is System.Net.WebSockets.WebSocketException or IOException or ObjectDisposedException or InvalidOperationException)
         {

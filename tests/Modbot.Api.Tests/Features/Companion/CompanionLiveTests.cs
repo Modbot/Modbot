@@ -30,6 +30,10 @@ public class CompanionLiveTests
 
     private const string Instance = "39911";
 
+    private const string World = "wrld_4b34";
+
+    private const string OtherWorld = "wrld_elsewhere";
+
     private async Task<(CompanionApiTestHost Host, string Token)> ReadyAsync()
     {
         await CompanionApiTestHost.ResetAsync(_db, Ct);
@@ -45,7 +49,8 @@ public class CompanionLiveTests
         return (host, await host.PairDeviceAsync(Ct));
     }
 
-    private static Task<WebSocket> ConnectAsync(CompanionApiTestHost host, string? token, string? instance = Instance, long? after = null)
+    private static Task<WebSocket> ConnectAsync(
+        CompanionApiTestHost host, string? token, string? instance = Instance, long? after = null, string? world = null)
     {
         var client = host.Server.CreateWebSocketClient();
         client.ConfigureRequest = request =>
@@ -57,6 +62,8 @@ public class CompanionLiveTests
         var query = new List<string>();
         if (instance is not null)
             query.Add($"instanceId={Uri.EscapeDataString(instance)}");
+        if (world is not null)
+            query.Add($"worldId={Uri.EscapeDataString(world)}");
         if (after is { } cursor)
             query.Add($"after={cursor}");
 
@@ -105,7 +112,7 @@ public class CompanionLiveTests
         => (await NextOfKindAsync(socket, "event")).GetProperty("event");
 
     private static async Task<long> WriteAsync(
-        CompanionApiTestHost host, string type, string subject, string instance = Instance, string? displayName = null, Guid? reporter = null)
+        CompanionApiTestHost host, string type, string subject, string instance = Instance, string? displayName = null, Guid? reporter = null, string world = World)
     {
         var data = new JsonObject();
         if (displayName is not null)
@@ -120,7 +127,7 @@ public class CompanionLiveTests
             OccurredAt = host.Clock.UtcNow,
             SubjectPlatform = FactPlatform.VRChat,
             SubjectId = subject,
-            WorldId = "wrld_4b34",
+            WorldId = world,
             InstanceId = instance,
             Source = FactSource.Companion,
             Data = data,
@@ -164,6 +171,90 @@ public class CompanionLiveTests
         Assert.False(second.GetProperty("byThisDevice").GetBoolean());
 
         Assert.NotEqual(elsewhere, own);
+    }
+
+    [Fact]
+    public async Task ADeviceThatNamesItsWorld_IsSentThatWorldsInstanceOnly()
+    {
+        // A number is only unique inside one world: two instances can both be "39911".
+        var (host, token) = await ReadyAsync();
+        await using var keep = host;
+        var deviceId = await DeviceIdAsync(host);
+
+        using var socket = await ConnectAsync(host, token, world: World);
+        await NextOfKindAsync(socket, "hello");
+
+        var locations = host.Services.GetRequiredService<DeviceLocations>();
+        Assert.True(locations.IsIn(deviceId, Instance, host.Clock.UtcNow, World));
+        Assert.False(locations.IsIn(deviceId, Instance, host.Clock.UtcNow, OtherWorld));
+
+        await WriteAsync(host, FactType.InstanceJoined, Subject(), displayName: "Other world", world: OtherWorld);
+        var here = await WriteAsync(host, FactType.InstanceJoined, Subject(), displayName: "This world");
+
+        var @event = await NextEventAsync(socket);
+        Assert.Equal(here.ToString(System.Globalization.CultureInfo.InvariantCulture), @event.GetProperty("id").GetString());
+        Assert.Equal(World, @event.GetProperty("worldId").GetString());
+    }
+
+    [Fact]
+    public async Task ADeviceThatNamesNoWorld_IsSentByTheNumberAlone_AsBefore()
+    {
+        var (host, token) = await ReadyAsync();
+        await using var keep = host;
+        var deviceId = await DeviceIdAsync(host);
+
+        using var socket = await ConnectAsync(host, token);
+        await NextOfKindAsync(socket, "hello");
+
+        Assert.True(host.Services.GetRequiredService<DeviceLocations>().IsIn(deviceId, Instance, host.Clock.UtcNow, OtherWorld));
+
+        var first = await WriteAsync(host, FactType.InstanceJoined, Subject(), world: OtherWorld);
+        var second = await WriteAsync(host, FactType.InstanceJoined, Subject());
+
+        Assert.Equal(first.ToString(System.Globalization.CultureInfo.InvariantCulture), (await NextEventAsync(socket)).GetProperty("id").GetString());
+        Assert.Equal(second.ToString(System.Globalization.CultureInfo.InvariantCulture), (await NextEventAsync(socket)).GetProperty("id").GetString());
+    }
+
+    [Fact]
+    public async Task AnEmptyWorld_CountsAsNone()
+    {
+        var (host, token) = await ReadyAsync();
+        await using var keep = host;
+
+        using var socket = await ConnectAsync(host, token, world: "");
+        await NextOfKindAsync(socket, "hello");
+
+        var other = await WriteAsync(host, FactType.InstanceJoined, Subject(), world: OtherWorld);
+
+        Assert.Equal(other.ToString(System.Globalization.CultureInfo.InvariantCulture), (await NextEventAsync(socket)).GetProperty("id").GetString());
+    }
+
+    [Fact]
+    public async Task SubscribingWithAWorld_SwitchesWhichWorldsInstanceIsSent()
+    {
+        var (host, token) = await ReadyAsync();
+        await using var keep = host;
+        var deviceId = await DeviceIdAsync(host);
+
+        using var socket = await ConnectAsync(host, token, world: World);
+        await NextOfKindAsync(socket, "hello");
+
+        // Same number, the other world.
+        await socket.SendAsync(
+            JsonSerializer.SerializeToUtf8Bytes(new { op = "subscribe", instanceId = Instance, worldId = OtherWorld }),
+            WebSocketMessageType.Text, true, Ct);
+
+        await Task.Delay(200, Ct);
+
+        await WriteAsync(host, FactType.InstanceJoined, Subject(), displayName: "Old world");
+        var moved = await WriteAsync(host, FactType.InstanceJoined, Subject(), displayName: "New world", world: OtherWorld);
+
+        var @event = await NextEventAsync(socket);
+        Assert.Equal(moved.ToString(System.Globalization.CultureInfo.InvariantCulture), @event.GetProperty("id").GetString());
+
+        var locations = host.Services.GetRequiredService<DeviceLocations>();
+        Assert.True(locations.IsIn(deviceId, Instance, host.Clock.UtcNow, OtherWorld));
+        Assert.False(locations.IsIn(deviceId, Instance, host.Clock.UtcNow, World));
     }
 
     [Fact]
@@ -236,6 +327,26 @@ public class CompanionLiveTests
 
         // The cursor moved past the join in the other instance, which was read and not sent.
         Assert.True(long.Parse(body.GetProperty("cursor").GetString()!, System.Globalization.CultureInfo.InvariantCulture) > join);
+    }
+
+    [Fact]
+    public async Task LongPolling_WithAWorld_SkipsTheOtherWorldsInstance()
+    {
+        var (host, token) = await ReadyAsync();
+        await using var keep = host;
+
+        var before = await WriteAsync(host, FactType.InstanceJoined, Subject());
+        await WriteAsync(host, FactType.InstanceJoined, Subject(), displayName: "Other world", world: OtherWorld);
+        var join = await WriteAsync(host, FactType.InstanceJoined, Subject(), displayName: "This world");
+
+        var response = await host.Client.SendAsync(
+            host.WithToken(HttpMethod.Get, $"/api/v1/companion/poll?instanceId={Instance}&worldId={World}&after={before}&wait=5", token), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var events = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("events").EnumerateArray().ToList();
+
+        Assert.Single(events);
+        Assert.Equal(join.ToString(System.Globalization.CultureInfo.InvariantCulture), events[0].GetProperty("id").GetString());
     }
 
     [Fact]

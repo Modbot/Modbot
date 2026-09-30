@@ -123,7 +123,7 @@ public sealed class LogToOverlayTests : IDisposable
         public List<string> LivePolledFor { get; } = [];
 
         public Task<ReadResult<InstanceContext>> GetContextAsync(
-            ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
+            ServerPairing pairing, string instanceId, string? worldId, CancellationToken cancellationToken)
         {
             ContextsAskedFor.Add(instanceId);
 
@@ -138,7 +138,7 @@ public sealed class LogToOverlayTests : IDisposable
 
         /// <summary>Everything waiting goes in one answer, the way a real poll answers.</summary>
         public Task<ReadResult<LivePollPage>> PollLiveAsync(
-            ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
+            ServerPairing pairing, string instanceId, string? worldId, string? after, int waitSeconds, CancellationToken cancellationToken)
         {
             LivePolledFor.Add(instanceId);
 

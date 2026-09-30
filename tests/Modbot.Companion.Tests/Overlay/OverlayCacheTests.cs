@@ -125,4 +125,21 @@ public class OverlayCacheTests
         Assert.Equal(Freshness.Fresh, cache.Context("39911").Freshness);
         Assert.Equal(Freshness.Fresh, cache.Context("85019").Freshness);
     }
+
+    [Fact]
+    public void TheSameNumberInTwoWorldsIsRememberedSeparately()
+    {
+        var cache = new OverlayCache(new FakeClock());
+
+        cache.RecordContext("cats", Context("Main"), "wrld_a");
+
+        Assert.Equal(Freshness.Fresh, cache.Context("Main", "wrld_a").Freshness);
+        Assert.Equal(Freshness.Never, cache.Context("Main", "wrld_b").Freshness);
+        Assert.Equal(Freshness.Never, cache.Context("Main").Freshness);
+
+        cache.RecordContext("cats", Context("Main"), "wrld_b");
+
+        Assert.Equal(Freshness.Fresh, cache.Context("Main", "wrld_b").Freshness);
+        Assert.Equal(Freshness.Fresh, cache.Context("Main", "wrld_a").Freshness);
+    }
 }

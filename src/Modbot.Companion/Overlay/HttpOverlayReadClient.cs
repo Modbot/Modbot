@@ -40,16 +40,16 @@ public sealed record ReadResult<T>(ReadOutcome Outcome, T? Value = default, Time
 /// <summary>The overlay's three read endpoints. Read-only, small, and never a write.</summary>
 public interface IOverlayReadClient
 {
-    Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, CancellationToken cancellationToken);
+    Task<ReadResult<InstanceContext>> GetContextAsync(ServerPairing pairing, string instanceId, string? worldId, CancellationToken cancellationToken);
 
     Task<ReadResult<UserSummary>> GetUserAsync(ServerPairing pairing, string subjectId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Live updates by long polling: the events after <paramref name="after"/> for the instance
-    /// named, answered at once or after a wait of up to <paramref name="waitSeconds"/>. The backup
-    /// for the WebSocket, with the same events.
+    /// named (its number and its world), answered at once or after a wait of up to
+    /// <paramref name="waitSeconds"/>. The backup for the WebSocket, with the same events.
     /// </summary>
-    Task<ReadResult<LivePollPage>> PollLiveAsync(ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken);
+    Task<ReadResult<LivePollPage>> PollLiveAsync(ServerPairing pairing, string instanceId, string? worldId, string? after, int waitSeconds, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -58,7 +58,8 @@ public interface IOverlayReadClient
 /// <remarks>
 /// <para><strong>What this sends.</strong> Three kinds of GET, each to one paired server, each
 /// carrying a bearer token and no body. The context read and the live poll name the instance the
-/// moderator is standing in — which that server already knows about, because it is that group's
+/// moderator is standing in, by its world and its number (a number alone is only unique inside one
+/// world) — which that server already knows about, because it is that group's
 /// own instance and the client has been reporting presence for it — and the poll adds the cursor
 /// of the last event received. The profile read names one VRChat user the moderator chose to look
 /// up.</para>
@@ -88,8 +89,9 @@ public sealed class HttpOverlayReadClient : IOverlayReadClient
     public Task<ReadResult<InstanceContext>> GetContextAsync(
         ServerPairing pairing,
         string instanceId,
+        string? worldId,
         CancellationToken cancellationToken)
-        => GetAsync<InstanceContext>(pairing, pairing.ContextEndpoint(instanceId), cancellationToken);
+        => GetAsync<InstanceContext>(pairing, pairing.ContextEndpoint(instanceId, worldId), cancellationToken);
 
     public Task<ReadResult<UserSummary>> GetUserAsync(
         ServerPairing pairing,
@@ -100,10 +102,11 @@ public sealed class HttpOverlayReadClient : IOverlayReadClient
     public Task<ReadResult<LivePollPage>> PollLiveAsync(
         ServerPairing pairing,
         string instanceId,
+        string? worldId,
         string? after,
         int waitSeconds,
         CancellationToken cancellationToken)
-        => GetAsync<LivePollPage>(pairing, pairing.LivePollEndpoint(instanceId, after, waitSeconds), cancellationToken);
+        => GetAsync<LivePollPage>(pairing, pairing.LivePollEndpoint(instanceId, after, waitSeconds, worldId), cancellationToken);
 
     private async Task<ReadResult<T>> GetAsync<T>(ServerPairing pairing, Uri endpoint, CancellationToken cancellationToken)
     {

@@ -20,6 +20,7 @@ public class OverlayDriverTests
 {
     private const string Group = "grp_cats";
     private const string Instance = "39911";
+    private const string World = "wrld_4b34";
 
     /// <summary>Counts what the real presenter would actually rasterise.</summary>
     private sealed class CountingPresenter : IOverlayPresenter
@@ -64,20 +65,28 @@ public class OverlayDriverTests
 
         public int LiveCalls { get; private set; }
 
+        /// <summary>The world each roster read named.</summary>
+        public List<string?> ContextWorlds { get; } = [];
+
+        /// <summary>The world each long poll named.</summary>
+        public List<string?> LiveWorlds { get; } = [];
+
         public Task<ReadResult<InstanceContext>> GetContextAsync(
-            ServerPairing pairing, string instanceId, CancellationToken cancellationToken)
+            ServerPairing pairing, string instanceId, string? worldId, CancellationToken cancellationToken)
         {
             ContextCalls++;
             ContextServers.Add(pairing.ServerId);
+            ContextWorlds.Add(worldId);
             return Task.FromResult(Contexts.Count > 0
                 ? Contexts.Dequeue()
                 : new ReadResult<InstanceContext>(ReadOutcome.Unreachable));
         }
 
         public Task<ReadResult<LivePollPage>> PollLiveAsync(
-            ServerPairing pairing, string instanceId, string? after, int waitSeconds, CancellationToken cancellationToken)
+            ServerPairing pairing, string instanceId, string? worldId, string? after, int waitSeconds, CancellationToken cancellationToken)
         {
             LiveCalls++;
+            LiveWorlds.Add(worldId);
             return Task.FromResult(Live.Count > 0
                 ? Live.Dequeue()
                 : new ReadResult<LivePollPage>(ReadOutcome.NothingWaiting, Elapsed: TimeSpan.FromSeconds(waitSeconds)));
@@ -91,11 +100,11 @@ public class OverlayDriverTests
     private static ServerPairing Pairing(string serverId = "cats", string group = Group)
         => new(serverId, new Uri($"https://{serverId}.example"), "token", group);
 
-    private static InstanceLocation Location(string instance = Instance, string? group = Group)
+    private static InstanceLocation Location(string instance = Instance, string? group = Group, string world = World)
     {
         var raw = group is null
-            ? $"wrld_4b34:{instance}~region(use)"
-            : $"wrld_4b34:{instance}~group({group})~groupAccessType(members)~region(use)";
+            ? $"{world}:{instance}~region(use)"
+            : $"{world}:{instance}~group({group})~groupAccessType(members)~region(use)";
 
         Assert.True(InstanceLocation.TryParse(raw, out var location));
         return location;
@@ -107,10 +116,10 @@ public class OverlayDriverTests
 
     /// <summary>A flagged join, as the live stream sends it.</summary>
     private static LiveEvent Alert(
-        string subject = "usr_flag", string instance = Instance, string id = "a1")
+        string subject = "usr_flag", string instance = Instance, string id = "a1", string? world = null)
         => new(id, id, LiveEventKinds.FlaggedJoin, new DateTimeOffset(2026, 9, 12, 20, 0, 0, TimeSpan.Zero), instance,
             new LivePerson(subject, "Trouble", null, RosterStanding.Flagged, 2, ["2 prior actions"]),
-            true, "2 prior actions", false);
+            true, "2 prior actions", false, world);
 
     private static ReadResult<LivePollPage> Page(params LiveEvent[] events)
         => new(ReadOutcome.Fetched, new LivePollPage(events, events.Length == 0 ? "0" : events[^1].Cursor, false), TimeSpan.FromSeconds(4));
@@ -282,6 +291,83 @@ public class OverlayDriverTests
 
         Assert.False(tick.AlertShown);
         Assert.Null(presenter.Last.Alert);
+    }
+
+    [Fact]
+    public async Task AnAlertForTheSameNumberInAnotherWorldIsDropped()
+    {
+        // A number is only unique inside one world. Two instances in two worlds can both be
+        // called "39911", and a flagged arrival in the other one is not this moderator's to act on.
+        var (driver, presenter, reads, _) = Build();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
+        reads.Live.Enqueue(Page(Alert(world: "wrld_somewhere_else")));
+
+        await driver.TickAsync(Ct);
+        var tick = await driver.TickAsync(Ct);
+
+        Assert.False(tick.AlertShown);
+        Assert.Null(presenter.Last.Alert);
+    }
+
+    [Fact]
+    public async Task AnAlertForThisNumberInThisWorldBecomesACard()
+    {
+        var (driver, presenter, reads, _) = Build();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
+        reads.Live.Enqueue(Page(Alert(world: World)));
+
+        await driver.TickAsync(Ct);
+        var tick = await driver.TickAsync(Ct);
+
+        Assert.True(tick.AlertShown);
+        Assert.Equal(World, presenter.Last.Alert!.WorldId);
+    }
+
+    [Fact]
+    public async Task EventsFromTheSameNumberInAnotherWorldAreNotOnTheEventsList()
+    {
+        var (driver, presenter, reads, _) = Build();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
+        reads.Live.Enqueue(Page(
+            Alert(id: "here", world: World),
+            Alert(subject: "usr_other", id: "other", world: "wrld_somewhere_else")));
+
+        await driver.TickAsync(Ct);
+        await driver.TickAsync(Ct);
+
+        Assert.Equal(["here"], presenter.Last.Events!.Select(e => e.Id));
+    }
+
+    [Fact]
+    public async Task TheRosterAndTheLivePollNameTheWorldAndTheNumber()
+    {
+        var (driver, _, reads, _) = Build();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
+
+        await driver.TickAsync(Ct);
+        await driver.TickAsync(Ct);
+
+        Assert.Equal(World, Assert.Single(reads.ContextWorlds.Distinct()));
+        Assert.Equal(World, Assert.Single(reads.LiveWorlds.Distinct()));
+    }
+
+    [Fact]
+    public async Task TheSameNumberInAnotherWorldDoesNotShowTheFirstWorldsRoster()
+    {
+        var (driver, presenter, reads, _) = Build();
+        reads.Contexts.Enqueue(new ReadResult<InstanceContext>(ReadOutcome.Fetched, Roster("Rin")));
+        await driver.TickAsync(Ct);
+        Assert.Equal("Rin", presenter.Last.Roster.Value!.Members[0].DisplayName);
+
+        // Same number, another world: nothing has been read for it yet, so nothing is shown.
+        driver.EnteredInstance(Location(world: "wrld_somewhere_else"));
+        await driver.TickAsync(Ct);
+        Assert.Null(presenter.Last.Roster.Value);
+
+        // And back: the first world's roster is still the one held for it.
+        driver.EnteredInstance(Location());
+        await driver.TickAsync(Ct);
+        Assert.Equal("Rin", presenter.Last.Roster.Value!.Members[0].DisplayName);
     }
 
     [Fact]

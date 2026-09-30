@@ -57,7 +57,7 @@ public sealed class OverlayCache
 {
     private readonly IModbotClock _clock;
     private readonly TimeSpan _staleAfter;
-    private readonly Dictionary<string, Entry<InstanceContext>> _contexts = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string World, string Instance), Entry<InstanceContext>> _contexts = [];
     private readonly Dictionary<string, Entry<UserSummary>> _users = new(StringComparer.Ordinal);
     private readonly Lock _gate = new();
 
@@ -79,13 +79,18 @@ public sealed class OverlayCache
     /// <summary>Whether the last attempt to reach the server failed. Shown beside the age.</summary>
     public bool ServerUnreachable { get; private set; }
 
-    public void RecordContext(string serverId, InstanceContext context)
+    /// <summary>
+    /// Keeps a roster. It is kept under the world and the number the moderator asked about, not
+    /// under what came back: a number is only unique inside one world, and a server that does not
+    /// send the world back must not make two worlds' rosters look like one.
+    /// </summary>
+    public void RecordContext(string serverId, InstanceContext context, string? worldId = null)
     {
         lock (_gate)
         {
             ServerId = serverId;
             ServerUnreachable = false;
-            _contexts[context.InstanceId] = new Entry<InstanceContext>(context, _clock.UtcNow);
+            _contexts[Key(worldId, context.InstanceId)] = new Entry<InstanceContext>(context, _clock.UtcNow);
         }
     }
 
@@ -109,11 +114,14 @@ public sealed class OverlayCache
             ServerUnreachable = true;
     }
 
-    public Cached<InstanceContext> Context(string instanceId)
+    public Cached<InstanceContext> Context(string instanceId, string? worldId = null)
     {
         lock (_gate)
-            return Wrap(_contexts.GetValueOrDefault(instanceId));
+            return Wrap(_contexts.GetValueOrDefault(Key(worldId, instanceId)));
     }
+
+    private static (string World, string Instance) Key(string? worldId, string instanceId)
+        => (worldId ?? string.Empty, instanceId);
 
     public Cached<UserSummary> User(string subjectId)
     {

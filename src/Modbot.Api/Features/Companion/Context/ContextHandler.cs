@@ -68,6 +68,7 @@ public static class ContextHandler
     public static async Task<IResult> ContextAsync(
         int apiVersion,
         string? instanceId,
+        string? worldId,
         HttpContext context,
         DeviceAuthenticator authenticator,
         DeviceLocations locations,
@@ -85,6 +86,11 @@ public static class ContextHandler
         if (instanceId is not { Length: > 0 })
             return CompanionApiErrors.Malformed("An instanceId is required.");
 
+        // An instance is its world and its number, and a number alone is only unique inside one
+        // world. A client that sends no world (one built before this was asked for) gets the number
+        // alone, as it always did, and so does one that sends it empty.
+        var world = worldId is { Length: > 0 } ? worldId : null;
+
         // Asking for an instance's roster is a device saying where it is standing, and it is the
         // steadiest such signal there is -- an overlay re-reads this every twenty seconds whether
         // or not anything is happening, where a quiet instance produces no ingest batches at all.
@@ -92,22 +98,24 @@ public static class ContextHandler
         // that matters. No new authority is granted by taking it at face value: this token could
         // already read any of this deployment's instances, and the only consequence is which of
         // that group's own alerts it is offered.
-        locations.Record(authentication.Device!.Id, instanceId, clock.UtcNow);
+        locations.Record(authentication.Device!.Id, instanceId, clock.UtcNow, world);
 
         var since = clock.UtcNow - RosterWindow;
 
-        // Whether the instance this number names has closed. Every row with the number that could
-        // still matter is consulted: if any is open, the instance is open. A number whose rows have all
-        // closed ends every watch at the latest close.
+        // Whether the instance this address names has closed. Every row with the number (and the
+        // world, when one was sent) that could still matter is consulted: if any is open, the
+        // instance is open. An address whose rows have all closed ends every watch at the latest close.
         var closes = await database.VRChatInstances
             .AsNoTracking()
-            .Where(i => i.VRChatInstanceId == instanceId && (i.ClosedAt == null || i.ClosedAt >= since))
+            .Where(i => i.VRChatInstanceId == instanceId
+                && (world == null || i.WorldId == world)
+                && (i.ClosedAt == null || i.ClosedAt >= since))
             .Select(i => i.ClosedAt)
             .ToListAsync(ct);
 
         DateTimeOffset? closedAt = closes.Count > 0 && closes.All(c => c is not null) ? closes.Max() : null;
 
-        var people = await new InstancePeopleReader(database).ForNumberAsync(instanceId, null, since, closedAt, ct);
+        var people = await new InstancePeopleReader(database).ForNumberAsync(instanceId, world, since, closedAt, ct);
 
         if (people.Here.Count == 0)
             return Results.Ok(new InstanceContextDto(instanceId, []));

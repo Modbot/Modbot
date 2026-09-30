@@ -396,7 +396,7 @@ public sealed class OverlayDriver : IDisposable
     public void ScrollRoster(int rows)
     {
         var count = Current() is { } server && _instance is not null
-            && server.Cache.Context(_instance.InstanceId).Value is { } context
+            && server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value is { } context
             ? ListFiltering.Roster(context.Members, _rosterFilters, Arrivals(context), _clock.UtcNow).Count
             : 0;
 
@@ -440,7 +440,7 @@ public sealed class OverlayDriver : IDisposable
         _personWanted = subjectId;
         _page = OverlayPage.Person;
 
-        var known = server.Cache.Context(_instance.InstanceId).Value?.Members.FirstOrDefault(m => m.SubjectId == subjectId);
+        var known = server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.Members.FirstOrDefault(m => m.SubjectId == subjectId);
         _person = known is null
             ? new UserSummary(subjectId, null, RosterStanding.Ordinary, 0, null, [], [])
             : new UserSummary(known.SubjectId, known.DisplayName, known.Standing, known.PriorActions, null, known.Flags, []);
@@ -481,7 +481,7 @@ public sealed class OverlayDriver : IDisposable
         if (Current() is not { } server || _instance is null)
             return null;
 
-        var member = server.Cache.Context(_instance.InstanceId).Value?.Members
+        var member = server.Cache.Context(_instance.InstanceId, _instance.WorldId).Value?.Members
             .FirstOrDefault(m => string.Equals(m.SubjectId, subjectId, StringComparison.Ordinal));
         if (member is not null && PersonInfo.Of(member.TrustRank, member.EighteenPlus) is { } listed)
             return listed;
@@ -574,14 +574,18 @@ public sealed class OverlayDriver : IDisposable
 
         server.LastContextAttempt = _clock.UtcNow;
 
+        // Kept under the address this was asked for. The moderator may have walked into another
+        // instance while the read was on its way, and its answer belongs to the one it named.
+        var worldId = _instance!.WorldId;
+
         var result = await _reads
-            .GetContextAsync(server.Pairing, _instance!.InstanceId, cancellationToken)
+            .GetContextAsync(server.Pairing, _instance!.InstanceId, _instance.WorldId, cancellationToken)
             .ConfigureAwait(false);
 
         switch (result.Outcome)
         {
             case ReadOutcome.Fetched when result.Value is not null:
-                server.Cache.RecordContext(server.Label, result.Value);
+                server.Cache.RecordContext(server.Label, result.Value, worldId);
                 break;
 
             case ReadOutcome.Unauthorised:
@@ -619,7 +623,7 @@ public sealed class OverlayDriver : IDisposable
             return false;
         }
 
-        server.Link.Follow(_instance!.InstanceId);
+        server.Link.Follow(_instance!.InstanceId, _instance.WorldId);
         await server.Link.PumpAsync(cancellationToken).ConfigureAwait(false);
 
         if (server.Link.IsStopped)
@@ -633,15 +637,14 @@ public sealed class OverlayDriver : IDisposable
 
         foreach (var @event in server.Link.Drain())
         {
-            if (LiveEventKinds.ChangesRoster(@event.Kind)
-                && string.Equals(@event.InstanceId, _instance.InstanceId, StringComparison.Ordinal))
+            if (LiveEventKinds.ChangesRoster(@event.Kind) && IsHere(@event.InstanceId, @event.WorldId))
             {
                 server.LastContextAttempt = null;
             }
 
             // The Events screen. Only this instance's, newest first, and a fixed number of them:
             // this is what just happened, not a record. The record is the server's audit log.
-            if (string.Equals(@event.InstanceId, _instance.InstanceId, StringComparison.Ordinal))
+            if (IsHere(@event.InstanceId, @event.WorldId))
             {
                 _events.Insert(0, @event);
                 if (_events.Count > MostEventsKept)
@@ -662,6 +665,20 @@ public sealed class OverlayDriver : IDisposable
     }
 
     /// <summary>
+    /// Whether something the server named by this number (and this world) happened in the instance
+    /// the moderator is standing in.
+    /// </summary>
+    /// <remarks>
+    /// A number is only unique inside one world, so two instances in two worlds can share one, and
+    /// a card about the other one is somebody else's. A server that did not say the world (an
+    /// older one) leaves nothing to compare, and then the number alone decides, as it always did.
+    /// </remarks>
+    private bool IsHere(string? instanceId, string? worldId)
+        => _instance is { } here
+            && string.Equals(instanceId, here.InstanceId, StringComparison.Ordinal)
+            && (worldId is null || string.Equals(worldId, here.WorldId, StringComparison.Ordinal));
+
+    /// <summary>
     /// Decides whether an alert becomes a card.
     /// </summary>
     /// <remarks>
@@ -680,7 +697,7 @@ public sealed class OverlayDriver : IDisposable
     private bool Accept(FlaggedJoinAlert alert)
     {
         // Not this instance. The moderator cannot act on it, so it is not worth the one card.
-        if (!string.Equals(alert.InstanceId, _instance?.InstanceId, StringComparison.Ordinal))
+        if (!IsHere(alert.InstanceId, alert.WorldId))
             return false;
 
         // Somebody rejoining repeatedly is exactly what being kicked looks like, and a card each
@@ -728,7 +745,7 @@ public sealed class OverlayDriver : IDisposable
 
     private OverlayScreen Build(Server server)
     {
-        var roster = server.Cache.Context(_instance!.InstanceId);
+        var roster = server.Cache.Context(_instance!.InstanceId, _instance.WorldId);
         var problem = Health(server, roster);
 
         // A fault is the other thing worth a pop-up: inside VRChat there is no email, no Discord

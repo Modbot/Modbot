@@ -24,11 +24,12 @@ namespace Modbot.Api.Features.Live.Stream;
 /// </remarks>
 public sealed class LiveScope
 {
-    private LiveScope(ModbotPermissions permissions, Guid? deviceId, string? instanceId)
+    private LiveScope(ModbotPermissions permissions, Guid? deviceId, string? instanceId, string? worldId)
     {
         Permissions = permissions;
         DeviceId = deviceId;
         InstanceId = instanceId;
+        WorldId = worldId is { Length: > 0 } ? worldId : null;
     }
 
     public ModbotPermissions Permissions { get; }
@@ -38,14 +39,22 @@ public sealed class LiveScope
     /// <summary>For a device: the instance it is standing in. Null for a person.</summary>
     public string? InstanceId { get; }
 
+    /// <summary>
+    /// For a device: the world of that instance, when it said. An instance number is only unique
+    /// inside one world, so a device that names its world is sent that world's instance and no
+    /// other. A device that named none (an older client) is sent by the number alone, as before.
+    /// </summary>
+    public string? WorldId { get; }
+
     public bool IsDevice => DeviceId is not null;
 
-    public static LiveScope ForPerson(ModbotPermissions permissions) => new(permissions, null, null);
+    public static LiveScope ForPerson(ModbotPermissions permissions) => new(permissions, null, null, null);
 
-    public static LiveScope ForDevice(Guid deviceId, string? instanceId) => new(ModbotPermissions.None, deviceId, instanceId);
+    public static LiveScope ForDevice(Guid deviceId, string? instanceId, string? worldId = null)
+        => new(ModbotPermissions.None, deviceId, instanceId, worldId);
 
     /// <summary>The same device, standing somewhere else now.</summary>
-    public LiveScope InInstance(string? instanceId) => new(Permissions, DeviceId, instanceId);
+    public LiveScope InInstance(string? instanceId, string? worldId = null) => new(Permissions, DeviceId, instanceId, worldId);
 
     /// <summary>Whether this caller could be sent anything at all.</summary>
     public bool SeesAnything => IsDevice
@@ -92,6 +101,13 @@ public sealed class LiveScope
 
         // A device that has not said where it is gets nothing, the same as the alert hub: the
         // failure worth designing against is context reaching somewhere it was not needed.
-        return !IsDevice || (InstanceId is { Length: > 0 } && string.Equals(@event.InstanceId, InstanceId, StringComparison.Ordinal));
+        if (!IsDevice)
+            return true;
+
+        // The world counts when the device gave one: two instances in two worlds can share a
+        // number, and a roster or a flagged card from the other one is somebody else's.
+        return InstanceId is { Length: > 0 }
+            && string.Equals(@event.InstanceId, InstanceId, StringComparison.Ordinal)
+            && (WorldId is null || string.Equals(@event.WorldId, WorldId, StringComparison.Ordinal));
     }
 }

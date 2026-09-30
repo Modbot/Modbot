@@ -142,8 +142,8 @@ public static class EventsHandler
         // rather than credited with the instance it stopped in, and is offered no more alerts for it.
         if (Newest(candidates) is { Type: FactType.InstanceLogStopped })
             locations.Forget(authentication.Device!.Id);
-        else if (Newest(candidates)?.InstanceId is { Length: > 0 } here)
-            locations.Record(authentication.Device!.Id, here, clock.UtcNow);
+        else if (Newest(candidates) is { InstanceId: { Length: > 0 } here } newest)
+            locations.Record(authentication.Device!.Id, here, clock.UtcNow, newest.WorldId);
 
         var results = await facts.WriteManyAsync(candidates, ct);
 
@@ -213,7 +213,7 @@ public static class EventsHandler
 
             alerts.Raise(
                 AlertHub.ForFlaggedJoin(
-                    clock, arrival.SubjectId, name, arrival.InstanceId!, match, ranks.GetValueOrDefault(arrival.SubjectId)),
+                    clock, arrival.SubjectId, name, arrival.InstanceId!, match, ranks.GetValueOrDefault(arrival.SubjectId), arrival.WorldId),
                 reportingDeviceId,
                 recipients,
                 clock.UtcNow);
