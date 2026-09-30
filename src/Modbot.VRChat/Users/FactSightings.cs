@@ -28,9 +28,11 @@ namespace Modbot.VRChat.Users;
 /// writer, and the fact writer takes this, so going through it would be a circle.
 /// </para>
 /// <para>
-/// Only <c>last_seen_at</c> moves here. Queueing a refresh stays with the pass, which already has
-/// the rules for what is recent enough to queue and what a refresh since the sighting has already
-/// answered; a second offer from here would be a second chance to get those wrong.
+/// Only the row moves here; nothing is offered to the refresh queue. The pass's discovery already
+/// has the rules for what is recent enough to queue and what a refresh since the sighting has
+/// answered, and a second offer from here would be a second chance to get those wrong. The top-up
+/// reads <c>last_seen_at</c> like any other row's, so a person bumped here may be found a pass
+/// sooner; that is the row doing its job, not a second queueing path.
 /// </para>
 /// </remarks>
 public sealed class FactSightings : ISightingRecorder

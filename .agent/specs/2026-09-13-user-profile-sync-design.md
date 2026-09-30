@@ -160,9 +160,14 @@ seen by their own report, and the People page said "4h ago" beside an audit log 
 writer tells `FactSightings` about each fact it inserts, and that runs the same `UserSightings`
 list and the same upsert (`VRChatUserProfiles.RecordSeenAsync`) this pass runs. Before that the
 People page trailed the audit log by up to a pass, and by longer whenever the sync was stopped or
-failing. The pass stays as the catch-up, and it alone queues refreshes: the write-time record
-touches only the row, so nothing is offered to the queue twice. The upsert is idempotent, so the
-pass recording the same sighting again costs a statement and changes nothing.
+failing. The pass stays as the catch-up. The write-time record touches only the row and offers
+nothing to the queue itself; discovery still queues recent sightings once, and the top-up (§3.5),
+which reads `last_seen_at`, sees the bump and may find the person a pass sooner than before. The
+upsert is idempotent and writes nothing when the row already says as much, so the pass recording
+the same sighting again costs a statement and changes nothing. Inside a caller's transaction (an
+import batch, a moderation action) the writer skips the write-time record and leaves those facts to
+the pass: a failed statement would abort the caller's transaction, and a written row would stay
+locked until the caller commits.
 
 A sighting inside `RecentWindow` (30 min) goes to the queue at tier 1 or 3; an older one only
 updates `last_seen_at`. The one-off audit-log catch-up hands this pass a month of history, and a
@@ -348,7 +353,7 @@ the Discord screens and the case-file snapshot.
 | Tier 4 ordered oldest-first, the rest newest-first | Age is tier 4's reason; recency is everyone else's. |
 | Tiers 4 and 5 narrowed to members and people seen in the last 30 days (2026-09-18) | Every id Modbot has ever seen has a row, so the tiers as written refreshed a one-time visitor forever out of a budget the group's own members need. The on-demand tiers keep everyone reachable. |
 | Drop-at-dequeue judged against the key | So re-reads and duplicate sightings cannot buy a second fetch. |
-| `last_seen_at` written by the fact writer as well as by the pass (2026-09-29) | The People page and the audit log disagreed about when a moderator was last seen; the same list and the same upsert now run at write time, and the pass is the catch-up. Only the pass queues refreshes. |
+| `last_seen_at` written by the fact writer as well as by the pass (2026-09-29) | The People page and the audit log disagreed about when a moderator was last seen; the same list and the same upsert now run at write time, and the pass is the catch-up. The write-time record offers nothing to the queue; the top-up reads the bumped row like any other. |
 | "Log stopped" counts as a sighting of the moderator (2026-09-29) | It is the companion's report about them, in an instance, at a time; leaving it off the list made their own report not count. |
 | Fresh-enough gaps: 30 s opened, 10 s presence | Protects the lane from a click and from a burst of facts about one person; both are settings. |
 | Sticky flag set by any positive signal, cleared only by hand | The maintainer's requirement; `hidden` is not "unverified". |

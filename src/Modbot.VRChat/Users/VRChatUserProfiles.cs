@@ -120,23 +120,34 @@ public sealed class VRChatUserProfiles
         if (sightings.Count == 0)
             return;
 
+        // In one order everywhere. Two of these statements running at once -- the profile sync's
+        // pass and a companion batch naming some of the same people -- take their row locks in
+        // the order the rows come, and two orders is a deadlock. Sorted here and ORDER BY below,
+        // so the statement's order never depends on how the caller happened to collect them.
         var byUser = sightings
             .GroupBy(s => s.UserId, StringComparer.Ordinal)
             .Select(g => (UserId: g.Key, First: g.Min(s => s.SeenAt), Last: g.Max(s => s.SeenAt)))
+            .OrderBy(u => u.UserId, StringComparer.Ordinal)
             .ToList();
 
         var ids = byUser.Select(u => u.UserId).ToArray();
         var firsts = byUser.Select(u => u.First.UtcDateTime).ToArray();
         var lasts = byUser.Select(u => u.Last.UtcDateTime).ToArray();
 
+        // The WHERE keeps a sighting that changes nothing from writing a new row version: since
+        // the writer records every fact as it lands, most of the pass's own upserts are exactly
+        // that, and last_seen_at is indexed.
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"""
              INSERT INTO vrchat_user (user_id, first_seen_at, last_seen_at, is_18_plus_verified)
              SELECT id, first_seen, last_seen, false
              FROM unnest({ids}::text[], {firsts}::timestamptz[], {lasts}::timestamptz[]) AS s(id, first_seen, last_seen)
+             ORDER BY id
              ON CONFLICT (user_id) DO UPDATE SET
                  first_seen_at = LEAST(vrchat_user.first_seen_at, EXCLUDED.first_seen_at),
                  last_seen_at = GREATEST(vrchat_user.last_seen_at, EXCLUDED.last_seen_at)
+             WHERE vrchat_user.last_seen_at < EXCLUDED.last_seen_at
+                OR vrchat_user.first_seen_at > EXCLUDED.first_seen_at
              """,
             ct).ConfigureAwait(false);
     }

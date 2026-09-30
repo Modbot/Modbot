@@ -84,7 +84,7 @@ public sealed class FactWriter : IFactWriter
         if (!FactDeduplication.AppliesTo(fact.Source))
         {
             var inserted = await InsertAsync(fact, ct);
-            await RecordSeenAsync(fact, ct);
+            await RecordSeenAsync(fact);
 
             return new FactWriteResult(inserted, WasDeduplicated: false);
         }
@@ -103,6 +103,8 @@ public sealed class FactWriter : IFactWriter
             ? await _db.Database.BeginTransactionAsync(ct)
             : null;
 
+        FactWriteResult result;
+
         try
         {
             var key = LockKey(fact);
@@ -113,50 +115,67 @@ public sealed class FactWriter : IFactWriter
             if (existing is { } already)
             {
                 await RecordSupportingReportAsync(fact, already, ct);
-
-                if (transaction is not null)
-                    await transaction.CommitAsync(ct);
-
-                return new FactWriteResult(already.Id, WasDeduplicated: true);
+                result = new FactWriteResult(already.Id, WasDeduplicated: true);
             }
-
-            var id = await InsertAsync(fact, ct);
+            else
+            {
+                result = new FactWriteResult(await InsertAsync(fact, ct), WasDeduplicated: false);
+            }
 
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
-
-            // After the commit, so the person's row is not held locked for as long as the
-            // advisory lock is, and a report that turned out to be a duplicate never gets here.
-            await RecordSeenAsync(fact, ct);
-
-            return new FactWriteResult(id, WasDeduplicated: false);
         }
         finally
         {
             if (transaction is not null)
                 await transaction.DisposeAsync();
         }
+
+        // Once the writer's own transaction is committed and gone, so the person's row is not
+        // held locked for as long as the advisory lock is. A report that turned out to be a
+        // duplicate never gets here: the first report counted. Inside a caller's transaction the
+        // helper skips itself, for the reason given on it.
+        if (!result.WasDeduplicated)
+            await RecordSeenAsync(fact);
+
+        return result;
     }
 
     /// <summary>
     /// Marks the people the fact names as seen, the moment the fact is in.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Until 2026-09-29 <c>last_seen_at</c> moved only when the profile sync's next pass read the
     /// fact back out of the log, so the People page and the audit log could disagree about when
-    /// somebody was last seen. A failure here is swallowed the way the linker's is: the fact is
-    /// already written, and that same pass records the sighting from the log as the catch-up.
+    /// somebody was last seen. The fact comes first and this is a convenience on top of it, so
+    /// nothing here may cost the fact: a failure is swallowed the way the linker's is, and the
+    /// profile sync's pass records the same sighting from the log as the catch-up.
+    /// </para>
+    /// <para>
+    /// <strong>Skipped inside a caller's transaction.</strong> An import batches thousands of
+    /// records in one, and a moderation action commits its fact with its own rows. In PostgreSQL a
+    /// failed statement aborts the whole transaction, so a failure here, however well swallowed,
+    /// would make the caller's next statement fail and roll back their facts. And a row it did
+    /// write would stay locked until the caller commits, holding up every companion report about
+    /// that person for as long as an import runs. Those facts are recorded by the pass instead.
+    /// </para>
+    /// <para>
+    /// Not the caller's token: the fact is committed by the time this runs, and a cancellation
+    /// arriving now would turn a written fact into an error that makes a sync think it was not
+    /// written and write it again. One small statement runs to its end.
+    /// </para>
     /// </remarks>
-    private async Task RecordSeenAsync(FactRecord fact, CancellationToken ct)
+    private async Task RecordSeenAsync(FactRecord fact)
     {
-        if (_sightings is null)
+        if (_sightings is null || _db.Database.CurrentTransaction is not null)
             return;
 
         try
         {
-            await _sightings.RecordAsync(fact, ct);
+            await _sightings.RecordAsync(fact, CancellationToken.None);
         }
-        catch (Exception) when (!ct.IsCancellationRequested)
+        catch (Exception)
         {
         }
     }
