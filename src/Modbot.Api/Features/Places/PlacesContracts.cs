@@ -194,8 +194,9 @@ public sealed record InstanceView(
 /// <param name="Change">
 /// What this reading was against the one before it: <see cref="HeadCountChange.Up"/>,
 /// <see cref="HeadCountChange.Kick"/> (fewer, and somebody was kicked from the instance about then)
-/// or <see cref="HeadCountChange.Left"/> (fewer, and nobody was). Null for the first reading, and for
-/// a reading that only changed where the count came from.
+/// or <see cref="HeadCountChange.Left"/> (fewer, and nobody was). Null for the first reading, for
+/// a reading that only changed where the count came from, and between an unsure reading and a sure
+/// one, where the number's source changed rather than the people.
 /// </param>
 public sealed record HeadCountPoint(
     DateTimeOffset At,

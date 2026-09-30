@@ -1,3 +1,5 @@
+using Modbot.VRChat.Sync;
+
 namespace Modbot.Api.Features.Places;
 
 /// <summary>
@@ -7,22 +9,33 @@ namespace Modbot.Api.Features.Places;
 /// <remarks>
 /// <para>
 /// A head count is a number read on a poll, and a kick is a fact from the group's audit log, so
-/// "the kick that made this drop" is a matter of timing. A reading at T that is lower than the
-/// reading before it at P covers whatever happened in (P, T]. Both clocks are loose -- the reading
-/// is stamped when Modbot read the page, the kick when VRChat wrote its log, and the page can lag
-/// the instance by a poll -- so a kick is matched to a drop when it fell within <see cref="Slack"/>
-/// on either side of that window. Slack is one instance poll, the thirty seconds of
-/// <c>InstanceHeadCountSync.ReadEvery</c>: a kick further off than that is more likely another
-/// drop's.
+/// "the kick that made this drop" is a matter of timing. A reading is stored only when the count
+/// changed, and the poll that stored it ran about <see cref="Poll"/> after the one before it, so a
+/// drop stored at T happened within one poll before T -- not anywhere since the previous stored
+/// reading, which in a quiet instance can be hours earlier, and an old kick in those hours has
+/// nothing to do with a drop tonight. Both clocks are loose -- the reading is stamped when Modbot
+/// read the page, the kick when VRChat wrote its log, and the page can lag the instance by a poll
+/// -- so a kick is matched to a drop when it fell within <see cref="Slack"/> on either side of
+/// that window: [T − Poll − Slack, T + Slack], or from the previous reading less the slack when
+/// that is later. A kick further off than that is more likely another drop's.
 /// </para>
 /// <para>
 /// One kick colours one drop. Two drops a few seconds apart have windows that overlap by the
 /// slack, and without that rule one kick between them would paint both. Drops are matched oldest
 /// first, each taking the earliest kick still unclaimed in its window.
 /// </para>
+/// <para>
+/// A reading is unsure when the page had no <c>userCount</c> and <c>n_users</c> stood in, which runs
+/// up to about thirty above the real count. A change between an unsure reading and a sure one is
+/// the number's source changing, not people arriving or leaving, so it is no change at all: null,
+/// drawn as a held stretch.
+/// </para>
 /// </remarks>
 public static class HeadCountChanges
 {
+    /// <summary>How long a drop can have been in the making before the poll that stored it.</summary>
+    public static readonly TimeSpan Poll = InstanceHeadCountSync.ReadEvery;
+
     /// <summary>How far a kick may sit outside a drop's window and still be its cause.</summary>
     public static readonly TimeSpan Slack = TimeSpan.FromSeconds(30);
 
@@ -51,13 +64,21 @@ public static class HeadCountChanges
 
             string? change = null;
 
-            if (reading.People > previous.People)
+            if (reading.Unsure != previous.Unsure)
+            {
+                change = null;
+            }
+            else if (reading.People > previous.People)
             {
                 change = HeadCountChange.Up;
             }
             else if (reading.People < previous.People)
             {
-                change = ClaimKick(unclaimed, previous.At - Slack, reading.At + Slack)
+                var since = reading.At - Poll;
+                if (previous.At > since)
+                    since = previous.At;
+
+                change = ClaimKick(unclaimed, since - Slack, reading.At + Slack)
                     ? HeadCountChange.Kick
                     : HeadCountChange.Left;
             }

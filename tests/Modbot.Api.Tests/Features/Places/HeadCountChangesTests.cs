@@ -8,7 +8,8 @@ public class HeadCountChangesTests
 
     private static DateTimeOffset At(int seconds) => T0.AddSeconds(seconds);
 
-    private static HeadCountPoint Reading(int seconds, int people) => new(At(seconds), people, people, null, "page");
+    private static HeadCountPoint Reading(int seconds, int people, bool unsure = false)
+        => new(At(seconds), people, unsure ? null : people, null, "page", unsure ? people : null, unsure);
 
     [Fact]
     public void TheFirstReading_HasNoChange_AndARise_IsUp()
@@ -79,6 +80,41 @@ public class HeadCountChangesTests
         var points = HeadCountChanges.Classify([Reading(0, 4), Reading(30, 4)], [At(10)]);
 
         Assert.Null(points[1].Change);
+    }
+
+    /// <summary>
+    /// Readings are stored only on change, so in a quiet instance hours can pass between two. The drop
+    /// still happened within one poll of the reading that showed it, and a kick from earlier in the
+    /// evening is not its cause.
+    /// </summary>
+    [Fact]
+    public void InAQuietInstance_AnOldKick_DoesNotColourALaterDrop()
+    {
+        var threeHours = 3 * 3600;
+
+        var old = HeadCountChanges.Classify([Reading(0, 5), Reading(threeHours, 4)], [At(10)]);
+        var recent = HeadCountChanges.Classify([Reading(0, 5), Reading(threeHours, 4)], [At(threeHours - 45)]);
+        var tooOld = HeadCountChanges.Classify([Reading(0, 5), Reading(threeHours, 4)], [At(threeHours - 61)]);
+
+        Assert.Equal(HeadCountChange.Left, old[1].Change);
+        Assert.Equal(HeadCountChange.Kick, recent[1].Change);
+        Assert.Equal(HeadCountChange.Left, tooOld[1].Change);
+    }
+
+    /// <summary>
+    /// "80?" is n_users standing in for a missing userCount, and it runs high. Going from it to a
+    /// real count, or back, is the source changing, not people moving.
+    /// </summary>
+    [Fact]
+    public void AChangeBetweenUnsureAndSure_IsNoChange()
+    {
+        var toSure = HeadCountChanges.Classify([Reading(0, 80, unsure: true), Reading(30, 51)], [At(10)]);
+        var toUnsure = HeadCountChanges.Classify([Reading(0, 51), Reading(30, 80, unsure: true)], []);
+        var bothUnsure = HeadCountChanges.Classify([Reading(0, 80, unsure: true), Reading(30, 70, unsure: true)], [At(10)]);
+
+        Assert.Null(toSure[1].Change);
+        Assert.Null(toUnsure[1].Change);
+        Assert.Equal(HeadCountChange.Kick, bothUnsure[1].Change);
     }
 
     [Fact]
