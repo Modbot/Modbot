@@ -153,6 +153,7 @@ public static class DiscordSyncEndpoints
                     .Field("roleSyncOn", settings.DiscordRoleSyncOn, body.RoleSyncOn)
                     .Field("banSyncToDiscord", settings.DiscordBanSyncToDiscord, body.BanSyncToDiscord)
                     .Field("banSyncToVRChat", settings.DiscordBanSyncToVRChat, body.BanSyncToVRChat)
+                    .Field("banSyncFromBots", settings.DiscordBanSyncFromBots, body.BanSyncFromBots ?? settings.DiscordBanSyncFromBots)
                     .Field("banCopyAction", settings.DiscordBanCopyAction, action);
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
