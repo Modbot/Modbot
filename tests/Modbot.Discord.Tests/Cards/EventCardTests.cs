@@ -468,6 +468,152 @@ public class EventCardTests
         Assert.Equal(["By", "When"], card.Fields.Select(f => f.Name));
     }
 
+    // ── The group's own details ──────────────────────────────────────────────────────────────
+
+    private const string GroupId = "grp_0a17232e-6ad4-4889-8e1e-6e0c5fa815fd";
+
+    /// <summary>A group-details fact as the poll writes it: the group is the subject and nobody is named.</summary>
+    private static ModerationEventView GroupDetails(params EventChange[] changes) => new(
+        52, FactType.GroupInfoChanged, At,
+        GroupId, null,
+        null, null,
+        null,
+        Details: new EventDetails(Changed: changes));
+
+    [Fact]
+    public void AGroupUpdate_IsHeadedByTheGroupsName_NotItsId()
+    {
+        var card = EventCard.For(
+            GroupDetails(new EventChange("Rules", "Be kind", "Be kind. No crashers.")), Style, CardPicture.None);
+
+        Assert.Equal("The Kingdom", card.AuthorName);
+        Assert.Equal("Group details changed", card.Title);
+        AssertNoIdsInTheBody(card);
+        Assert.NotEqual(GroupId, card.AuthorName);
+    }
+
+    [Fact]
+    public void AGroupUpdate_ListsEachChangeInPlainWords()
+    {
+        var card = EventCard.For(
+            GroupDetails(
+                new EventChange("Rules", "Be kind", "Be kind. No crashers."),
+                new EventChange("JoinState", "Open", "Request"),
+                new EventChange("IsVerified", "false", "true"),
+                new EventChange("OnlineMemberCount", "260", "263"),
+                new EventChange("MemberCount", "4790", "4791")),
+            Style, CardPicture.None);
+
+        var changed = Field(card, "Changed")!;
+
+        Assert.Contains("**Rules**: “Be kind” → “Be kind. No crashers.”", changed, StringComparison.Ordinal);
+        Assert.Contains("**Join state**: Open → Request", changed, StringComparison.Ordinal);
+        Assert.Contains("**Verified**: no → yes", changed, StringComparison.Ordinal);
+        Assert.Contains("**Members online**: 260 → 263", changed, StringComparison.Ordinal);
+        Assert.Contains("**Members**: 4,790 → 4,791", changed, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnlineMemberCount", changed, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AGroupUpdate_WithNobodyNamed_HasNoByLine_AndAlwaysHasWhen()
+    {
+        var card = EventCard.For(GroupDetails(new EventChange("Rules", "a", "b")), Style, CardPicture.None);
+
+        Assert.Null(Field(card, "By"));
+        Assert.NotNull(Field(card, "When"));
+    }
+
+    [Fact]
+    public void ACountMovingAlone_IsACardWithTheNumbers_AndNoByLine()
+    {
+        var card = EventCard.For(
+            GroupDetails(
+                new EventChange("MemberCount", "4790", "4791"),
+                new EventChange("OnlineMemberCount", "260", "263")),
+            Style, CardPicture.None);
+
+        Assert.Equal("The Kingdom", card.AuthorName);
+        Assert.Equal("**Members**: 4,790 → 4,791\n**Members online**: 260 → 263", Field(card, "Changed"));
+        Assert.Null(Field(card, "By"));
+        Assert.NotNull(Field(card, "When"));
+    }
+
+    [Fact]
+    public void AGroupUpdateAPersonMade_SaysWhoDidIt()
+    {
+        var e = GroupDetails(new EventChange("rules", "a", "b")) with { ActorId = Actor, ActorName = "modbot_alpha" };
+
+        var by = Field(EventCard.For(e, Style, CardPicture.None), "By")!;
+
+        Assert.Contains("modbot_alpha", by, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ALongRulesEdit_SaysHowTheNewOneBegins_NotTwoCutTextsThatLookAlike()
+    {
+        var before = new string('a', 120);
+        var after = "Be kind. " + new string('b', 120);
+
+        var changed = Field(
+            EventCard.For(GroupDetails(new EventChange("Rules", before, after)), Style, CardPicture.None), "Changed")!;
+
+        Assert.Contains("**Rules**: now “Be kind. bbb", changed, StringComparison.Ordinal);
+        Assert.DoesNotContain("→", changed, StringComparison.Ordinal);
+        Assert.True(changed.Length <= 1024);
+    }
+
+    [Fact]
+    public void ARulesEditWithLineBreaks_StaysOnOneLine()
+    {
+        var changed = Field(
+            EventCard.For(GroupDetails(new EventChange("Rules", "1. Be kind\n2. No crashers", "1. Be kind\r\n\r\n2. No\tcrashers")), Style, CardPicture.None),
+            "Changed")!;
+
+        Assert.Single(changed.Split('\n'));
+        Assert.Contains("Be kind 2", changed, StringComparison.Ordinal);
+        Assert.Contains("No crashers”", changed, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnEmptiedDescription_SaysItWasRemoved()
+    {
+        var changed = Field(
+            EventCard.For(GroupDetails(new EventChange("Description", new string('x', 100), null)), Style, CardPicture.None),
+            "Changed")!;
+
+        Assert.Contains("**Description**: removed", changed, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnIdOrTheRoles_AreNamedAsChanged_NotPrinted()
+    {
+        var card = EventCard.For(
+            GroupDetails(
+                new EventChange("OwnerId", Person, Actor),
+                new EventChange("bannerId", "file_1", "file_2"),
+                new EventChange("Roles", "[{\"Id\":\"grol_1\"}]", "[]"),
+                new EventChange("lastUpdatedByUserId", null, Actor)),
+            Style, CardPicture.None);
+
+        var changed = Field(card, "Changed")!;
+
+        Assert.Contains("**Owner**: changed", changed, StringComparison.Ordinal);
+        Assert.Contains("**Banner**: changed", changed, StringComparison.Ordinal);
+        Assert.Contains("**Roles**: changed", changed, StringComparison.Ordinal);
+
+        // Bookkeeping the source changes with any edit says nothing about the edit.
+        Assert.DoesNotContain("Last updated", changed, StringComparison.Ordinal);
+        AssertNoIdsInTheBody(card);
+    }
+
+    [Fact]
+    public void AGroupUpdate_WithNoGroupNameKnown_HasNoAuthorLine_RatherThanTheId()
+    {
+        var card = EventCard.For(GroupDetails(new EventChange("Rules", "a", "b")), CardStyle.None, CardPicture.None);
+
+        Assert.Null(card.AuthorName);
+    }
+
     // ── What every card still does ───────────────────────────────────────────────────────────
 
     [Fact]

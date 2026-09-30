@@ -13,6 +13,7 @@ import { EmptyRow } from '@/components/PanelGrid'
 import { VersionCard } from '@/components/subject/ProfileVersions'
 import { api, type AuditAround, type AuditEntry } from '@/lib/api'
 import { needsYear } from '@/lib/format'
+import { groupFieldLabel } from '@/lib/groupDetails'
 import { fieldName } from '@/lib/profileFields'
 import { openPersonVersion } from '@/lib/subject'
 import { useLoad } from '@/lib/useLoad'
@@ -141,7 +142,7 @@ export function EntryDetail({ entry, around = true }: { entry: AuditEntry; aroun
             <Table head={<><Th>Field</Th><Th>Before</Th><Th>After</Th></>}>
               {changed.map(([key, pair]) => (
                 <Tr key={key}>
-                  <Td>{fieldName(key)}</Td>
+                  <Td>{(entry.type === 'vrchat.group.update' && groupFieldLabel(key)) || fieldName(key)}</Td>
                   <Td className="min-w-[10rem] break-all whitespace-normal text-muted-foreground">{shown(pair.old)}</Td>
                   <Td className="min-w-[10rem] break-all whitespace-normal">{shown(pair.new)}</Td>
                 </Tr>

@@ -151,6 +151,66 @@ public class ModerationLogPosterTests
         Assert.Equal(join, (await services.ChannelPlaceAsync(Channel, ct))!.PostedThrough);
     }
 
+    private static Task<long> WriteGroupUpdateAsync(TestServices services, string field, object before, object after, CancellationToken ct)
+        => services.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.GroupInfoChanged,
+            OccurredAt = services.Clock.UtcNow,
+            SubjectPlatform = FactPlatform.VRChat,
+            SubjectId = Group,
+            Source = FactSource.SyncDiff,
+            Data = new System.Text.Json.Nodes.JsonObject
+            {
+                ["changed"] = new System.Text.Json.Nodes.JsonObject
+                {
+                    [field] = new System.Text.Json.Nodes.JsonObject
+                    {
+                        ["old"] = JsonSerializer.SerializeToNode(before),
+                        ["new"] = JsonSerializer.SerializeToNode(after),
+                    },
+                },
+            },
+        }, ct);
+
+    /// <summary>
+    /// A route that takes group updates gets the count readings too, with the numbers on the card and
+    /// nobody named; and a real edit goes out as a card that names the group and lists the change.
+    /// </summary>
+    [Fact]
+    public async Task ACountMoving_StillPosts_WithTheNumbers_AndARulesEditPostsToo()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateway = new FakeGateway();
+
+        await services.ConfigureAsync(s => s.ManagedGroupName = "The Kingdom", ct);
+        await services.AddRouteAsync(Channel, [FactType.GroupInfoChanged], ct: ct);
+        await RunAsync(services, gateway, ct);
+
+        await WriteGroupUpdateAsync(services, "OnlineMemberCount", 260, 263, ct);
+        var last = await WriteGroupUpdateAsync(services, "Rules", "Be kind", "Be kind. No crashers.", ct);
+
+        var pass = await RunAsync(services, gateway, ct);
+
+        Assert.Equal(ModerationLogPassOutcome.Posted, pass.Outcome);
+        Assert.Equal(2, pass.Posted);
+
+        var (_, embeds) = Assert.Single(gateway.Posts);
+        Assert.Equal(2, embeds.Count);
+        Assert.All(embeds, card => Assert.Equal("The Kingdom", card.AuthorName));
+
+        var count = embeds[0];
+        Assert.Contains("**Members online**: 260 → 263", count.Fields.Single(f => f.Name == "Changed").Value, StringComparison.Ordinal);
+        Assert.DoesNotContain(count.Fields, f => f.Name == "By");
+        Assert.Contains(count.Fields, f => f.Name == "When");
+
+        Assert.Contains(
+            "**Rules**: “Be kind” → “Be kind. No crashers.”",
+            embeds[1].Fields.Single(f => f.Name == "Changed").Value,
+            StringComparison.Ordinal);
+        Assert.Equal(last, (await services.ChannelPlaceAsync(Channel, ct))!.PostedThrough);
+    }
+
     [Fact]
     public async Task TypesBeyondModeration_CanBeSent_WithTheAuditLogsLabels()
     {

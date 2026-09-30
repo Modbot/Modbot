@@ -7,6 +7,7 @@ import { followLink } from '@/lib/router'
 import { openPersonVersion } from '@/lib/subject'
 import { avatarWorn, timeInInstance } from '@/lib/factDetails'
 import { dateTimeWithWeekday, duration, timeOfDay } from '@/lib/format'
+import { countReadings, withPlainNames } from '@/lib/groupDetails'
 import { vrchatMedia } from '@/lib/vrchatMedia'
 import { VRCHAT_PERMISSIONS } from '@/lib/vrchatPermissions'
 
@@ -484,7 +485,7 @@ function empty(value: unknown): boolean {
 }
 
 /** Fields whose value is somebody's own words, quoted so they cannot run into the sentence. */
-const NAMING_FIELD = /name|title|topic|description|bio|status|pronouns/i
+const NAMING_FIELD = /name|title|topic|description|bio|status|pronouns|rules/i
 
 /** One entry of a changed list, said the way a person would: "new-member" as "new member". */
 function listItem(value: unknown): string {
@@ -562,12 +563,26 @@ const SENTENCES: Record<string, Sentence> = {
 
   'vrchat.group.invite.create': (p) => <>{p.actor} invited {p.subject} to the group.</>,
 
-  'vrchat.group.update': (p) => (
-    <>
-      {p.actor} changed the group's details<Changed changed={p.changed} />.
-      <ChangedLists changed={p.changed} />
-    </>
-  ),
+  // Two writers. A person's edit reaches the audit log with their name and reads as they did it. The
+  // group-info poll names nobody: what it saw is a reading, and a count that only ticked is said as
+  // one rather than as somebody's edit.
+  'vrchat.group.update': (p) => {
+    const changed = withPlainNames(p.changed)
+    const readings = p.hasActor ? null : countReadings(p.changed)
+
+    if (readings) return <>{readings.join(' ')}</>
+
+    // The first look at the group changed nothing: it is where the counts start from.
+    if (!p.hasActor && changed.length === 0 && p.entry.data?.['baseline']) return <>Modbot first recorded the group's details.</>
+
+    return (
+      <>
+        {p.hasActor ? <>{p.actor} changed the group's details</> : <>The group's details changed</>}
+        <Changed changed={changed} />.
+        <ChangedLists changed={changed} />
+      </>
+    )
+  },
 
   'vrchat.group.members.snapshot': (p) => {
     const count = p.entry.data?.['memberCount']

@@ -22,6 +22,9 @@ public static class EventRouteMatch
         if (!DiscordEventTypes.CanSend(fact.Type) || !route.EventTypes.Contains(fact.Type, StringComparer.Ordinal))
             return false;
 
+        if (IsGroupBaseline(fact))
+            return false;
+
         var subject = people.Of(fact.SubjectPlatform, fact.SubjectId);
 
         if ((route.SubjectIds.Count > 0 || route.SubjectDiscordIds.Count > 0)
@@ -61,6 +64,33 @@ public static class EventRouteMatch
     {
         ArgumentNullException.ThrowIfNull(routes);
         return routes.Any(r => Matches(r, fact, people));
+    }
+
+    /// <summary>
+    /// The group-details fact the first poll writes: the whole group as Modbot first saw it, with
+    /// nothing changed. It is the starting point for the member count, not an event, and a card for
+    /// it would list no changes at all.
+    /// </summary>
+    private static bool IsGroupBaseline(ModbotEvent fact)
+    {
+        if (!string.Equals(fact.Type, FactType.GroupInfoChanged, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(fact.Data)
+            || !fact.Data.Contains("\"baseline\"", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(fact.Data);
+
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                   && document.RootElement.TryGetProperty("baseline", out _);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
+        }
     }
 
     /// <summary>A person matches a list when any account they stand for is on it.</summary>

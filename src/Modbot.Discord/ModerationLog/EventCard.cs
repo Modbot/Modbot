@@ -48,6 +48,9 @@ public static class EventCard
     /// <summary>The most of one value inside a field: a name, a word, one side of a change.</summary>
     private const int ValueLength = 80;
 
+    /// <summary>How much of the new words of a long rules or description a card shows.</summary>
+    private const int NewWordsLength = 160;
+
     /// <summary>The most changes one card lists before it says how many are left.</summary>
     private const int ChangesListed = 8;
 
@@ -86,6 +89,8 @@ public static class EventCard
             FactType.CalendarEventCreated => CalendarEntry(e, style),
 
             FactType.UserProfileChanged => ProfileChanged(e, style, picture),
+
+            FactType.GroupInfoChanged => GroupDetails(e, style),
 
             _ => Plain(e, style, picture),
         };
@@ -217,6 +222,142 @@ public static class EventCard
             Quoted(e.Description),
             Changes(e));
     }
+
+    /// <summary>
+    /// The group's own details changed: the group heads the card and each change is a line under
+    /// "Changed". The group-info poll writes these with nobody named, and the audit log writes the
+    /// ones a person made with their name, which <c>By</c> then carries.
+    /// </summary>
+    /// <remarks>
+    /// A poll that saw only a count move posts too, with the numbers on the card: a route that takes
+    /// group updates asked for them.
+    /// </remarks>
+    private static DiscordEmbedContent GroupDetails(ModerationEventView e, CardStyle style)
+        => AboutTheGroup(e, style, ModerationEventEmbed.LabelFor(e.Type), Quoted(e.Description), GroupChanges(e));
+
+    /// <summary>The fields a source changes as a side effect of any edit, which say nothing about the edit.</summary>
+    private static readonly HashSet<string> GroupBookkeeping = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "lastUpdatedByUserId", "updatedAt", "createdAt", "lastPostCreatedAt", "id", "groupId",
+    };
+
+    /// <summary>One line per field that changed, in the words the group's own page uses.</summary>
+    private static IReadOnlyList<DiscordEmbedField> GroupChanges(ModerationEventView e)
+    {
+        var changes = e.What.Changes.Where(c => !GroupBookkeeping.Contains(c.Name)).ToList();
+        if (changes.Count == 0)
+            return [];
+
+        var lines = new StringBuilder();
+        var listed = 0;
+
+        foreach (var change in changes)
+        {
+            if (listed == ChangesListed)
+            {
+                lines.Append("\nand ").Append(changes.Count - listed).Append(" more");
+                break;
+            }
+
+            if (listed > 0)
+                lines.Append('\n');
+
+            lines.Append("**").Append(CardText.Fit(CardText.EscapeText(GroupFieldName(change.Name)), ValueLength)).Append("**: ")
+                .Append(GroupChange(change));
+
+            listed++;
+        }
+
+        return [new DiscordEmbedField("Changed", CardText.Fit(lines.ToString(), FieldLength))];
+    }
+
+    /// <summary>
+    /// What one group field went from and to. Words are quoted so they cannot run into the line; a
+    /// count is written out; a yes-or-no says yes or no; an id, an address or the roles are named as
+    /// changed and not printed.
+    /// </summary>
+    private static string GroupChange(EventChange change)
+    {
+        var key = change.Name.ToLowerInvariant();
+
+        if (key is "roles" or "ownerid" || Hidden(change.Name))
+            return "changed";
+
+        if (key is "membercount" or "onlinemembercount")
+            return $"{Count(change.Before)} → {Count(change.After)}";
+
+        if (key == "isverified")
+            return $"{YesNo(change.Before)} → {YesNo(change.After)}";
+
+        if (key is "name" or "shortcode" or "discriminator" or "description" or "rules")
+            return GroupWords(change);
+
+        return $"{Side(change.Before)} → {Side(change.After)}";
+    }
+
+    /// <summary>
+    /// A field of somebody's own words. Short enough on both sides, it is shown as it was and as it
+    /// is; too long, the two would be cut where they still read the same, so it says what happened
+    /// instead and shows how the new one begins.
+    /// </summary>
+    private static string GroupWords(EventChange change)
+    {
+        var before = change.Before?.Trim();
+        var after = change.After?.Trim();
+
+        var tooLong = (before?.Length ?? 0) > ValueLength || (after?.Length ?? 0) > ValueLength;
+
+        if (!tooLong)
+            return $"{Quote(before, ValueLength)} → {Quote(after, ValueLength)}";
+
+        return string.IsNullOrEmpty(after)
+            ? "removed"
+            : $"now {Quote(after, NewWordsLength)}";
+    }
+
+    /// <summary>A quoted piece of a group's own words, or "nothing".</summary>
+    private static string Quote(string? value, int max)
+        => string.IsNullOrWhiteSpace(value)
+            ? "nothing"
+            : "“" + CardText.Fit(CardText.EscapeText(System.Text.RegularExpressions.Regex.Replace(value.Trim(), @"\s+", " ")), max) + "”";
+
+    /// <summary>A count written out with its thousands separated, or as it was when it is not a number.</summary>
+    private static string Count(string? value)
+        => long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var number)
+            ? number.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)
+            : Side(value);
+
+    private static string YesNo(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        "true" => "yes",
+        "false" => "no",
+        _ => Side(value),
+    };
+
+    /// <summary>
+    /// The group's field names as its own page says them: VRChat's for the ones a person edits, the
+    /// poll's for the rest, never the raw name.
+    /// </summary>
+    private static string GroupFieldName(string name) => name.ToLowerInvariant() switch
+    {
+        "name" => "Name",
+        "shortcode" => "Short code",
+        "discriminator" => "Short code number",
+        "description" => "Description",
+        "rules" => "Rules",
+        "ownerid" => "Owner",
+        "joinstate" => "Join state",
+        "privacy" => "Privacy",
+        "isverified" => "Verified",
+        "membercount" => "Members",
+        "onlinemembercount" => "Members online",
+        "roles" => "Roles",
+        "bannerid" or "bannerurl" => "Banner",
+        "iconid" or "iconurl" => "Icon",
+        "languages" => "Languages",
+        "links" => "Links",
+        _ => PlainName(name),
+    };
 
     // ── The two ways a card is put together ──────────────────────────────────────────────────
 

@@ -148,6 +148,19 @@ public class EventRouteMatchTests
         Assert.False(EventRouteMatch.Matches(Route(r => r.SubjectIds = ["grp_1"], FactType.GroupInfoChanged), group, NoRoles));
     }
 
+    [Theory]
+    [InlineData("""{"baseline":{"MemberCount":4790}}""", false)]
+    [InlineData("""{"changed":{"MemberCount":{"old":4790,"new":4791}}}""", true)]
+    [InlineData("""{"changed":{"Rules":{"old":"a","new":"b"}}}""", true)]
+    [InlineData("not json but says \"baseline\"", true)]
+    public void TheFirstLookAtTheGroup_HasNothingChanged_AndIsNeverSent(string data, bool sent)
+    {
+        var fact = Fact(subject: "grp_1", actor: null, type: FactType.GroupInfoChanged, subjectPlatform: FactPlatform.VRChat);
+        fact.Data = data;
+
+        Assert.Equal(sent, EventRouteMatch.Matches(Route(null, FactType.GroupInfoChanged), fact, NoRoles));
+    }
+
     [Fact]
     public void AnActorFilter_TakesAnyOfItsPeople()
     {
