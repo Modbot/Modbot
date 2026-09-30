@@ -119,9 +119,11 @@ standing next to code that contradicts it.
 
 It is narrowed in the same shape as everything else here. **One file** in the companion may ask,
 and it is the same file that is allowed to open a microphone; the build fails if a second one
-learns to. The list is only asked for **while Listening is switched on** — with the switch off,
-nothing at all is asked of Windows' audio system, exactly as before. And what comes back is a name
-and an id for each device. Nothing is opened and nothing is heard by asking.
+learns to. The list is only asked for **while Listening is switched on** — with the switch off, no
+microphone is listed or opened. (The client always looks at which speakers and headphones the PC
+has, for its own sounds and spoken announcements; that is a different list and it stays on the PC.)
+And what comes back is a name and an id for each device. Nothing is opened and nothing is heard by
+asking.
 </Callout>
 
 ## What you can say

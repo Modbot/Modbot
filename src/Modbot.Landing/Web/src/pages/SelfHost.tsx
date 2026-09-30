@@ -20,9 +20,9 @@ export function SelfHost({ privacy = false }: { privacy?: boolean }) {
 function Server() {
   const facts = [
     'Every record the server keeps is in your database. Evidence files go to S3-compatible storage, a mounted folder or that same database.',
-    'The server talks to VRChat, Discord, your mail server and an AI provider when you set each one up. It never contacts modbot.co.',
+    'The server talks to VRChat, Discord, your mail server and an AI provider when you set each one up.',
+    'It also sends Modbot Cloud, by default, a list of your open instances, a usage report that names your server and your group, and its own log, which can name members. Each has its own switch, and one environment variable turns all three off.',
     'The companion also sends events to Modbot Cloud as a backup. This is on by default, and it has a switch for it.',
-    'Usage reports have no field for your group or its members, and you can turn them off.',
   ]
 
   const steps = [

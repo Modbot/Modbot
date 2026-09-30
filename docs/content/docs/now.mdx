@@ -1,0 +1,76 @@
+---
+title: Now
+description: The page Modbot opens on - what needs a decision, who is in the group's instances, whether Modbot is working, and what changed since you last looked.
+---
+
+**Now** is the first page after you sign in. It answers two questions: *what needs me?* and *what
+changed?* It lists only things somebody can act on. The numbers and charts are on [Stats](/analytics).
+
+**Now** has no permission of its own. Each part is read under the permission of the page it comes
+from, and a part you cannot open is not drawn.
+
+## Modbot's health, in one line
+
+At the top right, one line says how Modbot is doing. It reads **All working**, or names the parts
+that are not, such as *VRChat needs you*. Press it and the [Health](/self-hosting/health) page opens
+at the part it names.
+
+It needs the **See the operational log** permission, the same one Health needs.
+
+## Needs a decision
+
+Three counts across the top of the card, each opening the page it counts, and under them the newest
+rows of each.
+
+| Row | Shows | Comes from | Needs |
+|---|---|---|---|
+| **Flag** | The person, the rule and what matched, and how long ago | The [Flags](/moderation/flags) page, open flags only. The newest five. | **See profiles** |
+| **Review** | The moderator and the pattern that opened it | [Reviews](/moderation/reviews), open ones only. The newest three. | **Review tickets** |
+| **Request** | The person, their trust rank and any history with the group | [Join requests](/moderation/join-requests). The newest three. | **See join requests** |
+
+A request row has **Approve** and **Reject** buttons for someone who holds **Answer join requests**.
+Each asks you to confirm, exactly as on the Join requests page. A row you answer leaves the list
+without another read.
+
+When there is nothing in any of them, the card says **Nothing waiting**.
+
+**Join requests are read from VRChat, once, each time the page opens.** They are never read on a
+timer, and a live event does not read them again. VRChat is the one place the whole queue is, so
+this is the one part of **Now** that costs a VRChat request. The count is also what the sidebar and
+the browser tab's title show.
+
+## In the group's instances
+
+The group's open instances, with the ones that have flagged people in them first. Under an instance
+the flagged people are listed by name, with what flagged them. Everybody else is on
+[Live](/moderation/live): this is the part of it that needs somebody.
+
+An instance with nobody flagged says **Nobody flagged**, or **Nobody watching** when no moderator's
+companion is in it, so Modbot has no list of who is there. The head count is on the right.
+
+It is read from what Modbot already holds, so it asks VRChat nothing. It reads again when something
+happens in an instance and every thirty seconds while the page is on screen. It needs the
+[**See live instances**](/accounts/roles-and-permissions#see-live-instances) permission.
+
+## Since you last looked
+
+What happened in the [audit log](/moderation/audit-log) since you last had **Now** open, as one count
+for each kind of thing that happened:
+
+**bans, unbans, kicks, warns, case files, notes, flags, join requests, joins and leaves.**
+
+Each count opens the audit log filtered to that kind, from that day. Counts of zero are left out, and
+the card says **Nothing new** when they all are. Bans, unbans and kicks include the Discord ones and
+kicks from an instance. A warn is a warning a moderator gave inside an instance on VRChat: Modbot has
+no warning of its own.
+
+- The first time you open **Now**, the card is called **In the last day** and counts the last 24
+  hours.
+- After that it is **Since you last looked**, with the time it counts from.
+- **The starting point moves only after you have been away for 15 minutes.** Reloading the page,
+  or opening it in a second tab, does not reset it.
+- Modbot keeps two times on your account for this: when you last had **Now** open, and where the
+  count starts. Nothing else about what you looked at is kept. A tab in the background does not
+  count as looking.
+
+It needs the **See the audit log** permission. Without it the card is left out.

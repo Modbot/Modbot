@@ -11,19 +11,36 @@ is coming on any date. The rest of these docs only describe what Modbot does tod
 ## Moderation
 
 - **Warning somebody.** Modbot can kick, ban and unban a person in the group; it cannot warn one,
-  and it is not going to. VRChat has no warning to deliver, so a warning in Modbot would only ever
-  have been a record — and that is what a [note](/moderation/notes) is. The **Warn** permission
-  still exists and does nothing.
+  and it is not going to. A warning in Modbot would only ever have been a record — and that is what
+  a [note](/moderation/notes) is. VRChat's group log does hold the warnings moderators give inside
+  an instance, and Modbot shows them; it cannot send one. The **Warn** permission still exists and
+  does nothing.
 - **Acting on many people at once.** Every action is one person at a time. The **Act on many at
   once** permission exists but does nothing yet; see
   [Roles and permissions](/accounts/roles-and-permissions#moderation).
 - **Destroying evidence from the web app.** The server can do it through the
-  [API](/api/reference), but there is no button for it.
+  [API](/api/reference), but there is no button for it. The API refuses a file that is still
+  attached to a case file, and nothing detaches one, so evidence attached to a case cannot be
+  destroyed today.
+- **A record of who opened, attached or destroyed evidence.** The audit log has entries named for
+  these, and nothing writes them yet. Destroying a file keeps who did it and why on the file's own
+  record, not in the audit log.
+- **Kicking somebody out of an instance.** **Kick** removes a person from the group. Modbot reads
+  instance kicks other moderators make on VRChat from the group log; it cannot make one.
+- **Opening an instance whenever you like.** Modbot opens an instance only for a
+  [calendar](/moderation/calendar) event. There is no button to open one.
+- **Banning or flagging by the avatar somebody wears.** VRChat's log gives an avatar's name and
+  never its id, so two avatars with one name cannot be told apart, and no rule looks at the avatar.
 - **Segments**: saving "our regulars" as a named list you can come back to, export, or act on all at
   once. The rules themselves are built, in [Giveaways](/moderation/giveaways).
+- **Charting other public groups.** Tracked groups would chart other groups' member counts beside
+  your own. There is no page for it.
 
 ## Companion
 
+- **A check, when the client first starts, that VRChat is writing the lines it reads.** The client
+  only warns after ten minutes of lines it cannot understand; see
+  [Warnings in the window](/companion/install#warnings-in-the-window).
 - **Keeping things drawn over VRChat out of a [clip](/companion/clips).** A clip is the part of
   your screen VRChat's window sits in, so a chat overlay or a notification drawn on top of the game
   is in it. Everything outside that window never is, and nothing at all is recorded while you are
@@ -66,6 +83,17 @@ is coming on any date. The rest of these docs only describe what Modbot does tod
 - **A reason on a copied ban.** [Role and ban sync](/discord/role-and-ban-sync) copies the ban
   itself, and the copy names the ban that caused it, but it picks no reason from your ban reason
   list and writes no case file — nobody here chose one.
+
+## Notifications
+
+- **Notifications to your browser or phone when the page is closed.** Notifications reach a person
+  by email and by Discord message. Web push is not built.
+
+## Word lists
+
+- **Being told a shared word list you imported has a newer version.** A newer version shows on the
+  list in **Settings → AutoMod**; nothing is sent to you.
+- **Picking word lists during setup.** The [setup wizard](/setup-wizard) has no step for them.
 
 ## Across groups
 

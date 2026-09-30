@@ -262,7 +262,8 @@ A number that came from presence reports is shown as **about**, and a row near a
 highlighted.
 
 An erased person shows as **(erased)**: their position and weight stay, so the draw can still be
-checked, and their name and ids are gone. Nobody can be erased yet — see
+checked, and their name and ids are gone. That is what a
+[purge](/moderation/purge) does; see
 [If somebody asks to be erased](#if-somebody-asks-to-be-erased).
 
 ## In Discord
@@ -315,8 +316,9 @@ fix itself. Deal with the reason and press **Draw**.
 
 ## If somebody asks to be erased
 
-**Settings → Purge a person** removes everything Modbot stores about somebody. It asks for
-Administrator, and it cannot be undone.
+**Settings → Purge a person** erases what Modbot's history holds about somebody, and is the one way
+to take them out of giveaways. It asks for Administrator, and it cannot be undone. It does not
+remove everything Modbot stores about a person; [Purge a person](/moderation/purge) says what stays.
 
 It takes the person out of every giveaway: their standing entries deleted so they cannot be drawn,
 and their name and ids removed from past draws. Their position and weight

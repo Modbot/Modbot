@@ -1,6 +1,6 @@
 ---
 title: Privacy
-description: Where Modbot's privacy policy lives, and pointers to what a self-hosted Modbot stores.
+description: Where Modbot's privacy policy lives, and what a self-hosted Modbot sends to Modbot Cloud and how to turn each part off.
 ---
 
 Modbot's privacy policy is **[modbot.co/privacy](https://modbot.co/privacy)**. The same document is
@@ -8,35 +8,53 @@ Modbot's privacy policy is **[modbot.co/privacy](https://modbot.co/privacy)**. T
 repository, and that file is what the page is built from.
 
 It answers two sets of questions: one for people in a group whose moderators run Modbot, and one for
-operators running it. It is not repeated here, so there is only ever one version of it.
+operators running it. It is the full list; this page is the short one for operators.
 
 ## What a self-hosted Modbot sends to Modbot Cloud
 
-**Modbot sends its own log to Modbot Cloud by default.** This is the one thing a Modbot you run
-yourself sends anywhere the project operates. The facts about your members — bans, joins, messages,
-case files, evidence — never leave your own database.
+**A Modbot you run yourself sends four things to Modbot Cloud.** Each has its own switch, all three
+switches are on when Modbot is installed, and `MODBOT_CLOUD_DISABLED` turns everything off at once.
+The facts about your members — bans, joins, messages, case files, evidence — are not in any of them.
 
-1. **What is sent is the log, unchanged.** The same lines you can read on the **Modbot's log** page:
+| What | How often | Switch |
+|---|---|---|
+| **Open instances.** Which of your group's instances anyone can join, so they can be listed on modbot.co. | Every five minutes, and when one opens or closes | **Settings → Server**, **This install**: *List this group's public instances on modbot.co* |
+| **A usage report.** Your server's address, version and operating system; your group's id, name, description, icon and banner; whether Discord and AI moderation are on; the shared word lists you imported; two counts of trouble. | Two minutes after start, then every six hours | **Settings → Server**, **This install**: *Send usage report to Modbot Cloud* |
+| **Modbot's own log.** The lines on the **Modbot's log** page. | About once a minute | **Settings → Server**, **Keep for (days)**: *Send logs to Modbot Cloud*, then **Save** |
+| **An email address.** Only if somebody ticked *Receive emails from Modbot about new features and updates* when making an account. | Once | Leave the box unticked |
+
+1. **The usage report names your server and your group.** It is the one thing that is not anonymous.
+   There is no field in it for the number of members, any person's name or id, any moderation
+   record, any credential or any log line. See [Modbot Cloud](/self-hosting#modbot-cloud) for the
+   whole list.
+2. **The log is sent unchanged.** The same lines you can read on the **Modbot's log** page:
    Information level and above, with the message, the time, which part of Modbot wrote it, the
    exception if there was one, and the values the line carried. Not warnings only, and not
    anonymised. If you set `LOG_LEVEL` lower, the extra detail is sent too — the lines for every
    request answered and every database query run. Setting it back stops that.
-2. **Log lines can name a member.** They are Modbot talking about its own work, and that work is
-   about people — "banned usr_…", "read 40 members of grp_…". A VRChat user id or a display name can
-   appear in a line.
-3. **Requests Modbot sends to VRChat and Discord are not included.** Those are a separate stream and
-   are never sent.
-4. **Credentials are taken out before a line is stored at all**, so they are never sent: a property
+3. **Log lines can name a member.** They are Modbot talking about its own work, and that work is
+   about people. A VRChat user id can appear in a line, and so can a name or an action taken on
+   someone. Only credentials are taken out: names and ids are not.
+4. **Requests Modbot sends to VRChat and Discord are not in the log.** Those are a separate stream
+   and are never sent.
+5. **Credentials are taken out before a line is stored at all**, so they are never sent: a property
    whose name looks like a password, a secret, a token, an API key, an authorisation header or a
    cookie is replaced, and a bearer token or a connection-string password written into a message is
    removed from the text.
-5. **You can turn it off**, in **Settings**, **Server**, **Logs**, or by setting
-   `MODBOT_CLOUD_DISABLED` on the server. Nothing is sent after that, and nothing else about Modbot
-   changes.
-6. **Your deployment is identified by a random id**, made the first time it sends. It is not your
-   group, your domain or your name.
-7. **Cloud keeps them 180 days** by default, and only a Modbot Cloud administrator can read them.
-   See [Logs](/self-hosting/logs).
+6. **Modbot Cloud keeps the usage report with the address it came from.** Each report is a row of
+   its own, and nothing deletes them on a schedule. Cloud keeps logs 180 days by default. Only a
+   Modbot Cloud administrator can read them, and the Cloud account that claimed your server with a
+   link code can read its logs. See [Logs](/self-hosting/logs).
+7. **Your deployment is identified by a random id Cloud gives it the first time it registers.**
+   That is not your group, your domain or your name, but the usage report carries all of those.
+8. **The switches are separate.** Turning the usage report off does not turn the log or the instance
+   list off. Turning it off also means a Modbot that has not registered yet sends no log, because
+   the log is sent under the id registration makes. **Get link code** registers it, sending only the
+   address, the version and the operating system.
+
+Modbot also asks what the newest Modbot release is, every six hours. That request sends nothing about
+you, and `MODBOT_CLOUD_DISABLED` does not stop it; the **Check for updates** switch on the same card
+does.
 
 ## What a self-hosted Modbot stores
 
@@ -46,17 +64,23 @@ wherever you choose to store them. These pages describe what is kept and how it 
 - [Data and retention](/self-hosting/data-retention): the kinds of records Modbot keeps (moderation
   facts, presence facts such as instance joins and avatar changes, stored Discord messages, daily
   totals, case files and evidence), how long each is kept, and how to set a retention window. By
-  default nothing is deleted.
+  default nothing is deleted except Modbot's own log and the AI call log.
+- [Purge a person](/moderation/purge): what removing one person's records erases, and what it keeps.
 - [Security](/security): how passwords, sessions, stored secrets, API keys, webhooks, evidence and
   companion tokens are protected, and what Modbot sends to VRChat.
 - [AI settings](/ai/settings#what-is-sent-to-the-provider): with AI switched on, text your members
-  wrote — Discord messages, VRChat display names, bios, status lines and pronouns — is sent to the AI
-  provider the operator chooses, and that page lists exactly what goes where.
+  wrote — Discord messages, VRChat display names, bios, status lines and pronouns — and, when a rule
+  is set to look at them, pictures, is sent to the AI provider the operator chooses, and that page
+  lists exactly what goes where.
 
 ## What leaves your server
 
-- [Open instances](/self-hosting/open-instances): the one thing a Modbot server sends to Modbot Cloud today —
-  which of your group's instances anyone can join — and how to turn it off.
+- [Modbot Cloud](/self-hosting#modbot-cloud): the usage report, the word lists and the credits, and
+  how to claim your server with a link code.
+- [Open instances](/self-hosting/open-instances): which of your group's instances anyone can join,
+  what is sent, and how to turn it off.
+- [Logs](/self-hosting/logs#sending-logs-to-modbot-cloud): what is in the log Modbot sends, and how
+  to turn it off.
 - [Environment variables](/self-hosting/environment-variables): `MODBOT_CLOUD_DISABLED`, which stops
   your server talking to Modbot Cloud at all.
 - [Companion settings](/companion/settings): what the Windows client sends to Modbot Cloud
@@ -66,9 +90,9 @@ wherever you choose to store them. These pages describe what is kept and how it 
 ## What stays on a moderator's own PC
 
 - [Clips](/companion/clips): the companion can keep the last two to five minutes of **VRChat's own
-  window and VRChat's own sound** while VRChat is running, so a moderator can save those minutes as
-  a video file. It is **off unless that person switches it on**, it records nothing while VRChat is
-  not running, it records nothing outside VRChat's window, and **the recording never leaves their
+  window and VRChat's own sound**, so a moderator can save those minutes as a video file. It is
+  **off unless that person switches it on**, it follows VRChat's own log to know whether VRChat is
+  running, it records nothing outside VRChat's window, and **the recording never leaves their
   PC** — not to your server, not to Modbot Cloud. There is no upload path in the client. A saved
   clip becomes evidence on a case only if they choose that file in a browser, the same as any other
   attachment.
@@ -84,10 +108,9 @@ wherever you choose to store them. These pages describe what is kept and how it 
   running so that saying **"Modbot, clip that"** saves a clip. It is **off unless that person
   switches it on**. **Nothing the microphone hears is recorded, kept or sent** — the sound is
   checked against a short list of phrases and thrown away as it arrives. Nothing is written to disk,
-  nothing reaches your server or Modbot Cloud, and the thing doing the checking is a phrase matcher
-  that cannot produce a transcript of anything. The microphone is shared the way a voice chat
-  program shares it, closes when VRChat closes, and the companion says on screen that it is open for
-  as long as it is. While it is on, the companion also asks Windows which microphones that PC has,
-  so the person using it can pick one — a name and an id for each device, used to fill a list on
-  their own settings screen and never sent anywhere. With it off, nothing at all is asked of
-  Windows' audio system.
+  nothing reaches your server or Modbot Cloud. The microphone is shared the way a voice chat
+  program shares it, and the companion says on screen that it is open for as long as it is. Turning
+  Listening on makes the companion download its speech model from GitHub once. While it is on, the
+  companion also asks Windows which microphones that PC has, so the person using it can pick one — a
+  name and an id for each device, used to fill a list on their own settings screen and never sent
+  anywhere. With it off, no microphone is listed or opened.

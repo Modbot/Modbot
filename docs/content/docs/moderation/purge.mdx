@@ -1,0 +1,87 @@
+---
+title: Purge a person
+description: Erase the history records Modbot holds about one person, what it keeps, and what it leaves behind.
+---
+
+**Settings → Purge a person** erases the history records Modbot holds about one VRChat or Discord
+account. It exists for the day someone asks to be erased and the law where you live says they may.
+
+**A purge does not remove everything Modbot stores about a person.** Read
+[What stays](#what-stays) before you press it. It cannot be undone.
+
+It needs **Administrator**. It has no permission of its own on purpose: a new permission would be a
+way to hand the most consequential thing Modbot can do to somebody who holds nothing else.
+
+## How it works
+
+Three steps on one card, each shown only after the one before it has an answer.
+
+1. **Account.** Choose **VRChat** or **Discord**, type the person's id in the box beside it, and
+   press **Look up**. The id is used exactly as you type it.
+2. **Read what would go.** Nothing has been changed yet. The card shows the name Modbot last saw,
+   whether they are in the group or the server, whether they are banned, and two lists.
+   **Removed** is a count for each thing a purge erases. **Kept** is the case files and evidence
+   files a purge leaves. If a proved account link ties the person to another account, that account
+   is named too. **A purge never follows the link:** to erase the other account, purge it as well.
+3. **Type the id to confirm.** Type the id again, exactly as it is above, and **Purge** lights up.
+   There is no "Are you sure?" and no box for a reason: the only thing you type is the id, and it
+   is thrown away once it has been checked. Modbot does not keep a written reason, because a reason
+   is the one place a moderator would type the person's name.
+
+When it is done the card says **Purged.** and shows the same two lists as counts of what was
+removed and what was kept. The counts of what was kept are shown once and are not saved. The counts
+of what was removed are in the audit entry described below.
+
+Purging somebody Modbot has never seen removes nothing and is not an error. Purging the same person
+twice is harmless: the second finds nothing.
+
+## What is erased
+
+Everything is done in one go, or not at all.
+
+- **Every history record that is about them.** Joins, leaves, avatar changes, instance
+  presence, bans and unbans, kicks, roles, notes, the records of flags raised about them, and
+  every other record in the [audit log](/moderation/audit-log) whose subject is that person. Their
+  names in those records go with them.
+- **The counts kept only per person.** Some daily totals have no history record behind them, so they
+  would survive a purge. Those are erased.
+- **Days are worked out again,** so no total still counts the records that were erased.
+- **The rows that say a record about them was imported** from a file. Without them, uploading the
+  same file again would skip exactly the records that were erased.
+- **Their Discord messages,** and every earlier version of them, for a Discord account. Messages
+  that only mention them or reply to them are somebody else's words and stay.
+- **Their entries in giveaways.** Standing entries are deleted, so they cannot be drawn. In a
+  draw that has already been made, their row keeps its place and weight and loses its name and ids,
+  so anyone who kept the seed can still check the result. See [Giveaways](/moderation/giveaways).
+
+## What stays
+
+- **Records where they were the one acting.** A moderator's ban is a record about the person who
+  was banned. Erasing it because the moderator asked would delete somebody else's moderation
+  history.
+- **Case files about them, and the evidence on those case files.** These are kept, with the profile
+  copy each case file holds. The card counts them so you can see what is left.
+  [Evidence](/moderation/evidence) cannot be destroyed from the web app.
+- **The rows that say who someone is now:** their VRChat profile, their place in the group, their
+  entry on the ban list, their Discord member row and their account link. A purge of somebody who is
+  still in the group or the server does not remove them from it, and the next sync writes those
+  rows again.
+- **Flags** themselves, with the words that matched, **reviews**, and entries in the
+  [AI call log](/ai/call-log).
+- **Modbot's own log** and its log files. See [Logs](/self-hosting/logs).
+- **Copies elsewhere:** anything already sent to Modbot Cloud, to an AI provider, to a Discord
+  channel by an event route, to a webhook or to Seq, and any backup of your database. A purge only
+  reaches this Modbot's database.
+
+## The record it leaves
+
+A purge writes one entry to the audit log, **User data purged**: which account did it, when, which
+platform, and how many of each thing were erased. It does not say who the person was. That is why
+there is no id in it and no reason. It is an operational entry, so it shows to people who hold
+**See the operational log**.
+
+## Where it is on the API
+
+`GET /api/settings/purge` is the look-up and `POST /api/settings/purge` is the purge, both for
+Administrators. The `POST` needs `confirmation` to equal `subjectId` exactly; nothing is trimmed and
+case counts. See the [API reference](/api/reference).

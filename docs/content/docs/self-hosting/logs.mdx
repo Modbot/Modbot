@@ -104,7 +104,9 @@ somewhere your own Modbot is not.
 
 **What is sent is exactly what is in your own table**, unchanged: the same lines, the same
 properties, the same secrets already taken out. Nothing is filtered to warnings only and nothing is
-anonymised. See [Privacy](/privacy).
+anonymised. **Lines can name people:** Modbot writes about its own work and that work is about
+members, so a line can carry a VRChat user id and may carry a name or an action taken on someone.
+Only credentials are taken out. See [Privacy](/privacy).
 
 Your Modbot sends as the server it already registered as, the same one it reports with. That is
 what lets **you** read your own logs in Modbot Cloud once you have
@@ -114,6 +116,13 @@ copy — so somebody can help with a problem on a deployment they cannot reach.
 
 A Modbot that has not finished registering with Cloud yet sends nothing and says so on **Sync
 health**. Registering happens on its own within a few minutes of starting.
+
+**The usage report makes that registration.** *Send usage report to Modbot Cloud* in **Settings**,
+**Server**, **This install** is a separate switch from *Send logs to Modbot Cloud*, and it is on
+when Modbot is installed. With it off, a Modbot that never registered sends no logs, and **Get link
+code** is the one thing that registers it (sending only its address, version and operating system).
+If Cloud forgets a server that had registered, nothing registers it again while the usage report is
+off, so the logs stop until you switch it back on and it has registered again.
 
 ### When Cloud cannot be reached
 

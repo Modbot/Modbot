@@ -300,9 +300,10 @@ which keeps one copy of the answer for everybody and refreshes it from GitHub a 
 the download itself comes from the GitHub release. A newer version downloads in the
 background, and the window shows a line saying it will be installed the next time Modbot starts.
 
-The request sends nothing about you, your PC, your pairings or which version you are on, and
-nothing about it is recorded. Modbot Cloud and GitHub each see your IP address, as any site does
-for any request.
+The request sends nothing about you or your pairings. The update library the client uses puts your
+operating system, your processor type and the version you are on in the request's address. Modbot
+Cloud ignores them, and its own log keeps only the method, the path, the status and the time.
+Modbot Cloud and GitHub each see your IP address, as any site does for any request.
 
 Nothing is installed while Modbot is running, so an update never cuts a VRChat session short. Quit
 from the tray and open Modbot again whenever it suits you. The update is installed before the

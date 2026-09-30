@@ -12,6 +12,7 @@
     "profiles",
     "audit-log",
     "notes",
+    "purge",
     "case-files",
     "evidence",
     "reviews",
