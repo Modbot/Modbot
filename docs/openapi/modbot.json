@@ -6743,6 +6743,62 @@
         ]
       }
     },
+    "/api/settings/ai/allowances": {
+      "put": {
+        "tags": [
+          "AI settings"
+        ],
+        "summary": "Update team AI allowances",
+        "description": "Set how many tokens and how many US dollars each team member may use in a month: one default for every member and, where wanted, an allowance of a member's own. A change is recorded in the audit log.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetAiAllowances",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiAllowancesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLimitsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/settings/ai/catalog": {
       "get": {
         "tags": [
@@ -17437,6 +17493,84 @@
           }
         }
       },
+      "AiAllowanceAmount": {
+        "required": [
+          "tokens",
+          "money"
+        ],
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "money": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "AiAllowancesUpdate": {
+        "required": [
+          "default",
+          "members"
+        ],
+        "type": "object",
+        "properties": {
+          "default": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiAllowanceAmount"
+              }
+            ]
+          },
+          "members": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/AiMemberAllowanceInput"
+            }
+          }
+        }
+      },
+      "AiAllowancesView": {
+        "required": [
+          "default",
+          "members",
+          "resetsAt"
+        ],
+        "type": "object",
+        "properties": {
+          "default": {
+            "$ref": "#/components/schemas/AiAllowanceAmount"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiMemberAllowanceView"
+            }
+          },
+          "resetsAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "AiCallDetail": {
         "required": [
           "call",
@@ -18420,7 +18554,8 @@
           "modelsUsed",
           "features",
           "roles",
-          "users"
+          "users",
+          "allowances"
         ],
         "type": "object",
         "properties": {
@@ -18517,6 +18652,9 @@
             "items": {
               "$ref": "#/components/schemas/AiNamedOption"
             }
+          },
+          "allowances": {
+            "$ref": "#/components/schemas/AiAllowancesView"
           }
         }
       },
@@ -18543,6 +18681,80 @@
             "items": {
               "$ref": "#/components/schemas/AiTokenLimitInput"
             }
+          }
+        }
+      },
+      "AiMemberAllowanceInput": {
+        "required": [
+          "userId",
+          "tokens",
+          "money"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "tokens": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "money": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "AiMemberAllowanceView": {
+        "required": [
+          "userId",
+          "name",
+          "own",
+          "allowance",
+          "month",
+          "pastLimits"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "own": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AiAllowanceAmount"
+              }
+            ]
+          },
+          "allowance": {
+            "$ref": "#/components/schemas/AiAllowanceAmount"
+          },
+          "month": {
+            "$ref": "#/components/schemas/AiSpentView"
+          },
+          "pastLimits": {
+            "type": "boolean"
           }
         }
       },
@@ -20149,6 +20361,15 @@
             ],
             "items": {
               "$ref": "#/components/schemas/AiToolView"
+            }
+          },
+          "groupRoles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/GroupRoleOption"
             }
           }
         }
@@ -25688,6 +25909,10 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "exempt": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -27594,6 +27819,24 @@
           "readAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "GroupRoleOption": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -34241,6 +34484,15 @@
           },
           "exemptRolesSkipFlag": {
             "type": "boolean"
+          },
+          "exemptGroupRoles": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

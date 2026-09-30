@@ -3413,6 +3413,7 @@ export type AiLimits = {
   features: { id: string; label: string }[]
   roles: { id: string; name: string }[]
   users: { id: string; name: string }[]
+  allowances: AiAllowances
 }
 
 export type AiLimitInput = {
@@ -3425,6 +3426,34 @@ export type AiLimitInput = {
 }
 
 export type AiTokenLimitInput = { feature: string; monthlyTokens: number }
+
+/** What a team member may use in a month. Null means no limit of that kind. */
+export type AiAllowanceAmount = { tokens: number | null; money: number | null }
+
+export type AiMemberAllowance = {
+  userId: string
+  name: string
+  /** Their own allowance, in place of the default. Null when they use the default. */
+  own: AiAllowanceAmount | null
+  /** What applies to them: their own, or the default. */
+  allowance: AiAllowanceAmount
+  /** Everything used under this account this month, every feature together. */
+  month: AiSpent
+  /** Administrator, or allowed to use AI past limits: the allowance does not stop them. */
+  pastLimits: boolean
+}
+
+export type AiAllowances = {
+  default: AiAllowanceAmount
+  members: AiMemberAllowance[]
+  /** When the month being counted ends and every allowance starts again. */
+  resetsAt: string
+}
+
+export type AiAllowancesInput = {
+  default: AiAllowanceAmount
+  members: { userId: string; tokens: number | null; money: number | null }[]
+}
 
 /** A limit for everyone or a feature at 80% or more, estimated over, or reached. */
 export type AiSpendWarning = {
@@ -4263,6 +4292,9 @@ export const api = {
   /** Replaces every money limit, and every token limit when `tokenLimits` is given. */
   setAiLimits: (limits: AiLimitInput[], tokenLimits?: AiTokenLimitInput[]) =>
     put<AiLimits>('/api/settings/ai/limits', { limits, tokenLimits: tokenLimits ?? null }),
+
+  /** Sets the default allowance and every allowance of a member's own. What is left out goes back to the default. */
+  setAiAllowances: (body: AiAllowancesInput) => put<AiLimits>('/api/settings/ai/allowances', body),
 
   /** Replaces every entered price. Usage is priced when it is read, so this reprices earlier usage too. */
   setAiPrices: (prices: AiPrice[]) => put<AiLimits>('/api/settings/ai/prices', { prices }),

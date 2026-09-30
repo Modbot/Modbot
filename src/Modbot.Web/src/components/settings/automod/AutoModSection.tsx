@@ -18,6 +18,7 @@ import {
   testsLabel,
   trialLabel,
   type AiToolView,
+  type GroupRoleOption,
   type AutoMod,
   type ModerationTarget,
   type RuleKind,
@@ -74,6 +75,7 @@ export function AutoModSection() {
           <TermListsCard
             lists={data.lists}
             picturesAvailable={data.picturesAvailable}
+            groupRoles={data.groupRoles}
             onChanged={() => void load()}
           />
           {data.aiEnabled && (
@@ -82,6 +84,7 @@ export function AutoModSection() {
                 topics={data.topics}
                 aiReady={data.aiReady}
                 picturesAvailable={data.picturesAvailable}
+                groupRoles={data.groupRoles}
                 onChanged={() => void load()}
               />
               <AiToolsCard settings={data} onSaved={setData} />
@@ -303,10 +306,12 @@ function acts(rule: { deleteMessage: boolean; timeoutMinutes: number | null; gro
 function TermListsCard({
   lists,
   picturesAvailable,
+  groupRoles,
   onChanged,
 }: {
   lists: TermListView[]
   picturesAvailable: boolean
+  groupRoles: GroupRoleOption[]
   onChanged: () => void
 }) {
   const [editing, setEditing] = useState<{ id: string | null } | null>(null)
@@ -472,6 +477,7 @@ function TermListsCard({
         listId={editing?.id ?? null}
         open={editing !== null}
         picturesAvailable={picturesAvailable}
+        groupRoles={groupRoles}
         onClose={() => setEditing(null)}
         onSaved={onChanged}
       />
@@ -485,11 +491,13 @@ function TopicsCard({
   topics,
   aiReady,
   picturesAvailable,
+  groupRoles,
   onChanged,
 }: {
   topics: TopicView[]
   aiReady: boolean
   picturesAvailable: boolean
+  groupRoles: GroupRoleOption[]
   onChanged: () => void
 }) {
   const [editing, setEditing] = useState<{ topic: TopicView | null } | null>(null)
@@ -595,6 +603,7 @@ function TopicsCard({
         topic={editing?.topic ?? null}
         open={editing !== null}
         picturesAvailable={picturesAvailable}
+        groupRoles={groupRoles}
         onClose={() => setEditing(null)}
         onSaved={onChanged}
       />

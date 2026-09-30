@@ -128,7 +128,7 @@ public sealed class ModerationEngine : IModerationChecker
         var where = new Where(message.ChannelId, await RolesOfAsync(message.GuildId, message.AuthorId, ct).ConfigureAwait(false));
 
         var evaluation = await EvaluateAsync(
-            rules, [new TextItem(0, ModerationTargets.DiscordMessage, message.Text)], where, AiAsker.Nobody,
+            rules, [new TextItem(0, ModerationTargets.DiscordMessage, message.Text)], _ => where, AiAsker.Nobody,
             [CheckSubject.Of(message)], switches, ct)
             .ConfigureAwait(false);
 
@@ -184,8 +184,14 @@ public sealed class ModerationEngine : IModerationChecker
             return nothing;
 
         var rules = await RulesAsync(onlyEnabled: true, ct).ConfigureAwait(false);
+
+        // Each profile has a "where" of its own: who they are to Modbot's team and which group roles
+        // they hold differ from person to person, and a batch of them is one check.
+        var wheres = await ProfileWheresAsync(profiles, rules, ct).ConfigureAwait(false);
+
         var evaluation = await EvaluateAsync(
-            rules, texts, Where.Nowhere, AiAsker.Nobody, [.. profiles.Select(CheckSubject.Of)], switches, ct).ConfigureAwait(false);
+            rules, texts, subject => wheres[subject], AiAsker.Nobody, [.. profiles.Select(CheckSubject.Of)], switches, ct)
+            .ConfigureAwait(false);
 
         var outcomes = new List<ModerationOutcome>(profiles.Count);
 
@@ -238,7 +244,7 @@ public sealed class ModerationEngine : IModerationChecker
 
         var switches = await SwitchesAsync(ct).ConfigureAwait(false);
         var evaluation = await EvaluateAsync(
-            rules, [new TextItem(0, target, text)], Where.Nowhere, new AiAsker(userId, username, KeepText: true),
+            rules, [new TextItem(0, target, text)], _ => Where.Nowhere, new AiAsker(userId, username, KeepText: true),
             [CheckSubject.None], switches, ct)
             .ConfigureAwait(false);
 
@@ -300,7 +306,7 @@ public sealed class ModerationEngine : IModerationChecker
             // narrowed to display names should stop flagging the bio samples.
             var target = ModerationTargetNames.Parse(sample.Target) ?? ModerationTargets.DiscordMessage;
             var evaluation = await EvaluateAsync(
-                rules, [new TextItem(0, target, sample.Text)], Where.Nowhere, new AiAsker(userId, username, KeepText: true),
+                rules, [new TextItem(0, target, sample.Text)], _ => Where.Nowhere, new AiAsker(userId, username, KeepText: true),
                 [CheckSubject.None], switches, ct)
                 .ConfigureAwait(false);
 
@@ -371,11 +377,21 @@ public sealed class ModerationEngine : IModerationChecker
 
     private sealed record Person(FactPlatform Platform, string Id, string? Name);
 
-    /// <summary>Where the text came from, for the scope checks (design §13.3).</summary>
+    /// <summary>Where the text came from and whose it is, for the scope checks (design §13.3).</summary>
+    /// <param name="RoleIds">The author's Discord roles. Only a Discord message has any.</param>
     private sealed record Where(string? ChannelId, IReadOnlyCollection<string> RoleIds)
     {
-        /// <summary>Profile text and "Try it": no channel and nobody's roles.</summary>
+        /// <summary>"Try it" and a test run: no channel, nobody's roles and nobody in particular.</summary>
         public static Where Nowhere { get; } = new(null, []);
+
+        /// <summary>The roles the person holds in the managed VRChat group. Only a VRChat profile has any.</summary>
+        public IReadOnlyCollection<string> GroupRoleIds { get; init; } = [];
+
+        /// <summary>
+        /// The person is on Modbot's own team: the proven VRChat account of somebody who signs in.
+        /// Team members are never acted on, whatever a rule says.
+        /// </summary>
+        public bool IsTeamMember { get; init; }
     }
 
     /// <summary>One piece of text to check, and which of the people being checked it belongs to.</summary>
@@ -454,11 +470,71 @@ public sealed class ModerationEngine : IModerationChecker
         return roles is null ? [] : [.. RuleGuards.Ids(roles)];
     }
 
+    /// <summary>
+    /// Who each profile belongs to, for the exemptions: whether it is the proven VRChat account of
+    /// somebody on Modbot's team, and which roles it holds in the managed group.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The team check reads the accounts that sign in, not the group: a moderator's account is
+    /// theirs whatever role they hold, and a moderator who has left the group is still on the team.
+    /// Only a proven link counts. A link waiting for its bio code is somebody's claim, and a rule that
+    /// spared whoever a stranger named would be a way to make anyone untouchable.
+    /// </para>
+    /// <para>
+    /// Group roles are read from the member store, as Discord roles are (see
+    /// <see cref="RolesOfAsync"/>): a person the sweep has not stored yet has none, so no role
+    /// exemption applies, which is the safe direction. The team check covers the team either way.
+    /// Nothing here asks VRChat for anything.
+    /// </para>
+    /// </remarks>
+    private async Task<IReadOnlyList<Where>> ProfileWheresAsync(
+        IReadOnlyList<ProfileToCheck> profiles, Rules rules, CancellationToken ct)
+    {
+        var ids = profiles.Select(p => p.UserId).Distinct(StringComparer.Ordinal).ToList();
+
+        var team = (await _db.Users.AsNoTracking()
+                .Where(u => u.DeletedAt == null && u.VRChatUserId != null && ids.Contains(u.VRChatUserId))
+                .Select(u => u.VRChatUserId!)
+                .ToListAsync(ct).ConfigureAwait(false))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var roles = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal);
+
+        // Only looked up when some rule names a group role to spare.
+        var anyGroupRole = rules.Lists.Any(l => RuleGuards.Ids(l.ExemptGroupRoles).Count > 0)
+                           || rules.Topics.Any(t => RuleGuards.Ids(t.ExemptGroupRoles).Count > 0);
+
+        if (anyGroupRole)
+        {
+            var groupId = await _db.Settings.AsNoTracking().Where(s => s.Id == 1)
+                .Select(s => s.ManagedGroupId)
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+
+            if (!string.IsNullOrEmpty(groupId))
+            {
+                var held = await _db.GroupMembers.AsNoTracking()
+                    .Where(m => m.GroupId == groupId && m.LeftAt == null && ids.Contains(m.UserId))
+                    .Select(m => new { m.UserId, m.Roles })
+                    .ToListAsync(ct).ConfigureAwait(false);
+
+                foreach (var member in held)
+                    roles[member.UserId] = [.. RuleGuards.Ids(member.Roles)];
+            }
+        }
+
+        return [.. profiles.Select(p => Where.Nowhere with
+        {
+            GroupRoleIds = roles.GetValueOrDefault(p.UserId) ?? [],
+            IsTeamMember = team.Contains(p.UserId),
+        })];
+    }
+
     /// <summary>Term lists first; AI topics only for text no term list matched (design §4.2).</summary>
     private async Task<Evaluation> EvaluateAsync(
         Rules rules,
         IReadOnlyList<TextItem> texts,
-        Where where,
+        Func<int, Where> whereOf,
         AiAsker asker,
         IReadOnlyList<CheckSubject> subjects,
         AutoModSwitches switches,
@@ -473,6 +549,7 @@ public sealed class ModerationEngine : IModerationChecker
 
         foreach (var item in texts)
         {
+            var where = whereOf(item.Subject);
             var language = _language.Of(item.Text);
             languages[Key(item)] = language;
             var found = false;
@@ -546,7 +623,7 @@ public sealed class ModerationEngine : IModerationChecker
 
             var built = Build(
                 topic, ModerationRuleKind.Topic, string.Empty, topic.Name, item.Target,
-                hit.Quote, hit.Why, where, languages.GetValueOrDefault(Key(item)), contextIds);
+                hit.Quote, hit.Why, whereOf(item.Subject), languages.GetValueOrDefault(Key(item)), contextIds);
 
             if (built is null)
                 continue;
@@ -637,9 +714,17 @@ public sealed class ModerationEngine : IModerationChecker
     /// (design §13). Null when an exempt role means the rule does not even flag.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Discord actions apply to a Discord message; VRChat actions apply to a VRChat profile
     /// (AutoMod design §5). A rule never acts across platforms: a bio is not a message to delete,
     /// and a Discord author is not a group member to ban.
+    /// </para>
+    /// <para>
+    /// Who is spared follows the platform: a Discord message's author by the rule's Discord roles, a
+    /// VRChat profile's owner by the rule's group roles. "Do not flag them either" applies to both.
+    /// A member of Modbot's own team is spared on top of that, always, and is still flagged: the
+    /// flag is how the team hears that a rule matched one of its own.
+    /// </para>
     /// </remarks>
     private static ModerationMatch? Build(
         IModerationRule rule,
@@ -653,12 +738,17 @@ public sealed class ModerationEngine : IModerationChecker
         string? language = null,
         IReadOnlyList<string>? contextMessageIds = null)
     {
-        var exempt = RuleGuards.ExemptBy(rule, where.RoleIds) is not null;
+        var chat = target == ModerationTargets.DiscordMessage;
 
-        if (exempt && rule.ExemptRolesSkipFlag)
+        var byRole = chat
+            ? RuleGuards.ExemptBy(rule, where.RoleIds) is not null
+            : RuleGuards.ExemptByGroupRole(rule, where.GroupRoleIds) is not null;
+
+        if (byRole && rule.ExemptRolesSkipFlag)
             return null;
 
-        var chat = target == ModerationTargets.DiscordMessage;
+        var exempt = byRole || where.IsTeamMember;
+
         var asks = chat ? RuleGuards.WantsDiscordAction(rule) : RuleGuards.WantsVRChatAction(rule);
         var trial = asks && RuleGuards.InTrial(rule);
         var paused = asks && rule.PausedAt is not null;
@@ -771,10 +861,12 @@ public sealed class ModerationEngine : IModerationChecker
             PictureUrl = m.PictureUrl is null ? null : Clip(m.PictureUrl, 2000),
             Reason = m.Reason is null ? null : Clip(m.Reason, 2000),
             Trial = m.Trial,
-            WouldDeleteMessage = m.DeleteMessage,
-            WouldTimeOutMinutes = m.TimeoutMinutes,
-            WouldGroupBan = m.GroupBan,
-            WouldGroupRemove = m.GroupRemove,
+            Exempt = m.Exempt,
+            // Nothing "would" happen to somebody the rule never acts on, trial or not.
+            WouldDeleteMessage = m.DeleteMessage && !m.Exempt,
+            WouldTimeOutMinutes = m.Exempt ? null : m.TimeoutMinutes,
+            WouldGroupBan = m.GroupBan && !m.Exempt,
+            WouldGroupRemove = m.GroupRemove && !m.Exempt,
             CallId = callOf.GetValueOrDefault(m),
         }).ToList();
 
@@ -1040,6 +1132,7 @@ public sealed class ModerationEngine : IModerationChecker
             ["channelId"] = flag.ChannelId,
             ["messageId"] = flag.MessageId,
             ["trial"] = flag.Trial,
+            ["exempt"] = flag.Exempt,
             ["wouldDeleteMessage"] = flag.WouldDeleteMessage,
             ["wouldTimeOutMinutes"] = flag.WouldTimeOutMinutes,
             ["wouldGroupBan"] = flag.WouldGroupBan,

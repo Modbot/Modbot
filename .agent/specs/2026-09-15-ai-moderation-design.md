@@ -330,13 +330,20 @@ Per rule:
 - **Channels**: every channel, only these channels, or all but these channels. A channel limit stops
   the rule *entirely* there — no flag either — because "this rule is not for that channel" is a
   different statement from "this rule does not act on that person".
-- **Exempt roles**: Discord roles whose members the rule never acts on. They are still flagged,
-  because a moderator saying something a rule matches is still worth a moderator seeing, unless the
-  rule also says **do not flag them either**.
+- **Exempt roles**: Discord roles whose members the rule never acts on, and (added 2026-09-30) VRChat
+  group roles whose holders it never acts on. They are still flagged, because a moderator saying
+  something a rule matches is still worth a moderator seeing, unless the rule also says **do not flag
+  them either**, which covers both kinds. A Discord message's author is judged by the Discord list, a
+  VRChat profile's owner by the group list.
 
 Roles are read from the member store rather than carried on the message, so an edit is judged by the
 roles the person holds now, and a member Modbot has not stored yet has no roles and no exemption —
-the safe direction.
+the safe direction. A profile's group roles come from `group_member` for the managed group, for a
+member who has not left; a batch of profiles is checked with a "where" of its own for each.
+
+**Corrected 2026-09-30.** Until then only Discord messages were judged by roles: a profile check
+was handed nobody's roles, so no exemption could match a VRChat person, while the docs said role
+limits applied to VRChat actions. They now do, and the AutoMod design §5 adds the team exemption.
 
 ---
 

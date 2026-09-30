@@ -226,6 +226,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Daily and monthly caps on AI spend, for everyone, a feature, a role or one account (AI chat design §10).</summary>
     public DbSet<AiSpendLimit> AiSpendLimits => Set<AiSpendLimit>();
 
+    /// <summary>A team member's own monthly AI allowance, in place of the default every member gets.</summary>
+    public DbSet<AiMemberAllowance> AiMemberAllowances => Set<AiMemberAllowance>();
+
     /// <summary>Which spend limits were reached in which day or month, so each is recorded once.</summary>
     public DbSet<AiLimitReachedRecord> AiLimitsReached => Set<AiLimitReachedRecord>();
 
@@ -1520,6 +1523,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
         builder.Entity<Settings>(entity =>
         {
             entity.Property(e => e.AiChatToolSwitches).HasColumnType("jsonb");
+            entity.Property(e => e.AiMemberMonthlyMoney).HasPrecision(18, 6);
             entity.Property(e => e.ManagedGroupLanguages).HasColumnType("jsonb");
             entity.Property(e => e.ManagedGroupLinks).HasColumnType("jsonb");
             entity.Property(e => e.VRChatAccountRoleIds).HasColumnType("jsonb");
@@ -1567,6 +1571,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.ChannelMode).HasMaxLength(16);
             entity.Property(e => e.Channels).HasColumnType("jsonb");
             entity.Property(e => e.ExemptRoles).HasColumnType("jsonb");
+            entity.Property(e => e.ExemptGroupRoles).HasColumnType("jsonb");
 
             // A Hub list is subscribed once; a second subscription would flag everything twice.
             entity.HasIndex(e => e.HubId)
@@ -1591,6 +1596,7 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.ChannelMode).HasMaxLength(16);
             entity.Property(e => e.Channels).HasColumnType("jsonb");
             entity.Property(e => e.ExemptRoles).HasColumnType("jsonb");
+            entity.Property(e => e.ExemptGroupRoles).HasColumnType("jsonb");
         });
 
         builder.Entity<ModerationTestSample>(entity =>
@@ -1959,6 +1965,21 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .HasForeignKey(e => e.RoleId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            entity.HasOne(e => e.UserRow)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AiMemberAllowance>(entity =>
+        {
+            entity.ToTable("ai_member_allowance");
+
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).ValueGeneratedNever();
+            entity.Property(e => e.MonthlyMoney).HasPrecision(18, 6);
+
+            // An allowance for an account that no longer exists limits nobody.
             entity.HasOne(e => e.UserRow)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)

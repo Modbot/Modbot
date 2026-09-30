@@ -15,6 +15,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Moderation;
 using Modbot.Core.Time;
+using Modbot.VRChat.Sync;
 
 namespace Modbot.Api.Features.Settings;
 
@@ -53,6 +54,9 @@ public static class AutoModEndpoints
 
     /// <summary>How many channels or roles one rule's scope may name.</summary>
     public const int MaxScopeIds = 200;
+
+    /// <summary>The longest VRChat group role id accepted. Ids are opaque, so this is only a sanity bound.</summary>
+    public const int MaxGroupRoleIdLength = 100;
 
     public const int MaxSampleLength = 4000;
 
@@ -916,6 +920,8 @@ public static class AutoModEndpoints
             list.ChannelMode = scope.ChannelMode;
             list.Channels = SerializeIds(scope.Channels);
             list.ExemptRoles = SerializeIds(scope.ExemptRoles);
+            if (scope.ExemptGroupRoles is { } groupRoles)
+                list.ExemptGroupRoles = SerializeIds(groupRoles);
             list.ExemptRolesSkipFlag = scope.ExemptRolesSkipFlag;
         }
 
@@ -1048,6 +1054,8 @@ public static class AutoModEndpoints
             topic.ChannelMode = scope.ChannelMode;
             topic.Channels = SerializeIds(scope.Channels);
             topic.ExemptRoles = SerializeIds(scope.ExemptRoles);
+            if (scope.ExemptGroupRoles is { } groupRoles)
+                topic.ExemptGroupRoles = SerializeIds(groupRoles);
             topic.ExemptRolesSkipFlag = scope.ExemptRolesSkipFlag;
         }
 
@@ -1155,6 +1163,14 @@ public static class AutoModEndpoints
             return $"A rule can name at most {MaxScopeIds} roles.";
         if (channels.Concat(roles).Any(id => string.IsNullOrWhiteSpace(id) || id.Length > 32))
             return "That is not a Discord id.";
+
+        // VRChat's ids are opaque text (foundation §3.1.1): only their length and emptiness are checked.
+        var groupRoles = scope.ExemptGroupRoles ?? [];
+
+        if (groupRoles.Count > MaxScopeIds)
+            return $"A rule can name at most {MaxScopeIds} group roles.";
+        if (groupRoles.Any(id => string.IsNullOrWhiteSpace(id) || id.Length > MaxGroupRoleIdLength))
+            return "That is not a group role.";
 
         return null;
     }
@@ -1355,7 +1371,12 @@ public static class AutoModEndpoints
             ContextMessageCounts.All,
             // The same setting the AI tab's Base card reads: the AI section shows only while it is on.
             settings.AiEnabled,
-            [.. AutoModAiTools.All.Select(t => new AiToolView(t.Name, t.Label, AutoModAiTools.IsOn(tools, t.Name)))]);
+            [.. AutoModAiTools.All.Select(t => new AiToolView(t.Name, t.Label, AutoModAiTools.IsOn(tools, t.Name)))],
+            // The roles the group-info poll last read: nothing new is asked of VRChat for the picker.
+            [.. (GroupInfoSnapshot.Parse(settings.GroupInfoSnapshot)?.Roles ?? [])
+                .OrderBy(r => r.Order)
+                .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(r => new GroupRoleOption(r.Id, r.Name))]);
     }
 
     /// <summary>
@@ -1469,7 +1490,8 @@ public static class AutoModEndpoints
     }
 
     private static RuleScope ScopeOf(IModerationRule rule) => new(
-        rule.ChannelMode, RuleGuards.Ids(rule.Channels), RuleGuards.Ids(rule.ExemptRoles), rule.ExemptRolesSkipFlag);
+        rule.ChannelMode, RuleGuards.Ids(rule.Channels), RuleGuards.Ids(rule.ExemptRoles), rule.ExemptRolesSkipFlag,
+        RuleGuards.Ids(rule.ExemptGroupRoles));
 
     private static RulePause? PauseOf(IModerationRule rule)
         => rule.PausedAt is { } at ? new RulePause(at, rule.PausedReason) : null;

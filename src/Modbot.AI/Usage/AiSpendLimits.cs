@@ -38,6 +38,9 @@ public sealed record AiLimitReached(
     string Message)
 {
     public const string TokenLimit = "tokens";
+
+    /// <summary>A team member's own monthly allowance, which is not a limit on a feature or on everyone.</summary>
+    public const string Allowance = "allowance";
 }
 
 /// <summary>
@@ -47,12 +50,14 @@ public sealed record AiLimitReached(
 /// <para>
 /// A call is stopped by the tightest limit that applies: the one for everyone (every feature's
 /// spend together), the feature's own, a token limit kept from before prices, and -- for Chat only --
-/// one set on the person or on any role they hold, compared with their own Chat spend.
+/// one set on the person or on any role they hold, compared with their own Chat spend. After those,
+/// a call made for a team member is stopped by that member's monthly allowance, compared with
+/// their own use of every feature (<see cref="AiMemberAllowances"/>).
 /// </para>
 /// <para>
-/// <see cref="ModbotPermissions.UseAiPastLimits"/> takes the person and role limits away and leaves
-/// the others: the limit for everyone is the operator's ceiling on the bill, and a feature limit is
-/// the operator's share of it for that feature.
+/// <see cref="ModbotPermissions.UseAiPastLimits"/> takes the person and role limits and the
+/// allowance away and leaves the others: the limit for everyone is the operator's ceiling on the
+/// bill, and a feature limit is the operator's share of it for that feature.
 /// </para>
 /// <para>
 /// Spend is priced when it is read (<see cref="AiSpending"/>). Days and months are UTC, from
@@ -92,6 +97,69 @@ public sealed class AiSpendLimits
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(feature);
 
+        // The limits on money and tokens first, then the person's own allowance: the tightest limit
+        // that applies is the one a person is told about.
+        var reached = await SpendLimitAsync(feature, userId, held, ct).ConfigureAwait(false)
+                      ?? await AllowanceReachedAsync(feature, userId, held, ct).ConfigureAwait(false);
+
+        if (reached is not null)
+            await _notices.RecordOnceAsync(reached, ct).ConfigureAwait(false);
+
+        return reached;
+    }
+
+    /// <summary>
+    /// The same check for a request whose caller has only an account id, not that account's
+    /// permissions: they are read here. With no account it is the check for everyone and the
+    /// feature alone, and nobody's allowance is asked.
+    /// </summary>
+    public async Task<AiLimitReached?> CheckForAsync(string feature, Guid? userId, CancellationToken ct)
+    {
+        var held = userId is { } person
+            ? await AiMemberAllowances.HeldByAsync(_db, person, ct).ConfigureAwait(false)
+            : ModbotPermissions.None;
+
+        return await CheckAsync(feature, userId, held, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The team member's own monthly allowance, when they have used all of it: in tokens, then in
+    /// dollars. Null for a call with no account behind it, for somebody past every person limit, and
+    /// while there is no allowance or room is left.
+    /// </summary>
+    private async Task<AiLimitReached?> AllowanceReachedAsync(
+        string feature, Guid? userId, ModbotPermissions held, CancellationToken ct)
+    {
+        if (userId is not { } person || AiMemberAllowances.PastLimits(held))
+            return null;
+
+        var allowance = await AiMemberAllowances.ForAsync(_db, person, ct).ConfigureAwait(false);
+        if (!allowance.Any)
+            return null;
+
+        var now = _clock.UtcNow;
+        var month = AiPeriods.MonthOf(now);
+        var (_, used) = await AiSpending.TodayAndMonthAsync(_db, now, feature: null, person, ct).ConfigureAwait(false);
+
+        if (allowance.Tokens is { } tokens && used.Tokens >= tokens)
+        {
+            return new AiLimitReached(
+                $"{AiLimitReached.Allowance}:tokens:user:{person}:month", AiLimitReached.Allowance, feature, person, null,
+                "month", month, AiLimitUnits.Tokens, tokens, used.Tokens, AiMemberAllowances.Message(true, tokens, month));
+        }
+
+        if (allowance.Money is { } money && used.Cost >= money)
+        {
+            return new AiLimitReached(
+                $"{AiLimitReached.Allowance}:money:user:{person}:month", AiLimitReached.Allowance, feature, person, null,
+                "month", month, AiLimitUnits.Money, money, used.Cost, AiMemberAllowances.Message(false, money, month));
+        }
+
+        return null;
+    }
+
+    private async Task<AiLimitReached?> SpendLimitAsync(string feature, Guid? userId, ModbotPermissions held, CancellationToken ct)
+    {
         var limits = await _db.AiSpendLimits.AsNoTracking()
             .Select(l => new
             {
@@ -198,9 +266,6 @@ public sealed class AiSpendLimits
                 $"tokens:{feature}:month", AiLimitReached.TokenLimit, feature, null, null, "month", month, AiLimitUnits.Tokens,
                 tokens, ofFeature.Item2.Tokens, $"The monthly AI token limit for {label} is reached.");
         }
-
-        if (reached is not null)
-            await _notices.RecordOnceAsync(reached, ct).ConfigureAwait(false);
 
         return reached;
     }

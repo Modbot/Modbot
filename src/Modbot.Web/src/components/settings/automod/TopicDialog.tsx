@@ -6,6 +6,7 @@ import {
   failure,
   moderationApi,
   NO_SCOPE,
+  type GroupRoleOption,
   type RuleAction,
   type Sensitivity,
   type TopicView,
@@ -29,12 +30,14 @@ export function TopicDialog({
   topic,
   open,
   picturesAvailable,
+  groupRoles,
   onClose,
   onSaved,
 }: {
   topic: TopicView | null
   open: boolean
   picturesAvailable: boolean
+  groupRoles: GroupRoleOption[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -45,6 +48,7 @@ export function TopicDialog({
           key={topic?.id ?? 'new'}
           topic={topic}
           picturesAvailable={picturesAvailable}
+          groupRoles={groupRoles}
           onClose={onClose}
           onSaved={onSaved}
         />
@@ -56,11 +60,13 @@ export function TopicDialog({
 function TopicForm({
   topic,
   picturesAvailable,
+  groupRoles,
   onClose,
   onSaved,
 }: {
   topic: TopicView | null
   picturesAvailable: boolean
+  groupRoles: GroupRoleOption[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -124,6 +130,7 @@ function TopicForm({
         onChange={setRule}
         acting={topic?.acting ?? false}
         picturesAvailable={picturesAvailable}
+        groupRoles={groupRoles}
       />
 
       <div className="flex flex-wrap items-center justify-end gap-2">

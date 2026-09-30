@@ -256,6 +256,17 @@ group. Modbot will not act on the account it signs in as.
 Everything a VRChat action needs to be trusted applies to it exactly as to a Discord one: the test
 set, the trial, the channel and role limits, and the automatic pause below.
 
+### People a rule never acts on
+
+A rule never bans or removes a **member of your team**: anybody whose VRChat account is linked to a
+Modbot account that signs in. That is always on, whatever the rule says and whatever role they hold,
+and there is nothing to switch. Only a link that has been proved counts; a link still waiting for its
+code in somebody's bio does not. The team member is still **flagged**, marked **Exempt** on the
+[Flags](/moderation/flags) page, so the team hears that a rule matched one of its own.
+
+On top of that, each rule can name the roles it never acts on. See
+[Where a rule runs](#where-a-rule-runs).
+
 ### Before a rule can act
 
 A rule can only be switched from flag only to acting when its test set has been run against the rule
@@ -291,8 +302,17 @@ Each rule has **Channels** and **Never act on**:
 
 - **Channels**: every channel, only the channels you list, or all but the channels you list. A rule
   outside its channels does nothing at all there, not even flag.
-- **Never act on**: Discord roles whose members the rule never deletes or times out. They are still
-  flagged, unless you also tick **Do not flag them either**.
+- **Never act on**: roles whose members the rule never acts on. **Add a Discord role** is for a
+  Discord message's author: the rule never deletes their message or times them out. **Add a VRChat
+  group role** is for the owner of a VRChat profile: the rule never bans or removes somebody who holds
+  that role in your managed group. They are still flagged, and marked **Exempt**, unless you also tick
+  **Do not flag them either**, which covers both kinds of role.
+
+A person's group roles are the ones Modbot has on record for them from the last member sweep; a check
+asks VRChat for nothing. Somebody the sweep has not stored yet has no roles on record and is not spared
+by a group role, which is the safe way round; members of your team are spared either way. The
+roles offered in the picker are your group's roles as Modbot last read them, so the list is empty until
+a group is set and has been read once.
 
 ## Who set a rule to act
 

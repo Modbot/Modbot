@@ -1,11 +1,12 @@
 ---
 title: Limits and spend
-description: What AI costs by feature, the month-end estimate, money limits for everyone, a feature, a role or one person, and model prices.
+description: What AI costs by feature, the month-end estimate, money limits for everyone, a feature, a role or one person, a monthly allowance for each team member, and model prices.
 ---
 
 Every AI feature in Modbot sends paid requests to your provider. **Settings** → **AI** → **Limits**
 shows what each feature has cost, estimates the month's bill, and lets you set money limits so no
-feature, and nobody using Chat, can run it past what you are willing to pay.
+feature, and nobody using Chat, can run it past what you are willing to pay. It also sets how much AI
+each team member may use in a month.
 
 The page needs the **Change settings** permission, including its list of top chat users.
 
@@ -46,6 +47,8 @@ Hover over a figure to see its input, cached and output tokens and how many have
 <Callout type="warn" title="Unknown spend cannot reach a limit">
 A model with no price has no cost Modbot can compare with a money limit, so its use is never stopped
 by one. Make sure every model you use has a price. Check the **Price from** column for **No price**.
+A team member's [monthly allowance](#monthly-ai-allowance-per-team-member) in **tokens** is the one
+limit that stops a model with no price, because tokens are counted for every model.
 </Callout>
 
 If your AI server does not report token counts at all (some local servers do not), Modbot has
@@ -155,17 +158,64 @@ The first time each limit stops a request in its day or month, Modbot records **
 reached** in the [audit log](/moderation/audit-log), once per limit per period. It is an operational
 entry, so seeing it needs **See the operational log**.
 
+## Monthly AI allowance per team member
+
+The **Monthly AI allowance per team member** card sets how much AI each person on your team may use
+in a month. Unlike a user or role limit it counts **every feature** the person uses: Chat, **Try
+it** and the test set buttons in [AutoMod](/moderation/automod), asking the AI about a flag,
+**Generate now** on [insights](/ai/insights) and the **Test** button.
+
+An allowance is measured two ways, and either or both can be set:
+
+| Measure | Unit shown | Works for |
+|---|---|---|
+| **Tokens per month** | tokens (the small pieces of text the model reads and writes, described above) | Every model, including a local one or one with no price |
+| **US dollars per month** | USD | Models with a price. A model with no price has no known cost, so it never reaches a dollar allowance. |
+
+Leave a box empty for no limit of that kind. An allowance of **0** means that person may use no AI
+this month.
+
+The first row, **Everyone**, is the default: what each team member gets unless they have an amount of
+their own. In each member's row, **Allowance** is **Default** or **Own amount**. With **Own amount**
+the boxes in that row replace the default completely, so an own amount with both boxes empty means no
+limit for that person. Press **Save** to keep the changes; each save that changes anything is recorded
+in the [audit log](/moderation/audit-log) as a settings change, with what it was and what it became.
+
+Each row also shows **Used this month**, in tokens and in money, and **Of the allowance**, how far
+through each measure that person is (for example "45% of tokens").
+
+When a member has used their allowance, the next thing they ask AI for is refused with a plain
+sentence, and nothing is sent to your provider:
+
+- "You have used your monthly AI allowance (200,000 tokens). It starts again on 1 October."
+- "You have used your monthly AI allowance ($5.00). It starts again on 1 October."
+
+A reply already under way finishes. Allowances start again with the month, in UTC. The first time
+one is reached in a month, Modbot records **AI spend limit reached** in the audit log, as it does for
+any limit. A call refused this way is in the [call log](/ai/call-log) as **Limited**, under that
+person's name.
+
+**What counts against an allowance.** What a signed-in account asked for. Work no account asked for
+counts against nobody's allowance: insights on a schedule, the sentence on an [alert](/ai/alerts),
+and AutoMod's own checks of Discord messages and VRChat profiles. That work still counts towards the
+limit for everyone and its feature's limit above, which stop it as before.
+
+**Who is not stopped.** People with **Administrator**, and people whose role has **Use AI in excess
+of usage limits**, are never stopped by an allowance. Their use is still counted and shown, with
+**Not limited** in place of a share.
+
 ## Use AI in excess of usage limits
 
 The **Use AI in excess of usage limits** permission
 ([roles and permissions](/accounts/roles-and-permissions#use-ai-in-excess-of-usage-limits)) takes away
-the limits on a person and on their roles, so they are not stopped by a user or role limit in Chat.
+the limits on a person and on their roles, and their monthly allowance, so they are not stopped by a
+user or role limit in Chat or by the allowance.
 
 **The limit for everyone and the feature limits still apply to them.** Those are your ceiling on the
 bill and each feature's share of it; no permission spends past them.
 
-People with **Administrator** are treated the same way: user and role limits never stop them, but the
-limit for everyone and feature limits do.
+People with **Administrator** are treated the same way: user and role limits and the allowance never
+stop them, but the limit for everyone and feature limits do.
 
 **Use AI in excess of usage limits** is not part of the built-in **Moderator** or **Viewer** roles.
 

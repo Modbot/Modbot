@@ -7,6 +7,7 @@ import {
   failure,
   moderationApi,
   NO_SCOPE,
+  type GroupRoleOption,
   type RuleAction,
   type TermInput,
   type TermListDetail,
@@ -47,12 +48,14 @@ export function TermListDialog({
   listId,
   open,
   picturesAvailable,
+  groupRoles,
   onClose,
   onSaved,
 }: {
   listId: string | null
   open: boolean
   picturesAvailable: boolean
+  groupRoles: GroupRoleOption[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -63,6 +66,7 @@ export function TermListDialog({
           key={listId ?? 'new'}
           listId={listId}
           picturesAvailable={picturesAvailable}
+          groupRoles={groupRoles}
           onClose={onClose}
           onSaved={onSaved}
         />
@@ -74,11 +78,13 @@ export function TermListDialog({
 function TermListForm({
   listId,
   picturesAvailable,
+  groupRoles,
   onClose,
   onSaved,
 }: {
   listId: string | null
   picturesAvailable: boolean
+  groupRoles: GroupRoleOption[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -171,6 +177,7 @@ function TermListForm({
         onChange={setRule}
         acting={detail?.list.acting ?? false}
         picturesAvailable={picturesAvailable}
+        groupRoles={groupRoles}
       />
 
       {hub ? (

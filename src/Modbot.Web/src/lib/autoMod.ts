@@ -35,6 +35,8 @@ export type RuleScope = {
   channels: string[]
   exemptRoles: string[]
   exemptRolesSkipFlag: boolean
+  /** VRChat group role ids. The server keeps them as they are when a request leaves them out. */
+  exemptGroupRoles: string[]
 }
 
 export const NO_SCOPE: RuleScope = {
@@ -42,6 +44,7 @@ export const NO_SCOPE: RuleScope = {
   channels: [],
   exemptRoles: [],
   exemptRolesSkipFlag: false,
+  exemptGroupRoles: [],
 }
 
 export type RuleTrial = {
@@ -138,6 +141,9 @@ export type TopicView = {
   stats: RuleStats
 } & RuleSafety
 
+/** One role of the managed VRChat group. */
+export type GroupRoleOption = { id: string; name: string | null }
+
 /** One AI tool AutoMod may use, and where its switch stands. */
 export type AiToolView = { name: string; label: string; on: boolean }
 
@@ -153,6 +159,8 @@ export type AutoMod = {
   /** The switch on Settings → AI → Base. The AI section of the AutoMod tab shows only while it is on. */
   aiEnabled: boolean
   aiTools: AiToolView[]
+  /** The managed group's roles, for "Never act on". Empty until the group is set and has been read once. */
+  groupRoles: GroupRoleOption[]
 }
 
 export type TermInput = {
@@ -333,6 +341,8 @@ export type ModerationFlag = {
   aiProposedAction: ProposedAction | null
   aiOpinionAt: string | null
   aiOpinionCallId: string | null
+  /** The person is one the rule never acts on: on the team, or holding a role it spares. */
+  exempt: boolean
 }
 
 export type ProposedAction = 'none' | 'delete_message' | 'timeout' | 'group_ban' | 'group_remove'
@@ -503,7 +513,9 @@ export function scopeLabel(scope: RuleScope): string | null {
   const parts = [
     scope.channelMode === 'only' ? `Only ${count(scope.channels.length, 'channel')}` : null,
     scope.channelMode === 'except' ? `All but ${count(scope.channels.length, 'channel')}` : null,
-    scope.exemptRoles.length > 0 ? `${count(scope.exemptRoles.length, 'role')} exempt` : null,
+    scope.exemptRoles.length + scope.exemptGroupRoles.length > 0
+      ? `${count(scope.exemptRoles.length + scope.exemptGroupRoles.length, 'role')} exempt`
+      : null,
   ].filter(Boolean)
   return parts.length ? parts.join(' · ') : null
 }

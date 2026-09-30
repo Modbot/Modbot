@@ -57,7 +57,7 @@ public sealed class InsightWriter(
 
         // Read through the shared place every AI feature asks: the limit for everyone and the one for
         // insights (design §6).
-        if (await usage.LimitReachedAsync(AiFeatures.Insights, ct) is { } reached)
+        if (await usage.LimitReachedAsync(AiFeatures.Insights, start.UserId, ct) is { } reached)
         {
             await runner.RecordLimitedAsync(AiFeatures.Insights, chat.Model, chat.Provider, reached.Message, start.UserId, ct);
             return new InsightAttempt(null, reached.Message);

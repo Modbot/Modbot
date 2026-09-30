@@ -144,6 +144,24 @@ file: a rule has no dialog to press twice, and its flag and action fact are its 
 Discord actions it does not update the stored member and ban rows; the sweeps confirm what
 happened on their next pass, as they confirm everything else.
 
+**People a rule never acts on (added 2026-09-30).** Two things stand between a VRChat match and a
+ban or removal, besides the trial and the pause:
+
+- **The team.** A VRChat id that is the *proven* link of a Modbot account that has not been deleted
+  (`modbot_user.vrchat_user_id`; a pending link, `vrchat_link_pending_user_id`, is a claim and does
+  not count) is never acted on, whatever any rule says, and there is nothing to switch. It is still
+  flagged, and the flag is marked `exempt` (its `would_*` columns stay false: nothing would have
+  happened). A rule's **do not flag them either** box does not reach it; it is the team's flag to
+  read. The check is in the engine's per-profile "where", not in `AutoModVRChatActions.ActAsync`,
+  which the ban and role syncs share and which must not refuse a moderator's own ban of a teammate.
+  Modbot's own account is still refused there, as before.
+- **The rule's exempt group roles** (AI moderation design §13.3): `exempt_group_roles` on both rule
+  tables, read against the person's roles in `group_member` for the managed group. The rule's version
+  snapshot includes them, as it includes the Discord roles.
+
+Discord actions are unchanged: a Discord author is only ever spared by the Discord list, because the
+team is identified by VRChat account and a Discord id typed onto an account is not proved.
+
 **Ban and remove together.** A ban takes the person out of the group as well, so when a rule asks
 for both and the ban worked, the removal is not sent: it would be a second request for something
 VRChat has already done. If the ban failed, the removal is still tried.

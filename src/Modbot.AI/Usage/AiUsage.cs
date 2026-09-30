@@ -54,6 +54,13 @@ public interface IAiUsage
     /// <see cref="AiSpendLimits.CheckAsync"/>, which adds their own limits.
     /// </summary>
     Task<AiLimitReached?> LimitReachedAsync(string feature, CancellationToken ct);
+
+    /// <summary>
+    /// The same, for a request a team member's account is behind: their monthly allowance stops it
+    /// as well. With no account this is <see cref="LimitReachedAsync(string, CancellationToken)"/>.
+    /// </summary>
+    Task<AiLimitReached?> LimitReachedAsync(string feature, Guid? userId, CancellationToken ct)
+        => LimitReachedAsync(feature, ct);
 }
 
 public sealed class AiUsageLedger : IAiUsage
@@ -99,6 +106,9 @@ public sealed class AiUsageLedger : IAiUsage
 
     public Task<AiLimitReached?> LimitReachedAsync(string feature, CancellationToken ct)
         => _limits.CheckAsync(feature, userId: null, held: default, ct);
+
+    public Task<AiLimitReached?> LimitReachedAsync(string feature, Guid? userId, CancellationToken ct)
+        => _limits.CheckForAsync(feature, userId, ct);
 }
 
 /// <summary>

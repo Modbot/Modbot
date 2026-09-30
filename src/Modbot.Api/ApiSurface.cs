@@ -318,6 +318,7 @@ public static class ApiSurface
         app.MapAutoModSettings();
         app.MapModerationFlags();
         app.MapAiLimitsSettings();
+        app.MapAiAllowanceSettings();
         app.MapAiCatalog();
         app.MapAiCallLog();
 

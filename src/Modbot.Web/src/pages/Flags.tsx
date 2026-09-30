@@ -167,6 +167,7 @@ export function Flags({
                     )}
                     {flag.groupBanned && <Badge variant="destructive">Banned from the group</Badge>}
                     {flag.groupRemoved && <Badge variant="destructive">Removed from the group</Badge>}
+                    {flag.exempt && <Badge variant="secondary">Exempt</Badge>}
                     {flag.trial && (
                       <Badge variant="secondary">
                         {[

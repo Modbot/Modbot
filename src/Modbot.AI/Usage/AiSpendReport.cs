@@ -196,6 +196,41 @@ public sealed class AiSpendReport
         }
     }
 
+    /// <summary>
+    /// What each account has used this month, every feature together, priced as the spend report
+    /// prices it. An account that has used nothing is not in it. Use with no account behind it -- insights
+    /// on a schedule, AutoMod's own checks -- is in nobody's row: it counts against no allowance.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, AiSpent>> MonthByMemberAsync(CancellationToken ct)
+    {
+        var month = AiPeriods.MonthOf(_clock.UtcNow);
+
+        var rows = await _db.AiUsage.AsNoTracking()
+            .Where(u => u.At >= month && u.UserId != null)
+            .GroupBy(u => new { u.UserId, u.Model, Reported = u.ReportedCost != null })
+            .Select(g => new
+            {
+                UserId = g.Key.UserId!.Value,
+                Sum = new AiUsageSum(
+                    g.Key.Model,
+                    g.Key.Reported,
+                    g.Sum(u => (long)u.InputTokens),
+                    g.Sum(u => (long)u.CachedInputTokens),
+                    g.Sum(u => (long)u.OutputTokens),
+                    g.Sum(u => u.ReportedCost ?? 0m)),
+            })
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        if (rows.Count == 0)
+            return new Dictionary<Guid, AiSpent>();
+
+        var prices = await AiSpending.PricesForAsync(_db, rows.Select(r => r.Sum), ct).ConfigureAwait(false);
+
+        return rows
+            .GroupBy(r => r.UserId)
+            .ToDictionary(g => g.Key, g => AiSpent.Sum(g.Select(r => r.Sum.PricedWith(prices))));
+    }
+
     /// <summary>The accounts that spent most on Chat this month, most first.</summary>
     public async Task<IReadOnlyList<AiUserSpend>> TopChatUsersAsync(int count, CancellationToken ct)
     {

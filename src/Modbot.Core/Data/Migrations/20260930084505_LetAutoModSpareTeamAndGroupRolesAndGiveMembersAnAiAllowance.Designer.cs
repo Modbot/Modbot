@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20260930084505_LetAutoModSpareTeamAndGroupRolesAndGiveMembersAnAiAllowance")]
+    partial class LetAutoModSpareTeamAndGroupRolesAndGiveMembersAnAiAllowance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -4041,10 +4044,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("permissions");
 
-                    b.Property<int>("Position")
-                        .HasColumnType("integer")
-                        .HasColumnName("position");
-
                     b.HasKey("Id")
                         .HasName("pk_modbot_role");
 
@@ -6058,10 +6057,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("group_instances_polled_at");
 
-                    b.Property<DateTimeOffset?>("InstanceEndEntriesStartedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("instance_end_entries_started_at");
-
                     b.Property<int>("LogRetentionDays")
                         .HasColumnType("integer")
                         .HasColumnName("log_retention_days");
@@ -6400,10 +6395,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("closed_by");
-
-                    b.Property<DateTimeOffset?>("EndRecordedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("end_recorded_at");
 
                     b.Property<string>("GroupAccessType")
                         .HasMaxLength(32)

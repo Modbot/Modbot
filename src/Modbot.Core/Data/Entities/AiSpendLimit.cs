@@ -57,6 +57,32 @@ public class AiLimitReachedRecord
 }
 
 /// <summary>
+/// One team member's own monthly AI allowance, in place of the one every member gets by default
+/// (<c>Settings.AiMemberMonthlyTokens</c> and <c>AiMemberMonthlyMoney</c>). The table is
+/// <c>ai_member_allowance</c>.
+/// </summary>
+/// <remarks>
+/// A row replaces the default whole: a member with a row and no amounts has no allowance at all.
+/// What counts against it is that account's use of every feature this month, which is the same
+/// <c>ai_usage</c> rows the spend report reads. Use with no account behind it -- insights on a
+/// schedule, AutoMod's own checks -- counts against nobody's allowance.
+/// </remarks>
+public class AiMemberAllowance
+{
+    public Guid UserId { get; set; }
+
+    public ModbotUser? UserRow { get; set; }
+
+    /// <summary>Tokens (input plus output) in a UTC month. Null means no token allowance.</summary>
+    public long? MonthlyTokens { get; set; }
+
+    /// <summary>US dollars in a UTC month. Null means no money allowance.</summary>
+    public decimal? MonthlyMoney { get; set; }
+
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>
 /// A cap on AI spend per day and per month, for everyone together, one feature, one role, or one
 /// account. The table is <c>ai_spend_limit</c>.
 /// </summary>

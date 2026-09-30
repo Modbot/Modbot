@@ -23,6 +23,10 @@ namespace Modbot.Api.Features.Flags;
 /// </param>
 /// <param name="Trial">The rule was in its trial, so nothing was done.</param>
 /// <param name="WouldDeleteMessage">What the rule would have done, during a trial or while paused.</param>
+/// <param name="Exempt">
+/// The person is one the rule never acts on -- on Modbot's team, or holding a role the rule spares -- so
+/// it flagged and nothing was or would have been done.
+/// </param>
 /// <param name="Language">The checked text's language as an ISO 639-3 code, or null.</param>
 /// <param name="LanguageLabel">That language in words, or "Unknown".</param>
 /// <param name="Picture">Which picture matched, or null when the words did.</param>
@@ -75,7 +79,8 @@ public sealed record FlagView(
     string? AiOpinionReason = null,
     string? AiProposedAction = null,
     DateTimeOffset? AiOpinionAt = null,
-    Guid? AiOpinionCallId = null);
+    Guid? AiOpinionCallId = null,
+    bool Exempt = false);
 
 /// <summary>One message the model was shown alongside the flagged one (AI moderation design §16).</summary>
 public sealed record FlagContextMessage(string MessageId, string Author, string Text);
@@ -494,5 +499,6 @@ public static class FlagEndpoints
         f.AiOpinionReason,
         f.AiProposedAction,
         f.AiOpinionAt,
-        f.AiOpinionCallId);
+        f.AiOpinionCallId,
+        f.Exempt);
 }

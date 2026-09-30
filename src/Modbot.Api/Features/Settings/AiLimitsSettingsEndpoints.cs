@@ -71,6 +71,7 @@ public sealed record AiUserSpendView(Guid UserId, string? Username, AiSpentView 
 /// <param name="Prices">The prices the operator entered.</param>
 /// <param name="Models">Every model in use, set in settings or priced, with its entered and fetched price.</param>
 /// <param name="ModelsUsed">Models asked for so far or set in settings, for the price list to offer.</param>
+/// <param name="Allowances">Each team member's monthly allowance and this month's use.</param>
 public sealed record AiLimitsResponse(
     DateTimeOffset Now,
     AiSpentView Today,
@@ -89,7 +90,8 @@ public sealed record AiLimitsResponse(
     IReadOnlyList<string> ModelsUsed,
     IReadOnlyList<AiFeatureOption> Features,
     IReadOnlyList<AiNamedOption> Roles,
-    IReadOnlyList<AiNamedOption> Users);
+    IReadOnlyList<AiNamedOption> Users,
+    AiAllowancesView Allowances);
 
 public sealed record AiLimitInput(string? AppliesTo, string? Feature, Guid? RoleId, Guid? UserId, decimal? PerDay, decimal? PerMonth);
 
@@ -311,7 +313,7 @@ public static class AiLimitsSettingsEndpoints
         return app;
     }
 
-    private static async Task<AiLimitsResponse> ViewAsync(ModbotContext db, AiSpendReport report, CancellationToken ct)
+    internal static async Task<AiLimitsResponse> ViewAsync(ModbotContext db, AiSpendReport report, CancellationToken ct)
     {
         var summary = await report.ReadAsync(ct);
         var now = summary.Now;
@@ -434,7 +436,8 @@ public static class AiLimitsSettingsEndpoints
             modelsUsed,
             [.. AiFeatures.All.Select(f => new AiFeatureOption(f, AiFeatures.LabelOf(f)))],
             roles,
-            users);
+            users,
+            await AiAllowanceSettingsEndpoints.ViewAsync(db, report, now, ct));
     }
 
     private static int IndexOf(string feature)

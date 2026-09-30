@@ -19,11 +19,21 @@ public sealed record RuleLanguageStats(string? Language, string Label, int Flags
 
 /// <summary>Where a rule runs and who it never acts on (AI moderation design §13.3).</summary>
 /// <param name="ChannelMode"><c>all</c>, <c>only</c> or <c>except</c>.</param>
+/// <param name="ExemptRoles">Discord role ids whose holders a rule never acts on.</param>
+/// <param name="ExemptRolesSkipFlag">Exempt people, holders of either kind of role, are not flagged either.</param>
+/// <param name="ExemptGroupRoles">
+/// VRChat group role ids whose holders a rule never acts on. Null in a request keeps them as they
+/// are; a response always has the list.
+/// </param>
 public sealed record RuleScope(
     string ChannelMode,
     IReadOnlyList<string> Channels,
     IReadOnlyList<string> ExemptRoles,
-    bool ExemptRolesSkipFlag);
+    bool ExemptRolesSkipFlag,
+    IReadOnlyList<string>? ExemptGroupRoles = null);
+
+/// <summary>One role of the managed VRChat group, for the "Never act on" picker.</summary>
+public sealed record GroupRoleOption(string Id, string? Name);
 
 /// <summary>A running trial: what the rule would have done, and how much of it was dismissed (design §13.1).</summary>
 public sealed record RuleTrial(
@@ -134,6 +144,10 @@ public sealed record AiToolView(string Name, string Label, bool On);
 /// while it is (AutoMod design §6).
 /// </param>
 /// <param name="AiTools">Each AI tool and where its switch stands.</param>
+/// <param name="GroupRoles">
+/// The managed group's roles as the group-info poll last read them, for a rule's "Never act on"
+/// picker. Empty until the group is set and has been polled once.
+/// </param>
 public sealed record AutoModResponse(
     bool Enabled,
     int DailyAiCallLimit,
@@ -144,7 +158,8 @@ public sealed record AutoModResponse(
     bool PicturesAvailable = false,
     IReadOnlyList<int>? ContextChoices = null,
     bool AiEnabled = false,
-    IReadOnlyList<AiToolView>? AiTools = null);
+    IReadOnlyList<AiToolView>? AiTools = null,
+    IReadOnlyList<GroupRoleOption>? GroupRoles = null);
 
 /// <param name="DailyAiCallLimit">Null keeps the limit as it is.</param>
 /// <param name="AiTools">Switches to change, by tool name. Null or empty changes none.</param>

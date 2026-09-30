@@ -164,6 +164,133 @@ public class AutoModActionsTests
         Assert.Single(vrchat.Banned);
     }
 
+    // ── Who a VRChat rule never acts on ─────────────────────────────────────────────────────
+
+    private const string Group = "grp_test";
+    private const string StaffRole = "grol_staff";
+
+    [Fact]
+    public async Task ATeamMembersProvenVRChatAccountIsFlaggedButNeverActedOn_AndAPendingLinkDoesNotCount()
+    {
+        var vrchat = new FakeVRChatActions();
+        await using var host = await StartAsync(vrchat);
+        var (team, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (pendingUser, _) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct, linked: false);
+        await SwitchOnAsync(host, cookie);
+
+        await using (var db = _db.NewContext())
+        {
+            // Somebody who has pasted an id and not yet put the code in their bio: a claim, not a link.
+            var row = await db.Users.SingleAsync(u => u.Id == pendingUser.Id, Ct);
+            row.VRChatLinkPendingUserId = "usr_pending";
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await ActingBanListAsync(host, cookie, "mod");
+
+        // One batch of three, as the profile check hands them over.
+        var outcomes = await CheckAsync(host,
+            new ProfileToCheck(team.VRChatUserId!, null, "I am a mod here", null, null),
+            new ProfileToCheck("usr_pending", null, "I am a mod here too", null, null),
+            new ProfileToCheck("usr_plain", null, "mod of my own server", null, null));
+
+        // The team member: flagged, marked exempt, nothing done.
+        Assert.Equal(1, outcomes[0].FlagsWritten);
+        Assert.True(Assert.Single(outcomes[0].Matches).Exempt);
+        Assert.False(outcomes[0].GroupBanned);
+
+        // The other two are acted on: a pending link is nobody's proof.
+        Assert.True(outcomes[1].GroupBanned);
+        Assert.True(outcomes[2].GroupBanned);
+        Assert.Equal(["usr_pending", "usr_plain"], vrchat.Banned.Order().ToList());
+
+        await using var check = _db.NewContext();
+        var flag = await check.ModerationFlags.SingleAsync(f => f.SubjectId == team.VRChatUserId, Ct);
+        Assert.True(flag.Exempt);
+        Assert.False(flag.GroupBanned);
+        Assert.False(flag.WouldGroupBan);
+    }
+
+    [Fact]
+    public async Task AnExemptGroupRoleIsFlaggedOnly_AndNothingAtAllWithDoNotFlagThemEither_AndSomeoneWhoLeftHoldsNothing()
+    {
+        var vrchat = new FakeVRChatActions();
+        await using var host = await StartAsync(vrchat);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        await SwitchOnAsync(host, cookie);
+        await SetManagedGroupAsync();
+
+        await GroupMemberAsync("usr_helper", [StaffRole]);
+        await GroupMemberAsync("usr_helper_2", [StaffRole, "grol_other"]);
+        await GroupMemberAsync("usr_member", ["grol_other"]);
+        await GroupMemberAsync("usr_left", [StaffRole], left: true);
+
+        var id = await ActingBanListAsync(host, cookie, "mod", GroupScope(skipFlag: false, StaffRole));
+
+        var first = await CheckAsync(host,
+            new ProfileToCheck("usr_helper", null, "I am a mod here", null, null),
+            new ProfileToCheck("usr_member", null, "I am a mod here", null, null),
+            new ProfileToCheck("usr_left", null, "I am a mod here", null, null));
+
+        Assert.True(Assert.Single(first[0].Matches).Exempt);
+        Assert.False(first[0].GroupBanned);
+        Assert.True(first[1].GroupBanned);
+        Assert.True(first[2].GroupBanned);
+
+        // The saved rule reads back with the role.
+        var read = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, $"{Path}/lists/{id}", null, cookie, Ct));
+        Assert.Equal([StaffRole], read.GetProperty("list").GetProperty("scope").GetProperty("exemptGroupRoles").EnumerateArray().Select(r => r.GetString()).ToList());
+
+        // With "do not flag them either", the exempt person is not flagged at all.
+        var saved = await host.SendJsonAsync(HttpMethod.Put, $"{Path}/lists/{id}",
+            List("Impersonation", "mod", targets: ["bio"], groupBan: true, scope: GroupScope(skipFlag: true, StaffRole)), cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        var quiet = await CheckAsync(host, new ProfileToCheck("usr_helper_2", null, "I am a mod here", null, null));
+        Assert.Empty(quiet.Matches);
+        Assert.Equal(0, quiet.FlagsWritten);
+        Assert.Equal(["usr_left", "usr_member"], vrchat.Banned.Order().ToList());
+    }
+
+    [Fact]
+    public async Task AGroupRoleThatIsNotSavedIsKeptWhenARequestLeavesItOut_AndTheGroupsRolesAreOffered()
+    {
+        await using var host = await StartAsync();
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        await using (var db = _db.NewContext())
+        {
+            var settings = await db.GetSettingsAsync(Ct);
+            settings.GroupInfoSnapshot = new Modbot.VRChat.Sync.GroupInfoSnapshot(
+                "Group", null, null, null, null, null, null, null, false, 0, 0,
+                [
+                    new Modbot.VRChat.Sync.GroupRoleSnapshot(StaffRole, "Staff", null, 1, true, false, false, false, []),
+                    new Modbot.VRChat.Sync.GroupRoleSnapshot("grol_other", "Members", null, 2, false, false, false, true, []),
+                ]).ToJson();
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var id = await JsonAsync(await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists",
+            List("Impersonation", "mod", targets: ["bio"], scope: GroupScope(skipFlag: false, StaffRole)), cookie, Ct));
+
+        // A request from a client that knows nothing of group roles sends the scope without them.
+        var listId = id.GetProperty("list").GetProperty("id").GetGuid();
+        var kept = await JsonAsync(await host.SendJsonAsync(HttpMethod.Put, $"{Path}/lists/{listId}",
+            List("Impersonation", "mod", targets: ["bio"],
+                scope: new { channelMode = "all", channels = Array.Empty<string>(), exemptRoles = Array.Empty<string>(), exemptRolesSkipFlag = false }),
+            cookie, Ct));
+        Assert.Equal([StaffRole], kept.GetProperty("list").GetProperty("scope").GetProperty("exemptGroupRoles").EnumerateArray().Select(r => r.GetString()).ToList());
+
+        var body = await JsonAsync(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct));
+        var roles = body.GetProperty("groupRoles").EnumerateArray().Select(r => (r.GetProperty("id").GetString(), r.GetProperty("name").GetString())).ToList();
+        Assert.Equal([(StaffRole, "Staff"), ("grol_other", "Members")], roles);
+
+        // An id that is empty or absurdly long is refused; the ids themselves are opaque text.
+        var refused = await host.SendJsonAsync(HttpMethod.Put, $"{Path}/lists/{listId}",
+            List("Impersonation", "mod", targets: ["bio"], scope: GroupScope(skipFlag: false, new string('x', 101))), cookie, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+    }
+
     // ── The AI opinion ──────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -221,6 +348,7 @@ public class AutoModActionsTests
             await db.ModerationRuleVersions.ExecuteDeleteAsync(Ct);
             await db.ModerationTermLists.ExecuteDeleteAsync(Ct);
             await db.ModerationTopics.ExecuteDeleteAsync(Ct);
+            await db.GroupMembers.ExecuteDeleteAsync(Ct);
         }
 
         return await ApiTestHost.StartAsync(_db, configure: services =>
@@ -242,8 +370,64 @@ public class AutoModActionsTests
         return await scope.ServiceProvider.GetRequiredService<IModerationChecker>().CheckProfileAsync(profile, Ct);
     }
 
-    private static object List(string name, string word, string[] targets, bool groupBan = false, bool groupRemove = false) => new
+    /// <summary>Several profiles in one pass, the way the profile check hands them over.</summary>
+    private static async Task<IReadOnlyList<ModerationOutcome>> CheckAsync(ApiTestHost host, params ProfileToCheck[] profiles)
     {
+        await using var scope = host.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<IModerationChecker>().CheckProfilesAsync(profiles, Ct);
+    }
+
+    /// <summary>A bio rule set to ban, past its trial, so a match really acts.</summary>
+    private async Task<Guid> ActingBanListAsync(ApiTestHost host, string cookie, string word, object? scope = null)
+    {
+        var created = await JsonAsync(await host.SendJsonAsync(HttpMethod.Post, $"{Path}/lists",
+            List("Impersonation", word, targets: ["bio"], groupBan: true, scope: scope), cookie, Ct));
+        var id = created.GetProperty("list").GetProperty("id").GetGuid();
+
+        var ended = await host.SendJsonAsync(HttpMethod.Post, $"{Path}/rules/termList/{id}/end-trial", null, cookie, Ct);
+        Assert.Equal(HttpStatusCode.OK, ended.StatusCode);
+
+        return id;
+    }
+
+    private static object GroupScope(bool skipFlag, params string[] groupRoles) => new
+    {
+        channelMode = "all",
+        channels = Array.Empty<string>(),
+        exemptRoles = Array.Empty<string>(),
+        exemptRolesSkipFlag = skipFlag,
+        exemptGroupRoles = groupRoles,
+    };
+
+    private async Task SetManagedGroupAsync()
+    {
+        await using var db = _db.NewContext();
+        var settings = await db.GetSettingsAsync(Ct);
+        settings.ManagedGroupId = Group;
+        await db.SaveChangesAsync(Ct);
+    }
+
+    private async Task GroupMemberAsync(string userId, string[] roles, bool left = false)
+    {
+        var at = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        await using var db = _db.NewContext();
+        db.GroupMembers.Add(new GroupMember
+        {
+            GroupId = Group,
+            UserId = userId,
+            Roles = JsonSerializer.Serialize(roles),
+            FirstSeenAt = at,
+            LastSeenAt = at,
+            LeftAt = left ? at : null,
+        });
+        await db.SaveChangesAsync(Ct);
+    }
+
+    private static object List(
+        string name, string word, string[] targets, bool groupBan = false, bool groupRemove = false, object? scope = null) => new
+    {
+        scope,
         name,
         enabled = true,
         targets,

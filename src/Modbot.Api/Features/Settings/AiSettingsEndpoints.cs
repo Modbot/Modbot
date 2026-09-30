@@ -252,7 +252,7 @@ public static class AiSettingsEndpoints
                 var userId = ModbotAuth.UserIdOf(http.User);
                 var username = ModbotAuth.UsernameOf(http.User);
 
-                if (await usage.LimitReachedAsync(AiFeatures.Test, ct) is { } reached)
+                if (await usage.LimitReachedAsync(AiFeatures.Test, userId, ct) is { } reached)
                 {
                     await calls.RecordAsync(
                         new AiCallEntry(

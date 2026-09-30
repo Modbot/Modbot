@@ -80,18 +80,31 @@ public static class RuleGuards
         return rule.ChannelMode == ChannelScope.Only ? listed : !listed;
     }
 
-    /// <summary>The exempt role the person holds, or null when they hold none (design §13.3).</summary>
+    /// <summary>The exempt Discord role the person holds, or null when they hold none (design §13.3).</summary>
     public static string? ExemptBy(IModerationRule rule, IReadOnlyCollection<string>? roleIds)
     {
         ArgumentNullException.ThrowIfNull(rule);
+        return FirstHeld(Ids(rule.ExemptRoles), roleIds);
+    }
 
-        if (roleIds is null || roleIds.Count == 0)
+    /// <summary>
+    /// The exempt VRChat group role the person holds in the managed group, or null when they hold none.
+    /// </summary>
+    public static string? ExemptByGroupRole(IModerationRule rule, IReadOnlyCollection<string>? groupRoleIds)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        return FirstHeld(Ids(rule.ExemptGroupRoles), groupRoleIds);
+    }
+
+    private static string? FirstHeld(IReadOnlyList<string> exempt, IReadOnlyCollection<string>? held)
+    {
+        if (held is null || held.Count == 0)
             return null;
 
-        foreach (var exempt in Ids(rule.ExemptRoles))
+        foreach (var id in exempt)
         {
-            if (roleIds.Contains(exempt, StringComparer.Ordinal))
-                return exempt;
+            if (held.Contains(id, StringComparer.Ordinal))
+                return id;
         }
 
         return null;

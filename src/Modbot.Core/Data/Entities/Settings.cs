@@ -502,6 +502,21 @@ public class Settings
     public int AiChatTimeLimitSeconds { get; set; } = 120;
 
     /// <summary>
+    /// How many tokens (input plus output) each team member may use in a UTC month, whatever the
+    /// model, unless they have an allowance of their own (<see cref="AiMemberAllowance"/>). Null means
+    /// no such limit. Tokens are counted for a model with no price too, which is why this is the
+    /// measure that always works.
+    /// </summary>
+    public long? AiMemberMonthlyTokens { get; set; }
+
+    /// <summary>
+    /// How much each team member may spend in US dollars in a UTC month, unless they have an
+    /// allowance of their own. Null means no such limit. Spend of a model with no price is unknown,
+    /// so it cannot reach this; the token allowance is what stops that.
+    /// </summary>
+    public decimal? AiMemberMonthlyMoney { get; set; }
+
+    /// <summary>
     /// Per-tool on/off switches, as a JSON object of tool name to true or false.
     /// </summary>
     /// <remarks>

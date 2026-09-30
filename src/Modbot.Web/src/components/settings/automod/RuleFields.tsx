@@ -1,6 +1,6 @@
 import { Input } from '@/components/ui/input'
 import { SwitchBank } from '@/components/ui/switch-bank'
-import { CONTEXT_CHOICES, TARGETS, type RuleAction } from '@/lib/autoMod'
+import { CONTEXT_CHOICES, TARGETS, type GroupRoleOption, type RuleAction } from '@/lib/autoMod'
 import { Checkbox, Switch } from '../fields'
 import { RuleScopeFields } from './RuleScopeFields'
 
@@ -26,6 +26,7 @@ export function RuleActionFields({
   onChange,
   acting,
   picturesAvailable,
+  groupRoles,
 }: {
   value: RuleAction
   onChange: (next: RuleAction) => void
@@ -33,6 +34,8 @@ export function RuleActionFields({
   acting?: boolean
   /** The model in use reads pictures. False makes the picture box unavailable.  */
   picturesAvailable?: boolean
+  /** The managed group's roles, for "Never act on". */
+  groupRoles?: GroupRoleOption[]
 }) {
   const chat = value.targets.includes('discordMessage')
   const profile = value.targets.some((t) => t !== 'discordMessage')
@@ -192,7 +195,11 @@ export function RuleActionFields({
         </Group>
       )}
 
-      <RuleScopeFields value={value.scope} onChange={(scope) => onChange({ ...value, scope })} />
+      <RuleScopeFields
+        value={value.scope}
+        groupRoles={groupRoles ?? []}
+        onChange={(scope) => onChange({ ...value, scope })}
+      />
     </>
   )
 }

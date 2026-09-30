@@ -21,6 +21,7 @@ import { ago } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Outcome, Placeholder } from '../fields'
 import { SettingsCard, SettingsSection } from '../SettingsCard'
+import { AiAllowancesCard } from './AiAllowancesCard'
 
 /** A number box's text as a number, or null when empty. NaN when it is not a number. */
 function amount(text: string): number | null {
@@ -75,6 +76,7 @@ export function AiLimitsSettings() {
           <SpendCard data={data} />
           <DailyCard data={data} />
           <LimitsCard key={`limits-${JSON.stringify([data.limits, data.tokenLimits])}`} data={data} onSaved={setData} />
+          <AiAllowancesCard key={`allowances-${JSON.stringify(data.allowances)}`} data={data} onSaved={setData} />
           <TopUsersCard data={data} />
           <PricesCard key={`prices-${JSON.stringify(data.models)}`} data={data} onSaved={setData} />
         </>

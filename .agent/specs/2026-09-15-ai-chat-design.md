@@ -279,6 +279,35 @@ everyone is the operator's ceiling on what the deployment's AI key may cost, and
 the operator's share of that ceiling for one feature; a permission that could spend past either would
 turn them into suggestions.
 
+### 10.4a Team allowances (added 2026-09-30)
+
+A monthly allowance for each team member, asked for by the maintainer as "how much usage each team
+member gets access to". Settings hold a **default** for everyone (`ai_member_monthly_tokens`,
+`ai_member_monthly_money`, either or both, null for none) and `ai_member_allowance` holds a member's
+**own** amounts, which replace the default whole — a row with both null is "no limit for this person".
+
+- **Measured in tokens and in US dollars**, because tokens are the one measure every model has. A
+  model with no price has no known cost (§10.2), so it can never reach a dollar allowance; the token
+  allowance is what stops it. The screen writes the unit beside every number.
+- **Counted from `ai_usage`**, the same rows and the same pricing (`AiSpending`) as everything else in
+  §10: the member's own use of *every* feature this month, UTC. There is no second counter. A call
+  with no account behind it (a scheduled insight, an alert sentence, AutoMod's own checks of Discord
+  messages and VRChat profiles) has `user_id` null and counts against nobody's allowance; it still
+  counts towards the limit for everyone and its feature's limit.
+- **Checked at every gate that has a person**: Chat (§10.3), Insights' Generate now, AutoMod's Try it,
+  test set and flag opinion, and the Test button — `AiSpendLimits.CheckAsync`, after the money and
+  token limits, so the tightest limit is the one the person hears about. Unlike person and role
+  limits it is not Chat's alone.
+- **Past it:** Administrator and `UseAiPastLimits` (§10.4) are not stopped by it — it is a limit on a
+  person, and that is what the permission lifts — and their use is still counted and shown.
+- **The refusal** is a plain sentence, and the provider is not called: "You have used your monthly AI
+  allowance (200,000 tokens). It starts again on 1 October." It is recorded as a `Limited` row in the
+  call log under the person's name, and once per allowance per month as `modbot.ai.limit.reached`.
+- **Settings → AI → Limits** has the card: the default, then one row per team member with their own
+  amounts or "Default", what they have used this month and how far through each measure. A change is a
+  `modbot.settings.change` fact (`setting: aiAllowances`) with what it was and what it became, written
+  only when something changed. `PUT /api/settings/ai/allowances`, `ManageSettings`.
+
 ### 10.5 Token limits from before prices
 
 AI moderation and AI insights first shipped with a monthly token limit per feature

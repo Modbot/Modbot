@@ -121,7 +121,7 @@ public sealed class FlagReviewer
         if (chat is null)
             return FlagOpinionResult.Failed(NoAiRuleChecker.Reason);
 
-        if (await _usage.LimitReachedAsync(AiFeatures.Moderation, ct).ConfigureAwait(false) is { } reached)
+        if (await _usage.LimitReachedAsync(AiFeatures.Moderation, userId, ct).ConfigureAwait(false) is { } reached)
         {
             await _runner.RecordLimitedAsync(AiFeatures.Moderation, chat.Model, chat.Provider, reached.Message, userId, ct).ConfigureAwait(false);
             return FlagOpinionResult.Failed(reached.Message);

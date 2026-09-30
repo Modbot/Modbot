@@ -76,7 +76,13 @@ public interface IModerationRule
     /// <summary>Discord role ids whose members are never acted on, as a JSON array.</summary>
     string ExemptRoles { get; }
 
-    /// <summary>Exempt members are not flagged either.</summary>
+    /// <summary>
+    /// VRChat group role ids whose holders are never acted on, as a JSON array. Read against the
+    /// roles the member store has for the person in the managed group.
+    /// </summary>
+    string ExemptGroupRoles { get; }
+
+    /// <summary>Exempt members, of either list, are not flagged either.</summary>
     bool ExemptRolesSkipFlag { get; }
 
     /// <summary>
@@ -186,6 +192,9 @@ public class ModerationTermList : IModerationRule
 
     public string ExemptRoles { get; set; } = "[]";
 
+    /// <summary>VRChat group role ids, as a JSON array. See <see cref="IModerationRule.ExemptGroupRoles"/>.</summary>
+    public string ExemptGroupRoles { get; set; } = "[]";
+
     public bool ExemptRolesSkipFlag { get; set; }
 
     /// <summary>How many messages before the checked one go to the model (AI moderation design §16).</summary>
@@ -277,6 +286,9 @@ public class ModerationTopic : IModerationRule
     public string Channels { get; set; } = "[]";
 
     public string ExemptRoles { get; set; } = "[]";
+
+    /// <summary>VRChat group role ids, as a JSON array. See <see cref="IModerationRule.ExemptGroupRoles"/>.</summary>
+    public string ExemptGroupRoles { get; set; } = "[]";
 
     public bool ExemptRolesSkipFlag { get; set; }
 
@@ -411,6 +423,12 @@ public class ModerationFlag
 
     /// <summary>The rule was in its trial, so nothing was done (AI moderation design §13.1).</summary>
     public bool Trial { get; set; }
+
+    /// <summary>
+    /// The person is one the rule never acts on: a member of Modbot's team, or the holder of a role the rule
+    /// spares. Flagged, and nothing was done or would have been.
+    /// </summary>
+    public bool Exempt { get; set; }
 
     /// <summary>What the rule would have done, while it is in its trial or paused.</summary>
     public bool WouldDeleteMessage { get; set; }

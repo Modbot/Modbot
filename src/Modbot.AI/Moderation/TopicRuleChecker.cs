@@ -191,7 +191,7 @@ public sealed class TopicRuleChecker : IAiRuleChecker
     {
         // The spend limits are moderation's share of the AI bill and the bill as a whole; the daily
         // call limit is this screen's own brake. Any of them stops AI topics, and term lists carry on.
-        if (await _usage.LimitReachedAsync(AiFeatures.Moderation, ct).ConfigureAwait(false) is { } reached)
+        if (await _usage.LimitReachedAsync(AiFeatures.Moderation, asker.UserId, ct).ConfigureAwait(false) is { } reached)
         {
             await _runner.RecordLimitedAsync(AiFeatures.Moderation, chat.Model, chat.Provider, reached.Message, asker.UserId, ct)
                 .ConfigureAwait(false);

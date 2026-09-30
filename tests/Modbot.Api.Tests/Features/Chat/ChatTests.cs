@@ -348,6 +348,34 @@ public class ChatTests
         Assert.Empty(provider.Bodies);
     }
 
+    /// <summary>The team's monthly allowance stops a member's new turn with a plain sentence, before the provider is asked.</summary>
+    [Fact]
+    public async Task AMembersMonthlyAllowance_StopsNewTurns_WithAPlainSentence_AndTheProviderIsNotAsked()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        var provider = new ScriptedProvider();
+        await using var host = await StartWithProviderAsync(provider);
+        host.Clock.UtcNow = new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
+
+        var (user, cookie) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+        await SpendAsync(host, user.Id, 2m);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            (await db.GetSettingsAsync(Ct)).AiMemberMonthlyTokens = 1_000_000;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var response = await host.SendJsonAsync(HttpMethod.Post, "/api/chat/messages", new { text = "hi" }, cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal(
+            "You have used your monthly AI allowance (1,000,000 tokens). It starts again on 1 October.",
+            (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
+        Assert.Empty(provider.Bodies);
+    }
+
     /// <summary>Chat's own limit is the operator's share of the bill for Chat, so the permission does not lift it.</summary>
     [Fact]
     public async Task ChatsOwnFeatureLimit_IsHonouredEvenPastPersonalLimits()

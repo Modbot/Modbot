@@ -45,6 +45,25 @@ public class RuleGuardsTests
     }
 
     [Fact]
+    public void AnExemptGroupRoleIsFoundByIdAndIsNotTheDiscordList()
+    {
+        var rule = new ModerationTopic
+        {
+            ExemptRoles = """["1234567890"]""",
+            ExemptGroupRoles = """["grol_staff","grol_mod"]""",
+        };
+
+        Assert.Equal("grol_mod", RuleGuards.ExemptByGroupRole(rule, ["grol_member", "grol_mod"]));
+        Assert.Null(RuleGuards.ExemptByGroupRole(rule, ["grol_member"]));
+        Assert.Null(RuleGuards.ExemptByGroupRole(rule, []));
+        Assert.Null(RuleGuards.ExemptByGroupRole(rule, null));
+
+        // Each list is read against its own platform's roles.
+        Assert.Null(RuleGuards.ExemptBy(rule, ["grol_mod"]));
+        Assert.Null(RuleGuards.ExemptByGroupRole(rule, ["1234567890"]));
+    }
+
+    [Fact]
     public void StoredIdsThatAreNotAJsonArrayReadAsNone()
     {
         var rule = new ModerationTopic { ExemptRoles = "not json" };

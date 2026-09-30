@@ -11,10 +11,11 @@ namespace Modbot.AI;
 /// settings row through the request's <c>ModbotContext</c>.
 /// </para>
 /// <para>
-/// M8 §2 applies to everything built on this. A model's output never leads to an action on VRChat
-/// -- no kick, ban or group removal. The one exception to "a human decides" is an AI moderation
-/// rule on Discord chat, and only once the group's own operator has set that rule to act, with
-/// every action recorded as a fact.
+/// M8 §2 applies to everything built on this: a human decides. The one exception is an AutoMod
+/// rule -- a term list or an AI topic -- that the group's own operator has set to act, after its
+/// trial: it may delete a Discord message, time its author out, or ban or remove a VRChat profile's
+/// owner from the managed group (AutoMod design §5). Every action is recorded as a fact, and it
+/// never acts on a member of the team or on anyone a rule's "Never act on" list names.
 /// </para>
 /// </remarks>
 public interface IAiClients
