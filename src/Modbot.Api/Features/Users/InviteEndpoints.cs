@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Auth;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
+using Modbot.Api.Features.Roles;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
@@ -59,6 +60,9 @@ public static class InviteEndpoints
                 if (!ModbotAuth.Allows(held, ModbotRole.Union(roles.Select(r => r.Permissions))))
                     return Results.BadRequest(new { error = "You can only give people permissions you have yourself." });
 
+                if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, roles, ct) is { } outranked)
+                    return outranked;
+
                 var actor = Actor.Of(http)!.Value;
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -88,7 +92,8 @@ public static class InviteEndpoints
             .WithSummary("Create an invite")
             .WithDescription(
                 "Make a one-time invite link carrying these roles. "
-                + "Shown once; the server keeps only a hash. Good for 72 hours.")
+                + "Shown once; the server keeps only a hash. Good for 72 hours. "
+                + "Only roles below your highest role.")
             .Produces<LinkCreated>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

@@ -61,6 +61,25 @@ day-to-day moderation: **See live instances**, **See calendar**, **See giveaways
 messages**, **Manage Discord links**, **Write notes**, and the evidence and administration permissions not listed above. Grant them on
 purpose, to a role of your own or by editing a built-in one.
 
+## The order of roles
+
+Roles are in a line, highest first, like roles in Discord. **Administrator** is always first. The
+**Roles** page lists them in that order, and each card has **Move up** and **Move down** buttons
+(the arrows at its right end, which work on a phone too). A role you make yourself starts at the
+bottom.
+
+A person's **rank** is their highest role. Somebody with no role is at the bottom.
+
+**Manage users** and **Manage roles** only reach what is below your own highest role. The same rank
+doesn't count as below. That is what stops somebody with **Manage users** from making a reset link
+for an administrator and signing in as them, and it holds for [API keys](/api/keys) too: a key has
+its owner's rank. Buttons for anything you can't change are greyed out. **Administrator** is above
+the rule.
+
+When Modbot was updated to have this order, it put the roles in a first one: Administrator, then
+Moderator and every custom role, the one that allows the most permissions first, and Viewer last.
+Change it on the Roles page if that isn't the order you want.
+
 ## Administrator covers everything
 
 A person holding **Administrator** passes every permission check in Modbot, including checks for
@@ -76,7 +95,8 @@ The same rule applies everywhere a permission can be handed out:
 
 - On the **Roles** page you can only put permissions you hold into a role.
 - On the **Users** page you can only give people roles whose permissions you all hold, whether by
-  invite link, temporary password or changing their roles.
+  invite link, temporary password or changing their roles. You can also only give or take roles
+  that sit below your own highest role.
 - An **API key** can only be given permissions you hold, and it can never do more than the account
   that made it can do right now. If you lose a permission, your keys lose it too. See
   [API keys](/api/keys).
@@ -361,7 +381,7 @@ Name: `PairCompanion`
   Without it the page says *Your account does not have "Pair a companion".*
 - Opens **Settings**, **Paired companions**, with this person's own companions and a **Remove**
   button on each. Somebody holding **Manage users** sees everybody's there, with whose each one is,
-  and can remove any of them.
+  and can remove the companions of people whose highest role is below theirs.
 - Keeps this person's companions working. It is checked on every request a companion makes, so
   taking it away from a person's roles stops their companions straight away, and giving it back
   starts them again.
@@ -463,15 +483,22 @@ Name: `ManageUsers`
   links, change people's roles and contact details, make password reset links, and disable or enable
   accounts. See [Staff accounts](/accounts/staff-accounts).
 
-A person with this can disable administrators and take roles away from them (as long as one enabled
-administrator is left), so give it only to people you trust with the whole team.
+A person with this only reaches accounts **below their own highest role** (see
+[The order of roles](#the-order-of-roles)). They can't change, make a reset link for, disable,
+enable or delete an account whose highest role is the same as theirs or higher, or remove its
+companions, and they can only give or take roles that sit below their own highest role. They see
+"You can only change accounts below your highest role." or "You can only change roles below your
+highest role." An administrator can change anyone, including other administrators.
 
 ### Manage roles
 
 Name: `ManageRoles`
 
-- Opens **Settings**, **People and roles**, **Roles**: create roles, change what each allows, and delete roles
-  nobody holds.
+- Opens **Settings**, **People and roles**, **Roles**: create roles, change what each allows, move
+  roles up and down, and delete roles nobody holds.
+
+A person with this only reaches roles **below their own highest role**: they can't edit, delete or
+move a role that sits at their own place or above it. A role they make starts at the bottom.
 
 Separate from **Manage users**: handing somebody a role is a smaller decision than deciding what a
 role means.

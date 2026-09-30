@@ -17,6 +17,7 @@ import {
   type UserSummary,
 } from '@/lib/api'
 import { formatDay } from '@/lib/format'
+import { isBelowMe } from '@/lib/permissions'
 import { usernameProblem } from '@/lib/username'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/components/ListParts'
@@ -287,21 +288,30 @@ function AddSomeone({
 
 /**
  * Which roles to give. Roles the signed-in person could not hand out — ones that allow something
- * they cannot do themselves — are shown but cannot be ticked, and say why.
+ * they cannot do themselves, or that sit at or above their own highest role — are shown but
+ * cannot be ticked, and say why. `locked` shuts the whole list, for an account they cannot change.
  */
 function RolePicker({
   roles,
   me,
   value,
   onChange,
+  locked = false,
 }: {
   roles: RoleView[]
   me: CurrentUser
   value: string[]
   onChange: (next: string[]) => void
+  locked?: boolean
 }) {
   const isAdmin = me.permissionNames.includes('Administrator')
-  const canGive = (r: RoleView) => isAdmin || r.permissionNames.every((p) => me.permissionNames.includes(p))
+  const hasPermissions = (r: RoleView) => isAdmin || r.permissionNames.every((p) => me.permissionNames.includes(p))
+  const why = (r: RoleView) =>
+    !isBelowMe(me, r.position)
+      ? 'You can only change roles below your highest role.'
+      : !hasPermissions(r)
+        ? 'You can only give people permissions you have yourself.'
+        : undefined
 
   return (
     <div>
@@ -310,12 +320,13 @@ function RolePicker({
       </div>
       <div className="space-y-1">
         {roles.map((r) => {
-          const allowed = canGive(r)
+          const reason = why(r)
+          const allowed = reason === undefined && !locked
           return (
             <Checkbox
               key={r.id}
               disabled={!allowed}
-              title={allowed ? undefined : 'You can only give people permissions you have yourself.'}
+              title={reason}
               checked={value.includes(r.id)}
               onChange={(on) => onChange(on ? [...value, r.id] : value.filter((id) => id !== r.id))}
             >
@@ -364,6 +375,11 @@ function UserDrawer({
 
   const contactChanged = email !== (user.email ?? '') || discord !== (user.discordUserId ?? '')
 
+  // The server refuses every change to an account whose highest role is not below yours, your own
+  // excepted (accounts and access design §3.5). Administrators are above the rule.
+  const outranked = user.id !== me.id && !isBelowMe(me, user.rank)
+  const outrankedWhy = outranked ? 'You can only change accounts below your highest role.' : undefined
+
   return (
     <aside
       className={cn(
@@ -404,10 +420,11 @@ function UserDrawer({
 
       <div className="flex flex-col gap-5 p-(--panel-pad)" style={{ fontSize: 'var(--text-small)' }}>
         <section className="space-y-2">
-          <RolePicker roles={roles} me={me} value={roleIds} onChange={setRoleIds} />
+          <RolePicker roles={roles} me={me} value={roleIds} onChange={setRoleIds} locked={outranked} />
           <Button
             size="sm"
-            disabled={!rolesChanged || busy !== null}
+            disabled={!rolesChanged || busy !== null || outranked}
+            title={outrankedWhy}
             onClick={() => run('roles', () => api.setUserRoles(user.id, roleIds))}
           >
             {busy === 'roles' ? 'Saving…' : 'Save roles'}
@@ -417,14 +434,15 @@ function UserDrawer({
         <section className="space-y-2">
           <div className="font-label">Contact details</div>
           <Field label="Email" htmlFor={`email-${user.id}`}>
-            <Input id={`email-${user.id}`} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input id={`email-${user.id}`} type="email" value={email} disabled={outranked} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           <Field label="Discord user id" htmlFor={`discord-${user.id}`}>
-            <Input id={`discord-${user.id}`} className="font-mono" value={discord} onChange={(e) => setDiscord(e.target.value)} />
+            <Input id={`discord-${user.id}`} className="font-mono" value={discord} disabled={outranked} onChange={(e) => setDiscord(e.target.value)} />
           </Field>
           <Button
             size="sm"
-            disabled={!contactChanged || busy !== null}
+            disabled={!contactChanged || busy !== null || outranked}
+            title={outrankedWhy}
             onClick={() => run('contact', () => api.setUserContact(user.id, { email, discordUserId: discord }))}
           >
             {busy === 'contact' ? 'Saving…' : 'Save contact details'}
@@ -442,7 +460,8 @@ function UserDrawer({
             <Button
               size="sm"
               variant="outline"
-              disabled={busy !== null || user.isDisabled}
+              disabled={busy !== null || user.isDisabled || outranked}
+              title={outrankedWhy}
               onClick={() =>
                 run('reset', () => api.createResetLink(user.id).then((link) => setResetLink(link)))
               }
@@ -455,15 +474,20 @@ function UserDrawer({
         <section className="space-y-2">
           <div className="font-label">Access</div>
           {user.isDisabled ? (
-            <Button size="sm" disabled={busy !== null} onClick={() => run('enable', () => api.enableUser(user.id))}>
+            <Button
+              size="sm"
+              disabled={busy !== null || outranked}
+              title={outrankedWhy}
+              onClick={() => run('enable', () => api.enableUser(user.id))}
+            >
               {busy === 'enable' ? 'Working…' : 'Enable this account'}
             </Button>
           ) : (
             <ConfirmButton
               size="sm"
               variant="destructive"
-              disabled={busy !== null || user.id === me.id}
-              title={user.id === me.id ? 'You cannot disable your own account.' : undefined}
+              disabled={busy !== null || user.id === me.id || outranked}
+              title={user.id === me.id ? 'You cannot disable your own account.' : outrankedWhy}
               onConfirm={() => run('disable', () => api.disableUser(user.id))}
             >
               {busy === 'disable' ? 'Working…' : 'Disable this account'}
@@ -472,8 +496,8 @@ function UserDrawer({
           <Button
             variant="destructive"
             size="sm"
-            disabled={busy !== null || user.id === me.id}
-            title={user.id === me.id ? 'You cannot delete your own account.' : undefined}
+            disabled={busy !== null || user.id === me.id || outranked}
+            title={user.id === me.id ? 'You cannot delete your own account.' : outrankedWhy}
             onClick={() => setDeleting(true)}
           >
             Delete this account

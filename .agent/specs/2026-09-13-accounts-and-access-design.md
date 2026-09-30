@@ -75,6 +75,50 @@ Disabling an account, or changing its roles, is refused when it would leave no e
 holding the `Administrator` permission. A deployment with no administrator has no way back except
 editing the database, and the guard is cheaper than the support conversation.
 
+### 3.5 Role order
+
+*Added 2026-09-30, from the task "a Manage-users account can make an administrator a reset link".*
+Before this, `ManageUsers` reached every account and `ManageRoles` every role. A `ManageUsers`
+account could make an administrator a reset link, or set the administrator's email to its own
+address and ask for one, and sign in as them; it could also disable them or strip their roles
+while another administrator remained. The first answer checked that the caller held every
+permission the target held. The user replaced it with what Discord does: **roles have an order**,
+and the two permissions only reach what is below the caller.
+
+- **Order.** `modbot_role.position`, first at 0. Administrator is always first, whatever number is
+  stored (`RoleRank.PositionOf`). A new role is made at the bottom. The migration numbers what
+  exists: Administrator, then Moderator and every custom role by how many permissions each allows
+  (most first, older first between equals), then Viewer. Operators reorder from the roles page
+  with Move up and Move down. Only the order matters, so numbers may have gaps.
+- **Rank.** A person's rank is their highest role. Holding no role is the bottom.
+- **Manage users.** Changing roles or contact details, making a reset link, enabling, disabling,
+  deleting, and removing a paired companion are refused with 403 "You can only change accounts
+  below your highest role." unless the account's rank is *below* the caller's. **The same rank is
+  refused.** Giving or taking a role (on an account, on a new account, on an invite) is refused with
+  403 "You can only change roles below your highest role." unless every role added or removed is
+  below the caller's highest role. The existing rule that you cannot give a permission you lack
+  still runs first.
+- **Administrators** (the caller holds the `Administrator` permission) are above the rule and may
+  act on anyone, including other administrators.
+- **Own account.** Passes the account check, so what may be done to it is settled by each
+  endpoint's own rules ("You cannot disable your own account."). Taking your own highest role off
+  yourself is a role change and is refused like any other.
+- **Last administrator** (§3.4) is unchanged.
+- **Manage roles.** Editing, deleting and moving a role are refused with 403 "You can only change
+  roles below your highest role." unless the role is below the caller's highest role. A role can
+  only be moved when the role it changes places with is below the caller's highest role as well,
+  so a move never takes the caller's own place. The rule that you cannot put a permission you
+  lack into a role stays.
+- **API keys** are held to the same rule by their owner's rank, read now: a key carries its owner's
+  account id, so narrowing a key's permissions never raises its rank.
+- **Decisions.** Same rank is refused (this replaces the first answer "equal permissions may act
+  on each other"). Invites and account creation follow the role rule, because an invite is a way to
+  hand out a role. Moving a role writes a "Role changed" fact naming the role, the direction and
+  the role it passed.
+- The users page greys the buttons on an account at or above the caller, with the same sentence as
+  each button's title; the roles page greys Move up and Move down, and editing, for roles at or
+  above the caller; the paired companions list greys Remove. The server refuses either way.
+
 ## 4. Users
 
 All under `ManageUsers`. Accounts are **never deleted** — facts reference the actor id (§5.9.1) —

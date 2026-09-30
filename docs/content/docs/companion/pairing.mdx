@@ -182,7 +182,7 @@ it is, when it was paired, when it last reported, and when it was removed.
 
 In the web app, open **Settings**, **Paired companions**. It lists your own companions: who, the
 platform, the client version and when each last reported. Somebody holding **Manage users** sees
-everybody's. **Remove** takes one away; the companion is refused from its next request. Removed
+everybody's, and can remove those of people whose highest role is below theirs. **Remove** takes one away; the companion is refused from its next request. Removed
 companions are not listed.
 
 **Last seen** is written at most once every five minutes, and straight away when the client
@@ -202,9 +202,11 @@ ones. Each says whose it is. It never shows a token.
 DELETE /api/companion-devices/{deviceId}
 ```
 
-Removes one device: your own, or anybody's with **Manage users**. It answers `204` when removed,
-`403` for somebody else's device without **Manage users**, and `404` when there is no such device
-or it was already removed. A removed device stays in the list, with the time it was removed.
+Removes one device: your own, or with **Manage users** the device of anybody whose highest role is
+below yours (see [the order of roles](/accounts/roles-and-permissions#the-order-of-roles)). It
+answers `204` when removed, `403` for somebody else's device without **Manage users**, or when its
+owner's highest role is not below yours, and `404` when there is no such device or it was already
+removed. A removed device stays in the list, with the time it was removed.
 
 ### When a companion stops by itself
 

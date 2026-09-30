@@ -51,7 +51,9 @@ public class ResetLinkTests
     public async Task AnAdministratorsResetLink_SetsANewPassword_EndsOldSessions_AndWorksOnce()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
-        var (_, admin) = await host.SignedInAsync(ModbotPermissions.ManageUsers, Ct);
+        // One permission more than the account it acts on: the same number is the same rank, which
+        // is refused (accounts and access design §3.5).
+        var (_, admin) = await host.SignedInAsync(ModbotPermissions.ManageUsers | ModbotPermissions.ViewMembers, Ct);
         var (user, oldSession) = await host.SignedInAsync(ModbotPermissions.ViewMembers, Ct);
 
         var created = await host.SendJsonAsync(HttpMethod.Post, $"/api/users/{user.Id}/reset-link", null, admin, Ct);

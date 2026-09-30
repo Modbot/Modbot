@@ -1,5 +1,6 @@
 using Modbot.Api.Auth;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Users;
 
@@ -8,6 +9,10 @@ public sealed record RoleRef(Guid Id, string Name);
 /// <summary>One row of the users page.</summary>
 /// <param name="PermissionNames">The union of the roles, as names. What the person can actually do.</param>
 /// <param name="VRChatLinked">Whether they have linked their VRChat account yet (design §4.3).</param>
+/// <param name="Rank">
+/// The position of their highest role, first at 0 (design §3.5). Null when they hold no role,
+/// which is below every role. The users page compares it with the signed-in person's own.
+/// </param>
 public sealed record UserSummary(
     Guid Id,
     string Username,
@@ -21,7 +26,8 @@ public sealed record UserSummary(
     string? Email,
     string? DiscordUserId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? LastLoginAt)
+    DateTimeOffset? LastLoginAt,
+    int? Rank = null)
 {
     public static UserSummary From(ModbotUser user)
     {
@@ -40,7 +46,8 @@ public sealed record UserSummary(
             user.Email,
             user.DiscordUserId,
             user.CreatedAt,
-            user.LastLoginAt);
+            user.LastLoginAt,
+            user.Roles.Count == 0 ? null : RoleRank.Of(user));
     }
 }
 

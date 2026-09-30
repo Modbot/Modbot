@@ -1,13 +1,16 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Devices;
+using Modbot.Api.Features.Roles;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Companion.PairingCodes;
 
@@ -28,6 +31,10 @@ public sealed record IssuedPairingCode(string Code, DateTimeOffset ExpiresAt);
 /// That account's username, or null when the account row is gone. A deleted account keeps its row
 /// under a <c>deleted_user_</c> name, so null is rare.
 /// </param>
+/// <param name="OwnerRank">
+/// The position of the owner's highest role, first at 0; null when they hold no role. The list
+/// greys Remove for a companion whose owner is not below the person looking (design §3.5).
+/// </param>
 public sealed record PairedDevice(
     Guid Id,
     string CompanionVersion,
@@ -36,7 +43,8 @@ public sealed record PairedDevice(
     DateTimeOffset? LastSeenAt,
     DateTimeOffset? RevokedAt,
     Guid OwnerId,
-    string? OwnerName);
+    string? OwnerName,
+    int? OwnerRank = null);
 
 /// <summary>
 /// The staff side of pairing: generate a code, see which devices are reporting, revoke one.
@@ -50,7 +58,8 @@ public sealed record PairedDevice(
 /// the device it became could read who is flagged in every instance.</para>
 /// <para><strong>Your own devices, or everyone's with Manage users.</strong> The list shows the
 /// caller's own devices; an account holding Manage users sees every device, with whose each one
-/// is. Removing one needs the same: it is yours, or you hold Manage users.</para>
+/// is. Removing one needs the same: it is yours, or you hold Manage users and its owner's highest
+/// role is below yours (accounts and access design §3.5, 2026-09-30).</para>
 /// <para><strong>Installing is a decision by the moderator, not a policy pushed at them.</strong>
 /// A group owner can ask; they cannot silently enrol somebody. The code exists so the moderator
 /// has to take a deliberate action on their own machine for anything to start reporting.</para>
@@ -119,6 +128,13 @@ public static class PairingCodesEndpoint
                     .Select(u => new { u.Id, u.Username })
                     .ToDictionaryAsync(u => u.Id, u => u.Username, ct);
 
+                var ranks = (await db.UserRoles.AsNoTracking()
+                        .Where(ur => ownerIds.Contains(ur.UserId))
+                        .Select(ur => new { ur.UserId, ur.Role })
+                        .ToListAsync(ct))
+                    .GroupBy(ur => ur.UserId)
+                    .ToDictionary(g => g.Key, g => RoleRank.Of(g.Select(ur => ur.Role)));
+
                 return Results.Ok(paired
                     .Select(d => new PairedDevice(
                         d.Id,
@@ -128,7 +144,8 @@ public static class PairingCodesEndpoint
                         d.LastSeenAt,
                         d.RevokedAt,
                         d.IssuedToUserId,
-                        names.GetValueOrDefault(d.IssuedToUserId)))
+                        names.GetValueOrDefault(d.IssuedToUserId),
+                        ranks.TryGetValue(d.IssuedToUserId, out var rank) ? rank : null))
                     .ToList());
             })
             .WithName("ListPairedDevices")
@@ -146,6 +163,7 @@ public static class PairingCodesEndpoint
                 Guid deviceId,
                 HttpContext context,
                 ICompanionDeviceStore devices,
+                [FromServices] UserAccountService accounts,
                 AlertHub alerts,
                 IModbotClock clock,
                 CancellationToken ct) =>
@@ -163,6 +181,12 @@ public static class PairingCodesEndpoint
                     return Results.Forbid();
                 }
 
+                // And the person it belongs to must be below the caller's highest role (accounts
+                // and access design §3.5): removing a companion is a change to that account.
+                // Your own always passes.
+                if (await RoleOrder.MayNotChangeAccountAsync(context, accounts, device.IssuedToUserId, ct) is { } outranked)
+                    return outranked;
+
                 if (!await devices.RevokeAsync(deviceId, clock.UtcNow, ct))
                     return Results.NotFound();
 
@@ -175,7 +199,8 @@ public static class PairingCodesEndpoint
             .WithName("RevokeClientDevice")
             .WithSummary("Revoke a device")
             .WithDescription(
-                "Your own device, or anybody's when you hold Manage users. "
+                "Your own device, or the device of anybody whose highest role is below yours when "
+                + "you hold Manage users. "
                 + "Immediate: the client is refused at its next request and stops visibly rather "
                 + "than retrying.\n\n"
                 + "The device record is kept rather than deleted, because the facts it reported "

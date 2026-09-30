@@ -143,6 +143,11 @@ export type CurrentUser = {
   vrChatDisplayName: string | null
   email: string | null
   discordUserId: string | null
+  /**
+   * The position of the account's highest role, first at 0; null with no role. Compare it with a
+   * row's own through `isBelowMe` — Manage users and Manage roles only reach what is below it.
+   */
+  rank: number | null
 }
 
 export type PermissionInfo = {
@@ -162,6 +167,8 @@ export type RoleView = {
   /** Administrator: always everything, nothing editable. */
   locked: boolean
   userCount: number
+  /** Where it sits in the order, first at 0. The list comes back in this order. */
+  position: number
 }
 
 export type RolesResponse = { roles: RoleView[]; permissions: PermissionInfo[] }
@@ -182,6 +189,8 @@ export type UserSummary = {
   discordUserId: string | null
   createdAt: string
   lastLoginAt: string | null
+  /** The position of their highest role, first at 0; null with no role. */
+  rank: number | null
 }
 
 /**
@@ -617,6 +626,8 @@ export type PairedCompanion = {
   revokedAt: string | null
   ownerId: string
   ownerName: string | null
+  /** The position of the owner's highest role, first at 0; null with no role. */
+  ownerRank: number | null
 }
 
 /** One recorded size per UTC day. `day` is `yyyy-mm-dd`. */
@@ -4149,6 +4160,10 @@ export const api = {
     put<RoleView>(`/api/roles/${id}`, body),
 
   deleteRole: (id: string) => del<void>(`/api/roles/${id}`),
+
+  /** One place up or down. Answers with the roles in their new order. */
+  moveRole: (id: string, direction: 'up' | 'down') =>
+    post<RolesResponse>(`/api/roles/${id}/move`, { direction }),
 
   // ── Settings that the accounts layer added ──────────────────────────────────────────────
 

@@ -31,6 +31,19 @@ public class ModbotRole
     public ModbotPermissions Permissions { get; set; }
 
     /// <summary>
+    /// Where this role sits in the order, first at 0. A smaller number is a higher role.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Accounts and access design §3.5. A person's rank is their highest role, and Manage users
+    /// and Manage roles only reach accounts and roles below the caller's own. Administrator is
+    /// always first. Only the order matters: numbers may have gaps (a deleted role leaves one),
+    /// and two roles that somehow share a number are told apart by <see cref="CreatedAt"/>.
+    /// </para>
+    /// </remarks>
+    public int Position { get; set; }
+
+    /// <summary>
     /// Seeded by the migration rather than created by a person. Built-in roles can be edited
     /// (except Administrator, which always means everything) and never deleted.
     /// </summary>

@@ -935,13 +935,19 @@ const SENTENCES: Record<string, Sentence> = {
   'modbot.user.sign-out-everywhere': (p) => <>{p.subject} was signed out of Modbot everywhere.</>,
 
   'modbot.role.create': (p) => <>{p.actor} created {named(p.text('name'), 'Modbot role')}.</>,
-  'modbot.role.change': (p) => (
-    <>
-      {p.actor} changed {named(p.text('name'), 'Modbot role')}
-      <Changed changed={p.changed} />.
-      <ChangedLists changed={p.changed} />
-    </>
-  ),
+  'modbot.role.change': (p) =>
+    p.text('moved') ? (
+      <>
+        {p.actor} moved {named(p.text('name'), 'Modbot role')} {p.text('moved')} past{' '}
+        {named(p.text('past'), 'Modbot role')}.
+      </>
+    ) : (
+      <>
+        {p.actor} changed {named(p.text('name'), 'Modbot role')}
+        <Changed changed={p.changed} />.
+        <ChangedLists changed={p.changed} />
+      </>
+    ),
   'modbot.role.delete': (p) => <>{p.actor} deleted {named(p.text('name'), 'Modbot role')}.</>,
 
   'modbot.apikey.create': (p) => <>{p.actor} created an API key.</>,

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Onboarding.CreateAdmin;
+using Modbot.Api.Features.Roles;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Users;
@@ -30,6 +31,14 @@ namespace Modbot.Api.Features.Users;
 /// holding Administrator (design §3.4). <strong>No giving what you do not have</strong>: a caller
 /// may only assign roles whose permissions they hold themselves, or a manage-users account could
 /// hand itself Administrator by way of a role.
+/// </para>
+/// <para>
+/// <strong>Only below your highest role</strong> (design §3.5, 2026-09-30): reset links, contact
+/// details, enabling, disabling, deleting and roles are refused for an account whose highest role
+/// is not below the caller's, and only roles below the caller's highest role may be given or taken
+/// away. A reset link or a new email address is a way into the account, so without this a
+/// manage-users account could sign in as an administrator. Administrators are above the rule.
+/// Changing your own account passes the account check (see <see cref="RoleOrder"/>).
 /// </para>
 /// <para>
 /// Every change and its fact commit in one transaction (design §6). Every parameter is
@@ -141,10 +150,13 @@ public static class UserEndpoints
                 if (user is null)
                     return Results.NotFound();
 
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, user, ct) is { } outranked)
+                    return outranked;
+
                 if (user.IsDeleted)
                     return Results.BadRequest(new { error = Deleted });
 
-                if (await MayNotAssignAsync(accounts, http, body.RoleIds ?? [], ct) is { } refused)
+                if (await MayNotAssignAsync(accounts, http, body.RoleIds ?? [], ct, user) is { } refused)
                     return refused;
 
                 IReadOnlyList<ModbotRole> roles;
@@ -189,7 +201,9 @@ public static class UserEndpoints
             .WithSummary("Set user roles")
             .WithDescription(
                 "Replace an account's roles. "
-                + "Takes effect on that person's next request, not their next sign-in.")
+                + "Takes effect on that person's next request, not their next sign-in. "
+                + "Refused unless the account's highest role is below yours, and for any role "
+                + "added or taken away that is not below your highest role.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -206,6 +220,9 @@ public static class UserEndpoints
                 var user = await accounts.FindAsync(id, ct);
                 if (user is null)
                     return Results.NotFound();
+
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, user, ct) is { } outranked)
+                    return outranked;
 
                 if (ModbotAuth.UserIdOf(http.User) == id)
                     return Results.BadRequest(new { error = "You cannot disable your own account." });
@@ -239,7 +256,8 @@ public static class UserEndpoints
             .WithDescription(
                 "Disable an account and end its sessions. "
                 + "Never delete: facts reference the account. Refused for your own account and for "
-                + "the last enabled administrator.")
+                + "the last enabled administrator, and for an account whose highest role is not "
+                + "below yours.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -260,6 +278,9 @@ public static class UserEndpoints
                 var user = await accounts.FindAsync(id, ct);
                 if (user is null)
                     return Results.NotFound();
+
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, user, ct) is { } outranked)
+                    return outranked;
 
                 if (user.IsDeleted)
                     return Results.Ok(UserSummary.From(user));
@@ -307,8 +328,9 @@ public static class UserEndpoints
                 + "The account's username, email, password, Discord id, VRChat link and roles are "
                 + "replaced or cleared, and it is left under a deleted_user_ name. Facts, case "
                 + "files, notes and moderation actions keep pointing at it. The request must carry "
-                + "the account's username, typed out. Refused for your own account and for the "
-                + "last enabled administrator.")
+                + "the account's username, typed out. Refused for your own account, for the "
+                + "last enabled administrator, and for an account whose highest role is not "
+                + "below yours.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -325,6 +347,9 @@ public static class UserEndpoints
                 var user = await accounts.FindAsync(id, ct);
                 if (user is null)
                     return Results.NotFound();
+
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, user, ct) is { } outranked)
+                    return outranked;
 
                 if (user.IsDeleted)
                     return Results.BadRequest(new { error = Deleted });
@@ -345,7 +370,8 @@ public static class UserEndpoints
             })
             .WithName("EnableUser")
             .WithSummary("Enable user")
-            .WithDescription("Re-enable a disabled account.")
+            .WithDescription(
+                "Re-enable a disabled account. Refused for an account whose highest role is not below yours.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -366,6 +392,9 @@ public static class UserEndpoints
                 if (user is null)
                     return Results.NotFound();
 
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, user, ct) is { } outranked)
+                    return outranked;
+
                 if (user.IsDeleted)
                     return Results.BadRequest(new { error = Deleted });
 
@@ -375,7 +404,9 @@ public static class UserEndpoints
             })
             .WithName("SetUserContact")
             .WithSummary("Set user contact details")
-            .WithDescription("Set the email address and Discord user id a reset link can be sent to.")
+            .WithDescription(
+                "Set the email address and Discord user id a reset link can be sent to. "
+                + "Refused for an account whose highest role is not below yours.")
             .Produces<UserSummary>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -393,6 +424,9 @@ public static class UserEndpoints
                 var user = await accounts.FindAsync(id, ct);
                 if (user is null)
                     return Results.NotFound();
+
+                if (await RoleOrder.MayNotChangeAccountAsync(http, accounts, user, ct) is { } outranked)
+                    return outranked;
 
                 if (user.IsDeleted)
                     return Results.BadRequest(new { error = Deleted });
@@ -430,7 +464,8 @@ public static class UserEndpoints
             .WithDescription(
                 "Make a one-time password reset link for this account. "
                 + "Shown once. The server keeps only a hash, so copy it now. Good for 24 hours, "
-                + "and using it ends every session the account has.")
+                + "and using it ends every session the account has. "
+                + "Refused for an account whose highest role is not below yours.")
             .Produces<LinkCreated>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -519,10 +554,20 @@ public static class UserEndpoints
     }
 
     /// <summary>
-    /// Refuses roles whose permissions the caller does not hold. Administrator holds everything.
+    /// Refuses roles whose permissions the caller does not hold, then roles that are not below the
+    /// caller's highest role. Administrator holds everything and is above every rank.
     /// </summary>
+    /// <param name="current">
+    /// The account whose roles are being replaced, or null for a new account. The order rule
+    /// covers every role added and every role taken away; a role the account holds and keeps is
+    /// not a change and is not checked.
+    /// </param>
     private static async Task<IResult?> MayNotAssignAsync(
-        UserAccountService accounts, HttpContext http, IReadOnlyCollection<Guid> roleIds, CancellationToken ct)
+        UserAccountService accounts,
+        HttpContext http,
+        IReadOnlyCollection<Guid> roleIds,
+        CancellationToken ct,
+        ModbotUser? current = null)
     {
         var held = ModbotAuth.PermissionsOf(http.User);
         if (held.HasFlag(ModbotPermissions.Administrator))
@@ -539,9 +584,14 @@ public static class UserEndpoints
         }
 
         var wanted = ModbotRole.Union(roles.Select(r => r.Permissions));
-        return ModbotAuth.Allows(held, wanted)
-            ? null
-            : Results.BadRequest(new { error = "You can only give people permissions you have yourself." });
+        if (!ModbotAuth.Allows(held, wanted))
+            return Results.BadRequest(new { error = "You can only give people permissions you have yourself." });
+
+        var changed = current is null
+            ? roles
+            : RoleOrder.RolesChanged(current.Roles.Select(r => r.Role), roles);
+
+        return await RoleOrder.MayNotChangeRolesAsync(http, accounts, changed, ct);
     }
 
     internal static string? Clean(string? value)

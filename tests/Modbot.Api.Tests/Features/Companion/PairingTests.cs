@@ -397,7 +397,10 @@ public class PairingTests
 
         var (owner, ownerCookie) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
         var (_, colleagueCookie) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
-        var (_, managerCookie) = await host.SignedInAsync(ModbotPermissions.ManageUsers, ct);
+
+        // One permission more than the owner: the same number is the same rank, and a manager
+        // only reaches the companions of people below them (accounts and access design §3.5).
+        var (_, managerCookie) = await host.SignedInAsync(ModbotPermissions.ManageUsers | ModbotPermissions.ViewMembers, ct);
 
         var (_, first) = await PairToAsync(host, owner.Id, ct);
         var (_, second) = await PairToAsync(host, owner.Id, ct);
@@ -413,6 +416,48 @@ public class PairingTests
 
         Assert.Equal(HttpStatusCode.NotFound, (await host.SendJsonAsync(
             HttpMethod.Delete, $"/api/companion-devices/{Guid.NewGuid()}", null, managerCookie, ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task AManager_RemovesOnlyTheDevicesOfPeopleBelowThem_AndTheirOwn()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ApiTestHost.StartAsync(_db, companion: true);
+
+        // Three permissions: above the one-permission owner, the same as the peer, below the four
+        // of the other (accounts and access design §3.5).
+        var manager = ModbotPermissions.ManageUsers | ModbotPermissions.PairCompanion | ModbotPermissions.ViewMembers;
+        var (managerUser, managerCookie) = await host.SignedInAsync(manager, ct);
+        var below = await host.CreateUserAsync($"u_{Guid.NewGuid():N}", TestAccounts.Password, ModbotPermissions.PairCompanion, ct);
+        var peer = await host.CreateUserAsync($"u_{Guid.NewGuid():N}", TestAccounts.Password, manager, ct);
+        var above = await host.CreateUserAsync($"u_{Guid.NewGuid():N}", TestAccounts.Password, manager | ModbotPermissions.ViewProfile, ct);
+        var administrator = await host.CreateUserAsync($"u_{Guid.NewGuid():N}", TestAccounts.Password, ModbotPermissions.Administrator, ct);
+
+        var sentence = "You can only change accounts below your highest role.";
+
+        foreach (var owner in new[] { peer, above, administrator })
+        {
+            var (_, device) = await PairToAsync(host, owner.Id, ct);
+            var refused = await host.SendJsonAsync(HttpMethod.Delete, $"/api/companion-devices/{device}", null, managerCookie, ct);
+
+            Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+            Assert.Contains(sentence, await refused.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
+        }
+
+        var (_, belowDevice) = await PairToAsync(host, below.Id, ct);
+        Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(
+            HttpMethod.Delete, $"/api/companion-devices/{belowDevice}", null, managerCookie, ct)).StatusCode);
+
+        var (_, ownDevice) = await PairToAsync(host, managerUser.Id, ct);
+        Assert.Equal(HttpStatusCode.NoContent, (await host.SendJsonAsync(
+            HttpMethod.Delete, $"/api/companion-devices/{ownDevice}", null, managerCookie, ct)).StatusCode);
+
+        // The list tells the page whose rank each owner has, so it can grey Remove.
+        var list = await ApiTestHost.BodyOf(
+            await host.SendJsonAsync(HttpMethod.Get, "/api/companion-devices", null, managerCookie, ct), ct);
+        var ranks = list.EnumerateArray().ToDictionary(
+            d => d.GetProperty("ownerId").GetGuid(), d => d.GetProperty("ownerRank").GetInt32());
+        Assert.Equal(TestAccounts.PositionFor(manager | ModbotPermissions.ViewProfile), ranks[above.Id]);
     }
 
     [Fact]

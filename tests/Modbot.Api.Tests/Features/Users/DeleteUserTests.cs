@@ -161,12 +161,13 @@ public class DeleteUserTests
     }
 
     [Fact]
-    public async Task TheLastAdministratorCannotBeDeleted()
+    public async Task AManagerCannotDeleteTheLastAdministrator()
     {
         await using var host = await ApiTestHost.StartAsync(_db);
 
-        // Nobody else in this database may be an enabled administrator for the guard to bite,
-        // and other tests leave administrators behind -- so clear the table first.
+        // Nobody else in this database may be an enabled administrator for the last-administrator
+        // guard to be the thing that matters, and other tests leave administrators behind -- so
+        // clear the table first.
         await ApiTestHost.ResetDeploymentAsync(_db, Ct);
         var (admin, _) = await host.SignedInAsync(ModbotPermissions.Administrator, Ct);
         var (_, manager) = await host.SignedInAsync(ModbotPermissions.ManageUsers, Ct);
@@ -174,9 +175,12 @@ public class DeleteUserTests
         var response = await host.SendJsonAsync(
             HttpMethod.Post, Path(admin.Id), new { username = admin.Username }, manager, Ct);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // Before roles had an order a manager reached the last-administrator guard here. Now the
+        // account is above them and they are stopped before it (accounts and access design §3.5);
+        // the guard itself is still what refuses a demotion of the last administrator (UsersTests).
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Contains(
-            "nobody who can administer Modbot",
+            "You can only change accounts below your highest role.",
             await response.Content.ReadAsStringAsync(Ct),
             StringComparison.Ordinal);
     }

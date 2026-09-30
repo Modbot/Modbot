@@ -14,6 +14,19 @@ export function can(user: CurrentUser | null, permission: string): boolean {
   return user.permissionNames.includes('Administrator') || user.permissionNames.includes(permission)
 }
 
+/**
+ * Whether something at this rank sits below the signed-in person's highest role. Ranks are role
+ * positions, first at 0, so below means a bigger number; null holds no role and is below every
+ * role. Administrator is above every rank.
+ *
+ * Manage users and Manage roles only reach what is below the caller, and the same rank is
+ * refused. This decides what to grey; the server refuses on every request.
+ */
+export function isBelowMe(me: CurrentUser, rank: number | null): boolean {
+  if (me.permissionNames.includes('Administrator')) return true
+  return (rank ?? Infinity) > (me.rank ?? Infinity)
+}
+
 export function canAny(user: CurrentUser | null, permissions: readonly string[]): boolean {
   return permissions.some((p) => can(user, p))
 }

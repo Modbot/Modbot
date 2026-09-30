@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -7,6 +8,7 @@ import { PanelGrid } from '@/components/PanelGrid'
 import { Input } from '@/components/ui/input'
 import { ApiError, api, type CurrentUser, type PermissionInfo, type RoleView } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { isBelowMe } from '@/lib/permissions'
 import { Empty } from '@/components/ListParts'
 import { ErrorText, Field } from '@/pages/setup/WizardChrome'
 import { Notice } from '@/components/ui/notice'
@@ -24,6 +26,8 @@ export function Roles({ me }: { me: CurrentUser }) {
   const [catalogue, setCatalogue] = useState<PermissionInfo[]>([])
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [moving, setMoving] = useState(false)
+  const [moveError, setMoveError] = useState<string | null>(null)
 
   const refresh = useCallback(
     () =>
@@ -45,9 +49,30 @@ export function Roles({ me }: { me: CurrentUser }) {
   if (error) return <Empty tone="danger">{error}</Empty>
   if (!roles) return <Empty>Loading…</Empty>
 
+  // A role can go up or down only when it, and the role it changes places with, are below your
+  // highest role: otherwise it would take your own place or go above it (design §3.5). Administrator
+  // stays first, and nothing goes above it.
+  const canMove = (i: number, direction: 'up' | 'down') => {
+    const role = roles[i]
+    if (role.locked || !isBelowMe(me, role.position)) return false
+    if (direction === 'down') return i < roles.length - 1
+    return i > 0 && !roles[i - 1].locked && isBelowMe(me, roles[i - 1].position)
+  }
+
+  const move = (id: string, direction: 'up' | 'down') => {
+    setMoving(true)
+    setMoveError(null)
+    api
+      .moveRole(id, direction)
+      .then((r) => setRoles(r.roles))
+      .catch((e: unknown) => setMoveError(e instanceof ApiError ? e.message : 'Could not move the role.'))
+      .finally(() => setMoving(false))
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-3">
+        <ErrorText>{moveError}</ErrorText>
         <Button onClick={() => setCreating(true)} disabled={creating}>
           New role
         </Button>
@@ -66,8 +91,20 @@ export function Roles({ me }: { me: CurrentUser }) {
           />
         )}
 
-        {roles.map((r) => (
-          <RoleEditor key={r.id} role={r} catalogue={catalogue} me={me} onSaved={() => void refresh()} />
+        {roles.map((r, i) => (
+          <RoleEditor
+            key={r.id}
+            role={r}
+            catalogue={catalogue}
+            me={me}
+            onSaved={() => void refresh()}
+            mover={{
+              canUp: canMove(i, 'up'),
+              canDown: canMove(i, 'down'),
+              busy: moving,
+              onMove: (direction) => move(r.id, direction),
+            }}
+          />
         ))}
       </PanelGrid>
     </div>
@@ -80,12 +117,14 @@ function RoleEditor({
   me,
   onSaved,
   onCancel,
+  mover,
 }: {
   role?: RoleView
   catalogue: PermissionInfo[]
   me: CurrentUser
   onSaved: () => void
   onCancel?: () => void
+  mover?: { canUp: boolean; canDown: boolean; busy: boolean; onMove: (direction: 'up' | 'down') => void }
 }) {
   const [name, setName] = useState(role?.name ?? '')
   const [description, setDescription] = useState(role?.description ?? '')
@@ -96,7 +135,11 @@ function RoleEditor({
 
   const isAdmin = me.permissionNames.includes('Administrator')
   const locked = role?.locked ?? false
-  const canTick = (p: PermissionInfo) => isAdmin || me.permissionNames.includes(p.name)
+  // A role at or above your highest role is shown but not changed by you (design §3.5). A new one
+  // is made at the bottom, so always yours to fill in.
+  const outranked = role !== undefined && !isBelowMe(me, role.position)
+  const outrankedWhy = outranked ? 'You can only change roles below your highest role.' : undefined
+  const canTick = (p: PermissionInfo) => !outranked && (isAdmin || me.permissionNames.includes(p.name))
 
   const groups = useMemo(() => {
     const byGroup = new Map<string, PermissionInfo[]>()
@@ -137,10 +180,10 @@ function RoleEditor({
 
   return (
     <Card>
-      <CardHeader className={cn('p-0', !open && 'border-b-0 bg-card')}>
+      <CardHeader className={cn('flex-nowrap gap-x-0 p-0', !open && 'border-b-0 bg-card')}>
         <button
           type="button"
-          className="flex w-full items-center gap-3 px-(--panel-pad) py-1.5 text-left hover:bg-muted/50"
+          className="flex min-w-0 flex-1 items-center gap-3 px-(--panel-pad) py-1.5 text-left hover:bg-muted/50"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
         >
@@ -177,6 +220,32 @@ function RoleEditor({
             </span>
           )}
         </button>
+        {mover && (
+          <div className="flex shrink-0 items-center gap-1 pr-(--panel-pad)">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Move ${role?.name} up`}
+              title={outranked ? outrankedWhy : undefined}
+              disabled={!mover.canUp || mover.busy}
+              onClick={() => mover.onMove('up')}
+            >
+              <ChevronUp />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Move ${role?.name} down`}
+              title={outranked ? outrankedWhy : undefined}
+              disabled={!mover.canDown || mover.busy}
+              onClick={() => mover.onMove('down')}
+            >
+              <ChevronDown />
+            </Button>
+          </div>
+        )}
       </CardHeader>
 
       {open && (
@@ -191,8 +260,8 @@ function RoleEditor({
                     <Input
                       id={`role-name-${role?.id ?? 'new'}`}
                       value={name}
-                      disabled={role?.isBuiltIn}
-                      title={role?.isBuiltIn ? 'Built-in roles keep their names.' : undefined}
+                      disabled={role?.isBuiltIn || outranked}
+                      title={role?.isBuiltIn ? 'Built-in roles keep their names.' : outrankedWhy}
                       onChange={(e) => setName(e.target.value)}
                     />
                   </Field>
@@ -200,6 +269,8 @@ function RoleEditor({
                     <Input
                       id={`role-desc-${role?.id ?? 'new'}`}
                       value={description}
+                      disabled={outranked}
+                      title={outrankedWhy}
                       onChange={(e) => setDescription(e.target.value)}
                     />
                   </Field>
@@ -218,7 +289,11 @@ function RoleEditor({
                             <Checkbox
                               key={p.name}
                               disabled={!allowed}
-                              title={allowed ? p.description : 'You can only put permissions into a role that you have yourself.'}
+                              title={
+                                allowed
+                                  ? p.description
+                                  : (outrankedWhy ?? 'You can only put permissions into a role that you have yourself.')
+                              }
                               checked={permissions.includes(p.name)}
                               onChange={(on) =>
                                 setPermissions(on ? [...permissions, p.name] : permissions.filter((n) => n !== p.name))
@@ -237,7 +312,12 @@ function RoleEditor({
                 <ErrorText>{error}</ErrorText>
 
                 <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={save} disabled={busy || !dirty || !name.trim()}>
+                  <Button
+                    size="sm"
+                    onClick={save}
+                    disabled={busy || !dirty || !name.trim() || outranked}
+                    title={outrankedWhy}
+                  >
                     {busy ? 'Saving…' : role ? 'Save changes' : 'Create role'}
                   </Button>
                   {onCancel && (
@@ -251,8 +331,14 @@ function RoleEditor({
                       size="sm"
                       variant="destructive"
                       onConfirm={remove}
-                      disabled={busy || role.userCount > 0}
-                      title={role.userCount > 0 ? 'Move the people who hold it to another role first.' : undefined}
+                      disabled={busy || role.userCount > 0 || outranked}
+                      title={
+                        outranked
+                          ? outrankedWhy
+                          : role.userCount > 0
+                            ? 'Move the people who hold it to another role first.'
+                            : undefined
+                      }
                     >
                       Delete role
                     </ConfirmButton>

@@ -1,3 +1,4 @@
+using System.Numerics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Core.Data;
@@ -52,6 +53,20 @@ public static class TestAccounts
         return user;
     }
 
+    /// <summary>
+    /// Where a test role sits in the order (accounts and access design §3.5): the more permissions,
+    /// the higher, and the same number of permissions the same place. Administrator is first of all.
+    /// </summary>
+    /// <remarks>
+    /// Above the built-in roles, which the migration numbers from 0, so a test account with a few
+    /// permissions can still hand out Moderator or Viewer the way the tests always have. A test
+    /// that needs one account to outrank another gives it one more permission.
+    /// </remarks>
+    public static int PositionFor(ModbotPermissions permissions)
+        => permissions.HasFlag(ModbotPermissions.Administrator)
+            ? -2000
+            : -1000 + (64 - BitOperations.PopCount((ulong)permissions));
+
     /// <summary>The role holding exactly these flags, created on first use.</summary>
     public static async Task<Guid> RoleForAsync(ModbotContext db, ModbotPermissions permissions, CancellationToken ct = default)
     {
@@ -71,6 +86,7 @@ public static class TestAccounts
             Description = "Created by a test.",
             Permissions = permissions,
             CreatedAt = new FakeClock().UtcNow,
+            Position = PositionFor(permissions),
         };
 
         db.Roles.Add(role);

@@ -345,6 +345,25 @@ public sealed class UserAccountService
     }
 
     /// <summary>
+    /// The rank of the account with this id: the position of its highest role, read now.
+    /// <see cref="RoleRank.Bottom"/> for an account with no role, or none at all.
+    /// </summary>
+    /// <remarks>
+    /// Read from the database on every call rather than from the session's claims, because the
+    /// order can change under a signed-in session the same way its permissions can.
+    /// </remarks>
+    public async Task<int> RankOfAsync(Guid userId, CancellationToken ct = default)
+    {
+        var roles = await _db.UserRoles
+            .AsNoTracking()
+            .Where(ur => ur.UserId == userId)
+            .Select(ur => ur.Role)
+            .ToListAsync(ct);
+
+        return RoleRank.Of(roles);
+    }
+
+    /// <summary>
     /// The account this sign-in names, matched against the username <em>or</em> the email address,
     /// both case-insensitively. Null when neither matches.
     /// </summary>

@@ -1,5 +1,6 @@
 using Modbot.Api.Auth;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Auth;
 
@@ -17,6 +18,11 @@ namespace Modbot.Api.Features.Auth;
 /// False until the person has linked their VRChat account (design §4.3). While false the SPA
 /// shows the link page and nothing else, and the server refuses everything but the link.
 /// </param>
+/// <param name="Rank">
+/// The position of the account's highest role, first at 0 (accounts and access design §3.5). Null
+/// with no role. The SPA greys what the server would refuse by comparing it with a row's own;
+/// enforcement is always server-side.
+/// </param>
 public sealed record SessionUser(
     Guid Id,
     string Username,
@@ -27,7 +33,8 @@ public sealed record SessionUser(
     string? VRChatUserId,
     string? VRChatDisplayName,
     string? Email,
-    string? DiscordUserId)
+    string? DiscordUserId,
+    int? Rank = null)
 {
     public static SessionUser From(ModbotUser user)
     {
@@ -45,6 +52,7 @@ public sealed record SessionUser(
             user.VRChatUserId,
             user.VRChatDisplayName,
             user.Email,
-            user.DiscordUserId);
+            user.DiscordUserId,
+            user.Roles.Count == 0 ? null : RoleRank.Of(user));
     }
 }

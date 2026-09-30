@@ -277,6 +277,6 @@ function Panel({
     case 'purge':
       return <PurgeSection />
     case 'companions':
-      return <PairedCompanionsSection />
+      return <PairedCompanionsSection me={me} />
   }
 }

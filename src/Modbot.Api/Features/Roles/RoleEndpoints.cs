@@ -9,6 +9,7 @@ using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.Core.Users;
 
 namespace Modbot.Api.Features.Roles;
 
@@ -18,6 +19,11 @@ namespace Modbot.Api.Features.Roles;
 /// can be edited.
 /// </param>
 /// <param name="UserCount">How many accounts hold it. A role somebody holds cannot be deleted.</param>
+/// <param name="Position">
+/// Where it sits in the order, first at 0 (design §3.5). The list comes back in this order, and a
+/// person's rank is the position of their highest role. Administrator always counts as first,
+/// whatever number is stored for it.
+/// </param>
 public sealed record RoleView(
     Guid Id,
     string Name,
@@ -25,7 +31,8 @@ public sealed record RoleView(
     IReadOnlyList<string> PermissionNames,
     bool IsBuiltIn,
     bool Locked,
-    int UserCount)
+    int UserCount,
+    int Position = 0)
 {
     public static RoleView From(ModbotRole role, int userCount) => new(
         role.Id,
@@ -34,8 +41,12 @@ public sealed record RoleView(
         PermissionCatalog.NamesOf(role.Permissions),
         role.IsBuiltIn,
         role.Id == BuiltInRoles.AdministratorId,
-        userCount);
+        userCount,
+        RoleRank.PositionOf(role));
 }
+
+/// <param name="Direction">"up" for one place higher, "down" for one place lower.</param>
+public sealed record MoveRoleRequest(string Direction);
 
 /// <param name="Permissions">The catalogue, with labels, so the page and the API use the same words.</param>
 public sealed record RolesResponse(IReadOnlyList<RoleView> Roles, IReadOnlyList<PermissionInfo> Permissions);
@@ -55,6 +66,12 @@ public sealed record RoleRequest(string Name, string? Description, IReadOnlyList
 /// Administrator by way of a role.
 /// </para>
 /// <para>
+/// <strong>Only below your highest role</strong> (design §3.5): a caller may only edit, delete or
+/// move a role that sits below their own highest role, and may not move one up to their own place
+/// or above it. A new role is made at the bottom. Administrator, who is above the rule, may
+/// reorder every role except Administrator, which is always first.
+/// </para>
+/// <para>
 /// Built-in roles keep their names and cannot be deleted. Administrator cannot be edited at all.
 /// A role people hold cannot be deleted: move them first, because silently stripping three
 /// accounts' access is not what anyone pressing Delete on a role expects.
@@ -68,26 +85,11 @@ public static class RoleEndpoints
 
         app.MapGet("/api/roles", async (
                 [FromServices] ModbotContext db,
-                CancellationToken ct) =>
-            {
-                var roles = await db.Roles.AsNoTracking()
-                    .OrderByDescending(r => r.IsBuiltIn)
-                    .ThenBy(r => r.NameNormalized)
-                    .ToListAsync(ct);
-
-                var counts = await db.UserRoles.AsNoTracking()
-                    .GroupBy(ur => ur.RoleId)
-                    .Select(g => new { RoleId = g.Key, Count = g.Count() })
-                    .ToDictionaryAsync(g => g.RoleId, g => g.Count, ct);
-
-                return Results.Ok(new RolesResponse(
-                    roles.Select(r => RoleView.From(r, counts.GetValueOrDefault(r.Id))).ToList(),
-                    PermissionCatalog.All));
-            })
+                CancellationToken ct) => Results.Ok(await ListAsync(db, ct)))
             .WithTags("Roles")
             .WithName("ListRoles")
             .WithSummary("List roles")
-            .WithDescription("Every role, and the permission catalogue.")
+            .WithDescription("Every role, highest first, and the permission catalogue.")
             .Produces<RolesResponse>()
             .Produces(StatusCodes.Status401Unauthorized)
             .RequireAuthorization();
@@ -120,6 +122,10 @@ public static class RoleEndpoints
                     Description = body.Description?.Trim() ?? string.Empty,
                     Permissions = permissions,
                     CreatedAt = clock.UtcNow,
+
+                    // At the bottom, below every role that exists (design §3.5): a person making
+                    // a role never makes one that outranks themselves.
+                    Position = (await db.Roles.MaxAsync(r => (int?)r.Position, ct) ?? -1) + 1,
                 };
 
                 await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -144,7 +150,7 @@ public static class RoleEndpoints
             })
             .WithName("CreateRole")
             .WithSummary("Add role")
-            .WithDescription("Create a role.")
+            .WithDescription("Create a role, at the bottom of the order.")
             .Produces<RoleView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -154,6 +160,7 @@ public static class RoleEndpoints
                 Guid id,
                 [FromBody] RoleRequest body,
                 [FromServices] ModbotContext db,
+                [FromServices] UserAccountService accounts,
                 [FromServices] AccountFacts facts,
                 HttpContext http,
                 CancellationToken ct) =>
@@ -163,6 +170,9 @@ public static class RoleEndpoints
                 var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct);
                 if (role is null)
                     return Results.NotFound();
+
+                if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, [role], ct) is { } outranked)
+                    return outranked;
 
                 if (role.Id == BuiltInRoles.AdministratorId)
                     return Results.BadRequest(new { error = "The Administrator role cannot be edited." });
@@ -219,7 +229,8 @@ public static class RoleEndpoints
             .WithSummary("Update role")
             .WithDescription(
                 "Change a role's name, description or permissions. "
-                + "Takes effect for everyone holding the role on their next request.")
+                + "Takes effect for everyone holding the role on their next request. "
+                + "Refused unless the role is below your highest role.")
             .Produces<RoleView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -229,6 +240,7 @@ public static class RoleEndpoints
         manage.MapDelete("/{id:guid}", async (
                 Guid id,
                 [FromServices] ModbotContext db,
+                [FromServices] UserAccountService accounts,
                 [FromServices] AccountFacts facts,
                 HttpContext http,
                 CancellationToken ct) =>
@@ -236,6 +248,9 @@ public static class RoleEndpoints
                 var role = await db.Roles.FirstOrDefaultAsync(r => r.Id == id, ct);
                 if (role is null)
                     return Results.NotFound();
+
+                if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, [role], ct) is { } outranked)
+                    return outranked;
 
                 if (role.IsBuiltIn)
                     return Results.BadRequest(new { error = "Built-in roles cannot be deleted." });
@@ -269,14 +284,130 @@ public static class RoleEndpoints
             })
             .WithName("DeleteRole")
             .WithSummary("Delete role")
-            .WithDescription("Delete a role nobody holds.")
+            .WithDescription("Delete a role nobody holds. Refused unless the role is below your highest role.")
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status409Conflict);
 
+        manage.MapPost("/{id:guid}/move", async (
+                Guid id,
+                [FromBody] MoveRoleRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] UserAccountService accounts,
+                [FromServices] AccountFacts facts,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var up = string.Equals(body.Direction, "up", StringComparison.OrdinalIgnoreCase);
+                if (!up && !string.Equals(body.Direction, "down", StringComparison.OrdinalIgnoreCase))
+                    return Results.BadRequest(new { error = "Direction is up or down." });
+
+                var roles = await OrderedAsync(db, ct);
+                var index = roles.FindIndex(r => r.Id == id);
+                if (index < 0)
+                    return Results.NotFound();
+
+                var role = roles[index];
+
+                if (await RoleOrder.MayNotChangeRolesAsync(http, accounts, [role], ct) is { } outranked)
+                    return outranked;
+
+                if (role.Id == BuiltInRoles.AdministratorId)
+                    return Results.BadRequest(new { error = "The Administrator role is always first." });
+
+                var otherIndex = up ? index - 1 : index + 1;
+                if (otherIndex < 0 || otherIndex >= roles.Count)
+                    return Results.BadRequest(new { error = up ? "That role is already first." : "That role is already last." });
+
+                var other = roles[otherIndex];
+
+                if (other.Id == BuiltInRoles.AdministratorId)
+                    return Results.BadRequest(new { error = "The Administrator role is always first." });
+
+                // The role it changes places with moves too. Moving up, that is the one above,
+                // and it must be below the caller as well: otherwise this role would take the
+                // caller's own place and push the caller down.
+                if (up && await RoleOrder.MayNotChangeRolesAsync(http, accounts, [other], ct) is { } blocked)
+                    return blocked;
+
+                await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+                if (role.Position != other.Position)
+                {
+                    // The two are next to each other in the order, so trading their numbers moves
+                    // them past each other and leaves every other role exactly where it is.
+                    (role.Position, other.Position) = (other.Position, role.Position);
+                }
+                else
+                {
+                    // Two roles sharing a number (two made at the same moment) would make a trade
+                    // do nothing: number everything again, in the order it was shown.
+                    (roles[index], roles[otherIndex]) = (roles[otherIndex], roles[index]);
+                    for (var i = 0; i < roles.Count; i++)
+                        roles[i].Position = i;
+                }
+
+                await db.SaveChangesAsync(ct);
+
+                await facts.RecordAsync(
+                    FactType.RoleChanged,
+                    role.Id.ToString(),
+                    Actor.Of(http),
+                    new JsonObject
+                    {
+                        ["name"] = role.Name,
+                        ["moved"] = up ? "up" : "down",
+                        ["past"] = other.Name,
+                    },
+                    ct);
+
+                await transaction.CommitAsync(ct);
+
+                return Results.Ok(await ListAsync(db, ct));
+            })
+            .WithName("MoveRole")
+            .WithSummary("Move role")
+            .WithDescription(
+                "Move a role one place up or down in the order. A person's rank is their highest "
+                + "role. Refused for a role that is not below your highest role, and for a move "
+                + "that would put a role at your own place or above it. Administrator is always "
+                + "first. Returns the roles in their new order.")
+            .Produces<RolesResponse>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound);
+
         return app;
+    }
+
+    /// <summary>The roles highest first: by position, then the older first, so ties are stable.</summary>
+    private static Task<List<ModbotRole>> OrderedAsync(ModbotContext db, CancellationToken ct)
+        => db.Roles
+            .OrderBy(r => r.Position)
+            .ThenBy(r => r.CreatedAt)
+            .ThenBy(r => r.Id)
+            .ToListAsync(ct);
+
+    private static async Task<RolesResponse> ListAsync(ModbotContext db, CancellationToken ct)
+    {
+        var roles = await db.Roles.AsNoTracking()
+            .OrderBy(r => r.Position)
+            .ThenBy(r => r.CreatedAt)
+            .ThenBy(r => r.Id)
+            .ToListAsync(ct);
+
+        var counts = await db.UserRoles.AsNoTracking()
+            .GroupBy(ur => ur.RoleId)
+            .Select(g => new { RoleId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.RoleId, g => g.Count, ct);
+
+        return new RolesResponse(
+            roles.Select(r => RoleView.From(r, counts.GetValueOrDefault(r.Id))).ToList(),
+            PermissionCatalog.All);
     }
 
     private static string? Validate(HttpContext http, RoleRequest body, out ModbotPermissions permissions)

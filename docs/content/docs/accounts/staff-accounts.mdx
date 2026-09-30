@@ -202,9 +202,11 @@ A deployment with no administrator has no way back except editing the database, 
 second person holds Administrator before you step away.
 
 <Callout type="warn">
-Anyone with **Manage users** can disable or delete any account other than their own,
-administrators included, and can take roles away from people, as long as one enabled administrator
-is left. Give that permission to people you trust with the whole team.
+Anyone with **Manage users** can change, disable or delete accounts whose highest role is below
+their own, as long as one enabled administrator is left. An account at their rank or above, such as
+an administrator, can't be changed by them: they see "You can only change accounts below your
+highest role." Only an administrator can change an administrator. See
+[the order of roles](/accounts/roles-and-permissions#the-order-of-roles).
 </Callout>
 
 ## Email and Discord user id

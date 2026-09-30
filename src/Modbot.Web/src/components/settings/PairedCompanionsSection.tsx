@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { EmptyRow } from '@/components/PanelGrid'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
-import { api, type PairedCompanion } from '@/lib/api'
+import { api, type CurrentUser, type PairedCompanion } from '@/lib/api'
+import { isBelowMe } from '@/lib/permissions'
 import { ConfirmButton, Outcome, Placeholder } from './fields'
 import { SettingsCard, SettingsSection } from './SettingsCard'
 import { failure, when } from './api/shared'
@@ -14,7 +15,7 @@ import { failure, when } from './api/shared'
  * refused from its next request and a new pairing is the only way back. Removed ones are left out
  * of the list, which is of what can still report, not of everything that ever could.
  */
-export function PairedCompanionsSection() {
+export function PairedCompanionsSection({ me }: { me: CurrentUser }) {
   const [companions, setCompanions] = useState<PairedCompanion[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,14 +43,22 @@ export function PairedCompanionsSection() {
         <Placeholder>Loading…</Placeholder>
       ) : (
         <SettingsCard title="Paired companions" span={12} flush>
-          <CompanionList companions={companions} onChanged={() => void load()} />
+          <CompanionList companions={companions} me={me} onChanged={() => void load()} />
         </SettingsCard>
       )}
     </SettingsSection>
   )
 }
 
-function CompanionList({ companions, onChanged }: { companions: PairedCompanion[]; onChanged: () => void }) {
+function CompanionList({
+  companions,
+  me,
+  onChanged,
+}: {
+  companions: PairedCompanion[]
+  me: CurrentUser
+  onChanged: () => void
+}) {
   const [problem, setProblem] = useState<string | null>(null)
 
   if (companions.length === 0) return <EmptyRow>No paired companions.</EmptyRow>
@@ -76,21 +85,33 @@ function CompanionList({ companions, onChanged }: { companions: PairedCompanion[
           </>
         }
       >
-        {companions.map((c) => (
-          <Tr key={c.id}>
-            <Td className="font-medium">
-              <div className="max-w-[16rem] truncate" title={c.ownerName ?? undefined}>
-                {c.ownerName ?? '—'}
-              </div>
-            </Td>
-            <Td>{c.platform}</Td>
-            <Td className="font-mono">{c.companionVersion}</Td>
-            <Td className={c.lastSeenAt ? 'font-mono' : undefined}>{c.lastSeenAt ? when(c.lastSeenAt) : 'Never'}</Td>
-            <Td className="text-right">
-              <ConfirmButton onConfirm={() => remove(c.id)}>Remove</ConfirmButton>
-            </Td>
-          </Tr>
-        ))}
+        {companions.map((c) => {
+          // Your own always; somebody else's only when their highest role is below yours.
+          const outranked = c.ownerId !== me.id && !isBelowMe(me, c.ownerRank)
+          return (
+            <Tr key={c.id}>
+              <Td className="font-medium">
+                <div className="max-w-[16rem] truncate" title={c.ownerName ?? undefined}>
+                  {c.ownerName ?? '—'}
+                </div>
+              </Td>
+              <Td>{c.platform}</Td>
+              <Td className="font-mono">{c.companionVersion}</Td>
+              <Td className={c.lastSeenAt ? 'font-mono' : undefined}>
+                {c.lastSeenAt ? when(c.lastSeenAt) : 'Never'}
+              </Td>
+              <Td className="text-right">
+                <ConfirmButton
+                  onConfirm={() => remove(c.id)}
+                  disabled={outranked}
+                  title={outranked ? 'You can only change accounts below your highest role.' : undefined}
+                >
+                  Remove
+                </ConfirmButton>
+              </Td>
+            </Tr>
+          )
+        })}
       </Table>
       {problem && (
         <div className="border-t border-t-(length:--hairline) p-(--panel-pad)">

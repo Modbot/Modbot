@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Auth;
+using Modbot.Api.Features.Roles;
 using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -76,6 +77,14 @@ public static class CreateAdminHandler
         // later account created through here gets Viewer: the users screen is where roles are
         // chosen, and this endpoint is not that screen.
         var roleId = firstRun ? BuiltInRoles.AdministratorId : BuiltInRoles.ViewerId;
+
+        // A later account is one somebody with Manage users made, so the role it gets is theirs to
+        // give only while it is below their own highest role (accounts and access design §3.5).
+        if (!firstRun
+            && await RoleOrder.MayNotChangeRolesAsync(http, accounts, await accounts.RolesAsync([roleId], ct), ct) is { } outranked)
+        {
+            return outranked;
+        }
 
         var user = await accounts.CreateAsync(request.Username, request.Password, email!, [roleId], ct);
 
