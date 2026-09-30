@@ -1,6 +1,16 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts'
-import { ChartFrame, ChartTooltip, chartHeight, compactNumber, dateTime, minutes, seriesColor } from '@/components/charts'
+import {
+  ChartFrame,
+  ChartTooltip,
+  ToggleLegend,
+  chartHeight,
+  compactNumber,
+  dateTime,
+  minutes,
+  type ToggleLegendItem,
+  type TooltipRow,
+} from '@/components/charts'
 import { HeadCount } from '@/components/HeadCount'
 import { InstanceWorld } from '@/components/subject/InstanceWorld'
 import { SubjectLink, WorldLink } from '@/components/facts'
@@ -27,12 +37,23 @@ import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCount
 import { useLoad } from '@/lib/useLoad'
 import { usePhoneLayout } from '@/lib/phoneLayout'
 import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
-import { api, type CurrentUser, type InstanceView } from '@/lib/api'
+import { api, type CurrentUser, type InstanceView, type PeoplePresentPoint } from '@/lib/api'
 import { concernsInstance } from '@/lib/liveRules'
 import type { LiveEvent } from '@/lib/liveStream'
 import { useLiveVersion } from '@/lib/useLiveVersion'
 import { accessInGame, headCountText, plural } from '@/lib/format'
 import { instanceEnd, instanceName } from '@/lib/instanceName'
+import {
+  STEP_KINDS,
+  STEP_LABEL,
+  peopleOverTimeRows,
+  presenceColour,
+  presenceLabel,
+  presenceLines,
+  stepColour,
+  type PeopleRow,
+  type PresenceKey,
+} from '@/lib/peopleOverTime'
 import { can } from '@/lib/permissions'
 import { useOpeningTab } from '@/lib/subject'
 import { vrchatMedia } from '@/lib/vrchatMedia'
@@ -300,6 +321,8 @@ function Overview({
   )
 }
 
+const NOBODY: PeoplePresentPoint[] = []
+
 /**
  * The joins a moderator's client saw, as four numbers under one heading: every join, the different
  * people who made them (someone already there when the client arrived counts as one), the joins
@@ -329,66 +352,136 @@ function Joins({ view }: { view: InstanceView }) {
  *
  * A staircase, not a curve: a head count is kept only when it changes, so between two readings the
  * earlier one held. The last reading is carried to the end of the chart, because it held until then.
+ * Each step is coloured by what it was -- green up, dark red down at a kick, light red down when
+ * somebody left -- so a drop says why (`peopleOverTime.ts` says how one line becomes four).
  * Not about who was there, so it shows for everyone who may open the instance.
+ *
+ * Over it, lines a moderator can turn on: how many of the people a companion saw are group
+ * members, and how many hold each trust rank. Those come from presence facts, so they need the
+ * same permission as the People tab and exist only while a companion was in the instance. Off by
+ * default; the tooltip lists them either way.
  */
 function PeopleOverTime({ view }: { view: InstanceView }) {
   const from = Date.parse(view.instance.openedAt)
   const to = Date.parse(view.instance.closedAt ?? view.now)
   const span = to - from
 
-  const rows = view.headCounts.map((p) => ({ at: Date.parse(p.at), people: p.people, unsure: p.unsure }))
-  if (rows.length > 0 && rows[rows.length - 1].at < to) rows.push({ ...rows[rows.length - 1], at: to })
+  const present = view.canSeeWhoWasThere ? view.peoplePresent : NOBODY
+  const rows = useMemo(() => peopleOverTimeRows(view.headCounts, present, to), [view.headCounts, present, to])
+  const lines = useMemo(() => (present.length > 0 ? presenceLines(present) : []), [present])
+  const [shown, setShown] = useState<ReadonlySet<PresenceKey>>(() => new Set())
+
+  const toggle = (key: string) =>
+    setShown((was) => {
+      const next = new Set(was)
+      if (next.has(key as PresenceKey)) next.delete(key as PresenceKey)
+      else next.add(key as PresenceKey)
+      return next
+    })
+
+  const legend: ToggleLegendItem[] = [
+    ...STEP_KINDS.map((kind) => ({ key: kind, label: STEP_LABEL[kind], color: stepColour(kind), sample: 'line' as const })),
+    ...lines.map((key) => ({
+      key,
+      label: presenceLabel(key),
+      color: presenceColour(key),
+      sample: 'dashed' as const,
+      on: shown.has(key),
+    })),
+  ]
+
+  const byInstant = useMemo(() => new Map(rows.map((r) => [r.at, r])), [rows])
 
   return (
     <Panel title="People over time">
-      <ChartFrame height={chartHeight.regular} empty={rows.length === 0} emptyText="No head counts yet.">
-        <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-          <CartesianGrid vertical={false} />
-          <XAxis
-            dataKey="at"
-            type="number"
-            domain={[from, to]}
-            ticks={timeTicks(from, to)}
-            tickFormatter={(v: number) => timeLabel(v, span)}
-            tickLine={false}
-            axisLine={false}
-            minTickGap={16}
-          />
-          <YAxis width="auto" domain={[0, 'auto']} allowDecimals={false} tickLine={false} axisLine={false} />
-          <Tooltip content={ReadingTooltip} cursor={{ stroke: 'var(--chart-grid)' }} />
-          <Line
-            type="stepAfter"
-            dataKey="people"
-            name="people"
-            stroke={seriesColor(1)}
-            strokeWidth={2}
-            dot={false}
-            activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
-            isAnimationActive={false}
-          />
-        </LineChart>
-      </ChartFrame>
+      <div className="flex flex-col gap-2">
+        {rows.length > 0 && <ToggleLegend items={legend} onToggle={toggle} />}
+        <ChartFrame height={chartHeight.regular} empty={rows.length === 0} emptyText="No head counts yet.">
+          <LineChart data={rows} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="at"
+              type="number"
+              domain={[from, to]}
+              ticks={timeTicks(from, to)}
+              tickFormatter={(v: number) => timeLabel(v, span)}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={16}
+            />
+            <YAxis width="auto" domain={[0, 'auto']} allowDecimals={false} tickLine={false} axisLine={false} />
+            <Tooltip
+              content={(props) => <ReadingTooltip {...props} rows={byInstant} lines={lines} shown={shown} />}
+              cursor={{ stroke: 'var(--chart-grid)' }}
+            />
+            {STEP_KINDS.map((kind) => (
+              <Line
+                key={kind}
+                type="stepAfter"
+                dataKey={kind}
+                name={STEP_LABEL[kind]}
+                stroke={stepColour(kind)}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--card)' }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ))}
+            {lines.map((key) => (
+              <Line
+                key={key}
+                type="stepAfter"
+                dataKey={key}
+                name={presenceLabel(key)}
+                stroke={presenceColour(key)}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                dot={false}
+                activeDot={{ r: 3, strokeWidth: 2, stroke: 'var(--card)' }}
+                connectNulls={false}
+                hide={!shown.has(key)}
+                isAnimationActive={false}
+              />
+            ))}
+          </LineChart>
+        </ChartFrame>
+      </div>
     </Panel>
   )
 }
 
-/** One reading under the pointer: when, and how many -- "80?" when the count is unsure. */
-function ReadingTooltip({ active, label, payload }: TooltipContentProps) {
-  const reading = payload?.[0]?.payload as { people: number; unsure: boolean } | undefined
-  if (!active || !reading) return null
+/**
+ * One instant under the pointer: when, how many -- "80?" when the count is unsure -- and each of
+ * the member and rank lines, greyed with "(off)" when it is not drawn. A line that did not exist
+ * at that instant (no companion there yet, or gone) says "—".
+ */
+function ReadingTooltip({
+  active,
+  label,
+  payload,
+  rows,
+  lines,
+  shown,
+}: TooltipContentProps & { rows: Map<number, PeopleRow>; lines: PresenceKey[]; shown: ReadonlySet<PresenceKey> }) {
+  const row = rows.get(Number(label)) ?? (payload?.[0]?.payload as PeopleRow | undefined)
+  if (!active || !row || row.people === null) return null
 
-  return (
-    <ChartTooltip
-      title={readingTime(Number(label))}
-      rows={[
-        {
-          name: plural(reading.people, 'person', 'people'),
-          value: headCountText(reading.people, reading.unsure),
-          color: payload?.[0]?.color,
-        },
-      ]}
-    />
-  )
+  const list: TooltipRow[] = [
+    {
+      name: plural(row.people, 'person', 'people'),
+      value: headCountText(row.people, row.unsure),
+      color: stepColour(row.change),
+    },
+    ...lines.map((key) => ({
+      name: presenceLabel(key),
+      value: row[key] ?? '—',
+      color: presenceColour(key),
+      off: !shown.has(key),
+    })),
+  ]
+
+  return <ChartTooltip title={readingTime(Number(label))} rows={list} />
 }
 
 function People({ view }: { view: InstanceView }) {

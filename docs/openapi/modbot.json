@@ -11448,7 +11448,7 @@
           "Places"
         ],
         "summary": "Get instance",
-        "description": "One instance: where it was, when, how busy, who was in it and what happened there. The id is Modbot's own, not VRChat's number — VRChat hands the same number out again after an instance closes, so two evenings under one number are two instances.\n\nWho was in the instance and the facts recorded there need ViewAuditLog as well: that is moderation history (spec 5.9.4), while the instance's own shape is not. Without it `canSeeWhoWasThere` is false and both lists are empty.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "One instance: where it was, when, how busy, who was in it and what happened there. The id is Modbot's own, not VRChat's number — VRChat hands the same number out again after an instance closes, so two evenings under one number are two instances.\n\nWho was in the instance and the facts recorded there need ViewAuditLog as well: that is moderation history (spec 5.9.4), while the instance's own shape is not. Without it `canSeeWhoWasThere` is false, both lists are empty, and so is `peoplePresent`: how many members and how many of each trust rank a companion saw, moment by moment, which is drawn as lines a moderator can turn on over the head count. Each head count reading says whether it went `up`, or down at a `kick` recorded about then, or down because somebody `left`.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetInstance",
         "parameters": [
           {
@@ -27992,6 +27992,12 @@
           "unsure": {
             "type": "boolean",
             "default": false
+          },
+          "change": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -29142,7 +29148,8 @@
           "log",
           "logTruncated",
           "now",
-          "headCounts"
+          "headCounts",
+          "peoplePresent"
         ],
         "type": "object",
         "properties": {
@@ -29229,6 +29236,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/HeadCountPoint"
+            }
+          },
+          "peoplePresent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeoplePresentPoint"
             }
           }
         }
@@ -32577,6 +32590,108 @@
           },
           "coverage": {
             "$ref": "#/components/schemas/PeopleCoverage"
+          }
+        }
+      },
+      "PeoplePresentPoint": {
+        "required": [
+          "at",
+          "members",
+          "visitor",
+          "newUser",
+          "user",
+          "knownUser",
+          "trustedUser",
+          "legend",
+          "nuisance",
+          "vrChatTeam",
+          "rankUnknown"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "members": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "visitor": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "newUser": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "user": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "knownUser": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "trustedUser": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "legend": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "nuisance": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "vrChatTeam": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "rankUnknown": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

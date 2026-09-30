@@ -109,7 +109,11 @@ public static class PlacesEndpoints
                 + "again after an instance closes, so two evenings under one number are two instances.\n\n"
                 + "Who was in the instance and the facts recorded there need ViewAuditLog as well: "
                 + "that is moderation history (spec 5.9.4), while the instance's own shape is not. "
-                + "Without it `canSeeWhoWasThere` is false and both lists are empty.")
+                + "Without it `canSeeWhoWasThere` is false, both lists are empty, and so is "
+                + "`peoplePresent`: how many members and how many of each trust rank a companion saw, "
+                + "moment by moment, which is drawn as lines a moderator can turn on over the head "
+                + "count. Each head count reading says whether it went `up`, or down at a `kick` "
+                + "recorded about then, or down because somebody `left`.")
             .Produces<InstanceView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
@@ -290,17 +294,28 @@ public static class PlacesEndpoints
         var returningMembers = 0;
         IReadOnlyList<PersonSeen> people = [];
         IReadOnlyList<AuditEntry> log = [];
+        IReadOnlyList<PeoplePresentPoint> present = [];
+        IReadOnlyList<DateTimeOffset> kicks = [];
         var truncated = false;
 
-        if (canSee && row.VRChatInstanceId is { Length: > 0 } number)
+        if (row.VRChatInstanceId is { Length: > 0 } number)
         {
             var instance = new InstanceLife(row.WorldId, number, row.OpenedAt, endsAt);
-            var presence = new PresenceCounts(db);
 
-            counts = await presence.ForInstanceAsync(instance, ct);
-            people = await WithNamesAsync(db, await presence.PeopleInInstanceAsync(instance, ct), ct);
-            returningMembers = await ReturningMembersAsync(db, people, ct);
-            (log, truncated) = await LogAsync(db, held, instance, ct);
+            // Kicks colour the head count line, which everybody who may open the instance sees: a
+            // kick's time says nothing about who was kicked.
+            kicks = await KicksAsync(db, instance, ct);
+
+            if (canSee)
+            {
+                var presence = new PresenceCounts(db);
+
+                counts = await presence.ForInstanceAsync(instance, ct);
+                people = await WithNamesAsync(db, await presence.PeopleInInstanceAsync(instance, ct), ct);
+                returningMembers = await ReturningMembersAsync(db, people, ct);
+                (log, truncated) = await LogAsync(db, held, instance, ct);
+                present = await PeoplePresentAsync(db, presence, instance, ct);
+            }
         }
 
         var headCounts = await db.InstanceHeadCounts.AsNoTracking()
@@ -336,7 +351,62 @@ public static class PlacesEndpoints
             log,
             truncated,
             now,
-            headCounts);
+            HeadCountChanges.Classify(headCounts, kicks),
+            present);
+    }
+
+    /// <summary>
+    /// When each kick from this instance happened, from the audit log, bounded to the instance's own
+    /// stretch with the matching slack on both ends (<see cref="HeadCountChanges"/>).
+    /// </summary>
+    private static async Task<IReadOnlyList<DateTimeOffset>> KicksAsync(
+        ModbotContext db,
+        InstanceLife instance,
+        CancellationToken ct)
+    {
+        var from = instance.OpenedAt - HeadCountChanges.Slack;
+        var to = instance.EndsAt + HeadCountChanges.Slack;
+
+        return await db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.GroupInstanceKick
+                && e.WorldId == instance.WorldId
+                && e.InstanceId == instance.Number
+                && e.OccurredAt >= from
+                && e.OccurredAt <= to)
+            .Select(e => e.OccurredAt)
+            .ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// How many members and how many of each rank a companion saw present, moment by moment. Membership
+    /// is in the managed group, and both it and the rank are as Modbot holds them today.
+    /// </summary>
+    private static async Task<IReadOnlyList<PeoplePresentPoint>> PeoplePresentAsync(
+        ModbotContext db,
+        PresenceCounts presence,
+        InstanceLife instance,
+        CancellationToken ct)
+    {
+        var sessions = await presence.SessionsInInstanceAsync(instance, ct);
+        if (sessions.Count == 0)
+            return [];
+
+        var ids = sessions.Select(s => s.UserId).Distinct(StringComparer.Ordinal).ToList();
+
+        var ranks = await db.VRChatUsers.AsNoTracking()
+            .Where(u => ids.Contains(u.UserId))
+            .Select(u => new { u.UserId, u.TrustRank })
+            .ToDictionaryAsync(u => u.UserId, u => u.TrustRank, StringComparer.Ordinal, ct);
+
+        var groupId = (await db.GetSettingsAsync(ct)).ManagedGroupId;
+        List<string> members = string.IsNullOrEmpty(groupId)
+            ? []
+            : await db.GroupMembers.AsNoTracking()
+                .Where(m => m.GroupId == groupId && m.LeftAt == null && ids.Contains(m.UserId))
+                .Select(m => m.UserId)
+                .ToListAsync(ct);
+
+        return PeoplePresentSeries.Build(sessions, members.ToHashSet(StringComparer.Ordinal), ranks);
     }
 
     /// <summary>

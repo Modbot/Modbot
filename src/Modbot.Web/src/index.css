@@ -142,6 +142,12 @@
   --chart-grid: #e3e7ee;
   --chart-stroke: 2px;
 
+  /* A count going up, or down: two reds, the darker one for a drop at a kick and the lighter
+     for people leaving on their own. Meaning colours like --ok and --warn, not series colours. */
+  --chart-up: #15803d;
+  --chart-kick: #b91c1c;
+  --chart-left: #f58a8a;
+
   /* Density — dense is the default */
   --row-h: 2.125rem;
   --control-h: 1.875rem;
@@ -200,6 +206,11 @@
   --series-5: #d55181;
 
   --chart-grid: #272b36;
+
+  /* Stepped for the dark card, like the series: the dark red must still read as red on it. */
+  --chart-up: #4ade80;
+  --chart-kick: #e5484d;
+  --chart-left: #fca5a5;
 
   /* The dark muted sits too close to the card for a strip to show against it, so the dark strip
      takes the border instead, at the same step off the card as the light one. */

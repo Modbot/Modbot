@@ -148,6 +148,12 @@ public sealed record WorldView(
 /// time". The most recent <see cref="HeadCountPoint.Most"/> changes when there were more. Not
 /// about who was there, so it is shown to everyone who may open the instance.
 /// </param>
+/// <param name="PeoplePresent">
+/// Of the people a moderator's companion saw in it, how many are group members and how many hold
+/// each trust rank, at each moment somebody arrived or left, oldest first. Empty without
+/// <c>ViewAuditLog</c>, like <paramref name="People"/>, and empty while no companion was there.
+/// Membership and rank are today's, not the ones held at the time.
+/// </param>
 public sealed record InstanceView(
     InstanceRow Instance,
     bool Known,
@@ -165,7 +171,8 @@ public sealed record InstanceView(
     IReadOnlyList<AuditEntry> Log,
     bool LogTruncated,
     DateTimeOffset Now,
-    IReadOnlyList<HeadCountPoint> HeadCounts);
+    IReadOnlyList<HeadCountPoint> HeadCounts,
+    IReadOnlyList<PeoplePresentPoint> PeoplePresent);
 
 /// <summary>An instance's head count from one moment until it next changed.</summary>
 /// <param name="At">When the count was read.</param>
@@ -184,6 +191,12 @@ public sealed record InstanceView(
 /// True when <paramref name="People"/> is <paramref name="NUsers"/> because the page had no
 /// <c>userCount</c>. Shown as "80?".
 /// </param>
+/// <param name="Change">
+/// What this reading was against the one before it: <see cref="HeadCountChange.Up"/>,
+/// <see cref="HeadCountChange.Kick"/> (fewer, and somebody was kicked from the instance about then)
+/// or <see cref="HeadCountChange.Left"/> (fewer, and nobody was). Null for the first reading, and for
+/// a reading that only changed where the count came from.
+/// </param>
 public sealed record HeadCountPoint(
     DateTimeOffset At,
     int People,
@@ -191,11 +204,46 @@ public sealed record HeadCountPoint(
     int? MemberCount,
     string Source,
     int? NUsers = null,
-    bool Unsure = false)
+    bool Unsure = false,
+    string? Change = null)
 {
     /// <summary>How many changes one popup carries. A day's busy instance changes about this often.</summary>
     public const int Most = 2000;
 }
+
+/// <summary>The words <see cref="HeadCountPoint.Change"/> uses.</summary>
+public static class HeadCountChange
+{
+    public const string Up = "up";
+    public const string Kick = "kick";
+    public const string Left = "left";
+}
+
+/// <summary>
+/// Who was in an instance at one moment, as a moderator's companion saw it: how many of them are
+/// group members, and how many hold each trust rank. The next point replaces it.
+/// </summary>
+/// <remarks>
+/// Counts what the companion saw, so they are lower than the head count whenever the companion
+/// could not see everybody, and they stop at the companion's last report. Membership and rank are
+/// read from what Modbot holds today, because it keeps only the current rank and the current
+/// membership per person.
+/// </remarks>
+/// <param name="At">When somebody arrived or left.</param>
+/// <param name="Members">How many of those present are members of the managed group.</param>
+/// <param name="RankUnknown">How many hold a rank Modbot has not read yet. Not counted as Visitor.</param>
+public sealed record PeoplePresentPoint(
+    DateTimeOffset At,
+    int Members,
+    int Visitor,
+    int NewUser,
+    int User,
+    int KnownUser,
+    int TrustedUser,
+    int Legend,
+    int Nuisance,
+    int VRChatTeam,
+    int RankUnknown);
 
 /// <summary>One person's presence figures, for the Metrics tab of their popup.</summary>
 /// <param name="Known">False when no presence report has ever mentioned them.</param>

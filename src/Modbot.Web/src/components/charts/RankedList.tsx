@@ -86,7 +86,8 @@ export type LegendItem = {
   sample?: LegendSample
 } & ({ slot: SeriesSlot; color?: never } | { color: string; slot?: never })
 
-function Sample({ sample = 'dot', color }: { sample?: LegendSample; color: string }) {
+/** The key beside a legend item's name, as `LegendSample` describes it. Shared with `ToggleLegend`. */
+export function LegendSwatch({ sample = 'dot', color }: { sample?: LegendSample; color: string }) {
   switch (sample) {
     case 'line':
       return <span className="h-0.5 w-4 shrink-0 rounded-full" style={{ background: color }} />
@@ -107,7 +108,7 @@ export function Legend({ items }: { items: LegendItem[] }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
       {items.map((item) => (
         <span key={item.label} className="flex items-center gap-1.5 text-muted-foreground">
-          <Sample sample={item.sample} color={item.color ?? seriesColor(item.slot!)} />
+          <LegendSwatch sample={item.sample} color={item.color ?? seriesColor(item.slot!)} />
           {item.label}
           {item.value !== undefined && (
             <span className="font-mono font-medium text-foreground" style={{ fontSize: 'var(--text-base)' }}>

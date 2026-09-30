@@ -23,7 +23,8 @@ export { carriedKey, timeBands, breakAtBands, type DayMark, type DayMarks } from
 export { HollowDot, MissingBands, Stripes } from './marks'
 export { useStripeId } from './useStripeId'
 export { Heatmap } from './Heatmap'
-export { RankedList, Legend } from './RankedList'
+export { RankedList, Legend, LegendSwatch, type LegendItem, type LegendSample } from './RankedList'
+export { ToggleLegend, type ToggleLegendItem } from './ToggleLegend'
 export { chartHeight, chartTheme, nextSlot, seriesColor, type SeriesSlot } from './theme'
 export {
   compactNumber,

@@ -1,8 +1,12 @@
 import { compactNumber } from './format'
 import { plural } from '../../lib/format.ts'
 
-/** `one` is the name for a value of exactly one -- "1 action" beside "2 actions". */
-export type TooltipRow = { name: string; one?: string; value: number | string; color?: string }
+/**
+ * `one` is the name for a value of exactly one -- "1 action" beside "2 actions". `off` marks a
+ * line the viewer has turned off in the chart: the row stays, greyed and saying so, because the
+ * value is still the answer to "how many at this moment".
+ */
+export type TooltipRow = { name: string; one?: string; value: number | string; color?: string; off?: boolean }
 
 /**
  * The one tooltip every chart uses, drawn in the popover tokens so it matches the rest of the
@@ -39,11 +43,14 @@ export function ChartTooltip({
       <div className="px-2 py-1">
         {message && <div className="text-muted-foreground">{message}</div>}
         {!message && rows.map((row) => (
-          <div key={row.name} className="flex items-center gap-1.5">
-            {row.color && <span className="size-2 shrink-0 rounded-full" style={{ background: row.color }} />}
+          <div key={row.name} className={row.off ? 'flex items-center gap-1.5 text-muted-foreground' : 'flex items-center gap-1.5'}>
+            {row.color && (
+              <span className="size-2 shrink-0 rounded-full" style={{ background: row.color, opacity: row.off ? 0.4 : 1 }} />
+            )}
             <span className="font-mono font-medium">{typeof row.value === 'number' ? format(row.value) : row.value}</span>
             <span className="text-muted-foreground">
               {typeof row.value === 'number' && row.one ? plural(row.value, row.one, row.name) : row.name}
+              {row.off && ' (off)'}
             </span>
           </div>
         ))}

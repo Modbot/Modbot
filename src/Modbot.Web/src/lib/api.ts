@@ -2094,7 +2094,34 @@ export type InstanceView = {
     nUsers: number | null
     /** `people` is `nUsers` because VRChat sent no `userCount`: shown as "80?". */
     unsure: boolean
+    /**
+     * Against the reading before: `up`, or fewer at a `kick` recorded about then, or fewer because
+     * somebody `left`. Null for the first reading and for one that only changed source.
+     */
+    change: 'up' | 'kick' | 'left' | null
   }[]
+  /**
+   * Of the people a moderator's companion saw, how many are group members and how many hold each
+   * trust rank, at each moment somebody arrived or left. Empty without ViewAuditLog and while no
+   * companion was there. Membership and rank are today's, not the ones held at the time.
+   */
+  peoplePresent: PeoplePresentPoint[]
+}
+
+/** Who a companion saw present at one moment: members, and each trust rank. The last point is all zeros. */
+export type PeoplePresentPoint = {
+  at: string
+  members: number
+  visitor: number
+  newUser: number
+  user: number
+  knownUser: number
+  trustedUser: number
+  legend: number
+  nuisance: number
+  vrChatTeam: number
+  /** A rank Modbot has not read yet: not counted as Visitor. */
+  rankUnknown: number
 }
 
 /**

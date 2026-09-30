@@ -167,6 +167,27 @@ public sealed class PresenceCounts(ModbotContext db)
     }
 
     /// <summary>
+    /// Every session in one instance -- who, from when, until when -- oldest first, for counting who
+    /// was present at each moment (<see cref="PeoplePresentSeries"/>).
+    /// </summary>
+    public async Task<IReadOnlyList<PresenceSession>> SessionsInInstanceAsync(InstanceLife instance, CancellationToken ct)
+    {
+        var sql = $"""
+            {Sessions(byWorld: true, byInstance: true)}
+            SELECT subject_id, started, ended
+            FROM sessions
+            WHERE change = 1
+            ORDER BY started, ended, subject_id
+            """;
+
+        return await _sql.ReadAsync(
+            sql,
+            r => new PresenceSession(r.GetString(0), AnalyticsSql.InstantOf(r, 1), AnalyticsSql.InstantOf(r, 2)),
+            ct,
+            InstanceParameters(instance));
+    }
+
+    /// <summary>
     /// One person's own figures, over all of recorded history: time seen, where, and how often.
     /// </summary>
     public async Task<PersonCounts> ForPersonAsync(string userId, CancellationToken ct)
@@ -254,3 +275,7 @@ public sealed class PresenceCounts(ModbotContext db)
 /// <param name="Number">VRChat's own number for the instance, which is what the fact log carries.</param>
 /// <param name="EndsAt">When it closed, or the last moment it was known to exist.</param>
 public readonly record struct InstanceLife(string WorldId, string Number, DateTimeOffset OpenedAt, DateTimeOffset EndsAt);
+
+/// <summary>One person present in an instance from <paramref name="Started"/> until <paramref name="Ended"/>.</summary>
+/// <param name="Ended">When they were seen to leave, or the companion's last report from the instance.</param>
+public readonly record struct PresenceSession(string UserId, DateTimeOffset Started, DateTimeOffset Ended);

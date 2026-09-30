@@ -263,6 +263,72 @@ public class InstanceTests
         Assert.True(view.Instance.PeakPeopleUnsure);
     }
 
+    /// <summary>
+    /// The popup colours each step of the head count by what it was. A drop with a kick recorded about
+    /// then is a kick; a drop without one is somebody leaving. The member and rank lines come from what
+    /// a companion saw, against today's membership and rank; without a companion there they are empty.
+    /// </summary>
+    [Fact]
+    public async Task HeadCountSteps_SayWhyTheyMoved_AndACompanionAddsMembersAndRanks()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var t = host.Clock.UtcNow.AddHours(-4);
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(2), null, ct);
+        await PlacesFixtures.PersonAsync(host, "usr_a", "Ada", t, ct);
+        await PlacesFixtures.PersonAsync(host, "usr_b", "Bob", t, ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var settings = await db.GetSettingsAsync(ct);
+            settings.ManagedGroupId = "grp_1";
+
+            db.GroupMembers.Add(new GroupMember { GroupId = "grp_1", UserId = "usr_a", FirstSeenAt = t, LastSeenAt = t });
+
+            var ada = await db.VRChatUsers.SingleAsync(u => u.UserId == "usr_a", ct);
+            ada.TrustRank = Modbot.Core.Users.TrustRank.TrustedUser;
+
+            db.InstanceHeadCounts.AddRange(
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(1), HeadCount = 4, Source = "page" },
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(10), HeadCount = 6, Source = "page" },
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(20), HeadCount = 5, Source = "page" },
+                new InstanceHeadCount { InstanceId = instance.Id, CountedAt = t.AddMinutes(30), HeadCount = 4, Source = "page" });
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        // A kick fifteen seconds before the reading that showed the drop; nothing near the second drop.
+        await host.WriteFactAsync(
+            AuditFact(FactType.GroupInstanceKick, "usr_x", t.AddMinutes(20).AddSeconds(-15), "usr_mod", "Mod", "wrld_a", "39047"), ct);
+
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_a", t.AddMinutes(5), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_b", t.AddMinutes(15), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_a", t.AddMinutes(25), "wrld_a", "39047"), ct);
+
+        var cookie = await host.SignedInAsync(
+            ModbotPermissions.ViewAnalytics | ModbotPermissions.ViewAuditLog, ct);
+        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{instance.Id}", cookie, ct);
+
+        Assert.Equal([null, "up", "kick", "left"], view.HeadCounts.Select(h => h.Change));
+
+        // Ada (member, Trusted) 5-25, Bob (not a member, rank not read) 15 until the last report at 25.
+        Assert.Equal([t.AddMinutes(5), t.AddMinutes(15), t.AddMinutes(25)], view.PeoplePresent.Select(p => p.At));
+        Assert.Equal([1, 1, 0], view.PeoplePresent.Select(p => p.Members));
+        Assert.Equal([1, 1, 0], view.PeoplePresent.Select(p => p.TrustedUser));
+        Assert.Equal([0, 1, 0], view.PeoplePresent.Select(p => p.RankUnknown));
+
+        // How many is not who: the colours stay without ViewAuditLog, the lines go.
+        var analyst = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var narrow = await host.GetJsonAsync<InstanceView>($"/api/instances/{instance.Id}", analyst, ct);
+
+        Assert.Equal([null, "up", "kick", "left"], narrow.HeadCounts.Select(h => h.Change));
+        Assert.Empty(narrow.PeoplePresent);
+    }
+
     [Fact]
     public async Task WithoutViewAnalytics_Is403()
     {
