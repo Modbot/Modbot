@@ -15,7 +15,7 @@ namespace Modbot.Api.Tests.Features.Audit;
 /// <c>modbot.*</c> type must be named somewhere in <c>src</c> that writes facts.
 /// </para>
 /// <para>
-/// The eight that have no writer today are listed below, each with what is missing. The list is
+/// The five that have no writer today are listed below, each with what is missing. The list is
 /// checked both ways: a type that gains a writer must come off it, so it only ever gets shorter.
 /// </para>
 /// </remarks>
@@ -24,11 +24,6 @@ public class EveryModbotFactHasAWriterTests
     /// <summary>Types with no writer yet, and what is missing. Take one off when it gets a writer.</summary>
     private static readonly IReadOnlyDictionary<string, string> NoWriterYet = new Dictionary<string, string>
     {
-        // The evidence facts come off this list when evidence handling writes them (TASK-005).
-        [nameof(FactType.EvidenceAttached)] = "nothing writes a fact when evidence is attached to a case file",
-        [nameof(FactType.EvidenceAccessed)] = "nothing writes a fact when somebody opens a piece of evidence",
-        [nameof(FactType.EvidenceDestroyed)] = "nothing writes a fact when evidence is destroyed",
-
         // The Cloud report counts the second and third of these, so its numbers stay 0 until
         // something writes them.
         [nameof(FactType.SyncFailed)] = "no producer writes a fact when a sync fails",
