@@ -421,10 +421,16 @@ public sealed class RoleSync
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        // Given, and not taken since: the newest record for that account and role says "given".
+        // Given, and not taken since: no take-back at or after the newest give. A take-back stamped
+        // the same instant as the give counts as after it, so a tie leaves the role where it is.
         var gave = records
             .GroupBy(c => (c.SubjectId, RoleId: c.RoleId!))
-            .Where(g => g.OrderByDescending(c => c.StartedAt).First().Kind == CopyKinds.RoleGiven)
+            .Where(g =>
+            {
+                var given = g.Where(c => c.Kind == CopyKinds.RoleGiven).Select(c => c.StartedAt).DefaultIfEmpty().Max();
+                return g.Any(c => c.Kind == CopyKinds.RoleGiven)
+                       && !g.Any(c => c.Kind == CopyKinds.RoleTaken && c.StartedAt >= given);
+            })
             .Select(g => g.Key)
             .ToHashSet();
 
