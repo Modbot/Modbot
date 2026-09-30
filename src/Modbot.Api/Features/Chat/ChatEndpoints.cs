@@ -379,7 +379,18 @@ public static class ChatEndpoints
         // Checked before the turn starts, never in the middle of one (AI chat design §10): the limit
         // for everyone, Chat's own, and the ones set on this person or their roles.
         if (await limits.CheckAsync(AiFeatures.Chat, userId, held, ct) is { } reached)
+        {
+            // In the call log as a limit, under this person's name, like every other call that was
+            // never made: nothing was sent, so there are no counts.
+            await calls.RecordAsync(
+                new AiCallEntry(
+                    AiFeatures.Chat,
+                    string.IsNullOrWhiteSpace(settings.AiChatModel) ? chat.Model : settings.AiChatModel.Trim(),
+                    null, chat.Provider, AiCallOutcomes.Limited, 0, Error: reached.Message, UserId: userId, Username: username),
+                ct);
+
             return Results.Json(new { error = reached.Message }, statusCode: StatusCodes.Status429TooManyRequests);
+        }
 
         var now = clock.UtcNow;
         var fresh = conversation is null;

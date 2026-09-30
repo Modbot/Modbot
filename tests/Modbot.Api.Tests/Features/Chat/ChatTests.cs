@@ -374,6 +374,12 @@ public class ChatTests
             "You have used your monthly AI allowance (1,000,000 tokens). It starts again on 1 October.",
             (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString());
         Assert.Empty(provider.Bodies);
+
+        // The refusal is in the call log as a limit, under this person's name.
+        await using var context = _db.NewContext();
+        var row = await context.AiCalls.SingleAsync(c => c.Feature == "chat" && c.UserId == user.Id, Ct);
+        Assert.Equal(AiCallOutcomes.Limited, row.Outcome);
+        Assert.Equal(user.Id, row.UserId);
     }
 
     /// <summary>Chat's own limit is the operator's share of the bill for Chat, so the permission does not lift it.</summary>

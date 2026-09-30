@@ -315,6 +315,35 @@ public class AutoModSafetyTests
     }
 
     [Fact]
+    public async Task AnExemptRolesFlagInATrialRecordsNothingItWouldHaveDone_WhileEverybodyElsesDoes()
+    {
+        await using var host = await StartAsync(new AutoModTests.FakeDiscordActions());
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        await SwitchOnAsync(host, cookie);
+
+        // Still in its trial: created with an action and never ended.
+        await ListAsync(host, cookie, "Scams", "free nitro", delete: true,
+            scope: new { channelMode = "all", channels = Array.Empty<string>(), exemptRoles = new[] { StaffRole }, exemptRolesSkipFlag = false });
+
+        await MemberAsync("staff-1", StaffRole);
+
+        await CheckAsync(host, Message("m1", "staff-1", "free nitro here"));
+        await CheckAsync(host, Message("m2", "member-1", "free nitro here"));
+
+        await using var db = _db.NewContext();
+        var staff = await db.ModerationFlags.SingleAsync(f => f.SubjectId == "staff-1", Ct);
+        var member = await db.ModerationFlags.SingleAsync(f => f.SubjectId == "member-1", Ct);
+
+        Assert.True(staff.Trial);
+        Assert.True(staff.Exempt);
+        Assert.False(staff.WouldDeleteMessage);
+
+        Assert.False(member.Exempt);
+        Assert.True(member.WouldDeleteMessage);
+    }
+
+    [Fact]
     public async Task AllButTheseChannelsIsTheOtherWayRound()
     {
         await using var host = await StartAsync();

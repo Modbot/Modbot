@@ -182,10 +182,14 @@ public static class AiAllowanceSettingsEndpoints
     /// <summary>What is wrong with an allowance, or null.</summary>
     private static string? Problem(AiAllowanceAmount amount)
     {
-        if (amount.Tokens is < 0 or > AiMemberAllowances.MaxTokens)
+        if (amount.Tokens is < 0)
             return "An allowance in tokens must be zero or more.";
-        if (amount.Money is < 0 or > AiPriceRules.MaxAmount)
+        if (amount.Tokens is > AiMemberAllowances.MaxTokens)
+            return $"An allowance in tokens can be at most {AiMemberAllowances.MaxTokens:N0}.";
+        if (amount.Money is < 0)
             return "An allowance in US dollars must be zero or more.";
+        if (amount.Money is > AiPriceRules.MaxAmount)
+            return $"An allowance in US dollars can be at most {AiPriceRules.MaxAmount:N0}.";
 
         return null;
     }
@@ -208,10 +212,14 @@ public static class AiAllowanceSettingsEndpoints
                 })]),
         };
 
+    /// <remarks>
+    /// The dollars are written without trailing zeros: the database hands back 5.000000 for what was
+    /// sent as 5, and "was it changed?" is decided by comparing these, so 5 and 5.000000 must read alike.
+    /// </remarks>
     private static JsonObject Amount(long? tokens, decimal? money) => new()
     {
         ["tokens"] = tokens,
-        ["money"] = money,
+        ["money"] = money is { } dollars ? dollars / 1.000000000000000000000000000000000m : null,
     };
 
     /// <summary>The team, each with an allowance and this month's use, for the Limits screen.</summary>

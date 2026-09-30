@@ -190,7 +190,9 @@ sentence, and nothing is sent to your provider:
 - "You have used your monthly AI allowance (200,000 tokens). It starts again on 1 October."
 - "You have used your monthly AI allowance ($5.00). It starts again on 1 October."
 
-A reply already under way finishes. Allowances start again with the month, in UTC. The first time
+A reply already under way finishes, and a member can go a little over when several requests are
+running at the moment they reach it: the check happens before each request, not during it.
+Allowances start again with the month, in UTC. The first time
 one is reached in a month, Modbot records **AI spend limit reached** in the audit log, as it does for
 any limit. A call refused this way is in the [call log](/ai/call-log) as **Limited**, under that
 person's name.

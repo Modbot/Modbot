@@ -133,6 +133,40 @@ public class AiAllowanceSettingsTests
         Assert.All(recorded, f => Assert.Equal(admin.Id.ToString(), f.ActorId));
     }
 
+    [Fact]
+    public async Task ADollarAmountSavedTwiceUnchanged_IsRecordedOnce_WhateverZerosTheDatabaseGivesBack()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+        var (other, _) = await host.SignedInAsync(ModbotPermissions.UseAiChat, Ct);
+
+        // Stored as numeric(18,6), so it is read back as 5.000000 and 2.500000.
+        var body = Body(1_000, 5m, (other.Id, 200, 2.5m));
+
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, Path, body, cookie, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.SendJsonAsync(HttpMethod.Put, Path, body, cookie, Ct)).StatusCode);
+
+        Assert.Single(
+            await host.FactsAsync(FactType.SettingsChanged, "settings", Ct),
+            f => ApiTestHost.DataOf(f).GetProperty("setting").GetString() == "aiAllowances");
+    }
+
+    [Fact]
+    public async Task AnAmountOverTheMaximumIsSaidToBeTooLarge_NotToBeNegative()
+    {
+        await ApiTestHost.ResetDeploymentAsync(_db, Ct);
+        await using var host = await ApiTestHost.StartAsync(_db);
+        var (_, cookie) = await host.SignedInAsync(ModbotPermissions.ManageSettings, Ct);
+
+        var response = await host.SendJsonAsync(HttpMethod.Put, Path, Body(null, 2_000_000_000m), cookie, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var error = (await ApiTestHost.BodyOf(response, Ct)).GetProperty("error").GetString();
+        Assert.Contains("at most", error, StringComparison.Ordinal);
+        Assert.DoesNotContain("zero or more", error, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(-1, null)]
     [InlineData(null, -0.5)]
