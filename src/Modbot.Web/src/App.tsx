@@ -55,6 +55,7 @@ import { LinkVRChat } from '@/pages/LinkVRChat'
 import { Live } from '@/pages/Live'
 import { Calendar } from '@/pages/Calendar'
 import { Giveaways } from '@/pages/Giveaways'
+import { Integrations } from '@/pages/Integrations'
 import { Login } from '@/pages/Login'
 import { Connect } from '@/pages/Connect'
 import { Logs } from '@/pages/Logs'
@@ -95,6 +96,7 @@ const TITLES: Record<PageId, string> = {
   bans: 'Bans',
   flags: 'Flags',
   audit: 'Audit log',
+  integrations: 'Integrations',
   'analytics-group': 'VRChat',
   'analytics-server': 'Discord',
   // Tabs of the Stats page, so they carry its name, as the sidebar does.
@@ -138,6 +140,7 @@ const PATHS: Record<PageId, string> = {
   bans: '/bans',
   flags: '/flags',
   audit: '/audit',
+  integrations: '/integrations',
   'analytics-group': '/analytics/group',
   'analytics-server': '/analytics/server',
   stats: '/stats/growth',
@@ -645,6 +648,7 @@ function Shell({
           )}
           {page === 'flags' && <Flags me={me} onOpenSubject={setSubject} onOpenCount={setOpenFlags} />}
           {page === 'audit' && <AuditLog />}
+          {page === 'integrations' && <Integrations me={me} />}
           {page === 'analytics-group' && <MyGroup me={me} pathOf={(id) => PATHS[id]} />}
           {page === 'analytics-server' && <MyServer me={me} pathOf={(id) => PATHS[id]} />}
           {/* One element for the three tabs, so the page's range stays put while the tab changes. */}

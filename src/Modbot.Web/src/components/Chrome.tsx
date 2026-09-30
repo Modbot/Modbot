@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button'
 import { DemoMarker } from '@/components/DemoMarker'
 import { StatusRows } from '@/components/StatusRows'
 import type { CurrentUser } from '@/lib/api'
-import { CREDITS_PATH, GO_TO_KEYS, listedPages, sidebarEntry, type NavItem, type PageId } from '@/lib/nav'
+import { CREDITS_PATH, GO_TO_KEYS, menuPages, sidebarEntry, sidebarRows, type PageId } from '@/lib/nav'
 import { countText } from '@/lib/joinRequests'
 import { can } from '@/lib/permissions'
 import { DOT, TONE, statusLine, type StatusRowId } from '@/lib/status'
@@ -18,9 +18,9 @@ import type { Place, Theme } from '@/lib/preferences'
 import { followLink } from '@/lib/router'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import {
-  Ban, Bug, CalendarDays, ChartLine, Circle, ClipboardCheck, Flag, Gift, Globe, Hash, Headset, House, Logs,
-  LogOut, Menu, MessageSquare, Monitor, Moon, Radio, ScrollText, Search, Settings, Sun, UserPlus, UserRound,
-  Users, X, Zap, type LucideIcon,
+  Ban, Bug, CalendarDays, ChartLine, ChevronRight, Circle, ClipboardCheck, Flag, Gift, Globe, Hash, Headset,
+  House, Logs, LogOut, Menu, MessageSquare, Monitor, Moon, Plug, Radio, ScrollText, Search, Settings, Sun,
+  UserPlus, UserRound, Users, X, Zap, type LucideIcon,
 } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import { SwitchBank } from '@/components/ui/switch-bank'
@@ -63,19 +63,12 @@ export function Sidebar({
   /** Drawn at the foot, under Modbot's own mark. The phone sheet puts the top bar's controls here. */
   footer?: React.ReactNode
 }) {
-  const visible = listedPages(me)
+  // The headings and the pages, each heading before the first page of its own this person sees
+  // (lib/nav.ts `sidebarRows`).
+  const rows = sidebarRows(me)
   // A page shown as part of another, like Discord members on the Discord page, lights that one.
   const lit = sidebarEntry(page)
   const goToWaiting = useWaitingChord() === 'g'
-
-  // A group heading travels with its first *visible* entry, so hiding "Users" does not take the
-  // "Team" heading away from "Roles".
-  const rows = visible.reduce<{ item: NavItem; showGroup: boolean; group?: string }[]>((acc, item) => {
-    const group = 'group' in item ? item.group : undefined
-    const previous = acc.length ? acc[acc.length - 1].group : undefined
-    acc.push({ item, showGroup: group !== undefined && group !== previous, group: group ?? previous })
-    return acc
-  }, [])
 
   return (
     <aside
@@ -97,21 +90,53 @@ export function Sidebar({
         <Kbd keys="mod+k" />
       </button>
 
-      {rows.map(({ item, showGroup }) => (
-        <div key={item.id}>
-          {showGroup && 'group' in item && (
-            <div
-              className="flex items-center gap-2 pr-3 pb-1 pl-4 pt-4 font-label text-muted-foreground"
+      {rows.map((row) => {
+        if (row.kind === 'heading') {
+          const opens = row.page
+          const heading = 'flex w-full shrink-0 items-center gap-2 pr-3 pb-1 pl-4 pt-4 font-label'
+
+          // A heading that is a page of its own (Integrations) is its link, with the chevron a
+          // link to a page carries; the rest are only names.
+          return opens ? (
+            <button
+              key={`heading:${row.label}`}
+              type="button"
+              onClick={() => onNavigate(opens)}
+              aria-current={lit === opens ? 'page' : undefined}
+              className={cn(
+                heading,
+                'text-left transition-colors',
+                lit === opens ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
               style={{ fontSize: 'var(--text-small)' }}
             >
-              {item.group}
+              <span className="flex items-center gap-0.5">
+                {row.label}
+                <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+              </span>
+              <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
+            </button>
+          ) : (
+            <div
+              key={`heading:${row.label}`}
+              className={cn(heading, 'text-muted-foreground')}
+              style={{ fontSize: 'var(--text-small)' }}
+            >
+              {row.label}
               <span aria-hidden className="h-(--hairline) flex-1 bg-border" />
             </div>
-          )}
+          )
+        }
+
+        const { item } = row
+        return (
+          // `shrink-0`: a row is a control high however long the list, as it was inside a wrapper.
           <button
+            key={item.id}
+            type="button"
             onClick={() => onNavigate(item.id)}
             className={cn(
-              'group/row relative flex h-(--control-h) w-full items-center gap-2 pr-3 text-left transition-colors',
+              'group/row relative flex h-(--control-h) w-full shrink-0 items-center gap-2 pr-3 text-left transition-colors',
               // A page that belongs to the one above it, like Worlds under VRChat, sits one step in.
               'indent' in item && item.indent ? 'pl-8' : 'pl-4',
               lit === item.id
@@ -142,8 +167,8 @@ export function Sidebar({
               </span>
             )}
           </button>
-        </div>
-      ))}
+        )
+      })}
 
       {/*
         Modbot's own parts, one row each (spec 4.2.3, 4.3.3). Only for somebody who may read the
@@ -441,6 +466,7 @@ const PAGE_ICONS: Partial<Record<PageId, LucideIcon>> = {
   audit: ScrollText,
   calendar: CalendarDays,
   giveaways: Gift,
+  integrations: Plug,
   'analytics-group': Globe,
   'analytics-server': Hash,
   logs: Logs,
@@ -454,8 +480,8 @@ const PAGE_ICONS: Partial<Record<PageId, LucideIcon>> = {
  * It fits one screen: three tiles across held upright and as many as fit on its side, so nothing
  * is out of a thumb's reach and nothing scrolls. What the drawer carried and this leaves out:
  * Search, which is on the bottom bar under it; the headings, since the pages keep their order and
- * so their groups; the four status rows, said in the one line Now says them in; and Desk or
- * Headset, which a phone has no use for. The group is named in the sheet's header, by its icon and
+ * so their groups, except Integrations, which is a page and so a tile; the four status rows, said in
+ * the one line Now says them in; and Desk or Headset, which a phone has no use for. The group is named in the sheet's header, by its icon and
  * name, and its banner is left out.
  */
 function PageGrid({
@@ -533,7 +559,7 @@ function PageGrid({
       {/* A phone on its side is under 400px tall. The tiles lose their padding there, so three rows
           of them still fit on one screen, six or more across from a 667px-wide phone up. */}
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-1">
-        {listedPages(me).map((item) => {
+        {menuPages(me).map((item) => {
           const Icon = PAGE_ICONS[item.id] ?? Circle
           const here = lit === item.id
           return (

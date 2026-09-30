@@ -54,6 +54,15 @@ function subscribe(listener: () => void) {
   }
 }
 
+/**
+ * The Health read behind the rows, from the same poll: the Integrations page says the Discord
+ * bot's state from it. Null while it has not answered or could not be read. It needs See Modbot's
+ * log, like the rows, so only a component drawn for somebody with it calls this.
+ */
+export function useSyncHealth(): SyncHealth | null {
+  return useSyncExternalStore(subscribe, () => reading).health
+}
+
 /** The rows at the foot of the sidebar, as they stand. A part that has not answered reads "unknown". */
 export function useStatusRows(): StatusRow[] {
   const { gate, failed } = useGateHealth()

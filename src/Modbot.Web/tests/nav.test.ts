@@ -12,10 +12,12 @@ import {
   MEMBERS_PATH,
   mayOpen,
   membersAddress,
+  menuPages,
   offered,
   otherWords,
   shownAs,
   sidebarEntry,
+  sidebarRows,
   titleWithCount,
   waitingTotal,
 } from '../src/lib/nav.ts'
@@ -130,8 +132,8 @@ test('every page with a go-to chord has its own letter', () => {
   assert.equal(new Set(letters).size, letters.length)
 })
 
-test('no heading in the sidebar shares a name with a page in it', () => {
-  const labels = new Set<string>(NAV.map((n) => n.label))
+test('no heading in the sidebar shares a name with a page in it, except the page the heading is', () => {
+  const labels = new Set<string>(NAV.filter((n) => !('heads' in n)).map((n) => n.label))
   const groups = NAV.flatMap((n) => ('group' in n ? [n.group as string] : []))
 
   assert.ok(!groups.some((g) => labels.has(g)), 'a heading repeats a page name')
@@ -430,4 +432,57 @@ test('pages with no switch are offered to whoever may open them', () => {
   assert.equal(offered(person(), now), true)
   assert.equal(offered(person('ViewAuditLog'), bans), true)
   assert.equal(offered(person(), bans), false)
+})
+
+test('the Integrations heading opens the Integrations page, for somebody who may change settings', () => {
+  const rows = sidebarRows(person('ViewAnalytics', 'ManageSettings'))
+  const heading = rows.findIndex((r) => r.kind === 'heading' && r.label === 'Integrations')
+
+  assert.deepEqual(rows[heading], { kind: 'heading', label: 'Integrations', page: 'integrations' })
+  assert.deepEqual(
+    rows.slice(heading + 1, heading + 3).map((r) => (r.kind === 'page' ? r.item.id : r.label)),
+    ['analytics-group', 'analytics-server'],
+  )
+  assert.ok(!rows.some((r) => r.kind === 'page' && r.item.id === 'integrations'))
+})
+
+test('without Change settings the Integrations heading is only a name over VRChat and Discord', () => {
+  const rows = sidebarRows(person('ViewAnalytics'))
+
+  assert.ok(rows.some((r) => r.kind === 'heading' && r.label === 'Integrations' && r.page === null))
+  assert.equal(mayOpen(person('ViewAnalytics'), 'integrations'), false)
+  assert.ok(!menuPages(person('ViewAnalytics')).some((n) => n.id === 'integrations'))
+})
+
+test('the Integrations heading is drawn for somebody who may change settings but not see analytics', () => {
+  const rows = sidebarRows(person('ManageSettings'))
+
+  assert.ok(rows.some((r) => r.kind === 'heading' && r.label === 'Integrations' && r.page === 'integrations'))
+  assert.ok(!rows.some((r) => r.kind === 'page' && r.item.id === 'analytics-group'))
+})
+
+test('a heading with no page of its own is drawn once, before the first page under it this person sees', () => {
+  const rows = sidebarRows(person('ViewProfile'))
+  const community = rows.filter((r) => r.kind === 'heading' && r.label === 'Community')
+
+  assert.equal(community.length, 1)
+  const at = rows.indexOf(community[0])
+  assert.deepEqual(rows[at + 1], { kind: 'page', item: NAV.find((n) => n.id === 'people') })
+  assert.ok(!rows.some((r) => r.kind === 'heading' && r.label === 'Integrations'))
+})
+
+test("the phone's Menu has an Integrations tile before VRChat and Discord", () => {
+  const ids = menuPages(person('ViewAnalytics', 'ManageSettings')).map((n) => n.id)
+  const at = ids.indexOf('integrations')
+
+  assert.ok(at >= 0)
+  assert.deepEqual(ids.slice(at, at + 3), ['integrations', 'analytics-group', 'analytics-server'])
+})
+
+test('Integrations is offered by name in the palette, with no go-to letter', () => {
+  const item = NAV.find((n) => n.id === 'integrations')
+
+  assert.ok(item && goesByName(item))
+  assert.equal(GO_TO_KEYS.integrations, '')
+  assert.ok(!listedPages(person('ManageSettings')).some((n) => n.id === 'integrations'))
 })

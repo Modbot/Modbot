@@ -77,6 +77,11 @@ export const NAV = [
   { id: 'calendar', label: 'Calendar', group: 'Community', needs: 'ViewCalendar', words: ['events', 'schedule'] },
   // Giveaways, their rules, who entered and how each draw went (giveaways design).
   { id: 'giveaways', label: 'Giveaways', group: 'Community', needs: 'ViewGiveaways' },
+  // The "Integrations" heading itself (2026-09-30): a card for each outside service Modbot is
+  // connected to, its status, and a Set up button into the part of Settings where it is set up.
+  // Not a row of its own: the heading is its link (`heads`, `sidebarRows`), and on a phone its tile
+  // sits before VRChat's. It needs what those Settings topics need. No `g` letter: none left fits.
+  { id: 'integrations', label: 'Integrations', needs: 'ManageSettings', hidden: true, heads: 'Integrations', words: ['connections', 'email', 'set up'] },
   // The VRChat group and the Discord server, each as its own site shows it. Their charts are on
   // Stats; each keeps this week's numbers. The ids and addresses keep their old names, so links and
   // bookmarks still open the same pages. Under "Integrations" since 2026-09-27: they are the two
@@ -175,6 +180,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   bans: 'b',
   flags: 'f',
   audit: 'a',
+  integrations: '',
   'analytics-group': 'g',
   'analytics-server': 'v',
   stats: 't',
@@ -219,11 +225,61 @@ export function sidebarEntry(id: PageId): PageId {
 
 /**
  * Whether a page is offered by name, in the palette and as a `g` chord: every page in the
- * sidebar, and a page off it that is shown as part of one that is. Other pages off the sidebar
- * are reached from somewhere in particular -- a case file from Bans -- and have no name to go to.
+ * sidebar, a page off it that is shown as part of one that is, and a page that is a heading
+ * (Integrations). Other pages off the sidebar are reached from somewhere in particular -- a case
+ * file from Bans -- and have no name to go to.
  */
 export function goesByName(item: NavItem): boolean {
-  return !('hidden' in item && item.hidden) || 'under' in item
+  return !('hidden' in item && item.hidden) || 'under' in item || 'heads' in item
+}
+
+/** The page a sidebar heading opens when it is clicked, if it opens one. */
+export function headingPage(heading: string): NavItem | undefined {
+  return NAV.find((n) => 'heads' in n && n.heads === heading)
+}
+
+/** One row of the sidebar: a heading, which may open a page of its own, or a page. */
+export type SidebarRow =
+  | { kind: 'heading'; label: string; page: PageId | null }
+  | { kind: 'page'; item: NavItem }
+
+/**
+ * The sidebar for this person, in order: the pages of the page list, each heading before the first
+ * of its pages. A heading travels with its first page this person is offered, so hiding Requests
+ * does not take the Community heading away from People. A heading that opens a page of its own
+ * (`heads`) is drawn for whoever may open that page, even with none of the pages under it.
+ *
+ * The phone's Menu grid reads the same rows: a heading that opens a page is a tile there, before
+ * the tiles of the pages under it, and the other headings are left out.
+ */
+export function sidebarRows(me: CurrentUser): SidebarRow[] {
+  const rows: SidebarRow[] = []
+  let current: string | undefined
+  let drawn = true
+
+  for (const item of NAV) {
+    if ('hidden' in item && item.hidden) continue
+
+    const group = 'group' in item ? item.group : undefined
+    if (group !== undefined && group !== current) {
+      current = group
+      const page = headingPage(group)
+      drawn = false
+      if (page && offered(me, page)) {
+        rows.push({ kind: 'heading', label: group, page: page.id })
+        drawn = true
+      }
+    }
+
+    if (!offered(me, item)) continue
+    if (!drawn && current !== undefined) {
+      rows.push({ kind: 'heading', label: current, page: null })
+      drawn = true
+    }
+    rows.push({ kind: 'page', item })
+  }
+
+  return rows
 }
 
 /** The other words a page answers to in the palette, besides its label. */
@@ -256,8 +312,21 @@ export function matchRank(typed: string, label: string, other: readonly string[]
 }
 
 /**
- * The pages in the page list for this person, in order: the sidebar's rows, and the tiles of the
- * phone's Menu sheet. One list for both, so a page added or hidden here is added or hidden in each.
+ * The tiles of the phone's Menu sheet, in order: the sidebar's rows less their headings, except a
+ * heading that is a page of its own (Integrations), which is a tile before the pages under it.
+ */
+export function menuPages(me: CurrentUser): NavItem[] {
+  return sidebarRows(me).flatMap((row) => {
+    if (row.kind === 'page') return [row.item]
+    const page = row.page === null ? undefined : NAV.find((n) => n.id === row.page)
+    return page ? [page] : []
+  })
+}
+
+/**
+ * The pages in the page list for this person, in order: the pages among the sidebar's rows and
+ * the phone's Menu tiles (`sidebarRows`, which adds the headings), and the page the shell falls
+ * back to. One list for all of them, so a page added or hidden here is added or hidden in each.
  */
 export function listedPages(me: CurrentUser): NavItem[] {
   return NAV.filter((item) => !('hidden' in item && item.hidden) && offered(me, item))
