@@ -272,4 +272,94 @@ public class InstanceWorldTests
     [InlineData("~region(eu)", null)]
     public void TheNumber_IsEverythingBeforeTheFirstTilde(string instanceId, string? number)
         => Assert.Equal(number, InstanceWorldQuery.NumberOf(instanceId));
+
+    /// <summary>
+    /// Other groups' instances: a kept name and group name are shown; one never asked about is offered
+    /// to the queue and the answer says names are coming; one whose location says outsiders cannot
+    /// join, and the group's own, are never offered.
+    /// </summary>
+    [Fact]
+    public async Task OtherInstancesNames_AreShownWhenKept_AndAskedForOnlyWhenOpenAndNeverAsked()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var queue = new Modbot.VRChat.Sync.OtherNameQueue();
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, configure: s => s.AddSingleton(queue));
+        await host.ResetAsync(ct);
+
+        var world = $"wrld_names_{Guid.NewGuid():N}";
+        var cats = $"grp_cats_{Guid.NewGuid():N}";
+        var dogs = $"grp_dogs_{Guid.NewGuid():N}";
+
+        var t = host.Clock.UtcNow.AddHours(-4);
+        var instance = await PlacesFixtures.InstanceAsync(host, world, "39047", t, t.AddHours(1), t.AddHours(1), ct);
+
+        var named = $"16354~group({cats})~groupAccessType(public)~region(eu)";
+        var fresh = $"20000~group({dogs})~groupAccessType(public)~region(eu)";
+        var membersOnly = $"30000~group({dogs})~groupAccessType(members)~region(eu)";
+        var inviteOnly = "40000~private(usr_f)~region(use)";
+        var ours = "50000~group(grp_1)~groupAccessType(public)~region(us)";
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var settings = await db.GetSettingsAsync(ct);
+            settings.ManagedGroupId = "grp_1";
+
+            db.OtherInstanceNames.Add(new OtherInstanceName { Location = $"{world}:{named}", Name = "Game night", AskedAt = t });
+            db.OtherGroupNames.Add(new OtherGroupName { GroupId = cats, Name = "Cats Club", AskedAt = t });
+            await db.SaveChangesAsync(ct);
+        }
+
+        await ReadingsAsync(host, ct,
+            Read(world, t.AddMinutes(10), 60, $$"""[["39047",10],["{{named}}",9],["{{fresh}}",8],["{{membersOnly}}",7],["{{inviteOnly}}",6],["{{ours}}",5]]"""));
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var view = await host.GetJsonAsync<InstanceWorldView>($"/api/instances/{instance.Id}/world", cookie, ct);
+
+        var shown = view.Others.Single(o => o.Number == "16354");
+        Assert.Equal(("Game night", "Cats Club"), (shown.Name, shown.GroupName));
+        Assert.Null(view.Others.Single(o => o.Number == "20000").GroupName);
+        Assert.Null(view.Others.Single(o => o.Number == "50000").GroupName);
+
+        Assert.True(view.NamesComing);
+        Assert.Equal(2, queue.Count);
+        Assert.True(queue.IsWaiting(new(Modbot.VRChat.Sync.OtherNameKind.Instance, $"{world}:{fresh}")));
+        Assert.True(queue.IsWaiting(new(Modbot.VRChat.Sync.OtherNameKind.Group, dogs)));
+
+        // Asked for already, so a second popup adds nothing to the queue.
+        await host.GetJsonAsync<InstanceWorldView>($"/api/instances/{instance.Id}/world", cookie, ct);
+        Assert.Equal(2, queue.Count);
+    }
+
+    /// <summary>Nothing left to ask for: the answer does not say names are coming.</summary>
+    [Fact]
+    public async Task EveryNameAskedFor_NoNamesComing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var queue = new Modbot.VRChat.Sync.OtherNameQueue();
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db, configure: s => s.AddSingleton(queue));
+        await host.ResetAsync(ct);
+
+        var world = $"wrld_names_{Guid.NewGuid():N}";
+        var t = host.Clock.UtcNow.AddHours(-4);
+        var instance = await PlacesFixtures.InstanceAsync(host, world, "39047", t, t.AddHours(1), t.AddHours(1), ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+
+            // Refused: kept, so never asked again, and the row keeps its number.
+            db.OtherInstanceNames.Add(new OtherInstanceName { Location = $"{world}:22222~region(us)", AskedAt = t, Refused = true });
+            await db.SaveChangesAsync(ct);
+        }
+
+        await ReadingsAsync(host, ct, Read(world, t.AddMinutes(10), 20, """[["39047",10],["22222~region(us)",9]]"""));
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var view = await host.GetJsonAsync<InstanceWorldView>($"/api/instances/{instance.Id}/world", cookie, ct);
+
+        Assert.False(view.NamesComing);
+        Assert.Null(Assert.Single(view.Others).Name);
+        Assert.Equal(0, queue.Count);
+    }
 }

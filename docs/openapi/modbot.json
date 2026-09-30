@@ -11505,7 +11505,7 @@
           "Places"
         ],
         "summary": "Get how an instance compared with its world",
-        "description": "How one instance compared with the other instances in its world while it was open: where it ranked by head count at each read of the world's page, the busiest of the others, and how many people were in the world. Read from Modbot's own tables; nothing here calls VRChat. The world's page is read every two minutes while the group has an instance open in that world, so an instance that closed before those reads began has no readings. The other instances' numbers are the world page's list; this instance's is the list's when the list carries it (`listed`), and its own head count otherwise.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "How one instance compared with the other instances in its world while it was open: where it ranked by head count at each read of the world's page, the busiest of the others, and how many people were in the world. Read from Modbot's own tables; nothing here waits on VRChat. The world's page is read every two minutes while the group has an instance open in that world, so an instance that closed before those reads began has no readings. The other instances' numbers are the world page's list; this instance's is the list's when the list carries it (`listed`), and its own head count otherwise.\n\nThe first time a shown instance or its group has no name Modbot has asked for, and its location does not say outsiders cannot join (invite, friends, friends+, a group's members or members and their friends), Modbot asks VRChat for it once, in the background, and keeps the answer, a refusal included. `namesComing` is true while such a read is waiting; asking again a few seconds later shows what it found.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetInstanceWorld",
         "parameters": [
           {
@@ -29303,6 +29303,10 @@
           },
           "truncated": {
             "type": "boolean"
+          },
+          "namesComing": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -32301,6 +32305,7 @@
           "ownGroup",
           "modbotInstanceId",
           "name",
+          "groupName",
           "peak",
           "firstSeenAt",
           "lastSeenAt",
@@ -32346,6 +32351,12 @@
             "format": "uuid"
           },
           "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
             "type": [
               "null",
               "string"

@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis, type TooltipContentProps } from 'recharts'
 import { ChartFrame, ChartTooltip, chartHeight, compactNumber, minutes, seriesColor } from '@/components/charts'
 import { EmptyRow } from '@/components/PanelGrid'
@@ -17,6 +17,14 @@ import { openInstance } from '@/lib/subject'
 const OTHER_STROKE = 'var(--muted-foreground)'
 
 /**
+ * While VRChat is being asked for the others' names, the tab asks again this often, this many times:
+ * about half a minute, enough for a popup's eight instances at one read a second and a few groups.
+ * Anything later shows the next time the tab opens.
+ */
+const NAMES_AGAIN_AFTER_MS = 8000
+const NAMES_AGAIN_TIMES = 4
+
+/**
  * How this instance compared with the other instances in its world while it was open: its head count
  * against the busiest of theirs at each read of the world's page, where it ranked, and how many were
  * in the world.
@@ -27,7 +35,15 @@ const OTHER_STROKE = 'var(--muted-foreground)'
  */
 export function InstanceWorld({ id, live }: { id: string; live: number }) {
   const load = useCallback(() => api.instanceWorld(id), [id])
-  const { data, error } = useLoad(load, live)
+  const [again, setAgain] = useState(0)
+  const { data, error } = useLoad(load, live + again)
+
+  // The answer never waits on VRChat, so names asked for just now arrive on a later answer.
+  useEffect(() => {
+    if (!data?.namesComing || again >= NAMES_AGAIN_TIMES) return
+    const timer = window.setTimeout(() => setAgain((n) => n + 1), NAMES_AGAIN_AFTER_MS)
+    return () => window.clearTimeout(timer)
+  }, [data, again])
 
   if (error) {
     return (
@@ -181,7 +197,8 @@ function ReadingTooltip({ active, payload, others }: TooltipContentProps & { oth
  * The busiest others, each called by the name it was opened with when Modbot knows it, and by its
  * number otherwise. A named one keeps its number under the name, because the number is what finds
  * it in game. One of the group's own says the group's name after it; the group is read once for
- * the whole table, and "your group" stands in until it arrives.
+ * the whole table, and "your group" stands in until it arrives. Another group's says that group's
+ * name once VRChat has been asked for it.
  */
 function OthersTable({ view }: { view: InstanceWorldView }) {
   const { info } = useGroupInfo()
@@ -218,7 +235,9 @@ function OthersTable({ view }: { view: InstanceWorldView }) {
             ) : (
               <span className="font-mono">{otherLabel(other)}</span>
             )}
-            {other.ownGroup && <span className="text-muted-foreground"> · {ownGroup}</span>}
+            {groupLabel(other, ownGroup) && (
+              <span className="text-muted-foreground"> · {groupLabel(other, ownGroup)}</span>
+            )}
             {isNamed(other) && (
               <div className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
                 {other.number ? `#${other.number}` : other.instanceId}
@@ -241,6 +260,12 @@ function OthersTable({ view }: { view: InstanceWorldView }) {
 /** `#16354`, or the name it was opened with when Modbot knows the instance. */
 function otherLabel(other: OtherInstance): string {
   return instanceNumber(other.number ?? other.instanceId, other.name)
+}
+
+/** The group's name after the label: the managed group's, or another group's once it is known. */
+function groupLabel(other: OtherInstance, ownGroup: string): string | null {
+  if (other.ownGroup) return ownGroup
+  return other.groupName?.trim() || null
 }
 
 /** Whether the label is the instance's own name rather than its number. A blank name is no name. */

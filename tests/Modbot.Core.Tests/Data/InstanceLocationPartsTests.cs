@@ -86,4 +86,29 @@ public class InstanceLocationPartsTests
         Assert.Null(parts.WorldId);
         Assert.Null(parts.InstanceId);
     }
+
+    /// <summary>
+    /// Closed to outsiders only when a qualifier says so: invite, friends, friends+, a group's
+    /// members, or members and their friends. Nothing said, or an access type this does not know,
+    /// is not called closed.
+    /// </summary>
+    [Theory]
+    [InlineData("wrld_a:69955~private(usr_f)~region(use)", true, "private")]
+    [InlineData("wrld_a:69955~private(usr_f)~canRequestInvite~region(use)", true, "private")]
+    [InlineData("wrld_a:39047~friends(usr_5)~region(use)", true, "friends")]
+    [InlineData("wrld_a:1~hidden(usr_5)~region(eu)", true, "hidden")]
+    [InlineData("wrld_a:2~group(grp_x)~groupAccessType(members)~region(us)", true, null)]
+    [InlineData("wrld_a:3~group(grp_x)~groupAccessType(plus)~region(us)", true, null)]
+    [InlineData("wrld_a:4~group(grp_x)~groupAccessType(public)~region(us)", false, null)]
+    [InlineData("wrld_a:5~group(grp_x)~region(us)", false, null)]
+    [InlineData("wrld_a:6~group(grp_x)~groupAccessType(somethingNew)", false, null)]
+    [InlineData("wrld_a:16354~region(eu)", false, null)]
+    [InlineData("wrld_a:16354", false, null)]
+    public void SaysClosedToOutsidersOnlyWhenAQualifierDoes(string raw, bool closed, string? ownerAccess)
+    {
+        var parts = InstanceLocationParts.Split(raw);
+
+        Assert.Equal(closed, parts.ClosedToOutsiders);
+        Assert.Equal(ownerAccess, parts.OwnerAccess);
+    }
 }

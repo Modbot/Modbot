@@ -34,6 +34,24 @@ public static class InstanceWorldQuery
         string? managedGroupId,
         DateTimeOffset now,
         CancellationToken ct)
+        => (await ReadWithUnaskedAsync(db, id, managedGroupId, now, ct))?.View;
+
+    /// <summary>
+    /// The same view, and the names on it VRChat has never been asked for: the locations of other
+    /// instances and the ids of other groups.
+    /// </summary>
+    /// <remarks>
+    /// Only the shown instances count, and of those only ones that are not the managed group's, that
+    /// Modbot has no row of its own for, and whose location does not say outsiders cannot join
+    /// (<see cref="InstanceLocationParts.ClosedToOutsiders"/>). A group is asked about only for such
+    /// an instance. A name already asked for is never in the list, whatever the answer was.
+    /// </remarks>
+    public static async Task<InstanceWorldRead?> ReadWithUnaskedAsync(
+        ModbotContext db,
+        Guid id,
+        string? managedGroupId,
+        DateTimeOffset now,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
 
@@ -60,7 +78,7 @@ public static class InstanceWorldQuery
         stored.Reverse();
 
         if (stored.Count == 0)
-            return new InstanceWorldView(id, row.WorldId, from, to, [], [], 0, null, 0m, false);
+            return new InstanceWorldRead(new InstanceWorldView(id, row.WorldId, from, to, [], [], 0, null, 0m, false), [], []);
 
         // This instance's own head counts, for the reads whose list leaves it out. The last change
         // before the first read is what held at that read.
@@ -131,26 +149,68 @@ public static class InstanceWorldQuery
 
         var known = await KnownAsync(db, row.WorldId, shown, ct);
 
-        var listedOthers = shown
+        var located = shown
             .Select(o =>
             {
-                var parts = InstanceLocationParts.Split($"{row.WorldId}:{o.InstanceId}");
+                var location = $"{row.WorldId}:{o.InstanceId}";
+                var parts = InstanceLocationParts.Split(location);
+                var ownGroup = managedGroupId is { Length: > 0 } && string.Equals(parts.GroupId, managedGroupId, StringComparison.Ordinal);
                 var match = known.TryGetValue(o.InstanceId, out var m) ? m : ((Guid Id, string? Name)?)null;
 
-                return new OtherInstance(
-                    o.InstanceId,
-                    o.Number,
-                    parts.GroupId,
-                    parts.GroupAccessType,
-                    parts.Region,
-                    managedGroupId is { Length: > 0 } && string.Equals(parts.GroupId, managedGroupId, StringComparison.Ordinal),
-                    match?.Id,
-                    match?.Name,
-                    o.Peak,
-                    o.FirstSeenAt,
-                    o.LastSeenAt,
-                    o.Readings);
+                // Another group's instance, or one that is nobody's group's, that Modbot has no row
+                // for and that outsiders may join: the ones a name is asked for.
+                var askable = !ownGroup && match is null && !parts.ClosedToOutsiders;
+
+                return (Seen: o, Location: location, Parts: parts, OwnGroup: ownGroup, Match: match, Askable: askable);
             })
+            .ToList();
+
+        var (instanceNames, groupNames) = await SavedNamesAsync(
+            db,
+            located.Select(o => o.Location),
+            located.Where(o => !o.OwnGroup && o.Parts.GroupId is not null).Select(o => o.Parts.GroupId!),
+            ct);
+
+        var listedOthers = located
+            .Select(o =>
+            {
+                var name = o.Match is { } match
+                    ? match.Name
+                    : instanceNames.GetValueOrDefault(o.Location);
+
+                var groupName = !o.OwnGroup && o.Parts.GroupId is { } groupId
+                    ? groupNames.GetValueOrDefault(groupId)
+                    : null;
+
+                return new OtherInstance(
+                    o.Seen.InstanceId,
+                    o.Seen.Number,
+                    o.Parts.GroupId,
+                    o.Parts.GroupAccessType,
+                    o.Parts.Region,
+                    o.OwnGroup,
+                    o.Match?.Id,
+                    name,
+                    groupName,
+                    o.Seen.Peak,
+                    o.Seen.FirstSeenAt,
+                    o.Seen.LastSeenAt,
+                    o.Seen.Readings);
+            })
+            .ToList();
+
+        var askable = located.Where(o => o.Askable).ToList();
+
+        var unaskedInstances = askable
+            .Where(o => !instanceNames.ContainsKey(o.Location))
+            .Select(o => o.Location)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var unaskedGroups = askable
+            .Where(o => o.Parts.GroupId is { } groupId && !groupNames.ContainsKey(groupId))
+            .Select(o => o.Parts.GroupId!)
+            .Distinct(StringComparer.Ordinal)
             .ToList();
 
         var atPeak = readings
@@ -159,7 +219,7 @@ public static class InstanceWorldQuery
             .ThenBy(r => r.At)
             .FirstOrDefault();
 
-        return new InstanceWorldView(
+        var view = new InstanceWorldView(
             id,
             row.WorldId,
             from,
@@ -170,6 +230,37 @@ public static class InstanceWorldQuery
             atPeak,
             BusiestMinutes(readings, to),
             truncated);
+
+        return new InstanceWorldRead(view, unaskedInstances, unaskedGroups);
+    }
+
+    /// <summary>
+    /// What VRChat said when it was asked for these instances' and groups' names, keyed by location
+    /// and by group id. A key that is there was asked about; its value is null when there was no
+    /// name or VRChat refused.
+    /// </summary>
+    private static async Task<(Dictionary<string, string?> Instances, Dictionary<string, string?> Groups)> SavedNamesAsync(
+        ModbotContext db,
+        IEnumerable<string> locations,
+        IEnumerable<string> groupIds,
+        CancellationToken ct)
+    {
+        var locationList = locations.Distinct(StringComparer.Ordinal).ToList();
+        var groupList = groupIds.Distinct(StringComparer.Ordinal).ToList();
+
+        var instances = locationList.Count == 0
+            ? new Dictionary<string, string?>(StringComparer.Ordinal)
+            : await db.OtherInstanceNames.AsNoTracking()
+                .Where(n => locationList.Contains(n.Location))
+                .ToDictionaryAsync(n => n.Location, n => n.Name, StringComparer.Ordinal, ct);
+
+        var groups = groupList.Count == 0
+            ? new Dictionary<string, string?>(StringComparer.Ordinal)
+            : await db.OtherGroupNames.AsNoTracking()
+                .Where(g => groupList.Contains(g.GroupId))
+                .ToDictionaryAsync(g => g.GroupId, g => g.Name, StringComparer.Ordinal, ct);
+
+        return (instances, groups);
     }
 
     /// <summary>
@@ -353,3 +444,13 @@ public static class InstanceWorldQuery
         }
     }
 }
+
+/// <summary>
+/// The World tab's view, and the names on it VRChat has never been asked for.
+/// </summary>
+/// <param name="UnaskedInstances">Locations: the world's id, <c>:</c>, and the instance's id as listed.</param>
+/// <param name="UnaskedGroups">Group ids.</param>
+public sealed record InstanceWorldRead(
+    InstanceWorldView View,
+    IReadOnlyList<string> UnaskedInstances,
+    IReadOnlyList<string> UnaskedGroups);

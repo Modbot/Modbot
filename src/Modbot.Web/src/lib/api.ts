@@ -2114,6 +2114,8 @@ export type InstanceWorldView = {
   atPeak: WorldReading | null
   busiestMinutes: number
   truncated: boolean
+  /** True while VRChat is being asked for a shown instance's or group's name; asking again soon may name it. */
+  namesComing: boolean
 }
 
 /** One read of the world's page, and where this instance stood in it. */
@@ -2143,6 +2145,8 @@ export type OtherInstance = {
   /** Modbot's own id, when it has a row for this instance: what opens its popup. */
   modbotInstanceId: string | null
   name: string | null
+  /** Another group's name, once VRChat has been asked. Null for the group's own instances. */
+  groupName: string | null
   peak: number
   firstSeenAt: string
   lastSeenAt: string

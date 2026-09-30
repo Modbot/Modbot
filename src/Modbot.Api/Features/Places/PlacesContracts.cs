@@ -213,8 +213,14 @@ public sealed record PersonMetrics(
 /// <remarks>
 /// <para>
 /// Empty for an instance that closed before the world was being read, which is every instance
-/// before 2026-09-27, and for stretches when <c>worlds.read</c> was cold-stopped. Nothing here calls
-/// VRChat; the readings were taken while the instance was open.
+/// before 2026-09-27, and for stretches when <c>worlds.read</c> was cold-stopped. The readings were
+/// taken while the instance was open; nothing here waits on VRChat.
+/// </para>
+/// <para>
+/// The other instances' names and their groups' names are the one thing asked for when this is
+/// read: once each, in the background, for an instance or group Modbot has never asked about and
+/// whose location does not say outsiders cannot join. The answer is kept, so every later read has
+/// it without asking; <see cref="NamesComing"/> says one is still on its way.
 /// </para>
 /// <para>
 /// The other instances' numbers are the world page's list, and so is this instance's whenever the
@@ -237,6 +243,10 @@ public sealed record PersonMetrics(
 /// each read counting for at most <see cref="InstanceWorldView.ReadingCoversAtMost"/>.
 /// </param>
 /// <param name="Truncated">True when there were more reads than <see cref="InstanceWorldView.ReadingsMost"/>; the newest are kept.</param>
+/// <param name="NamesComing">
+/// True when VRChat is being asked for the name of a shown instance or its group, so asking again in
+/// a few seconds may name it.
+/// </param>
 public sealed record InstanceWorldView(
     Guid InstanceId,
     string WorldId,
@@ -247,7 +257,8 @@ public sealed record InstanceWorldView(
     int OthersTotal,
     WorldReading? AtPeak,
     decimal BusiestMinutes,
-    bool Truncated)
+    bool Truncated,
+    bool NamesComing = false)
 {
     /// <summary>How many other instances are shown. Enough to see the busy ones; the rest are a crowd.</summary>
     public const int OthersShown = 8;
@@ -288,7 +299,14 @@ public sealed record WorldReading(
 /// <param name="Number">VRChat's number: the part before the first <c>~</c>.</param>
 /// <param name="OwnGroup">True when it belongs to the managed group.</param>
 /// <param name="ModbotInstanceId">Modbot's own id for it when Modbot has a row for it, so a screen can open it.</param>
-/// <param name="Name">The name it was opened with, when Modbot has a row for it and it had one.</param>
+/// <param name="Name">
+/// The name it was opened with, when it had one: from Modbot's own row for one of the group's
+/// instances, and from the one time VRChat was asked for anybody else's.
+/// </param>
+/// <param name="GroupName">
+/// Its group's name, for another group's instance, once VRChat has been asked. Null for the managed
+/// group's own instances, whose name the screen already has.
+/// </param>
 /// <param name="Peak">The most people the list showed in it while this instance was open.</param>
 /// <param name="Readings">Its head count at each read that carried it, oldest first.</param>
 public sealed record OtherInstance(
@@ -300,6 +318,7 @@ public sealed record OtherInstance(
     bool OwnGroup,
     Guid? ModbotInstanceId,
     string? Name,
+    string? GroupName,
     int Peak,
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,

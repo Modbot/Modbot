@@ -36,13 +36,31 @@ namespace Modbot.Core.Data;
 /// <c>~groupAccessType(...)</c>.
 /// </param>
 /// <param name="Region">VRChat's network region from <c>~region(...)</c>.</param>
+/// <param name="OwnerAccess">
+/// How open a person's own instance is, by the qualifier that says so: <c>private</c> (invite and
+/// invite+), <c>friends</c> or <c>hidden</c> (friends+). The qualifier's name only; the owner's id
+/// in the brackets is not kept here. Null when the location has none of the three.
+/// </param>
 public readonly record struct InstanceLocationParts(
     string? WorldId,
     string? InstanceId,
     string? GroupId = null,
     string? GroupAccessType = null,
-    string? Region = null)
+    string? Region = null,
+    string? OwnerAccess = null)
 {
+    /// <summary>
+    /// Whether the location itself says that somebody outside the owner's circle cannot join: an
+    /// invite, friends or friends+ instance, or a group instance for members (<c>members</c>) or
+    /// members and their friends (<c>plus</c>).
+    /// </summary>
+    /// <remarks>
+    /// Only what the qualifiers say. A location without them is not called open or closed, and
+    /// an access type this does not know is not called closed: VRChat's answer, or its refusal,
+    /// is the better guide there than a guess.
+    /// </remarks>
+    public bool ClosedToOutsiders => OwnerAccess is not null || GroupAccessType is "members" or "plus";
+
     /// <summary>
     /// What kind of instance the location describes, in one word, or null when it does not say.
     /// </summary>
@@ -91,6 +109,7 @@ public readonly record struct InstanceLocationParts(
         string? groupId = null;
         string? groupAccessType = null;
         string? region = null;
+        string? ownerAccess = null;
 
         if (tilde >= 0)
         {
@@ -103,6 +122,7 @@ public readonly record struct InstanceLocationParts(
                     case "group": groupId = value; break;
                     case "groupAccessType": groupAccessType = value; break;
                     case "region": region = value; break;
+                    case "private" or "friends" or "hidden": ownerAccess ??= name; break;
                 }
             }
         }
@@ -112,7 +132,8 @@ public readonly record struct InstanceLocationParts(
             instanceId.Length == 0 ? null : instanceId,
             groupId,
             groupAccessType,
-            region);
+            region,
+            ownerAccess);
     }
 
     /// <summary>

@@ -12,6 +12,7 @@ using Modbot.Api.Features.Audit;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Time;
+using Modbot.VRChat.Sync;
 
 namespace Modbot.Api.Features.Places;
 
@@ -110,12 +111,20 @@ public static class PlacesEndpoints
                 [FromRoute] Guid id,
                 [FromServices] ModbotContext db,
                 [FromServices] IModbotClock clock,
+                [FromServices] OtherNameQueue? names,
                 CancellationToken ct) =>
             {
                 var settings = await db.GetSettingsAsync(ct);
-                var view = await InstanceWorldQuery.ReadAsync(db, id, settings.ManagedGroupId, clock.UtcNow, ct);
+                var read = await InstanceWorldQuery.ReadWithUnaskedAsync(db, id, settings.ManagedGroupId, clock.UtcNow, ct);
 
-                return view is null ? Results.NotFound() : Results.Ok(view);
+                if (read is null)
+                    return Results.NotFound();
+
+                // Handed to the one service that asks, so this answer never waits on VRChat. A host
+                // without the VRChat side registers no queue, and the numbers stand.
+                var coming = names is not null && AskForNames(names, read);
+
+                return Results.Ok(coming ? read.View with { NamesComing = true } : read.View);
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetInstanceWorld")
@@ -124,16 +133,38 @@ public static class PlacesEndpoints
                 "How one instance compared with the other instances in its world while it was open: "
                 + "where it ranked by head count at each read of the world's page, the busiest of the "
                 + "others, and how many people were in the world. "
-                + "Read from Modbot's own tables; nothing here calls VRChat. The world's page is read "
+                + "Read from Modbot's own tables; nothing here waits on VRChat. The world's page is read "
                 + "every two minutes while the group has an instance open in that world, so an instance "
                 + "that closed before those reads began has no readings. The other instances' numbers "
                 + "are the world page's list; this instance's is the list's when the list carries it "
-                + "(`listed`), and its own head count otherwise.")
+                + "(`listed`), and its own head count otherwise.\n\n"
+                + "The first time a shown instance or its group has no name Modbot has asked for, and its "
+                + "location does not say outsiders cannot join (invite, friends, friends+, a group's "
+                + "members or members and their friends), Modbot asks VRChat for it once, in the background, "
+                + "and keeps the answer, a refusal included. `namesComing` is true while such a read is "
+                + "waiting; asking again a few seconds later shows what it found.")
             .Produces<InstanceWorldView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
 
         return app;
+    }
+
+    /// <summary>
+    /// Offers the World tab's unasked names to the queue, and says whether any of the shown names is
+    /// still on its way -- offered now, or by an earlier popup and not yet read.
+    /// </summary>
+    internal static bool AskForNames(OtherNameQueue names, InstanceWorldRead read)
+    {
+        var coming = false;
+
+        foreach (var location in read.UnaskedInstances)
+            coming |= names.Offer(new OtherNameRequest(OtherNameKind.Instance, location));
+
+        foreach (var groupId in read.UnaskedGroups)
+            coming |= names.Offer(new OtherNameRequest(OtherNameKind.Group, groupId));
+
+        return coming;
     }
 
     internal static async Task<WorldView> WorldAsync(

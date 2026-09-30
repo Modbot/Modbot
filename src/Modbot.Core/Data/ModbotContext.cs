@@ -135,6 +135,12 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>A world's page, read every two minutes while the group has an instance open in it.</summary>
     public DbSet<WorldHeadCount> WorldHeadCounts => Set<WorldHeadCount>();
 
+    /// <summary>Other groups' instances' names, each asked of VRChat once, for the World tab.</summary>
+    public DbSet<OtherInstanceName> OtherInstanceNames => Set<OtherInstanceName>();
+
+    /// <summary>Other groups' names, each asked of VRChat once, for the World tab.</summary>
+    public DbSet<OtherGroupName> OtherGroupNames => Set<OtherGroupName>();
+
     /// <summary>The group's member count and online member count, one row per poll.</summary>
     public DbSet<GroupMemberCount> GroupMemberCounts => Set<GroupMemberCount>();
 
@@ -828,6 +834,27 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             // "Every read of this world while this instance was open" -- the popup's one question.
             entity.HasIndex(e => new { e.WorldId, e.CountedAt })
                 .HasDatabaseName("ix_world_head_count_world");
+        });
+
+        builder.Entity<OtherInstanceName>(entity =>
+        {
+            entity.ToTable("other_instance_name");
+
+            // The location as the world's list carried it: opaque text, the key a popup looks up by.
+            entity.HasKey(e => e.Location);
+            entity.Property(e => e.Location).HasColumnType("text");
+
+            // Written by whoever opened the instance, and VRChat's caps on it have moved before.
+            entity.Property(e => e.Name).HasColumnType("text");
+        });
+
+        builder.Entity<OtherGroupName>(entity =>
+        {
+            entity.ToTable("other_group_name");
+
+            entity.HasKey(e => e.GroupId);
+            entity.Property(e => e.GroupId).HasColumnType("text");
+            entity.Property(e => e.Name).HasColumnType("text");
         });
 
         builder.Entity<GroupMemberCount>(entity =>

@@ -353,6 +353,20 @@ public static class VRChatServiceCollectionExtensions
             provider.GetRequiredService<IServiceScopeFactory>(),
             provider.GetRequiredService<IMonotonicClock>()));
 
+        // Other groups' instance names and group names for the World tab, each asked once when a
+        // popup first lists it. One queue for the process, so every popup's offer reaches the one
+        // service that asks; the reads draw on instances.read and groups.read like the syncs above.
+        services.AddSingleton<OtherNameQueue>();
+
+        services.AddScoped<OtherNameReader>(provider => new OtherNameReader(
+            provider.GetRequiredService<IVRChatGate>(),
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Core.Time.IModbotClock>()));
+
+        services.AddHostedService(provider => new OtherNameService(
+            provider.GetRequiredService<OtherNameQueue>(),
+            provider.GetRequiredService<IServiceScopeFactory>()));
+
         // The one sign-in attempt after a wait (spec 4.1.2), made on time even when nothing else is
         // asking VRChat for anything.
         services.AddHostedService(provider => new SignInResumeService(
