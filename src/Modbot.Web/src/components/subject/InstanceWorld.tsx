@@ -6,6 +6,7 @@ import { Panel } from '@/components/subject/shared'
 import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCountSeries'
+import { useGroupInfo } from '@/lib/useGroupInfo'
 import { useLoad } from '@/lib/useLoad'
 import { api, type InstanceWorldView, type OtherInstance, type WorldReading } from '@/lib/api'
 import { accessInGame, headCountText, ordinal } from '@/lib/format'
@@ -176,7 +177,16 @@ function ReadingTooltip({ active, payload, others }: TooltipContentProps & { oth
   )
 }
 
+/**
+ * The busiest others, each called by the name it was opened with when Modbot knows it, and by its
+ * number otherwise. A named one keeps its number under the name, because the number is what finds
+ * it in game. One of the group's own says the group's name after it; the group is read once for
+ * the whole table, and "your group" stands in until it arrives.
+ */
 function OthersTable({ view }: { view: InstanceWorldView }) {
+  const { info } = useGroupInfo()
+  const ownGroup = info?.name?.trim() || 'your group'
+
   if (view.others.length === 0) return <EmptyRow>No other instances seen.</EmptyRow>
 
   // A public instance's id carries no qualifier that says who can join, so the column is left out
@@ -208,7 +218,12 @@ function OthersTable({ view }: { view: InstanceWorldView }) {
             ) : (
               <span className="font-mono">{otherLabel(other)}</span>
             )}
-            {other.ownGroup && <span className="text-muted-foreground"> · your group</span>}
+            {other.ownGroup && <span className="text-muted-foreground"> · {ownGroup}</span>}
+            {isNamed(other) && (
+              <div className="font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }}>
+                {other.number ? `#${other.number}` : other.instanceId}
+              </div>
+            )}
           </Td>
           {saysWhoCanJoin && (
             <Td className="text-muted-foreground">{accessInGame(other.groupAccessType) ?? (other.groupId ? 'Group' : '—')}</Td>
@@ -226,4 +241,9 @@ function OthersTable({ view }: { view: InstanceWorldView }) {
 /** `#16354`, or the name it was opened with when Modbot knows the instance. */
 function otherLabel(other: OtherInstance): string {
   return instanceNumber(other.number ?? other.instanceId, other.name)
+}
+
+/** Whether the label is the instance's own name rather than its number. A blank name is no name. */
+function isNamed(other: OtherInstance): boolean {
+  return !!other.name?.trim()
 }

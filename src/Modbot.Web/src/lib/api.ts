@@ -2076,6 +2076,8 @@ export type InstanceView = {
   lastSeenAt: string
   seenInGroupList: boolean
   counts: PlaceCounts
+  /** How many of the people seen here are group members now. Zero without ViewAuditLog, like `people`. */
+  returningMembers: number
   /** False without ViewAuditLog: who was in an instance is moderation history, the instance itself is not. */
   canSeeWhoWasThere: boolean
   people: PersonSeen[]

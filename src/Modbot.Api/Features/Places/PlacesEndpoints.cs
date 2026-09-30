@@ -249,6 +249,7 @@ public static class PlacesEndpoints
         var canSee = ModbotAuth.Allows(held, ModbotPermissions.ViewAuditLog);
 
         var counts = PlaceCounts.Nothing;
+        var returningMembers = 0;
         IReadOnlyList<PersonSeen> people = [];
         IReadOnlyList<AuditEntry> log = [];
         var truncated = false;
@@ -260,6 +261,7 @@ public static class PlacesEndpoints
 
             counts = await presence.ForInstanceAsync(instance, ct);
             people = await WithNamesAsync(db, await presence.PeopleInInstanceAsync(instance, ct), ct);
+            returningMembers = await ReturningMembersAsync(db, people, ct);
             (log, truncated) = await LogAsync(db, held, instance, ct);
         }
 
@@ -290,12 +292,36 @@ public static class PlacesEndpoints
             row.LastSeenAt,
             row.SeenInGroupList,
             counts,
+            returningMembers,
             canSee,
             people,
             log,
             truncated,
             now,
             headCounts);
+    }
+
+    /// <summary>
+    /// How many of the people seen in an instance are members of the managed group now.
+    /// </summary>
+    /// <remarks>
+    /// Read from the member table as the last sweep left it (<see cref="GroupMember"/>): a row with
+    /// no <see cref="GroupMember.LeftAt"/> is a member. The people are the presence sessions' distinct
+    /// subjects, so someone who joined twice is one person here as they are in <see cref="PlaceCounts.Visitors"/>.
+    /// </remarks>
+    private static async Task<int> ReturningMembersAsync(ModbotContext db, IReadOnlyList<PersonSeen> people, CancellationToken ct)
+    {
+        if (people.Count == 0)
+            return 0;
+
+        var settings = await db.GetSettingsAsync(ct);
+        if (settings.ManagedGroupId is not { Length: > 0 } groupId)
+            return 0;
+
+        var ids = people.Select(p => p.UserId).Distinct(StringComparer.Ordinal).ToList();
+
+        return await db.GroupMembers.AsNoTracking()
+            .CountAsync(m => m.GroupId == groupId && m.LeftAt == null && ids.Contains(m.UserId), ct);
     }
 
     /// <summary>

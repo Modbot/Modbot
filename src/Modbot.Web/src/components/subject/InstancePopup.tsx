@@ -239,7 +239,7 @@ function Details({ view, phone }: { view: InstanceView; phone: boolean }) {
   )
 }
 
-/** The glance: where and when, the figures, the people seen longest, the newest facts. */
+/** The glance: where and when, the figures, the joins, and the people seen longest. */
 function Overview({
   view,
   phone,
@@ -258,15 +258,15 @@ function Overview({
     <div className="flex flex-col">
       <Details view={view} phone={phone} />
 
-      <StatStrip className="m-0 shrink-0">
+      <StatStrip className="m-0 shrink-0" phonePairs>
         <Stat label={instance.closedAt ? 'Ran for' : 'Open for'} value={minutes(instance.minutesOpen)} />
         <Stat
           label="Most at once"
           value={instance.peakPeople === null ? '—' : <HeadCount count={instance.peakPeople} unsure={instance.peakPeopleUnsure} />}
         />
-        <Stat label="People seen" value={compactNumber(view.counts.visitors)} />
-        <Stat label="Arrivals" value={compactNumber(view.counts.arrivals)} />
       </StatStrip>
+
+      {view.canSeeWhoWasThere && <Joins view={view} />}
 
       <PeopleOverTime view={view} />
 
@@ -294,15 +294,35 @@ function Overview({
               </ul>
             )}
           </Panel>
-
-          <Panel title="Latest" right={<More onClick={() => onMore('logs')}>All activity</More>} flush>
-            <FactList entries={view.log.slice(0, 8)} empty="Nothing recorded yet." now={view.now} />
-          </Panel>
         </>
       ) : (
         <Empty>You do not have permission to see who was here.</Empty>
       )}
     </div>
+  )
+}
+
+/**
+ * The joins a moderator's client saw, as four numbers under one heading: every join, the different
+ * people who made them (someone already there when the client arrived counts as one), the joins
+ * that were somebody coming back, and how many of those people are group members now.
+ *
+ * Rejoins is the difference of the first two rather than a count of its own, so the three always
+ * add up on the screen. Only with ViewAuditLog, like the People tab: who came, and how often, is
+ * moderation history.
+ */
+function Joins({ view }: { view: InstanceView }) {
+  const { arrivals, visitors } = view.counts
+
+  return (
+    <Panel title="Joins" flush>
+      <StatStrip className="m-0 shrink-0" phonePairs>
+        <Stat label="Total" value={compactNumber(arrivals)} />
+        <Stat label="Firsts" value={compactNumber(visitors)} />
+        <Stat label="Rejoins" value={compactNumber(Math.max(0, arrivals - visitors))} />
+        <Stat label="Returning members" value={compactNumber(view.returningMembers)} />
+      </StatStrip>
+    </Panel>
   )
 }
 

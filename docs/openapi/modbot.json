@@ -29136,6 +29136,7 @@
           "lastSeenAt",
           "seenInGroupList",
           "counts",
+          "returningMembers",
           "canSeeWhoWasThere",
           "people",
           "log",
@@ -29193,6 +29194,14 @@
           },
           "counts": {
             "$ref": "#/components/schemas/PlaceCounts"
+          },
+          "returningMembers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           },
           "canSeeWhoWasThere": {
             "type": "boolean"

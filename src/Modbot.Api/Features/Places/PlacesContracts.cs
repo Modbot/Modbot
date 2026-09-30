@@ -135,6 +135,13 @@ public sealed record WorldView(
 /// when it ended; when false, it was judged finished only by having gone quiet.
 /// </param>
 /// <param name="Counts">What presence reports say about this instance.</param>
+/// <param name="ReturningMembers">
+/// How many of the people seen here are members of the managed group now: the popup's "Returning
+/// members", beside every join (<see cref="PlaceCounts.Arrivals"/>) and the different people who
+/// made them (<see cref="PlaceCounts.Visitors"/>). Membership is read as the member list last
+/// showed it, not as it stood on the night, because that is the question a moderator asks: of the
+/// people who came, how many are ours. Zero, like the people, for a caller without <c>ViewAuditLog</c>.
+/// </param>
 /// <param name="LogTruncated">True when more facts happened here than the list carries.</param>
 /// <param name="HeadCounts">
 /// How many people were in it, each time the count changed, oldest first: the popup's "people over
@@ -152,6 +159,7 @@ public sealed record InstanceView(
     DateTimeOffset LastSeenAt,
     bool SeenInGroupList,
     PlaceCounts Counts,
+    int ReturningMembers,
     bool CanSeeWhoWasThere,
     IReadOnlyList<PersonSeen> People,
     IReadOnlyList<AuditEntry> Log,

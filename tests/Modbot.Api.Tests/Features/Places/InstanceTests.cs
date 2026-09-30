@@ -67,6 +67,63 @@ public class InstanceTests
     }
 
     /// <summary>
+    /// The popup's Joins row: every join, the different people who made them, and how many of those
+    /// people are group members now. A member who joined twice is one returning member; a person who
+    /// left the group, or belongs to another group, is not one.
+    /// </summary>
+    [Fact]
+    public async Task ReturningMembers_AreThePeopleSeen_WhoAreMembersNow()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var t = host.Clock.UtcNow.AddHours(-4);
+
+        await PlacesFixtures.WorldAsync(host, "wrld_a", "The Black Cat", t, ct);
+        var instance = await PlacesFixtures.InstanceAsync(host, "wrld_a", "39047", t, t.AddHours(2), t.AddHours(2), ct);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var settings = await db.GetSettingsAsync(ct);
+            settings.ManagedGroupId = "grp_1";
+
+            GroupMember Member(string user, string group = "grp_1", DateTimeOffset? left = null) => new()
+            {
+                GroupId = group,
+                UserId = user,
+                FirstSeenAt = t,
+                LastSeenAt = t,
+                LeftAt = left,
+            };
+
+            db.GroupMembers.AddRange(
+                Member("usr_member"),
+                Member("usr_gone", left: t.AddHours(3)),
+                Member("usr_elsewhere", group: "grp_2"),
+                Member("usr_absent"));
+            await db.SaveChangesAsync(ct);
+        }
+
+        // The member joins twice: four joins in all, three different people, one returning member.
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_member", t.AddMinutes(5), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_member", t.AddMinutes(15), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_member", t.AddMinutes(25), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_gone", t.AddMinutes(30), "wrld_a", "39047"), ct);
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_elsewhere", t.AddMinutes(35), "wrld_a", "39047"), ct);
+
+        var cookie = await host.SignedInAsync(
+            ModbotPermissions.ViewAnalytics | ModbotPermissions.ViewAuditLog, ct);
+
+        var view = await host.GetJsonAsync<InstanceView>($"/api/instances/{instance.Id}", cookie, ct);
+
+        Assert.Equal(4, view.Counts.Arrivals);
+        Assert.Equal(3, view.Counts.Visitors);
+        Assert.Equal(1, view.ReturningMembers);
+    }
+
+    /// <summary>
     /// VRChat hands the same instance number out again once an instance closes. An instance must not show the
     /// people or the facts of the evening before it.
     /// </summary>
@@ -122,6 +179,7 @@ public class InstanceTests
         Assert.Equal("The Black Cat", view.Instance.WorldName);
         Assert.False(view.CanSeeWhoWasThere);
         Assert.Empty(view.People);
+        Assert.Equal(0, view.ReturningMembers);
         Assert.Empty(view.Log);
     }
 
