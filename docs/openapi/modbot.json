@@ -35460,7 +35460,8 @@
           "vrChatUserId",
           "vrChatDisplayName",
           "email",
-          "discordUserId"
+          "discordUserId",
+          "chatOn"
         ],
         "type": "object",
         "properties": {
@@ -35512,6 +35513,9 @@
               "null",
               "string"
             ]
+          },
+          "chatOn": {
+            "type": "boolean"
           },
           "rank": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
