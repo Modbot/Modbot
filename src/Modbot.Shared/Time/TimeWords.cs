@@ -37,11 +37,13 @@ public static class TimeWords
         if (span < TimeSpan.Zero)
             span = TimeSpan.Zero;
 
+        // Whole seconds first, and every larger unit from those, as the web app's duration() does:
+        // 89.6 s is 90 s and so "2m", where rounding the unrounded span to the minute gave "1m".
         var seconds = Whole(span.TotalSeconds);
         if (seconds < 60)
             return Units(seconds, "s");
 
-        var minutes = Whole(span.TotalMinutes);
+        var minutes = Whole(seconds / 60d);
         if (minutes < 60)
             return Units(minutes, "m");
         if (minutes < 24 * 60)
@@ -50,7 +52,7 @@ public static class TimeWords
         var days = minutes / (24d * 60);
         if (days < DaysInMonth)
         {
-            var hours = Whole(span.TotalHours);
+            var hours = Whole(seconds / 3600d);
             return Units(hours / 24, "d", hours % 24, "h");
         }
 
@@ -82,11 +84,11 @@ public static class TimeWords
         if (seconds < 60)
             return Units(seconds, "s");
         if (seconds < 3600)
-            return Units(Whole(span.TotalMinutes), "m");
+            return Units(Whole(seconds / 60d), "m");
         if (seconds < 86_400)
-            return Units(Whole(span.TotalHours), "h");
+            return Units(Whole(seconds / 3600d), "h");
 
-        var days = Whole(span.TotalDays);
+        var days = Whole(seconds / 86_400d);
         if (days < 45)
             return Units(days, "d");
         if (days < DaysInYear)

@@ -102,6 +102,8 @@ test('a duration in seconds says seconds under a minute, and whole units after',
   assert.equal(duration(1), '1s')
   assert.equal(duration(45), '45s')
   assert.equal(duration(59.6), '1m')
+  // Whole seconds first, then minutes from those: 89.6 s is 90 s, so "2m", as TimeWords.Length says.
+  assert.equal(duration(89.6), '2m')
   assert.equal(duration(720), '12m')
   assert.equal(duration(5400), '1h 30m')
 })
