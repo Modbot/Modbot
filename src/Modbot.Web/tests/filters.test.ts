@@ -3,8 +3,11 @@ import { test } from 'node:test'
 import { atStart, dateRange, decodeChip, encodeChip, isFiltered, operatorsFor, readChips, sameChips, writeChips, type FilterChip } from '../src/lib/filters.ts'
 import {
   AUDIT_DEFAULTS,
+  auditAddress,
   auditQueryFrom,
   discordMemberQueryFrom,
+  instanceChips,
+  instanceRunChip,
   MEMBERS_VIEW,
   memberView,
   PEOPLE_DEFAULTS,
@@ -225,4 +228,46 @@ test('a name search chip holds one id, and the audit log asks for that id', () =
 
   assert.equal(query.subject, 'usr_eve')
   assert.equal(query.world, 'wrld_cat')
+})
+
+test("an instance's activity pins its world and number, and its When chip is its own run", () => {
+  // The log records an instance by VRChat's number, which is only a number inside one world, and
+  // VRChat hands the number out again once the instance closes. So the pin is world plus number,
+  // and the When chip starts on the run: the days from opened to closed, or open-ended while open.
+  assert.deepEqual(instanceChips({ worldId: 'wrld_cat', vrChatInstanceId: '39047' }), [
+    { property: 'world', operator: 'is', values: ['wrld_cat'] },
+    { property: 'instance', operator: 'is', values: ['39047'] },
+  ])
+  assert.deepEqual(instanceChips({ worldId: 'wrld_cat', vrChatInstanceId: null }), [
+    { property: 'world', operator: 'is', values: ['wrld_cat'] },
+  ])
+
+  const closed = instanceRunChip({ openedAt: '2026-03-10T22:30:00+00:00', closedAt: '2026-03-11T01:15:00Z' })
+  assert.deepEqual(closed, { property: 'when', operator: 'between', values: ['2026-03-10', '2026-03-11'] })
+  // Read back the way the audit log reads a When chip, the stretch holds the whole run.
+  assert.deepEqual(dateRange([closed], 'when'), { from: '2026-03-10T00:00:00Z', to: '2026-03-12T00:00:00.000Z' })
+
+  const open = instanceRunChip({ openedAt: '2026-03-10T22:30:00Z', closedAt: null })
+  assert.deepEqual(open, { property: 'when', operator: 'after', values: ['2026-03-10'] })
+
+  // The day is the UTC day, whatever offset the instant was written with: the stretch is read as UTC days.
+  assert.deepEqual(instanceRunChip({ openedAt: '2026-03-11T01:00:00+02:00', closedAt: null }).values, ['2026-03-10'])
+})
+
+test('the pinned chips and the When chip make a query the audit log would, and an address that carries them', () => {
+  const chips = [
+    ...instanceChips({ worldId: 'wrld_cat', vrChatInstanceId: '39047' }),
+    ...AUDIT_DEFAULTS,
+    instanceRunChip({ openedAt: '2026-03-10T22:30:00Z', closedAt: null }),
+  ]
+
+  const query = auditQueryFrom(chips)
+  assert.equal(query.world, 'wrld_cat')
+  assert.equal(query.instance, '39047')
+  assert.equal(query.from, '2026-03-10T00:00:00Z')
+  assert.equal(query.to, undefined)
+
+  const address = auditAddress(chips)
+  assert.ok(address.startsWith('/audit?'))
+  assert.deepEqual(readChips(new URLSearchParams(address.slice('/audit?'.length))), chips)
 })

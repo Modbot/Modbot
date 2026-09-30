@@ -12,6 +12,7 @@ import {
   type TooltipRow,
 } from '@/components/charts'
 import { HeadCount } from '@/components/HeadCount'
+import { AuditLogList } from '@/components/audit/AuditLogList'
 import { InstanceWorld } from '@/components/subject/InstanceWorld'
 import { SubjectLink, WorldLink } from '@/components/facts'
 import { JsonView } from '@/components/JsonView'
@@ -22,7 +23,6 @@ import {
   Empty,
   FactList,
   Field,
-  Footer,
   HeaderPicture,
   More,
   Panel,
@@ -35,6 +35,9 @@ import { Table, Td, Th, Tr } from '@/components/ui/data-table'
 import { Stat, StatStrip } from '@/pages/analytics/shared'
 import { readingTime, timeLabel, timeTicks } from '@/pages/analytics/memberCountSeries'
 import { useLoad } from '@/lib/useLoad'
+import type { FilterChip } from '@/lib/filters'
+import { AUDIT_DEFAULTS, auditAddress, instanceChips, instanceRunChip } from '@/lib/pageFilters'
+import { followLink } from '@/lib/router'
 import { usePhoneLayout } from '@/lib/phoneLayout'
 import { useOpenFromAbove } from '@/lib/useOpenFromAbove'
 import { api, type CurrentUser, type InstanceView, type PeoplePresentPoint } from '@/lib/api'
@@ -146,14 +149,7 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
           </Panel>
         )}
         {data?.canSeeWhoWasThere && tab === 'people' && <People view={data} />}
-        {data?.canSeeWhoWasThere && tab === 'logs' && (
-          <Panel title="What happened in this instance" flush>
-            <FactList entries={data.log} empty="Nothing recorded yet." now={data.now} />
-            {data.logTruncated && (
-              <Footer>Showing the newest {data.log.length}.</Footer>
-            )}
-          </Panel>
-        )}
+        {data?.canSeeWhoWasThere && tab === 'logs' && <Activity view={data} />}
         {tab === 'json' && <JsonView title="Instance" value={error ?? data} className="border-0" />}
       </PopupTabs>
     </PopupFrame>
@@ -519,6 +515,45 @@ function People({ view }: { view: InstanceView }) {
           ))}
         </Table>
       )}
+    </Panel>
+  )
+}
+
+/**
+ * The audit log, narrowed to this instance.
+ *
+ * The Audit log page's own list and chips rather than a list of this popup's own, so a change to
+ * how the log reads shows here too, and the time can be narrowed the way it is there. The world
+ * and the number are pinned and never drawn as chips; the When chip starts on the instance's own
+ * run, because VRChat hands a number out again once an instance closes, and the number alone
+ * would mix an older instance's facts in. Chips changed here stay for as long as the popup is open
+ * and are not written to the address, which belongs to the page under the popup.
+ */
+function Activity({ view }: { view: InstanceView }) {
+  const { worldId, vrChatInstanceId, openedAt, closedAt } = view.instance
+  const fixed = useMemo(() => instanceChips({ worldId, vrChatInstanceId }), [worldId, vrChatInstanceId])
+  // Where this tab starts, and where Clear puts it back: the log's defaults over the instance's run.
+  const [starts] = useState<FilterChip[][]>(() => [[...AUDIT_DEFAULTS, instanceRunChip({ openedAt, closedAt })]])
+  const [chips, setChips] = useState<FilterChip[]>(starts[0])
+
+  const href = auditAddress([...fixed, ...chips])
+
+  return (
+    <Panel
+      title="What happened in this instance"
+      right={
+        <a
+          href={href}
+          onClick={followLink(href)}
+          className="rounded-sm text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+          style={{ fontSize: 'var(--text-small)' }}
+        >
+          Open in Audit log
+        </a>
+      }
+      flush
+    >
+      <AuditLogList chips={chips} starts={starts} onChange={setChips} fixed={fixed} place="popup" />
     </Panel>
   )
 }

@@ -1,5 +1,5 @@
 import type { AuditRequest, DiscordMemberQuery, PeopleQuery } from './api.ts'
-import { chipFor, dateRange, yesNo, type FilterChip } from './filters.ts'
+import { chipFor, dateRange, writeChips, yesNo, type FilterChip } from './filters.ts'
 
 /**
  * What each page's chips ask the server. Pure, so a test can check that a chip becomes the
@@ -51,6 +51,50 @@ export function auditQueryFrom(chips: FilterChip[]): Omit<AuditRequest, 'limit' 
     from: when.from,
     to: when.to,
   }
+}
+
+/** The Audit log page at these chips, as an address a link can carry. */
+export function auditAddress(chips: FilterChip[]): string {
+  const params = new URLSearchParams()
+  writeChips(params, chips)
+  return `/audit?${params.toString()}`
+}
+
+/**
+ * The chips that pin the audit log to one instance: its world and VRChat's number.
+ *
+ * Both, because the log records an instance by VRChat's number, which is only a number inside
+ * one world: another world's #39047 is somebody else's evening. An instance whose number Modbot
+ * never learned pins the world alone.
+ */
+export function instanceChips(instance: { worldId: string; vrChatInstanceId: string | null }): FilterChip[] {
+  return [
+    { property: 'world', operator: 'is', values: [instance.worldId] },
+    ...(instance.vrChatInstanceId
+      ? [{ property: 'instance', operator: 'is' as const, values: [instance.vrChatInstanceId] }]
+      : []),
+  ]
+}
+
+/**
+ * The When chip for one instance's own run: the day it opened up to the day it closed, or from
+ * the day it opened with no end while it is still open.
+ *
+ * VRChat hands a number out again once an instance closes, so the number alone would mix an
+ * older instance's facts in. The chip is by the day, as the audit log's When chip is, so a number
+ * reused within the same day in the same world is still not told apart here; the popup's Overview
+ * reads the exact run.
+ */
+export function instanceRunChip(instance: { openedAt: string; closedAt: string | null }): FilterChip {
+  const opened = utcDay(instance.openedAt)
+  return instance.closedAt
+    ? { property: 'when', operator: 'between', values: [opened, utcDay(instance.closedAt)] }
+    : { property: 'when', operator: 'after', values: [opened] }
+}
+
+/** The UTC day an instant falls on, as the date chips write one: `dateRange` reads the days back as UTC. */
+function utcDay(iso: string): string {
+  return new Date(Date.parse(iso)).toISOString().slice(0, 10)
 }
 
 /**
