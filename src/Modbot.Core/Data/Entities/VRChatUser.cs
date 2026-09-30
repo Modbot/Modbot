@@ -161,8 +161,10 @@ public class VRChatUser
 
     /// <summary>
     /// The most recent time this person did something Modbot recorded -- joined, was banned, was
-    /// seen in an instance. Drives refresh order: someone active a minute ago is refreshed before
-    /// someone whose profile is merely old (user profile sync design §3.2).
+    /// seen in an instance, or their own companion reported them. Drives refresh order: someone
+    /// active a minute ago is refreshed before someone whose profile is merely old (user profile
+    /// sync design §3.2). Moved as the fact is written, and again by the profile sync's pass over
+    /// the log as the catch-up, so it agrees with the newest fact about them (design §3.3).
     /// </summary>
     public DateTimeOffset LastSeenAt { get; set; }
 

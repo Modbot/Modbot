@@ -33,6 +33,35 @@ public class UserSightingsTests
     }
 
     /// <summary>
+    /// The moderator whose client said its log stopped was in that instance when the log's last
+    /// line was written. Left off the list until 2026-09-29, so a moderator running the companion
+    /// was not counted as seen by their own report, and the People page said "4h ago" beside an
+    /// audit log entry from an hour earlier. Not presence: whether they are still there is unknown.
+    /// </summary>
+    [Fact]
+    public void AStoppedLogIsASightingOfTheModeratorWhoseLogItWas()
+    {
+        var sighting = Assert.Single(UserSightings.From(
+            FactType.InstanceLogStopped, FactPlatform.VRChat, "usr_moderator", null, null, At));
+
+        Assert.Equal("usr_moderator", sighting.UserId);
+        Assert.Equal(RefreshReason.SeenInFactLog, sighting.Reason);
+    }
+
+    /// <summary>
+    /// Every fact the companion's ingest can write names a person as its subject, and every one of
+    /// them is on the list. A new companion type that is not is the bug this guards against.
+    /// </summary>
+    [Theory]
+    [InlineData(FactType.InstanceJoined)]
+    [InlineData(FactType.InstanceLeft)]
+    [InlineData(FactType.InstancePresenceObserved)]
+    [InlineData(FactType.AvatarChanged)]
+    [InlineData(FactType.InstanceLogStopped)]
+    public void EveryFactTheCompanionCanWriteCountsItsSubjectAsSeen(string type)
+        => Assert.True(UserSightings.SubjectIsUser(type));
+
+    /// <summary>
     /// Spec 3.1.1: a legacy id looks like anything at all. The only safe question is what kind
     /// of fact it is, and the subject of a group-info fact is the group whatever its id looks like.
     /// </summary>

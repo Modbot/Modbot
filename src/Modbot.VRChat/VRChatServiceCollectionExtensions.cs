@@ -83,6 +83,12 @@ public static class VRChatServiceCollectionExtensions
         // nobody (Discord embeds design §3).
         services.AddSingleton<Core.Files.IPictures, Files.VRChatPictures>();
 
+        // What the fact writer tells about each fact it records, so the people it names count as
+        // seen at once rather than on the profile sync's next pass. Here and not with the sync,
+        // because every producer's facts go through the writer and a host without the sync (a demo)
+        // still shows "last seen". Scoped: it holds the writer's own ModbotContext.
+        services.AddScoped<Analytics.Facts.ISightingRecorder, Users.FactSightings>();
+
         return services;
     }
 

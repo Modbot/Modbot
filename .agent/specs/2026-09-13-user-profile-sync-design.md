@@ -70,7 +70,7 @@ Set by the maintainer on 2026-09-13. Highest first:
 |---|---|---|---|
 | 1 | `SeenInInstance` | a client reported them in an instance — a join, a presence report, an avatar change | most recent sighting first |
 | 2 | `OpenedInModbot` | somebody has their profile open in the web app | most recent request first |
-| 3 | `SeenInFactLog` | they did something the fact log recorded — joined, banned, kicked, or did the banning | most recent sighting first |
+| 3 | `SeenInFactLog` | they did something the fact log recorded — joined, banned, kicked, or did the banning; or their own companion reported that its log stopped (since 2026-09-29) | most recent sighting first |
 | 4 | `ProfileIsOld` | their profile is older than `StaleAfter` (6 h), or older than their last sighting | **oldest refresh first** |
 | 5 | `NeverRefreshed` | their profile has never been fetched | most recent sighting first |
 
@@ -150,6 +150,19 @@ By type, never by the shape of the id. "Does it start with `usr_`" is precisely 
 forbids, because legacy ids start with nothing in particular. `UserSightings` holds the list of
 types whose subject is a person; a type not on it contributes no subject; the profile sync's own
 facts contribute nothing at all, or every refresh would queue the next one.
+
+The list covers every fact the companion can write about a person: joins, leaves, presence
+reports, avatar changes, and — since 2026-09-29 — the moderator's own "log stopped" report, whose
+subject is the moderator. It was missing, so a moderator running the companion was not counted as
+seen by their own report, and the People page said "4h ago" beside an audit log entry an hour old.
+
+**`last_seen_at` moves when the fact is written, not only on this pass** (2026-09-29). The fact
+writer tells `FactSightings` about each fact it inserts, and that runs the same `UserSightings`
+list and the same upsert (`VRChatUserProfiles.RecordSeenAsync`) this pass runs. Before that the
+People page trailed the audit log by up to a pass, and by longer whenever the sync was stopped or
+failing. The pass stays as the catch-up, and it alone queues refreshes: the write-time record
+touches only the row, so nothing is offered to the queue twice. The upsert is idempotent, so the
+pass recording the same sighting again costs a statement and changes nothing.
 
 A sighting inside `RecentWindow` (30 min) goes to the queue at tier 1 or 3; an older one only
 updates `last_seen_at`. The one-off audit-log catch-up hands this pass a month of history, and a
@@ -335,6 +348,8 @@ the Discord screens and the case-file snapshot.
 | Tier 4 ordered oldest-first, the rest newest-first | Age is tier 4's reason; recency is everyone else's. |
 | Tiers 4 and 5 narrowed to members and people seen in the last 30 days (2026-09-18) | Every id Modbot has ever seen has a row, so the tiers as written refreshed a one-time visitor forever out of a budget the group's own members need. The on-demand tiers keep everyone reachable. |
 | Drop-at-dequeue judged against the key | So re-reads and duplicate sightings cannot buy a second fetch. |
+| `last_seen_at` written by the fact writer as well as by the pass (2026-09-29) | The People page and the audit log disagreed about when a moderator was last seen; the same list and the same upsert now run at write time, and the pass is the catch-up. Only the pass queues refreshes. |
+| "Log stopped" counts as a sighting of the moderator (2026-09-29) | It is the companion's report about them, in an instance, at a time; leaving it off the list made their own report not count. |
 | Fresh-enough gaps: 30 s opened, 10 s presence | Protects the lane from a click and from a burst of facts about one person; both are settings. |
 | Sticky flag set by any positive signal, cleared only by hand | The maintainer's requirement; `hidden` is not "unverified". |
 | A re-sighting after a manual clear sets it again | New evidence; the clear was about the old evidence. |

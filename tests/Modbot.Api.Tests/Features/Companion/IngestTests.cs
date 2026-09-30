@@ -497,6 +497,32 @@ public class IngestTests
         Assert.Equal("39911", fact.InstanceId);
     }
 
+    /// <summary>
+    /// The People page's "Last seen by Modbot" and the audit log agree the moment the report is
+    /// in: the row moves as the fact is written, not on the profile sync's next pass (which this
+    /// host does not run at all). A stopped log is the report that was left out until 2026-09-29.
+    /// </summary>
+    [Fact]
+    public async Task AStoppedLogCountsAsSeeingTheModeratorAsSoonAsItIsWritten()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var moderator = $"usr_mod_{Guid.NewGuid():N}";
+        var stoppedAt = Noon.AddMinutes(-20);
+
+        await PostAsync(host, token, Batch(Event(type: "LogStopped", subject: moderator, at: stoppedAt)), ct);
+
+        await using var context = _db.NewContext();
+        var fact = context.Events.Single(e => e.SubjectId == moderator);
+        var row = context.VRChatUsers.Single(u => u.UserId == moderator);
+
+        Assert.Equal(fact.OccurredAt, row.LastSeenAt);
+        Assert.Equal(stoppedAt, row.LastSeenAt);
+        Assert.Equal(stoppedAt, row.FirstSeenAt);
+    }
+
     [Fact]
     public async Task ReportingUpdatesLastSeenSoAnOperatorCanTellWhoIsActuallyCovering()
     {

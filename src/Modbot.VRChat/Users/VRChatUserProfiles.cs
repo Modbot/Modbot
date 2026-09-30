@@ -103,8 +103,18 @@ public sealed class VRChatUserProfiles
     /// sync is discovering -- and two inserts racing on a primary key is a failed pass. An
     /// <c>ON CONFLICT</c> is the database settling it.
     /// </remarks>
-    public async Task RecordSeenAsync(IReadOnlyCollection<UserSighting> sightings, CancellationToken ct = default)
+    public Task RecordSeenAsync(IReadOnlyCollection<UserSighting> sightings, CancellationToken ct = default)
+        => RecordSeenAsync(_db, sightings, ct);
+
+    /// <summary>
+    /// The same upsert over a caller's own context, for the one caller that cannot take this
+    /// class: the fact writer's <see cref="FactSightings"/>, which this class in turn depends on.
+    /// One statement in one place, so what the sync records on its pass and what the writer
+    /// records as a fact lands can never drift apart.
+    /// </summary>
+    public static async Task RecordSeenAsync(ModbotContext db, IReadOnlyCollection<UserSighting> sightings, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(sightings);
 
         if (sightings.Count == 0)
@@ -119,7 +129,7 @@ public sealed class VRChatUserProfiles
         var firsts = byUser.Select(u => u.First.UtcDateTime).ToArray();
         var lasts = byUser.Select(u => u.Last.UtcDateTime).ToArray();
 
-        await _db.Database.ExecuteSqlInterpolatedAsync(
+        await db.Database.ExecuteSqlInterpolatedAsync(
             $"""
              INSERT INTO vrchat_user (user_id, first_seen_at, last_seen_at, is_18_plus_verified)
              SELECT id, first_seen, last_seen, false

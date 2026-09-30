@@ -48,6 +48,13 @@ public static class UserSightings
         FactType.InstanceLeft,
         FactType.AvatarChanged,
         FactType.InstancePresenceObserved,
+
+        // The moderator whose client reported it. They were standing in that instance when the
+        // log wrote its last line, which is as much a sighting as their own arrival was. Missing
+        // from this list until 2026-09-29, so a moderator running the companion was not counted as
+        // seen by their own report, and the People page said "4h ago" beside an audit log entry
+        // from an hour earlier. Not presence: whether they are still there is unknown.
+        FactType.InstanceLogStopped,
     };
 
     /// <summary>Fact types that mean the person is in an instance right now, or was a moment ago.</summary>

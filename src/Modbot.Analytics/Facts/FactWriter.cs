@@ -45,8 +45,14 @@ public sealed class FactWriter : IFactWriter
 
     private readonly FactSignal? _signal;
 
+    private readonly ISightingRecorder? _sightings;
+
     /// <param name="signal">Pulsed after each insert, so live readers look now rather than at their next check.</param>
-    public FactWriter(ModbotContext db, IModbotClock clock, FactSignal? signal = null)
+    /// <param name="sightings">
+    /// Told about each inserted fact, so the people it names count as seen now rather than when
+    /// the profile sync's next pass reads the fact back. See <see cref="ISightingRecorder"/>.
+    /// </param>
+    public FactWriter(ModbotContext db, IModbotClock clock, FactSignal? signal = null, ISightingRecorder? sightings = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(clock);
@@ -54,6 +60,7 @@ public sealed class FactWriter : IFactWriter
         _db = db;
         _clock = clock;
         _signal = signal;
+        _sightings = sightings;
     }
 
     public async Task<FactWriteResult> WriteAsync(FactRecord fact, CancellationToken ct = default)
@@ -75,7 +82,12 @@ public sealed class FactWriter : IFactWriter
         ArgumentNullException.ThrowIfNull(fact);
 
         if (!FactDeduplication.AppliesTo(fact.Source))
-            return new FactWriteResult(await InsertAsync(fact, ct), WasDeduplicated: false);
+        {
+            var inserted = await InsertAsync(fact, ct);
+            await RecordSeenAsync(fact, ct);
+
+            return new FactWriteResult(inserted, WasDeduplicated: false);
+        }
 
         var window = TimeSpan.FromSeconds(await WindowSecondsAsync(ct));
 
@@ -113,12 +125,39 @@ public sealed class FactWriter : IFactWriter
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
 
+            // After the commit, so the person's row is not held locked for as long as the
+            // advisory lock is, and a report that turned out to be a duplicate never gets here.
+            await RecordSeenAsync(fact, ct);
+
             return new FactWriteResult(id, WasDeduplicated: false);
         }
         finally
         {
             if (transaction is not null)
                 await transaction.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Marks the people the fact names as seen, the moment the fact is in.
+    /// </summary>
+    /// <remarks>
+    /// Until 2026-09-29 <c>last_seen_at</c> moved only when the profile sync's next pass read the
+    /// fact back out of the log, so the People page and the audit log could disagree about when
+    /// somebody was last seen. A failure here is swallowed the way the linker's is: the fact is
+    /// already written, and that same pass records the sighting from the log as the catch-up.
+    /// </remarks>
+    private async Task RecordSeenAsync(FactRecord fact, CancellationToken ct)
+    {
+        if (_sightings is null)
+            return;
+
+        try
+        {
+            await _sightings.RecordAsync(fact, ct);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
         }
     }
 

@@ -89,6 +89,11 @@ public sealed class CompanionApiTestHost : IAsyncDisposable
         builder.Services.AddModbotAuth();
         builder.Services.AddClientApi();
 
+        // What the shipping host's AddModbotVRChat gives the fact writer: the people a report
+        // names count as seen the moment it is written, without the rest of that registration
+        // (a gate, a limiter) that ingest never touches.
+        builder.Services.AddScoped<ISightingRecorder, Modbot.VRChat.Users.FactSightings>();
+
         configure?.Invoke(builder.Services);
 
         var app = builder.Build();
