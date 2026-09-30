@@ -212,6 +212,32 @@ public class Settings
     // --- Modbot Cloud (central services spec 1.1, 5) ---
 
     /// <summary>
+    /// Whether this server sends Modbot Cloud its usage report every six hours. On unless somebody
+    /// turns it off.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The report is the fields of <c>ServerReport</c>: the server's public address (when one is
+    /// set), the Modbot version, the operating system, the group's id, name, description, icon and
+    /// banner, whether Discord is connected, which shared term lists are imported, the number of
+    /// rate-limit cold stops and blocked requests since the last report, and whether AI moderation
+    /// is on. Turning this off changes none of that; it only stops the report going.
+    /// </para>
+    /// <para>
+    /// Off means no report and no registration: a server that has not registered yet stays
+    /// unregistered, and asking for a link code registers it (address, version and operating
+    /// system only). <c>MODBOT_CLOUD_DISABLED</c> beats this setting.
+    /// </para>
+    /// <para>
+    /// It does not reach the other Cloud features. Sending Modbot's log
+    /// (<see cref="ShipLogsToCloud"/>) and listing public instances
+    /// (<see cref="SharePublicInstances"/>) have their own switches, and the log is sent with the
+    /// login this report's first pass made.
+    /// </para>
+    /// </remarks>
+    public bool SendUsageReport { get; set; } = true;
+
+    /// <summary>
     /// The id Modbot Cloud gave this server when it registered, or null before it has. Cloud assigns
     /// it; this server never picks one.
     /// </summary>

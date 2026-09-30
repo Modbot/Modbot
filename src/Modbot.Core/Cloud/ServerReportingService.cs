@@ -32,6 +32,12 @@ public sealed class ServerReportingService(
     public static readonly TimeSpan RetryDelay = TimeSpan.FromHours(1);
 
     /// <summary>
+    /// How long to wait before looking at the switch again while the usage report is off, so that
+    /// turning it back on sends the next report within minutes rather than after six hours.
+    /// </summary>
+    public static readonly TimeSpan OffDelay = TimeSpan.FromMinutes(5);
+
+    /// <summary>
     /// Startup is not the moment to make a network call. Nothing here is urgent, and a Cloud that is
     /// slow must not be part of how long Modbot takes to become useful.
     /// </summary>
@@ -54,11 +60,24 @@ public sealed class ServerReportingService(
         while (!stoppingToken.IsCancellationRequested)
         {
             var sent = await TryReportAsync(stoppingToken).ConfigureAwait(false);
-            await Task.Delay(sent ? ReportInterval : RetryDelay, stoppingToken).ConfigureAwait(false);
+            await Task.Delay(WaitAfter(sent), stoppingToken).ConfigureAwait(false);
         }
     }
 
-    private async Task<bool> TryReportAsync(CancellationToken ct)
+    /// <summary>
+    /// How long to wait after a pass: six hours after a report that went, an hour after one that
+    /// failed, and a few minutes when the switch is off (<paramref name="sent"/> is null), because
+    /// the switch is read again on every pass and somebody may turn it back on.
+    /// </summary>
+    public static TimeSpan WaitAfter(bool? sent) => sent switch
+    {
+        true => ReportInterval,
+        false => RetryDelay,
+        null => OffDelay,
+    };
+
+    /// <returns>Whether the report went, or null when the usage report is switched off.</returns>
+    private async Task<bool?> TryReportAsync(CancellationToken ct)
     {
         try
         {
@@ -66,6 +85,12 @@ public sealed class ServerReportingService(
             var reporter = scope.ServiceProvider.GetRequiredService<ServerReporter>();
 
             var result = await reporter.ReportAsync(ct).ConfigureAwait(false);
+
+            if (result is null)
+            {
+                _log.Debug("The usage report is switched off, so nothing is reported to Modbot Cloud");
+                return null;
+            }
 
             if (result.Ok)
                 _log.Debug("Reported to Modbot Cloud");

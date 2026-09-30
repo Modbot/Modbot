@@ -1,9 +1,11 @@
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Auth;
+using Modbot.Api.Features.Users;
 using Modbot.Core.Cloud;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
@@ -17,13 +19,21 @@ namespace Modbot.Api.Features.Settings;
 /// <param name="LastReportAt">When the last report was sent, or null before the first.</param>
 /// <param name="LastReportOk">Whether Cloud took it, or null before the first.</param>
 /// <param name="LastReportProblem">What went wrong last time, or null.</param>
+/// <param name="ReportOn">
+/// The switch: whether this server sends its usage report every six hours. Not the same as
+/// <paramref name="Disabled"/>, which beats it.
+/// </param>
 public sealed record CloudStatusView(
     bool Disabled,
     string Endpoint,
     bool Registered,
     DateTimeOffset? LastReportAt,
     bool? LastReportOk,
-    string? LastReportProblem);
+    string? LastReportProblem,
+    bool ReportOn);
+
+/// <param name="ReportOn">True to send the usage report, false to stop sending it.</param>
+public sealed record SetCloudReportRequest(bool ReportOn);
 
 /// <param name="Code">Eight characters to type into Modbot Cloud. Shown once and never stored here.</param>
 /// <param name="ExpiresInMinutes">How long it lasts.</param>
@@ -64,18 +74,57 @@ public static class CloudSettingsEndpoints
                 var settings = await db.GetSettingsAsync(ct);
                 var cloud = http.RequestServices.GetService<ModbotCloudAddress>() ?? ModbotCloudAddress.Default;
 
-                return Results.Ok(new CloudStatusView(
-                    cloud.Disabled,
-                    cloud.Endpoint.Host,
-                    settings.CloudServerId is { Length: > 0 },
-                    settings.CloudLastReportAt,
-                    settings.CloudLastReportOk,
-                    settings.CloudLastReportProblem));
+                return Results.Ok(View(settings, cloud));
             })
             .WithName("GetCloudStatus")
             .WithSummary("Get Cloud status")
             .WithDescription(
-                "Whether this server reports to Modbot Cloud, and how the last report went.")
+                "Whether this server reports to Modbot Cloud, and how the last report went. "
+                + "`reportOn` is the usage report switch; `disabled` is `MODBOT_CLOUD_DISABLED`, "
+                + "which stops the report whatever the switch says.")
+            .Produces<CloudStatusView>()
+            .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapPut("/", async (
+                [FromBody] SetCloudReportRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] AccountFacts facts,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var settings = await db.GetSettingsAsync(ct);
+                var cloud = http.RequestServices.GetService<ModbotCloudAddress>() ?? ModbotCloudAddress.Default;
+                var before = settings.SendUsageReport;
+
+                if (before == body.ReportOn)
+                    return Results.Ok(View(settings, cloud));
+
+                settings.SendUsageReport = body.ReportOn;
+                await db.SaveChangesAsync(ct);
+
+                await facts.RecordAsync(
+                    FactType.SettingsChanged,
+                    "settings",
+                    Actor.Of(http),
+                    new JsonObject
+                    {
+                        ["setting"] = "sendUsageReport",
+                        ["before"] = before,
+                        ["after"] = body.ReportOn,
+                    },
+                    ct);
+
+                return Results.Ok(View(settings, cloud));
+            })
+            .WithName("SetCloudReport")
+            .WithSummary("Set the usage report")
+            .WithDescription(
+                "Turn the usage report to Modbot Cloud on or off. It is on when Modbot is installed. "
+                + "Off stops the report every six hours; the switches for sending Modbot's log and "
+                + "for listing public instances are separate. Writes a settings-changed entry to "
+                + "the audit log.")
             .Produces<CloudStatusView>()
             .Produces(StatusCodes.Status403Forbidden);
 
@@ -116,4 +165,13 @@ public static class CloudSettingsEndpoints
 
         return app;
     }
+
+    private static CloudStatusView View(Core.Data.Entities.Settings settings, ModbotCloudAddress cloud) => new(
+        cloud.Disabled,
+        cloud.Endpoint.Host,
+        settings.CloudServerId is { Length: > 0 },
+        settings.CloudLastReportAt,
+        settings.CloudLastReportOk,
+        settings.CloudLastReportProblem,
+        settings.SendUsageReport);
 }

@@ -38,11 +38,20 @@ public sealed class ServerReporter(
     public const int LinkCodeLength = 8;
 
     /// <summary>
-    /// Registers if this server has not, then sends one report. Returns what to tell the Health page.
+    /// Registers if this server has not, then sends one report. Returns what to tell the Health page,
+    /// or null when the usage report is switched off and nothing was built or sent.
     /// </summary>
-    public async Task<CloudCallResult> ReportAsync(CancellationToken ct)
+    /// <remarks>
+    /// Null leaves <see cref="Settings.CloudLastReportAt"/> and its two neighbours as they were: the
+    /// last report that went is still the last report that went.
+    /// </remarks>
+    public async Task<CloudCallResult?> ReportAsync(CancellationToken ct)
     {
         var settings = await db.GetSettingsAsync(ct).ConfigureAwait(false);
+
+        if (!settings.SendUsageReport)
+            return null;
+
         var report = await BuildAsync(settings, ct).ConfigureAwait(false);
 
         var result = await SendAsync(settings, report, ct).ConfigureAwait(false);

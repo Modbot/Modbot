@@ -374,6 +374,8 @@ export type CloudStatusView = {
   lastReportAt: string | null
   lastReportOk: boolean | null
   lastReportProblem: string | null
+  /** The usage report switch. MODBOT_CLOUD_DISABLED beats it: see `disabled`. */
+  reportOn: boolean
 }
 
 export type LinkCodeView = { code: string; expiresInMinutes: number }
@@ -2464,6 +2466,8 @@ export type CloudReportHealth = {
   problem: string | null
   registered: boolean
   endpoint: string
+  /** The usage report switch. Off means nothing is sent; `sentAt` is the last report before that. */
+  on: boolean
 }
 
 export type PausedRule = {
@@ -4738,6 +4742,7 @@ export const api = {
    */
   databaseHealth: async (): Promise<boolean> => (await fetch('/health/ready')).ok,
   cloudStatus: () => request<CloudStatusView>('/api/settings/cloud'),
+  setCloudReport: (reportOn: boolean) => put<CloudStatusView>('/api/settings/cloud', { reportOn }),
   cloudLinkCode: () => post<LinkCodeView>('/api/settings/cloud/link-code', {}),
 
   /**

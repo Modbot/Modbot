@@ -23,6 +23,20 @@ public class PermissionCatalogTests
         Assert.True(missing.Count == 0, $"Not in PermissionCatalog: {string.Join(", ", missing)}");
     }
 
+    /// <summary>
+    /// Nothing in Modbot checks these two permissions yet, so the Roles page must not promise
+    /// what they do. When a feature starts using one, this test is the place to change.
+    /// </summary>
+    [Theory]
+    [InlineData(nameof(ModbotPermissions.Warn))]
+    [InlineData(nameof(ModbotPermissions.BulkAction))]
+    public void APermissionNothingUsesYetSaysItDoesNothing(string name)
+    {
+        var permission = PermissionCatalog.All.Single(p => p.Name == name);
+
+        Assert.Equal("Does nothing.", permission.Description);
+    }
+
     [Fact]
     public void PairACompanionIsDescribedUnderModeration()
     {

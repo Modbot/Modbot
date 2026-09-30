@@ -307,12 +307,17 @@ public sealed record LogHealth(
 /// <param name="Ok">Whether Cloud took it. Null before the first report was tried.</param>
 /// <param name="Problem">One short sentence about the last failure, or null when it worked.</param>
 /// <param name="Registered">Whether this server has an id from Cloud.</param>
+/// <param name="On">
+/// The usage report switch. Off means nothing is sent, and <paramref name="SentAt"/> is when the
+/// last report went before it was turned off.
+/// </param>
 public sealed record CloudReportHealth(
     DateTimeOffset? SentAt,
     bool? Ok,
     string? Problem,
     bool Registered,
-    string Endpoint);
+    string Endpoint,
+    bool On = true);
 
 /// <summary>
 /// What the rarer read is doing: the full user object, read about once a week per person.

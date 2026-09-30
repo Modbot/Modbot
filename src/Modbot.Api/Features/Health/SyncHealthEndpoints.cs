@@ -169,7 +169,8 @@ public static class SyncHealthEndpoints
                             settings?.CloudLastReportOk,
                             settings?.CloudLastReportProblem,
                             settings?.CloudServerId is { Length: > 0 },
-                            cloudAddress.Endpoint.Host),
+                            cloudAddress.Endpoint.Host,
+                            settings?.SendUsageReport ?? true),
                     await LogsAsync(db, logStore, cloudAddress, ct),
                     GroupPermissions(settings)));
             })

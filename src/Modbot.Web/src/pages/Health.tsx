@@ -559,8 +559,8 @@ function CloudReport({
   report: NonNullable<SyncHealth['cloudReport']>
   now: string
 }) {
-  const state = report.sentAt === null ? 'Not sent yet' : report.ok ? 'Sent' : 'Failed'
-  const tone: Tone = report.sentAt === null ? 'muted' : report.ok ? 'ok' : 'bad'
+  const state = !report.on ? 'Off' : report.sentAt === null ? 'Not sent yet' : report.ok ? 'Sent' : 'Failed'
+  const tone: Tone = !report.on || report.sentAt === null ? 'muted' : report.ok ? 'ok' : 'bad'
 
   return (
     <Part
@@ -578,7 +578,7 @@ function CloudReport({
         </>
       }
     >
-      {report.problem && <p className="max-w-3xl">{report.problem}</p>}
+      {report.on && report.problem && <p className="max-w-3xl">{report.problem}</p>}
     </Part>
   )
 }

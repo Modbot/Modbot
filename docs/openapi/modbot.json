@@ -4117,8 +4117,52 @@
           "Settings"
         ],
         "summary": "Get Cloud status",
-        "description": "Whether this server reports to Modbot Cloud, and how the last report went.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Whether this server reports to Modbot Cloud, and how the last report went. `reportOn` is the usage report switch; `disabled` is `MODBOT_CLOUD_DISABLED`, which stops the report whatever the switch says.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetCloudStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudStatusView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Set the usage report",
+        "description": "Turn the usage report to Modbot Cloud on or off. It is on when Modbot is installed. Off stops the report every six hours; the switches for sending Modbot's log and for listing public instances are separate. Writes a settings-changed entry to the audit log.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetCloudReport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCloudReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "OK",
@@ -22052,7 +22096,8 @@
           "registered",
           "lastReportAt",
           "lastReportOk",
-          "lastReportProblem"
+          "lastReportProblem",
+          "reportOn"
         ],
         "type": "object",
         "properties": {
@@ -22083,6 +22128,9 @@
               "null",
               "string"
             ]
+          },
+          "reportOn": {
+            "type": "boolean"
           }
         }
       },
@@ -35010,6 +35058,17 @@
                 "$ref": "#/components/schemas/JsonNode"
               }
             ]
+          }
+        }
+      },
+      "SetCloudReportRequest": {
+        "required": [
+          "reportOn"
+        ],
+        "type": "object",
+        "properties": {
+          "reportOn": {
+            "type": "boolean"
           }
         }
       },

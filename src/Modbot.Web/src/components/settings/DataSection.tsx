@@ -324,7 +324,9 @@ function KeepForCard({
  * accounts and registry spec 3.3). Only somebody who can already sign in here and change settings
  * sees it, which is the proof of ownership.
  *
- * The two switches save at once: each is one yes or no with nothing to save beside it.
+ * The three switches save at once: each is one yes or no with nothing to save beside it. The
+ * usage report's switch is greyed out, like the listing's, when MODBOT_CLOUD_DISABLED is set. Sending
+ * Modbot's log has its own switch on the Keep for card.
  */
 function InstallCard({ deployment }: { deployment: DataSettings['deployment'] }) {
   const [update, setUpdate] = useState<UpdateView | null>(null)
@@ -359,13 +361,18 @@ function InstallCard({ deployment }: { deployment: DataSettings['deployment'] })
 
   const newest = !update ? '…' : !update.on ? 'Not checked' : (update.newest ?? '—')
 
+  const report = (reportOn: boolean) =>
+    act(api.setCloudReport(reportOn).then(setCloud).catch(fail('Could not save.')))
+
   const reported = !cloud
     ? '…'
-    : cloud.lastReportAt === null
-      ? 'Not sent yet'
-      : cloud.lastReportOk
-        ? dateTime(cloud.lastReportAt)
-        : 'Failed'
+    : !cloud.reportOn
+      ? 'Off'
+      : cloud.lastReportAt === null
+        ? 'Not sent yet'
+        : cloud.lastReportOk
+          ? dateTime(cloud.lastReportAt)
+          : 'Failed'
 
   const linked = !cloud ? '…' : cloud.disabled ? 'Turned off' : cloud.registered ? 'Linked' : 'Not linked'
 
@@ -426,8 +433,10 @@ function InstallCard({ deployment }: { deployment: DataSettings['deployment'] })
             <Row
               label="Last report"
               value={reported}
-              title={cloud?.lastReportOk === false ? (cloud.lastReportProblem ?? undefined) : undefined}
-              mono={!!cloud?.lastReportAt && !!cloud.lastReportOk}
+              title={
+                cloud?.reportOn && cloud.lastReportOk === false ? (cloud.lastReportProblem ?? undefined) : undefined
+              }
+              mono={!!cloud?.reportOn && !!cloud.lastReportAt && !!cloud.lastReportOk}
             />
             {code && <Row label="Link code" value={`${code.code} · ${code.expiresInMinutes} min`} mono />}
             {listing && (
@@ -444,6 +453,13 @@ function InstallCard({ deployment }: { deployment: DataSettings['deployment'] })
             onChange={list}
           >
             List this group&rsquo;s public instances on modbot.co
+          </Switch>
+          <Switch
+            checked={cloud?.reportOn ?? false}
+            disabled={busy || !cloud || cloud.disabled}
+            onChange={report}
+          >
+            Send usage report to Modbot Cloud
           </Switch>
         </div>
       </div>

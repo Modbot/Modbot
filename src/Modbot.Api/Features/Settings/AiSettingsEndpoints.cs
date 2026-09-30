@@ -319,15 +319,30 @@ public static class AiSettingsEndpoints
     /// What each feature sends, in one line each (M8 §4.5).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The list the operator confirms, and the list recorded in the fact. Kept here rather than in
     /// the web app so that what was agreed to and what is shown cannot drift apart, and so the
     /// record of the confirmation holds the words that were on the screen.
+    /// </para>
+    /// <para>
+    /// Every line is checked against the code that builds the request: <c>TopicClassifier.Prompt</c>
+    /// and <c>MessageContext</c> for rules and conversation, <c>ModerationPictures</c> and
+    /// <c>ModerationEngine.PictureSourcesAsync</c> for pictures, <c>FlagReviewer</c> for the flag
+    /// opinion, <c>AlertFigures</c> and <c>InsightFigures</c> for alerts and insights, and
+    /// <c>ChatPrompt</c>, <c>ChatTitle</c> and the chat tools for Chat. A feature that starts
+    /// sending something new needs its line here, and the privacy policy and the docs page
+    /// <c>ai/settings.mdx</c> say the same.
+    /// </para>
     /// </remarks>
     public static IReadOnlyList<AiSendLine> AiSends { get; } =
     [
-        new("Moderation rules", "Discord message text, and VRChat display names, bios, status and pronouns. AI topics only; term lists send nothing."),
-        new("Insights", "Counts for the period, and world and instance names."),
-        new("Chat", "A moderator's questions, and the Modbot records the answer uses: names, bios, bans, audit log entries, messages."),
+        new("Moderation rules", "The text being checked, up to 4,000 characters: a Discord message, or a VRChat display name, bio, status or pronouns. The person's name and id are not sent. AI topics only; term lists send nothing."),
+        new("Conversation, when a rule reads it", "The Discord messages before the one being checked and the one it replied to, each with its author's name, cut to 500 characters."),
+        new("Pictures, when a rule looks at them", "Up to four per check: the message's pictures and the author's Discord avatar, or a VRChat profile picture, user icon, profile banner and avatar picture. OpenRouter, OpenAI and xAI get a link to each; any other endpoint gets the picture itself, 4 MB or smaller. A Discord avatar link contains the person's Discord id."),
+        new("Opinion on a flag, when a moderator asks", "The rule's name and instructions, the words or picture that matched and why, and the flagged text, with the messages before it and their authors' names when the rule read them."),
+        new("Alerts", "What was counted, the time it covered and what is normal, and the world's name for the two instance alerts. No person's name and no messages."),
+        new("Insights", "Counts for the period and the one before it, and the busiest worlds and instances by world name."),
+        new("Chat", "The conversation so far, and what Modbot's lookups return: people's names, ids and bios, their history, case files and bans, the audit log, Discord messages and members, flags, live instances and figures. After the first reply, the first question and answer go once more to name the conversation."),
         new("Test and model list", "One short message, and a request for the model list."),
     ];
 

@@ -78,7 +78,8 @@ public sealed record PurgeReceipt(
     int EvidenceFilesKept);
 
 /// <summary>
-/// Settings → Purge a person: everything Modbot stores about one person, removed on request.
+/// Settings → Purge a person: the history Modbot holds about one person, erased on request. Not
+/// everything Modbot stores about them: the case files, the current-state rows and the flags stay.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -132,7 +133,7 @@ public static class PurgeEndpoints
             .WithName("PreviewPurge")
             .WithSummary("Preview a purge")
             .WithDescription(
-                "What removing everything about one person would destroy, and what it would keep. "
+                "What a purge of one person would erase, and what it would keep. "
                 + "Counts only; nothing is changed. Every number is counted from the same tables "
                 + "the purge writes to. A field Modbot cannot answer for a platform is null "
                 + "rather than zero: a Discord account has no group ban list and no case files.")
