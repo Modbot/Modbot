@@ -85,13 +85,8 @@ export function RuleScopeFields({
       </Group>
 
       <Group label="Never act on">
-        <Chips ids={value.exemptRoles} name={roleName} onRemove={(id) => remove('exemptRoles', id)} />
         <RolePicker label="Add a Discord role" value="" allowNone={false} onChange={(id) => add('exemptRoles', id)} />
-        <Chips
-          ids={value.exemptGroupRoles}
-          name={groupRoleName}
-          onRemove={(id) => remove('exemptGroupRoles', id)}
-        />
+        <Chips ids={value.exemptRoles} name={roleName} onRemove={(id) => remove('exemptRoles', id)} />
         <Picker
           label="Add a VRChat group role"
           value=""
@@ -100,6 +95,11 @@ export function RuleScopeFields({
           current={null}
           allowNone={false}
           error={null}
+        />
+        <Chips
+          ids={value.exemptGroupRoles}
+          name={groupRoleName}
+          onRemove={(id) => remove('exemptGroupRoles', id)}
         />
         <Checkbox
           checked={value.exemptRolesSkipFlag}
