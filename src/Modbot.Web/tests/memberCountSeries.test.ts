@@ -47,7 +47,8 @@ test('a week gets a tick at every midnight, so no day is left without its label'
   )
   assert.deepEqual(
     ticks.map((t) => timeLabel(t, 7 * DAY, utc)),
-    ['21 Sep', '22 Sep', '23 Sep', '24 Sep', '25 Sep', '26 Sep', '27 Sep'],
+    // British English writes September as "Sept" (CLDR since 38), where every other month is three letters.
+    ['21 Sept', '22 Sept', '23 Sept', '24 Sept', '25 Sept', '26 Sept', '27 Sept'],
   )
 })
 
