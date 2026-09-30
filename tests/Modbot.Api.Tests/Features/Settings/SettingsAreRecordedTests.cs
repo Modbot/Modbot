@@ -357,6 +357,37 @@ public class SettingsAreRecordedTests
         Assert.Equal(12, Field(newest, "quietHours").GetProperty("new").GetInt32());
     }
 
+    // ── Public address ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The public address is hidden from anybody without Manage settings, so the entry says it
+    /// changed and never what it was or became.
+    /// </summary>
+    [Fact]
+    public async Task ThePublicAddressIsRecordedAsChangedAndNeverAsAValue()
+    {
+        var (host, _, cookie) = await StartAsync(ModbotPermissions.ManageSettings);
+        await using var running = host;
+
+        await PutAsync(host, "/api/settings/public-address", new { publicAddress = "https://first-address.example.com" }, cookie);
+        await PutAsync(host, "/api/settings/public-address", new { publicAddress = "https://second-address.example.com" }, cookie);
+
+        var entries = await EntriesAsync(host, "publicAddress");
+        Assert.Equal(2, entries.Count);
+
+        Assert.All(entries, entry =>
+        {
+            Assert.True(Field(entry, "address").GetProperty("secret").GetBoolean());
+            Assert.DoesNotContain("address.example.com", entry.GetRawText(), StringComparison.Ordinal);
+            Assert.False(entry.TryGetProperty("before", out _));
+            Assert.False(entry.TryGetProperty("after", out _));
+        });
+
+        // The same address again changes nothing, so it writes nothing.
+        await PutAsync(host, "/api/settings/public-address", new { publicAddress = "https://second-address.example.com" }, cookie);
+        Assert.Equal(2, (await EntriesAsync(host, "publicAddress")).Count);
+    }
+
     // ── Who may see the entries ─────────────────────────────────────────────────────────────
 
     /// <summary>A save without Change settings is refused, and leaves no entry behind.</summary>

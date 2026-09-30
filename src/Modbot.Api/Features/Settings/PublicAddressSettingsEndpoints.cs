@@ -1,10 +1,8 @@
-using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.Api.Auth;
-using Modbot.Api.Features.Users;
 using Modbot.Core.Configuration;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -57,7 +55,6 @@ public static class PublicAddressSettingsEndpoints
         group.MapPut("/", async (
                 [FromBody] SetPublicAddressRequest body,
                 [FromServices] ModbotContext db,
-                [FromServices] AccountFacts facts,
                 HttpContext http,
                 CancellationToken ct) =>
             {
@@ -78,19 +75,11 @@ public static class PublicAddressSettingsEndpoints
                 settings.PublicAddress = address;
                 await db.SaveChangesAsync(ct);
 
-                // Not a secret, so before and after are recorded (spec 5.9.3): a changed public
-                // address right before a run of reset links is exactly what an audit log is for.
-                await facts.RecordAsync(
-                    FactType.SettingsChanged,
-                    "settings",
-                    Actor.Of(http),
-                    new JsonObject
-                    {
-                        ["setting"] = "publicAddress",
-                        ["before"] = before,
-                        ["after"] = address,
-                    },
-                    ct);
+                // A changed public address right before a run of reset links is exactly what an
+                // audit log is for, so the change is recorded. The address itself is not: the setup
+                // status hides it from anybody without Manage settings, and the operational log has
+                // its own permission, so the entry says only that it changed, as the setup step does.
+                await new SettingsChange("publicAddress").Secret("address", changed: true).RecordAsync(http, ct);
 
                 await transaction.CommitAsync(ct);
 
