@@ -16425,7 +16425,7 @@
           "Giveaways"
         ],
         "summary": "List giveaways",
-        "description": "Giveaways, the ones that close last first, with their rules, posts and draws. Returns at most 500.\n\nNeeds the `ViewGiveaways` permission.",
+        "description": "Giveaways by closing time, latest first, with their rules, posts and draws. Returns at most 500.\n\nNeeds the `ViewGiveaways` permission.",
         "operationId": "ListGiveaways",
         "parameters": [
           {
