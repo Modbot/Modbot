@@ -21,6 +21,15 @@ public class FactRetentionTests
     [InlineData(FactType.SettingsChanged)]
     [InlineData(FactType.Login)]
     [InlineData(FactType.UserPurged)]
+
+    // Who put a file on a case file, took it off, looked at it, copied it or destroyed it. The
+    // access lines are kept forever on purpose: "who looked at this video" has to stay answerable
+    // long after, and the default class is what keeps them.
+    [InlineData(FactType.EvidenceAttached)]
+    [InlineData(FactType.EvidenceDetached)]
+    [InlineData(FactType.EvidenceViewed)]
+    [InlineData(FactType.EvidenceDownloaded)]
+    [InlineData(FactType.EvidenceDestroyed)]
     public void ModerationHistoryIsKept(string type)
         => Assert.Equal(RetentionClass.Moderation, FactRetention.ClassOf(type));
 
