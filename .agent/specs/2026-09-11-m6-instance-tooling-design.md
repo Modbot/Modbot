@@ -76,13 +76,17 @@ when one ended (`vrchat_instance.closed_at`), so:
 - **The audit log gets an honest entry.** Modbot writes `modbot.instance.end` ("ended on its own")
   for an ended group instance with no close by hand -- its own fact type, never worded "closed". It is
   written only after the audit log has been read to its newest entry by a pass that began after the
-  end plus the leeway a close entry may be dated after it, so a close by hand that VRChat reports late
-  is never labelled this way; an audit log that has never been read to the end writes nothing.
+  end plus ten minutes (the longer of the leeway a close entry may be dated after it and the time an
+  instance may come back and carry on, `InstanceIdentity.ReopensWithin`), so a close by hand that
+  VRChat reports late is never labelled this way; an audit log that has never been read to the end
+  writes nothing. When the poll undoes an end because the instance came back, the mark is cleared
+  too, so the real end is dealt with later.
   `vrchat_instance.end_recorded_at` marks an instance whose end has been dealt with. Facts are never
   rewritten or deleted.
-- **Catch-up.** The first passes write an entry, at the recorded end time, for every past ended
-  instance. An entry written more than an hour after the end carries `catchUp` and is not posted to
-  Discord. New entries go where "Instance closed" is routed, with no separate choice in a route.
+- **Catch-up.** The first pass records when it began (`settings.instance_end_entries_started_at`).
+  Every instance that ended before that gets an entry at its recorded end time, 200 a pass, and
+  carries `catchUp`: it is not posted to Discord. One that ends after it is news, however late a
+  stalled audit log lets the entry be written. New entries go where "Instance closed" is routed, with no separate choice in a route.
 
 ### 3.1 Population samples are counted, not evented
 

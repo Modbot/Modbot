@@ -21,8 +21,8 @@ const THIN = 200
  * whether or not anybody from the team was in them, so they lead and they decide the order. Time
  * seen and visitors come from the companion's presence reports, which exist only while a
  * moderator's client is in the instance: a world nobody with the client visited reads as empty
- * there however busy it was. "Instances opened" is the audit log's count, and can be higher than
- * "Instances": it also counts creates Modbot never saw as an instance.
+ * there however busy it was. There is one count of instances opened, "Instances": the audit log's
+ * create entries used to be a second column beside it and disagreed with the world's popup.
  *
  * Worlds are shown by the name the world sweep stored, with the id underneath, and each row opens
  * the world's popup. On a phone and in VR the table becomes two-line rows (index.css,
@@ -96,7 +96,6 @@ export function WorldStats({ data }: { data: WorldsAnalytics }) {
                 <Th className="text-right">Time seen</Th>
                 <Th className="text-right">Visitors</Th>
                 <Th className="text-right">Arrivals seen</Th>
-                <Th className="text-right">Instances opened</Th>
                 <Th>Last opened</Th>
                 <Th>Last seen</Th>
               </>
@@ -162,7 +161,6 @@ export function WorldStats({ data }: { data: WorldsAnalytics }) {
                 <Td className="text-right font-mono">{w.minutesSeen > 0 ? minutes(w.minutesSeen) : '—'}</Td>
                 <Td className="text-right font-mono">{compactNumber(w.visitors)}</Td>
                 <Td className="text-right font-mono">{compactNumber(w.visits)}</Td>
-                <Td className="text-right font-mono">{compactNumber(w.instancesOpened)}</Td>
                 <Td className="font-mono text-muted-foreground">{w.lastOpenedAt ? dateTime(w.lastOpenedAt) : '—'}</Td>
                 <Td className="font-mono text-muted-foreground">{w.lastSeenAt ? dateTime(w.lastSeenAt) : '—'}</Td>
               </Tr>

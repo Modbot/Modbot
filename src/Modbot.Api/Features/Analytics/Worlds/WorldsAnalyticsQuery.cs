@@ -16,12 +16,11 @@ namespace Modbot.Api.Features.Analytics.Worlds;
 /// however busy it was, and the page says so.
 /// </para>
 /// <para>
-/// Instances, instances opened, time open and most at once come from <c>vrchat_instance</c>, which
-/// covers every group instance whether anybody from the team was in it or not, so they decide the
-/// order. Ranked by presence, a world that held twelve people for four hours read as unused because
-/// no companion was there (2026-09-27 review, finding 1). Instances opened used to count the audit
-/// log's create entries, which said four beside a popup that listed two: the popup and this page now
-/// count the same rows.
+/// Instances, time open and most at once come from <c>vrchat_instance</c>, which covers every group
+/// instance whether anybody from the team was in it or not, so they decide the order. Ranked by
+/// presence, a world that held twelve people for four hours read as unused because no companion was
+/// there (2026-09-27 review, finding 1). A second column counted the audit log's create entries, which
+/// said four beside a popup that listed two, and it is gone: the popup and this page count the same rows.
 /// </para>
 /// <para>
 /// The per-world time is computed live from facts, because a session is two facts about one
@@ -105,7 +104,6 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
                     s.MinutesSeen,
                     s.Visitors,
                     s.Arrivals,
-                    use.Instances,
                     s.LastSeenAt,
                     use.Instances,
                     use.MinutesOpen,
@@ -117,7 +115,6 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
             .ThenByDescending(w => w.Instances)
             .ThenByDescending(w => w.MinutesSeen)
             .ThenByDescending(w => w.Visitors)
-            .ThenByDescending(w => w.InstancesOpened)
             .ThenBy(w => w.Name ?? w.WorldId, StringComparer.OrdinalIgnoreCase)
             .ToList();
 

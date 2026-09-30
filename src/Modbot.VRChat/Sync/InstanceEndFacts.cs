@@ -25,18 +25,22 @@ namespace Modbot.VRChat.Sync;
 /// <strong>Never worded "closed", and never written too early.</strong> The entry claims no
 /// moderator closed the instance, and that cannot be known until VRChat's audit log has been read past
 /// the instance's end: VRChat writes a close late now and then. So an end waits until the audit log
-/// has been read to its newest entry by a pass that began after the end, and the few minutes a
-/// close entry may be dated after it (<see cref="InstanceCloseEntries.Leeway"/>). An audit log
-/// that has never been read to the end writes nothing, however long it takes. Which instances a
-/// moderator closed is decided by the same rule the instance rows and the Stats page use
-/// (<see cref="InstanceCloseEntries"/>).
+/// has been read to its newest entry by a pass that began after the end plus <see cref="Wait"/>: long
+/// enough for a close entry dated after the end (<see cref="InstanceCloseEntries.Leeway"/>), and for
+/// the instance to come back, which the poll treats as never having ended
+/// (<see cref="InstanceIdentity.ReopensWithin"/>). An audit log that has never been read to the end
+/// writes nothing, however long it takes. Which instances a moderator closed is decided by the same
+/// rule the instance rows and the Stats page use (<see cref="InstanceCloseEntries"/>). An instance that
+/// ended before Modbot began reading the audit log gets the entry too, because a close by hand from
+/// before then cannot be known.
 /// </para>
 /// <para>
-/// <strong>Catch-up.</strong> The first passes after an update find every instance that ended before
-/// this existed and write its entry at the end time Modbot recorded for it, never at the time of
-/// writing. Those carry <c>catchUp</c> in their payload, and the Discord log does not post them: it
-/// would be one card for every instance the group ever ran. Anything written within
-/// <see cref="LiveFor"/> of the end is news and is posted where routes ask for it.
+/// <strong>Catch-up.</strong> The first pass after an update records when it began
+/// (<see cref="Settings.InstanceEndEntriesStartedAt"/>). Every instance that ended before that gets
+/// its entry at the end time Modbot recorded for it, never at the time of writing, with <c>catchUp</c>
+/// in its payload, and the Discord log does not post those: it would be one card for every instance
+/// the group ever ran. An instance that ends after it is news, and is posted where routes ask for it
+/// however late a stalled audit log lets the entry be written.
 /// </para>
 /// <para>
 /// <strong>Facts are only ever added.</strong> An entry is written once per instance: the row carries
@@ -50,10 +54,15 @@ public sealed class InstanceEndFacts
     public const int PerPass = 200;
 
     /// <summary>
-    /// How long after an instance ended an entry still counts as news. Past this it is catch-up:
-    /// written for the record, not posted to Discord.
+    /// How long after an instance ended before its end is settled: the longer of the time a close
+    /// entry may be dated after it (<see cref="InstanceCloseEntries.Leeway"/>) and the time the
+    /// instance may come back (<see cref="InstanceIdentity.ReopensWithin"/>), after which the poll
+    /// undoes the end and the instance carries on as one. Settling sooner would say "ended on its
+    /// own" about an instance that had not ended.
     /// </summary>
-    public static readonly TimeSpan LiveFor = TimeSpan.FromHours(1);
+    public static readonly TimeSpan Wait = InstanceCloseEntries.Leeway > InstanceIdentity.ReopensWithin
+        ? InstanceCloseEntries.Leeway
+        : InstanceIdentity.ReopensWithin;
 
     private readonly ModbotContext _db;
     private readonly IFactWriter _facts;
@@ -86,12 +95,22 @@ public sealed class InstanceEndFacts
         ArgumentException.ThrowIfNullOrWhiteSpace(groupId);
         ArgumentNullException.ThrowIfNull(settings);
 
+        // The first pass with these entries fixes the line between history and news, whatever
+        // the audit log has or has not done yet.
+        if (settings.InstanceEndEntriesStartedAt is null)
+        {
+            settings.InstanceEndEntriesStartedAt = now;
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        }
+
+        var startedAt = settings.InstanceEndEntriesStartedAt.Value;
+
         // The audit log has not been read to its newest entry yet, ever: nothing is known about
         // who closed what, so nothing is written.
         if (settings.AuditLogReadToEndAt is not { } readAt)
             return 0;
 
-        var readPast = readAt - InstanceCloseEntries.Leeway;
+        var readPast = readAt - Wait;
 
         var waiting = await _db.VRChatInstances
             .Where(i => i.GroupId == groupId
@@ -121,7 +140,7 @@ public sealed class InstanceEndFacts
             {
                 if (!byHand.Contains(instance.Id) && !await AlreadyWrittenAsync(instance, closedAt, ct).ConfigureAwait(false))
                 {
-                    var catchUp = now - closedAt > LiveFor;
+                    var catchUp = closedAt < startedAt;
 
                     await _partitions.EnsureForAsync(closedAt, ct).ConfigureAwait(false);
                     await _facts.WriteAsync(Build(groupId, instance, closedAt, catchUp), ct).ConfigureAwait(false);

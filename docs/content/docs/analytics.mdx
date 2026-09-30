@@ -432,7 +432,8 @@ the time it really ended. Each natural end also gets an entry in the [audit log]
 "ended on its own", written by Modbot and never worded "closed". It is written only after the audit
 log has been read past the end, so a close by hand that VRChat reports late is not labelled that
 way. The first time Modbot runs with this, it adds an entry for each instance that ended before,
-dated when it ended; those are not posted to Discord.
+dated when it ended; those are not posted to Discord. Instances that ended before Modbot began
+reading the audit log get "ended on its own" too, because any close by hand from then cannot be known.
 
 #### VRChat worlds
 
@@ -450,12 +451,12 @@ The stats along the top are **Worlds**, **Time seen**, **Visitors** and **Presen
 | **Time seen** | Total time people were seen in the world. |
 | **Visitors** | Different people seen there. |
 | **Arrivals seen** | Times someone was seen arriving. |
-| **Instances opened** | Group instances Modbot saw open in the world: the same instances the world's popup lists. |
+| **Instances** | Group instances Modbot saw open in the world: the same instances the world's popup lists. |
 | **Last seen** | When someone was last seen there. |
 
 **Visitors per day, busiest worlds** charts visitors per day for the five busiest worlds.
 
-Time, visitors and arrivals come from presence reports. **Instances opened** comes from Modbot's own
+Time, visitors and arrivals come from presence reports. **Instances** comes from Modbot's own
 instance list and is complete whether or not a client was there. Visitors per day comes from daily
 totals and outlasts a short retention window.
 

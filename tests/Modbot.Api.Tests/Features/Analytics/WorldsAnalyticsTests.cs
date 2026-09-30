@@ -51,7 +51,7 @@ public class WorldsAnalyticsTests
 
         var b = page.Worlds[1];
         Assert.Equal(0m, b.MinutesSeen);
-        Assert.Equal(1m, b.InstancesOpened);
+        Assert.Equal(1, b.Instances);
 
         Assert.Equal(3, page.PresenceReports);
     }
@@ -62,7 +62,7 @@ public class WorldsAnalyticsTests
     /// popup lists, whatever the audit log says.
     /// </summary>
     [Fact]
-    public async Task InstancesOpened_CountsTheInstanceList_NotTheAuditLogsCreateEntries()
+    public async Task Instances_CountsTheInstanceList_NotTheAuditLogsCreateEntries()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
@@ -87,7 +87,6 @@ public class WorldsAnalyticsTests
 
         var home = Assert.Single(page.Worlds);
         Assert.Equal(2, home.Instances);
-        Assert.Equal(2m, home.InstancesOpened);
     }
 
     [Fact]

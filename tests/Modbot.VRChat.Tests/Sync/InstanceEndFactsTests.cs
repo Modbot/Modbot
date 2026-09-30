@@ -5,6 +5,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Sync;
+using Modbot.VRChat.Tests.Fakes;
 
 namespace Modbot.VRChat.Tests.Sync;
 
@@ -21,7 +22,7 @@ public class InstanceEndFactsTests(PostgresFixture fixture) : SyncTestBase(fixtu
 {
     private const string World = "wrld_home";
 
-    private static readonly TimeSpan Wait = InstanceCloseEntries.Leeway + TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan Wait = InstanceEndFacts.Wait + TimeSpan.FromMinutes(1);
 
     /// <summary>An instance of the group that opened and left the list, as the instance poll leaves it.</summary>
     private async Task<VRChatInstance> EndedInstanceAsync(
@@ -55,6 +56,15 @@ public class InstanceEndFactsTests(PostgresFixture fixture) : SyncTestBase(fixtu
         await using var db = Database.NewContext();
         var settings = await db.GetSettingsAsync(Ct);
         settings.AuditLogReadToEndAt = readToEnd;
+        await db.SaveChangesAsync(Ct);
+    }
+
+    /// <summary>Fixes the line between history and news: what ended before it is caught up, not posted.</summary>
+    private async Task EntriesBeganAsync(DateTimeOffset at)
+    {
+        await using var db = Database.NewContext();
+        var settings = await db.GetSettingsAsync(Ct);
+        settings.InstanceEndEntriesStartedAt = at;
         await db.SaveChangesAsync(Ct);
     }
 
@@ -125,6 +135,7 @@ public class InstanceEndFactsTests(PostgresFixture fixture) : SyncTestBase(fixtu
     {
         var closedAt = Now.AddMinutes(-30);
         var instance = await EndedInstanceAsync("1", closedAt.AddMinutes(-40), closedAt);
+        await EntriesBeganAsync(Now.AddDays(-1));
         await AuditLogReadToAsync(closedAt + Wait);
 
         await SettleAsync();
@@ -204,6 +215,10 @@ public class InstanceEndFactsTests(PostgresFixture fixture) : SyncTestBase(fixtu
 
         await EndedInstanceAsync("1", oldEnd.AddHours(-1), oldEnd);
         await EndedInstanceAsync("2", freshEnd.AddHours(-1), freshEnd);
+
+        // Entries began 20 minutes ago, so the old end is history and the fresh one is news,
+        // however long the audit log took to be read past it.
+        await EntriesBeganAsync(Now.AddMinutes(-20));
         await AuditLogReadToAsync(Now);
 
         Assert.Equal(2, await SettleAsync());
@@ -245,6 +260,133 @@ public class InstanceEndFactsTests(PostgresFixture fixture) : SyncTestBase(fixtu
 
         var entry = Assert.Single(await EntriesAsync());
         Assert.Equal(firstEnd, entry.OccurredAt);
+    }
+
+    private static string Listed(string number) => $"{World}:{number}~group({GroupId})~groupAccessType(members)~region(us)";
+
+    /// <summary>One poll of the group's list, with the writer, and the clock moved on afterwards.</summary>
+    private async Task PollAsync(TimeSpan thenWait)
+    {
+        await using (var db = Database.NewContext())
+        {
+            var ends = new InstanceEndFacts(db, new FactWriter(db, Clock), new EventPartitionMaintainer(db, Clock));
+            await new GroupInstanceSync(Gate, new PlaceStore(db, Clock), db, Clock, ends: ends).RunOnceAsync(Ct);
+        }
+
+        Clock.Advance(thenWait);
+    }
+
+    /// <summary>
+    /// The poll undoes an end when the instance is listed again within ten minutes, so an end is not
+    /// settled inside that window: an instance that dropped off the list and came back never ended,
+    /// and "ended on its own" would be false about it. The real end, later, gets the one entry.
+    /// </summary>
+    [Fact]
+    public async Task AnInstanceThatComesBackWithinTheReopenWindow_GetsNoEntryForTheFirstEnd_AndOneForTheRealEnd()
+    {
+        await EntriesBeganAsync(Now.AddDays(-1));
+        var location = Listed("1");
+
+        // Listed, then off the list.
+        VRChat.Groups.Instances.Add(FakeGroups.Listed(location, 2));
+        await PollAsync(TimeSpan.FromMinutes(1));
+        VRChat.Groups.Instances.Clear();
+        await PollAsync(TimeSpan.Zero);
+
+        await using (var db = Database.NewContext())
+        {
+            var first = await db.VRChatInstances.AsNoTracking().SingleAsync(Ct);
+            Assert.NotNull(first.ClosedAt);
+
+            // The audit log has been read past the end and the close-entry leeway, but the instance
+            // could still come back for a few more minutes.
+            await AuditLogReadToAsync(first.ClosedAt!.Value + InstanceCloseEntries.Leeway + TimeSpan.FromMinutes(1));
+        }
+
+        Clock.Advance(TimeSpan.FromMinutes(7));
+        await PollAsync(TimeSpan.Zero);
+        Assert.Empty(await EntriesAsync());
+
+        // It comes back: one continuous instance, not two.
+        VRChat.Groups.Instances.Add(FakeGroups.Listed(location, 3));
+        await PollAsync(TimeSpan.FromMinutes(5));
+
+        await using (var db = Database.NewContext())
+        {
+            var back = await db.VRChatInstances.AsNoTracking().SingleAsync(Ct);
+            Assert.Null(back.ClosedAt);
+            Assert.Null(back.EndRecordedAt);
+        }
+
+        // Its real end, later.
+        VRChat.Groups.Instances.Clear();
+        await PollAsync(TimeSpan.Zero);
+
+        DateTimeOffset realEnd;
+        await using (var db = Database.NewContext())
+            realEnd = (await db.VRChatInstances.AsNoTracking().SingleAsync(Ct)).ClosedAt!.Value;
+
+        await AuditLogReadToAsync(realEnd + Wait);
+        await PollAsync(TimeSpan.Zero);
+        await PollAsync(TimeSpan.Zero);
+
+        var entry = Assert.Single(await EntriesAsync());
+        Assert.Equal(realEnd, entry.OccurredAt);
+    }
+
+    [Fact]
+    public async Task AnInstanceThatCameBackAndWasThenClosedByHand_GetsNoEntryAtAll()
+    {
+        await EntriesBeganAsync(Now.AddDays(-1));
+        var location = Listed("1");
+
+        VRChat.Groups.Instances.Add(FakeGroups.Listed(location, 2));
+        await PollAsync(TimeSpan.FromMinutes(1));
+        VRChat.Groups.Instances.Clear();
+        await PollAsync(TimeSpan.FromMinutes(3));
+
+        // Back within ten minutes, so still the same instance.
+        VRChat.Groups.Instances.Add(FakeGroups.Listed(location, 2));
+        await PollAsync(TimeSpan.FromMinutes(5));
+
+        // A moderator closes it, and it leaves the list.
+        VRChat.Groups.Instances.Clear();
+        await PollAsync(TimeSpan.Zero);
+
+        DateTimeOffset realEnd;
+        await using (var db = Database.NewContext())
+            realEnd = (await db.VRChatInstances.AsNoTracking().SingleAsync(Ct)).ClosedAt!.Value;
+
+        await WriteCloseEntryAsync("1", realEnd.AddSeconds(-15));
+        await AuditLogReadToAsync(realEnd + Wait);
+        await PollAsync(TimeSpan.Zero);
+
+        Assert.Empty(await EntriesAsync());
+    }
+
+    /// <summary>The poll undoing an end also undoes what was decided about it.</summary>
+    [Fact]
+    public async Task WhenAnEndIsUndone_TheMarkIsClearedToo()
+    {
+        var closedAt = Now.AddMinutes(-3);
+        var instance = await EndedInstanceAsync("1", closedAt.AddMinutes(-40), closedAt);
+
+        await using (var db = Database.NewContext())
+        {
+            var row = await db.VRChatInstances.SingleAsync(i => i.Id == instance.Id, Ct);
+            row.EndRecordedAt = Now.AddMinutes(-1);
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await using (var db = Database.NewContext())
+            await new PlaceStore(db, Clock).RecordSightingAsync(instance.Location, Now, fromGroupList: true, ct: Ct);
+
+        await using (var db = Database.NewContext())
+        {
+            var back = await db.VRChatInstances.AsNoTracking().SingleAsync(Ct);
+            Assert.Null(back.ClosedAt);
+            Assert.Null(back.EndRecordedAt);
+        }
     }
 
     [Fact]

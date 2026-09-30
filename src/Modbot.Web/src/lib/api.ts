@@ -1643,7 +1643,6 @@ export type WorldSummary = {
   minutesSeen: number
   visitors: number
   visits: number
-  instancesOpened: number
   lastSeenAt: string | null
   /** The group's instances of this world Modbot saw opened in the range: the rows the Instances page lists. */
   instances: number

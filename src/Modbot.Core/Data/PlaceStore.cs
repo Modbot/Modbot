@@ -89,6 +89,10 @@ public sealed class PlaceStore
             // rather than two halves with a hole between them.
             instance.ClosedAt = null;
             instance.ClosedBy = null;
+
+            // And the end was not worked out after all: whatever was decided about how that end
+            // came about is void, so the real end, when it comes, is dealt with then (InstanceEndFacts).
+            instance.EndRecordedAt = null;
         }
 
         if (instance is null)

@@ -488,10 +488,10 @@ public static class FactType
     /// saw the instance leave the list. Never worded "closed".
     /// </summary>
     /// <remarks>
-    /// Written only after the audit log has been read past the instance's end (and the few minutes a
-    /// close entry may be dated after it), so a close by hand that VRChat reports late is never
-    /// labelled this. A payload <c>catchUp</c> of true marks one written long after the end, for an
-    /// instance that ended before Modbot wrote these: the Discord log does not post those.
+    /// Written only after the audit log has been read past the instance's end (and the minutes a
+    /// close entry may be dated after it, and the instance may come back), so a close by hand that
+    /// VRChat reports late is never labelled this. A payload <c>catchUp</c> of true marks one for an
+    /// instance that ended before Modbot began writing these: the Discord log does not post those.
     /// </remarks>
     public const string InstanceEndedOnItsOwn = "modbot.instance.end";
 

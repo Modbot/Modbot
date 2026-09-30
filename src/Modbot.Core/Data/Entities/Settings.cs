@@ -842,6 +842,17 @@ public class Settings
     public DateTimeOffset? AuditLogReadToEndAt { get; set; }
 
     /// <summary>
+    /// When Modbot first began writing "ended on its own" entries for the group's instances. Null
+    /// until the first pass after the update that added them.
+    /// </summary>
+    /// <remarks>
+    /// An instance that ended before this moment is caught up: its entry is written for the record
+    /// and never posted to Discord, however soon after the end it is written. One that ended after it
+    /// is news, even if a stalled audit log delays the entry. Set once, by that first pass, and never moved.
+    /// </remarks>
+    public DateTimeOffset? InstanceEndEntriesStartedAt { get; set; }
+
+    /// <summary>
     /// The group metadata as it was when the last change was recorded, as JSON.
     /// </summary>
     /// <remarks>

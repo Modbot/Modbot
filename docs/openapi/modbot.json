@@ -37779,7 +37779,6 @@
           "minutesSeen",
           "visitors",
           "visits",
-          "instancesOpened",
           "lastSeenAt",
           "instances",
           "minutesOpen",
@@ -37842,14 +37841,6 @@
               "string"
             ],
             "format": "int32"
-          },
-          "instancesOpened": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
           },
           "lastSeenAt": {
             "type": [

@@ -19,7 +19,6 @@ namespace Modbot.Api.Features.Analytics.Worlds;
 /// </param>
 /// <param name="Visitors">Distinct people seen in the window.</param>
 /// <param name="Visits">Arrivals seen: a person entering, or already there when a client arrived.</param>
-/// <param name="InstancesOpened">Group instances opened in this world in the window, from Modbot's instance list: the same number as <paramref name="Instances"/>.</param>
 /// <param name="Instances">
 /// Group instances of this world Modbot saw opened in the window, from <c>vrchat_instance</c>. The
 /// same rows the Instances page lists and the world's popup counts, so it agrees with both.
@@ -37,7 +36,6 @@ public sealed record WorldSummary(
     decimal MinutesSeen,
     int Visitors,
     int Visits,
-    decimal InstancesOpened,
     DateTimeOffset? LastSeenAt,
     int Instances,
     decimal MinutesOpen,
