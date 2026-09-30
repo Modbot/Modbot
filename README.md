@@ -104,7 +104,8 @@ Every release is also published as an image, `ghcr.io/modbot/modbot`, for runnin
 the repository. See [Docker](docs/content/docs/self-hosting/docker.mdx).
 
 Open <http://localhost:8080>. The setup wizard opens on first visit and walks you through your
-administrator account, a VRChat account, and the group to manage.
+administrator account, a VRChat account, and the group to manage. Its first step asks for the
+setup code Modbot prints to its log: `docker compose logs modbot | grep "Setup code"`.
 
 On any other host, Modbot needs one environment variable, `DATABASE_URL`. `PORT` is optional and
 defaults to 8080. Everything else is set up in your browser and stored in the database — no Redis,
