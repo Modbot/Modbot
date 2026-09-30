@@ -82,7 +82,7 @@ public class WorldHeadCountSyncTests(PostgresFixture fixture) : SyncTestBase(fix
         var run = await RunWorldHeadCountsAsync();
 
         Assert.Equal(2, run.Read);
-        Assert.Equal([OtherWorld, World], VRChat.Worlds.Requests.Order(StringComparer.Ordinal));
+        Assert.Equal([World, OtherWorld], VRChat.Worlds.Requests.Order(StringComparer.Ordinal));
         Assert.Equal(2, (await ReadingsAsync()).Count);
     }
 

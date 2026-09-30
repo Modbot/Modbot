@@ -466,7 +466,9 @@ public class PairingTests
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ApiTestHost.StartAsync(_db, companion: true);
 
-        var (_, managerCookie) = await host.SignedInAsync(ModbotPermissions.ManageUsers | ModbotPermissions.PairCompanion, ct);
+        // An administrator, because an account cannot be disabled while no enabled administrator would
+        // be left, and this test's other account is not one.
+        var (_, managerCookie) = await host.SignedInAsync(ModbotPermissions.Administrator, ct);
         var (moderator, _) = await host.SignedInAsync(ModbotPermissions.PairCompanion, ct);
         var (token, deviceId) = await PairToAsync(host, moderator.Id, ct);
 

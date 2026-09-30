@@ -67,7 +67,17 @@ internal sealed class DemoSeedHost : IAsyncDisposable
     }
 
     /// <summary>Puts the database back to "nothing has ever happened here".</summary>
-    public Task EmptyAsync(CancellationToken ct) => Seeder().WipeAsync(ct);
+    public async Task EmptyAsync(CancellationToken ct)
+    {
+        await Seeder().WipeAsync(ct);
+
+        // A real reset keeps the evidence store's id, because the marker that backs it up lives
+        // outside the tables a reset clears. These tests share one database, though, and one test
+        // minting an id must not be the next test's "fresh install".
+        var settings = await _db.GetSettingsAsync(ct);
+        settings.EvidenceStoreId = null;
+        await _db.SaveChangesAsync(ct);
+    }
 
     /// <summary>
     /// A few facts about the seeded people, for the tests that only need the log not to be empty.

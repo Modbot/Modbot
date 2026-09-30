@@ -168,7 +168,7 @@ export function accountAge(id: string, nowIso: string): { text: string; fresh: b
   if (made === null || !Number.isFinite(now)) return null
 
   const days = Math.max(0, Math.floor((now - made) / 86_400_000))
-  return { text: days < 1 ? 'today' : span(days), fresh: days < NEW_ACCOUNT_DAYS }
+  return { text: days < 1 ? 'today' : span(days, made, now), fresh: days < NEW_ACCOUNT_DAYS }
 }
 
 /**
@@ -181,17 +181,28 @@ export function timeAgo(iso: string, nowIso: string): string | null {
   if (!Number.isFinite(at) || !Number.isFinite(now)) return null
 
   const days = Math.max(0, Math.floor((now - at) / 86_400_000))
-  return days < 1 ? 'today' : `${span(days)} ago`
+  return days < 1 ? 'today' : `${span(days, at, now)} ago`
 }
 
-/** A number of whole days in the largest unit that reads well: days under two months, then months, then years. */
-function span(days: number): string {
+/**
+ * The time from `fromMs` to `toMs` in the largest unit that reads well: days under two months, then
+ * months, then years. Months are calendar months (27 Feb to 27 Sep is 7), the way Discord counts
+ * them; days divided by an average month reads 6 for that same stretch.
+ */
+function span(days: number, fromMs: number, toMs: number): string {
   if (days < 60) return `${days} ${days === 1 ? 'day' : 'days'}`
 
-  const months = Math.floor(days / 30.44)
+  const from = new Date(fromMs)
+  const to = new Date(toMs)
+  let months = (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + to.getUTCMonth() - from.getUTCMonth()
+
+  // The last month counts only once it is complete.
+  const lastWhole = new Date(fromMs)
+  lastWhole.setUTCMonth(from.getUTCMonth() + months)
+  if (lastWhole.getTime() > toMs) months -= 1
   if (months < 12) return `${months} months`
 
-  const years = Math.floor(days / 365.25)
+  const years = Math.floor(months / 12)
   return `${years} ${years === 1 ? 'year' : 'years'}`
 }
 

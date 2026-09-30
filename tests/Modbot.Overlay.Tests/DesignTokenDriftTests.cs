@@ -49,7 +49,7 @@ public class DesignTokenDriftTests
 
     private static IEnumerable<(string Name, string Value)> Declarations(string css, string selector)
     {
-        // The escape stops "[data-density=\"vr\"]" also matching "[data-density=\"vr\"].dark",
+        // The escape stops "[data-place=\"headset\"]" also matching "[data-place=\"headset\"].dark",
         // which would silently apply the wrong overrides and make this test agree with anything.
         var block = Regex.Match(css, $@"(?m)^{Regex.Escape(selector)}\s*\{{(?<body>[^}}]*)\}}");
         if (!block.Success)
@@ -106,7 +106,7 @@ public class DesignTokenDriftTests
     [MemberData(nameof(DarkColours))]
     public void TheHeadsetPaletteMatchesTheWebUisVrDarkValue(string cssName, string property)
     {
-        var expected = Color.Parse(Tokens(":root", ".dark", "[data-density=\"vr\"]", "[data-density=\"vr\"].dark")[cssName]);
+        var expected = Color.Parse(Tokens(":root", ".dark", "[data-place=\"headset\"]", "[data-place=\"headset\"].dark")[cssName]);
         var actual = (Color)typeof(ModbotPalette).GetProperty(property)!.GetValue(ModbotPalette.VrDark)!;
 
         Assert.True(
@@ -167,7 +167,7 @@ public class DesignTokenDriftTests
     public void TheHeadsetScaleMatchesTheWebUis(string cssName, string property)
     {
         Assert.Equal(
-            Pixels(Tokens(":root", "[data-density=\"vr\"]")[cssName]),
+            Pixels(Tokens(":root", "[data-place=\"headset\"]")[cssName]),
             (double)typeof(Density).GetProperty(property)!.GetValue(Density.Vr)!,
             3);
     }

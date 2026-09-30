@@ -218,8 +218,9 @@ public class InstancesAnalyticsTests
             // Ran past midnight: it lands on the day it finished.
             new(day.AddHours(23), day.AddHours(25)),
 
-            // A clock that disagrees gives nought, never a negative length.
-            new(day.AddDays(2), day.AddDays(2).AddMinutes(-5)),
+            // A clock that disagrees gives nought, never a negative length. Its end is a few hours
+            // into the day, so it lands on that day, not on the one before midnight.
+            new(day.AddDays(2).AddHours(3), day.AddDays(2).AddHours(3).AddMinutes(-5)),
         ]);
 
         Assert.Equal(

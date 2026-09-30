@@ -30,17 +30,19 @@ public sealed class MinioFixture : IAsyncLifetime
     private const string SecretKey = "modbotevidence-secret";
 
     /// <summary>
-    /// From quay.io, which is MinIO's own registry, and not from Docker Hub.
+    /// A community build of MinIO from Docker Hub, pinned to one release.
     /// </summary>
     /// <remarks>
-    /// <c>docker.io/minio/minio</c> no longer resolves — Docker Hub answers 404 for the
-    /// repository, and a pull fails with <em>"pull access denied … repository does not exist"</em>,
-    /// which reads like a credentials problem and is not one. The release tag was always correct;
-    /// only the registry was wrong. It passed locally for a while because the image was already in
-    /// the daemon's cache, so the first machine to notice was CI — after five commits of a red
-    /// build that nothing else was failing.
+    /// MinIO no longer serves its own images. <c>docker.io/minio/minio</c> answers 404 for the
+    /// repository, and <c>quay.io/minio/minio</c>, where the images moved next, now refuses an
+    /// anonymous pull of every tag with 401 -- "unauthorized: access to the requested resource is
+    /// not authorized", which reads like a credentials problem and is not one. Both failures took
+    /// the whole Evidence suite down at once, on CI and on a machine with no cached copy.
+    /// <c>pgsty/minio</c> is a maintained build of the same server, with the same command line and
+    /// the same S3 behaviour these tests rely on. Pinned to a release so a change to it cannot
+    /// arrive unannounced.
     /// </remarks>
-    private const string MinioImage = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z";
+    private const string MinioImage = "pgsty/minio:RELEASE.2026-06-18T00-00-00Z";
 
     private readonly IContainer _container = new ContainerBuilder(MinioImage)
         .WithEnvironment("MINIO_ROOT_USER", AccessKey)
