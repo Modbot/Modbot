@@ -80,29 +80,29 @@ test('a time of day is the time alone, with no date in it', () => {
 // ── Lengths of time ──────────────────────────────────────────────────────────────────────────
 
 test('a length of time is whole units, never a decimal', () => {
-  assert.equal(lengthOfTime(16), '16 min')
-  assert.equal(lengthOfTime(186), '3 h 6 min')
-  assert.equal(lengthOfTime(84), '1 h 24 min')
-  assert.equal(lengthOfTime(52 * 60), '2 d 4 h')
+  assert.equal(lengthOfTime(16), '16min')
+  assert.equal(lengthOfTime(186), '3h 6min')
+  assert.equal(lengthOfTime(84), '1h 24min')
+  assert.equal(lengthOfTime(52 * 60), '2d 4h')
 })
 
 test('the smaller unit is left out when it is zero', () => {
-  assert.equal(lengthOfTime(180), '3 h')
-  assert.equal(lengthOfTime(48 * 60), '2 d')
+  assert.equal(lengthOfTime(180), '3h')
+  assert.equal(lengthOfTime(48 * 60), '2d')
 })
 
 test('a length of time is rounded before its unit is chosen', () => {
-  assert.equal(lengthOfTime(59.7), '1 h')
-  assert.equal(lengthOfTime(24 * 60 - 0.2), '1 d')
-  assert.equal(lengthOfTime(24 * 60 + 40), '1 d 1 h')
+  assert.equal(lengthOfTime(59.7), '1h')
+  assert.equal(lengthOfTime(24 * 60 - 0.2), '1d')
+  assert.equal(lengthOfTime(24 * 60 + 40), '1d 1h')
 })
 
 test('a duration in seconds says seconds under a minute, and whole units after', () => {
   assert.equal(duration(1), '1 second')
   assert.equal(duration(45), '45 seconds')
-  assert.equal(duration(59.6), '1 min')
-  assert.equal(duration(720), '12 min')
-  assert.equal(duration(5400), '1 h 30 min')
+  assert.equal(duration(59.6), '1min')
+  assert.equal(duration(720), '12min')
+  assert.equal(duration(5400), '1h 30min')
 })
 
 // ── Plurals ──────────────────────────────────────────────────────────────────────────────────

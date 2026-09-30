@@ -17,7 +17,7 @@ import {
   type ModerationFlag,
 } from '@/lib/autoMod'
 import { ApiError, type CurrentUser } from '@/lib/api'
-import { ago } from '@/lib/format'
+import { ago, lengthOfTime } from '@/lib/format'
 import { can } from '@/lib/permissions'
 import { followLink } from '@/lib/router'
 
@@ -173,7 +173,7 @@ export function Flags({
                         {[
                           'Trial',
                           flag.wouldDeleteMessage ? 'would delete' : null,
-                          flag.wouldTimeOutMinutes ? `would time out ${flag.wouldTimeOutMinutes} min` : null,
+                          flag.wouldTimeOutMinutes ? `would time out ${lengthOfTime(flag.wouldTimeOutMinutes)}` : null,
                           flag.wouldGroupBan ? 'would ban from the group' : null,
                           flag.wouldGroupRemove ? 'would remove from the group' : null,
                         ]

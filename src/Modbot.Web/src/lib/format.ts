@@ -243,28 +243,32 @@ export function howLong(iso: string | null, now: string): string {
 }
 
 /**
- * A length of time given in minutes, in whole units: "16 min", "3 h 6 min", "2 d 4 h".
+ * A length of time given in minutes, in whole units: "16min", "3h 6min", "2d 4h".
  *
- * Never a decimal. "3.1 h" makes the reader work out that .1 of an hour is six minutes, and most
- * do not. Two units at most, the larger first, and the smaller left out when it is zero ("3 h"):
+ * Never a decimal. "3.1h" makes the reader work out that .1 of an hour is six minutes, and most
+ * do not. Two units at most, the larger first, and the smaller left out when it is zero ("3h"):
  * past a day the minutes are noise. Rounded to the minute, or to the hour past a day, before the
- * unit is chosen, so 59.7 minutes reads "1 h" and not "60 min".
+ * unit is chosen, so 59.7 minutes reads "1h" and not "60min".
+ *
+ * The unit sits against its number, and one space parts the two units: "4h 40min" is read as one
+ * length, where "4 h 40 min" broke into four words and the eye paired the wrong ones. Every length
+ * on every page comes through here, so they all read alike.
  */
 export function lengthOfTime(totalMinutes: number): string {
   const wholeMinutes = Math.round(totalMinutes)
 
-  if (wholeMinutes < 60) return `${wholeMinutes} min`
+  if (wholeMinutes < 60) return `${wholeMinutes}min`
 
   if (wholeMinutes < 24 * 60) {
     const hours = Math.floor(wholeMinutes / 60)
     const rest = wholeMinutes % 60
-    return rest ? `${hours} h ${rest} min` : `${hours} h`
+    return rest ? `${hours}h ${rest}min` : `${hours}h`
   }
 
   const wholeHours = Math.round(totalMinutes / 60)
   const days = Math.floor(wholeHours / 24)
   const rest = wholeHours % 24
-  return rest ? `${days} d ${rest} h` : `${days} d`
+  return rest ? `${days}d ${rest}h` : `${days}d`
 }
 
 /** A duration in seconds: "45 seconds" under a minute, and {@link lengthOfTime} from there. */

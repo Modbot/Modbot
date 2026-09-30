@@ -5,18 +5,18 @@ import { dateTime, dayRange, longDay, minutes } from '../src/components/charts/f
 // ── Minutes ──────────────────────────────────────────────────────────────────────────────────
 
 test('minutes read as hours and minutes, not decimal hours', () => {
-  assert.equal(minutes(186), '3 h 6 min')
-  assert.equal(minutes(84), '1 h 24 min')
-  assert.equal(minutes(16), '16 min')
+  assert.equal(minutes(186), '3h 6min')
+  assert.equal(minutes(84), '1h 24min')
+  assert.equal(minutes(16), '16min')
 })
 
 test('past a day, minutes read as days and hours', () => {
-  assert.equal(minutes(52 * 60), '2 d 4 h')
-  assert.equal(minutes(72 * 60), '3 d')
+  assert.equal(minutes(52 * 60), '2d 4h')
+  assert.equal(minutes(72 * 60), '3d')
 })
 
 test('whole hours drop the minutes', () => {
-  assert.equal(minutes(180), '3 h')
+  assert.equal(minutes(180), '3h')
 })
 
 test('the edges of minutes are unchanged', () => {

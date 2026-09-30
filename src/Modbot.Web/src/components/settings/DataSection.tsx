@@ -22,6 +22,7 @@ import { StorageChart } from './StorageChart'
 import { SyncTimings } from './SyncTimings'
 import { GB, bytes, remember, remembered } from './units'
 import { dateTime } from '@/components/charts/format'
+import { lengthOfTime } from '@/lib/format'
 
 /**
  * Server: what this install tells the world it is, how long it keeps things, and what it is.
@@ -438,7 +439,7 @@ function InstallCard({ deployment }: { deployment: DataSettings['deployment'] })
               }
               mono={!!cloud?.reportOn && !!cloud.lastReportAt && !!cloud.lastReportOk}
             />
-            {code && <Row label="Link code" value={`${code.code} · ${code.expiresInMinutes} min`} mono />}
+            {code && <Row label="Link code" value={`${code.code} · ${lengthOfTime(code.expiresInMinutes)}`} mono />}
             {listing && (
               <Row
                 label="Instances last sent"

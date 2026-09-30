@@ -1,4 +1,5 @@
 import { http } from '@/lib/api'
+import { lengthOfTime } from '@/lib/format'
 
 /** Where a piece of text came from. The server's names. */
 export type ModerationTarget = 'discordMessage' | 'displayName' | 'bio' | 'status' | 'pronouns'
@@ -450,7 +451,7 @@ export function actionLabel(rule: {
 }): string {
   const parts = [
     rule.deleteMessage ? 'Delete' : null,
-    rule.timeoutMinutes ? `Time out ${rule.timeoutMinutes} min` : null,
+    rule.timeoutMinutes ? `Time out ${lengthOfTime(rule.timeoutMinutes)}` : null,
     rule.groupBan ? 'Ban from group' : null,
     rule.groupRemove ? 'Remove from group' : null,
   ].filter(Boolean)
