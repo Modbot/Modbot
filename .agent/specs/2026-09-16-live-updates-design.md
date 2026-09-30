@@ -153,8 +153,8 @@ connection simply vanishes sits waiting.
 
 | | Address |
 |---|---|
-| WebSocket | `GET /api/v{n}/companion/ws?instanceId=&after=` |
-| Long polling | `GET /api/v{n}/companion/poll?instanceId=&after=&wait=` |
+| WebSocket | `GET /api/v{n}/companion/ws?instanceId=&worldId=&after=` |
+| Long polling | `GET /api/v{n}/companion/poll?instanceId=&worldId=&after=&wait=` |
 
 Device token in the header, resolved by the same `DeviceAuthenticator` every other companion
 endpoint uses; the companion sets headers on its WebSocket, so there are no tickets. Access is

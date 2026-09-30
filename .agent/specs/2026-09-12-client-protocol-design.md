@@ -285,7 +285,7 @@ The overlay renders from the client's **local cache**, never a live request (M3 
 keeps that cache warm.
 
 ```http
-GET /api/v1/companion/context?instanceId=…   →  roster with flags, prior-action counts, staff markers
+GET /api/v1/companion/context?instanceId=…&worldId=…   →  roster with flags, prior-action counts, staff markers
 GET /api/v1/companion/user/{subjectId}       →  profile summary for one person
 ```
 
@@ -322,7 +322,7 @@ concern, and it degrades to a slow poll rather than to nothing when a proxy inte
 **Everything else polls.** Roster refresh, flag updates and health all ride the normal batch cycle.
 
 > **Revised 2026-09-16** (`2026-09-16-live-updates-design.md`). The overlay now opens a WebSocket
-> (`GET /api/v{n}/companion/ws?instanceId=&after=`) carrying every join and leave in the instance
+> (`GET /api/v{n}/companion/ws?instanceId=&worldId=&after=`) carrying every join and leave in the instance
 > the moderator is standing in, flagged joins included, and falls back to long polling the same
 > events (`GET /api/v{n}/companion/poll`) when the socket cannot be connected or keeps dropping —
 > then tries the socket again on a schedule. The proxy argument above is answered by that fallback
