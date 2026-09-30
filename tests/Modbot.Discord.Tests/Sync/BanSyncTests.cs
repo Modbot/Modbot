@@ -590,13 +590,76 @@ public class BanSyncTests
         Assert.Equal(LinkedDiscordStatus.Done, made.Status);
 
         await DiscordBanAsync(services, Discord, actorId: Bot, actorIsBot: true);
-        await DiscordBanAsync(services, Discord, actorId: null);
 
         var pass = await SyncSetUp.BanPassAsync(services, gateway, Ct);
 
         Assert.Equal(0, pass.Copied);
-        Assert.Equal(2, pass.Dropped);
+        Assert.Equal(1, pass.Dropped);
         Assert.Empty(services.VRChat.Actions);
+    }
+
+    /// <summary>
+    /// The bot's own ban is dropped by the actor check, and that must close the record too: a
+    /// moderator who bans the same person by hand in Discord later in the hour is copied.
+    /// </summary>
+    [Fact]
+    public async Task AHandBanInDiscordAfterAModbotBanAndUnbanInTheSameHourIsStillCopied()
+    {
+        await using var services = await DiscordIntoTheGroupAsync(_db, fromBots: false);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var gateway = Gateway();
+
+        await SyncSetUp.ModbotBanAsync(services, gateway, banning: true, Person, Ct);
+        await DiscordBanAsync(services, Discord, actorId: Bot, actorIsBot: true);
+        var first = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+        Assert.Equal(1, first.Dropped);
+
+        await SyncSetUp.ModbotBanAsync(services, gateway, banning: false, Person, Ct);
+        await services.WriteFactAsync(new FactRecord
+        {
+            Type = FactType.DiscordMemberUnbanned,
+            OccurredAt = services.Clock.UtcNow,
+            SubjectPlatform = FactPlatform.Discord,
+            SubjectId = Discord,
+            ActorPlatform = FactPlatform.Discord,
+            ActorId = Bot,
+            Source = FactSource.Discord,
+            Data = new JsonObject { ["actorIsBot"] = true },
+        }, Ct);
+        var second = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+        Assert.Equal(1, second.Dropped);
+
+        // A moderator bans them by hand in Discord, inside the same hour.
+        await DiscordBanAsync(services, Discord, actorId: "4242", actorIsBot: false);
+        var third = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+
+        Assert.Equal(1, third.Copied);
+        Assert.Equal(0, third.Dropped);
+        Assert.Equal(Person, Assert.Single(services.VRChat.Actions).UserId);
+    }
+
+    /// <summary>
+    /// Discord had nothing to lift, so the VRChat unban entry is still recognised as Modbot's own
+    /// and not copied to Discord for a second, redundant call.
+    /// </summary>
+    [Fact]
+    public async Task AnUnbanDiscordHadNothingToLiftIsNotAskedOfDiscordAgain()
+    {
+        await using var services = await BothWaysAsModbotAsync(_db);
+        await SyncSetUp.LinkAsync(services, Person, Discord, [], [], Ct);
+
+        var gateway = Gateway();
+        gateway.NothingToDo.Add(Discord);
+
+        var made = await SyncSetUp.ModbotBanAsync(services, gateway, banning: false, Person, Ct);
+        Assert.Equal(LinkedDiscordStatus.Unchanged, made.Status);
+
+        await GroupUnbanAsync(services, Person, actorId: "usr_modbot");
+        var pass = await SyncSetUp.BanPassAsync(services, gateway, Ct);
+
+        Assert.Equal(0, pass.Copied);
+        Assert.Equal(1, pass.Dropped);
     }
 
     /// <summary>The same guard with the gateway not there to name the bot: only the copy record can tell.</summary>

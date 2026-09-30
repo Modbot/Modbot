@@ -206,9 +206,11 @@ public sealed class BanSync
 
             // Guard one: a copy Modbot sent this way, not yet answered for. A ban made through
             // Modbot leaves a row of this kind on the Discord side too (LinkedDiscordBans), so the
-            // Discord ban it makes is recognised here like any other copy.
+            // Discord ban it makes is recognised here like any other copy. Asked even when the bot
+            // check above already matched, so the row is closed by the event it answers for:
+            // otherwise it would sit open for the hour and swallow a moderator's own ban of the
+            // same person in Discord.
             var wasOurCopy = wanted
-                             && !wasTheBot
                              && await _copies.WasOursAsync(
                                  fromDiscord ? CopyDirections.ToDiscord : CopyDirections.ToVRChat,
                                  banning ? CopyKinds.Ban : CopyKinds.Unban,

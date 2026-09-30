@@ -157,8 +157,10 @@ public sealed class LinkedDiscordBans : ILinkedDiscordBans
         await _copies.FinishAsync(record, done, error, nothingHappened, ct).ConfigureAwait(false);
 
         // Discord not having done it means the ordinary copy is free to try when the group's audit
-        // log shows the VRChat ban, so this row answers for nothing then.
-        await _copies.FinishAsync(vrchatHalf, done, error, nothingHappened, ct).ConfigureAwait(false);
+        // log shows the VRChat ban, so this row answers for nothing then. Discord finding nothing to
+        // change is different: the person is already as they should be, so the row stays open for
+        // the audit entry and the ordinary copy does not ask Discord a second time.
+        await _copies.FinishAsync(vrchatHalf, done, error, nothingHappened: false, ct).ConfigureAwait(false);
 
         var data = new JsonObject
         {
