@@ -90,6 +90,38 @@ public class DiscordBotServiceTests
         Assert.Single(gateways.Created);
     }
 
+    /// <summary>
+    /// Several Modbots can share one Discord bot, and Discord hands each of them every command.
+    /// The session is told which server is this Modbot's, so it answers there and nowhere else,
+    /// and its commands are registered on that server alone rather than everywhere the bot is.
+    /// </summary>
+    [Fact]
+    public async Task EverySession_AnswersOnlyInTheServerFromSettings_AndMovesWithIt()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var services = await TestServices.CreateAsync(_db, ct);
+        var gateways = new FakeGatewayFactory();
+        var first = gateways.Next();
+        var moved = gateways.Next();
+        var bot = Service(services, gateways);
+
+        await ConfigureBotAsync(services, "token", "424242", ct);
+        await bot.TickAsync(ct);
+        await first.RaiseReadyAsync();
+
+        Assert.Equal("424242", first.Options.GuildId);
+        Assert.Equal("424242", first.RegisteredGuildId);
+
+        await ConfigureBotAsync(services, "token", "515151", ct);
+        await bot.TickAsync(ct);
+        await moved.RaiseReadyAsync();
+
+        Assert.True(first.Disposed);
+        Assert.Equal("515151", moved.Options.GuildId);
+        Assert.Equal("515151", moved.RegisteredGuildId);
+        Assert.Same(moved, bot.ReadyGateway);
+    }
+
     [Fact]
     public async Task ClearingTheSettings_StopsTheBot()
     {

@@ -220,7 +220,11 @@ public sealed record DiscordDisconnect(
 /// </remarks>
 /// <param name="MemberEvents">Ask for the privileged Server Members intent: joins, leaves, role changes.</param>
 /// <param name="MessageContent">Ask for the privileged Message Content intent: the text of messages.</param>
-public sealed record DiscordGatewayOptions(bool MemberEvents = true, bool MessageContent = true);
+/// <param name="GuildId">
+/// The one server this session answers in: the server id from settings. A command run anywhere
+/// else, or in a direct message, is left alone without a word. Null answers nothing.
+/// </param>
+public sealed record DiscordGatewayOptions(bool MemberEvents = true, bool MessageContent = true, string? GuildId = null);
 
 /// <summary>Somebody joined a server the bot is in.</summary>
 /// <param name=Member>The member as they joined -- name, roles, join time -- for recording the join.</param>
@@ -396,6 +400,10 @@ public interface IDiscordGateway : IAsyncDisposable
 
     event Func<DiscordDisconnect, Task>? Disconnected;
 
+    /// <summary>
+    /// Somebody ran one of the bot's slash commands in the session's own server
+    /// (<see cref="DiscordGatewayOptions.GuildId"/>). Commands from anywhere else are never raised.
+    /// </summary>
     event Func<DiscordCommandCall, Task>? CommandReceived;
 
     /// <summary>

@@ -266,9 +266,11 @@ public sealed class DiscordBotService : BackgroundService
             return;
 
         var refused = _intentsRefusedFor == fingerprint;
+        // The session answers commands only in this server, so several Modbots can share one bot.
         var options = new DiscordGatewayOptions(
             MemberEvents: !(refused && _membersRefused),
-            MessageContent: !(refused && _contentRefused));
+            MessageContent: !(refused && _contentRefused),
+            GuildId: config.GuildId);
 
         await ConnectAsync(config.Token, config.GuildId, options, ct).ConfigureAwait(false);
     }

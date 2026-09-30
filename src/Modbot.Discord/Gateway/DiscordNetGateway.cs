@@ -61,6 +61,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
     /// <summary>What this session asked for: <see cref="Intents"/>, less any refused before.</summary>
     private readonly GatewayIntents _intents;
 
+    /// <summary>The one server this session answers commands in (<see cref="DiscordGatewayOptions.GuildId"/>).</summary>
+    private readonly string? _guildId;
+
     private volatile DiscordGatewayState _state = DiscordGatewayState.Disconnected;
 
     /// <summary>Whether this session has been ready at least once, so a later connect is a resume.</summary>
@@ -70,7 +73,9 @@ public sealed class DiscordNetGateway : IDiscordGateway
     {
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Discord);
 
-        _intents = IntentsFor(options ?? new DiscordGatewayOptions());
+        options ??= new DiscordGatewayOptions();
+        _intents = IntentsFor(options);
+        _guildId = options.GuildId;
 
         _client = new DiscordSocketClient(new DiscordSocketConfig
         {
@@ -1709,9 +1714,49 @@ public sealed class DiscordNetGateway : IDiscordGateway
 
     private Task OnSlashCommand(SocketSlashCommand command)
     {
+        if (!IsForThisServer(_guildId, command.GuildId))
+        {
+            // Not even deferred: another Modbot on the same bot may own it (see IsForThisServer).
+            _log.Debug(
+                "Ignored /{Command} from {Where}: this Modbot answers only in its own server",
+                command.Data.Name,
+                command.GuildId is { } other ? $"another server {Text(other)}" : "a direct message");
+
+            return Task.CompletedTask;
+        }
+
         _ = Task.Run(() => Guard(DispatchAsync(command), "command"));
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Whether a command or button press came from the server this Modbot is set up for, and so
+    /// is this Modbot's to answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>Why.</strong> Several Modbots can share one Discord bot -- a test install beside the
+    /// live one, say -- and Discord hands every press and every command to each of them. Whichever
+    /// answered first won: on 2026-09-30 a live Modbot running older code answered a test server's
+    /// <c>/me</c> with "Modbot does not know that command", and the test Modbot's own answer then
+    /// failed with Discord's "Unknown interaction". Only one of them may acknowledge it, so the
+    /// others must stay completely silent -- no defer, no reply, nothing recorded.
+    /// </para>
+    /// <para>
+    /// <strong>Direct messages are never ours.</strong> The commands are registered on the server
+    /// only, so none can be run in a direct message, and the only buttons Modbot sends in one open
+    /// a web address, which Discord never hands to the bot. A direct-message button the bot has to
+    /// answer would reach every Modbot on the bot alike, so one added later has to carry a mark
+    /// saying which Modbot sent it, and be let through here by that mark.
+    /// </para>
+    /// <para>
+    /// No server set means nothing is answered. The bot does not start without one anyway.
+    /// </para>
+    /// </remarks>
+    public static bool IsForThisServer(string? ourGuildId, ulong? fromGuildId)
+        => fromGuildId is { } from
+            && ourGuildId is { } ours
+            && string.Equals(ours, Text(from), StringComparison.Ordinal);
 
     private async Task DispatchAsync(SocketSlashCommand command)
     {
