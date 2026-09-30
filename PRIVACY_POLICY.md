@@ -95,7 +95,7 @@ instance warnings, with the place they happened.
 - Evidence a moderator attached: screenshots, clips, files.
 - Flags raised by the group's word lists and AI topics: which rule matched, the words that matched
   (up to 1,000 characters) or, for a picture, its address and a label, and where it was. The AI call
-  log keeps the whole prompt and answer for a call that produced a flag, and for a call a person
+  log keeps the whole prompt and answer (each up to 20,000 characters) for a call that produced a flag, and for a call a person
   started by hand.
 
 **Discord, if the group connected a Discord server**
@@ -124,10 +124,11 @@ instance warnings, with the place they happened.
 
 **If you have an account on the group's Modbot**
 
-- Your username, your email address if you gave one, and your linked Discord and VRChat accounts.
+- Your username, your email address, and your linked Discord and VRChat accounts.
 - Every sign-in, with the address you signed in from, and every failed attempt, with the username
-  that was typed and the address it came from (never the password). These are kept with the other
-  history records.
+  that was typed (even when no account has that name) and the address it came from, never the
+  password. These are kept with the other history records, and a purge of a VRChat or Discord
+  account does not erase them.
 - What you did: the actions you took and the settings you changed, with your name.
 
 ## Is any of that sent anywhere else?
@@ -140,8 +141,9 @@ including one running on their own machine. Before AI can be switched on for the
 shows the operator the list below and records who confirmed it. What is sent depends on the feature:
 
 - **Moderation rules.** The text being checked — a Discord message, a display name, a bio, a status
-  line or pronouns — up to 4,000 characters, together with the rule's own instructions. **Your name
-  and id are not sent with it.** Word lists are matched on the group's own server and send nothing.
+  line or pronouns — up to 4,000 characters, together with the rule's own instructions. **No separate
+  name or id is sent with it,** but the text being checked can itself be a name, or mention one.
+  Word lists are matched on the group's own server and send nothing.
 - **The conversation, if the rule is set to read it.** The messages before yours in that channel or
   thread, and the message yours replied to, each with its author's name and cut to 500 characters.
 - **Pictures, if the rule is set to look at them** (off unless switched on for that rule). Up to four
@@ -176,11 +178,11 @@ return, as the person who connected it. Where that app sends it is up to the app
   by default.
 - *A usage report every six hours.* Facts about the server and the group: the server's address, the
   Modbot version, the operating system, the group's id, name, description, icon and banner, whether
-  Discord and AI moderation are on, and some counts. **No member, no moderation record.** On by
+  a Discord bot is connected and whether AutoMod (word lists and AI topics) is on, and some counts. **No member, no moderation record.** On by
   default.
 - *Modbot's own log.* The lines Modbot writes about its own work. **They can carry VRChat user ids
-  and can name members and the actions taken on them.** Credentials are removed first; names and ids
-  are not. On by default.
+  and can name members and the actions taken on them.** Credentials are removed first, where Modbot recognises them; names
+  and ids are not. On by default.
 - *An email address,* only if someone ticked the box to receive news from Modbot when making their
   account.
 
@@ -209,7 +211,8 @@ What does have a schedule when Modbot is installed:
 
 - The AI call log is trimmed to 30 days.
 - Modbot's own log is kept 180 days, and never more than two million lines.
-- Sent and failed emails in the queue, and old webhook deliveries, are cleared on their own.
+- Sent and failed emails in the queue are cleared on their own, and each webhook keeps only its
+  most recent deliveries.
 
 ## How do I get my information removed?
 
@@ -233,7 +236,8 @@ draws.
 - The rows Modbot holds about who someone currently is: their VRChat profile, group membership, ban
   list entry, Discord member row and account link. Modbot's next sync can also write a current
   member's profile again.
-- Flags themselves, with the words that matched, reviews, and entries in the AI call log.
+- Flags themselves, which still name the person and carry the words that matched, reviews, entries
+  in the AI call log, and sign-in records.
 - Other people's messages that mention or reply to them.
 - Modbot's own log, log files, backups, and anything already sent to Modbot Cloud or an AI provider.
 
@@ -262,12 +266,21 @@ A few things are open to anyone who can reach the server, without signing in:
   read it.
 - **The setup status page the web app reads before sign-in.** It carries the username and display
   name of the VRChat account Modbot signs in as, the address and username of the proxy if one is set,
-  the Discord server and channel ids, the instance announcement text, the mail server's host name and
-  the group's name and pictures. It carries no password or key.
-- **The calendar feed,** to anyone holding the link a moderator made, which lists the group's events.
+  the Discord server and channel ids, the instance announcement text, the mail server's host name,
+  the group's id, name and pictures, when the VRChat account last signed in, and whether a password
+  or token is stored (never the password or token). Anyone can also open the setup steps themselves
+  until the first account exists.
+- **The calendar feed,** to anyone holding the link a moderator made, which lists the group's events
+  and their worlds.
+- **Invite and password-reset links,** to whoever holds one: the invite shows the inviter's username
+  and the roles offered, the reset link shows the account's username.
+- **A health check and the version numbers,** which can carry error text from the database.
 - **The instances a group chose to publish,** described above, which name nobody.
+- **A paired companion,** with its device token, can read the instance roster and a person's summary
+  (name, standing, earlier actions, flags, roles) for the instances it reports on.
 
-Everything about people needs an account.
+Everything else about people needs an account or an API key. A server started as a public demo
+serves every visitor as an administrator; its data is made up.
 
 ---
 
@@ -315,7 +328,7 @@ Your server registers with Modbot Cloud the first time it reports, and then send
 |---|---|
 | Your server | Its public address, if you set one; the Modbot version; the operating system and processor it runs on, such as `linux-x64` |
 | Your group | Its VRChat id, name, description, icon and banner |
-| Connections | Whether a Discord bot is connected, and whether AI moderation is on |
+| Connections | Whether a Discord bot token is stored, and whether AutoMod (word lists and AI topics) is switched on |
 | Word lists | The ids of the shared word lists you imported — never their contents |
 | Trouble | How many times Modbot stopped sending to VRChat after a rate limit, and how many times VRChat's firewall blocked it, since the last report |
 
@@ -342,14 +355,15 @@ forgotten sends none until the usage report is switched back on.
 
 The lines Modbot writes about its own work, as they are stored on the **Modbot's log** page: the
 time, the level, the message, the part of Modbot that wrote it, the exception if there was one, the
-values the line carried, and the Modbot version. Information and above, unless `LOG_LEVEL` asks for
-more; if it does, the extra lines go too, including database queries.
+values the line carried, and the Modbot version. Information and above, unless `LOG_LEVEL` (or `MODBOT_DEBUG_LOGGING`) asks for
+more; if it does, the extra lines go too, including database queries. The first time it is switched
+on, only the newest 1,000 lines are sent.
 
 **Lines can name people.** Modbot writes about its own work and that work is about people, so a line
-can carry a VRChat user id and may carry a name or an action taken on someone. Credentials are
-removed before a line is stored — a property named like a password, a secret, a token, an API key,
-an authorisation header or a cookie, and a bearer token or connection-string password written into a
-message. Names and ids are not removed.
+can carry a VRChat user id and may carry a name or an action taken on someone. Modbot tries to remove credentials before a line is stored — a property whose name looks like a
+password, a secret, a token, an API key, an authorisation header or a cookie, and a bearer token or a
+`password=`, `secret=` or `api key` value written into a message. It is a net, not a promise: a
+credential written into a message in some other way is not caught. Names and ids are not removed.
 
 What is not in the log page, and so never sent: the requests Modbot makes to VRChat and Discord.
 Those go to their own files and to Seq.
@@ -371,7 +385,7 @@ Only Cloud administrators can read the list. With `MODBOT_CLOUD_DISABLED` the bo
 ## What about `MODBOT_CLOUD_DISABLED`?
 
 Set `MODBOT_CLOUD_DISABLED=1` (or `true`, `yes`, `on`) and your server talks to Modbot Cloud not at
-all, whatever any setting says. It beats all four switches above, which are greyed out in Settings.
+all, whatever any setting says. It beats all four: the three switches in Settings are greyed out, and the email box is not shown.
 It also stops the word list download, the list of sponsors and contributors the credits page reads,
 and the **Get link code** button.
 
@@ -441,7 +455,7 @@ Two things worth being blunt about:
 
 It does not send raw log lines, chat, the friends list, avatar ids, instance secrets, file paths or
 machine names. About the PC it sends only the client's version, the time its clock shows and how far
-that is from Cloud's. An install is a random id; Cloud does not store the address it registered from
+that is from Cloud's, and for an instance a group owns, that group's id. An install is a random id; Cloud does not store the address it registered from
 and uses it only to limit how fast one address can register. The instance is sent without its secret
 parts.
 
@@ -523,7 +537,7 @@ The environment variable wins over the file. Restart the client after changing i
 also deletes anything the client had queued to send.
 
 Turning it off does **not** stop the client checking for a newer version of itself. That check asks
-Modbot Cloud for a short file list. The update library the client uses puts the operating system, the
+Modbot Cloud for a short file list, every four hours. The update library the client uses puts the operating system, the
 processor type and the client's own version in the request's address. Cloud's code ignores them and
 its own log keeps only the method, path, status and time, so Modbot Cloud does not keep them, but they
 are sent. The download comes from GitHub for the project's own releases. Put `"checkForUpdates": false`
@@ -564,8 +578,9 @@ You are the one handing data to each of these. Their privacy policies are theirs
   - *Companion installs:* a random id, a hash of its secret, the client's version, the word `windows`,
     and when it registered and was last seen. And the events those clients send, for 365 days by
     default, each with the client's version, the time its clock showed and how far out it was.
-  - *Servers:* what [the usage report](#the-usage-report) carries, each report as its own row with
-    the address it came from. Nothing deletes these on a schedule.
+  - *Servers:* what [the usage report](#the-usage-report) carries, as one row of latest values, and
+    as a row for each report with the version, platform, group id and name, the counts and the
+    address it came from. Nothing deletes these on a schedule.
   - *Logs:* what [Modbot's own log](#the-log) carries, for 180 days by default.
   - *The open instances reports,* until they are dropped.
   - *The mailing list:* the addresses described above.
