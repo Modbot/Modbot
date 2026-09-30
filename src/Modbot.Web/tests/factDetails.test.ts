@@ -49,5 +49,5 @@ test('somebody seen arriving and kicked in the same second is a real measurement
 
 test('the steps read the way a person says them', () => {
   assert.equal(timeInInstance({ inInstanceSeconds: 45, seenArriving: true }), 'after 45 seconds in the instance')
-  assert.equal(timeInInstance({ inInstanceSeconds: 5400, seenArriving: true }), 'after 1h 30min in the instance')
+  assert.equal(timeInInstance({ inInstanceSeconds: 5400, seenArriving: true }), 'after 1hr 30min in the instance')
 })

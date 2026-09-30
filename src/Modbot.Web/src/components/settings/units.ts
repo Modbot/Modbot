@@ -58,7 +58,7 @@ export function bytes(n: number): string {
 
 /**
  * A wait in seconds: "45s" under a minute, and the shared length of time from there ("2min",
- * "1h 30min"), so a wait on a settings screen reads like a length anywhere else.
+ * "1hr 30min"), so a wait on a settings screen reads like a length anywhere else.
  */
 export function seconds(n: number): string {
   if (n < 60) return `${n % 1 === 0 ? n : n.toFixed(1)}s`

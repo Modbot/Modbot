@@ -47,7 +47,7 @@ export const compactNumber = (n: number): string =>
       ? n.toLocaleString()
       : n.toFixed(1)
 
-/** Minutes, said the way a person would say them: "16min", "3h 6min", "2d 4h" (`lengthOfTime`). */
+/** Minutes, said the way a person would say them: "16min", "3hr 6min", "2d 4hr" (`lengthOfTime`). */
 export function minutes(total: number): string {
   if (!Number.isFinite(total) || total < 0) return '—'
   if (total < 1) return 'under a minute'
