@@ -271,6 +271,35 @@ public class StatusTests
     }
 
     [Fact]
+    public async Task AnApiKeyThatHoldsManageSettings_GetsNoAccountDetails()
+    {
+        var (host, _) = await ConfiguredAsync();
+        await using var _host = host;
+
+        // Keys may not use the setup endpoints (ApiKeyAuthentication.KeysMayNotUse), so this one
+        // is read as nobody: the details are for a person signed in, not for a program.
+        var (_, cookie) = await host.SignedInAsync(
+            ModbotPermissions.ManageApiKeys | ModbotPermissions.ManageSettings, Ct);
+
+        var created = await host.SendJsonAsync(
+            HttpMethod.Post, "/api/api-keys", new { name = "Bot", permissions = new[] { "ManageSettings" } }, cookie, Ct);
+        Assert.Equal(System.Net.HttpStatusCode.OK, created.StatusCode);
+        var key = (await ApiTestHost.BodyOf(created, Ct)).GetProperty("key").GetString()!;
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/onboarding/status");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
+        var response = await host.Client.SendAsync(request, Ct);
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+
+        var raw = await response.Content.ReadAsStringAsync(Ct);
+        var body = System.Text.Json.JsonDocument.Parse(raw).RootElement.Clone();
+
+        AssertShortAnswer(raw, body);
+        Assert.False(body.GetProperty("authenticated").GetBoolean());
+    }
+
+    [Fact]
     public async Task AnAdministrator_GetsEveryDetail()
     {
         var (host, adminCookie) = await ConfiguredAsync();
