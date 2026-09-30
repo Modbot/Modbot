@@ -183,11 +183,13 @@ function RoleEditor({
       <CardHeader className={cn('flex-nowrap gap-x-0 p-0', !open && 'border-b-0 bg-card')}>
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-3 px-(--panel-pad) py-1.5 text-left hover:bg-muted/50"
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-0.5 px-(--panel-pad) py-1.5 text-left hover:bg-muted/50"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
         >
-          <div className="min-w-0">
+          {/* Wraps the counts onto their own line on a phone rather than squeezing the name and
+              its line to a word wide: the move buttons take room beside it. */}
+          <div className="min-w-0 grow basis-40">
             <div className="font-label">
               {role?.name ?? 'New role'}
               {role?.isBuiltIn && (
@@ -202,9 +204,8 @@ function RoleEditor({
               </div>
             )}
           </div>
-          <div className="flex-1" />
           {role && (
-            <span className="shrink-0 text-right text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
+            <span className="ml-auto shrink-0 text-right text-muted-foreground" style={{ fontSize: 'var(--text-small)' }}>
               {role.locked ? (
                 'everything'
               ) : (
