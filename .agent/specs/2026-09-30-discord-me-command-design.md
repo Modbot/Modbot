@@ -43,9 +43,11 @@ times costs the VRChat budget nothing.
 
 ## 3. What Modbot keeps
 
-A fixed list, cut down heading for heading from the privacy policy's "What does Modbot record about
-me?", and introduced as the most a Modbot can keep, depending on what the group has switched on. It
-is the same for everybody, because it describes what the software can keep, not what this group
+A fixed list that follows the privacy policy's "What does Modbot record about me?" heading for
+heading and item for item, in shorter words: nothing the policy names is left out, the AI call log,
+who opened evidence and sign-in addresses included, because the point is to say plainly what is
+stored. Its title, "What Modbot can keep", carries the "at most": no line under it explains that
+(no explanatory text in the UI). It is the same for everybody, because it describes what the software can keep, not what this group
 holds: listing a person's actual records is a different job, and most of those records name other
 people.
 
@@ -68,8 +70,9 @@ A request, never a deletion. Pressing it:
 4. tells the member: "Sent to the group's staff. Case files are kept." The purge keeps case files by
    design, so the member is told so rather than promised everything goes.
 
-At most 20 requests a day across the server (the reviews opened in the last 24 hours). The Reviews
-page is where staff work, and a flood of requests must not bury the rest of it.
+At most 20 requests in any 24 hours across the server (the reviews opened in the last 24 hours, a
+rolling window rather than a calendar day, so the reply says "Try again later", not "tomorrow"). The
+Reviews page is where staff work, and a flood of requests must not bury the rest of it.
 
 The staff answer with the purge tool and close the review with a note. Nothing here deletes.
 
@@ -107,7 +110,7 @@ demo mode before it answers, in case the bot is ever started in one.
 | Showing other members' data | only rows about the caller are read; no co-presence, reporters, notes, flags or evidence |
 | Helping ban evasion | standing is "Good" or "Banned"; no reason, rule or case file |
 | Staff text reaching a member | nothing a moderator wrote is read |
-| Flooding the staff with requests | one open request per account, 20 a day across the server, 5 uses a minute per account |
+| Flooding the staff with requests | one open request per account, 20 in any 24 hours across the server, 5 uses a minute per account |
 | Promising more deletion than the purge does | the reply says case files are kept |
 | Demo mode serves everyone as an administrator | the bot never runs in a demo; the switch refuses to turn on there; the command checks too |
 | Buttons from other bots | only presses whose id starts `modbot:` are answered |

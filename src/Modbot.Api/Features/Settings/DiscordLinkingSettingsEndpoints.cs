@@ -76,7 +76,10 @@ public static class DiscordLinkingSettingsEndpoints
 
         group.MapGet("", async (
                 [FromServices] ModbotContext db,
-                CancellationToken ct) => Results.Ok(View(await db.GetSettingsAsync(ct))))
+                [FromServices] DemoMode? demo,
+                CancellationToken ct) => Results.Ok(View(
+                    await db.GetSettingsAsync(ct),
+                    DemoAuthentication.MayServeEveryoneAsAdministrator(demo))))
             .WithName("GetDiscordLinkingSettings")
             .WithSummary("Get linking settings")
             .WithDescription("Account linking settings. The client secret is never returned.")
@@ -149,7 +152,7 @@ public static class DiscordLinkingSettingsEndpoints
                 await change.RecordAsync(http, ct);
                 await transaction.CommitAsync(ct);
 
-                return Results.Ok(View(settings));
+                return Results.Ok(View(settings, DemoAuthentication.MayServeEveryoneAsAdministrator(demo)));
             })
             .WithName("SetDiscordLinkingSettings")
             .WithSummary("Update linking settings")
@@ -162,7 +165,8 @@ public static class DiscordLinkingSettingsEndpoints
         return app;
     }
 
-    private static DiscordLinkingSettingsResponse View(Core.Data.Entities.Settings settings) => new(
+    /// <param name="demo">This is a demo, where <c>/me</c> is always off whatever is stored.</param>
+    private static DiscordLinkingSettingsResponse View(Core.Data.Entities.Settings settings, bool demo) => new(
         settings.DiscordOAuthClientId,
         settings.DiscordOAuthClientSecretEncrypted is not null,
         DiscordInvite.RedirectUrlFor(settings.PublicAddress),
@@ -171,7 +175,7 @@ public static class DiscordLinkingSettingsEndpoints
         settings.DiscordLinkBackupChannelId,
         settings.DiscordLinkedRoleId,
         settings.DiscordEighteenPlusRoleId,
-        settings.DiscordMeCommand,
+        settings.DiscordMeCommand && !demo,
         !string.IsNullOrWhiteSpace(settings.DiscordOAuthClientId)
             && settings.DiscordOAuthClientSecretEncrypted is not null
             && DiscordInvite.RedirectUrlFor(settings.PublicAddress) is not null);

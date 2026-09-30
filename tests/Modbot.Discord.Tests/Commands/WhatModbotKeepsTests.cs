@@ -32,6 +32,40 @@ public class WhatModbotKeepsTests
     }
 
     [Fact]
+    public void TheListHasEveryHeadingAndLineTheDocsPageHas()
+    {
+        var page = File.ReadAllText(Path.Combine(
+            FindRepoRoot(), "docs", "content", "docs", "discord", "account-linking.mdx"));
+
+        var start = page.IndexOf("### What Modbot keeps", StringComparison.Ordinal);
+        var end = page.IndexOf("### Ask to delete my data", StringComparison.Ordinal);
+        Assert.True(start >= 0 && end > start, "The /me docs page has lost its What Modbot keeps section.");
+
+        var section = page[start..end].Split('\n').Select(line => line.TrimEnd('\r')).ToList();
+
+        var headings = section
+            .Where(line => line.StartsWith("**", StringComparison.Ordinal) && line.EndsWith("**", StringComparison.Ordinal))
+            .Select(line => line[2..^2])
+            .ToList();
+        var lines = section
+            .Where(line => line.StartsWith("- ", StringComparison.Ordinal))
+            .Select(line => line[2..])
+            .ToList();
+
+        Assert.Equal(WhatModbotKeeps.Kinds.Select(k => k.Heading), headings);
+        Assert.Equal(WhatModbotKeeps.Kinds.SelectMany(k => k.Lines), lines);
+    }
+
+    [Fact]
+    public void TheCardFitsDiscordsLimits()
+    {
+        // Discord allows 6,000 characters across a card's title and fields, bullets and line breaks included.
+        var total = WhatModbotKeeps.Title.Length
+            + WhatModbotKeeps.Kinds.Sum(k => k.Heading.Length + k.Lines.Sum(line => line.Length + 3));
+        Assert.InRange(total, 1, 6000);
+    }
+
+    [Fact]
     public void EveryHeadingFitsADiscordField()
     {
         Assert.All(WhatModbotKeeps.Kinds, kind =>

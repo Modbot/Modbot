@@ -57,7 +57,8 @@ public sealed record MeView(
 /// <strong>Asking to delete is a request, never a deletion.</strong> It opens a review on the
 /// Reviews page, records a fact about the person, and posts one line to the alerts channel when
 /// one is set. One open request per Discord account (the open-review index enforces it), and at
-/// most <see cref="DailyCap"/> a day across the server, so a flood cannot bury the Reviews page.
+/// most <see cref="DailyCap"/> in any 24 hours across the server, so a flood cannot bury the
+/// Reviews page.
 /// </para>
 /// </remarks>
 public sealed class MeCommand
@@ -69,14 +70,14 @@ public sealed class MeCommand
     public const string DeleteLabel = "Ask to delete my data";
     public const string LinkLabel = "Link your VRChat account";
 
-    /// <summary>Deletion requests the whole server may open in a day.</summary>
+    /// <summary>Deletion requests the whole server may open in any 24 hours.</summary>
     public const int DailyCap = 20;
 
     public const string OffMessage = "/me is turned off on this server.";
     public const string TooFastMessage = "Slow down. Try again in a minute.";
     public const string SentMessage = "Sent to the group's staff. Case files are kept.";
     public const string AlreadyAskedMessage = "You have already asked. The group's staff have it.";
-    public const string CapMessage = "Too many requests today. Try again tomorrow.";
+    public const string CapMessage = "Too many requests. Try again later.";
 
     private readonly ModbotContext _db;
     private readonly IFactWriter _facts;
@@ -351,7 +352,7 @@ public sealed class MeCommand
     public static DiscordReply KeepsReply()
         => DiscordReply.Card(new DiscordEmbedContent(
             WhatModbotKeeps.Title,
-            WhatModbotKeeps.AtMost,
+            null,
             CardColour.Violet,
             [.. WhatModbotKeeps.Kinds.Select(k => new DiscordEmbedField(
                 k.Heading,
@@ -485,13 +486,27 @@ public sealed class MeCommand
     }
 
     /// <summary>
-    /// One line in the alerts channel, when one is set, with a button to the review. A failure is
-    /// logged and nothing more: the review is already on the Reviews page.
+    /// One line in the alerts channel, when one is set, with a button to the review. A failure of
+    /// any kind is logged and nothing more: the review is already committed and on the Reviews
+    /// page, so the member is still told it was sent.
     /// </summary>
     private async Task TellStaffAsync(Review review, string who, string? username, IDiscordGateway? gateway, CancellationToken ct)
     {
         if (gateway is not { State: DiscordGatewayState.Ready })
             return;
+
+        try
+        {
+            await PostStaffLineAsync(review, who, username, gateway, ct).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            _log.Warning(e, "Could not tell the alerts channel about a request to delete data");
+        }
+    }
+
+    private async Task PostStaffLineAsync(Review review, string who, string? username, IDiscordGateway gateway, CancellationToken ct)
+    {
 
         var channel = await _db.AlertSettings.AsNoTracking()
             .Where(a => a.Id == 1)

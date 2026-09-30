@@ -174,9 +174,25 @@ public class DiscordLinkingSettingsTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("demo", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
 
-        using var scope = host.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
-        var stored = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, Ct);
-        Assert.False(stored?.DiscordMeCommand ?? false);
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            var stored = await db.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == 1, Ct);
+            Assert.False(stored?.DiscordMeCommand ?? false);
+
+            // Even a row that says on, from before this was a demo, reads as off.
+            (await db.GetSettingsAsync(Ct)).DiscordMeCommand = true;
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var body = await ApiTestHost.BodyOf(await host.SendJsonAsync(HttpMethod.Get, Path, null, cookie, Ct), Ct);
+        Assert.False(body.GetProperty("meCommand").GetBoolean());
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+            (await db.GetSettingsAsync(Ct)).DiscordMeCommand = false;
+            await db.SaveChangesAsync(Ct);
+        }
     }
 }

@@ -502,7 +502,8 @@ public class MeCommandTests
 
         var card = Assert.Single(reply.Embeds);
         Assert.Equal(WhatModbotKeeps.Title, card.Title);
-        Assert.Equal(WhatModbotKeeps.AtMost, card.Description);
+        Assert.Equal("What Modbot can keep", card.Title);
+        Assert.Null(card.Description);
         Assert.Equal(WhatModbotKeeps.Kinds.Select(k => k.Heading), card.Fields.Select(f => f.Name));
 
         foreach (var kind in WhatModbotKeeps.Kinds)
@@ -591,6 +592,25 @@ public class MeCommandTests
     }
 
     [Fact]
+    public async Task WhenTheAlertsChannelRefuses_TheMemberIsStillToldItWasSent()
+    {
+        await using var services = await ServicesAsync();
+        await SetAlertsChannelAsync(services, "5550001");
+
+        var gateway = new FakeGateway { State = DiscordGatewayState.Ready };
+        gateway.FailNextPost("Missing Access", permanent: true);
+
+        var reply = await PressAsync(services, Press(Caller, MeCommand.DeleteButton), gateway);
+
+        Assert.Equal(MeCommand.SentMessage, reply.Text);
+        Assert.Empty(gateway.Messages);
+
+        await using var db = services.Database.NewContext();
+        Assert.Single(await db.Reviews.AsNoTracking().ToListAsync(Ct));
+        Assert.Single(await services.FactsOfTypeAsync(FactType.DataDeletionAsked, Ct));
+    }
+
+    [Fact]
     public async Task ASecondRequest_WhileTheFirstIsOpen_IsAlreadyAsked()
     {
         await using var services = await ServicesAsync();
@@ -615,7 +635,7 @@ public class MeCommandTests
     }
 
     [Fact]
-    public async Task TheServerTakesAtMostTwentyRequestsADay()
+    public async Task TheServerTakesAtMostTwentyRequestsInAny24Hours()
     {
         await using var services = await ServicesAsync();
 
@@ -644,7 +664,7 @@ public class MeCommandTests
         Assert.Equal(MeCommand.CapMessage, (await PressAsync(services, Press(Caller, MeCommand.DeleteButton))).Text);
         Assert.Empty(await services.FactsOfTypeAsync(FactType.DataDeletionAsked, Ct));
 
-        // A day on, the old ones no longer count.
+        // 24 hours on, the old ones no longer count.
         services.Clock.Advance(TimeSpan.FromDays(1));
         Assert.Equal(MeCommand.SentMessage, (await PressAsync(services, Press(Caller, MeCommand.DeleteButton))).Text);
     }
