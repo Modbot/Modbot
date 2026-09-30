@@ -193,8 +193,9 @@ See [API keys](/api/keys).
 - When a bucket sends a file straight to the browser instead, the link it uses lasts five minutes.
 - Destroying a file keeps a record of what it was, who destroyed it, when and why.
 - Who attached, took off, viewed, downloaded or destroyed a file is written to the audit log, with the
-  case file and the file's name. Downloads are written every time and looks once per person per
-  file every 10 minutes. Reading these entries needs **View evidence** as well as **See the audit
+  case file and the file's name. Downloads are written every time, but a request that says it is
+  only showing the file is written as a look, at most once per person per file every 10 minutes, so
+  somebody calling the API by hand can make a download read as a look. Reading these entries needs **View evidence** as well as **See the audit
   log**, and they are kept when a person is purged.
 
 See [Evidence](/moderation/evidence) and [Storage buckets](/self-hosting/storage-buckets).

@@ -52,4 +52,19 @@ public sealed class EvidenceViewThrottle
             return true;
         }
     }
+
+    /// <summary>
+    /// Gives a claimed slot back because the line it was for was never written, so the next look is
+    /// written rather than silenced for ten minutes by a look that left no trace.
+    /// </summary>
+    public void Release(Guid person, string hash, DateTimeOffset claimedAt)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(hash);
+
+        lock (_lock)
+        {
+            if (_lastWritten.TryGetValue((person, hash), out var last) && last == claimedAt)
+                _lastWritten.Remove((person, hash));
+        }
+    }
 }

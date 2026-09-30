@@ -68,13 +68,18 @@ public sealed class EvidenceDestroyer
     /// <param name="ct">Cancels the destroy.</param>
     /// <param name="ignoreReports">Case files whose hold does not count, because this destroy is taking the file off them.</param>
     /// <param name="beforeDelete">Runs once nothing else holds the file and before the bytes are deleted.</param>
+    /// <param name="markWithin">
+    /// Wraps the marking, so the caller can make it and its own record one commit. It is handed the
+    /// marking to run, which says whether this call was the one that marked the file.
+    /// </param>
     public async Task<DestroyResult> DestroyAsync(
         EvidenceHash hash,
         string actor,
         string reason,
         CancellationToken ct = default,
         IReadOnlyCollection<string>? ignoreReports = null,
-        Func<CancellationToken, Task>? beforeDelete = null)
+        Func<CancellationToken, Task>? beforeDelete = null,
+        Func<Func<CancellationToken, Task<bool>>, CancellationToken, Task>? markWithin = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actor);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
@@ -106,8 +111,16 @@ public sealed class EvidenceDestroyer
         if (beforeDelete is not null)
             await beforeDelete(ct).ConfigureAwait(false);
 
+        // Deleting a file that is already gone is not an error in any store, which is what lets a
+        // destroy that stopped after this line be tried again and finish.
         await _store.DeleteAsync(hash, ct).ConfigureAwait(false);
-        await _metadata.MarkDestroyedAsync(hash, actor, reason, ct).ConfigureAwait(false);
+
+        Task<bool> Mark(CancellationToken token) => _metadata.MarkDestroyedAsync(hash, actor, reason, token);
+
+        if (markWithin is null)
+            await Mark(ct).ConfigureAwait(false);
+        else
+            await markWithin(Mark, ct).ConfigureAwait(false);
 
         return new DestroyResult(
             true,

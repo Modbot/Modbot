@@ -310,6 +310,45 @@ public class EvidenceUploadTests(PostgresFixture db)
     }
 
     /// <summary>
+    /// Beginning an upload for somebody else's case file is refused before anything is measured, so
+    /// the size refusals cannot be used to read what that case file holds.
+    /// </summary>
+    [Fact]
+    public async Task BeginningAnUploadForSomebodyElsesCaseFileIsRefusedBeforeItsSizeIsChecked()
+    {
+        await EvidenceApiTestHost.ResetAsync(db, Ct);
+        await using var host = await EvidenceApiTestHost.StartAsync(db);
+
+        var author = await host.SignedInAsync(Uploader, Ct);
+        await EvidenceUploads.ConfigureAsync(host, author, Ct);
+        await SetLimitsAsync(host, author, file: 1000, report: 1500, deployment: 0);
+
+        var caseId = await host.NewCaseAsync(author, Ct);
+        await EvidenceUploads.UploadAsync(
+            host, author, EvidenceUploads.Png(new string('a', 800)), "one.png", caseId, Ct);
+
+        var stranger = await host.SignedInAsync(ModbotPermissions.UploadEvidence, Ct);
+
+        // The size alone would have been refused with "already holds"; the answer is the 403 instead.
+        var refused = await host.PostAsync(
+            "/api/evidence/uploads",
+            stranger,
+            new { fileName = "two.png", contentType = "image/png", length = 808, reportId = caseId },
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.DoesNotContain("holds", await refused.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        var missing = await host.PostAsync(
+            "/api/evidence/uploads",
+            stranger,
+            new { fileName = "two.png", contentType = "image/png", length = 808, reportId = Guid.NewGuid().ToString() },
+            Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    /// <summary>
     /// The same bytes on a second case file: the file is stored once, and both case files hold it.
     /// It used to appear on the first only, and "Attached." was shown on the second all the same.
     /// </summary>

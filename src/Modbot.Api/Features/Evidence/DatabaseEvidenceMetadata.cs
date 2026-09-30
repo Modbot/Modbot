@@ -142,7 +142,7 @@ public sealed class DatabaseEvidenceMetadata(ModbotContext db, IModbotClock cloc
     /// different moment.
     /// </para>
     /// </remarks>
-    public async Task MarkDestroyedAsync(
+    public async Task<bool> MarkDestroyedAsync(
         EvidenceHash hash,
         string actor,
         string reason,
@@ -150,12 +150,14 @@ public sealed class DatabaseEvidenceMetadata(ModbotContext db, IModbotClock cloc
     {
         var key = hash.ToString();
 
-        await db.EvidenceBlobs
+        var marked = await db.EvidenceBlobs
             .Where(b => b.Hash == key && b.DestroyedAt == null)
             .ExecuteUpdateAsync(
                 u => u.SetProperty(b => b.DestroyedAt, clock.UtcNow)
                       .SetProperty(b => b.DestroyedBy, actor)
                       .SetProperty(b => b.DestroyedReason, reason),
                 ct);
+
+        return marked > 0;
     }
 }

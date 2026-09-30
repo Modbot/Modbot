@@ -53,8 +53,27 @@ export function EvidenceGallery({
   const held = items.filter((item) => !item.takenOffAt)
   const off = items.filter((item) => item.takenOffAt)
 
+  // What a take-off or destroy that failed part way says. The page is read again at once, because
+  // the take-off may have happened and the file is no longer held: the file's line moves, and this
+  // is where the sentence waits for whoever pressed the button.
+  const [notice, setNotice] = useState<string | null>(null)
+  const changed = () => {
+    setNotice(null)
+    onChanged()
+  }
+  const failed = (message: string) => {
+    setNotice(message)
+    onChanged()
+  }
+
   return (
     <div className="flex flex-col">
+      {notice && (
+        <p className="px-(--panel-pad) py-2 text-destructive" style={{ fontSize: 'var(--text-small)' }}>
+          {notice}
+        </p>
+      )}
+
       {held.length === 0 && <EmptyRow>Nothing attached.</EmptyRow>}
 
       {held.length > 0 && (
@@ -68,7 +87,8 @@ export function EvidenceGallery({
                 caseId={caseId}
                 canTakeOff={canAttach}
                 canDestroy={canDestroy}
-                onChanged={onChanged}
+                onChanged={changed}
+                onFailed={failed}
                 onImageReady={onImageReady}
               />
             </li>
@@ -80,13 +100,13 @@ export function EvidenceGallery({
         <PanelGrid as="ul" className="m-0">
           {off.map((item) => (
             <li key={`${item.hash}-${item.takenOffAt}`} className="px-(--panel-pad) py-2">
-              <Trace item={item} caseId={caseId} canDestroy={canDestroy} onChanged={onChanged} />
+              <Trace item={item} caseId={caseId} canDestroy={canDestroy} onChanged={changed} onFailed={failed} />
             </li>
           ))}
         </PanelGrid>
       )}
 
-      {canAttach && <Attach caseId={caseId} delivery={delivery} onChanged={onChanged} />}
+      {canAttach && <Attach caseId={caseId} delivery={delivery} onChanged={changed} />}
     </div>
   )
 }
@@ -97,6 +117,7 @@ function Item({
   canTakeOff,
   canDestroy,
   onChanged,
+  onFailed,
   onImageReady,
 }: {
   item: EvidenceItem
@@ -104,6 +125,7 @@ function Item({
   canTakeOff: boolean
   canDestroy: boolean
   onChanged: () => void
+  onFailed: (message: string) => void
   onImageReady?: (hash: string, url: string) => void
 }) {
   const name = item.fileName ?? `${item.hash.slice(0, 12)}…`
@@ -152,6 +174,7 @@ function Item({
           canTakeOff={canTakeOff && !item.destroyed}
           canDestroy={canDestroy && !item.destroyed}
           onChanged={onChanged}
+          onFailed={onFailed}
         />
       </div>
       <div className="truncate font-mono text-muted-foreground" style={{ fontSize: 'var(--text-tiny)' }} title={item.hash}>
@@ -170,11 +193,13 @@ function Trace({
   caseId,
   canDestroy,
   onChanged,
+  onFailed,
 }: {
   item: EvidenceItem
   caseId: string
   canDestroy: boolean
   onChanged: () => void
+  onFailed: (message: string) => void
 }) {
   const name = item.fileName ?? `${item.hash.slice(0, 12)}…`
 
@@ -212,6 +237,7 @@ function Trace({
           canTakeOff={false}
           canDestroy={canDestroy && !item.destroyed}
           onChanged={onChanged}
+          onFailed={onFailed}
         />
       </div>
     </div>
@@ -231,12 +257,15 @@ function Actions({
   canTakeOff,
   canDestroy,
   onChanged,
+  onFailed,
 }: {
   item: EvidenceItem
   caseId: string
   canTakeOff: boolean
   canDestroy: boolean
   onChanged: () => void
+  /** The server errored, so what happened is not known: the sentence goes up to the gallery and the page is read again. */
+  onFailed: (message: string) => void
 }) {
   const [mode, setMode] = useState<'idle' | 'takeOff' | 'destroy'>('idle')
   const [reason, setReason] = useState('')
@@ -258,7 +287,7 @@ function Actions({
     api
       .takeEvidenceOff(caseId, item.hash)
       .then(() => onChanged())
-      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not take it off.'))
+      .catch((e: unknown) => onFailed(e instanceof ApiError ? e.message : 'Could not take it off.'))
       .finally(() => setBusy(false))
   }
 
@@ -272,7 +301,7 @@ function Actions({
         if (result.destroyed) onChanged()
         else setProblem(result.message)
       })
-      .catch((e: unknown) => setProblem(e instanceof ApiError ? e.message : 'Could not destroy it.'))
+      .catch((e: unknown) => onFailed(e instanceof ApiError ? e.message : 'Could not destroy it.'))
       .finally(() => setBusy(false))
   }
 

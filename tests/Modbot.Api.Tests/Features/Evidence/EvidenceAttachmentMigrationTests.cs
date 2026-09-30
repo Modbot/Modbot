@@ -145,6 +145,9 @@ public class EvidenceAttachmentMigrationTests(PostgresFixture db)
             // On the case file, sent by somebody with no account any more.
             await BlobAsync(connection, 'b', caseId.ToString(), "gone-user");
 
+            // Written with capitals and padding, which the old column never stopped: still the same case file.
+            await BlobAsync(connection, 'f', $" {caseId.ToString().ToUpperInvariant()} ", "sam");
+
             // Names a case file that does not exist, and one on no case file at all.
             await BlobAsync(connection, 'c', Guid.NewGuid().ToString(), "sam");
             await BlobAsync(connection, 'd', null, "sam");
@@ -156,7 +159,7 @@ public class EvidenceAttachmentMigrationTests(PostgresFixture db)
         await using var after = Open(connectionString);
         var held = await after.EvidenceAttachments.AsNoTracking().OrderBy(a => a.Hash).ToListAsync(Ct);
 
-        Assert.Equal([new string('a', 64), new string('b', 64)], held.Select(a => a.Hash));
+        Assert.Equal([new string('a', 64), new string('b', 64), new string('f', 64)], held.Select(a => a.Hash));
         Assert.All(held, a =>
         {
             Assert.Equal(caseId.ToString(), a.CaseId);
@@ -172,7 +175,7 @@ public class EvidenceAttachmentMigrationTests(PostgresFixture db)
         Assert.Null(held[1].AttachedByUserId);
 
         // Every file keeps its record, whether or not it was on a case file.
-        Assert.Equal(4, await after.EvidenceBlobs.CountAsync(Ct));
+        Assert.Equal(5, await after.EvidenceBlobs.CountAsync(Ct));
 
         // And the column is gone, so nothing can read a stale single case file.
         await using var connection2 = new NpgsqlConnection(connectionString);

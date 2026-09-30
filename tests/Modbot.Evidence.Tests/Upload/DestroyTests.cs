@@ -181,6 +181,66 @@ public sealed class DestroyTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// A destroy that stops after the bytes are gone and before the file is marked is finished by
+    /// trying again: deleting what is already gone is fine, and the file is marked once, with its
+    /// one record written in the same step.
+    /// </summary>
+    [Fact]
+    public async Task ADestroyThatStoppedAfterTheDeleteIsFinishedByTryingAgain()
+    {
+        var hash = await AttachAsync(SampleMedia.Png(1024), "report-1");
+        _metadata.TakeOff(hash, "report-1");
+
+        var wrote = 0;
+        Task Within(Func<CancellationToken, Task<bool>> mark, CancellationToken token)
+            => WriteAfterMarkAsync(mark, token, () => wrote++);
+
+        _metadata.FailNextMark = true;
+
+        await Assert.ThrowsAsync<IOException>(
+            () => _destroyer.DestroyAsync(hash, "Gunner24", "cleanup", Ct, markWithin: Within));
+
+        // The bytes are gone and nothing says so yet: no mark, and no record.
+        Assert.Null(await _store.StatAsync(hash, Ct));
+        Assert.Empty(_metadata.Destroyed);
+        Assert.Equal(0, wrote);
+
+        var retried = await _destroyer.DestroyAsync(hash, "Gunner24", "cleanup", Ct, markWithin: Within);
+
+        Assert.True(retried.Destroyed);
+        Assert.Single(_metadata.Destroyed);
+        Assert.Equal(1, wrote);
+    }
+
+    /// <summary>
+    /// Two destroys of the same file: only the one that marked it writes the record, so the log has
+    /// one line for one destruction.
+    /// </summary>
+    [Fact]
+    public async Task OnlyTheDestroyThatMarkedTheFileWritesItsRecord()
+    {
+        var hash = await AttachAsync(SampleMedia.Png(1024), "report-1");
+        _metadata.TakeOff(hash, "report-1");
+
+        var wrote = 0;
+        Task Within(Func<CancellationToken, Task<bool>> mark, CancellationToken token)
+            => WriteAfterMarkAsync(mark, token, () => wrote++);
+
+        await _destroyer.DestroyAsync(hash, "first", "cleanup", Ct, markWithin: Within);
+        await _destroyer.DestroyAsync(hash, "second", "cleanup", Ct, markWithin: Within);
+
+        Assert.Equal(1, wrote);
+        Assert.Equal("first", Assert.Single(_metadata.Destroyed).Actor);
+    }
+
+    private static async Task WriteAfterMarkAsync(
+        Func<CancellationToken, Task<bool>> mark, CancellationToken token, Action write)
+    {
+        if (await mark(token))
+            write();
+    }
+
+    /// <summary>
     /// Everything except the bytes survives. "This case had a video and an administrator deleted it
     /// on 4 March" has to remain answerable forever.
     /// </summary>

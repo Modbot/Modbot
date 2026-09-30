@@ -53,6 +53,13 @@ public static class DiscordEventTypes
         FactType.MigrationApplied,
         FactType.PartitionCreated,
         FactType.RetentionPruned,
+
+        // Somebody looking at, or downloading, a piece of evidence. The lines name the file, and
+        // reading them in the audit log needs View evidence; a Discord channel has no such gate,
+        // so anybody in it would read what people without that permission may not. Attached, taken
+        // off and destroyed stay routable.
+        FactType.EvidenceViewed,
+        FactType.EvidenceDownloaded,
     ];
 
     /// <summary>The moderation actions themselves, which lead the picker.</summary>

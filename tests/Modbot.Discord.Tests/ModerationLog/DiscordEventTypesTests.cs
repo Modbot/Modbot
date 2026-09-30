@@ -18,6 +18,8 @@ public class DiscordEventTypesTests
     [InlineData(FactType.MigrationApplied)]
     [InlineData(FactType.PartitionCreated)]
     [InlineData(FactType.RetentionPruned)]
+    [InlineData(FactType.EvidenceViewed)]
+    [InlineData(FactType.EvidenceDownloaded)]
     [InlineData("modbot.user.login.something-new")]
     [InlineData("modbot.user.password.reset.expire")]
     public void SignInsResetLinksAndPlumbing_AreNeverSendable(string type)
@@ -34,6 +36,12 @@ public class DiscordEventTypesTests
         Assert.Contains(FactType.MemberBanned, DiscordEventTypes.Sendable);
         Assert.Contains(FactType.UserRolesChanged, DiscordEventTypes.Sendable);
         Assert.Contains(FactType.DiscordVoiceJoined, DiscordEventTypes.Sendable);
+
+        // Who put a file on a case file, took it off or destroyed it can be routed; who looked at
+        // it or copied it cannot, because a channel has no View evidence gate.
+        Assert.Contains(FactType.EvidenceAttached, DiscordEventTypes.Sendable);
+        Assert.Contains(FactType.EvidenceDetached, DiscordEventTypes.Sendable);
+        Assert.Contains(FactType.EvidenceDestroyed, DiscordEventTypes.Sendable);
         Assert.True(DiscordEventTypes.CanSend("vrchat.group.something.new"));
         Assert.Equal(DiscordEventTypes.Group, DiscordEventTypes.GroupOf("vrchat.group.something.new"));
     }

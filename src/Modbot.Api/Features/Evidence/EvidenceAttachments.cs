@@ -220,11 +220,21 @@ public sealed class EvidenceAttachments
 
         var from = string.IsNullOrWhiteSpace(caseId) ? null : await FindCaseAsync(caseId, ct);
 
-        // A destroy that already happened is not done twice: the first one keeps its date, its
-        // person and its reason, and the log keeps one line for it.
+        // A destroy that already finished is not done twice: the first one keeps its date, its
+        // person and its reason, and the log keeps one line for it. "Finished" means marked, and the
+        // mark and its line are one commit below, so a file that is marked always has its line.
         if (blob is { IsDestroyed: true })
             return new EvidenceDestroyResponse(true, [], "These bytes were already destroyed.");
 
+        // The name as the case file knew it, read now: the take-off below does not change it, but
+        // the file's record is the fallback.
+        var name = await NameOnAsync(key, from?.Id.ToString(), blob?.FileName, ct);
+
+        // The order is the point. One: the case file lets go, with its line, in its own commit.
+        // Two: the bytes go; deleting bytes that are already gone is fine in every store. Three:
+        // the file is marked destroyed and the destroy's line is written in ONE commit. A crash
+        // after two leaves the file unmarked, so trying again runs two and three and finishes; a
+        // crash cannot leave a file marked destroyed with no line saying who did it.
         var result = await destroyer.DestroyAsync(
             hash,
             actor.Username,
@@ -239,6 +249,36 @@ public sealed class EvidenceAttachments
                 await using var transaction = await _db.Database.BeginTransactionAsync(token);
                 await TakeOffInsideAsync(from, key, actor, token);
                 await transaction.CommitAsync(token);
+            },
+            markWithin: async (mark, token) =>
+            {
+                await using var transaction = await _db.Database.BeginTransactionAsync(token);
+
+                // Only the call that marked it writes the line: a second destroy racing this one
+                // finds it marked and says nothing.
+                if (await mark(token))
+                {
+                    var data = new JsonObject
+                    {
+                        ["reason"] = reason,
+                        ["byteSize"] = blob?.ByteSize,
+                        ["contentType"] = blob?.ContentType,
+                        ["description"] = $"{actor.Username} destroyed {name ?? "a file"}: {reason}",
+                    };
+
+                    data["hash"] = key;
+                    data["fileName"] = name;
+
+                    if (from is not null)
+                    {
+                        data["caseId"] = from.Id.ToString();
+                        data["userId"] = from.UserId;
+                    }
+
+                    await _facts.RecordAsync(FactType.EvidenceDestroyed, from?.Id.ToString() ?? key, actor, data, token);
+                }
+
+                await transaction.CommitAsync(token);
             });
 
         if (!result.Destroyed)
@@ -247,31 +287,6 @@ public sealed class EvidenceAttachments
                 false,
                 result.BlockedByReports,
                 await BlockedMessageAsync(result.BlockedByReports, ct));
-        }
-
-        var name = await NameOnAsync(key, from?.Id.ToString(), blob?.FileName, ct);
-
-        await using (var transaction = await _db.Database.BeginTransactionAsync(ct))
-        {
-            var data = new JsonObject
-            {
-                ["reason"] = reason,
-                ["byteSize"] = blob?.ByteSize,
-                ["contentType"] = blob?.ContentType,
-                ["description"] = $"{actor.Username} destroyed {name ?? "a file"}: {reason}",
-            };
-
-            data["hash"] = key;
-            data["fileName"] = name;
-
-            if (from is not null)
-            {
-                data["caseId"] = from.Id.ToString();
-                data["userId"] = from.UserId;
-            }
-
-            await _facts.RecordAsync(FactType.EvidenceDestroyed, from?.Id.ToString() ?? key, actor, data, ct);
-            await transaction.CommitAsync(ct);
         }
 
         return new EvidenceDestroyResponse(true, [], "The bytes were destroyed.");
@@ -293,9 +308,28 @@ public sealed class EvidenceAttachments
     {
         var now = _clock.UtcNow;
 
-        if (!download && !_throttle.TryClaim(actor?.Id ?? Guid.Empty, hash, now))
+        var person = actor?.Id ?? Guid.Empty;
+
+        if (!download && !_throttle.TryClaim(person, hash, now))
             return;
 
+        try
+        {
+            await WriteAccessAsync(hash, caseId, actor, download, ct);
+        }
+        catch
+        {
+            // The line was not written, so the slot it took must not silence the next look.
+            if (!download)
+                _throttle.Release(person, hash, now);
+
+            throw;
+        }
+    }
+
+    private async Task WriteAccessAsync(
+        string hash, string? caseId, Actor? actor, bool download, CancellationToken ct)
+    {
         var rows = await _db.EvidenceAttachments.AsNoTracking()
             .Where(a => a.Hash == hash)
             .OrderByDescending(a => a.AttachedAt)

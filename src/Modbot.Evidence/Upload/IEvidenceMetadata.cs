@@ -92,5 +92,9 @@ public interface IEvidenceMetadata
     /// "This case had a video and an administrator deleted it on 4 March" must remain answerable
     /// forever. The alternative is a case file that looks like it never had evidence at all.
     /// </remarks>
-    Task MarkDestroyedAsync(EvidenceHash hash, string actor, string reason, CancellationToken ct = default);
+    /// <returns>
+    /// True when this call marked it, false when it was already marked. The first destruction wins,
+    /// so only the call that got true has a destruction to write down.
+    /// </returns>
+    Task<bool> MarkDestroyedAsync(EvidenceHash hash, string actor, string reason, CancellationToken ct = default);
 }

@@ -46,12 +46,24 @@ public static class EvidenceUploadEndpoints
                 HttpContext http,
                 EvidenceBeginRequest body,
                 [FromServices] EvidenceUploadService uploads,
+                [FromServices] EvidenceAttachments attachments,
                 CancellationToken ct) =>
             {
                 var uploader = ModbotAuthActor(http);
 
                 try
                 {
+                    // An upload begun for a case file is checked against the same rule as its
+                    // commit, before anything is measured: the size checks below say what the case
+                    // file holds, and that must not be told to somebody who may not change it.
+                    if (body.ReportId is { Length: > 0 } reportId)
+                    {
+                        if (CaseFileEndpoints.CallerOf(http) is not { } caller)
+                            return Results.Forbid();
+
+                        await attachments.RequireEditableAsync(reportId.Trim(), caller, ct);
+                    }
+
                     var ticket = await uploads.BeginAsync(
                         new BeginUploadRequest(
                             body.FileName,

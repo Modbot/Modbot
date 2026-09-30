@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Api.Features.Evidence;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
@@ -268,6 +269,51 @@ public class EvidenceServingTests(PostgresFixture db)
         Assert.Equal("gone.png", Data(destroyed).GetProperty("fileName").GetString());
         Assert.Equal("the subject asked", Data(destroyed).GetProperty("reason").GetString());
         Assert.Equal(host.WhoIs(cookie).Id.ToString(), destroyed.ActorId);
+    }
+
+    /// <summary>
+    /// A destroy that died after the bytes went and before the file was marked leaves bytes that
+    /// are gone and a record that does not say so. Trying again finishes it, with exactly one line.
+    /// </summary>
+    [Fact]
+    public async Task ADestroyTriedAgainAfterTheBytesWereAlreadyGoneWritesExactlyOneLine()
+    {
+        await EvidenceApiTestHost.ResetAsync(db, Ct);
+        await using var host = await EvidenceApiTestHost.StartAsync(db);
+
+        var cookie = await host.SignedInAsync(Moderator | ModbotPermissions.DestroyEvidence, Ct);
+        await EvidenceUploads.ConfigureAsync(host, cookie, Ct);
+
+        var caseId = await host.NewCaseAsync(cookie, Ct);
+        var stored = await EvidenceUploads.UploadAsync(
+            host, cookie, EvidenceUploads.Png("serving-destroy-retry"), "gone.png", caseId, Ct);
+
+        // What the first attempt did before it died: the case file let go, and the bytes went.
+        (await host.PostAsync($"/api/cases/{caseId}/evidence/{stored.Hash}/take-off", cookie, new { }, Ct))
+            .EnsureSuccessStatusCode();
+
+        var store = host.Services.GetRequiredService<Modbot.Evidence.Storage.IEvidenceStore>();
+        await store.DeleteAsync(Modbot.Evidence.Storage.EvidenceHash.Parse(stored.Hash), Ct);
+
+        await using (var context = db.NewContext())
+            Assert.False((await context.EvidenceBlobs.AsNoTracking().SingleAsync(b => b.Hash == stored.Hash, Ct)).IsDestroyed);
+
+        var result = await host.ReadAsync<EvidenceDestroyResponse>(
+            await host.PostAsync(
+                $"/api/evidence/{stored.Hash}/destroy", cookie, new { reason = "cleanup", caseId }, Ct),
+            Ct);
+
+        Assert.True(result.Destroyed, result.Message);
+        Assert.Single(await FactsAsync(FactType.EvidenceDestroyed, caseId));
+
+        // And a third try is the already-destroyed answer, with no second line.
+        var again = await host.ReadAsync<EvidenceDestroyResponse>(
+            await host.PostAsync(
+                $"/api/evidence/{stored.Hash}/destroy", cookie, new { reason = "cleanup", caseId }, Ct),
+            Ct);
+
+        Assert.True(again.Destroyed);
+        Assert.Single(await FactsAsync(FactType.EvidenceDestroyed, caseId));
     }
 
     /// <summary>

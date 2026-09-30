@@ -58,11 +58,23 @@ public sealed class InMemoryEvidenceMetadata : IEvidenceMetadata
                 .Where(pair => pair.Key != except?.Hex && !IsDestroyed(pair.Key))
                 .Sum(pair => pair.Value));
 
-    public Task MarkDestroyedAsync(
+    /// <summary>Makes the next marking fail, once, the way a crash after the bytes are deleted would.</summary>
+    public bool FailNextMark { get; set; }
+
+    public Task<bool> MarkDestroyedAsync(
         EvidenceHash hash, string actor, string reason, CancellationToken ct = default)
     {
+        if (FailNextMark)
+        {
+            FailNextMark = false;
+            throw new IOException("the database went away");
+        }
+
+        if (IsDestroyed(hash.Hex))
+            return Task.FromResult(false);
+
         Destroyed.Add((hash.Hex, actor, reason));
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 
     /// <summary>Simulates the step after a commit: the file goes on a case file.</summary>

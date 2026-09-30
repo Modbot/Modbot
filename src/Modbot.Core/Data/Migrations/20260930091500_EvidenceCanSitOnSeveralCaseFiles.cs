@@ -17,7 +17,7 @@ namespace Modbot.Core.Data.Migrations
     /// </para>
     /// <para>
     /// <strong>Up.</strong> One row in the new table for every file that was on a case file, keeping
-    /// the case file, the name it was put on under, the person who put it on (matched to an account
+    /// the case file (spelled as the case file's own id, whatever case or padding the old column had), the name it was put on under, the person who put it on (matched to an account
     /// by username, and left as a bare name when no account has that username any more) and the time
     /// the file was first stored, which is when it was put on. A row whose <c>report_id</c> names no
     /// case file is not copied: there is nothing for it to be on. Then the column and its index go.
@@ -73,11 +73,11 @@ namespace Modbot.Core.Data.Migrations
             migrationBuilder.Sql(
                 "INSERT INTO modbot_evidence_attachment "
                 + "(id, hash, case_id, attached_at, attached_by_user_id, attached_by_name, file_name) "
-                + "SELECT gen_random_uuid(), b.hash, b.report_id, b.first_stored_at, "
+                + "SELECT gen_random_uuid(), b.hash, c.id::text, b.first_stored_at, "
                 + "(SELECT u.id FROM modbot_user u WHERE lower(u.username) = lower(b.uploader_id) LIMIT 1), "
                 + "left(b.uploader_id, 64), b.file_name "
                 + "FROM modbot_evidence_blob b "
-                + "JOIN case_file c ON c.id::text = b.report_id "
+                + "JOIN case_file c ON c.id::text = lower(btrim(b.report_id)) "
                 + "WHERE b.report_id IS NOT NULL;");
 
             migrationBuilder.DropIndex(

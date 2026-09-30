@@ -148,7 +148,7 @@ the file and who.
 | **Evidence attached** | A file is put on a case file. |
 | **Evidence taken off** | A file is taken off a case file. |
 | **Evidence viewed** | Somebody looks at a file on the case file page. Written at most once for each person and file every 10 minutes, so reloading the page or skipping through a video does not fill the log. |
-| **Evidence downloaded** | Somebody downloads a file. Written every time. |
+| **Evidence downloaded** | Somebody downloads a file. Written every time, except that a request which says it is only showing the file (as the case file page does) is written as **viewed**, at most once every 10 minutes. |
 | **Evidence destroyed** | A file's contents are destroyed, with the reason. |
 
 The entries are about the case file, so purging a person from Modbot leaves them where they are, and
