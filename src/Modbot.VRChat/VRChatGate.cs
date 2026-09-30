@@ -211,11 +211,18 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         if (result.Success)
             await KeepNewCookiesAsync(session.Client!, ct).ConfigureAwait(false);
 
+        // Another group's page, read for its name (OtherNameReader). Its refusal is that group's
+        // business and says nothing about whether the account still has the managed group, so it
+        // is neither the lost group below nor a group call for the 401 check that follows.
+        var anotherGroup = (result.StatusCode is (int)HttpStatusCode.Forbidden or (int)HttpStatusCode.Unauthorized)
+            && await IsAnotherGroupAsync(endpoint, ct).ConfigureAwait(false);
+
         // Refused reading the group itself, on a session that is working. Not a reason to sign in:
         // the account has lost the group, and only giving it back fixes that.
         if (result.StatusCode == (int)HttpStatusCode.Forbidden
             && endpoint.Class == VRChatEndpointClass.GroupsRead
-            && !result.IsWafBlocked)
+            && !result.IsWafBlocked
+            && !anotherGroup)
         {
             MarkLostGroup(session.Number, endpoint);
             return result;
@@ -224,7 +231,7 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
         if (result.StatusCode != (int)HttpStatusCode.Unauthorized)
             return result;
 
-        var groupCall = IsGroupCall(endpoint);
+        var groupCall = IsGroupCall(endpoint) && !anotherGroup;
 
         // The session was checked a few minutes ago and works; a group read refused since then is
         // the same lost group, and checking again for every refused poll would learn nothing.
@@ -1108,6 +1115,26 @@ public sealed class VRChatGate : IVRChatGate, IDisposable
 
     private static bool IsGroupCall(VRChatEndpoint endpoint) =>
         endpoint.Class.StartsWith("groups.", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether a <c>groups.read</c> call was for a group other than the managed one: its resource is
+    /// a group id, and not the one the connection names.
+    /// </summary>
+    /// <remarks>
+    /// Asked only after a 401 or 403, so the connection is read only then. Anything it cannot tell
+    /// -- no resource, no managed group set -- counts as the managed group, which is how every such
+    /// call was treated before other groups were read at all.
+    /// </remarks>
+    private async Task<bool> IsAnotherGroupAsync(VRChatEndpoint endpoint, CancellationToken ct)
+    {
+        if (endpoint.Class != VRChatEndpointClass.GroupsRead || string.IsNullOrEmpty(endpoint.ResourceId))
+            return false;
+
+        var connection = await _connections.ReadAsync(ct).ConfigureAwait(false);
+
+        return connection.GroupId is { Length: > 0 } managed
+            && !string.Equals(managed, endpoint.ResourceId, StringComparison.Ordinal);
+    }
 
     private bool LostGroupStands(int session) =>
         _lostGroup is { } lost

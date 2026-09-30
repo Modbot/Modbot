@@ -8,9 +8,13 @@ import { ApiError } from '@/lib/api'
  * read as a sentence rather than as an empty panel.
  *
  * `version` reloads when it changes -- a live event about what is on screen (`useLiveVersion`)
- * -- and keeps what is shown until the new answer lands, so a redraw never blanks the panel.
+ * -- and keeps what is shown until the new answer lands, so a redraw never blanks the panel. A
+ * string lets a caller combine two reasons to reload without one hiding a change in the other.
  */
-export function useLoad<T>(load: (() => Promise<T>) | null, version = 0): { data: T | null; error: string | null } {
+export function useLoad<T>(
+  load: (() => Promise<T>) | null,
+  version: number | string = 0,
+): { data: T | null; error: string | null } {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState<string | null>(null)
 

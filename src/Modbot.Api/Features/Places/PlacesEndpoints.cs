@@ -22,9 +22,16 @@ namespace Modbot.Api.Features.Places;
 /// <remarks>
 /// <para>
 /// Every field comes from Modbot's own tables — <c>vrchat_world</c>, <c>vrchat_instance</c> and
-/// the fact log. <strong>Nothing here calls VRChat.</strong> A world page is read once by the
+/// the fact log. <strong>Nothing here waits on VRChat.</strong> A world page is read once by the
 /// world sweep when the id is first seen; these endpoints show what that read stored, so opening
 /// a popup costs no API budget however many times a moderator does it (foundation section 4.3.4).
+/// </para>
+/// <para>
+/// The one exception is the World tab (<c>/api/instances/{id}/world</c>): the first time it lists
+/// another group's instance, or its group, that Modbot has never asked about, it hands the name to
+/// <see cref="OtherNameQueue"/>, and a background service asks VRChat once and keeps the answer.
+/// The endpoint answers straight away with what is kept; the read costs budget once per instance
+/// and once per group, however many popups follow.
 /// </para>
 /// <para>
 /// <strong>The world id travels as a query parameter, the instance id as a path segment.</strong> A

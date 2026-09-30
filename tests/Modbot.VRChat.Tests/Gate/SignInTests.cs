@@ -228,6 +228,42 @@ public class SignInTests
         Assert.Equal(VRChatSessionState.Healthy, harness.Gate.State);
     }
 
+    /// <summary>
+    /// Another group's page, read for its name, refusing: that group's answer, not a sign that the
+    /// account lost the managed group. The state stays as it was, and the managed group's own next
+    /// 401 is still checked rather than taken as an already-lost group.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task AnotherGroupsRefusal_IsNotLostGroupAccess(HttpStatusCode status)
+    {
+        var vrchat = new FakeVRChat().AlwaysSignedInAs();
+        var harness = new Harness(vrchat, Account(cookie: "storedCookie", groupId: GroupId));
+
+        await harness.Gate.ExecuteAsync(Members, Ok("members"), ct: Ct);
+        var before = harness.Gate.State;
+
+        var otherGroup = new VRChatEndpoint(VRChatEndpointClass.GroupsRead, "grp_someone_else", "GetGroup (another group's name)");
+        var refused = await harness.Gate.ExecuteAsync(otherGroup, Status<Group>(status), ct: Ct);
+
+        Assert.False(refused.Success);
+        Assert.Equal((int)status, refused.StatusCode);
+        Assert.DoesNotContain("cannot read the group", refused.ErrorMessage ?? string.Empty, StringComparison.Ordinal);
+        Assert.Equal(before, harness.Gate.State);
+        Assert.NotEqual(VRChatSessionState.NoGroupAccess, harness.Gate.State);
+        Assert.Equal(0, vrchat.GetCurrentUserCalls);
+
+        // No lost-group finding stands: the managed group's own 401 is checked, and only then is
+        // it the lost group, exactly as before other groups were ever read.
+        var checks = vrchat.VerifyAuthTokenCalls;
+        var own = await harness.Gate.ExecuteAsync(Members, Status<string>(HttpStatusCode.Unauthorized), ct: Ct);
+
+        Assert.Equal(checks + 1, vrchat.VerifyAuthTokenCalls);
+        Assert.Contains("cannot read the group", own.ErrorMessage, StringComparison.Ordinal);
+        Assert.Equal(VRChatSessionState.NoGroupAccess, harness.Gate.State);
+    }
+
     // ---- One at a time --------------------------------------------------------------------
 
     [Fact]

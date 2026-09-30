@@ -6,6 +6,7 @@ using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Logging;
 using Modbot.Core.Time;
+using Modbot.VRChat.RateLimiting;
 using Npgsql;
 using Serilog;
 
@@ -68,8 +69,16 @@ public sealed class OtherNameQueue
     private readonly Lock _lock = new();
     private readonly HashSet<OtherNameRequest> _waiting = [];
     private readonly HashSet<OtherNameRequest> _reading = [];
-    private readonly Channel<OtherNameRequest> _order = Channel.CreateUnbounded<OtherNameRequest>(
+
+    // One line per kind, so group reads spaced a minute apart never hold up an instance's name.
+    private readonly Channel<OtherNameRequest> _instances = Channel.CreateUnbounded<OtherNameRequest>(
         new UnboundedChannelOptions { SingleReader = true });
+
+    private readonly Channel<OtherNameRequest> _groups = Channel.CreateUnbounded<OtherNameRequest>(
+        new UnboundedChannelOptions { SingleReader = true });
+
+    private Channel<OtherNameRequest> Line(OtherNameKind kind) =>
+        kind == OtherNameKind.Group ? _groups : _instances;
 
     /// <summary>How many names are waiting, not counting the one being read.</summary>
     public int Count
@@ -97,7 +106,7 @@ public sealed class OtherNameQueue
         }
 
         // Unbounded, so this never fails while the queue is open.
-        _order.Writer.TryWrite(request);
+        Line(request.Kind).Writer.TryWrite(request);
         return true;
     }
 
@@ -120,14 +129,16 @@ public sealed class OtherNameQueue
     }
 
     /// <summary>
-    /// The next name to ask for. Waits until there is one. An entry forgotten by
+    /// The next name of this kind to ask for. Waits until there is one. An entry forgotten by
     /// <see cref="DropWaiting"/> is skipped.
     /// </summary>
-    public async Task<OtherNameRequest> NextAsync(CancellationToken ct)
+    public async Task<OtherNameRequest> NextAsync(OtherNameKind kind, CancellationToken ct)
     {
+        var line = Line(kind);
+
         while (true)
         {
-            var request = await _order.Reader.ReadAsync(ct).ConfigureAwait(false);
+            var request = await line.Reader.ReadAsync(ct).ConfigureAwait(false);
 
             lock (_lock)
             {
@@ -154,9 +165,10 @@ public sealed class OtherNameQueue
 /// <remarks>
 /// <para>
 /// <strong>Asked once, ever.</strong> A kept answer is looked for before anything is sent, and an
-/// answer is kept whatever it says: a name, no name, or a refusal. Only no answer at all -- a cold
-/// stop, a wait to sign in, VRChat not reached, a session VRChat did not accept, Cloudflare's block
-/// -- is not kept, because none of those is VRChat saying anything about the instance or the group.
+/// answer is kept whatever it says: a name, no name, or a refusal (400, 403, 404). Anything else --
+/// a cold stop, a wait to sign in, VRChat not reached or answering 5xx or 408, a session VRChat did
+/// not accept, Cloudflare's block -- is not kept, because none of those is VRChat saying anything
+/// lasting about the instance or the group; a later popup asks again.
 /// </para>
 /// <para>
 /// <strong>Never asked when the location says outsiders cannot join.</strong>
@@ -167,8 +179,9 @@ public sealed class OtherNameQueue
 /// <strong>Budgets.</strong> An instance's page is <c>instances.read</c>, the bucket the head count
 /// reads use (one a second, measured); a group's page is <c>groups.read</c>, the bucket the group's own
 /// info poll uses (spec 4.2), scoped to the group asked about. No new endpoint, so spec 4.3.4's
-/// question was answered when those two were first used. A 429 is never retried (spec 4.3.1): the
-/// read ends, nothing is kept, and a later popup asks again once the stop has lifted.
+/// question was answered when those two were first used. Group reads are spaced out by
+/// <see cref="OtherNameService"/>, not here. A 429 is never retried (spec 4.3.1): the read ends,
+/// nothing is kept, and a later popup asks again once the stop has lifted.
 /// </para>
 /// <para>
 /// <strong>What a 200 means here.</strong> <c>GET /instances/{location}</c> answers 200 even for an
@@ -298,41 +311,78 @@ public sealed class OtherNameReader
         result.IsRateLimited || result.Kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting;
 
     /// <summary>
-    /// Whether VRChat itself answered about the instance or the group: any 2xx, and any refusal
-    /// except one about the session (401) or Cloudflare's block.
+    /// Whether VRChat gave an answer that asking again would only repeat: any 2xx, or a plain "no"
+    /// about this instance or group -- 400 (it will not take this id), 403 (not for this account),
+    /// 404 (no such thing).
     /// </summary>
+    /// <remarks>
+    /// Nothing else is kept. A 5xx or a 408 is VRChat having trouble, not an answer, and keeping it
+    /// as a refusal would leave the name a number for good after one bad minute. A 401 is about the
+    /// session, and Cloudflare's block is not VRChat at all.
+    /// </remarks>
     private static bool Answered<T>(VRChatResult<T> result) =>
         result.Success
-        || (result.StatusCode >= 400 && result.StatusCode != 401 && !result.IsWafBlocked
-            && result.Kind is VRChatFailureKind.None or VRChatFailureKind.Other);
+        || (!result.IsWafBlocked && result.StatusCode is 400 or 403 or 404);
 }
 
 /// <summary>
-/// Asks for the names the World tab offered, one at a time, as they arrive.
+/// Asks for the names the World tab offered, as they arrive: instances one after another, groups one
+/// a minute at most.
 /// </summary>
 /// <remarks>
+/// <para>
 /// No timer: it waits on <see cref="OtherNameQueue"/> and does nothing until a popup offers a name.
-/// Pacing is the gate's; a busy bucket means the name is kept a little later, not that a read fails.
 /// When a bucket is stopped, every name waiting on it is let go rather than sent to a gate that
 /// would refuse each in turn.
+/// </para>
+/// <para>
+/// <strong>Why groups wait a minute.</strong> <c>groups.read</c> is one request per five seconds for
+/// the whole class, and its calls go through the "group" lane with the managed group's member, ban,
+/// audit log and instance list polls and the moderators' kicks and bans. A call keeps the lane while
+/// it waits for its token, so eight group reads back to back would take the class's tokens for forty
+/// seconds and make those polls wait behind them. One a minute leaves the class bucket full nearly
+/// every time a read comes, so a read waits for no token and keeps the lane only for the request
+/// itself. The one case that still waits is a read landing within five seconds of the group's own
+/// info poll, which runs every five minutes: at most five seconds, at most that often. The gate's
+/// priorities are not touched; <see cref="VRChatCallPriority.Background"/> is already its lowest.
+/// </para>
+/// <para>
+/// Instances have their own line so a group waiting out its minute never holds up an instance's
+/// name. They are one a second at most (<c>instances.read</c>), and the head count reads that share
+/// that bucket are thirty seconds apart each.
+/// </para>
 /// </remarks>
 public sealed class OtherNameService : BackgroundService
 {
+    /// <summary>The least time between two group reads that reached VRChat.</summary>
+    public static readonly TimeSpan GroupReadsEvery = TimeSpan.FromMinutes(1);
+
     private readonly OtherNameQueue _queue;
     private readonly IServiceScopeFactory _scopes;
+    private readonly IDelayScheduler _delays;
     private readonly ILogger _log;
 
-    public OtherNameService(OtherNameQueue queue, IServiceScopeFactory scopes, ILogger? log = null)
+    public OtherNameService(
+        OtherNameQueue queue,
+        IServiceScopeFactory scopes,
+        IDelayScheduler? delays = null,
+        ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(queue);
         ArgumentNullException.ThrowIfNull(scopes);
 
         _queue = queue;
         _scopes = scopes;
+        _delays = delays ?? new RealDelayScheduler();
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
+        Task.WhenAll(
+            RunAsync(OtherNameKind.Instance, TimeSpan.Zero, stoppingToken),
+            RunAsync(OtherNameKind.Group, GroupReadsEvery, stoppingToken));
+
+    private async Task RunAsync(OtherNameKind kind, TimeSpan spacing, CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -340,12 +390,14 @@ public sealed class OtherNameService : BackgroundService
 
             try
             {
-                request = await _queue.NextAsync(stoppingToken).ConfigureAwait(false);
+                request = await _queue.NextAsync(kind, stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
                 return;
             }
+
+            var sent = false;
 
             try
             {
@@ -353,12 +405,15 @@ public sealed class OtherNameService : BackgroundService
                 var reader = scope.ServiceProvider.GetRequiredService<OtherNameReader>();
                 var outcome = await reader.ReadAsync(request, stoppingToken).ConfigureAwait(false);
 
+                // Kept, or not kept for want of an answer: either way it went to the gate.
+                sent = outcome is OtherNameOutcome.Saved or OtherNameOutcome.NoAnswer or OtherNameOutcome.Paused;
+
                 if (outcome == OtherNameOutcome.Paused)
                 {
-                    var dropped = _queue.DropWaiting(request.Kind);
+                    var dropped = _queue.DropWaiting(kind);
                     _log.Information(
                         "Asking VRChat for other {Kind} names is paused; {Dropped} more let go until a popup asks again",
-                        request.Kind, dropped);
+                        kind, dropped);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -369,11 +424,24 @@ public sealed class OtherNameService : BackgroundService
             {
                 // One bad read must not end the service; the name is asked for again by the next
                 // popup that lists it.
-                _log.Warning(ex, "Asking VRChat for {Kind} {Id}'s name failed", request.Kind, request.Id);
+                sent = true;
+                _log.Warning(ex, "Asking VRChat for {Kind} {Id}'s name failed", kind, request.Id);
             }
             finally
             {
                 _queue.Done(request);
+            }
+
+            if (!sent || spacing <= TimeSpan.Zero)
+                continue;
+
+            try
+            {
+                await _delays.DelayAsync(spacing, stoppingToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
             }
         }
     }

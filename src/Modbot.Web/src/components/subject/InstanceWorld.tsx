@@ -35,15 +35,18 @@ const NAMES_AGAIN_TIMES = 4
  */
 export function InstanceWorld({ id, live }: { id: string; live: number }) {
   const load = useCallback(() => api.instanceWorld(id), [id])
-  const [again, setAgain] = useState(0)
-  const { data, error } = useLoad(load, live + again)
+  // How many times this instance's tab has asked again for names. Counted per instance, so opening
+  // another one starts from nought.
+  const [again, setAgain] = useState({ id, times: 0 })
+  const times = again.id === id ? again.times : 0
+  const { data, error } = useLoad(load, `${live}:${times}`)
 
   // The answer never waits on VRChat, so names asked for just now arrive on a later answer.
   useEffect(() => {
-    if (!data?.namesComing || again >= NAMES_AGAIN_TIMES) return
-    const timer = window.setTimeout(() => setAgain((n) => n + 1), NAMES_AGAIN_AFTER_MS)
+    if (!data?.namesComing || times >= NAMES_AGAIN_TIMES) return
+    const timer = window.setTimeout(() => setAgain({ id, times: times + 1 }), NAMES_AGAIN_AFTER_MS)
     return () => window.clearTimeout(timer)
-  }, [data, again])
+  }, [data, id, times])
 
   if (error) {
     return (

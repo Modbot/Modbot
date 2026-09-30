@@ -355,7 +355,9 @@ public static class VRChatServiceCollectionExtensions
 
         // Other groups' instance names and group names for the World tab, each asked once when a
         // popup first lists it. One queue for the process, so every popup's offer reaches the one
-        // service that asks; the reads draw on instances.read and groups.read like the syncs above.
+        // service that asks; the reads draw on instances.read and groups.read like the syncs above,
+        // and group reads are one a minute at most so the group lane's own polls do not queue behind
+        // them (OtherNameService says the numbers).
         services.AddSingleton<OtherNameQueue>();
 
         services.AddScoped<OtherNameReader>(provider => new OtherNameReader(
@@ -365,7 +367,8 @@ public static class VRChatServiceCollectionExtensions
 
         services.AddHostedService(provider => new OtherNameService(
             provider.GetRequiredService<OtherNameQueue>(),
-            provider.GetRequiredService<IServiceScopeFactory>()));
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            provider.GetRequiredService<IDelayScheduler>()));
 
         // The one sign-in attempt after a wait (spec 4.1.2), made on time even when nothing else is
         // asking VRChat for anything.

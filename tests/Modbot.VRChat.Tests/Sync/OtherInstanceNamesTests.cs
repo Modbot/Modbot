@@ -1,5 +1,7 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Modbot.Core.Data;
 using Modbot.TestSupport;
 using Modbot.VRChat.Sync;
 using Modbot.VRChat.Tests.Fakes;
@@ -75,6 +77,7 @@ public class OtherInstanceNamesTests(PostgresFixture fixture) : SyncTestBase(fix
     }
 
     [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
     [InlineData(HttpStatusCode.Forbidden)]
     [InlineData(HttpStatusCode.NotFound)]
     public async Task ARefusal_IsKeptAsRefused_AndNotAskedAgain(HttpStatusCode status)
@@ -90,6 +93,42 @@ public class OtherInstanceNamesTests(PostgresFixture fixture) : SyncTestBase(fix
         var kept = await db.OtherInstanceNames.AsNoTracking().SingleAsync(Ct);
         Assert.True(kept.Refused);
         Assert.Null(kept.Name);
+    }
+
+    /// <summary>
+    /// VRChat having trouble is not an answer: nothing is kept, so a later popup asks again and gets
+    /// the name, rather than the instance staying a number for good after one bad minute.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.RequestTimeout)]
+    public async Task TroubleAtVRChat_KeepsNothing_AndTheNextAskGetsTheName(HttpStatusCode status)
+    {
+        VRChat.Instances.Status(Open, status);
+
+        Assert.Equal(OtherNameOutcome.NoAnswer, await ReadAsync(OtherNameKind.Instance, Open));
+
+        await using (var db = Database.NewContext())
+            Assert.Empty(await db.OtherInstanceNames.AsNoTracking().ToListAsync(Ct));
+
+        VRChat.Instances.Page(Open, nUsers: 12, userCount: 12, displayName: "Game night");
+        Assert.Equal(OtherNameOutcome.Saved, await ReadAsync(OtherNameKind.Instance, Open));
+
+        await using (var db = Database.NewContext())
+            Assert.Equal("Game night", (await db.OtherInstanceNames.AsNoTracking().SingleAsync(Ct)).Name);
+    }
+
+    [Fact]
+    public async Task TroubleReadingAGroup_KeepsNothing()
+    {
+        VRChat.Groups.GroupStatus = HttpStatusCode.InternalServerError;
+
+        Assert.Equal(OtherNameOutcome.NoAnswer, await ReadAsync(OtherNameKind.Group, OtherGroup));
+
+        await using var db = Database.NewContext();
+        Assert.Empty(await db.OtherGroupNames.AsNoTracking().ToListAsync(Ct));
     }
 
     /// <summary>A 429 is not an answer: nothing is kept, and nothing reaches VRChat while the bucket is cold.</summary>
@@ -141,6 +180,65 @@ public class OtherInstanceNamesTests(PostgresFixture fixture) : SyncTestBase(fix
         Assert.True(kept.Refused);
         Assert.Null(kept.Name);
     }
+
+    /// <summary>
+    /// Group reads are a minute apart, so they never queue in the group lane behind each other; and
+    /// an instance's name is not held up by a group waiting out its minute.
+    /// </summary>
+    [Fact]
+    public async Task GroupReadsWaitAMinuteBetween_AndInstancesDoNotWaitForThem()
+    {
+        var group = GroupInfoSnapshotTests.Group();
+        group.Name = "Cats Club";
+        VRChat.Groups.Group = group;
+        VRChat.Instances.Page(Open, nUsers: 12, userCount: 12, displayName: "Game night");
+
+        var services = new ServiceCollection();
+        services.AddScoped(_ => Database.NewContext());
+        services.AddScoped(sp => new OtherNameReader(Gate, sp.GetRequiredService<ModbotContext>(), Clock));
+        await using var provider = services.BuildServiceProvider();
+
+        var queue = new OtherNameQueue();
+        var delays = new GatedDelayScheduler();
+        using var service = new OtherNameService(queue, provider.GetRequiredService<IServiceScopeFactory>(), delays);
+        await service.StartAsync(Ct);
+
+        try
+        {
+            queue.Offer(new OtherNameRequest(OtherNameKind.Group, OtherGroup));
+            queue.Offer(new OtherNameRequest(OtherNameKind.Group, "grp_dogs"));
+
+            // The first group is read, then the group line waits its minute.
+            Assert.Equal(OtherNameService.GroupReadsEvery, await delays.HoldNextAsync(Ct));
+            Assert.Equal(1, VRChat.Groups.GroupRequests);
+
+            // While it waits, an instance's name is still read.
+            queue.Offer(new OtherNameRequest(OtherNameKind.Instance, Open));
+            await UntilAsync(() => !queue.IsWaiting(new OtherNameRequest(OtherNameKind.Instance, Open)));
+            Assert.Equal(Open, Assert.Single(VRChat.Instances.Requests));
+            Assert.Equal(1, VRChat.Groups.GroupRequests);
+
+            // Only once the minute is up is the second group read.
+            delays.Release();
+            Assert.Equal(OtherNameService.GroupReadsEvery, await delays.HoldNextAsync(Ct));
+            Assert.Equal(2, VRChat.Groups.GroupRequests);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    private static async Task UntilAsync(Func<bool> done)
+    {
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+
+        while (!done())
+        {
+            Assert.True(waited.Elapsed < TimeSpan.FromSeconds(30), "Timed out waiting.");
+            await Task.Delay(20, Ct);
+        }
+    }
 }
 
 /// <summary>
@@ -163,7 +261,7 @@ public class OtherNameQueueTests
         Assert.True(queue.Offer(Instance));
         Assert.Equal(1, queue.Count);
 
-        var taken = await queue.NextAsync(Ct);
+        var taken = await queue.NextAsync(OtherNameKind.Instance, Ct);
         Assert.Equal(Instance, taken);
 
         // Still being read: offering it again neither queues it nor says it is not coming.
@@ -185,7 +283,7 @@ public class OtherNameQueueTests
         Assert.Equal(1, queue.DropWaiting(OtherNameKind.Instance));
         Assert.False(queue.IsWaiting(Instance));
 
-        Assert.Equal(Group, await queue.NextAsync(Ct));
+        Assert.Equal(Group, await queue.NextAsync(OtherNameKind.Group, Ct));
     }
 
     [Fact]
