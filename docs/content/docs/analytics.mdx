@@ -353,8 +353,8 @@ many channels the bot can read and whether it can read the audit log. See
 #### VRChat instances
 
 The stats along the top are **Most online at once** (the most of the group's members in VRChat at the
-same moment, anywhere, not only in your instances), **Opened** and **Closed** (instances in the
-range), **Typical time open** and **Most open at once**.
+same moment, anywhere, not only in your instances), **Opened**, **Manually closed** and **Naturally
+ended** (instances in the range), **Typical time open** and **Most open at once**.
 
 ##### Peaks
 
@@ -403,12 +403,12 @@ short window is still worth seeing, as long as you know that is what it is.
 | Panel | What it shows | Comes from |
 |---|---|---|
 | **People in instances** | People in all of the group's instances, moment by moment, with how many instances they were spread across drawn over it in green on its own scale at the right. Hover a point for both numbers and the time. | Head counts |
-| **When the community is active** | A week-by-hour grid. Switch between **People arriving** and **Instances opened**. Hours are shown in your own time zone (named in the title), rounded to whole hours. | Fact log (arrivals from presence reports) |
-| **Opened and closed per day** | Instances opened and closed each day. | Daily totals |
-| **Most open at once, per day** | The most group instances open at the same time each day. | Fact log |
+| **When the community is active** | A week-by-hour grid. Switch between **People arriving** and **Instances opened**. Hours are shown in your own time zone (named in the title), rounded to whole hours. | Presence reports (arrivals), instance list (instances opened) |
+| **Opened, manually closed and naturally ended per day** | Instances opened, closed by a moderator and ended on their own each day. | Daily totals (opened and manually closed), instance list (naturally ended) |
+| **Most open at once, per day** | The most group instances open at the same time each day. | Instance list |
 | **Most people at once, per day** | The most people in all of the group's instances at one moment, each day. | Head counts |
 | **Busy time per day** | People-time per day, in hours. A long steady evening reads higher than a short rush. | Head counts |
-| **Typical time open, per day** | The middle time from open to close, over the instances that closed that day. The stat at the top is the same figure for the whole range. | Fact log |
+| **Typical time open, per day** | The middle time from open to end, over the instances that ended that day, however they ended. The stat at the top is the same figure for the whole range. | Instance list |
 | **Most people seen in one instance, per day** | The biggest crowd a moderator's companion **saw** in a single instance each day. | Presence reports |
 
 **People in instances** has range buttons of its own: **Day**, **Week** (the default), **Month** and
@@ -423,10 +423,16 @@ is complete whether or not anyone was watching. The second is one instance at a 
 companion actually saw, and is nought on a day nobody with the client was around. If the range has
 fewer than 200 presence reports the page says so, and with none it says so in that panel too.
 
-VRChat only records an instance closing when a moderator closes it. An instance that emptied out on
-its own has no close on record, so Modbot treats it as open until the last thing seen in it (a kick,
-a warning or a presence report). That is why **Closed** is often lower than **Opened**, and why
-**Typical time open** only covers instances with both ends on record.
+VRChat only records an instance closing when a moderator closes it by hand, and that is what
+**Manually closed** counts. Most instances just empty out and drop off the group's list. Modbot sees
+that in its own instance list, and those are **Naturally ended**: the ended instances no moderator
+closed. **Typical time open**, **Most open at once**, the opening hours in the grid and the worlds
+and team figures all count from that instance list, so an instance that emptied out is counted with
+the time it really ended. Each natural end also gets an entry in the [audit log](/moderation/audit-log):
+"ended on its own", written by Modbot and never worded "closed". It is written only after the audit
+log has been read past the end, so a close by hand that VRChat reports late is not labelled that
+way. The first time Modbot runs with this, it adds an entry for each instance that ended before,
+dated when it ended; those are not posted to Discord.
 
 #### VRChat worlds
 
@@ -444,14 +450,14 @@ The stats along the top are **Worlds**, **Time seen**, **Visitors** and **Presen
 | **Time seen** | Total time people were seen in the world. |
 | **Visitors** | Different people seen there. |
 | **Arrivals seen** | Times someone was seen arriving. |
-| **Instances opened** | Group instances opened in the world. |
+| **Instances opened** | Group instances Modbot saw open in the world: the same instances the world's popup lists. |
 | **Last seen** | When someone was last seen there. |
 
 **Visitors per day, busiest worlds** charts visitors per day for the five busiest worlds.
 
-Time, visitors and arrivals come from presence reports. **Instances opened** comes from the group's
-audit log and is complete whether or not a client was there. Visitors per day comes from daily totals
-and outlasts a short retention window.
+Time, visitors and arrivals come from presence reports. **Instances opened** comes from Modbot's own
+instance list and is complete whether or not a client was there. Visitors per day comes from daily
+totals and outlasts a short retention window.
 
 #### Discord
 
@@ -471,8 +477,8 @@ The stats along the top:
 - **Actions**: all moderation actions in the range.
 - **Left without a moderator**: how many times the last moderator left an instance while people
   were still in it (see below).
-- **Instances with no moderator in them**: group instances opened with no companion ever in them,
-  out of all instances opened.
+- **Instances with no moderator in them**: group instances (from Modbot's instance list) that
+  opened with no companion in them while they ran, out of all instances opened.
 
 ##### Left without a moderator
 

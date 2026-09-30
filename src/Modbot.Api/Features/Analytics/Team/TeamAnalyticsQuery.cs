@@ -73,7 +73,8 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
     /// </summary>
     public static readonly PageSources Sources = PageSources.Of(
         Kinds.Select(k => k.Metric).ToList(),
-        [.. AnalyticsSql.PresenceTypes, FactType.GroupInstanceCreated, FactType.GroupInstanceClosed]);
+        [.. AnalyticsSql.PresenceTypes, FactType.GroupInstanceCreated, FactType.GroupInstanceClosed],
+        groupInstances: true);
 
     private readonly AnalyticsSql _sql = new(db);
 
@@ -89,7 +90,7 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
         var roster = await RosterAsync(ct);
         var gaps = await CoverageGapsAsync(from, to, roster, ct);
         var watched = await InstancesWatchedAsync(from, to, ct);
-        var unwatched = await InstancesOpenedWithoutAnyWatchAsync(from, to, ct);
+        var unwatched = await InstancesOpenedWithoutAnyWatchAsync(from, to, now, ct);
 
         var byKind = Kinds
             .Select(k =>
@@ -447,28 +448,66 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
         return rows.Count > 0 ? rows[0] : 0;
     }
 
-    private async Task<int> InstancesOpenedWithoutAnyWatchAsync(DateOnly from, DateOnly to, CancellationToken ct)
+    /// <summary>
+    /// How far either side of an instance's life a presence report still counts as from inside it. A
+    /// client's clock and Modbot's disagree a little, and Modbot's own times are a poll wide.
+    /// </summary>
+    private static readonly TimeSpan PresenceLeeway = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// The group's instances Modbot first saw inside the window, from its instance list, that no
+    /// presence report came from while they ran.
+    /// </summary>
+    /// <remarks>
+    /// Counted from <c>vrchat_instance</c>, one per instance, so a number VRChat handed out twice is two
+    /// instances and each is judged by the reports made during its own life. The audit log's create
+    /// entries used to be the count, and they missed instances Modbot saw open that VRChat wrote no
+    /// entry for.
+    /// </remarks>
+    private async Task<int> InstancesOpenedWithoutAnyWatchAsync(
+        DateOnly from, DateOnly to, DateTimeOffset now, CancellationToken ct)
     {
+        var group = await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.ManagedGroupId)
+            .FirstOrDefaultAsync(ct);
+
+        if (string.IsNullOrWhiteSpace(group))
+            return 0;
+
+        var start = AnalyticsSql.DayStart(from);
+        var end = AnalyticsSql.DayEnd(to);
+
+        var opened = await db.VRChatInstances.AsNoTracking()
+            .Where(i => i.GroupId == group && i.OpenedAt >= start && i.OpenedAt < end)
+            .Select(i => new { i.WorldId, i.VRChatInstanceId, i.OpenedAt, i.ClosedAt })
+            .ToListAsync(ct);
+
+        // With no number there is nothing a presence report could name it by.
+        var numbered = opened.Where(i => i.VRChatInstanceId is not null).ToList();
+        var withoutNumber = opened.Count - numbered.Count;
+
+        if (numbered.Count == 0)
+            return withoutNumber;
+
         const string Sql = """
-            SELECT COUNT(*)::int FROM (
-                SELECT DISTINCT c.world_id, c.instance_id
-                FROM modbot_event c
-                WHERE c.type = @create AND c.occurred_at >= @from AND c.occurred_at < @to
-                  AND c.world_id IS NOT NULL AND c.instance_id IS NOT NULL
-            ) opened
+            SELECT COUNT(*)::int
+            FROM unnest(@worlds::text[], @numbers::text[], @froms::timestamptz[], @tos::timestamptz[])
+                 AS o(world_id, instance_id, from_at, to_at)
             WHERE NOT EXISTS (
                 SELECT 1 FROM modbot_event e
                 WHERE e.type = ANY(@presence)
-                  AND e.world_id = opened.world_id AND e.instance_id = opened.instance_id
-                  AND e.occurred_at >= @from)
+                  AND e.world_id = o.world_id AND e.instance_id = o.instance_id
+                  AND e.occurred_at >= o.from_at AND e.occurred_at <= o.to_at)
             """;
 
         var rows = await _sql.ReadAsync(Sql, r => r.GetInt32(0), ct,
-            ("create", FactType.GroupInstanceCreated),
-            ("presence", AnalyticsSql.PresenceTypes),
-            ("from", AnalyticsSql.DayStart(from)),
-            ("to", AnalyticsSql.DayEnd(to)));
+            ("worlds", numbered.Select(i => i.WorldId).ToArray()),
+            ("numbers", numbered.Select(i => i.VRChatInstanceId!).ToArray()),
+            ("froms", numbered.Select(i => (i.OpenedAt - PresenceLeeway).UtcDateTime).ToArray()),
+            ("tos", numbered.Select(i => ((i.ClosedAt ?? now) + PresenceLeeway).UtcDateTime).ToArray()),
+            ("presence", AnalyticsSql.PresenceTypes));
 
-        return rows.Count > 0 ? rows[0] : 0;
+        return withoutNumber + (rows.Count > 0 ? rows[0] : 0);
     }
 }

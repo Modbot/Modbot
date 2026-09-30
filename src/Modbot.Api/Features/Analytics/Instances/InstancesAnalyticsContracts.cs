@@ -6,7 +6,7 @@ namespace Modbot.Api.Features.Analytics.Instances;
 /// 168 buckets, one per hour of the week, in UTC. Index = (Monday = 0 … Sunday = 6) × 24 + hour.
 /// </summary>
 /// <param name="Arrivals">People seen arriving in a group instance, from client presence reports.</param>
-/// <param name="Opened">Group instances opened, from the audit log.</param>
+/// <param name="Opened">Group instances opened, from Modbot's instance list: each at the moment Modbot first saw it.</param>
 public sealed record HourOfWeek(IReadOnlyList<decimal> Arrivals, IReadOnlyList<decimal> Opened);
 
 /// <summary>
@@ -160,13 +160,18 @@ public sealed record InstanceActivitySeries(
     IReadOnlyList<DateOnly> DaysWithoutHeadCounts);
 
 /// <param name="Opened">Instances opened per day (daily totals).</param>
-/// <param name="Closed">
+/// <param name="ClosedByHand">
 /// Instances a moderator closed by hand, per day (daily totals of VRChat's close entries). Not every
 /// instance that ended: most end by emptying out, and VRChat writes no entry for that.
 /// </param>
+/// <param name="EndedOnTheirOwn">
+/// Instances that ended with no close by hand, per day they ended, from Modbot's instance list: the
+/// ended group instances with no close entry of a moderator's (<c>InstanceCloseEntries</c>). A day
+/// none ended has no row.
+/// </param>
 /// <param name="MostOpenAtOnce">
-/// The most instances open at the same moment, per day. An instance with no close on record is
-/// open until the last thing Modbot saw happen in it.
+/// The most instances open at the same moment, per day, from Modbot's instance list: each from when
+/// Modbot first saw it until it ended, or until now while it is open.
 /// </param>
 /// <param name="MostPeopleInOne">The most people known to be in a single instance at once, per day. From presence reports.</param>
 /// <param name="TypicalMinutesOpen">
@@ -179,7 +184,7 @@ public sealed record InstanceActivitySeries(
 /// longer.
 /// </param>
 /// <param name="InstancesWithBothEnds">How many ended instances that median is over.</param>
-/// <param name="InstancesOpened">Instances opened inside the window.</param>
+/// <param name="InstancesOpened">Group instances Modbot first saw inside the window, from its instance list.</param>
 /// <param name="OpenNow">Instances the group has open right now, busiest first.</param>
 /// <param name="Recent">The most recent instances in the window, newest first.</param>
 /// <param name="Peaks">How full it ever got, and how much of the window Modbot was counting.</param>
@@ -189,8 +194,8 @@ public sealed record InstanceActivitySeries(
 /// </param>
 /// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>
 /// <param name="DaysWithoutAuditLog">
-/// Days before Modbot began reading the group's audit log, which openings, closings and how long
-/// instances stayed open come from.
+/// Days before Modbot began reading the group's audit log, which the opened and manually closed
+/// counts come from.
 /// </param>
 /// <param name="DaysWithoutHeadCounts">
 /// Days before Modbot started, and days an instance was open and never counted (see
@@ -209,7 +214,8 @@ public sealed record InstancesAnalytics(
     DateOnly To,
     DateOnly? Today,
     IReadOnlyList<DayValue> Opened,
-    IReadOnlyList<DayValue> Closed,
+    IReadOnlyList<DayValue> ClosedByHand,
+    IReadOnlyList<DayValue> EndedOnTheirOwn,
     IReadOnlyList<DayValue> MostOpenAtOnce,
     IReadOnlyList<DayValue> MostPeopleInOne,
     decimal? TypicalMinutesOpen,

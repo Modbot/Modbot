@@ -136,6 +136,7 @@ public static class FactLabels
         [FactType.WebhookDeleted] = "Webhook deleted",
         [FactType.WebhookDisabled] = "Webhook turned off",
         [FactType.SettingsChanged] = "Settings changed",
+        [FactType.InstanceEndedOnItsOwn] = "Group instance ended on its own",
         [FactType.PlannedEventCreated] = "Event planned",
         [FactType.PlannedEventChanged] = "Planned event changed",
         [FactType.PlannedEventCancelled] = "Planned event cancelled",

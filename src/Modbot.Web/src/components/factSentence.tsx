@@ -638,6 +638,10 @@ const SENTENCES: Record<string, Sentence> = {
 
   'vrchat.group.instance.close': (p) => <>{p.actor} closed {p.place ?? 'an instance'}.</>,
 
+  // Modbot's own entry, for an instance nobody closed by hand: it emptied out and left the group's
+  // list. Never "closed": that word is VRChat's, for a moderator who did it.
+  'modbot.instance.end': (p) => <>{p.place ?? 'An instance'} ended on its own.</>,
+
   'vrchat.group.instance.update': (p) => (
     <>
       {p.actor} changed {p.place ?? 'an instance'}

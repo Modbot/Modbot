@@ -60,6 +60,30 @@ A polling job under the standard budget-derived scheduler (foundation §4.2), em
 | `InstanceClosed` | Duration derived from the pair |
 | `InstancePopulationSampled` | Periodic gauge — see §3.1 |
 
+### 3.0 How an instance ends (2026-09-30, TASK-016)
+
+`InstanceClosed` above was never written as such. VRChat's audit log writes `group.instance.close`
+only when a moderator closes an instance by hand; an instance that empties out and drops off the
+group's list gets no entry, and that is nearly every instance. The instance list is the authority on
+when one ended (`vrchat_instance.closed_at`), so:
+
+- **Stats counts the two ends apart.** "Manually closed" is VRChat's close entries; "Naturally ended"
+  is the group's ended instances with no close entry that belongs to them (one rule, in
+  `InstanceCloseEntries`, shared with the rows that say "ended" or "closed"). "Most open at once", the
+  hour-of-week openings, the Worlds page's instances opened and the Team page's instances with no
+  moderator count from `vrchat_instance`, not from the audit log's create and close entries, which
+  cannot see an instance that has no close.
+- **The audit log gets an honest entry.** Modbot writes `modbot.instance.end` ("ended on its own")
+  for an ended group instance with no close by hand -- its own fact type, never worded "closed". It is
+  written only after the audit log has been read to its newest entry by a pass that began after the
+  end plus the leeway a close entry may be dated after it, so a close by hand that VRChat reports late
+  is never labelled this way; an audit log that has never been read to the end writes nothing.
+  `vrchat_instance.end_recorded_at` marks an instance whose end has been dealt with. Facts are never
+  rewritten or deleted.
+- **Catch-up.** The first passes write an entry, at the recorded end time, for every past ended
+  instance. An entry written more than an hour after the end carries `catchUp` and is not posted to
+  Discord. New entries go where "Instance closed" is routed, with no separate choice in a route.
+
 ### 3.1 Population samples are counted, not evented
 
 A population sample every minute per instance is high-cardinality and individually worthless — nobody

@@ -32,6 +32,9 @@ public static class FactSubjects
         // and the world and instance columns are filled beside it rather than instead of it.
         [FactType.GroupInstanceCreated] = SubjectKind.Instance,
         [FactType.GroupInstanceClosed] = SubjectKind.Instance,
+
+        // Modbot's own entry, written with the location as its subject to match.
+        [FactType.InstanceEndedOnItsOwn] = SubjectKind.Instance,
         [FactType.GroupInstanceUpdated] = SubjectKind.Instance,
         [FactType.GroupInstanceAnnouncement] = SubjectKind.Instance,
 

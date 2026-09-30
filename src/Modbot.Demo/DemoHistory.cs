@@ -376,6 +376,29 @@ public sealed class DemoHistory
                 };
             }
 
+            // The rest are the ones Modbot itself writes an entry for: it saw them leave the group's
+            // list and no moderator's close entry belongs to them (InstanceEndFacts).
+            if (instance.ClosedAt is { } ended && !instance.ClosedByModerator)
+            {
+                yield return new FactRecord
+                {
+                    Type = FactType.InstanceEndedOnItsOwn,
+                    OccurredAt = ended,
+                    SubjectPlatform = FactPlatform.VRChat,
+                    SubjectId = instance.Location(plan.GroupId),
+                    WorldId = instance.World.WorldId,
+                    InstanceId = instance.Number,
+                    Source = FactSource.SyncDiff,
+                    Data = new JsonObject
+                    {
+                        ["source"] = "list-diff",
+                        ["groupId"] = plan.GroupId,
+                        ["endedBy"] = "list",
+                        ["groupAccessType"] = "members",
+                    },
+                };
+            }
+
             // Presence, as a moderator's companion reports it. The Live page reads these and
             // nothing else, and only counts a report from a paired client whose owner has linked a
             // VRChat account -- so every report names one of the demo's own devices (§4.4).

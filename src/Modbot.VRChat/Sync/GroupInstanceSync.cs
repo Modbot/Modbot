@@ -33,6 +33,12 @@ namespace Modbot.VRChat.Sync;
 /// out the time rule that covers everywhere the list does not reach
 /// (<see cref="VRChatInstance.CountsAsNewAfter"/>).
 /// </para>
+/// <para>
+/// <strong>The list knows an instance ended; VRChat's audit log knows a moderator closed it.</strong>
+/// VRChat writes a close entry only for a close by hand, so an instance that emptied out has none.
+/// Once the audit log has been read past an ended instance's end, this poll writes Modbot's own
+/// "ended on its own" entry for the ones with no close entry (<see cref="InstanceEndFacts"/>).
+/// </para>
 /// </remarks>
 public sealed class GroupInstanceSync
 {
@@ -66,11 +72,17 @@ public sealed class GroupInstanceSync
     private readonly IModbotClock _clock;
     private readonly PublicInstancesNudge? _publicInstances;
     private readonly INotifier? _notifier;
+    private readonly InstanceEndFacts? _ends;
     private readonly ILogger _log;
 
     /// <param name="publicInstances">
     /// Poked when an instance opened or closed, so modbot.co hears about a public instance as it happens
     /// rather than at the end of the report's own wait. Null where nothing reports instances.
+    /// </param>
+    /// <param name="ends">
+    /// Writes "ended on its own" into the audit log for instances this poll saw leave the list, once
+    /// the audit log has been read past their end. Null where nothing writes facts: the poll then
+    /// records the instance's end and no entry.
     /// </param>
     public GroupInstanceSync(
         IVRChatGate gate,
@@ -79,6 +91,7 @@ public sealed class GroupInstanceSync
         IModbotClock clock,
         PublicInstancesNudge? publicInstances = null,
         INotifier? notifier = null,
+        InstanceEndFacts? ends = null,
         ILogger? log = null)
     {
         ArgumentNullException.ThrowIfNull(gate);
@@ -92,6 +105,7 @@ public sealed class GroupInstanceSync
         _clock = clock;
         _publicInstances = publicInstances;
         _notifier = notifier;
+        _ends = ends;
         _log = (log ?? Log.Logger).ForContext(LogArea.Name, LogArea.Sync);
     }
 
@@ -167,6 +181,8 @@ public sealed class GroupInstanceSync
         settings.GroupInstancesPolledAt = now;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
+        await NoteEndsAsync(groupId, settings, now, ct).ConfigureAwait(false);
+
         if (opened > 0 || closed > 0)
         {
             // What is on modbot.co is the list this poll just read, so the report goes now. It
@@ -184,6 +200,25 @@ public sealed class GroupInstanceSync
             Open: openNow.Count,
             Opened: opened,
             Closed: closed);
+    }
+
+    /// <summary>
+    /// Writes the audit log's "ended on its own" entries that are due. Never allowed to fail the poll:
+    /// the poll's own work is saved by now, and a pass that could not write them tries again.
+    /// </summary>
+    private async Task NoteEndsAsync(string groupId, Settings settings, DateTimeOffset now, CancellationToken ct)
+    {
+        if (_ends is null)
+            return;
+
+        try
+        {
+            await _ends.SettleAsync(groupId, settings, now, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            _log.Warning(ex, "Could not settle how the group's ended instances ended; it will try again");
+        }
     }
 
     /// <summary>

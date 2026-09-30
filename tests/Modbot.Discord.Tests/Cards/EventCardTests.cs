@@ -379,6 +379,32 @@ public class EventCardTests
         AssertNoIdsInTheBody(card);
     }
 
+    /// <summary>
+    /// Modbot's own entry has no sentence of VRChat's to quote and no person: it says where the
+    /// instance was and never that it was closed.
+    /// </summary>
+    [Fact]
+    public void AnInstanceThatEndedOnItsOwn_SaysWhereItWas_AndIsNeverCalledClosed()
+    {
+        var e = InTheBlackCat(FactType.InstanceEndedOnItsOwn, "The Black Cat") with
+        {
+            ActorId = null,
+            ActorName = null,
+            Details = new EventDetails(GroupAccessType: "members"),
+        };
+
+        var card = EventCard.For(e, Style, CardPicture.None);
+
+        Assert.Equal("Instance ended on its own", card.Title);
+        Assert.DoesNotContain("closed", card.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(card.Description);
+        Assert.Contains("The Black Cat", Visible(Field(card, "Where")!));
+        Assert.Equal("Group members", Field(card, "Open to"));
+        Assert.Null(Field(card, "By"));
+        Assert.Null(card.ImageUrl);
+        AssertNoIdsInTheBody(card);
+    }
+
     [Theory]
     [InlineData("public", "Anyone")]
     [InlineData("members", "Group members")]

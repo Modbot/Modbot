@@ -76,8 +76,9 @@ export function instanceCardText(i: {
  * How an instance came to an end, in the one word a row or popup shows beside the time.
  *
  * `closed` only when a moderator closed it by hand, which is what VRChat's audit log and the
- * "Closed" tile count. Most instances just empty out and drop off the group's list, and those
- * `ended`. Calling every one of them closed put "closed" on rows under a tile that said none were.
+ * "Manually closed" tile count. Most instances just empty out and drop off the group's list, and those
+ * are `ended`, the "Naturally ended" tile's. Calling every one of them closed put "closed" on rows
+ * under a tile that said none were.
  */
 export function instanceEnd(instance: { closedAt: string | null; closedByModerator?: boolean }): 'open now' | 'closed' | 'ended' {
   if (!instance.closedAt) return 'open now'

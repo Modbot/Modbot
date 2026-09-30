@@ -67,8 +67,31 @@ public static class DiscordEventTypes
         FactType.JoinRequestBlocked,
     };
 
+    /// <summary>
+    /// Types a route does not name of their own, because they go wherever another type goes.
+    /// Modbot's entry that an instance ended on its own follows "Instance closed": a channel that
+    /// takes one hears about the other, so nobody has to tick a second box for what reads to them
+    /// as the same event -- an instance is over.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> FollowedTypes = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        [FactType.InstanceEndedOnItsOwn] = FactType.GroupInstanceClosed,
+    };
+
+    /// <summary>
+    /// The type a route lists to take this one: the type itself, or the one it follows. What a
+    /// route's event types are checked against, wherever a fact is matched to a route.
+    /// </summary>
+    public static string RouteTypeOf(string type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        return FollowedTypes.GetValueOrDefault(type, type);
+    }
+
     /// <summary>Every type a route may name, in <see cref="FactType"/>'s declaration order.</summary>
-    public static IReadOnlyList<string> Sendable { get; } = FactType.All.Where(CanSend).ToArray();
+    public static IReadOnlyList<string> Sendable { get; } = FactType.All
+        .Where(t => CanSend(t) && !FollowedTypes.ContainsKey(t))
+        .ToArray();
 
     /// <summary>The picker's groups, each in declaration order, empty groups left out.</summary>
     public static IReadOnlyList<DiscordEventGroup> Groups { get; } = GroupOrder

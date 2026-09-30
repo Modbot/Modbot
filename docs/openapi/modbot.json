@@ -28973,7 +28973,8 @@
           "to",
           "today",
           "opened",
-          "closed",
+          "closedByHand",
+          "endedOnTheirOwn",
           "mostOpenAtOnce",
           "mostPeopleInOne",
           "typicalMinutesOpen",
@@ -29015,7 +29016,13 @@
               "$ref": "#/components/schemas/DayValue"
             }
           },
-          "closed": {
+          "closedByHand": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayValue"
+            }
+          },
+          "endedOnTheirOwn": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DayValue"

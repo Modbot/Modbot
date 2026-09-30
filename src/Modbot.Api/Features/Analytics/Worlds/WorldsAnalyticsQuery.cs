@@ -13,14 +13,15 @@ namespace Modbot.Api.Features.Analytics.Worlds;
 /// <para>
 /// Time and visitors come from the companion's presence reports, which exist only while a
 /// moderator's client is in the instance. A world nobody with the client visited reads as empty
-/// however busy it was, and the page says so. Instances opened per world come from the audit log.
+/// however busy it was, and the page says so.
 /// </para>
 /// <para>
-/// Instances, time open and most at once come from <c>vrchat_instance</c>, which covers every group
-/// instance whether anybody from the team was in it or not, so they decide the order. Ranked by
-/// presence, a world that held twelve people for four hours read as unused because no companion was
-/// there (2026-09-27 review, finding 1). The audit-log count stays beside them: it counts creates
-/// Modbot never saw as an instance, and on an older install creates with no world at all.
+/// Instances, instances opened, time open and most at once come from <c>vrchat_instance</c>, which
+/// covers every group instance whether anybody from the team was in it or not, so they decide the
+/// order. Ranked by presence, a world that held twelve people for four hours read as unused because
+/// no companion was there (2026-09-27 review, finding 1). Instances opened used to count the audit
+/// log's create entries, which said four beside a popup that listed two: the popup and this page now
+/// count the same rows.
 /// </para>
 /// <para>
 /// The per-world time is computed live from facts, because a session is two facts about one
@@ -54,11 +55,6 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
         var counts = new PresenceCounts(db);
         var seen = await counts.PerWorldAsync(from, to, ct);
 
-        var instancesByWorld = totals
-            .Where(r => r.Metric == DailyTotalMetrics.WorldInstances)
-            .GroupBy(r => r.Dimension, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.Sum(r => r.Value), StringComparer.Ordinal);
-
         // The group's own instances Modbot saw, opened in the window by the same rule the Instances
         // page lists them by. These are complete, so they decide the order; presence only fills in
         // who. Public instances a moderator wandered into are in the same table and are not ours.
@@ -83,7 +79,7 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
                 g => WorldUse.Of(g.Select(i => new WorldInstance(i.OpenedAt, i.ClosedAt, i.PeakUserCount, i.PeakUnsure)).ToList(), now),
                 StringComparer.Ordinal);
 
-        var worldIds = seen.Keys.Concat(instancesByWorld.Keys).Concat(used.Keys).Distinct(StringComparer.Ordinal).ToList();
+        var worldIds = seen.Keys.Concat(used.Keys).Distinct(StringComparer.Ordinal).ToList();
 
         // The names, in one round trip. A world Modbot has only ever seen as an id has no row
         // here yet and keeps its id on screen, which is the truth about what is known.
@@ -109,7 +105,7 @@ public sealed class WorldsAnalyticsQuery(ModbotContext db)
                     s.MinutesSeen,
                     s.Visitors,
                     s.Arrivals,
-                    instancesByWorld.GetValueOrDefault(id),
+                    use.Instances,
                     s.LastSeenAt,
                     use.Instances,
                     use.MinutesOpen,

@@ -85,6 +85,7 @@ public static class EventCard
 
             FactType.GroupInstanceCreated => Instance(e, style, "Instance opened"),
             FactType.GroupInstanceClosed => Instance(e, style, "Instance closed"),
+            FactType.InstanceEndedOnItsOwn => InstanceEnded(e, style),
 
             FactType.CalendarEventCreated => CalendarEntry(e, style),
 
@@ -188,6 +189,23 @@ public static class EventCard
             fields.Add(new DiscordEmbedField("Open to", openTo, Inline: true));
 
         return AboutTheGroup(e, style, title, Quoted(e.Description), fields);
+    }
+
+    /// <summary>
+    /// An instance that ended with no close by hand. Modbot's own entry, so there is no sentence of
+    /// VRChat's to quote: the card says where instead, and never that it was closed.
+    /// </summary>
+    private static DiscordEmbedContent InstanceEnded(ModerationEventView e, CardStyle style)
+    {
+        var fields = new List<DiscordEmbedField>();
+
+        if (Where(e, style) is { } where)
+            fields.Add(new DiscordEmbedField("Where", where, Inline: true));
+
+        if (Openness(e.What.GroupAccessType) is { } openTo)
+            fields.Add(new DiscordEmbedField("Open to", openTo, Inline: true));
+
+        return AboutTheGroup(e, style, "Instance ended on its own", null, fields);
     }
 
     /// <summary>A calendar entry: its own title, what kind it is, and who may come.</summary>

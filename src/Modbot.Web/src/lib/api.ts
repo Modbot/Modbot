@@ -1959,7 +1959,9 @@ export type InstancesAnalytics = {
   today: string | null
   opened: DayValue[]
   /** Instances a moderator closed by hand, per day. Not every instance that ended. */
-  closed: DayValue[]
+  closedByHand: DayValue[]
+  /** Instances that ended with no close by hand, per day they ended. A day none ended has no row. */
+  endedOnTheirOwn: DayValue[]
   mostOpenAtOnce: DayValue[]
   mostPeopleInOne: DayValue[]
   /** Median time open over the group's instances that ended in the range, however they ended. */

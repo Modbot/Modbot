@@ -32,13 +32,6 @@ namespace Modbot.Api.Features.Places;
 public static class InstanceRows
 {
     /// <summary>
-    /// How long after Modbot noticed an instance had ended a close entry can still be its own. The
-    /// list is read every few seconds, so a moderator's close comes before Modbot notices the end;
-    /// this only allows for VRChat's clock and Modbot's disagreeing a little.
-    /// </summary>
-    public static readonly TimeSpan CloseEntryLeeway = TimeSpan.FromMinutes(5);
-
-    /// <summary>
     /// Reads a page of instances and names their worlds.
     /// </summary>
     /// <param name="instances">Already filtered, ordered and limited by the caller.</param>
@@ -77,9 +70,9 @@ public static class InstanceRows
 
         var worldIds = page.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
 
-        var closedByModerator = await ClosedByModeratorAsync(
+        var closedByModerator = await InstanceCloseEntries.ClosedByHandAsync(
             db,
-            page.Select(r => (r.Id, r.WorldId, r.VRChatInstanceId, r.OpenedAt, r.ClosedAt)).ToList(),
+            page.Select(r => new InstanceEndRow(r.Id, r.WorldId, r.VRChatInstanceId, r.OpenedAt, r.ClosedAt)).ToList(),
             ct);
 
         var named = await db.VRChatWorlds
@@ -122,59 +115,6 @@ public static class InstanceRows
                     r.PeakUnsure);
             })
             .ToList();
-    }
-
-    /// <summary>
-    /// Which of the ended instances a moderator closed by hand: those with a
-    /// <c>group.instance.close</c> entry for the same world and instance number, dated between the
-    /// instance's opening and a little after it ended.
-    /// </summary>
-    /// <remarks>
-    /// VRChat hands instance numbers out again, so one entry could fall inside two rows' times only
-    /// if the number was reissued within <see cref="CloseEntryLeeway"/> of the first ending. It then
-    /// belongs to the later row that had opened by then, never to both.
-    /// </remarks>
-    private static async Task<IReadOnlySet<Guid>> ClosedByModeratorAsync(
-        ModbotContext db,
-        IReadOnlyList<(Guid Id, string WorldId, string? Number, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt)> rows,
-        CancellationToken ct)
-    {
-        var ended = rows.Where(r => r.ClosedAt is not null && r.Number is not null).ToList();
-
-        if (ended.Count == 0)
-            return new HashSet<Guid>();
-
-        var worlds = ended.Select(r => r.WorldId).Distinct(StringComparer.Ordinal).ToList();
-        var numbers = ended.Select(r => r.Number!).Distinct(StringComparer.Ordinal).ToList();
-        var earliest = ended.Min(r => r.OpenedAt);
-        var latest = ended.Max(r => r.ClosedAt!.Value) + CloseEntryLeeway;
-
-        var closes = await db.Events.AsNoTracking()
-            .Where(e => e.Type == FactType.GroupInstanceClosed
-                        && e.OccurredAt >= earliest && e.OccurredAt <= latest
-                        && e.WorldId != null && worlds.Contains(e.WorldId)
-                        && e.InstanceId != null && numbers.Contains(e.InstanceId))
-            .Select(e => new { e.WorldId, e.InstanceId, e.OccurredAt })
-            .ToListAsync(ct);
-
-        var found = new HashSet<Guid>();
-
-        foreach (var close in closes)
-        {
-            var owner = ended
-                .Where(r => string.Equals(r.WorldId, close.WorldId, StringComparison.Ordinal)
-                            && string.Equals(r.Number, close.InstanceId, StringComparison.Ordinal)
-                            && r.OpenedAt <= close.OccurredAt
-                            && close.OccurredAt <= r.ClosedAt!.Value + CloseEntryLeeway)
-                .OrderByDescending(r => r.OpenedAt)
-                .Select(r => (Guid?)r.Id)
-                .FirstOrDefault();
-
-            if (owner is { } id)
-                found.Add(id);
-        }
-
-        return found;
     }
 
     /// <summary>

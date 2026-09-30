@@ -161,6 +161,33 @@ public class EventRouteMatchTests
         Assert.Equal(sent, EventRouteMatch.Matches(Route(null, FactType.GroupInfoChanged), fact, NoRoles));
     }
 
+    /// <summary>
+    /// "Ended on its own" is not a choice of its own in a route: a channel that takes "Instance closed"
+    /// takes it, so what reads to a moderator as one event -- an instance is over -- is one setting.
+    /// </summary>
+    [Fact]
+    public void AnInstanceEndedOnItsOwn_GoesWhereInstanceClosedGoes_AndNowhereElse()
+    {
+        var ended = Fact(subject: "wrld_a:1", actor: null, type: FactType.InstanceEndedOnItsOwn, subjectPlatform: FactPlatform.VRChat);
+
+        Assert.True(EventRouteMatch.Matches(Route(null, FactType.GroupInstanceClosed), ended, NoRoles));
+        Assert.False(EventRouteMatch.Matches(Route(null, FactType.GroupInstanceCreated), ended, NoRoles));
+        Assert.False(EventRouteMatch.Matches(Route(null, FactType.MemberBanned), ended, NoRoles));
+    }
+
+    [Theory]
+    [InlineData("""{"source":"list-diff","catchUp":true}""", false)]
+    [InlineData("""{"source":"list-diff"}""", true)]
+    [InlineData("""{"catchUp":false}""", true)]
+    [InlineData("not json but says \"catchUp\"", true)]
+    public void AnEntryWrittenLongAfterTheEnd_IsHistoryAndIsNeverPosted(string data, bool posted)
+    {
+        var fact = Fact(subject: "wrld_a:1", actor: null, type: FactType.InstanceEndedOnItsOwn, subjectPlatform: FactPlatform.VRChat);
+        fact.Data = data;
+
+        Assert.Equal(posted, EventRouteMatch.Matches(Route(null, FactType.GroupInstanceClosed), fact, NoRoles));
+    }
+
     [Fact]
     public void AnActorFilter_TakesAnyOfItsPeople()
     {

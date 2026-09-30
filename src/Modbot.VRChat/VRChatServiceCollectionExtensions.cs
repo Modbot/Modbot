@@ -299,6 +299,11 @@ public static class VRChatServiceCollectionExtensions
         // stop on worlds.read cannot take it down.
         services.AddScoped<Core.Data.PlaceStore>();
 
+        services.AddScoped<InstanceEndFacts>(provider => new InstanceEndFacts(
+            provider.GetRequiredService<Core.Data.ModbotContext>(),
+            provider.GetRequiredService<Analytics.Facts.IFactWriter>(),
+            provider.GetRequiredService<Analytics.Facts.EventPartitionMaintainer>()));
+
         services.AddScoped<GroupInstanceSync>(provider => new GroupInstanceSync(
             provider.GetRequiredService<IVRChatGate>(),
             provider.GetRequiredService<Core.Data.PlaceStore>(),
@@ -308,7 +313,8 @@ public static class VRChatServiceCollectionExtensions
             // is unchanged.
             provider.GetService<Core.Cloud.PublicInstancesNudge>(),
             // Optional for the same reason: without it the poll records the close and says nothing.
-            provider.GetService<Core.Notifications.INotifier>()));
+            provider.GetService<Core.Notifications.INotifier>(),
+            provider.GetRequiredService<InstanceEndFacts>()));
 
         services.AddScoped<WorldSync>(provider => new WorldSync(
             provider.GetRequiredService<IVRChatGate>(),

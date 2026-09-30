@@ -49,8 +49,8 @@ public sealed record CoverageGap(
 /// <param name="ModeratorsRecognised">How many people the moderator test currently matches.</param>
 /// <param name="InstancesWatched">Instances in the window with at least one moderator presence report.</param>
 /// <param name="InstancesOpenedWithoutAnyWatch">
-/// Instances the audit log saw opened in the window that no client ever reported from. Nothing is
-/// known about who was in them, which is itself the finding.
+/// The group's instances Modbot saw opened in the window (from its instance list) that no client
+/// reported from while they ran. Nothing is known about who was in them, which is itself the finding.
 /// </param>
 /// <param name="Today">The window's last day when it is today by the server's clock, so not over yet.</param>
 /// <param name="DaysWithoutAuditLog">Days before Modbot began reading the group's audit log, which every action count comes from.</param>

@@ -19,10 +19,11 @@ public static class EventRouteMatch
         ArgumentNullException.ThrowIfNull(fact);
         ArgumentNullException.ThrowIfNull(people);
 
-        if (!DiscordEventTypes.CanSend(fact.Type) || !route.EventTypes.Contains(fact.Type, StringComparer.Ordinal))
+        if (!DiscordEventTypes.CanSend(fact.Type)
+            || !route.EventTypes.Contains(DiscordEventTypes.RouteTypeOf(fact.Type), StringComparer.Ordinal))
             return false;
 
-        if (IsGroupBaseline(fact))
+        if (IsGroupBaseline(fact) || IsCatchUp(fact))
             return false;
 
         var subject = people.Of(fact.SubjectPlatform, fact.SubjectId);
@@ -86,6 +87,35 @@ public static class EventRouteMatch
 
             return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
                    && document.RootElement.TryGetProperty("baseline", out _);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// An entry Modbot wrote long after the thing it records, to fill in what it had not written
+    /// before: an instance that ended before "ended on its own" entries existed. It is history
+    /// arriving late, not news, and a channel would get one card for every instance the group ever
+    /// ran. The audit log and the Stats page still show it.
+    /// </summary>
+    private static bool IsCatchUp(ModbotEvent fact)
+    {
+        if (!string.Equals(fact.Type, FactType.InstanceEndedOnItsOwn, StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(fact.Data)
+            || !fact.Data.Contains("\"catchUp\"", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(fact.Data);
+
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                   && document.RootElement.TryGetProperty("catchUp", out var flag)
+                   && flag.ValueKind == System.Text.Json.JsonValueKind.True;
         }
         catch (System.Text.Json.JsonException)
         {

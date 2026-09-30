@@ -37,38 +37,117 @@ public class InstancesAnalyticsTests
         var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=30", cookie, ct);
 
         Assert.Equal(2m, page.Opened.Sum(p => p.Value));
-        Assert.Equal(1m, page.Closed.Sum(p => p.Value));
+        Assert.Equal(1m, page.ClosedByHand.Sum(p => p.Value));
     }
 
     /// <summary>
-    /// One instance with both ends, one that was last seen in a kick and never closed, one that
-    /// was opened and never heard of again. Two of them overlapped. How many were open at once still
-    /// comes from the audit log; how long they stayed open does not (see the tests below).
+    /// Three instances from Modbot's own list: two that overlapped, both ended by dropping off the
+    /// group's list with no entry in the audit log, and one still open. The old count read the audit
+    /// log, saw no close, and ended each at the last thing seen in it -- so a group with no companion
+    /// reporting had nothing open at once but one.
     /// </summary>
     [Fact]
-    public async Task MostOpenAtOnce_UsesTheCloseWhenThereIsOne_AndTheLastThingSeenOtherwise()
+    public async Task MostOpenAtOnce_CountsTheInstanceList_AndAnOpenInstanceRunsToNow()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
         await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
 
         var t = host.Clock.UtcNow.AddHours(-12);
 
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, $"{World}:1", t, actor: "usr_mod", worldId: World, instanceId: "1"), ct);
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceClosed, $"{World}:1", t.AddMinutes(60), actor: "usr_mod", worldId: World, instanceId: "1"), ct);
-
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, $"{World}:2", t.AddMinutes(30), actor: "usr_mod", worldId: World, instanceId: "2"), ct);
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceKick, "usr_x", t.AddMinutes(90), actor: "usr_mod", worldId: World, instanceId: "2"), ct);
-
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, $"{World}:3", t.AddMinutes(120), actor: "usr_mod", worldId: World, instanceId: "3"), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "1", t, t.AddMinutes(60), t.AddMinutes(60), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "2", t.AddMinutes(30), t.AddMinutes(90), t.AddMinutes(90), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "3", t.AddMinutes(120), host.Clock.UtcNow, null, ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=7", cookie, ct);
 
         Assert.Equal(3, page.InstancesOpened);
 
-        // Instances 1 and 2 overlapped between t+30 and t+60; instance 3 opened alone.
+        // Instances 1 and 2 overlapped between t+30 and t+60; instance 3 opened alone and is still open.
         Assert.Equal(2m, page.MostOpenAtOnce.Max(p => p.Value));
+    }
+
+    /// <summary>
+    /// The user's own install: four instances that all left the group's list and no close entry in
+    /// the audit log. "Manually closed" is nought and "Naturally ended" is four.
+    /// </summary>
+    [Fact]
+    public async Task NaturallyEnded_IsEveryEndedInstanceWithNoCloseEntry_AndManuallyClosedIsZero()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
+
+        host.Clock.UtcNow = new DateTimeOffset(2026, 9, 27, 12, 0, 0, TimeSpan.Zero);
+        var evening = new DateTimeOffset(2026, 9, 26, 20, 0, 0, TimeSpan.Zero);
+
+        foreach (var number in new[] { "1", "2", "3", "4" })
+        {
+            var opened = evening.AddMinutes(int.Parse(number) * 10);
+            await PlacesFixtures.InstanceAsync(host, World, number, opened, opened.AddMinutes(40), opened.AddMinutes(40), ct);
+            await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, $"{World}:{number}", opened, actor: "usr_mod", worldId: World, instanceId: number), ct);
+        }
+
+        await host.RebuildDailyTotalsAsync(ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=7", cookie, ct);
+
+        Assert.Equal(4m, page.Opened.Sum(p => p.Value));
+        Assert.Equal(0m, page.ClosedByHand.Sum(p => p.Value));
+        Assert.Equal([new DayValue(new DateOnly(2026, 9, 26), 4m)], page.EndedOnTheirOwn);
+    }
+
+    /// <summary>
+    /// A close entry takes an instance out of "Naturally ended" only when it belongs to that
+    /// instance's own lifetime: a later instance that was handed the same number does not lend it its
+    /// close, and one still open has not ended at all.
+    /// </summary>
+    [Fact]
+    public async Task NaturallyEnded_LeavesOutWhatAModeratorClosed_ByTheInstancesOwnLifetime()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
+
+        var t = host.Clock.UtcNow.AddHours(-10);
+
+        // 7 emptied out; 8 was closed by hand; then 7 was handed out again and closed by hand.
+        await PlacesFixtures.InstanceAsync(host, World, "7", t, t.AddMinutes(30), t.AddMinutes(30), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "8", t, t.AddMinutes(45), t.AddMinutes(45), ct);
+        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceClosed, $"{World}:8", t.AddMinutes(44), actor: "usr_mod", worldId: World, instanceId: "8"), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "7", t.AddHours(3), t.AddHours(4), t.AddHours(4), ct);
+        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceClosed, $"{World}:7", t.AddHours(4).AddSeconds(-10), actor: "usr_mod", worldId: World, instanceId: "7"), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "9", t, host.Clock.UtcNow, null, ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=7", cookie, ct);
+
+        Assert.Equal(1m, page.EndedOnTheirOwn.Sum(p => p.Value));
+    }
+
+    [Fact]
+    public async Task NaturallyEnded_LeavesOutAnotherGroupsInstances()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
+
+        var t = host.Clock.UtcNow.AddHours(-5);
+        var other = await PlacesFixtures.InstanceAsync(host, World, "1", t, t.AddMinutes(30), t.AddMinutes(30), ct);
+        await SetGroupAsync(host, other.Id, "grp_other", ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=7", cookie, ct);
+
+        Assert.Empty(page.EndedOnTheirOwn);
+        Assert.Empty(page.MostOpenAtOnce);
+        Assert.Equal(0, page.InstancesOpened);
     }
 
     /// <summary>
@@ -119,8 +198,11 @@ public class InstancesAnalyticsTests
             [new DayValue(new DateOnly(2026, 9, 23), 60m), new DayValue(new DateOnly(2026, 9, 25), 60m)],
             page.TypicalMinutesOpenPerDay);
 
-        // "Closed" is still a moderator's close, and only that.
-        Assert.Equal(1m, page.Closed.Sum(p => p.Value));
+        // "Manually closed" is still a moderator's close, and only that; the other two ended on their own.
+        Assert.Equal(1m, page.ClosedByHand.Sum(p => p.Value));
+        Assert.Equal(
+            [new DayValue(new DateOnly(2026, 9, 23), 1m), new DayValue(new DateOnly(2026, 9, 25), 1m)],
+            page.EndedOnTheirOwn);
     }
 
     [Fact]
@@ -216,11 +298,12 @@ public class InstancesAnalyticsTests
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
         await host.ResetAsync(ct);
 
+        await ManagedGroupAsync(host, ct);
         host.Clock.UtcNow = new DateTimeOffset(2026, 6, 20, 12, 0, 0, TimeSpan.Zero);
 
-        // Tuesday 16 June 2026, 20:15 UTC -> (2 - 1) * 24 + 20 = 44.
+        // Tuesday 16 June 2026, 20:15 UTC -> (2 - 1) * 24 + 20 = 44. Counted from the instance list.
         var tuesdayEvening = new DateTimeOffset(2026, 6, 16, 20, 15, 0, TimeSpan.Zero);
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, $"{World}:1", tuesdayEvening, actor: "usr_mod", worldId: World, instanceId: "1"), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "1", tuesdayEvening, tuesdayEvening.AddMinutes(30), tuesdayEvening.AddMinutes(30), ct);
 
         // Monday 15 June 2026, 00:30 UTC -> bucket 0.
         var mondayNight = new DateTimeOffset(2026, 6, 15, 0, 30, 0, TimeSpan.Zero);
@@ -250,6 +333,7 @@ public class InstancesAnalyticsTests
         var page = await host.GetJsonAsync<InstancesAnalytics>("/api/analytics/instances?days=7", cookie, ct);
 
         Assert.Empty(page.Opened);
+        Assert.Empty(page.EndedOnTheirOwn);
         Assert.Empty(page.MostOpenAtOnce);
         Assert.Null(page.TypicalMinutesOpen);
         Assert.Equal(0m, page.HourOfWeek.Arrivals.Sum());

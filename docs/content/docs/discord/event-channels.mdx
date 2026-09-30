@@ -43,6 +43,12 @@ Almost every kind of event Modbot records can be sent. They are grouped like thi
 The window always lists the full set. When Modbot learns to record a new kind of event, it appears
 in the list without anyone having to add it.
 
+**Group instance closed** also covers an instance that ended on its own. VRChat records a close only
+when a moderator closes an instance by hand; when one empties out instead, Modbot writes its own
+"Instance ended on its own" entry, and a channel that takes **Group instance closed** gets it too, so
+there is no second box to tick. Entries Modbot adds afterwards for instances that ended before it wrote
+them are history, and are never posted.
+
 ### Events that are never sent
 
 Some events are never posted to Discord, whatever a rule says, and are not offered in the list.

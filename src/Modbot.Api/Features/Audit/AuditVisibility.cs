@@ -90,6 +90,10 @@ public static class AuditVisibility
         [FactType.GroupPostDeleted] = AuditCategory.Moderation,
         [FactType.GroupInstanceCreated] = AuditCategory.Moderation,
         [FactType.GroupInstanceClosed] = AuditCategory.Moderation,
+
+        // Modbot's own entry for an instance that ended with no close by hand, beside VRChat's close
+        // entry for one that had: the same reader, the same log.
+        [FactType.InstanceEndedOnItsOwn] = AuditCategory.Moderation,
         [FactType.GroupInstanceUpdated] = AuditCategory.Moderation,
         [FactType.GroupInstanceAnnouncement] = AuditCategory.Moderation,
         [FactType.GroupInstanceKick] = AuditCategory.Moderation,

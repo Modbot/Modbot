@@ -1,7 +1,9 @@
+using Microsoft.Extensions.DependencyInjection;
 using Modbot.Analytics.DailyTotals;
 using Modbot.Api.Features.Analytics.Team;
 using Modbot.Api.Tests.Features.Audit;
 using Modbot.Api.Tests.Features.Places;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using static Modbot.Api.Tests.Features.Analytics.AnalyticsFacts;
@@ -263,17 +265,54 @@ public class TeamAnalyticsTests
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
         await host.ResetAsync(ct);
 
+        await SetManagedGroupAsync(host, ct);
+
         var t = host.Clock.UtcNow.AddHours(-6);
 
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, $"{World}:1", t, actor: "usr_mod", worldId: World, instanceId: "1"), ct);
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, $"{World}:2", t, actor: "usr_mod", worldId: World, instanceId: "2"), ct);
+        // Counted from Modbot's instance list, not from the audit log's create entries: number 3 has
+        // no entry of VRChat's at all, and 2 and 3 are never reported from.
+        await PlacesFixtures.InstanceAsync(host, World, "1", t, t.AddMinutes(40), t.AddMinutes(40), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "2", t, t.AddMinutes(40), t.AddMinutes(40), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "3", t, t.AddMinutes(40), t.AddMinutes(40), ct);
         await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_mod", t.AddMinutes(1), World, "1"), ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var page = await host.GetJsonAsync<TeamAnalytics>("/api/analytics/team?days=30", cookie, ct);
 
         Assert.Equal(1, page.InstancesWatched);
+        Assert.Equal(2, page.InstancesOpenedWithoutAnyWatch);
+    }
+
+    /// <summary>A number VRChat handed out twice is two instances, each judged by the reports made while it ran.</summary>
+    [Fact]
+    public async Task AReusedInstanceNumber_IsTwoInstances_EachWatchedOrNotOnItsOwn()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await SetManagedGroupAsync(host, ct);
+
+        var t = host.Clock.UtcNow.AddHours(-10);
+
+        await PlacesFixtures.InstanceAsync(host, World, "5", t, t.AddMinutes(30), t.AddMinutes(30), ct);
+        await PlacesFixtures.InstanceAsync(host, World, "5", t.AddHours(4), t.AddHours(5), t.AddHours(5), ct);
+
+        // A moderator was in the second one only.
+        await host.WriteFactAsync(PresenceFact(FactType.InstanceJoined, "usr_mod", t.AddHours(4).AddMinutes(1), World, "5"), ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<TeamAnalytics>("/api/analytics/team?days=30", cookie, ct);
+
         Assert.Equal(1, page.InstancesOpenedWithoutAnyWatch);
+    }
+
+    private static async Task SetManagedGroupAsync(ReadSurfaceTestHost host, CancellationToken ct)
+    {
+        using var scope = host.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ModbotContext>();
+        var settings = await db.GetSettingsAsync(ct);
+        settings.ManagedGroupId = "grp_1";
+        await db.SaveChangesAsync(ct);
     }
 
     [Fact]

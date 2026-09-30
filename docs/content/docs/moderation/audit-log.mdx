@@ -30,6 +30,10 @@ The **Log** filter offers only the logs you may see.
 - joins, leaves, bans, unbans, removals from the group, role changes and invites;
 - the rest of VRChat's group audit log: instance kicks and warns, join requests, group posts,
   instances opened and closed, calendar events, changes to group details;
+- Modbot's own entry for an instance that ended on its own ("The Black Cat #39047 ended on its own"):
+  VRChat records a close only when a moderator closes an instance by hand, so this is the entry for
+  one that emptied out and left the group's list. Modbot writes it once VRChat's audit log has been
+  read past the end, so a close by hand that arrives late is never labelled this way;
 - profile changes and the 18+ verified mark, including changes a moderator made by hand;
 - instance joins, leaves, avatar changes and "already here" reports from companions;
 - Discord joins, leaves, bans, kicks, timeouts, nickname and role changes, voice, deleted

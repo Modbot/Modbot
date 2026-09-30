@@ -480,6 +480,21 @@ public static class FactType
     /// </summary>
     public const string GroupGalleryImageRemoved = "modbot.group.gallery.image.delete";
 
+    /// <summary>
+    /// A group instance ended and no moderator closed it by hand. Written by Modbot, never by VRChat:
+    /// VRChat writes <see cref="GroupInstanceClosed"/> only for a close by hand, so an instance that
+    /// emptied out and dropped off the group's list has no entry of its own. The subject is the
+    /// instance's location, the same as VRChat's create and close entries, and the time is when Modbot
+    /// saw the instance leave the list. Never worded "closed".
+    /// </summary>
+    /// <remarks>
+    /// Written only after the audit log has been read past the instance's end (and the few minutes a
+    /// close entry may be dated after it), so a close by hand that VRChat reports late is never
+    /// labelled this. A payload <c>catchUp</c> of true marks one written long after the end, for an
+    /// instance that ended before Modbot wrote these: the Discord log does not post those.
+    /// </remarks>
+    public const string InstanceEndedOnItsOwn = "modbot.instance.end";
+
     // ── Modbot's own calendar (calendar design §8). The subject is the event's id. ──────────
     //
     // "Planned event" in the names, because the CalendarEvent* names above are VRChat's own

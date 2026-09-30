@@ -254,6 +254,22 @@ public class DemoSeedTests
         var endedOnTheirOwn = await host.Db.VRChatInstances.AsNoTracking()
             .CountAsync(i => i.ClosedAt != null && i.ClosedBy == "list", ct);
         Assert.True(endedOnTheirOwn > closes.Count * 2, $"{endedOnTheirOwn} ended, {closes.Count} closed by hand.");
+
+        // Modbot's own entry for each of those, so the audit log says how they ended: one per
+        // instance, at its end time, and none for an instance a moderator closed.
+        var entries = await host.Db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.InstanceEndedOnItsOwn)
+            .Select(e => new { e.InstanceId, e.OccurredAt, e.ActorId })
+            .ToListAsync(ct);
+
+        var ended = plan.Instances.Where(i => i.ClosedAt is not null && !i.ClosedByModerator).ToList();
+
+        Assert.Equal(ended.Count, entries.Count);
+        Assert.All(entries, e => Assert.Null(e.ActorId));
+        Assert.DoesNotContain(entries, e => byHand.Contains(e.InstanceId!));
+        Assert.Equal(
+            ended.Select(i => i.ClosedAt!.Value).Order(),
+            entries.Select(e => e.OccurredAt).Order());
     }
 
     private static async Task TheAnalyticsAddUpAsync(DemoSeedHost host, CancellationToken ct)

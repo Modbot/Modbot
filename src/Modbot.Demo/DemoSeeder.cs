@@ -460,6 +460,10 @@ public sealed class DemoSeeder
                 LastSeenAt = instance.ClosedAt ?? plan.Now,
                 ClosedAt = instance.ClosedAt,
                 ClosedBy = instance.ClosedAt is null ? null : "list",
+
+                // The history writes the "ended on its own" entries itself (DemoHistory), so an
+                // ended instance is already settled.
+                EndRecordedAt = instance.ClosedAt is null ? null : plan.Now,
                 LastUserCount = instance.IsOpen ? here : 0,
                 PeakUserCount = instance.Peak,
                 HeadCount = instance.IsOpen ? here : 0,

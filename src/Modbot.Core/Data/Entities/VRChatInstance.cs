@@ -146,6 +146,18 @@ public class VRChatInstance
     /// </summary>
     public string? ClosedBy { get; set; }
 
+    /// <summary>
+    /// When Modbot finished working out how a group instance ended: it wrote its "ended on its own"
+    /// entry, or found VRChat's close entry showing a moderator closed it by hand. Null until then,
+    /// and always null for an instance that is open or is not one of the group's.
+    /// </summary>
+    /// <remarks>
+    /// Kept on the row so the check never has to ask the fact log which of thousands of ended
+    /// instances still need an entry: it reads the few rows where this is null. The instance's own
+    /// end time (<see cref="ClosedAt"/>) is not touched.
+    /// </remarks>
+    public DateTimeOffset? EndRecordedAt { get; set; }
+
     /// <summary>How many people were in the instance the last time Modbot counted.</summary>
     public int? LastUserCount { get; set; }
 

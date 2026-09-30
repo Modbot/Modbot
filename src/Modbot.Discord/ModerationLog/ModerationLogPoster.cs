@@ -239,7 +239,9 @@ public sealed class ModerationLogPoster
             return new ModerationLogChannelPass(channelId, ModerationLogPassOutcome.NothingNew, 0, 0, null);
 
         var types = routes.SelectMany(r => r.EventTypes).ToHashSet(StringComparer.Ordinal);
-        var candidates = rows.Where(r => types.Contains(r.Type) && DiscordEventTypes.CanSend(r.Type)).ToList();
+        var candidates = rows
+            .Where(r => types.Contains(DiscordEventTypes.RouteTypeOf(r.Type)) && DiscordEventTypes.CanSend(r.Type))
+            .ToList();
 
         var people = candidates.Count > 0 && routes.Any(r => r.HasPeopleFilters)
             ? await RoutePeople.LoadAsync(

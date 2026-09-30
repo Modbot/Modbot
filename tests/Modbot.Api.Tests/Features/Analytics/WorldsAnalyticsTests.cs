@@ -26,6 +26,7 @@ public class WorldsAnalyticsTests
         var ct = TestContext.Current.CancellationToken;
         await using var host = await ReadSurfaceTestHost.StartAsync(_db);
         await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
 
         var t = host.Clock.UtcNow.AddHours(-6);
 
@@ -33,8 +34,8 @@ public class WorldsAnalyticsTests
         await host.WriteFactAsync(PresenceFact(FactType.InstancePresenceObserved, "usr_b", t.AddMinutes(10), "wrld_a", "1"), ct);
         await host.WriteFactAsync(PresenceFact(FactType.InstanceLeft, "usr_a", t.AddMinutes(30), "wrld_a", "1"), ct);
 
-        // Opened but nobody with the client went in: known from the audit log alone.
-        await host.WriteFactAsync(AuditFact(FactType.GroupInstanceCreated, "wrld_b:2", t, actor: "usr_mod", worldId: "wrld_b", instanceId: "2"), ct);
+        // Opened but nobody with the client went in: known from Modbot's instance list alone.
+        await PlacesFixtures.InstanceAsync(host, "wrld_b", "2", t, t.AddMinutes(20), t.AddMinutes(20), ct);
         await host.RebuildDailyTotalsAsync(ct);
 
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
@@ -53,6 +54,40 @@ public class WorldsAnalyticsTests
         Assert.Equal(1m, b.InstancesOpened);
 
         Assert.Equal(3, page.PresenceReports);
+    }
+
+    /// <summary>
+    /// The column said four beside a popup that listed two: it counted the audit log's create
+    /// entries, and a world's instances that Modbot saw open were fewer. It counts the same rows the
+    /// popup lists, whatever the audit log says.
+    /// </summary>
+    [Fact]
+    public async Task InstancesOpened_CountsTheInstanceList_NotTheAuditLogsCreateEntries()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        await ManagedGroupAsync(host, ct);
+
+        var t = host.Clock.UtcNow.AddHours(-8);
+
+        await PlacesFixtures.InstanceAsync(host, "wrld_home", "1", t, t.AddMinutes(30), t.AddMinutes(30), ct);
+        await PlacesFixtures.InstanceAsync(host, "wrld_home", "2", t.AddHours(1), t.AddHours(2), t.AddHours(2), ct);
+
+        for (var number = 1; number <= 4; number++)
+        {
+            await host.WriteFactAsync(
+                AuditFact(FactType.GroupInstanceCreated, $"wrld_home:{number}", t.AddMinutes(number), actor: "usr_mod", worldId: "wrld_home", instanceId: number.ToString()), ct);
+        }
+
+        await host.RebuildDailyTotalsAsync(ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
+        var page = await host.GetJsonAsync<WorldsAnalytics>("/api/analytics/worlds?days=30", cookie, ct);
+
+        var home = Assert.Single(page.Worlds);
+        Assert.Equal(2, home.Instances);
+        Assert.Equal(2m, home.InstancesOpened);
     }
 
     [Fact]

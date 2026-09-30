@@ -67,6 +67,23 @@ public class DiscordEventTypesTests
     public void TypesAreGroupedByTheirName(string type, string group)
         => Assert.Equal(group, DiscordEventTypes.GroupOf(type));
 
+    /// <summary>
+    /// The entry that an instance ended on its own follows "Instance closed": it is not offered as a
+    /// box of its own, and a route naming "Instance closed" is what takes it.
+    /// </summary>
+    [Fact]
+    public void AnInstanceEndedOnItsOwn_IsNotAChoice_ButFollowsInstanceClosed()
+    {
+        Assert.DoesNotContain(FactType.InstanceEndedOnItsOwn, DiscordEventTypes.Sendable);
+        Assert.Contains(FactType.GroupInstanceClosed, DiscordEventTypes.Sendable);
+        Assert.True(DiscordEventTypes.CanSend(FactType.InstanceEndedOnItsOwn));
+
+        Assert.Equal(FactType.GroupInstanceClosed, DiscordEventTypes.RouteTypeOf(FactType.InstanceEndedOnItsOwn));
+        Assert.Equal(FactType.MemberBanned, DiscordEventTypes.RouteTypeOf(FactType.MemberBanned));
+
+        Assert.Equal([FactType.GroupInstanceClosed], DiscordEventTypes.Clean([FactType.InstanceEndedOnItsOwn, FactType.GroupInstanceClosed]));
+    }
+
     [Fact]
     public void Clean_KeepsSendableTypesOnce_InListOrder()
     {

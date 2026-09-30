@@ -21,9 +21,10 @@ const THIN_REPORTS = 200
  * (spec 10.1, Stats page design). They were the charts under the VRChat page's Instances tab, which
  * keeps what vrchat.com shows there: what is open now and what ran lately.
  *
- * Opened and closed per day come from the daily totals; "closed" there is closed by a moderator.
- * How many are open at once comes from the fact log, and how long instances stay open from the
- * instance table, which records every end however it came about. The heatmap is the cyclic answer
+ * Opened and manually closed per day come from the daily totals; "manually closed" is VRChat's close
+ * entries, which it writes only for a close by hand. Naturally ended, how many are open at once,
+ * how long instances stay open and the heatmap's openings come from the instance table, which
+ * records every end however it came about. The heatmap is the cyclic answer
  * spec 5.10 says a daily series cannot give: "Tuesdays at 8pm are our busiest hour" is only visible
  * once the days are laid over each other.
  *
@@ -47,10 +48,12 @@ export function InstanceStats({
 
   return (
     <PanelGrid className="grid-cols-1">
-      <StatStrip className={mostOnline ? 'md:grid-cols-3 xl:grid-cols-5' : undefined} phonePairs>
+      {/* Five tiles, or six with the group's most online first: six is two even rows of three on a phone, five goes in pairs. */}
+      <StatStrip className={mostOnline ? 'md:grid-cols-3 xl:grid-cols-6' : 'md:grid-cols-3 xl:grid-cols-5'} phonePairs={!mostOnline}>
         {mostOnline}
         <Stat label="Opened" value={compactNumber(sum(data.opened))} />
-        <Stat label="Closed" value={compactNumber(sum(data.closed))} />
+        <Stat label="Manually closed" value={compactNumber(sum(data.closedByHand))} />
+        <Stat label="Naturally ended" value={compactNumber(sum(data.endedOnTheirOwn))} />
         <Stat label="Typical time open" value={data.typicalMinutesOpen === null ? '—' : minutes(data.typicalMinutesOpen)} />
         <Stat label="Most open at once" value={compactNumber(max(data.mostOpenAtOnce))} />
       </StatStrip>
@@ -95,16 +98,21 @@ export function InstanceStats({
       </Panel>
 
       <PanelGrid className="lg:grid-cols-2">
-        <Panel title="Opened and closed per day">
+        <Panel title="Opened, manually closed and naturally ended per day">
           <DailyBars
             from={data.from}
             to={data.to}
             missing={data.daysWithoutAuditLog}
             today={data.today}
-            legend={[{ label: 'Opened', slot: 1 }, { label: 'Closed', slot: 2 }]}
+            legend={[
+              { label: 'Opened', slot: 1 },
+              { label: 'Manually closed', slot: 2 },
+              { label: 'Naturally ended', slot: 3 },
+            ]}
             series={[
               { key: 'opened', label: 'opened', points: data.opened, slot: 1 },
-              { key: 'closed', label: 'closed', points: data.closed, slot: 2 },
+              { key: 'closed', label: 'manually closed', points: data.closedByHand, slot: 2 },
+              { key: 'ended', label: 'naturally ended', points: data.endedOnTheirOwn, slot: 3 },
             ]}
           />
         </Panel>
@@ -113,7 +121,7 @@ export function InstanceStats({
           <DailyBars
             from={data.from}
             to={data.to}
-            missing={data.daysWithoutAuditLog}
+            missing={data.daysBeforeModbot}
             today={data.today}
             series={[{ key: 'open', label: 'open at once', points: data.mostOpenAtOnce, slot: 4 }]}
           />
