@@ -72,7 +72,7 @@ public static class GiveawayEndpoints
             .RequiresFlag(ModbotPermissions.ViewGiveaways)
             .WithName("ListGiveaways")
             .WithSummary("List giveaways")
-            .WithDescription("Every giveaway, newest first, with its rules, its post and its draws.")
+            .WithDescription("Giveaways, newest first, with their rules, posts and draws. Returns at most 500.")
             .Produces<GiveawayListView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

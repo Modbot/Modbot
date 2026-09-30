@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Modbot.Api.Features.Audit;
 using Modbot.Core.Data.Entities;
 
@@ -18,26 +19,34 @@ public sealed record EventActor(string Platform, string Id, string? Name);
 /// One event, as the WebSocket and webhooks send it (API keys design §4.4). Version 1.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Serialised in snake_case by <see cref="EventEnvelopes.JsonOptions"/>. <see cref="Id"/> and
 /// <see cref="Cursor"/> are strings because fact ids are 64-bit and a JavaScript number is not.
 /// A field may be added to version 1; removing or renaming one is version 2.
+/// </para>
+/// <para>
+/// The two-word fields carry their wire names explicitly. The rule above writes the same names,
+/// but the API reference is made with camelCase settings, and a name written here is the one
+/// place both read: without it the reference said <c>occurredAt</c> for what the server sends as
+/// <c>occurred_at</c>. <see cref="Data"/> is the exception: its keys are the fact's own, in camelCase.
+/// </para>
 /// </remarks>
 public sealed record EventEnvelope(
     int Version,
     string Id,
     string? Cursor,
     string Type,
-    string? TypeRaw,
+    [property: JsonPropertyName("type_raw")] string? TypeRaw,
     string Label,
     string Category,
     string Source,
-    DateTimeOffset OccurredAt,
-    DateTimeOffset? OccurredBefore,
-    DateTimeOffset ObservedAt,
+    [property: JsonPropertyName("occurred_at")] DateTimeOffset OccurredAt,
+    [property: JsonPropertyName("occurred_before")] DateTimeOffset? OccurredBefore,
+    [property: JsonPropertyName("observed_at")] DateTimeOffset ObservedAt,
     EventSubject Subject,
     EventActor? Actor,
-    string? WorldId,
-    string? InstanceId,
+    [property: JsonPropertyName("world_id")] string? WorldId,
+    [property: JsonPropertyName("instance_id")] string? InstanceId,
     JsonNode? Data);
 
 public static class EventEnvelopes

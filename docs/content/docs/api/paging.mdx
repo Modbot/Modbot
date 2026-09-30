@@ -80,13 +80,40 @@ the same order.
 | `GET /api/audit` | `beforeOccurredAt` and `beforeId`, sent back together from the last answer |
 | `GET /api/logs` | `before`, the last row id from the last answer |
 | `GET /api/events/poll` | `cursor`, the one from the last answer — see [long polling](/api/long-polling) |
+| `GET /api/live/poll` | `after`, the `cursor` from the last answer — see [live updates](/api/live-updates) |
+| `GET /api/discord/bans` | `page` and `pageSize` |
+| `GET /api/giveaways/{id}/draws/{drawId}/entrants` | `page` and `pageSize` |
+| `GET /api/requests` | `page` and `pageSize`. VRChat sends no total, so there is no `total`: `hasMore` is true when the page came back full |
+| `GET /api/group/posts` | `page` and `pageSize`, at most 100 a page. `total` is VRChat's count |
+| `GET /api/group/invites` | `page` and `pageSize`, at most 100 a page, with `hasMore` instead of `total` |
+| `GET /api/group/gallery` | `page` and `pageSize`, at most 100 a page, with `hasMore` instead of `total` |
+| `GET /api/settings/ai/calls` | `skip`, how many rows to skip. Send the `next` from the last answer; it is null on the last page |
+| `GET /api/insights` | `before`, the time the last insight you were shown was made, with `limit` |
 
 The audit log and Modbot's own log page from the last row you were shown rather than by number,
 because both are far too big to count on every request and neither has a `total` to work a page
 count out of. For those two, keep sending what the last answer gave you until it gives you nothing.
 
-The lists not named here are short enough to come back whole, with a cap on how many rows they will
-ever return.
+## Lists that stop at a limit
+
+The lists not named above have no pages. Some are short enough to come back whole. These stop at a
+limit, and the answer does not say when there was more: a list that comes back with exactly that
+many rows may have had more.
+
+| Endpoint | Returns at most | Which ones |
+|---|---|---|
+| `GET /api/moderation-flags` | 200 | The newest flags |
+| `GET /api/reviews` | 500 | The oldest open reviews, or the most recently closed |
+| `GET /api/evidence` | 500 | The newest items |
+| `GET /api/giveaways` | 500 | The newest giveaways |
+| `GET /api/notifications` | 50 | The newest notifications |
+| `GET /api/chat` | 100 | The newest conversations |
+| `GET /api/webhooks/{id}/deliveries` | 50 | The latest attempts |
+| `GET /api/imports` | 50 | The latest imports |
+| `GET /api/notes` | `limit`: default 50, at most 200 | The newest notes |
+| `GET /api/alerts` | `limit`: default 20, at most 100 | The newest alerts |
+
+A `limit` above its maximum is lowered to the maximum rather than refused.
 
 ## In the web app
 

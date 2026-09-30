@@ -66,7 +66,8 @@ public static class AlertEndpoints
                 "Times something ran far outside this deployment's own normal, newest first. "
                 + "Recent alerts nobody has hidden by default; `all=true` lists every alert kept. "
                 + "Each carries the figure, what normal looks like, the window, and where in Modbot "
-                + "to look. Counts and places only -- never a person.")
+                + "to look. Counts and places only -- never a person. Returns at most `limit` alerts "
+                + "(default 20, at most 100).")
             .Produces<AlertPage>()
             .Produces(StatusCodes.Status403Forbidden);
 

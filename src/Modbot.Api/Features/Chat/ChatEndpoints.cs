@@ -146,7 +146,8 @@ public static class ChatEndpoints
             .WithName("GetChat")
             .WithSummary("Get chat")
             .WithDescription(
-                "Whether Chat answers, the model it uses, and your conversations, newest first.")
+                "Whether Chat answers, the model it uses, and your conversations, newest first. "
+                + "Lists at most 100 conversations.")
             .Produces<ChatHome>()
             .Produces(StatusCodes.Status403Forbidden);
 

@@ -371,7 +371,7 @@ public static class WebhookEndpoints
             })
             .WithName("ListWebhookDeliveries")
             .WithSummary("List webhook deliveries")
-            .WithDescription("The last attempts to deliver to a webhook, newest first.")
+            .WithDescription("The last 50 attempts to deliver to a webhook, newest first.")
             .Produces<IReadOnlyList<WebhookDeliveryView>>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);

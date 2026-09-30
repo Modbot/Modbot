@@ -68,7 +68,7 @@ public static class EvidenceObjectEndpoints
                 + "Answered entirely from the blob record, so listing evidence costs the store "
                 + "no request and no egress. Destroyed items are listed too, because a case file "
                 + "that looks like it never had evidence is indistinguishable from one nobody ever "
-                + "documented.")
+                + "documented. Returns at most 500 items, newest first.")
             .Produces<IReadOnlyList<EvidenceObjectView>>()
             .Produces(StatusCodes.Status403Forbidden);
 

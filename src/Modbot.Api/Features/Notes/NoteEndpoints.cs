@@ -66,7 +66,8 @@ public static class NoteEndpoints
             .WithDescription(
                 "One person's notes, newest first. "
                 + "platform is VRChat or Discord and defaults to VRChat. Notes that were taken back "
-                + "are listed too and say so; standing counts only the ones that still stand.")
+                + "are listed too and say so; standing counts only the ones that still stand. Returns at "
+                + "most `limit` notes (default 50, at most 200).")
             .Produces<NoteListResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

@@ -111,7 +111,8 @@ public static class NotificationEndpoints
             .WithName("ListNotifications")
             .WithSummary("List notifications")
             .WithDescription(
-                "This account's notifications, and the critical ones still waiting to be seen.")
+                "This account's notifications, and the critical ones still waiting to be seen. "
+                + "Returns at most the 50 newest notifications.")
             .Produces<NotificationsView>();
 
         group.MapPost("/{id:guid}/seen", async (

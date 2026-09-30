@@ -85,7 +85,8 @@ public static class ReviewEndpoints
                 + "instances where nobody else has, or does far more in a day than the rest of the "
                 + "team. Every review carries the numbers it was opened on and the fact ids behind "
                 + "them. It is a question for a person, never a finding: closing one records who "
-                + "answered and what they said, and is itself a fact.")
+                + "answered and what they said, and is itself a fact. Returns at most 500 reviews: "
+                + "the oldest open ones, or the most recently closed.")
             .Produces<ReviewListResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);

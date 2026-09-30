@@ -72,6 +72,18 @@ internal static class OpenApiReference
         ("Imports", "Uploads of old data from another platform, and how each one went."),
         ("AI settings", "The AI provider, Chat, moderation rules, insights, alerts and spend limits."),
         ("MCP", "The MCP server's switch, and each person's connected AI apps."),
+
+        // The rest keep the order they always had, which is by name after the list above.
+        ("AutoMod settings", "The AutoMod switch, its term lists and AI topics, and the test samples for each rule."),
+        ("Credits", "The people who built, sponsor and were early to use Modbot."),
+        ("Giveaways", "Giveaways run through the Discord server: their rules, entries and draws."),
+        ("Group page", "The VRChat group's own page: its profile, posts, roles, invites and gallery."),
+        ("Logs", "Modbot's own log lines, and the settings for keeping them."),
+        ("Notes", "Notes moderators write about a person."),
+        ("Notifications", "This account's notifications, and where each kind is sent."),
+        ("Now", "What happened since this account last looked at the Now page."),
+        ("Requests", "Requests to join the group, and approving or rejecting them."),
+        ("Search", "Search for people and worlds by name or id."),
     ];
 
     public static OpenApiOptions AddModbotReference(this OpenApiOptions options)

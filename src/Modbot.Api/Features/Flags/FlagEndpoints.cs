@@ -185,7 +185,8 @@ public static class FlagEndpoints
             .WithSummary("List flags")
             .WithDescription(
                 "The newest flags: open, dismissed or confirmed, and filtered by language. Given `vrchat`, "
-                + "`discord` or both, only that person's flags, and the open count is theirs.")
+                + "`discord` or both, only that person's flags, and the open count is theirs. Returns at "
+                + "most 200 flags, newest first.")
             .Produces<FlagList>()
             .Produces(StatusCodes.Status403Forbidden)
             .RequiresFlag(ModbotPermissions.ViewProfile);

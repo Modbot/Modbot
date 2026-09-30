@@ -668,7 +668,7 @@
           "Events"
         ],
         "summary": "Event polling",
-        "description": "Authenticate with `Authorization: Bearer mbk_...`. Returns events after `cursor` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor means from now. Send the returned `cursor` back; `more` means poll again straight away. `types` and `subjects` repeat or are comma-separated. See https://docs.modbot.co/api/long-polling/.",
+        "description": "Authenticate with `Authorization: Bearer mbk_...`. Returns events after `cursor` at once when there are any, up to `limit` (default 100, at most 500); otherwise waits up to `wait` seconds (default 30, at most 60) for one and returns an empty list. No cursor means from now. Send the returned `cursor` back; `more` means poll again straight away. `types` and `subjects` repeat or are comma-separated. Field names in the answer are snake_case (`type_raw`, `occurred_at`, `world_id`); the keys inside an event's `data` are camelCase. See https://docs.modbot.co/api/long-polling/.",
         "operationId": "PollEvents",
         "parameters": [
           {
@@ -6140,7 +6140,7 @@
           "Moderation"
         ],
         "summary": "List flags",
-        "description": "The newest flags: open, dismissed or confirmed, and filtered by language. Given `vrchat`, `discord` or both, only that person's flags, and the open count is theirs.\n\nNeeds the `ViewProfile` permission.",
+        "description": "The newest flags: open, dismissed or confirmed, and filtered by language. Given `vrchat`, `discord` or both, only that person's flags, and the open count is theirs. Returns at most 200 flags, newest first.\n\nNeeds the `ViewProfile` permission.",
         "operationId": "ListModerationFlags",
         "parameters": [
           {
@@ -7747,7 +7747,7 @@
           "Alerts"
         ],
         "summary": "List alerts",
-        "description": "Times something ran far outside this deployment's own normal, newest first. Recent alerts nobody has hidden by default; `all=true` lists every alert kept. Each carries the figure, what normal looks like, the window, and where in Modbot to look. Counts and places only -- never a person.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "Times something ran far outside this deployment's own normal, newest first. Recent alerts nobody has hidden by default; `all=true` lists every alert kept. Each carries the figure, what normal looks like, the window, and where in Modbot to look. Counts and places only -- never a person. Returns at most `limit` alerts (default 20, at most 100).\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "ListAlerts",
         "parameters": [
           {
@@ -7951,7 +7951,7 @@
           "Notifications"
         ],
         "summary": "List notifications",
-        "description": "This account's notifications, and the critical ones still waiting to be seen.",
+        "description": "This account's notifications, and the critical ones still waiting to be seen. Returns at most the 50 newest notifications.",
         "operationId": "ListNotifications",
         "responses": {
           "200": {
@@ -10535,7 +10535,7 @@
           "Evidence"
         ],
         "summary": "List evidence",
-        "description": "What is attached to a case file. Answered entirely from the blob record, so listing evidence costs the store no request and no egress. Destroyed items are listed too, because a case file that looks like it never had evidence is indistinguishable from one nobody ever documented.\n\nNeeds the `ViewEvidence` permission.",
+        "description": "What is attached to a case file. Answered entirely from the blob record, so listing evidence costs the store no request and no egress. Destroyed items are listed too, because a case file that looks like it never had evidence is indistinguishable from one nobody ever documented. Returns at most 500 items, newest first.\n\nNeeds the `ViewEvidence` permission.",
         "operationId": "ListEvidence",
         "parameters": [
           {
@@ -11493,7 +11493,7 @@
           "Chat"
         ],
         "summary": "Get chat",
-        "description": "Whether Chat answers, the model it uses, and your conversations, newest first.\n\nNeeds the `UseAiChat` permission.",
+        "description": "Whether Chat answers, the model it uses, and your conversations, newest first. Lists at most 100 conversations.\n\nNeeds the `UseAiChat` permission.",
         "operationId": "GetChat",
         "responses": {
           "200": {
@@ -12503,7 +12503,7 @@
           "Webhooks"
         ],
         "summary": "List webhook deliveries",
-        "description": "The last attempts to deliver to a webhook, newest first.\n\nNeeds the `ManageApiKeys` permission.",
+        "description": "The last 50 attempts to deliver to a webhook, newest first.\n\nNeeds the `ManageApiKeys` permission.",
         "operationId": "ListWebhookDeliveries",
         "parameters": [
           {
@@ -12698,7 +12698,7 @@
           "Reviews"
         ],
         "summary": "List reviews",
-        "description": "Reviews of a moderator's pattern: open by default, or closed, or all. Detection opens a review when one moderator keeps acting on one person across instances where nobody else has, or does far more in a day than the rest of the team. Every review carries the numbers it was opened on and the fact ids behind them. It is a question for a person, never a finding: closing one records who answered and what they said, and is itself a fact.\n\nNeeds the `ReviewTickets` permission.",
+        "description": "Reviews of a moderator's pattern: open by default, or closed, or all. Detection opens a review when one moderator keeps acting on one person across instances where nobody else has, or does far more in a day than the rest of the team. Every review carries the numbers it was opened on and the fact ids behind them. It is a question for a person, never a finding: closing one records who answered and what they said, and is itself a fact. Returns at most 500 reviews: the oldest open ones, or the most recently closed.\n\nNeeds the `ReviewTickets` permission.",
         "operationId": "ListReviews",
         "parameters": [
           {
@@ -14195,7 +14195,7 @@
           "Notes"
         ],
         "summary": "List notes",
-        "description": "One person's notes, newest first. platform is VRChat or Discord and defaults to VRChat. Notes that were taken back are listed too and say so; standing counts only the ones that still stand.\n\nNeeds the `ViewAuditLog` permission.",
+        "description": "One person's notes, newest first. platform is VRChat or Discord and defaults to VRChat. Notes that were taken back are listed too and say so; standing counts only the ones that still stand. Returns at most `limit` notes (default 50, at most 200).\n\nNeeds the `ViewAuditLog` permission.",
         "operationId": "ListNotes",
         "parameters": [
           {
@@ -16425,7 +16425,7 @@
           "Giveaways"
         ],
         "summary": "List giveaways",
-        "description": "Every giveaway, newest first, with its rules, its post and its draws.\n\nNeeds the `ViewGiveaways` permission.",
+        "description": "Giveaways, newest first, with their rules, posts and draws. Returns at most 500.\n\nNeeds the `ViewGiveaways` permission.",
         "operationId": "ListGiveaways",
         "parameters": [
           {
@@ -24132,17 +24132,17 @@
           "id",
           "cursor",
           "type",
-          "typeRaw",
+          "type_raw",
           "label",
           "category",
           "source",
-          "occurredAt",
-          "occurredBefore",
-          "observedAt",
+          "occurred_at",
+          "occurred_before",
+          "observed_at",
           "subject",
           "actor",
-          "worldId",
-          "instanceId",
+          "world_id",
+          "instance_id",
           "data"
         ],
         "type": "object",
@@ -24167,7 +24167,7 @@
           "type": {
             "type": "string"
           },
-          "typeRaw": {
+          "type_raw": {
             "type": [
               "null",
               "string"
@@ -24182,18 +24182,18 @@
           "source": {
             "type": "string"
           },
-          "occurredAt": {
+          "occurred_at": {
             "type": "string",
             "format": "date-time"
           },
-          "occurredBefore": {
+          "occurred_before": {
             "type": [
               "null",
               "string"
             ],
             "format": "date-time"
           },
-          "observedAt": {
+          "observed_at": {
             "type": "string",
             "format": "date-time"
           },
@@ -24210,13 +24210,13 @@
               }
             ]
           },
-          "worldId": {
+          "world_id": {
             "type": [
               "null",
               "string"
             ]
           },
-          "instanceId": {
+          "instance_id": {
             "type": [
               "null",
               "string"
@@ -38285,42 +38285,52 @@
     },
     {
       "name": "AutoMod settings",
+      "description": "The AutoMod switch, its term lists and AI topics, and the test samples for each rule.",
       "x-displayName": "AutoMod settings"
     },
     {
       "name": "Credits",
+      "description": "The people who built, sponsor and were early to use Modbot.",
       "x-displayName": "Credits"
     },
     {
       "name": "Giveaways",
+      "description": "Giveaways run through the Discord server: their rules, entries and draws.",
       "x-displayName": "Giveaways"
     },
     {
       "name": "Group page",
+      "description": "The VRChat group's own page: its profile, posts, roles, invites and gallery.",
       "x-displayName": "Group page"
     },
     {
       "name": "Logs",
+      "description": "Modbot's own log lines, and the settings for keeping them.",
       "x-displayName": "Logs"
     },
     {
       "name": "Notes",
+      "description": "Notes moderators write about a person.",
       "x-displayName": "Notes"
     },
     {
       "name": "Notifications",
+      "description": "This account's notifications, and where each kind is sent.",
       "x-displayName": "Notifications"
     },
     {
       "name": "Now",
+      "description": "What happened since this account last looked at the Now page.",
       "x-displayName": "Now"
     },
     {
       "name": "Requests",
+      "description": "Requests to join the group, and approving or rejecting them.",
       "x-displayName": "Requests"
     },
     {
       "name": "Search",
+      "description": "Search for people and worlds by name or id.",
       "x-displayName": "Search"
     }
   ]
