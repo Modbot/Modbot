@@ -499,7 +499,7 @@ public sealed class MeCommand
         {
             await PostStaffLineAsync(review, who, username, gateway, ct).ConfigureAwait(false);
         }
-        catch (Exception e)
+        catch (Exception e) when (e is not OperationCanceledException)
         {
             _log.Warning(e, "Could not tell the alerts channel about a request to delete data");
         }
@@ -507,7 +507,6 @@ public sealed class MeCommand
 
     private async Task PostStaffLineAsync(Review review, string who, string? username, IDiscordGateway gateway, CancellationToken ct)
     {
-
         var channel = await _db.AlertSettings.AsNoTracking()
             .Where(a => a.Id == 1)
             .Select(a => a.DiscordChannelId)

@@ -99,6 +99,8 @@ instance warnings, with the place they happened.
   (up to 1,000 characters) or, for a picture, its address and a label, and where it was. The AI call
   log keeps the whole prompt and answer (each up to 20,000 characters) for a call that produced a flag, and for a call a person
   started by hand.
+- How many times you were kicked, banned, removed from the group or had a join request turned away,
+  the dates, and the last moderator who did it.
 
 **Discord, if the group connected a Discord server**
 
