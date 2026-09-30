@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20260930083818_RememberTheKeyAWebhookWasMadeWith")]
+    [Migration("20260930085241_RememberTheKeyAWebhookWasMadeWith")]
     partial class RememberTheKeyAWebhookWasMadeWith
     {
         /// <inheritdoc />
@@ -6009,6 +6009,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("group_instances_polled_at");
 
+                    b.Property<DateTimeOffset?>("InstanceEndEntriesStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("instance_end_entries_started_at");
+
                     b.Property<int>("LogRetentionDays")
                         .HasColumnType("integer")
                         .HasColumnName("log_retention_days");
@@ -6347,6 +6351,10 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("closed_by");
+
+                    b.Property<DateTimeOffset?>("EndRecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_recorded_at");
 
                     b.Property<string>("GroupAccessType")
                         .HasMaxLength(32)
