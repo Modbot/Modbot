@@ -138,6 +138,18 @@ public sealed class SettingsChange
             ct);
     }
 
+    /// <summary>
+    /// Writes the entry unless nobody is signed in. For the setup wizard's steps, which the
+    /// settings screens also save through: before the first account exists there is nobody to
+    /// name and nothing to audit yet, and from then on every save has a person behind it.
+    /// </summary>
+    public Task RecordAfterSetupAsync(HttpContext http, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+
+        return Actor.Of(http) is null ? Task.CompletedTask : RecordAsync(http, ct);
+    }
+
     private static JsonNode? Node<T>(T value) => JsonSerializer.SerializeToNode(value);
 
     private static JsonArray ArrayOf<T>(IEnumerable<T> values)

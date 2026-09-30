@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 
 namespace Modbot.Api.Features.Onboarding.SelectGroup;
@@ -19,10 +20,12 @@ public sealed record SelectGroupResponse(string GroupId, string Name);
 public static class SelectGroupHandler
 {
     public static async Task<IResult> HandleAsync(
+        HttpContext http,
         SelectGroupRequest request,
         ModbotContext db,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(db);
 
@@ -31,12 +34,23 @@ public static class SelectGroupHandler
 
         var settings = await db.GetSettingsAsync(ct);
 
-        settings.ManagedGroupId = request.GroupId.Trim();
-        settings.ManagedGroupName = string.IsNullOrWhiteSpace(request.Name)
-            ? settings.ManagedGroupId
-            : request.Name.Trim();
+        var groupId = request.GroupId.Trim();
+        var groupName = string.IsNullOrWhiteSpace(request.Name) ? groupId : request.Name.Trim();
+
+        // Pointing a running deployment at a different group changes what every sync reads, so a
+        // change is recorded like any settings save.
+        var change = new SettingsChange("managedGroup")
+            .Field("groupId", settings.ManagedGroupId, groupId)
+            .Field("groupName", settings.ManagedGroupName, groupName);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        settings.ManagedGroupId = groupId;
+        settings.ManagedGroupName = groupName;
 
         await db.SaveChangesAsync(ct);
+        await change.RecordAfterSetupAsync(http, ct);
+        await transaction.CommitAsync(ct);
 
         return Results.Ok(new SelectGroupResponse(settings.ManagedGroupId, settings.ManagedGroupName!));
     }

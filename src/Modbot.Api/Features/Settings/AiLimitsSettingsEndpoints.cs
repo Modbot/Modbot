@@ -305,7 +305,7 @@ public static class AiLimitsSettingsEndpoints
                     await transaction.CommitAsync(ct);
                 }
 
-                await tokenLimits.ChangeToMoneyAsync(ct);
+                await ChangeTokenLimitsAsync(http, db, tokenLimits, ct);
 
                 return Results.Ok(await ViewAsync(db, report, ct));
             })
@@ -318,6 +318,7 @@ public static class AiLimitsSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         group.MapPost("/prices/fetch", async (
+                HttpContext http,
                 [FromServices] ModbotContext db,
                 [FromServices] AiSpendReport report,
                 [FromServices] OpenRouterPrices openRouter,
@@ -328,7 +329,7 @@ public static class AiLimitsSettingsEndpoints
                 if (result.Error is not null)
                     return Results.Json(new { error = result.Error }, statusCode: StatusCodes.Status502BadGateway);
 
-                await tokenLimits.ChangeToMoneyAsync(ct);
+                await ChangeTokenLimitsAsync(http, db, tokenLimits, ct);
 
                 return Results.Ok(await ViewAsync(db, report, ct));
             })
@@ -343,6 +344,29 @@ public static class AiLimitsSettingsEndpoints
             .RequiresFlag(ModbotPermissions.ManageSettings);
 
         return app;
+    }
+
+    /// <summary>
+    /// Turns the token limits that now have a price into money limits, and records each one. A
+    /// price entered or fetched by a person is what changes their limits, so it is theirs to answer for.
+    /// </summary>
+    private static async Task ChangeTokenLimitsAsync(
+        HttpContext http, ModbotContext db, AiTokenLimits tokenLimits, CancellationToken ct)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var changed = await tokenLimits.ChangeToMoneyAsync(ct);
+
+        await new SettingsChange("aiLimits")
+            .Items<string>(
+                "tokenLimitsChangedToMoney",
+                [],
+                [.. changed.Select(c =>
+                    $"{AiFeatures.LabelOf(c.Feature)}: {c.Tokens.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} tokens a month "
+                    + $"is now {Amount(c.PerMonth)} a month at the price of {c.Model}")])
+            .RecordAsync(http, ct);
+
+        await transaction.CommitAsync(ct);
     }
 
     /// <summary>One limit in the words the audit log shows: "Everyone: 5 a day, 50 a month".</summary>

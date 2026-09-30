@@ -248,14 +248,15 @@ public sealed class EvidenceSettingsService
             .Field("directory", before.Root, after.Root)
             .Field("bucket", before.Bucket, after.Bucket)
             .Field("endpoint", before.Endpoint, after.Endpoint)
-            .Field("accessKeyId", before.AccessKeyId, after.AccessKeyId)
+            // An access key id is half of a credential, so it is treated like the secret beside it.
+            .Secret("accessKeyId", !string.Equals(before.AccessKeyId, after.AccessKeyId, StringComparison.Ordinal))
             .Secret("secretAccessKey", secretTyped)
             .Field("region", before.Region, after.Region)
             .Field("prefix", before.Prefix, after.Prefix)
             .Field("usePathStyle", before.UsePathStyle, after.UsePathStyle)
             .Field("diskWarningAcknowledged", before.DiskAcknowledged, after.DiskAcknowledged);
 
-    /// <summary>Saves the caps and the delivery toggle. No round trip: no store is repointed.</summary>
+    /// <summary>Saves the per-file, per-report and per-deployment caps. No round trip: no store is repointed.</summary>
     public async Task<(EvidenceLimitsView? Saved, string? Error)> SaveLimitsAsync(
         EvidenceLimitsRequest request,
         Func<SettingsChange, CancellationToken, Task>? recordAsync = null,

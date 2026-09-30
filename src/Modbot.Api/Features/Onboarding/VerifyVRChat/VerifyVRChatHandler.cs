@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
@@ -29,6 +30,7 @@ namespace Modbot.Api.Features.Onboarding.VerifyVRChat;
 public static class VerifyVRChatHandler
 {
     public static async Task<IResult> HandleAsync(
+        HttpContext http,
         VerifyVRChatRequest request,
         ModbotContext db,
         ISecretProtector protector,
@@ -37,6 +39,7 @@ public static class VerifyVRChatHandler
         IMonotonicClock elapsed,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(protector);
@@ -61,13 +64,24 @@ public static class VerifyVRChatHandler
             ? null
             : request.TotpSecret.Replace(" ", string.Empty, StringComparison.Ordinal).Trim();
 
-        var unchanged =
-            string.Equals(settings.VRChatUsername, username, StringComparison.Ordinal)
-            && string.Equals(protector.Unprotect(settings.VRChatPasswordEncrypted), request.Password, StringComparison.Ordinal)
-            && string.Equals(protector.Unprotect(settings.VRChatTotpSecretEncrypted), totpSecret, StringComparison.Ordinal);
+        var usernameSame = string.Equals(settings.VRChatUsername, username, StringComparison.Ordinal);
+        var passwordSame = string.Equals(protector.Unprotect(settings.VRChatPasswordEncrypted), request.Password, StringComparison.Ordinal);
+        var totpSame = string.Equals(protector.Unprotect(settings.VRChatTotpSecretEncrypted), totpSecret, StringComparison.Ordinal);
+        var unchanged = usernameSame && passwordSame && totpSame;
 
         if (!unchanged)
         {
+            // The account Modbot signs in as is the most consequential setting there is, so the
+            // entry names the username and says only that the password and the authenticator
+            // secret changed. The session that goes with the old account is dropped, and says so.
+            var change = new SettingsChange("vrchatAccount")
+                .Field("username", settings.VRChatUsername, username)
+                .Secret("password", !passwordSame)
+                .Secret("authenticatorSecret", !totpSame)
+                .Field("session", settings.VRChatAuthCookieEncrypted is null ? "signed out" : "signed in", "signed out");
+
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
             settings.VRChatUsername = username;
             settings.VRChatPasswordEncrypted = protector.Protect(request.Password);
             settings.VRChatTotpSecretEncrypted = totpSecret is null ? null : protector.Protect(totpSecret);
@@ -82,6 +96,8 @@ public static class VerifyVRChatHandler
             settings.VRChatVerifiedAt = null;
 
             await db.SaveChangesAsync(ct);
+            await change.RecordAfterSetupAsync(http, ct);
+            await transaction.CommitAsync(ct);
         }
 
         // Re-entering the same credentials changes nothing, so the session they made is kept and

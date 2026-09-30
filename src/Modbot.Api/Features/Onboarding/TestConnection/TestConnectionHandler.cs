@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Security;
 using Modbot.Core.Time;
@@ -27,6 +28,7 @@ namespace Modbot.Api.Features.Onboarding.TestConnection;
 public static class TestConnectionHandler
 {
     public static async Task<IResult> HandleAsync(
+        HttpContext http,
         TestConnectionRequest? request,
         ModbotContext db,
         ISecretProtector protector,
@@ -35,6 +37,7 @@ public static class TestConnectionHandler
         IMonotonicClock elapsed,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(protector);
         ArgumentNullException.ThrowIfNull(gate);
@@ -45,6 +48,10 @@ public static class TestConnectionHandler
 
         if (request is not null && request.UseProxy is { } useProxy)
         {
+            var proxyBefore = settings.ProxyUrl;
+            var usernameBefore = settings.ProxyUsername;
+            var passwordBefore = settings.ProxyPasswordEncrypted;
+
             if (useProxy)
             {
                 if (string.IsNullOrWhiteSpace(request.ProxyUrl))
@@ -81,7 +88,19 @@ public static class TestConnectionHandler
                 settings.ProxyPasswordEncrypted = null;
             }
 
+            // Saved here as well as on Settings → Server, so it is recorded like any settings save.
+            // A login typed into the address is a secret too: it is left out of the address the
+            // entry shows and only counts as the address having changed.
+            var change = new SettingsChange("proxy")
+                .Field("address", WithoutLogin(proxyBefore), WithoutLogin(settings.ProxyUrl))
+                .Secret("addressLogin", !string.Equals(LoginOf(proxyBefore), LoginOf(settings.ProxyUrl), StringComparison.Ordinal))
+                .Field("username", usernameBefore, settings.ProxyUsername)
+                .Secret("password", !string.Equals(passwordBefore, settings.ProxyPasswordEncrypted, StringComparison.Ordinal));
+
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
             await db.SaveChangesAsync(ct);
+            await change.RecordAfterSetupAsync(http, ct);
+            await transaction.CommitAsync(ct);
         }
 
         // The stored session is kept. The gate rebuilds its client from the settings just saved,
@@ -109,4 +128,12 @@ public static class TestConnectionHandler
         // place until it passes (spec 7.1.1).
         return Results.Ok(diagnosis);
     }
+
+    private static string? WithoutLogin(string? url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            ? new UriBuilder(uri) { UserName = string.Empty, Password = string.Empty }.Uri.ToString()
+            : url;
+
+    private static string? LoginOf(string? url)
+        => Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.UserInfo.Length > 0 ? uri.UserInfo : null;
 }

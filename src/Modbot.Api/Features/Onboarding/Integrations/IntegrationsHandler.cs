@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Modbot.Api.Features.Settings;
 using Modbot.Core.Data;
 using Modbot.Core.Security;
 
@@ -72,15 +73,18 @@ public sealed record IntegrationsResponse(bool DiscordConfigured, bool SmtpConfi
 public static class IntegrationsHandler
 {
     public static async Task<IResult> HandleAsync(
+        HttpContext http,
         IntegrationsRequest? request,
         ModbotContext db,
         ISecretProtector protector,
         CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(protector);
 
         var settings = await db.GetSettingsAsync(ct);
+        var before = Snapshot.Of(settings);
 
         if (request?.Discord is { } discord)
         {
@@ -172,11 +176,67 @@ public static class IntegrationsHandler
             settings.PublicAddress = address;
         }
 
+        // The settings screens save through this step once setup is done, so it is recorded like
+        // any other settings save: the bot token and the SMTP password say only that they changed.
+        var change = Changes(before, settings);
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.SaveChangesAsync(ct);
+        await change.RecordAfterSetupAsync(http, ct);
+        await transaction.CommitAsync(ct);
 
         return Results.Ok(new IntegrationsResponse(
             settings.DiscordBotTokenEncrypted is not null,
             settings.SmtpHost is { Length: > 0 },
             settings.PublicAddress));
+    }
+
+    /// <summary>What this step can change, for telling afterwards what it did.</summary>
+    private readonly record struct Snapshot(
+        string? BotToken,
+        string? GuildId,
+        string? InstanceChannelId,
+        string? InstanceMessage,
+        bool InstanceShowNames,
+        string? SmtpHost,
+        int? SmtpPort,
+        string? SmtpUsername,
+        string? SmtpPassword,
+        string? SmtpFromAddress,
+        bool SmtpUseTls,
+        string? PublicAddress)
+    {
+        public static Snapshot Of(Core.Data.Entities.Settings s) => new(
+            s.DiscordBotTokenEncrypted,
+            s.DiscordGuildId,
+            s.DiscordInstanceChannelId,
+            s.DiscordInstanceMessage,
+            s.DiscordInstanceShowNames,
+            s.SmtpHost,
+            s.SmtpPort,
+            s.SmtpUsername,
+            s.SmtpPasswordEncrypted,
+            s.SmtpFromAddress,
+            s.SmtpUseTls,
+            s.PublicAddress);
+    }
+
+    private static SettingsChange Changes(Snapshot was, Core.Data.Entities.Settings now)
+    {
+        var after = Snapshot.Of(now);
+
+        return new SettingsChange("integrations")
+            .Secret("discordBotToken", !string.Equals(was.BotToken, after.BotToken, StringComparison.Ordinal))
+            .Field("discordGuildId", was.GuildId, after.GuildId)
+            .Field("instanceChannelId", was.InstanceChannelId, after.InstanceChannelId)
+            .Field("instanceMessage", was.InstanceMessage, after.InstanceMessage)
+            .Field("instanceShowNames", was.InstanceShowNames, after.InstanceShowNames)
+            .Field("smtpHost", was.SmtpHost, after.SmtpHost)
+            .Field("smtpPort", was.SmtpPort, after.SmtpPort)
+            .Field("smtpUsername", was.SmtpUsername, after.SmtpUsername)
+            .Secret("smtpPassword", !string.Equals(was.SmtpPassword, after.SmtpPassword, StringComparison.Ordinal))
+            .Field("smtpFromAddress", was.SmtpFromAddress, after.SmtpFromAddress)
+            .Field("smtpUseTls", was.SmtpUseTls, after.SmtpUseTls)
+            .Field("publicAddress", was.PublicAddress, after.PublicAddress);
     }
 }

@@ -50,11 +50,22 @@ public class EveryModbotFactHasAWriterTests
         Path.Combine("Modbot.Core", "Discord", "DiscordEventTypes.cs"),
         Path.Combine("Modbot.Api", "Features", "Audit", "FactSubjects.cs"),
         Path.Combine("Modbot.Api", "Features", "Audit", "AuditVisibility.cs"),
+        Path.Combine("Modbot.Analytics", "Facts", "LinkedActions.cs"),
     ];
 
     /// <summary>A line that reads or compares a type is not a line that writes one.</summary>
-    private static readonly Regex NotAWrite = new(
+    private static readonly Regex Compares = new(
         @"==|!=|\bcase\b|\.Contains\(|\bis\s+FactType|\bnot\s+FactType",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>A type that is a whole line by itself: an element of a list, or the first argument of a call.</summary>
+    private static readonly Regex OnItsOwn = new(
+        @"^\s*(?:Core\.Data\.Entities\.)?FactType\.\w+,?\s*$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    /// <summary>A line that is one entry of a table: a pair (<c>new(A, B)</c>) or a key (<c>[FactType.X] =</c>).</summary>
+    private static readonly Regex AnEntry = new(
+        @"^\s*(?:new\s*\(\s*FactType\.|\[\s*FactType\.)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     [Fact]
@@ -94,10 +105,26 @@ public class EveryModbotFactHasAWriterTests
     {
         var src = Path.Combine(FindRepoRoot(), "src");
 
-        var lines = Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
+        var files = Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
             .Where(path => !IsBuildOutput(path) && !IsDemo(path, src) && !IsNotAWriter(path, src))
-            .SelectMany(File.ReadLines)
-            .Where(line => !NotAWrite.IsMatch(line))
+            .ToList();
+
+        // A type is being written when it stands where a fact's type goes -- Type = FactType.X,
+        // an argument, a switch arm, either side of a condition -- and not when it is only listed:
+        // a line that is nothing but the type counts only as the first argument of a call (the line
+        // before opens it), so an element of a list or an array does not; nor does an entry of a
+        // table, or a comparison.
+        var lines = files
+            .SelectMany(path =>
+            {
+                var all = File.ReadAllLines(path);
+
+                return all
+                    .Select((line, index) => (line, previous: index == 0 ? string.Empty : all[index - 1].TrimEnd()))
+                    .Where(x => !Compares.IsMatch(x.line) && !AnEntry.IsMatch(x.line))
+                    .Where(x => !OnItsOwn.IsMatch(x.line) || x.previous.EndsWith('('))
+                    .Select(x => x.line);
+            })
             .ToList();
 
         var names = typeof(FactType)
