@@ -85,7 +85,7 @@ public sealed class AlertPoster
         {
             if (now - alert.At > GiveUpAfter)
             {
-                alert.DiscordError = "Not posted within six hours.";
+                alert.DiscordError = $"Not posted within {TimeWords.Length(GiveUpAfter)}.";
                 continue;
             }
 

@@ -166,6 +166,6 @@ public class AlertPosterTests
         await RunAsync(services, gateway);
 
         Assert.Empty(gateway.Posts);
-        Assert.Equal("Not posted within six hours.", (await ReadAsync(services, id)).DiscordError);
+        Assert.Equal("Not posted within 6h.", (await ReadAsync(services, id)).DiscordError);
     }
 }

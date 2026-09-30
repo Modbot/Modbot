@@ -83,7 +83,7 @@ public sealed class InsightPoster
         {
             if (now - insight.CreatedAt > GiveUpAfter)
             {
-                insight.DiscordError = "Not posted within a day.";
+                insight.DiscordError = $"Not posted within {TimeWords.Length(GiveUpAfter)}.";
                 continue;
             }
 

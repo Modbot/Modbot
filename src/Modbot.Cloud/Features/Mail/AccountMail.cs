@@ -20,7 +20,7 @@ public static class AccountMail
 
             {Link(publicAddress, "/verify", token)}
 
-            The link works for 24 hours. If you did not ask for an account, ignore this message.
+            The link works for 24h. If you did not ask for an account, ignore this message.
             """);
     }
 
@@ -51,7 +51,7 @@ public static class AccountMail
 
             {Link(publicAddress, "/verify-email-change", token)}
 
-            The link works for 24 hours. Until you use it, the account keeps its old address.
+            The link works for 24h. Until you use it, the account keeps its old address.
             """);
     }
 

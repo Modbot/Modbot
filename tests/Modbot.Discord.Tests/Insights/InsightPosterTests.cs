@@ -133,6 +133,6 @@ public class InsightPosterTests
         await RunAsync(services, gateway);
 
         Assert.Empty(gateway.Posts);
-        Assert.Equal("Not posted within a day.", (await ReadAsync(services, id)).DiscordError);
+        Assert.Equal("Not posted within 1d.", (await ReadAsync(services, id)).DiscordError);
     }
 }

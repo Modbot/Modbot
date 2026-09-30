@@ -189,7 +189,7 @@ export function ServerActivity({ data }: { data: ServerAnalytics }) {
       </PanelGrid>
 
       <PanelGrid className="lg:grid-cols-2">
-        <Panel title="Minutes in voice per day">
+        <Panel title="Time in voice per day">
           <DailyBars
             from={data.from}
             to={data.to}
