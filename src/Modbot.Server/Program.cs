@@ -433,6 +433,10 @@ try
     // those now raise notifications rather than sending their own email.
     builder.Services.AddNotifications();
 
+    // Closes watches whose end day has passed and reminds whoever set a follow-up when its day
+    // comes. One small query a minute when there is nothing to do.
+    builder.Services.AddWatchReminders();
+
     // Says when Modbot stops working: VRChat unreachable, the Discord bot down, sync
     // stopped, storage past a line, a spending limit reached, email stuck, logs not reaching Cloud.
     // Everything is off until somebody turns it on and chooses who is told.

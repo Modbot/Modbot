@@ -212,6 +212,9 @@ public static class FactLabels
         [FactType.UserPurged] = "User data purged",
         [FactType.NoteAdded] = "Note added",
         [FactType.NoteTakenBack] = "Note taken back",
+        [FactType.WatchStarted] = "Watch started",
+        [FactType.WatchEnded] = "Watch stopped",
+        [FactType.WatchFollowedUp] = "Followed up",
         [FactType.ImportDone] = "Import finished",
         [FactType.Unrecognised] = "Event Modbot has no name for yet",
 

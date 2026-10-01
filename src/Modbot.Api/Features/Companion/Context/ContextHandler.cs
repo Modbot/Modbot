@@ -124,7 +124,7 @@ public static class ContextHandler
         var members = await MembersAndStaff.ReadAsync(database, subjects, ct);
         var ranks = await TrustRanksAsync(database, subjects, ct);
         var eighteenPlus = await EighteenPlusAsync(database, subjects, ct);
-        var flagged = await FlagRules.ReadAsync(database, subjects, ranks, ct);
+        var flagged = await FlagRules.ReadAsync(database, subjects, ranks, clock.UtcNow, ct);
 
         var roster = people.Here
             .Select(person => Describe(
@@ -145,6 +145,7 @@ public static class ContextHandler
         HttpContext context,
         DeviceAuthenticator authenticator,
         ModbotContext database,
+        IModbotClock clock,
         CancellationToken ct)
     {
         if (!CompanionApiVersion.IsSupported(apiVersion))
@@ -176,7 +177,7 @@ public static class ContextHandler
         // Read even with no facts on record: a Nuisance rank or a flag on a linked Discord account
         // still makes somebody Flagged.
         var match = (await FlagRules.ReadAsync(
-                database, [subjectId], new Dictionary<string, TrustRank?> { [subjectId] = trustRank }, ct))
+                database, [subjectId], new Dictionary<string, TrustRank?> { [subjectId] = trustRank }, clock.UtcNow, ct))
             .GetValueOrDefault(subjectId) ?? FlagMatch.None;
 
         // Asked the way the roster asks, so the card and the row it opened from never disagree.

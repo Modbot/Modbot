@@ -306,6 +306,12 @@ public static class AuditVisibility
         // operator's business, like a settings change (import design §3.3).
         [FactType.NoteAdded] = AuditCategory.Moderation,
         [FactType.NoteTakenBack] = AuditCategory.Moderation,
+
+        // A watch is a moderator's deliberate word about a person, like a note, and its history
+        // belongs with the rest of theirs (watching a person design §3).
+        [FactType.WatchStarted] = AuditCategory.Moderation,
+        [FactType.WatchEnded] = AuditCategory.Moderation,
+        [FactType.WatchFollowedUp] = AuditCategory.Moderation,
         [FactType.ImportDone] = AuditCategory.Operational,
 
         // Giveaways: a Modbot feature Modbot runs itself, gated by its own ViewGiveaways and

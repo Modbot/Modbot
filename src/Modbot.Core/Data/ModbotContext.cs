@@ -109,6 +109,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Per-person action counts (spec 5.8.4). Derived from <see cref="Events"/>; a cache.</summary>
     public DbSet<RepeatOffender> RepeatOffenders => Set<RepeatOffender>();
 
+    /// <summary>People a moderator asked to keep an eye on (watching a person design).</summary>
+    public DbSet<PersonWatch> PersonWatches => Set<PersonWatch>();
+
     /// <summary>Moderator patterns opened for a human look (spec 5.8.5).</summary>
     public DbSet<Review> Reviews => Set<Review>();
 
@@ -2406,6 +2409,31 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedNever();
+        });
+
+        builder.Entity<PersonWatch>(entity =>
+        {
+            entity.ToTable("person_watch");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+
+            entity.Property(e => e.SubjectId).HasColumnType("text");
+            entity.Property(e => e.Reason).HasMaxLength(PersonWatch.MaxReasonLength);
+            entity.Property(e => e.SetByUsername).HasMaxLength(64);
+            entity.Property(e => e.EndedByUsername).HasMaxLength(64);
+
+            // One standing watch per account, and "which of these people are watched?" -- asked on
+            // every roster read and every page of the live stream, like the AutoMod flag index.
+            entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId })
+                .HasDatabaseName("ux_person_watch_standing")
+                .HasFilter("ended_at IS NULL")
+                .IsUnique();
+
+            // A person's past watches, newest first, for their popup.
+            entity.HasIndex(e => new { e.SubjectPlatform, e.SubjectId, e.SetAt })
+                .HasDatabaseName("ix_person_watch_person")
+                .IsDescending(false, false, true);
         });
 
         builder.Entity<LogEntry>(entity =>

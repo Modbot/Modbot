@@ -4332,7 +4332,7 @@
           "Settings"
         ],
         "summary": "Update flag rules",
-        "description": "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. With `everyAutoModRule` false, only the flags of the rules in `autoModRules` count.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. `liftedBansForDays` is 1 to 3650, or null for a lifted ban to count always. With `everyAutoModRule` false, only the flags of the rules in `autoModRules` count. A watch on a person always counts and has no setting here.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "SetFlagRules",
         "requestBody": {
           "content": {
@@ -14858,6 +14858,341 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/watches": {
+      "get": {
+        "tags": [
+          "Watches"
+        ],
+        "summary": "List watched people",
+        "description": "Every watch that stands, the soonest follow-up first, then the newest. With `due=true`, only those whose follow-up day has come. At most 500.\n\nNeeds the `ViewAuditLog` permission.",
+        "operationId": "ListWatches",
+        "parameters": [
+          {
+            "name": "due",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchList"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Watches"
+        ],
+        "summary": "Watch a person",
+        "description": "Starts watching one account. A watched person is Flagged wherever Flagged is shown, and their arrival in one of the group's instances raises a notification. The reason is required, at most 200 characters. `endsAt` stops it on its own; `followUpAt` raises a reminder to whoever set it and lists it on Now. One watch per account at a time. Nothing is changed on VRChat or Discord.\n\nNeeds the `WriteNotes` permission.",
+        "operationId": "StartWatch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartWatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/watches/person": {
+      "get": {
+        "tags": [
+          "Watches"
+        ],
+        "summary": "List a person's watches",
+        "description": "The watches on a person's VRChat account, Discord account, or both: the one that stands first, then the ones that ended, newest first. At most 20.\n\nNeeds the `ViewAuditLog` permission.",
+        "operationId": "ListPersonWatches",
+        "parameters": [
+          {
+            "name": "vrchat",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discord",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonWatchList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/watches/{id}/stop": {
+      "post": {
+        "tags": [
+          "Watches"
+        ],
+        "summary": "Stop watching a person",
+        "description": "Open to whoever started the watch, and to anyone who may write notes. The watch stays in the person's history.",
+        "operationId": "StopWatch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/watches/{id}/followed-up": {
+      "post": {
+        "tags": [
+          "Watches"
+        ],
+        "summary": "Mark a follow-up done",
+        "description": "Clears the watch's follow-up day; the watch itself carries on. Open to whoever started the watch, and to anyone who may write notes.",
+        "operationId": "FollowedUpOnWatch",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -26461,6 +26796,7 @@
       "FlagRulesView": {
         "required": [
           "kicksAndBans",
+          "liftedBansForDays",
           "warns",
           "warnsAtLeast",
           "nuisance",
@@ -26472,6 +26808,15 @@
         "properties": {
           "kicksAndBans": {
             "type": "boolean"
+          },
+          "liftedBansForDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           },
           "warns": {
             "type": "boolean"
@@ -34026,6 +34371,29 @@
           }
         }
       },
+      "PersonWatchList": {
+        "required": [
+          "watches",
+          "canWrite",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "watches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WatchView"
+            }
+          },
+          "canWrite": {
+            "type": "boolean"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "PlaceCounts": {
         "required": [
           "minutesSeen",
@@ -36591,6 +36959,15 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "liftedBansForDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -36793,6 +37170,43 @@
         "properties": {
           "userIdOrUrl": {
             "type": "string"
+          }
+        }
+      },
+      "StartWatchRequest": {
+        "required": [
+          "userId"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "platform": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "endsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "followUpAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -38841,6 +39255,108 @@
           }
         }
       },
+      "WatchList": {
+        "required": [
+          "watches",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "watches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WatchView"
+            }
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WatchView": {
+        "required": [
+          "id",
+          "subjectPlatform",
+          "subjectId",
+          "subjectName",
+          "reason",
+          "setByName",
+          "setAt",
+          "endsAt",
+          "followUpAt",
+          "followUpDue",
+          "standing",
+          "endedAt",
+          "endedByName",
+          "canChange"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subjectPlatform": {
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "subjectName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "setByName": {
+            "type": "string"
+          },
+          "setAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "followUpAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "followUpDue": {
+            "type": "boolean"
+          },
+          "standing": {
+            "type": "boolean"
+          },
+          "endedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "endedByName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "canChange": {
+            "type": "boolean"
+          }
+        }
+      },
       "WebhookDeliveryView": {
         "required": [
           "id",
@@ -39869,6 +40385,10 @@
       "name": "Search",
       "description": "Search for people and worlds by name or id.",
       "x-displayName": "Search"
+    },
+    {
+      "name": "Watches",
+      "x-displayName": "Watches"
     }
   ]
 }

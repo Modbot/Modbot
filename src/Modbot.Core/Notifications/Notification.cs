@@ -40,6 +40,12 @@ public static class NotificationKinds
 
     /// <summary>A group instance dropped off VRChat's list with people still in it (M6 §5).</summary>
     public const string InstanceClosedPopulated = "vrchat.instance.closed-populated";
+
+    /// <summary>A watched person walked into one of the group's instances (watching a person design §4).</summary>
+    public const string WatchedPersonJoined = "modbot.watch.joined";
+
+    /// <summary>The day to check back on a watched person has come (watching a person design §5).</summary>
+    public const string WatchFollowUpDue = "modbot.watch.follow-up-due";
 }
 
 /// <summary>Who a notification is for.</summary>

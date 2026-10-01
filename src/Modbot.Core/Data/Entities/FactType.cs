@@ -817,6 +817,28 @@ public static class FactType
     public const string NoteTakenBack = "modbot.note.take-back";
 
     /// <summary>
+    /// A moderator started watching a person (watching a person design §3). Subject is the
+    /// watched account; the actor is whoever started it. Payload: <c>watchId</c>, <c>reason</c>
+    /// (also as <c>description</c>), and <c>endsAt</c> and <c>followUpAt</c> when they were set.
+    /// </summary>
+    public const string WatchStarted = "modbot.watch.add";
+
+    /// <summary>
+    /// A watch ended: somebody stopped it, or the day it was set to end passed. Subject is the
+    /// watched account. The actor is whoever stopped it, and there is none when it ran out on its
+    /// own, which <c>ended</c> = <c>"expired"</c> also says. Payload: <c>watchId</c> and the
+    /// watch's <c>reason</c> again, so one entry still answers what the watch was for.
+    /// </summary>
+    public const string WatchEnded = "modbot.watch.end";
+
+    /// <summary>
+    /// Somebody followed up on a watched person whose check-back day had come, which clears it.
+    /// Subject is the watched account; the actor is whoever did. Payload: <c>watchId</c>,
+    /// <c>reason</c>, and <c>followUpAt</c>, the day that was due.
+    /// </summary>
+    public const string WatchFollowedUp = "modbot.watch.followed-up";
+
+    /// <summary>
     /// An import of old data finished (import design §4.4). Subject is the import id; the actor
     /// is the account that uploaded the file. Payload: the source label, the file name, the
     /// status and the four counts. One per import, never one per record.

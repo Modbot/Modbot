@@ -196,6 +196,17 @@ public sealed class UserPurger : IUserPurger
                 new NpgsqlParameter("platform", (short)platform),
                 new NpgsqlParameter("subject", subjectId));
 
+            // A watch is a moderator's words about the person, the same as a note, and a note is
+            // erased with the facts it is. The watch's own facts went with the rest above.
+            await ExecuteAsync(
+                """
+                DELETE FROM person_watch
+                WHERE subject_platform = @platform AND subject_id = @subject
+                """,
+                ct,
+                new NpgsqlParameter("platform", (short)platform),
+                new NpgsqlParameter("subject", subjectId));
+
             var dailyTotalsDeleted = await ExecuteAsync(
                 """
                 DELETE FROM modbot_daily_total

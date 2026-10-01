@@ -74,7 +74,7 @@ public sealed class LiveReader
         for (var pages = 0; pages < maxPages; pages++)
         {
             var page = await _feed.ReadAsync(cursor, pageSize, now, ct);
-            var built = await BuildAsync(page.Facts, scope, ct);
+            var built = await BuildAsync(page.Facts, scope, now, ct);
 
             foreach (var fact in page.Facts)
             {
@@ -108,6 +108,7 @@ public sealed class LiveReader
     private async Task<Dictionary<long, LiveEvent>> BuildAsync(
         IReadOnlyList<ModbotEvent> facts,
         LiveScope scope,
+        DateTimeOffset now,
         CancellationToken ct)
     {
         var result = new Dictionary<long, LiveEvent>();
@@ -140,7 +141,7 @@ public sealed class LiveReader
             ? new Dictionary<string, bool>(StringComparer.Ordinal)
             : await ContextHandler.EighteenPlusAsync(_db, people, ct);
 
-        var flaggedPeople = await FlagRules.ReadAsync(_db, people, ranks, ct);
+        var flaggedPeople = await FlagRules.ReadAsync(_db, people, ranks, now, ct);
 
         var payloads = live.ToDictionary(x => x.Fact.Id, x => AuditJson.Parse(x.Fact.Data));
 

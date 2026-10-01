@@ -2,13 +2,16 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Features.Companion.Alerts;
 using Modbot.Api.Features.Companion.Context;
 using Modbot.Api.Features.Companion.Devices;
+using Modbot.Api.Features.Watches;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
+using Modbot.Core.Notifications;
 using Modbot.Core.Time;
 
 namespace Modbot.Api.Features.Companion.Events;
@@ -148,7 +151,16 @@ public static class EventsHandler
         var results = await facts.WriteManyAsync(candidates, ct);
 
         await RaiseAlertsAsync(
-            events, results, candidates, authentication.Device!.Id, devices, alerts, database, clock, ct);
+            events,
+            results,
+            candidates,
+            authentication.Device!.Id,
+            devices,
+            alerts,
+            context.RequestServices.GetService<INotifier>(),
+            database,
+            clock,
+            ct);
 
         return Results.Ok(new EventBatchResponse(
             results.Count(r => !r.WasDeduplicated),
@@ -173,6 +185,10 @@ public static class EventsHandler
     /// which instance a colleague is in or who just walked into it.</para>
     /// <para>A failure here is swallowed: an alert is a convenience on top of ingest, and losing
     /// one must never cost a fact that cannot be filled in later.</para>
+    /// <para><strong>A watched person is told about twice over.</strong> The card above, to the
+    /// moderators standing there, and a notification to the team through the one pipeline
+    /// (watching a person design §4), because the moderator who asked to be told may not be in
+    /// VRChat at all.</para>
     /// </remarks>
     private static async Task RaiseAlertsAsync(
         IReadOnlyList<CompanionEventDto> submitted,
@@ -181,6 +197,7 @@ public static class EventsHandler
         Guid reportingDeviceId,
         ICompanionDeviceStore devices,
         AlertHub alerts,
+        INotifier? notifier,
         ModbotContext database,
         IModbotClock clock,
         CancellationToken ct)
@@ -194,10 +211,28 @@ public static class EventsHandler
 
         var people = arrivals.Select(a => a.SubjectId).Distinct(StringComparer.Ordinal).ToList();
         var ranks = await ContextHandler.TrustRanksAsync(database, people, ct);
-        var flagged = await FlagRules.ReadAsync(database, people, ranks, ct);
+        var flagged = await FlagRules.ReadAsync(database, people, ranks, clock.UtcNow, ct);
 
         if (!flagged.Values.Any(m => m.IsFlagged))
             return;
+
+        if (notifier is not null)
+        {
+            var names = people.ToDictionary(
+                p => p,
+                p => submitted.FirstOrDefault(e => e.SubjectId == p)?.Data?.GetValueOrDefault("displayName"),
+                StringComparer.Ordinal);
+
+            try
+            {
+                await WatchAlerts.RaiseAsync(notifier, database, arrivals, flagged, names, ct);
+            }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // The facts are written and the headset card still goes out below.
+                Serilog.Log.Warning(e, "Could not raise the notification for a watched person's arrival");
+            }
+        }
 
         var paired = await devices.ListDevicesAsync(ct);
         var recipients = paired.Where(d => !d.IsRevoked).Select(d => d.Id).ToList();

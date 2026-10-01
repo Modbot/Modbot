@@ -146,6 +146,20 @@ public static class ApiSurface
             sp.GetService<Modbot.VRChat.Scheduling.IMonotonicClock>()));
         services.TryAddScoped<WebhookDispatcher>();
 
+        // Watching a person (watching a person design). The fact log resolves optionally, as it
+        // does for notes: a host without one reads watches and refuses to change them. The pass
+        // that closes watches and raises follow-ups is registered by the host, AddWatchReminders.
+        services.TryAddScoped(sp => new Features.Watches.WatchService(
+            sp.GetRequiredService<Core.Data.ModbotContext>(),
+            sp.GetRequiredService<Core.Time.IModbotClock>(),
+            sp.GetService<Modbot.Analytics.Facts.IFactWriter>(),
+            sp.GetService<Modbot.Analytics.Facts.EventPartitionMaintainer>()));
+        services.TryAddScoped(sp => new Features.Watches.WatchPass(
+            sp.GetRequiredService<Core.Data.ModbotContext>(),
+            sp.GetRequiredService<Core.Time.IModbotClock>(),
+            sp.GetRequiredService<Features.Watches.WatchService>(),
+            sp.GetService<Core.Notifications.INotifier>()));
+
         // Signing somebody up for the project's news when they tick the box while making their
         // account (server info and account email design §5). The Cloud client and the Cloud
         // address are the host's registrations: a host that maps the API without them gets the
@@ -209,6 +223,16 @@ public static class ApiSurface
         services.AddScoped<Modbot.Core.Notifications.INotifier, Modbot.Core.Notifications.Notifier>();
         services.AddScoped<Modbot.Core.Notifications.NotificationPass>();
         services.AddHostedService<Modbot.Core.Notifications.NotificationService>();
+        return services;
+    }
+
+    /// <summary>
+    /// Closes watches whose end day has passed and raises follow-up reminders, once a minute
+    /// (watching a person design §5). Registered by the host so a test host drives the pass itself.
+    /// </summary>
+    public static IServiceCollection AddWatchReminders(this IServiceCollection services)
+    {
+        services.AddHostedService<Features.Watches.WatchReminderService>();
         return services;
     }
 
@@ -457,6 +481,11 @@ public static class ApiSurface
         // nothing here reaches VRChat -- so the fact log is the whole feature, and a host without
         // a fact writer reads notes and refuses to write one.
         Features.Notes.NoteEndpoints.MapNotes(app);
+
+        // Watching a person: a moderator's "keep an eye on them", which flags them and tells the
+        // team when they arrive (watching a person design). Nothing here reaches VRChat either.
+        Features.Watches.WatchEndpoints.MapWatches(app);
+
         // The people waiting to be let into the group, read from VRChat when a moderator opens
         // the screen, and the two answers to one of them (join requests design). The gate and the
         // fact log resolve optionally here for the same reason they do above.

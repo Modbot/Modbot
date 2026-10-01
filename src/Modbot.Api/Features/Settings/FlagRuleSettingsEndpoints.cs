@@ -22,11 +22,13 @@ public sealed record FlagRuleAutoModOption(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("counts")] bool Counts);
 
+/// <param name="LiftedBansForDays">How many days a lifted ban still counts. Null means always.</param>
 /// <param name="WarnsAtLeast">How many instance warns make somebody Flagged.</param>
 /// <param name="EveryAutoModRule">Every AutoMod rule counts, including rules added later.</param>
 /// <param name="AutoModRules">Every AutoMod rule there is, and whether it counts.</param>
 public sealed record FlagRulesView(
     [property: JsonPropertyName("kicksAndBans")] bool KicksAndBans,
+    [property: JsonPropertyName("liftedBansForDays")] int? LiftedBansForDays,
     [property: JsonPropertyName("warns")] bool Warns,
     [property: JsonPropertyName("warnsAtLeast")] int WarnsAtLeast,
     [property: JsonPropertyName("nuisance")] bool Nuisance,
@@ -35,6 +37,10 @@ public sealed record FlagRulesView(
     [property: JsonPropertyName("autoModRules")] IReadOnlyList<FlagRuleAutoModOption> AutoModRules);
 
 /// <param name="AutoModRules">The rules that count when <c>everyAutoModRule</c> is false.</param>
+/// <param name="LiftedBansForDays">
+/// How many days a lifted ban still counts, 1 to 3650. Null or left out means always, so a caller
+/// written before this existed keeps today's rule.
+/// </param>
 public sealed record SetFlagRulesRequest(
     [property: JsonPropertyName("kicksAndBans")] bool KicksAndBans,
     [property: JsonPropertyName("warns")] bool Warns,
@@ -42,7 +48,8 @@ public sealed record SetFlagRulesRequest(
     [property: JsonPropertyName("nuisance")] bool Nuisance,
     [property: JsonPropertyName("autoMod")] bool AutoMod,
     [property: JsonPropertyName("everyAutoModRule")] bool EveryAutoModRule,
-    [property: JsonPropertyName("autoModRules")] IReadOnlyList<Guid>? AutoModRules);
+    [property: JsonPropertyName("autoModRules")] IReadOnlyList<Guid>? AutoModRules,
+    [property: JsonPropertyName("liftedBansForDays")] int? LiftedBansForDays = null);
 
 /// <summary>
 /// Settings → Moderation → Flagged: which rules make a person Flagged on the companion and the
@@ -90,6 +97,15 @@ public static class FlagRuleSettingsEndpoints
                     });
                 }
 
+                if (body.LiftedBansForDays is < FlagRuleSettings.MinLiftedBanDays or > FlagRuleSettings.MaxLiftedBanDays)
+                {
+                    return Results.BadRequest(new
+                    {
+                        error = $"Lifted bans must count for {FlagRuleSettings.MinLiftedBanDays} to "
+                            + $"{FlagRuleSettings.MaxLiftedBanDays} days.",
+                    });
+                }
+
                 IReadOnlyList<Guid>? chosen = null;
 
                 if (!body.EveryAutoModRule)
@@ -109,6 +125,7 @@ public static class FlagRuleSettingsEndpoints
                 var after = new FlagRuleSettings
                 {
                     KicksAndBans = body.KicksAndBans,
+                    LiftedBansForDays = body.LiftedBansForDays,
                     Warns = body.Warns,
                     WarnsAtLeast = body.WarnsAtLeast,
                     Nuisance = body.Nuisance,
@@ -139,8 +156,10 @@ public static class FlagRuleSettingsEndpoints
             .WithName("SetFlagRules")
             .WithSummary("Update flag rules")
             .WithDescription(
-                "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. With "
-                + "`everyAutoModRule` false, only the flags of the rules in `autoModRules` count.")
+                "Change which rules make a person Flagged. `warnsAtLeast` is 1 to 99. "
+                + "`liftedBansForDays` is 1 to 3650, or null for a lifted ban to count always. With "
+                + "`everyAutoModRule` false, only the flags of the rules in `autoModRules` count. "
+                + "A watch on a person always counts and has no setting here.")
             .Produces<FlagRulesView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
@@ -157,6 +176,7 @@ public static class FlagRuleSettingsEndpoints
         return new JsonObject
         {
             ["kicksAndBans"] = rules.KicksAndBans,
+            ["liftedBansForDays"] = rules.LiftedBansForDays,
             ["warns"] = rules.Warns,
             ["warnsAtLeast"] = rules.WarnsAtLeast,
             ["nuisance"] = rules.Nuisance,
@@ -194,6 +214,7 @@ public static class FlagRuleSettingsEndpoints
 
         return new FlagRulesView(
             rules.KicksAndBans,
+            rules.LiftedBansForDays,
             rules.Warns,
             rules.WarnsAtLeast,
             rules.Nuisance,

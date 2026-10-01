@@ -155,8 +155,9 @@ public static class LiveEndpoints
 
         live.MapGet("/flagged-count", async (
                     [FromServices] ModbotContext db,
+                    [FromServices] IModbotClock clock,
                     CancellationToken ct) =>
-                Results.Ok(new FlaggedHereCount(await FlaggedHereAsync(db, ct))))
+                Results.Ok(new FlaggedHereCount(await FlaggedHereAsync(db, clock.UtcNow, ct))))
             .RequiresFlag(ModbotPermissions.ViewLiveInstances)
             .WithName("CountFlaggedPeopleHere")
             .WithSummary("Count flagged people in instances")
@@ -176,7 +177,7 @@ public static class LiveEndpoints
     /// mark, each counted once however many instances they are in. What <see cref="ReadAsync"/>
     /// reads, less everything a count does not need.
     /// </summary>
-    internal static async Task<int> FlaggedHereAsync(ModbotContext db, CancellationToken ct)
+    internal static async Task<int> FlaggedHereAsync(ModbotContext db, DateTimeOffset now, CancellationToken ct)
     {
         var groupId = await db.Settings.AsNoTracking()
             .Where(s => s.Id == 1)
@@ -209,7 +210,7 @@ public static class LiveEndpoints
             .Select(u => new { u.UserId, u.TrustRank })
             .ToDictionaryAsync(u => u.UserId, u => u.TrustRank, StringComparer.Ordinal, ct);
 
-        var flagged = await FlagRules.ReadAsync(db, here, ranks, ct);
+        var flagged = await FlagRules.ReadAsync(db, here, ranks, now, ct);
 
         return here.Count(id => flagged.GetValueOrDefault(id)?.IsFlagged == true);
     }
@@ -272,6 +273,7 @@ public static class LiveEndpoints
             db,
             everyone,
             profiles.ToDictionary(p => p.Key, p => p.Value.Rank, StringComparer.Ordinal),
+            now,
             ct);
 
         LivePersonView Person(PersonHere p)
