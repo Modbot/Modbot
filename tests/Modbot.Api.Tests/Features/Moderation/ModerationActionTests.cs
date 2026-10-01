@@ -958,7 +958,10 @@ public class ModerationActionTests
         var cookie = await host.SignedInAsync(ModbotPermissions.Administrator, ct);
         var reason = await ReasonAsync(host, cookie, ct);
 
-        await host.PostJsonAsync("/api/moderation/unban", Body(Person, "g-1", reason), cookie, ct);
+        // An unban takes only the reasons for lifting a ban (M4 §9); "Harassment" would be refused.
+        var mistake = await ReasonAsync(host, cookie, "Mistake", "unban", ct);
+
+        await host.PostJsonAsync("/api/moderation/unban", Body(Person, "g-1", mistake), cookie, ct);
         await host.PostJsonAsync("/api/moderation/kick", Body(Person, "g-2", reason), cookie, ct);
 
         var calls = gate.Calls.Where(c => c.Endpoint.Class == VRChatEndpointClass.GroupsModerate).ToList();

@@ -41,15 +41,17 @@ public class WorldsAnalyticsTests
         var cookie = await host.SignedInAsync(ModbotPermissions.ViewAnalytics, ct);
         var page = await host.GetJsonAsync<WorldsAnalytics>("/api/analytics/worlds?days=30", cookie, ct);
 
-        Assert.Equal(["wrld_a", "wrld_b"], page.Worlds.Select(w => w.WorldId));
+        // Worlds rank by how long they were open (cb259601), so the one Modbot's list shows open
+        // for twenty minutes comes ahead of the one only a companion saw people in.
+        Assert.Equal(["wrld_b", "wrld_a"], page.Worlds.Select(w => w.WorldId));
 
-        var a = page.Worlds[0];
+        var a = page.Worlds[1];
         Assert.Equal(50m, a.MinutesSeen);      // 30 for usr_a, 20 for usr_b up to the last report
         Assert.Equal(2, a.Visitors);
         Assert.Equal(2, a.Visits);
         Assert.Equal(t.AddMinutes(30), a.LastSeenAt);
 
-        var b = page.Worlds[1];
+        var b = page.Worlds[0];
         Assert.Equal(0m, b.MinutesSeen);
         Assert.Equal(1, b.Instances);
 

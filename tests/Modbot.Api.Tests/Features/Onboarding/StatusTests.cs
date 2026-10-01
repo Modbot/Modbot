@@ -319,8 +319,12 @@ public class StatusTests
         var (_, full) = await ReadStatusAsync(host, adminCookie);
         var (_, anonymous) = await ReadStatusAsync(host, cookie: null);
 
-        // The step is worked out from the real values, then the values are left out.
-        Assert.Equal(full.GetProperty("nextStep").GetString(), anonymous.GetProperty("nextStep").GetString());
+        // The step is worked out from the real values, then the values are left out: had it been
+        // worked out from the blanked ones it would say "VRChat". The one thing that differs is the
+        // caller's own VRChat link (design §4.3), which somebody not signed in cannot have, so for
+        // them it is the link step where the linked administrator is at the end of setup.
+        Assert.Equal("Optional", full.GetProperty("nextStep").GetString());
+        Assert.Equal("LinkVRChat", anonymous.GetProperty("nextStep").GetString());
         Assert.Equal(
             full.GetProperty("onboardingComplete").GetBoolean(),
             anonymous.GetProperty("onboardingComplete").GetBoolean());

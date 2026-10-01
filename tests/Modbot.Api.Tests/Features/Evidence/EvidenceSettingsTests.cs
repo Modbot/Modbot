@@ -276,7 +276,9 @@ public class EvidenceSettingsTests(PostgresFixture db)
             ModbotPermissions.ManageSettings | ModbotPermissions.UploadEvidence, Ct);
 
         await EvidenceUploads.ConfigureAsync(host, cookie, Ct);
-        await EvidenceUploads.UploadAsync(host, cookie, EvidenceUploads.Png("switch-test"), "a.png", "report-1", Ct);
+        // An upload begun for a case file is refused unless the case file exists and may be changed.
+        await EvidenceUploads.UploadAsync(
+            host, cookie, EvidenceUploads.Png("switch-test"), "a.png", await host.NewCaseAsync(cookie, Ct), Ct);
 
         var elsewhere = Path.Combine(Path.GetTempPath(), $"modbot-elsewhere-{Guid.NewGuid():N}");
 

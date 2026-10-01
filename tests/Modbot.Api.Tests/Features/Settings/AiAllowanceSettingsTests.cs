@@ -168,7 +168,7 @@ public class AiAllowanceSettingsTests
     }
 
     [Theory]
-    [InlineData(-1, null)]
+    [InlineData(-1L, null)]
     [InlineData(null, -0.5)]
     public async Task ANegativeAmountIsRefused(long? tokens, double? money)
     {
