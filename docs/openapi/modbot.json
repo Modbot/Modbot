@@ -41256,12 +41256,12 @@
       "x-displayName": "Search"
     },
     {
-      "name": "Watches",
-      "x-displayName": "Watches"
-    },
-    {
       "name": "Lists",
       "x-displayName": "Lists"
+    },
+    {
+      "name": "Watches",
+      "x-displayName": "Watches"
     }
   ]
 }

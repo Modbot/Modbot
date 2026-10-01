@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001094606_AddSavedLists")]
+    [Migration("20261001100734_AddSavedLists")]
     partial class AddSavedLists
     {
         /// <inheritdoc />
@@ -5497,6 +5497,81 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_other_instance_name");
 
                     b.ToTable("other_instance_name", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.PersonWatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<Guid?>("EndedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ended_by_user_id");
+
+                    b.Property<string>("EndedByUsername")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ended_by_username");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<DateTimeOffset?>("FollowUpAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("follow_up_at");
+
+                    b.Property<DateTimeOffset?>("FollowUpRemindedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("follow_up_reminded_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("set_at");
+
+                    b.Property<Guid>("SetByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("set_by_user_id");
+
+                    b.Property<string>("SetByUsername")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("set_by_username");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("subject_id");
+
+                    b.Property<short>("SubjectPlatform")
+                        .HasColumnType("smallint")
+                        .HasColumnName("subject_platform");
+
+                    b.HasKey("Id")
+                        .HasName("pk_person_watch");
+
+                    b.HasIndex("SubjectPlatform", "SubjectId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_person_watch_standing")
+                        .HasFilter("ended_at IS NULL");
+
+                    b.HasIndex("SubjectPlatform", "SubjectId", "SetAt")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("ix_person_watch_person");
+
+                    b.ToTable("person_watch", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProtectorKey", b =>
