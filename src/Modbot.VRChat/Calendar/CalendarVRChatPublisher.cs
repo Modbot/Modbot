@@ -1105,5 +1105,8 @@ public sealed class CalendarVRChatPublisher
         ?? error
         ?? $"VRChat answered {status}.";
 
+    private static DateTime AsUtc(DateTime value) =>
+        value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(value, DateTimeKind.Utc) : value.ToUniversalTime();
+
     private static string Trim(string text) => text.Length <= 1024 ? text : text[..1023] + "…";
 }
