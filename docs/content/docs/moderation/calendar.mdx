@@ -25,6 +25,8 @@ edit them from Modbot. See [Events made on VRChat](#events-made-on-vrchat).
 | See the **Calendar** page, every event, where each one is published and any errors | [**See calendar**](/accounts/roles-and-permissions#see-calendar) |
 | Plan, edit, cancel and delete events | [**Manage calendar**](/accounts/roles-and-permissions#manage-calendar) and **See calendar** |
 | See, copy or replace the calendar feed link | **Manage calendar** and **See calendar** |
+| See [what each event did](#what-an-event-did) and **Past events** | **See calendar** and [**See analytics**](/accounts/roles-and-permissions#see-analytics) |
+| See who a moderator's client saw at an event | Those two and [**See the audit log**](/accounts/roles-and-permissions#see-the-audit-log) |
 | See calendar problems on **Health** | [**See the operational log**](/accounts/roles-and-permissions#see-the-operational-log) |
 
 Without **See calendar**, **Calendar** does not appear in the sidebar. **Manage calendar** on its own
@@ -66,7 +68,9 @@ A repeating event appears once for every time it happens.
 Times on the page are in your browser's time zone. Each event also has its own time zone, which you
 set in the form (see [When](#when)).
 
-Below the calendar, a **Drafts** box lists events saved as drafts, when there are any.
+Below the calendar, a **Drafts** box lists events saved as drafts, when there are any. Under it,
+**Past events** lists every time an event ran in the last 90 days, the busiest first. See
+[Past events](#past-events).
 
 The page updates by itself when an event changes, so a place changing from **Waiting** to
 **Published** shows up without reloading.
@@ -118,13 +122,62 @@ Click an event in any view. It opens in a small box beside it, showing:
 - **Instance**, once Modbot has tried to open one: **Opening** while it waits for VRChat, **Open**
   or **Closed** (click it for the [instance popup](/moderation/popups#instance-popup)), and a
   **Join** link while it is open. If VRChat refused, VRChat's error is shown here instead, in red;
-- one line per place it is published, with its state and, if it failed, VRChat's or Discord's error.
+- one line per place it is published, with its state and, if it failed, VRChat's or Discord's error;
+- **How it went**, once the time you clicked has started. See [What an event did](#what-an-event-did).
 
 With **Manage calendar** you also get **Edit**, **Duplicate**, **Cancel event** and **Delete**.
 **Duplicate** opens the form for a new event filled in with this one's details; nothing is saved
 until you save it.
 
 A link to one event (for example from a Chat answer) opens it in the middle of the page instead.
+
+### What an event did
+
+Open a time an event has already run, or one that is running now, and **How it went** shows what it
+did. You need **See analytics** as well as **See calendar** for it.
+
+| Figure | What it counts |
+|---|---|
+| **Most at once** | The most people in the event's instance at one moment, over the instance's whole life. The same number as **Most at once** in the [instance popup](/moderation/popups#instance-popup). |
+| **Ran for** | How long the instance was open. **Open for** while it still is. |
+| **New members** | People who joined your group from when the event opened (its instance's **Minutes early** included) until a day after it ended. |
+| **Join requests** | Requests to join your group over the same stretch. |
+
+New members and join requests count until a day after the end because people often join a group the
+day after an event they liked. Two times of a daily event share some of that day, and both count it.
+
+**Which instance.** The one Modbot opened for that time, when it opened one. Otherwise, your
+**Managed group**'s instance in the event's world that was open for most of the event, which covers
+an event someone opened by hand in VRChat. An event with no world,
+and no instance opened by Modbot, has no instance: **Most at once** and **Ran for** show **—**.
+When the instance is not the one the **Instance** line above already shows (that line is about the
+time Modbot is dealing with now), it is named under **How it went**; click it for the instance popup.
+
+For a repeating event, a **Usually** column shows the middle value of its last six times before this
+one. Times with no instance leave out **Most at once** and **Ran for**.
+
+**Seen by a moderator's client** shows how many people a moderator's
+[desktop client](/companion/install) saw in the instance, their total time there (**People-time**), and the
+people seen longest, each with their time. **Everybody** opens the instance popup's **People** tab when
+there are more. This needs **See the audit log** too, and counts only while a moderator's client was
+in the instance: **Nobody seen.** means no client saw anyone, not that nobody came. For **Usually**,
+times nobody was seen are left out.
+
+The numbers are not posted anywhere. They show only on this page.
+
+### Past events
+
+**Past events**, under the calendar, lists every time an event ran in the last 90 days: the event,
+when, **Most at once**, **Ran for**, **New members** and **Join requests**. The busiest come first, and
+times with no instance come last. It shows at most 50, and only when there is at least one. Click a
+row to open that time of the event with **How it went**. On a phone each row shows the event, when it
+started and its new members, with the most at once on the right.
+
+Drafts and deleted events are never listed. A cancelled event's times before the cancel are.
+
+A time counts as one the event ran when the event's dates say so, or when Modbot opened an instance
+for it. If you move a repeating event, its earlier times are worked out from the new dates, except
+those Modbot opened an instance for, which stay at the time they ran.
 
 ## Moving events by dragging
 

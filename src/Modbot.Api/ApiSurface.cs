@@ -472,6 +472,8 @@ public static class ApiSurface
         // Planned events, and the calendar feed (calendar design). Publishing and opening happen in
         // the calendar's own loops; these only store what a person decides.
         Features.Calendar.CalendarEndpoints.MapCalendar(app);
+        // What each time an event ran did: its instance, who came and who joined the group.
+        Features.Calendar.CalendarResultsEndpoints.MapCalendarResults(app);
 
         // Giveaways: their rules, who entered, and the draws (giveaways design). Drawing happens
         // here because a person pressed Draw; a draw whose time simply came round is made by the

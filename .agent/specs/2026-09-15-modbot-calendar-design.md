@@ -345,3 +345,36 @@ in September, a weekly series, none from Modbot).
   series as a second event.
 - Whether VRChat's update keeps fields it is not sent (the settings above are sent back regardless).
 - VRChat's page size for the month list (60 by default) and whether `n` may be larger.
+
+## 13. What each time did (added 2026-10-01)
+
+"Which events are worth running?" is the organiser's question. The calendar knew what was planned and
+which instance it opened, the instance knew how full it got, and the fact log knew who joined the
+group; nothing joined them. `CalendarResults` does, read-only, from Modbot's own tables.
+
+- **The numbers are the ones other screens show.** Most at once and how long it ran are the
+  instance's `InstanceRows` row, exactly as the instance popup has them (over the instance's whole
+  life, not clipped to the event). Who a moderator's client saw is `PresenceCounts` over the
+  instance's own stretch, as the popup counts it. New members and join requests count the facts
+  `members.joined` and `requests.received` count. A second way of counting any of them would be a
+  second answer that could disagree with the first.
+- **Which instance.** The `calendar_opening` row's, when Modbot opened one for that time. Otherwise
+  the managed group's instance in the event's world with the longest overlap with the stretch from
+  `OpensAt` to the end (the earlier opened on a tie): an event opened by hand, or one that does not
+  open its own. An event with no world, and no opening, has none.
+- **Which times.** The rule's times that have started, plus every opening's time, so a time that ran
+  before the event was moved still counts at the time it ran. A cancelled event's stop at the cancel;
+  a draft never ran; a deleted event is hidden from the page and so from Past events.
+- **Joins window.** From `OpensAt` to a day after the end: people often join the day after an event
+  they liked. Overlapping windows of a daily event each count the shared part.
+- **Compared with the event's own earlier times:** the middle value (median) of each figure over its
+  last six times before this one. Times with no instance are left out of the instance figures, and
+  times nobody was seen are left out of the presence figures, because a time with no moderator's
+  client there is not a time nobody came.
+- **Permissions.** See calendar and See analytics; who was seen also needs See the audit log, as in
+  the instance popup. `CalendarView.canSeeResults` tells the page whether to ask.
+- **Past events** lists every time an event ran over the last 90 days (up to 366 through the API),
+  the most at once first, at most 50, with no presence figures: one presence query per instance
+  would be one query per row.
+- **Not posted anywhere.** A Discord post after the event was left optional and is not built; if it
+  ever is, it carries counts and no names.

@@ -82,13 +82,15 @@ public static class CalendarEndpoints
                     .ToListAsync(ct);
 
                 var views = await ViewsAsync(db, events, start, end, ct);
+                var held = ModbotAuth.PermissionsOf(http.User);
 
                 return Results.Ok(new CalendarView(
                     views,
-                    ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ManageCalendar),
+                    ModbotAuth.Allows(held, ModbotPermissions.ManageCalendar),
                     CalendarVRChatRequests.Categories,
                     CalendarVRChatRequests.Platforms,
-                    now));
+                    now,
+                    ModbotAuth.Allows(held, ModbotPermissions.ViewAnalytics)));
             })
             .RequiresFlag(ModbotPermissions.ViewCalendar)
             .WithName("GetCalendar")

@@ -111,12 +111,16 @@ public sealed record CalendarEventView(
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>
+/// <param name="CanSeeResults">
+/// True with See analytics as well: what each time an event ran did, and Past events.
+/// </param>
 public sealed record CalendarView(
     IReadOnlyList<CalendarEventView> Events,
     bool CanManage,
     IReadOnlyList<string> Categories,
     IReadOnlyList<string> Platforms,
-    DateTimeOffset Now);
+    DateTimeOffset Now,
+    bool CanSeeResults = false);
 
 public sealed record CalendarWorldView(string WorldId, string? Name, string? ThumbnailUrl);
 

@@ -6,6 +6,7 @@ import { spotOf } from '@/components/calendar/entry'
 import { EventDetails } from '@/components/calendar/EventDetails'
 import { MiniMonth } from '@/components/calendar/MiniMonth'
 import { MonthView } from '@/components/calendar/MonthView'
+import { PastEvents } from '@/components/calendar/PastEvents'
 import { NARROW, useMedia } from '@/components/calendar/phone'
 import { QuickCreate } from '@/components/calendar/QuickCreate'
 import { ScheduleView } from '@/components/calendar/ScheduleView'
@@ -23,6 +24,7 @@ import {
   type CalendarEvent,
   type CalendarEventInput,
   type CalendarFeed,
+  type CalendarOccurrenceResult,
   type CalendarView,
   vrchatReadProblem,
 } from '@/lib/calendar'
@@ -280,6 +282,28 @@ export function Calendar() {
     setDetail({ id: entry.event.id, start: entry.start, end: entry.end, spot })
   }
 
+  /** A row of Past events: that time of the event, read on its own when it is off the dates on screen. */
+  const openPast = (result: CalendarOccurrenceResult) => {
+    setQuick(null)
+    const show = () =>
+      setDetail({ id: result.eventId, start: new Date(result.startsAt), end: new Date(result.endsAt), spot: null })
+
+    if (data?.view.events.some((e) => e.id === result.eventId)) {
+      show()
+      return
+    }
+
+    calendarApi
+      .event(result.eventId)
+      .then((e) => {
+        setLinked(e)
+        show()
+      })
+      .catch(() => {
+        // Deleted since the list was read: nothing to open.
+      })
+  }
+
   const openCreate = (created: { start: Date; end: Date }, spot: Spot) => {
     setDetail(null)
     setQuick({ ...created, spot })
@@ -406,6 +430,8 @@ export function Calendar() {
         </Card>
       )}
 
+      {data.view.canSeeResults && <PastEvents live={live} onOpen={openPast} />}
+
       {canManage && <FeedRow />}
 
       {opened && detail && (
@@ -415,6 +441,8 @@ export function Calendar() {
           start={detail.start}
           end={detail.end}
           spot={detail.spot}
+          results={!!data.view.canSeeResults && opened.state !== 'draft' && detail.start.getTime() <= now.getTime()}
+          live={live}
           canManage={canManage}
           onClose={() => setDetail(null)}
           onEdit={() => {

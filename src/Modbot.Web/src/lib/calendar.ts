@@ -1,4 +1,4 @@
-import { http, type MissingGroupPermission } from '@/lib/api'
+import { http, type InstanceRow, type MissingGroupPermission, type PersonSeen, type PlaceCounts } from '@/lib/api'
 
 /** The event's own state (calendar design §2.1). */
 export type CalendarEventState = 'draft' | 'scheduled' | 'open' | 'finished' | 'cancelled'
@@ -79,7 +79,48 @@ export type CalendarView = {
   categories: string[]
   platforms: string[]
   now: string
+  /** See analytics as well: what each time an event ran did, and Past events. */
+  canSeeResults?: boolean
 }
+
+/** One time an event ran, and what it did. */
+export type CalendarOccurrenceResult = {
+  eventId: string
+  title: string
+  startsAt: string
+  endsAt: string
+  /** The instance it ran in, with the instance popup's own figures; null when there was none. */
+  instance: InstanceRow | null
+  /** The instance is the one Modbot opened for this time, not one found by world and time. */
+  openedByModbot: boolean
+  /** Joined the group from when the event opened until a day after it ended. */
+  newMembers: number
+  joinRequests: number
+  /** What a moderator's client saw there; null without ViewAuditLog or with no instance. */
+  seen: PlaceCounts | null
+}
+
+/** The middle value of each figure over an event's earlier times. */
+export type CalendarUsual = {
+  times: number
+  peakPeople: number | null
+  minutesOpen: number | null
+  newMembers: number
+  joinRequests: number
+  peopleSeen: number | null
+  minutesSeen: number | null
+}
+
+export type CalendarResults = {
+  occurrence: CalendarOccurrenceResult
+  /** Longest first. Empty without ViewAuditLog. */
+  people: PersonSeen[]
+  usual: CalendarUsual | null
+  canSeeWhoWasThere: boolean
+  now: string
+}
+
+export type CalendarPast = { occurrences: CalendarOccurrenceResult[]; from: string; now: string }
 
 export type CalendarWorld = { worldId: string; name: string | null; thumbnailUrl: string | null }
 
@@ -138,6 +179,13 @@ export const calendarApi = {
   remove: (id: string) => http.del<void>(`${base}/events/${id}`),
   worlds: () => http.request<CalendarWorld[]>(`${base}/worlds`),
   feed: () => http.request<CalendarFeed>(`${base}/feed`),
+  /** What the time of an event that started at `at` did. */
+  results: (id: string, at: Date) =>
+    http.request<CalendarResults>(
+      `${base}/events/${encodeURIComponent(id)}/results?at=${encodeURIComponent(at.toISOString())}`,
+    ),
+  /** Every time an event ran over the last 90 days, the most at once first. */
+  past: () => http.request<CalendarPast>(`${base}/past`),
   regenerateFeed: () => http.post<CalendarFeed>(`${base}/feed`),
   /**
    * Brings events made on VRChat, and changes and deletes made there, into Modbot's calendar

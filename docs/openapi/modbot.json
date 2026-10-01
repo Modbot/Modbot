@@ -16730,6 +16730,141 @@
         "security": [ ]
       }
     },
+    "/api/calendar/events/{id}/results": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Get what one time of an event did",
+        "description": "One time an event ran, named by its start (`at`, as the calendar gives it): the instance it ran in, with the most at once and how long it ran as the instance popup has them; how many joined the group and how many asked to, from when the event opened until a day after it ended; and the middle value of each of those over the event's last earlier times.\n\nThe instance is the one Modbot opened for that time. When Modbot opened none, it is the group's instance in the event's world that was open for most of the event.\n\nWho a moderator's client saw there (`occurrence.seen` and `people`) needs ViewAuditLog as well, as in the instance popup; without it `canSeeWhoWasThere` is false and both are empty. They exist only while a moderator's client was in the instance. 404 when the event has not run at that time.\n\nNeeds the `ViewAnalytics` and `ViewCalendar` permissions.",
+        "operationId": "GetCalendarEventResults",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "at",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarResultsView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/calendar/past": {
+      "get": {
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "List past events",
+        "description": "Every time an event ran over the last `days` days (90 unless asked), the most at once first, at most 50. Each carries the same figures as one event's results, without who was seen.\n\nNeeds the `ViewAnalytics` and `ViewCalendar` permissions.",
+        "operationId": "ListPastCalendarEvents",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarPastView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/giveaways": {
       "get": {
         "tags": [
@@ -21470,6 +21605,76 @@
           }
         }
       },
+      "CalendarOccurrenceResult": {
+        "required": [
+          "eventId",
+          "title",
+          "startsAt",
+          "endsAt",
+          "instance",
+          "openedByModbot",
+          "newMembers",
+          "joinRequests",
+          "seen"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "instance": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/InstanceRow"
+              }
+            ]
+          },
+          "openedByModbot": {
+            "type": "boolean"
+          },
+          "newMembers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "joinRequests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "seen": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PlaceCounts"
+              }
+            ]
+          }
+        }
+      },
       "CalendarOccurrenceView": {
         "required": [
           "startsAt",
@@ -21530,6 +21735,30 @@
           }
         }
       },
+      "CalendarPastView": {
+        "required": [
+          "occurrences",
+          "from",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "occurrences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarOccurrenceResult"
+            }
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "CalendarPlaceView": {
         "required": [
           "place",
@@ -21572,6 +21801,118 @@
                 "$ref": "#/components/schemas/MissingGroupPermission"
               }
             ]
+          }
+        }
+      },
+      "CalendarResultsView": {
+        "required": [
+          "occurrence",
+          "people",
+          "usual",
+          "canSeeWhoWasThere",
+          "now"
+        ],
+        "type": "object",
+        "properties": {
+          "occurrence": {
+            "$ref": "#/components/schemas/CalendarOccurrenceResult"
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonSeen"
+            }
+          },
+          "usual": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarUsual"
+              }
+            ]
+          },
+          "canSeeWhoWasThere": {
+            "type": "boolean"
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarUsual": {
+        "required": [
+          "times",
+          "peakPeople",
+          "minutesOpen",
+          "newMembers",
+          "joinRequests",
+          "peopleSeen",
+          "minutesSeen"
+        ],
+        "type": "object",
+        "properties": {
+          "times": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "peakPeople": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "minutesOpen": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "newMembers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "joinRequests": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "peopleSeen": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "minutesSeen": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -21658,6 +21999,10 @@
           "now": {
             "type": "string",
             "format": "date-time"
+          },
+          "canSeeResults": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

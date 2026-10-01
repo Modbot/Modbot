@@ -12,6 +12,7 @@ import { sameDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
 import type { Spot } from './entry'
+import { EventResults } from './EventResults'
 import { SHEET, useMedia } from './phone'
 
 const longDay = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -59,10 +60,23 @@ type Actions = {
 }
 
 /**
- * One event, as it opens from the calendar: when, the world, the instance, and where it is published
- * and how that went (with VRChat's or Discord's own words when it failed). Its buttons come last.
+ * One event, as it opens from the calendar: when, the world, the instance, where it is published
+ * and how that went (with VRChat's or Discord's own words when it failed), and, once the time
+ * clicked has started, what it did (`results`). Its buttons come last.
  */
-function EventBody({ event, start, end, children }: { event: CalendarEvent; start: Date; end: Date; children?: ReactNode }) {
+function EventBody({
+  event,
+  start,
+  end,
+  results,
+  children,
+}: {
+  event: CalendarEvent
+  start: Date
+  end: Date
+  results?: ReactNode
+  children?: ReactNode
+}) {
   return (
     <div className="flex flex-col gap-3" style={{ fontSize: 'var(--text-small)' }}>
       <div className="font-mono">{when(start, end)}</div>
@@ -117,6 +131,8 @@ function EventBody({ event, start, end, children }: { event: CalendarEvent; star
           ))}
         </div>
       )}
+
+      {results}
 
       {children}
     </div>
@@ -183,15 +199,26 @@ export function EventDetails({
   start,
   end,
   spot,
+  results,
+  live,
   ...actions
-}: Actions & { event: CalendarEvent; start: Date; end: Date; spot: Spot | null }) {
+}: Actions & {
+  event: CalendarEvent
+  start: Date
+  end: Date
+  spot: Spot | null
+  /** Show what this time did: it has started, and the account may see analytics. */
+  results: boolean
+  live: number
+}) {
   const [confirm, setConfirm] = useState<'cancel' | 'delete' | null>(null)
   const sheet = useMedia(SHEET)
   const buttons = actions.canManage && (
     <EventButtons event={event} onEdit={actions.onEdit} onDuplicate={actions.onDuplicate} onAsk={setConfirm} />
   )
+  const shown = results ? <EventResults event={event} start={start} live={live} /> : undefined
   const body = (
-    <EventBody event={event} start={start} end={end}>
+    <EventBody event={event} start={start} end={end} results={shown}>
       {buttons && <div className="flex flex-wrap gap-2 pt-1">{buttons}</div>}
     </EventBody>
   )
@@ -222,7 +249,7 @@ export function EventDetails({
             subtitle={<StateBadge event={event} />}
             foot={buttons && <DialogFoot>{buttons}</DialogFoot>}
           >
-            <EventBody event={event} start={start} end={end} />
+            <EventBody event={event} start={start} end={end} results={shown} />
           </DialogContent>
         </Dialog>
         {confirmation}
