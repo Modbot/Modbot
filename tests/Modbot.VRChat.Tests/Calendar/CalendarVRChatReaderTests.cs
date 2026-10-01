@@ -116,6 +116,41 @@ public class CalendarVRChatReaderTests(PostgresFixture fixture) : CalendarTestBa
         Assert.Empty(VRChat.Calendar.Updates);
     }
 
+    /// <summary>
+    /// VRChat rewrites the text it is sent (an en dash dropped, "." turned into "․", seen
+    /// 2026-10-01). Its copy of a Modbot event's title is not an edit, and must not replace the
+    /// moderators' words; a real change of time is still copied in.
+    /// </summary>
+    [Fact]
+    public async Task AnEventMadeInModbotKeepsItsOwnWords_WhenVRChatsCopyOfThemDiffers()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x =>
+        {
+            x.PublishToVRChat = true;
+            x.Title = "Movie night – part 2.";
+        });
+
+        await ScheduleAsync();
+        Clock.Advance(Settle);
+        Assert.Equal("create", (await PublishAsync()).Action);
+
+        // What VRChat lists: its own rewrite of the title, first as Modbot's write left it.
+        VRChat.Calendar.OnVRChat.Clear();
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("cal_1", "Movie night  part 2․", e.StartsAt, TwoHours, Clock.UtcNow));
+        await ReadAsync(refresh: true);
+
+        // Later moved an hour on VRChat: the move is copied in, the title is not.
+        Clock.Advance(TimeSpan.FromMinutes(1));
+        VRChat.Calendar.OnVRChat.Clear();
+        VRChat.Calendar.OnVRChat.Add(FakeCalendar.Made("cal_1", "Movie night  part 2․", e.StartsAt.AddHours(1), TwoHours, Clock.UtcNow));
+        await ReadAsync(refresh: true);
+
+        var saved = Assert.Single(await EventsAsync());
+        Assert.Equal("Movie night – part 2.", saved.Title);
+        Assert.Equal("Bring snacks", saved.Description);
+        Assert.Equal(e.StartsAt.AddHours(1), saved.StartsAt);
+    }
+
     [Fact]
     public async Task AnEditInModbotNewerThanVRChatsChangeWins()
     {

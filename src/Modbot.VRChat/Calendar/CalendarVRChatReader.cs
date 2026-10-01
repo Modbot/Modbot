@@ -656,10 +656,24 @@ public sealed class CalendarVRChatReader
         var fingerprint = CalendarVRChatRequests.Fingerprint(calendarEvent);
         var picture = calendarEvent.ImageUrl;
         var zoneBefore = CalendarRepeat.ZoneOf(calendarEvent);
+        var title = calendarEvent.Title;
+        var description = calendarEvent.Description;
 
         CalendarVRChatCopy.Onto(calendarEvent, source);
 
-        var changed = CalendarVRChatRequests.Fingerprint(calendarEvent) != fingerprint || calendarEvent.ImageUrl != picture;
+        // An event made in Modbot keeps its own words. VRChat rewrites the text it is sent (an en
+        // dash dropped, "." turned into "․", seen 2026-10-01), so its copy of a Modbot event's title
+        // reads as a change though nobody made one -- and copying it in replaced the moderators'
+        // words with VRChat's. Which differences are VRChat's rewrites and which an edit on
+        // vrchat.com cannot be told apart, so for these events the words are Modbot's alone (calendar
+        // design §12.3); times, repeat and VRChat's own settings are still copied in.
+        if (!calendarEvent.MadeOnVRChat)
+        {
+            calendarEvent.Title = title;
+            calendarEvent.Description = description;
+        }
+
+        var changed =CalendarVRChatRequests.Fingerprint(calendarEvent) != fingerprint || calendarEvent.ImageUrl != picture;
 
         if (changed)
         {

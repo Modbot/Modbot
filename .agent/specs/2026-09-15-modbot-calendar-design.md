@@ -484,6 +484,13 @@ in September, a weekly series, none from Modbot).
 - A change copied in touches only VRChat's fields (title, description, times, repeat and §2's VRChat
   calendar fields); the world, access, region and Discord places are Modbot's alone. The picture
   link is taken from VRChat only for an event made there.
+- **An event made in Modbot keeps its own title and description** (narrowed 2026-10-01). VRChat
+  rewrites the text it is sent -- an en dash dropped, "." turned into "․" -- so its copy of a Modbot
+  event's words differed from Modbot's, and when anything else made the event look changed on VRChat
+  (its dates rebuilt after a series write, say) the read copied VRChat's rewrite over the
+  moderators' words with nobody having edited anything. A rewrite and an edit on vrchat.com cannot
+  be told apart, so for an event made in Modbot the words are Modbot's alone; times, repeat and
+  VRChat's own settings are still copied in. An event made on VRChat still takes VRChat's words.
 - **Deleted on VRChat:** an event missing from a month read to its end, which Modbot expects well
   inside that month (VRChat's month is not exactly the UTC month), is looked up on its own. VRChat's
   404, or the event marked deleted, deletes it in Modbot as a delete on the page does (cancelled and
