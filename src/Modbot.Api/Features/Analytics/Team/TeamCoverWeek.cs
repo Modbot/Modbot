@@ -154,7 +154,7 @@ public sealed class TeamCoverWeek(AnalyticsSql sql)
     {
         const string Sql = """
             WITH lives AS (
-                SELECT i.id, i.world_id, i.vrchat_instance_id AS number, i.opened_at,
+                SELECT i.id, i.world_id, i.vr_chat_instance_id AS number, i.opened_at,
                        COALESCE(i.closed_at, i.last_seen_at, @now) AS ended_at,
                        GREATEST(i.opened_at, @from) AS s,
                        LEAST(COALESCE(i.closed_at, i.last_seen_at, @now), @to) AS e
