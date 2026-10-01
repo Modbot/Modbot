@@ -82,6 +82,13 @@ public class ModbotUser
 
     public bool IsVRChatLinked => VRChatUserId is { Length: > 0 };
 
+    /// <summary>
+    /// Whether an event that names this account as its host or staff invites it when the instance
+    /// opens. On unless the person turns it off on their account page: being invited to your own
+    /// event as its staff is not an invite nobody asked for (calendar auto-invite design §2.1).
+    /// </summary>
+    public bool GetsEventInvites { get; set; } = true;
+
     /// <summary>The code this person has been asked to put in their bio, while a link is pending.</summary>
     public string? VRChatLinkCode { get; set; }
 

@@ -67,6 +67,76 @@ public class CalendarInviterTests(PostgresFixture fixture) : CalendarTestBase(fi
     }
 
     [Fact]
+    public async Task OnlyListMembersWhoAskedAreInvited_TheRestDidNotAsk()
+    {
+        var list = await AddEverybodyListAsync(asked: false, "usr_a", "usr_b", "usr_c");
+        await AskForInvitesAsync(["usr_b"]);
+        VRChat.Invites.FriendsWith("usr_a", "usr_b", "usr_c");
+
+        var e = await OpenedEventAsync(x => x.InviteListId = list.Id);
+
+        for (var i = 0; i < 4; i++)
+        {
+            await InviteAsync();
+            Clock.Advance(Turn);
+        }
+
+        // Neither a VRChat invite nor a direct message for the two who did not ask.
+        Assert.Equal(["usr_b"], VRChat.Invites.Sent.Select(s => s.UserId));
+
+        var rows = await InviteRowsAsync(e.Id);
+        Assert.Equal(CalendarInviteStates.NotAsked, rows.Single(r => r.VRChatUserId == "usr_a").State);
+        Assert.Equal(CalendarInviteStates.NotAsked, rows.Single(r => r.VRChatUserId == "usr_c").State);
+
+        var counts = CalendarInviteCounts.From(rows.Select(r => r.State));
+        Assert.Equal(1, counts.Invited);
+        Assert.Equal(3, counts.Total);
+        Assert.Equal(2, counts.NotAsked);
+    }
+
+    [Fact]
+    public async Task StaffWithEventInvitesOff_AreNotInvited()
+    {
+        var host = await AddStaffAsync("host", "usr_host", getsEventInvites: false);
+        var ann = await AddStaffAsync("ann", "usr_ann");
+        VRChat.Invites.FriendsWith("usr_host", "usr_ann");
+
+        var e = await OpenedEventAsync(x =>
+        {
+            x.InviteHostUserId = host.Id;
+            x.InviteStaffUserIds = [ann.Id];
+        });
+
+        for (var i = 0; i < 3; i++)
+        {
+            await InviteAsync();
+            Clock.Advance(Turn);
+        }
+
+        Assert.Equal(["usr_ann"], VRChat.Invites.Sent.Select(s => s.UserId));
+        Assert.Equal(CalendarInviteStates.NotAsked, (await InviteRowsAsync(e.Id))[0].State);
+    }
+
+    [Fact]
+    public async Task StoppingEventInvitesAfterTheQueueIsWritten_StopsTheInvite()
+    {
+        var list = await AddEverybodyListAsync("usr_a", "usr_b");
+        VRChat.Invites.FriendsWith("usr_a", "usr_b");
+
+        var e = await OpenedEventAsync(x => x.InviteListId = list.Id);
+        await InviteAsync();
+
+        // usr_b presses "Stop event invites" before their turn comes.
+        await AskForInvitesAsync(["usr_b"], wants: false);
+
+        Clock.Advance(Turn);
+        await InviteAsync();
+
+        Assert.Equal(["usr_a"], VRChat.Invites.Sent.Select(s => s.UserId));
+        Assert.Equal(CalendarInviteStates.NotAsked, (await InviteRowsAsync(e.Id))[1].State);
+    }
+
+    [Fact]
     public async Task OneVRChatInviteEveryThirtySeconds()
     {
         var list = await AddEverybodyListAsync("usr_a", "usr_b", "usr_c");

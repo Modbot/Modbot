@@ -15,6 +15,7 @@ namespace Modbot.Analytics.Calendar;
 /// <param name="Waiting">Still to send.</param>
 /// <param name="Stopped">Not sent before the instance closed or the time ended.</param>
 /// <param name="Skipped">Banned, or already in the instance. Not in <paramref name="Total"/>.</param>
+/// <param name="NotAsked">Did not ask for event invites, or stopped them. In <paramref name="Total"/>.</param>
 public sealed record CalendarInviteCounts(
     int Total,
     int VRChat,
@@ -23,7 +24,8 @@ public sealed record CalendarInviteCounts(
     int NoWay,
     int Waiting,
     int Stopped,
-    int Skipped)
+    int Skipped,
+    int NotAsked = 0)
 {
     /// <summary>The N in "Invited N of M".</summary>
     public int Invited => VRChat + Discord;
@@ -32,7 +34,7 @@ public sealed record CalendarInviteCounts(
     {
         ArgumentNullException.ThrowIfNull(states);
 
-        int vrchat = 0, discord = 0, couldNotReach = 0, noWay = 0, waiting = 0, stopped = 0, skipped = 0;
+        int vrchat = 0, discord = 0, couldNotReach = 0, noWay = 0, waiting = 0, stopped = 0, skipped = 0, notAsked = 0;
 
         foreach (var state in states)
         {
@@ -59,11 +61,14 @@ public sealed record CalendarInviteCounts(
                 case CalendarInviteStates.Skipped:
                     skipped++;
                     break;
+                case CalendarInviteStates.NotAsked:
+                    notAsked++;
+                    break;
             }
         }
 
-        var total = vrchat + discord + couldNotReach + noWay + waiting + stopped;
-        return new CalendarInviteCounts(total, vrchat, discord, couldNotReach, noWay, waiting, stopped, skipped);
+        var total = vrchat + discord + couldNotReach + noWay + waiting + stopped + notAsked;
+        return new CalendarInviteCounts(total, vrchat, discord, couldNotReach, noWay, waiting, stopped, skipped, notAsked);
     }
 }
 
@@ -89,6 +94,7 @@ public sealed class CalendarInvites
     public const string InstanceClosed = "The instance closed.";
     public const string TimeEnded = "The event ended.";
     public const string EventCancelled = "The event was cancelled.";
+    public const string DidNotAsk = "Did not ask for event invites.";
 
     private readonly ModbotContext _db;
     private readonly IFactWriter _facts;
@@ -141,6 +147,54 @@ public sealed class CalendarInvites
         }
 
         return stopped;
+    }
+
+    /// <summary>
+    /// Of these people, the ones who asked for event invites with <c>/me</c> and have not stopped
+    /// them, by whichever id their choice was made under (calendar auto-invite design §2.1).
+    /// </summary>
+    public async Task<(HashSet<string> VRChat, HashSet<string> Discord)> AskedAsync(
+        IReadOnlyCollection<string> vrchatIds, IReadOnlyCollection<string> discordIds, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(vrchatIds);
+        ArgumentNullException.ThrowIfNull(discordIds);
+
+        if (vrchatIds.Count == 0 && discordIds.Count == 0)
+            return ([], []);
+
+        var asked = await _db.EventInviteChoices.AsNoTracking()
+            .Where(c => c.Wants
+                && (discordIds.Contains(c.DiscordUserId) || (c.VRChatUserId != null && vrchatIds.Contains(c.VRChatUserId))))
+            .Select(c => new { c.DiscordUserId, c.VRChatUserId })
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        return (
+            [.. asked.Where(c => c.VRChatUserId != null).Select(c => c.VRChatUserId!)],
+            [.. asked.Select(c => c.DiscordUserId)]);
+    }
+
+    /// <summary>
+    /// Whether this person still wants the invite, asked again just before it is sent: a staff
+    /// account's own switch, or a member's "Get event invites". Somebody who stopped invites after
+    /// the queue was written gets nothing.
+    /// </summary>
+    public async Task<bool> StillWantedAsync(CalendarInvite invite, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(invite);
+
+        if (invite.StaffUserId is { } staff)
+        {
+            return await _db.Users.AsNoTracking()
+                .AnyAsync(u => u.Id == staff && u.GetsEventInvites && !u.IsDisabled && u.DeletedAt == null, ct)
+                .ConfigureAwait(false);
+        }
+
+        var (vrchat, discord) = await AskedAsync(
+            invite.VRChatUserId is { } v ? [v] : [],
+            invite.DiscordUserId is { } d ? [d] : [],
+            ct).ConfigureAwait(false);
+
+        return vrchat.Count > 0 || discord.Count > 0;
     }
 
     /// <summary>

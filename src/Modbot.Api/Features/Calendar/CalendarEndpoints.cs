@@ -1671,7 +1671,7 @@ public static class CalendarEndpoints
 
                 invites = new CalendarInvitesView(
                     counts.Total, counts.Invited, counts.VRChat, counts.Discord, counts.CouldNotReach,
-                    counts.NoWay, counts.Waiting, counts.Stopped, counts.Skipped);
+                    counts.NoWay, counts.Waiting, counts.Stopped, counts.Skipped, counts.NotAsked);
             }
 
             var occurrences = e.State == CalendarEventStates.Cancelled

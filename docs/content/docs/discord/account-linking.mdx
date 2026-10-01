@@ -217,8 +217,19 @@ The reply is visible only to the member who ran it. It shows:
 | **Member since** | When they joined your VRChat group, or **Not in the group**. Only shown when they are linked. |
 | **Roles from Modbot** | The Discord roles Modbot gave them and they still hold: the linked role, the 18+ role, and roles from [role sync](/discord/role-and-ban-sync). **None** when there are none. A role somebody gave by hand is never listed. |
 | **Standing** | **Banned** if they are banned from your VRChat group or your Discord server, otherwise **Good**. Nothing else: no reason, no rule, no case file. |
+| **Event invites** | **On** if they asked for event invites, otherwise **Off**. |
 
 A member who is not linked also gets a **Link your VRChat account** button, when linking is set up.
+
+### Get event invites
+
+Under the card there is a **Get event invites** button, or **Stop event invites** once they have
+asked. Pressing it is the member's own choice, and **the only way a member gets invites** to the
+group's events: an event that invites a [saved list](/moderation/calendar#inviting-people) invites
+only the people on it who asked. Modbot keeps the choice with when it was made, adds an **Asked for
+event invites** or **Stopped event invites** entry to the audit log, and answers "You will get
+invites to the group's events." or "You will not get invites to the group's events." Stopping takes
+effect straight away, even for an event whose invites are already going out.
 
 `/me` never shows anybody else, who they were in an instance with, who reported them, anything a
 moderator wrote, flags or evidence. It reads only what Modbot has stored and asks VRChat nothing.
@@ -247,6 +258,9 @@ is the most a Modbot can keep, depending on what the group has switched on, and 
 - That you are a member, when you joined, your roles, and whether you left
 - Notes moderators keep on your membership in VRChat
 - Bans and unbans, when they happened and who did them
+- Whether you asked for event invites, and when you changed it
+- Each event invite Modbot sent you, and whether it got through
+- Whether you are a friend of the group's Modbot VRChat account, as far as Modbot has learned
 
 **Where you have been**
 

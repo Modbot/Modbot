@@ -154,16 +154,20 @@ public sealed class DiscordCommandHandler
     }
 
     /// <summary>
-    /// A press on one of the bot's buttons. Today only the two under <c>/me</c> exist, and they
-    /// follow the same switch and the same per-person limit as the command.
+    /// A press on one of the bot's buttons. Today only the ones under <c>/me</c> exist -- what
+    /// Modbot keeps, asking to delete, and getting or stopping event invites -- and they follow the
+    /// same switch and the same per-person limit as the command.
     /// </summary>
     /// <param name="gateway">The session, for the line a deletion request posts to the alerts channel.</param>
     public async Task<DiscordReply> HandleButtonAsync(DiscordButtonPress press, IDiscordGateway? gateway, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(press);
 
-        if (press.ButtonId is not (MeCommand.KeepsButton or MeCommand.DeleteButton))
+        if (press.ButtonId is not (MeCommand.KeepsButton or MeCommand.DeleteButton
+            or MeCommand.InvitesOnButton or MeCommand.InvitesOffButton))
+        {
             return DiscordReply.Say("Modbot does not know that button.");
+        }
 
         if (_me is null || !await _me.IsOnAsync(ct).ConfigureAwait(false))
             return DiscordReply.Say(MeCommand.OffMessage);
@@ -171,9 +175,13 @@ public sealed class DiscordCommandHandler
         if (!_me.TryUse(press.DiscordUserId))
             return DiscordReply.Say(MeCommand.TooFastMessage);
 
-        return press.ButtonId == MeCommand.KeepsButton
-            ? MeCommand.KeepsReply()
-            : await _me.AskToDeleteAsync(press.DiscordUserId, press.DiscordUsername, gateway, ct).ConfigureAwait(false);
+        return press.ButtonId switch
+        {
+            MeCommand.KeepsButton => MeCommand.KeepsReply(),
+            MeCommand.InvitesOnButton => await _me.SetEventInvitesAsync(press.DiscordUserId, wants: true, ct).ConfigureAwait(false),
+            MeCommand.InvitesOffButton => await _me.SetEventInvitesAsync(press.DiscordUserId, wants: false, ct).ConfigureAwait(false),
+            _ => await _me.AskToDeleteAsync(press.DiscordUserId, press.DiscordUsername, gateway, ct).ConfigureAwait(false),
+        };
     }
 
     private async Task<(DiscordReply Reply, string? Target)> LookupAsync(DiscordCommandCall call, CancellationToken ct)

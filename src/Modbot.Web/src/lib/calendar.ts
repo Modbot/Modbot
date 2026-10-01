@@ -74,6 +74,8 @@ export type CalendarInvites = {
   waiting: number
   stopped: number
   skipped: number
+  /** Did not ask for event invites, so nothing was sent. In `total`. */
+  notAsked?: number
 }
 
 export type CalendarStaffChoice = { id: string; name: string; hasVRChat: boolean; hasDiscord: boolean }

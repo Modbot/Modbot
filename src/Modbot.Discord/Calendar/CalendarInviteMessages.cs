@@ -108,6 +108,14 @@ public sealed class CalendarInviteMessages
                 continue;
             }
 
+            // Only to somebody who still wants event invites; stopping them stops the message too.
+            if (!await _invites.StillWantedAsync(row, ct).ConfigureAwait(false))
+            {
+                Mark(row, CalendarInviteStates.NotAsked, CalendarInvites.DidNotAsk, now);
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+                continue;
+            }
+
             var opening = await _db.CalendarOpenings.AsNoTracking()
                 .FirstAsync(o => o.EventId == row.EventId && o.OccurrenceStartsAt == row.OccurrenceStartsAt, ct).ConfigureAwait(false);
 

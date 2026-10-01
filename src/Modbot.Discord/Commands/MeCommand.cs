@@ -28,6 +28,7 @@ namespace Modbot.Discord.Commands;
 /// <param name="Roles">The names of the Discord roles Modbot gave them and they still hold.</param>
 /// <param name="Banned">Banned from the group or the Discord server, as Modbot's ban lists have it.</param>
 /// <param name="LinkPage">The link page, when there is no link and linking is set up.</param>
+/// <param name="GetsEventInvites">They asked for event invites and have not stopped them.</param>
 public sealed record MeView(
     string? GroupName,
     string DiscordName,
@@ -36,7 +37,8 @@ public sealed record MeView(
     bool? InGroup,
     IReadOnlyList<string> Roles,
     bool Banned,
-    string? LinkPage);
+    string? LinkPage,
+    bool GetsEventInvites = false);
 
 /// <summary>
 /// The member-facing <c>/me</c> command and its two buttons (Discord /me design, 2026-09-30).
@@ -65,10 +67,17 @@ public sealed class MeCommand
 {
     public const string KeepsButton = DiscordActionButton.Prefix + "me:keeps";
     public const string DeleteButton = DiscordActionButton.Prefix + "me:delete";
+    public const string InvitesOnButton = DiscordActionButton.Prefix + "me:invites-on";
+    public const string InvitesOffButton = DiscordActionButton.Prefix + "me:invites-off";
 
     public const string KeepsLabel = "What Modbot keeps";
     public const string DeleteLabel = "Ask to delete my data";
     public const string LinkLabel = "Link your VRChat account";
+    public const string InvitesOnLabel = "Get event invites";
+    public const string InvitesOffLabel = "Stop event invites";
+
+    public const string InvitesOnMessage = "You will get invites to the group's events.";
+    public const string InvitesOffMessage = "You will not get invites to the group's events.";
 
     /// <summary>Deletion requests the whole server may open in any 24 hours.</summary>
     public const int DailyCap = 20;
@@ -214,6 +223,10 @@ public sealed class MeCommand
             ? []
             : await RolesAsync(guildId, discordUserId, link?.LinkedRoleId, link?.EighteenPlusRoleId, ct).ConfigureAwait(false);
 
+        var getsEventInvites = await _db.EventInviteChoices.AsNoTracking()
+            .AnyAsync(c => c.DiscordUserId == discordUserId && c.Wants, ct)
+            .ConfigureAwait(false);
+
         string? linkPage = null;
         if (link is null
             && !string.IsNullOrWhiteSpace(settings?.DiscordOAuthClientId)
@@ -230,7 +243,8 @@ public sealed class MeCommand
             inGroup,
             roles,
             groupBanned || discordBanned,
-            linkPage);
+            linkPage,
+            getsEventInvites);
     }
 
     /// <summary>
@@ -300,7 +314,10 @@ public sealed class MeCommand
         return [.. names.OrderByDescending(r => r.Position).ThenBy(r => r.RoleId, StringComparer.Ordinal).Select(r => r.Name)];
     }
 
-    /// <summary>The <c>/me</c> reply: the card, a link button when there is no link, and the two buttons.</summary>
+    /// <summary>
+    /// The <c>/me</c> reply: the card, a link button when there is no link, the two buttons, and
+    /// "Get event invites" or "Stop event invites", whichever changes what they have now.
+    /// </summary>
     public static DiscordReply Reply(MeView view)
     {
         ArgumentNullException.ThrowIfNull(view);
@@ -310,7 +327,74 @@ public sealed class MeCommand
             [Card(view)],
             view.LinkPage is { } page ? [new DiscordLinkButton(LinkLabel, page)] : null,
             null,
-            [new DiscordActionButton(KeepsLabel, KeepsButton), new DiscordActionButton(DeleteLabel, DeleteButton)]);
+            [
+                new DiscordActionButton(KeepsLabel, KeepsButton),
+                new DiscordActionButton(DeleteLabel, DeleteButton),
+                view.GetsEventInvites
+                    ? new DiscordActionButton(InvitesOffLabel, InvitesOffButton)
+                    : new DiscordActionButton(InvitesOnLabel, InvitesOnButton),
+            ]);
+    }
+
+    /// <summary>
+    /// "Get event invites" or "Stop event invites": the member's own choice, kept with when they
+    /// made it and recorded as a fact (calendar auto-invite design §2.1). Invites to an event's
+    /// instance go only to people who chose to get them.
+    /// </summary>
+    public async Task<DiscordReply> SetEventInvitesAsync(string discordUserId, bool wants, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(discordUserId);
+
+        var now = _clock.UtcNow;
+
+        // The VRChat account linked now, so a list that names them by it finds the choice too.
+        var vrchat = await _db.DiscordAccountLinks.AsNoTracking()
+            .Where(l => l.DiscordUserId == discordUserId && l.UnlinkedAt == null)
+            .Select(l => l.VRChatUserId)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+
+        var choice = await _db.EventInviteChoices
+            .FirstOrDefaultAsync(c => c.DiscordUserId == discordUserId, ct)
+            .ConfigureAwait(false);
+
+        if (choice is null)
+        {
+            choice = new EventInviteChoice { DiscordUserId = discordUserId };
+            _db.EventInviteChoices.Add(choice);
+        }
+
+        var changed = choice.Wants != wants || _db.Entry(choice).State == EntityState.Added;
+
+        choice.Wants = wants;
+        choice.VRChatUserId = vrchat;
+        choice.ChangedAt = now;
+
+        await _partitions.EnsureForAsync(now, ct).ConfigureAwait(false);
+
+        await using (var transaction = await _db.Database.BeginTransactionAsync(ct).ConfigureAwait(false))
+        {
+            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+            // Pressed twice: the second press changes nothing and records nothing.
+            if (changed)
+            {
+                await _facts.WriteAsync(new FactRecord
+                    {
+                        Type = wants ? FactType.EventInvitesWanted : FactType.EventInvitesStopped,
+                        OccurredAt = now,
+                        SubjectPlatform = FactPlatform.Discord,
+                        SubjectId = discordUserId,
+                        Source = FactSource.Discord,
+                        Data = new JsonObject { ["via"] = "me" },
+                    }, ct)
+                    .ConfigureAwait(false);
+            }
+
+            await transaction.CommitAsync(ct).ConfigureAwait(false);
+        }
+
+        return DiscordReply.Say(wants ? InvitesOnMessage : InvitesOffMessage);
     }
 
     /// <summary>
@@ -337,6 +421,7 @@ public sealed class MeCommand
             view.Roles.Count == 0 ? "None" : CardText.Fit(string.Join(", ", view.Roles.Select(Name)), 1024)));
 
         fields.Add(new DiscordEmbedField("Standing", view.Banned ? "Banned" : "Good"));
+        fields.Add(new DiscordEmbedField("Event invites", view.GetsEventInvites ? "On" : "Off"));
 
         return new DiscordEmbedContent(
             string.IsNullOrWhiteSpace(view.GroupName) ? "Modbot" : CardText.Plain(view.GroupName, 256),

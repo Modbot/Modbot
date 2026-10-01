@@ -41,6 +41,7 @@ namespace Modbot.Api.Features.Auth;
 /// <c>/api/auth/me</c> fills it in (API conventions design §7): a program holding a key had no
 /// other way to learn its own permissions over REST.
 /// </param>
+/// <param name="GetsEventInvites">Whether events that name this account as host or staff invite it.</param>
 public sealed record SessionUser(
     Guid Id,
     string Username,
@@ -58,7 +59,8 @@ public sealed record SessionUser(
     bool ChatOn,
     int? Rank = null,
     bool BriefsOn = false,
-    KeyInUse? ApiKey = null)
+    KeyInUse? ApiKey = null,
+    bool GetsEventInvites = true)
 {
     public static SessionUser From(ModbotUser user, Features.Chat.AiSwitches on)
     {
@@ -83,7 +85,8 @@ public sealed record SessionUser(
             StaffDiscord.TypedIdWorksUntil(user),
             on.ChatOn,
             user.Roles.Count == 0 ? null : RoleRank.Of(user),
-            on.BriefsOn);
+            on.BriefsOn,
+            user.GetsEventInvites);
     }
 }
 

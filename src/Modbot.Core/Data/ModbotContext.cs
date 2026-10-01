@@ -297,6 +297,9 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>Who Modbot has learned is a friend of its VRChat account, or not (calendar auto-invite design §3.1).</summary>
     public DbSet<VRChatFriend> VRChatFriends => Set<VRChatFriend>();
 
+    /// <summary>Who asked for event invites through <c>/me</c>, or stopped them (calendar auto-invite design §2.1).</summary>
+    public DbSet<EventInviteChoice> EventInviteChoices => Set<EventInviteChoice>();
+
     /// <summary>The calendar feed's secret link. One row.</summary>
     public DbSet<CalendarFeed> CalendarFeeds => Set<CalendarFeed>();
 
@@ -2332,6 +2335,17 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
                 .WithMany()
                 .HasForeignKey(e => e.EventId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<EventInviteChoice>(entity =>
+        {
+            entity.ToTable("event_invite_choice");
+            entity.HasKey(e => e.DiscordUserId);
+            entity.Property(e => e.DiscordUserId).HasColumnType("text");
+            entity.Property(e => e.VRChatUserId).HasColumnType("text").HasColumnName("vrchat_user_id");
+
+            // A list gives a VRChat id as often as a Discord one.
+            entity.HasIndex(e => e.VRChatUserId).HasDatabaseName("ix_event_invite_choice_vrchat_user_id");
         });
 
         builder.Entity<VRChatFriend>(entity =>

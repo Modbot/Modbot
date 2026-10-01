@@ -87,11 +87,40 @@ public abstract class CalendarTestBase(PostgresFixture fixture) : SyncTestBase(f
             .ToListAsync(Ct);
     }
 
+    /// <summary>
+    /// These people pressed "Get event invites" (or, with <paramref name="wants"/> false, "Stop event
+    /// invites") under /me, from a Discord account linked to their VRChat one.
+    /// </summary>
+    protected async Task AskForInvitesAsync(IEnumerable<string> vrchatUserIds, bool wants = true)
+    {
+        await using var context = Database.NewContext();
+
+        foreach (var id in vrchatUserIds)
+        {
+            var discord = $"discord-of-{id}";
+            var choice = await context.EventInviteChoices.FirstOrDefaultAsync(c => c.DiscordUserId == discord, Ct);
+
+            if (choice is null)
+            {
+                choice = new EventInviteChoice { DiscordUserId = discord };
+                context.EventInviteChoices.Add(choice);
+            }
+
+            choice.VRChatUserId = id;
+            choice.Wants = wants;
+            choice.ChangedAt = Clock.UtcNow;
+        }
+
+        await context.SaveChangesAsync(Ct);
+    }
+
     /// <summary>A staff account with the accounts it linked.</summary>
-    protected async Task<ModbotUser> AddStaffAsync(string name, string? vrchatUserId = null, string? discordUserId = null)
+    protected async Task<ModbotUser> AddStaffAsync(
+        string name, string? vrchatUserId = null, string? discordUserId = null, bool getsEventInvites = true)
     {
         var user = new ModbotUser
         {
+            GetsEventInvites = getsEventInvites,
             Username = name,
             UsernameNormalized = name.ToUpperInvariant(),
             PasswordHash = "x",
@@ -107,9 +136,19 @@ public abstract class CalendarTestBase(PostgresFixture fixture) : SyncTestBase(f
         return user;
     }
 
-    /// <summary>A saved list everybody in the group is on: no rules.</summary>
-    protected async Task<SavedList> AddEverybodyListAsync(params string[] groupMembers)
+    /// <summary>A saved list everybody in the group is on, every one of whom asked for event invites.</summary>
+    protected Task<SavedList> AddEverybodyListAsync(params string[] groupMembers) =>
+        AddEverybodyListAsync(asked: true, groupMembers);
+
+    /// <summary>
+    /// A saved list everybody in the group is on: no rules. <paramref name="asked"/> says whether they
+    /// all pressed "Get event invites" under /me.
+    /// </summary>
+    protected async Task<SavedList> AddEverybodyListAsync(bool asked, params string[] groupMembers)
     {
+        if (asked)
+            await AskForInvitesAsync(groupMembers);
+
         await using var context = Database.NewContext();
 
         foreach (var id in groupMembers)

@@ -305,6 +305,7 @@ function InviteCounts({ invites }: { invites: CalendarInvites }) {
     ['Discord message', invites.discord],
     ["Couldn't reach", invites.couldNotReach],
     ['No way to reach', invites.noWay],
+    ["Didn't ask for invites", invites.notAsked ?? 0],
   ]
 
   return (

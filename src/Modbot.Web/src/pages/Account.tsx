@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronRight, Rows2, Rows3 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { PanelGrid } from '@/components/PanelGrid'
@@ -116,6 +117,7 @@ export function Account({
       <Contact me={me} onChanged={onChanged} />
       <ChangePassword />
       <NotificationChoicesCard />
+      <EventInvites me={me} onChanged={onChanged} />
 
       <Card>
         <CardHeader>
@@ -135,6 +137,39 @@ export function Account({
 
       <SignOutEverywhere />
     </PanelGrid>
+  )
+}
+
+/**
+ * Whether events that name this account as host or staff invite it when their instance opens
+ * (calendar auto-invite design §2.1). On unless turned off here.
+ */
+function EventInvites({ me, onChanged }: { me: CurrentUser; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const change = (on: boolean) => {
+    setBusy(true)
+    setError(null)
+    api
+      .setEventInvites(on)
+      .then(onChanged)
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not save.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Event invites</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        <Checkbox checked={me.getsEventInvites ?? true} disabled={busy} onChange={change}>
+          Get event invites
+        </Checkbox>
+        <ErrorText>{error}</ErrorText>
+      </CardContent>
+    </Card>
   )
 }
 

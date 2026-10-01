@@ -18,6 +18,9 @@ public sealed record ChangePasswordRequest(string CurrentPassword, string NewPas
 
 public sealed record ChangeUsernameRequest(string Username, string CurrentPassword);
 
+/// <param name="GetsEventInvites">Whether events that name you as host or staff invite you.</param>
+public sealed record EventInvitesRequest(bool GetsEventInvites);
+
 /// <summary>
 /// The signed-in person's own account (accounts and access design §4): password, username,
 /// contact details, and ending every session.
@@ -173,6 +176,45 @@ public static class AccountEndpoints
             .WithDescription("Set the email address a reset link can reach you at.")
             .Produces<SessionUser>()
             .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        group.MapPut("/event-invites", async (
+                [FromBody] EventInvitesRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] UserAccountService accounts,
+                [FromServices] AccountFacts facts,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                var user = await accounts.FindAsync(ModbotAuth.UserIdOf(http.User)!.Value, ct);
+                if (user is null)
+                    return Results.Unauthorized();
+
+                if (user.GetsEventInvites != body.GetsEventInvites)
+                {
+                    user.GetsEventInvites = body.GetsEventInvites;
+
+                    await using var transaction = await db.Database.BeginTransactionAsync(ct);
+                    await db.SaveChangesAsync(ct);
+                    await facts.RecordAsync(
+                        body.GetsEventInvites ? FactType.EventInvitesWanted : FactType.EventInvitesStopped,
+                        user,
+                        new Actor(user.Id, user.Username),
+                        new JsonObject { ["via"] = "account" },
+                        ct);
+                    await transaction.CommitAsync(ct);
+                }
+
+                return Results.Ok(SessionUser.From(user, await ChatSwitch.ReadAsync(db, ct)));
+            })
+            .WithName("SetOwnEventInvites")
+            .WithSummary("Get or stop event invites")
+            .WithDescription(
+                "Whether an event that names you as its host or staff invites you when its instance opens. "
+                + "On for a new account.")
+            .Produces<SessionUser>()
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapPost("/sign-out-everywhere", async (

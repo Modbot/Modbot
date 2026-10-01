@@ -1393,6 +1393,21 @@ const SENTENCES: Record<string, Sentence> = {
       </>
     ),
 
+  // `via`: me (the member pressed the /me button) or account (a staff account's own switch).
+  'modbot.calendar.invites.on': (p) =>
+    p.text('via') === 'account' ? (
+      <>{p.actor} turned on event invites for their account.</>
+    ) : (
+      <>{p.subject} asked for event invites with /me.</>
+    ),
+
+  'modbot.calendar.invites.off': (p) =>
+    p.text('via') === 'account' ? (
+      <>{p.actor} turned off event invites for their account.</>
+    ) : (
+      <>{p.subject} stopped event invites with /me.</>
+    ),
+
   'modbot.calendar.invite.fail': (p) => (
     <>
       Modbot could not invite {p.subject} to the event<Quoted value={p.text('title')} />

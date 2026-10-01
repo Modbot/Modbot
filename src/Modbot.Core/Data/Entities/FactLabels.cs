@@ -152,6 +152,8 @@ public static class FactLabels
         [FactType.PlannedEventInstanceFailed] = "Instance for an event failed to open",
         [FactType.PlannedEventInviteSent] = "Invited to an event",
         [FactType.PlannedEventInviteFailed] = "Event invite failed",
+        [FactType.EventInvitesWanted] = "Asked for event invites",
+        [FactType.EventInvitesStopped] = "Stopped event invites",
         [FactType.PlannedEventPublishFailed] = "Event failed to publish",
         [FactType.PlannedEventPublished] = "Event published",
         [FactType.PlannedEventTakenDown] = "Event taken down",

@@ -18,7 +18,8 @@
 ## 1. What this adds
 
 An event that opens its instance automatically can also invite people to it: **the host first, then
-the event's staff, then the people on one saved list**. Not every group member.
+the event's staff, then the people on one saved list**. Not every group member, and **only people
+who asked for event invites** (§2.1).
 
 And an event can post once, in its Discord channel and in the VRChat group's posts, when **the first
 person is in** the instance.
@@ -48,6 +49,30 @@ on the list is invited once, as the host.
 - already in the instance, when a moderator's client is there to say so (`InstancePeopleReader`).
 
 They keep a row marked **skipped**, so the event can say why, and are not counted.
+
+### 2.1 Only people who asked (decided 2026-10-01)
+
+A Terms of Service review named invites nobody asked for as the main risk of this feature, so the
+user decided that **invites go only to people who opted in**. Both the VRChat invite and the Discord
+direct message follow it.
+
+| Who | Asks by | Default | Stored |
+|---|---|---|---|
+| A member on the invite list | **Get event invites** under `/me` in Discord; **Stop event invites** undoes it | Off: no row means no | `event_invite_choice`: their Discord id, the VRChat id linked at the time, yes or no, when |
+| A staff account named as host or staff | **Get event invites** on their account page | **On** | `modbot_user.gets_event_invites` |
+
+Staff default to on because an organiser naming a colleague as host or staff of their own event is
+not an invite nobody asked for: the staff member is part of running it, and can still turn it off.
+A member on a list is the case the review was about, so nothing goes to them until they ask.
+
+`/me` is behind its own server switch (off by default), so a server without it has no way for a
+member to ask, and an invite list there reaches staff only. That is the intent, not a gap.
+
+Somebody who did not ask gets a row marked **Didn't ask for invites**: counted in "Invited N of M"
+so the organiser sees the list was larger, never sent anything. The choice is checked again just
+before each VRChat invite and each direct message, so "Stop event invites" stops one already
+queued. Each change is a fact (`modbot.calendar.invites.on` / `.off`) about the person, with no
+name in it; a purge deletes the choice.
 
 ## 3. How each person is reached
 
@@ -154,9 +179,11 @@ Modbot did it. Moderation log, like group auto-invites.
 |---|---|---|
 | `modbot.calendar.invite.send` | A VRChat invite or direct message went out | event, title, `via`, `role` |
 | `modbot.calendar.invite.fail` | Neither got through | event, title, `via` tried, `role`, VRChat's or Discord's words |
+| `modbot.calendar.invites.on` / `.off` | Somebody asked for or stopped event invites (§2.1) | `via`: `me` (subject the Discord account) or `account` (subject and actor the staff account) |
 
-No notification is raised. A purge deletes the person's `calendar_invite` rows and their
-`vrchat_friend` row with their facts.
+No notification is raised. A purge deletes the person's `calendar_invite` rows, their
+`event_invite_choice` row and their `vrchat_friend` row with their facts. The `/me` "What Modbot
+keeps" list and the privacy policy name all three.
 
 ## 9. Permissions
 
@@ -169,8 +196,10 @@ No notification is raised. A purge deletes the person's `calendar_invite` rows a
 
 Event form, under **Open the instance automatically**: **Host**, **Invite list**, **Staff**,
 **Announce in Discord when the first person joins**, **Announce in VRChat when the first person
-joins**. Event details: **Invited N of M**, then VRChat invite, Discord message, couldn't reach and no
-way to reach as counts, and a refused first-person post's error. No explanatory text.
+joins**. Event details: **Invited N of M**, then VRChat invite, Discord message, couldn't reach, no
+way to reach and didn't ask for invites as counts, and a refused first-person post's error. Account
+page: **Event invites** with **Get event invites**. `/me`: an **Event invites** On/Off line and the
+**Get event invites** / **Stop event invites** button. No explanatory text.
 
 A list already on an event is shown by name to somebody who may not pick lists, and cannot be changed
 by them. The Lists page shows an event that invites a list beside its giveaways.

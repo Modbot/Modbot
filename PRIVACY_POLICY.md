@@ -66,6 +66,13 @@ It depends on what the group has set up. At most:
 - That you are a member, when you joined, which roles you have, and whether you left.
 - Any moderator notes VRChat holds on your membership.
 - Bans and unbans, when they happened and who did them.
+- Whether you asked for invites to the group's events (with `/me`, or on your Modbot account), and
+  when you changed it. Modbot invites you to an event only if you asked.
+- Each event invite Modbot sent you, by VRChat invite or Discord direct message, and whether it got
+  through.
+- Whether you are a friend of the group's own Modbot VRChat account, as far as Modbot has learned
+  from the invites it sent and from that account's friends list when it signs in. A purge deletes
+  this, but if you are still that account's friend, the next sign-in notes it again.
 
 **Where you have been**
 

@@ -175,7 +175,7 @@ public sealed class CalendarInviter
     private async Task<List<CalendarInvite>> RowsAsync(
         CalendarEvent calendarEvent, CalendarOpening opening, DateTimeOffset now, CancellationToken ct)
     {
-        var people = new List<(string Role, string? VRChat, string? Discord, string Key)>();
+        var people = new List<(string Role, string? VRChat, string? Discord, string Key, Guid? Staff, bool StaffWants)>();
 
         await AddStaffAsync(calendarEvent, people, now, ct).ConfigureAwait(false);
         await AddListAsync(calendarEvent, people, ct).ConfigureAwait(false);
@@ -183,7 +183,7 @@ public sealed class CalendarInviter
         // One row per person: the first time they turn up is the role they are invited as.
         var seenVRChat = new HashSet<string>(StringComparer.Ordinal);
         var seenDiscord = new HashSet<string>(StringComparer.Ordinal);
-        var unique = new List<(string Role, string? VRChat, string? Discord, string Key)>();
+        var unique = new List<(string Role, string? VRChat, string? Discord, string Key, Guid? Staff, bool StaffWants)>();
 
         foreach (var person in people)
         {
@@ -204,15 +204,26 @@ public sealed class CalendarInviter
             [.. unique.Where(p => p.Discord != null).Select(p => p.Discord!)],
             ct).ConfigureAwait(false);
 
+        var (askedVRChat, askedDiscord) = await _invites.AskedAsync(
+            [.. unique.Where(p => p.Staff is null && p.VRChat != null).Select(p => p.VRChat!)],
+            [.. unique.Where(p => p.Staff is null && p.Discord != null).Select(p => p.Discord!)],
+            ct).ConfigureAwait(false);
+
         var rows = new List<CalendarInvite>(unique.Count);
 
         for (var position = 0; position < unique.Count; position++)
         {
-            var (role, vrchat, discord, key) = unique[position];
+            var (role, vrchat, discord, key, staff, staffWants) = unique[position];
+
+            // Only people who asked: a staff account's own switch, or a member's "Get event invites".
+            var asked = staff is not null
+                ? staffWants
+                : (vrchat is not null && askedVRChat.Contains(vrchat)) || (discord is not null && askedDiscord.Contains(discord));
 
             var (state, problem) =
                 vrchat is not null && bannedVRChat.Contains(vrchat) ? (CalendarInviteStates.Skipped, CalendarInvites.BannedFromGroup)
                 : discord is not null && bannedDiscord.Contains(discord) ? (CalendarInviteStates.Skipped, CalendarInvites.BannedFromServer)
+                : !asked ? (CalendarInviteStates.NotAsked, CalendarInvites.DidNotAsk)
                 : vrchat is not null ? (CalendarInviteStates.Waiting, (string?)null)
                 : discord is not null ? (CalendarInviteStates.ToMessage, (string?)null)
                 : (CalendarInviteStates.NoWay, CalendarInvites.NoAccount);
@@ -223,6 +234,7 @@ public sealed class CalendarInviter
                 OccurrenceStartsAt = opening.OccurrenceStartsAt,
                 Position = position,
                 Role = role,
+                StaffUserId = staff,
                 PersonKey = key,
                 VRChatUserId = vrchat,
                 DiscordUserId = discord,
@@ -239,7 +251,7 @@ public sealed class CalendarInviter
     /// <summary>The host and the staff, reached through the accounts they linked.</summary>
     private async Task AddStaffAsync(
         CalendarEvent calendarEvent,
-        List<(string Role, string? VRChat, string? Discord, string Key)> people,
+        List<(string Role, string? VRChat, string? Discord, string Key, Guid? Staff, bool StaffWants)> people,
         DateTimeOffset now,
         CancellationToken ct)
     {
@@ -280,14 +292,16 @@ public sealed class CalendarInviter
                 ? CalendarInvite.KeyFor(vrchat, discord)
                 : $"staff:{id}";
 
-            people.Add((id == calendarEvent.InviteHostUserId ? CalendarInviteRoles.Host : CalendarInviteRoles.Staff, vrchat, discord, key));
+            people.Add((
+                id == calendarEvent.InviteHostUserId ? CalendarInviteRoles.Host : CalendarInviteRoles.Staff,
+                vrchat, discord, key, id, account.GetsEventInvites));
         }
     }
 
     /// <summary>The list's people as it holds them now, by the same checker as the Lists page.</summary>
     private async Task AddListAsync(
         CalendarEvent calendarEvent,
-        List<(string Role, string? VRChat, string? Discord, string Key)> people,
+        List<(string Role, string? VRChat, string? Discord, string Key, Guid? Staff, bool StaffWants)> people,
         CancellationToken ct)
     {
         if (calendarEvent.InviteListId is not { } listId)
@@ -318,7 +332,7 @@ public sealed class CalendarInviter
             if (vrchat is null && discord is null)
                 continue;
 
-            people.Add((CalendarInviteRoles.List, vrchat, discord, CalendarInvite.KeyFor(vrchat, discord)));
+            people.Add((CalendarInviteRoles.List, vrchat, discord, CalendarInvite.KeyFor(vrchat, discord), null, false));
         }
     }
 
@@ -392,6 +406,14 @@ public sealed class CalendarInviter
             if (await LeftOutAsync(row, instance, ct).ConfigureAwait(false) is { } skipped)
             {
                 Mark(row, CalendarInviteStates.Skipped, skipped, now);
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+                continue;
+            }
+
+            // Stopped event invites since the queue was written: nothing goes to them.
+            if (!await _invites.StillWantedAsync(row, ct).ConfigureAwait(false))
+            {
+                Mark(row, CalendarInviteStates.NotAsked, CalendarInvites.DidNotAsk, now);
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
                 continue;
             }

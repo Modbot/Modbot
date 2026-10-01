@@ -507,6 +507,9 @@ public static class CalendarInviteStates
     /// <summary>Banned, or already in the instance. Not counted.</summary>
     public const string Skipped = "skipped";
 
+    /// <summary>Did not ask for event invites, or stopped them. Nothing is sent (calendar auto-invite design §2.1).</summary>
+    public const string NotAsked = "notAsked";
+
     /// <summary>The instance closed or the time ended before it was sent.</summary>
     public const string Stopped = "stopped";
 
@@ -552,6 +555,9 @@ public class CalendarInvite
 
     /// <summary>One of <see cref="CalendarInviteRoles"/>.</summary>
     public string Role { get; set; } = CalendarInviteRoles.List;
+
+    /// <summary>The staff account, for a host or staff row: whose "Get event invites" switch decides.</summary>
+    public Guid? StaffUserId { get; set; }
 
     /// <summary><c>vrchat:usr_…</c> or <c>discord:…</c>, the way lists name people. Unique per occurrence.</summary>
     public string PersonKey { get; set; } = string.Empty;

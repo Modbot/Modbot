@@ -164,6 +164,8 @@ export type CurrentUser = {
    * row's own through `isBelowMe` — Manage users and Manage roles only reach what is below it.
    */
   rank: number | null
+  /** Whether events that name this account as host or staff invite it. On for a new account. */
+  getsEventInvites?: boolean
 }
 
 export type PermissionInfo = {
@@ -4392,6 +4394,9 @@ export const api = {
   disconnectDiscord: () => del<CurrentUser>('/api/auth/discord'),
 
   signOutEverywhere: () => post<void>('/api/auth/sign-out-everywhere'),
+
+  /** Whether events that name you as host or staff invite you. */
+  setEventInvites: (getsEventInvites: boolean) => put<CurrentUser>('/api/auth/event-invites', { getsEventInvites }),
 
   vrchatLink: () => request<VRChatLinkStatus>('/api/auth/vrchat-link'),
 

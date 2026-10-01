@@ -52,6 +52,9 @@ public static class WhatModbotKeeps
             "That you are a member, when you joined, your roles, and whether you left",
             "Notes moderators keep on your membership in VRChat",
             "Bans and unbans, when they happened and who did them",
+            "Whether you asked for event invites, and when you changed it",
+            "Each event invite Modbot sent you, and whether it got through",
+            "Whether you are a friend of the group's Modbot VRChat account, as far as Modbot has learned",
         ]),
         new("Where you have been",
         [

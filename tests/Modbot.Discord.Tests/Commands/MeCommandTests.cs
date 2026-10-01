@@ -256,7 +256,12 @@ public class MeCommandTests
         Assert.Equal("https://modbot.example.com/link", link.Url);
 
         Assert.Equal(
-            new[] { (MeCommand.KeepsLabel, MeCommand.KeepsButton), (MeCommand.DeleteLabel, MeCommand.DeleteButton) },
+            new[]
+            {
+                (MeCommand.KeepsLabel, MeCommand.KeepsButton),
+                (MeCommand.DeleteLabel, MeCommand.DeleteButton),
+                (MeCommand.InvitesOnLabel, MeCommand.InvitesOnButton),
+            },
             reply.Actions!.Select(a => (a.Label, a.Id)));
 
         var fact = Assert.Single(await services.FactsOfTypeAsync(FactType.DiscordCommandRun, Ct));
@@ -443,7 +448,7 @@ public class MeCommandTests
         var card = Assert.Single(reply.Embeds);
 
         // Exactly the five labels, nothing else.
-        Assert.Equal(["VRChat", "Discord", "Member since", "Roles from Modbot", "Standing"], card.Fields.Select(f => f.Name));
+        Assert.Equal(["VRChat", "Discord", "Member since", "Roles from Modbot", "Standing", "Event invites"], card.Fields.Select(f => f.Name));
 
         var everything = string.Join('\n', [card.Title, card.Description ?? string.Empty, .. card.Fields.SelectMany(f => new[] { f.Name, f.Value })]);
         Assert.DoesNotContain("Somebody Else", everything, StringComparison.Ordinal);
@@ -667,6 +672,63 @@ public class MeCommandTests
         // 24 hours on, the old ones no longer count.
         services.Clock.Advance(TimeSpan.FromDays(1));
         Assert.Equal(MeCommand.SentMessage, (await PressAsync(services, Press(Caller, MeCommand.DeleteButton))).Text);
+    }
+
+    [Fact]
+    public async Task GetEventInvites_IsKeptWithTheLinkedVRChatAccount_AndRecorded()
+    {
+        await using var services = await ServicesAsync();
+        await LinkAsync(services, Caller, CallerVRChat, "Kiri");
+
+        Assert.Equal(MeCommand.InvitesOnMessage, (await PressAsync(services, Press(Caller, MeCommand.InvitesOnButton))).Text);
+
+        await using (var db = services.Database.NewContext())
+        {
+            var choice = await db.EventInviteChoices.AsNoTracking().SingleAsync(c => c.DiscordUserId == Caller, Ct);
+            Assert.True(choice.Wants);
+            Assert.Equal(CallerVRChat, choice.VRChatUserId);
+            Assert.Equal(services.Clock.UtcNow, choice.ChangedAt);
+        }
+
+        var fact = Assert.Single(await services.FactsOfTypeAsync(FactType.EventInvitesWanted, Ct));
+        Assert.Equal(Caller, fact.SubjectId);
+        Assert.DoesNotContain("Kiri", fact.Data, StringComparison.Ordinal);
+
+        // The card now says so, and offers the way out instead.
+        var reply = await RunAsync(services, Call(Caller));
+        Assert.Equal("On", Field(reply.Embeds[0], "Event invites").Value);
+        Assert.Contains(reply.Actions!, a => a.Id == MeCommand.InvitesOffButton);
+        Assert.DoesNotContain(reply.Actions!, a => a.Id == MeCommand.InvitesOnButton);
+
+        // Pressed again: nothing changes and nothing more is recorded.
+        await PressAsync(services, Press(Caller, MeCommand.InvitesOnButton));
+        Assert.Single(await services.FactsOfTypeAsync(FactType.EventInvitesWanted, Ct));
+    }
+
+    [Fact]
+    public async Task StopEventInvites_TurnsItOff_AndIsRecorded()
+    {
+        await using var services = await ServicesAsync();
+
+        await PressAsync(services, Press(Caller, MeCommand.InvitesOnButton));
+        Assert.Equal(MeCommand.InvitesOffMessage, (await PressAsync(services, Press(Caller, MeCommand.InvitesOffButton))).Text);
+
+        await using (var db = services.Database.NewContext())
+            Assert.False((await db.EventInviteChoices.AsNoTracking().SingleAsync(c => c.DiscordUserId == Caller, Ct)).Wants);
+
+        Assert.Single(await services.FactsOfTypeAsync(FactType.EventInvitesStopped, Ct));
+        Assert.Equal("Off", Field((await RunAsync(services, Call(Caller))).Embeds[0], "Event invites").Value);
+    }
+
+    [Fact]
+    public async Task TheEventInviteButtons_FollowTheSwitch()
+    {
+        await using var services = await ServicesAsync(on: false);
+
+        Assert.Equal(MeCommand.OffMessage, (await PressAsync(services, Press(Caller, MeCommand.InvitesOnButton))).Text);
+
+        await using var db = services.Database.NewContext();
+        Assert.Empty(await db.EventInviteChoices.AsNoTracking().ToListAsync(Ct));
     }
 
     [Fact]

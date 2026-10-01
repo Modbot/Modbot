@@ -102,6 +102,17 @@ demo mode before it answers, in case the bot is ever started in one.
   looked at their own record is an access record too.
 - "What Modbot keeps" writes nothing; it is the same list for everyone.
 
+### 6.1 Event invites (added 2026-10-01)
+
+A third button, **Get event invites** or **Stop event invites** (whichever changes what the member
+has), and an **Event invites** On/Off line on the card. It is the only way a member asks to be
+invited to the group's events: an event that invites a saved list sends nothing to anybody on it who
+did not ask (calendar auto-invite design §2.1). The choice is kept in `event_invite_choice` with the
+VRChat account linked at the time and when it was made; each change is a
+`modbot.calendar.invites.on` / `.off` fact about the member, with no name in it; a second press of
+the same choice records nothing. The button follows the same switch and the same per-person limit
+as the other two.
+
 ## 7. Risks and guards
 
 | Risk | Guard |

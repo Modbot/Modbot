@@ -89,6 +89,14 @@ public class CalendarInviteMessagesTests(PostgresFixture db)
 
         foreach (var row in rows)
         {
+            // Everybody here asked for event invites with /me; nobody else is sent anything.
+            context.EventInviteChoices.Add(new EventInviteChoice
+            {
+                DiscordUserId = row.DiscordUserId!,
+                Wants = true,
+                ChangedAt = now,
+            });
+
             row.EventId = e.Id;
             row.OccurrenceStartsAt = e.StartsAt;
             row.QueuedAt = now;
@@ -153,6 +161,28 @@ public class CalendarInviteMessagesTests(PostgresFixture db)
 
         Assert.Empty(gateway.DirectMessages);
         Assert.Equal(CalendarInviteStates.CouldNotReach, Assert.Single(await RowsAsync(services)).State);
+    }
+
+    [Fact]
+    public async Task SomebodyWhoStoppedEventInvites_GetsNoMessage()
+    {
+        await using var services = await TestServices.CreateAsync(db, Ct);
+        var gateway = new FakeGateway();
+
+        await OpenEventAsync(services, null, ToMessage(0, "100"));
+
+        // They pressed "Stop event invites" after the queue was written.
+        await using (var context = services.Database.NewContext())
+        {
+            var choice = await context.EventInviteChoices.SingleAsync(c => c.DiscordUserId == "100", Ct);
+            choice.Wants = false;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        await MessageAsync(services, gateway);
+
+        Assert.Empty(gateway.DirectMessages);
+        Assert.Equal(CalendarInviteStates.NotAsked, Assert.Single(await RowsAsync(services)).State);
     }
 
     [Fact]

@@ -605,6 +605,17 @@ public static class FactType
     /// <summary>Neither a VRChat invite nor a direct message got through.</summary>
     public const string PlannedEventInviteFailed = "modbot.calendar.invite.fail";
 
+    // Asking for event invites, or stopping them (calendar auto-invite design §2.1). A member does it
+    // with /me: the subject is their Discord account and the source Discord. A staff account does it
+    // on its account page: the subject and the actor are that account. Payload: how it was changed
+    // (`via`: me or account). Never a name.
+
+    /// <summary>Somebody asked for event invites.</summary>
+    public const string EventInvitesWanted = "modbot.calendar.invites.on";
+
+    /// <summary>Somebody stopped event invites.</summary>
+    public const string EventInvitesStopped = "modbot.calendar.invites.off";
+
     public const string CalendarFeedRegenerated = "modbot.calendar.feed.regenerate";
 
     /// <summary>

@@ -173,6 +173,20 @@ public class CalendarInviteEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task StaffTurnEventInvitesOffAndOn_OnTheirAccountPage()
+    {
+        await using var host = await StartAsync();
+        var (_, staff) = await host.SignedInAsync(Manager, Ct);
+
+        var off = await host.SendJsonAsync(HttpMethod.Put, "/api/auth/event-invites", new { getsEventInvites = false }, staff, Ct);
+        Assert.Equal(HttpStatusCode.OK, off.StatusCode);
+        Assert.False((await ApiTestHost.BodyOf(off, Ct)).GetProperty("getsEventInvites").GetBoolean());
+
+        var on = await host.SendJsonAsync(HttpMethod.Put, "/api/auth/event-invites", new { getsEventInvites = true }, staff, Ct);
+        Assert.True((await ApiTestHost.BodyOf(on, Ct)).GetProperty("getsEventInvites").GetBoolean());
+    }
+
+    [Fact]
     public async Task AListAnEventInvitesCannotBeDeleted()
     {
         await using var host = await StartAsync();

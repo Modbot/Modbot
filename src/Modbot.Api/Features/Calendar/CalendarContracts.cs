@@ -63,6 +63,7 @@ public sealed record CalendarEventRequest(
 /// <param name="Total">Everybody on the queue who was not skipped: the M in "Invited N of M".</param>
 /// <param name="Invited">VRChat invites and Discord messages that went out: the N.</param>
 /// <param name="Skipped">Banned, or already in the instance. Not in <paramref name="Total"/>.</param>
+/// <param name="NotAsked">Did not ask for event invites, so nothing was sent. In <paramref name="Total"/>.</param>
 public sealed record CalendarInvitesView(
     int Total,
     int Invited,
@@ -72,7 +73,8 @@ public sealed record CalendarInvitesView(
     int NoWay,
     int Waiting,
     int Stopped,
-    int Skipped);
+    int Skipped,
+    int NotAsked = 0);
 
 /// <summary>A staff account an event can invite.</summary>
 public sealed record CalendarStaffChoice(Guid Id, string Name, bool HasVRChat, bool HasDiscord);
