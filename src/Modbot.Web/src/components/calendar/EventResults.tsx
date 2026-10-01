@@ -1,6 +1,7 @@
 import { useCallback, type ReactNode } from 'react'
 import { compactNumber, minutes } from '@/components/charts'
 import { HeadCount } from '@/components/HeadCount'
+import { EmptyRow } from '@/components/PanelGrid'
 import { InstanceLink, SubjectLink } from '@/components/facts'
 import { Badge } from '@/components/ui/badge'
 import { calendarApi, type CalendarEvent } from '@/lib/calendar'
@@ -21,12 +22,14 @@ const NAMED = 8
  */
 export function EventResults({ event, start, live }: { event: CalendarEvent; start: Date; live: number }) {
   const load = useCallback(() => calendarApi.results(event.id, start), [event.id, start])
-  const { data, error } = useLoad(load, live)
+  const { data, error, reload } = useLoad(load, live)
 
   if (!data)
     return (
       <Section title="How it went">
-        {error ? <span className="text-destructive">{error}</span> : <span className="text-muted-foreground">Loading…</span>}
+        <EmptyRow className="px-0" tone={error ? 'danger' : 'loading'} onTryAgain={reload}>
+          {error}
+        </EmptyRow>
       </Section>
     )
 
