@@ -108,6 +108,10 @@ public sealed record CalendarPlaceView(
 /// <param name="InstanceId">The instance in <c>vrchat_instance</c>, for the instance popup.</param>
 /// <param name="FirstJoinDiscordPostError">What Discord said when the post for the first person was refused.</param>
 /// <param name="FirstJoinVRChatPostError">What VRChat said when the group post for the first person was refused.</param>
+/// <param name="Checking">
+/// VRChat gave no clear answer to the attempt, and Modbot is looking for an instance it may have
+/// made. Open now is refused meanwhile.
+/// </param>
 public sealed record CalendarOpeningView(
     DateTimeOffset OccurrenceStartsAt,
     DateTimeOffset AttemptedAt,
@@ -116,7 +120,8 @@ public sealed record CalendarOpeningView(
     bool Closed,
     string? Error,
     string? FirstJoinDiscordPostError = null,
-    string? FirstJoinVRChatPostError = null);
+    string? FirstJoinVRChatPostError = null,
+    bool Checking = false);
 
 /// <summary>One date of an event.</summary>
 /// <param name="PlannedStartsAt">

@@ -660,17 +660,21 @@ event shows it under **Instance**. When the instance closes, the link is taken o
 **Instance** and on [Health](#on-health), and the event turns red. The next time the event happens
 gets its own attempt.
 
-**If VRChat did not answer**, Modbot tries again while the time has not ended: when nothing could be
-sent yet (Modbot was waiting out a VRChat request limit or signing in), when VRChat asked Modbot to
-slow down (only once the limit allows), or when VRChat failed on its side (a minute later). The event
-shows **Opening** meanwhile, or VRChat's error when there was one.
+**If the request never reached VRChat**, Modbot sends it again while the time has not ended: when it
+was waiting out a VRChat request limit or signing in, when Cloudflare stopped it, or when VRChat asked
+Modbot to slow down (only once the limit allows). The event shows **Opening** meanwhile.
+
+**If VRChat failed on its side or did not answer**, it may have opened the instance anyway, so Modbot
+does not send the request again. The event shows **Checking…** while Modbot looks for a new instance
+of the event's world in your group. If one shows up, it becomes the event's instance. If none does,
+the event shows the error, turns red, and it is up to you to press **Open now**.
 
 ### Open now
 
 **Open now**, on the event, opens the instance straight away, through the same path and the same
 limit. It appears for people with **Manage calendar** from two hours before a time starts until it
 ends, while no instance of that time is open: before the opening time, after VRChat refused, or after
-the instance closed. It works whether or not **Open the instance automatically** is ticked. The audit
+the instance closed. It does not appear while an earlier attempt is under way or **Checking…**. It works whether or not **Open the instance automatically** is ticked. The audit
 log names who pressed it. Invites and the posts for the first person then follow as usual; after a
 closed instance, the people not invited yet are invited to the new one.
 
@@ -711,7 +715,8 @@ Somebody Modbot knows nothing about gets one VRChat invite first.
 **How fast.** One VRChat invite every 30 seconds, and a direct message every few seconds. Sending stops
 when the instance closes or the event ends, so a long list may not get through in time. If VRChat asks
 Modbot to slow down, Modbot does not ask again for that person: it sends the direct message instead,
-and waits before the next VRChat invite.
+and waits before the next VRChat invite. If VRChat fails on its side, the invite may have arrived
+anyway, so that person counts as **Couldn't reach** and gets no direct message on top.
 
 **Nobody is invited twice.** Modbot notes each person before it sends, so a restart picks up where it
 stopped and never sends the same invite again.

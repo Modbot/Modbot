@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modbot.Core.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    partial class ModbotContextModelSnapshot : ModelSnapshot
+    [Migration("20261001200743_LookForAnInstanceVRChatMayHaveOpened")]
+    partial class LookForAnInstanceVRChatMayHaveOpened
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -878,99 +881,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("ban_reason", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarDateChange", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("CancelPostChannelId")
-                        .HasColumnType("text")
-                        .HasColumnName("cancel_post_channel_id");
-
-                    b.Property<string>("CancelPostId")
-                        .HasColumnType("text")
-                        .HasColumnName("cancel_post_id");
-
-                    b.Property<DateTimeOffset?>("CancelPostRemovedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cancel_post_removed_at");
-
-                    b.Property<bool>("Cancelled")
-                        .HasColumnType("boolean")
-                        .HasColumnName("cancelled");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("description");
-
-                    b.Property<DateTimeOffset?>("EndsAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("ends_at");
-
-                    b.Property<Guid>("EventId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("event_id");
-
-                    b.Property<DateTimeOffset>("PlannedStartsAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("planned_starts_at");
-
-                    b.Property<DateTimeOffset?>("StartsAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("starts_at");
-
-                    b.Property<string>("Title")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("title");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("VRChatError")
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
-                        .HasColumnName("vrchat_error");
-
-                    b.Property<DateTimeOffset?>("VRChatErrorAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("vrchat_error_at");
-
-                    b.Property<string>("VRChatFailedFingerprint")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("vrchat_failed_fingerprint");
-
-                    b.Property<string>("VRChatId")
-                        .HasColumnType("text")
-                        .HasColumnName("vrchat_id");
-
-                    b.Property<string>("VRChatSentFingerprint")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
-                        .HasColumnName("vrchat_sent_fingerprint");
-
-                    b.Property<DateTimeOffset?>("VRChatSentStartsAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("vrchat_sent_starts_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_calendar_date_change");
-
-                    b.HasIndex("EventId", "PlannedStartsAt")
-                        .IsUnique()
-                        .HasDatabaseName("ux_calendar_date_change_date");
-
-                    b.ToTable("calendar_date_change", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -982,6 +892,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("access_type");
+
+                    b.Property<bool>("AnnounceFirstJoinInDiscord")
+                        .HasColumnType("boolean")
+                        .HasColumnName("announce_first_join_in_discord");
+
+                    b.Property<bool>("AnnounceFirstJoinInVRChat")
+                        .HasColumnType("boolean")
+                        .HasColumnName("announce_first_join_in_vrchat");
 
                     b.Property<bool>("AutoOpen")
                         .HasColumnType("boolean")
@@ -1027,6 +945,19 @@ namespace Modbot.Core.Data.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)")
                         .HasColumnName("image_url");
+
+                    b.Property<Guid?>("InviteHostUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invite_host_user_id");
+
+                    b.Property<Guid?>("InviteListId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invite_list_id");
+
+                    b.PrimitiveCollection<string>("InviteStaffUserIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("invite_staff_user_ids");
 
                     b.PrimitiveCollection<string>("Languages")
                         .IsRequired()
@@ -1160,22 +1091,11 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("world_id");
 
-                    b.Property<Guid?>("WorldListId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("world_list_id");
-
-                    b.Property<DateTimeOffset?>("WorldPickedFor")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("world_picked_for");
-
                     b.HasKey("Id")
                         .HasName("pk_calendar_event");
 
                     b.HasIndex("State")
                         .HasDatabaseName("ix_calendar_event_state");
-
-                    b.HasIndex("WorldListId")
-                        .HasDatabaseName("ix_calendar_event_world_list_id");
 
                     b.ToTable("calendar_event", (string)null);
                 });
@@ -1194,10 +1114,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<string>("ChannelId")
                         .HasColumnType("text")
                         .HasColumnName("channel_id");
-
-                    b.Property<string>("CreateSent")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("create_sent");
 
                     b.Property<string>("Error")
                         .HasMaxLength(1024)
@@ -1281,45 +1197,90 @@ namespace Modbot.Core.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarOldPost", b =>
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarInvite", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    b.Property<string>("ChannelId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("channel_id");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<DateTimeOffset>("EndsAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("ends_at");
+                    b.Property<string>("DiscordUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("discord_user_id");
 
                     b.Property<Guid>("EventId")
                         .HasColumnType("uuid")
                         .HasColumnName("event_id");
 
-                    b.Property<string>("MessageId")
+                    b.Property<DateTimeOffset?>("MessagedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("messaged_at");
+
+                    b.Property<DateTimeOffset>("OccurrenceStartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurrence_starts_at");
+
+                    b.Property<string>("PersonKey")
                         .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("message_id");
+                        .HasColumnName("person_key");
 
-                    b.Property<DateTimeOffset?>("RemovedAt")
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("problem");
+
+                    b.Property<DateTimeOffset>("QueuedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("removed_at");
+                        .HasColumnName("queued_at");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("role");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset?>("TriedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("tried_at");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("VRChatUserId")
+                        .HasColumnType("text")
+                        .HasColumnName("vrchat_user_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_calendar_old_post");
+                        .HasName("pk_calendar_invite");
 
-                    b.HasIndex("EndsAt")
-                        .HasDatabaseName("ix_calendar_old_post_up")
-                        .HasFilter("removed_at IS NULL");
+                    b.HasIndex("DiscordUserId")
+                        .HasDatabaseName("ix_calendar_invite_discord_user_id");
 
-                    b.HasIndex("EventId")
-                        .HasDatabaseName("ix_calendar_old_post_event_id");
+                    b.HasIndex("State")
+                        .HasDatabaseName("ix_calendar_invite_state");
 
-                    b.ToTable("calendar_old_post", (string)null);
+                    b.HasIndex("VRChatUserId")
+                        .HasDatabaseName("ix_calendar_invite_vrchat_user_id");
+
+                    b.HasIndex("EventId", "OccurrenceStartsAt", "PersonKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_calendar_invite_person");
+
+                    b.ToTable("calendar_invite", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarOpening", b =>
@@ -1345,9 +1306,31 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("character varying(1024)")
                         .HasColumnName("error");
 
+                    b.Property<string>("FirstJoinDiscordPostError")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("first_join_discord_post_error");
+
+                    b.Property<DateTimeOffset?>("FirstJoinDiscordPostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_join_discord_posted_at");
+
+                    b.Property<string>("FirstJoinVRChatPostError")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("first_join_vrchat_post_error");
+
+                    b.Property<DateTimeOffset?>("FirstJoinVRChatPostedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_join_vrchat_posted_at");
+
                     b.Property<Guid?>("InstanceId")
                         .HasColumnType("uuid")
                         .HasColumnName("instance_id");
+
+                    b.Property<DateTimeOffset?>("InvitesQueuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invites_queued_at");
 
                     b.Property<string>("Location")
                         .HasColumnType("text")
@@ -6773,10 +6756,6 @@ namespace Modbot.Core.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("vr_chat_password_encrypted");
 
-                    b.Property<bool>("VRChatPictureUploads")
-                        .HasColumnType("boolean")
-                        .HasColumnName("vr_chat_picture_uploads");
-
                     b.Property<bool>("VRChatProxyEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("vr_chat_proxy_enabled");
@@ -6848,6 +6827,32 @@ namespace Modbot.Core.Data.Migrations
                         .HasName("pk_modbot_storage_day");
 
                     b.ToTable("modbot_storage_day", (string)null);
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatFriend", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("text")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_at");
+
+                    b.Property<bool>("IsFriend")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_friend");
+
+                    b.Property<string>("LearnedFrom")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("learned_from");
+
+                    b.HasKey("UserId")
+                        .HasName("pk_vrchat_friend");
+
+                    b.ToTable("vrchat_friend", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.VRChatInstance", b =>
@@ -7486,164 +7491,6 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("world_head_count", (string)null);
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldList", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<Guid?>("CreatedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("created_by_user_id");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("name");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_world_list");
-
-                    b.ToTable("world_list", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListItem", b =>
-                {
-                    b.Property<Guid>("ListId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("list_id");
-
-                    b.Property<string>("WorldId")
-                        .HasColumnType("text")
-                        .HasColumnName("world_id");
-
-                    b.Property<int?>("MaxPlayers")
-                        .HasColumnType("integer")
-                        .HasColumnName("max_players");
-
-                    b.Property<int?>("MinPlayers")
-                        .HasColumnType("integer")
-                        .HasColumnName("min_players");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("integer")
-                        .HasColumnName("position");
-
-                    b.HasKey("ListId", "WorldId")
-                        .HasName("pk_world_list_item");
-
-                    b.ToTable("world_list_item", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListShuffle", b =>
-                {
-                    b.Property<Guid>("ListId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("list_id");
-
-                    b.Property<Guid>("EventId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("event_id");
-
-                    b.Property<string>("LastPlayed")
-                        .HasColumnType("text")
-                        .HasColumnName("last_played");
-
-                    b.PrimitiveCollection<string>("Order")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("world_order");
-
-                    b.PrimitiveCollection<string>("Played")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("played");
-
-                    b.Property<int>("Round")
-                        .HasColumnType("integer")
-                        .HasColumnName("round");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("ListId", "EventId")
-                        .HasName("pk_world_list_shuffle");
-
-                    b.HasIndex("EventId")
-                        .HasDatabaseName("ix_world_list_shuffle_event_id");
-
-                    b.ToTable("world_list_shuffle", (string)null);
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldPick", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("EventId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("event_id");
-
-                    b.Property<string>("Kind")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
-                        .HasColumnName("kind");
-
-                    b.Property<Guid>("ListId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("list_id");
-
-                    b.Property<DateTimeOffset>("OccurrenceStartsAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("occurrence_starts_at");
-
-                    b.Property<int?>("People")
-                        .HasColumnType("integer")
-                        .HasColumnName("people");
-
-                    b.Property<DateTimeOffset>("PickedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("picked_at");
-
-                    b.Property<Guid?>("PickedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("picked_by_user_id");
-
-                    b.Property<DateTimeOffset?>("PutBackAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("put_back_at");
-
-                    b.Property<string>("WorldId")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("world_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_world_pick");
-
-                    b.HasIndex("EventId", "OccurrenceStartsAt")
-                        .IsUnique()
-                        .HasDatabaseName("ux_world_pick_date")
-                        .HasFilter("kind = 'date' AND put_back_at IS NULL");
-
-                    b.HasIndex("EventId", "OccurrenceStartsAt", "PickedAt")
-                        .HasDatabaseName("ix_world_pick_event_date");
-
-                    b.ToTable("world_pick", (string)null);
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.ModbotUser", "User")
@@ -7699,25 +7546,6 @@ namespace Modbot.Core.Data.Migrations
                     b.Navigation("UserRow");
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarDateChange", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
-                        .WithMany("DateChanges")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_calendar_date_change_calendar_event_event_id");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
-                        .WithMany()
-                        .HasForeignKey("WorldListId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_calendar_event_world_lists_world_list_id");
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEventPlace", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
@@ -7728,14 +7556,14 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_calendar_event_place_calendar_event_event_id");
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarOldPost", b =>
+            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarInvite", b =>
                 {
                     b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
                         .WithMany()
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_calendar_old_post_calendar_event_event_id");
+                        .HasConstraintName("fk_calendar_invite_calendar_event_event_id");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarOpening", b =>
@@ -7898,51 +7726,9 @@ namespace Modbot.Core.Data.Migrations
                         .HasConstraintName("fk_api_webhook_delivery_api_webhook_webhook_id");
                 });
 
-            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListItem", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
-                        .WithMany()
-                        .HasForeignKey("ListId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_world_list_item_world_list_list_id");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldListShuffle", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
-                        .WithMany()
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_world_list_shuffle_calendar_event_event_id");
-
-                    b.HasOne("Modbot.Core.Data.Entities.WorldList", null)
-                        .WithMany()
-                        .HasForeignKey("ListId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_world_list_shuffle_world_list_list_id");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.WorldPick", b =>
-                {
-                    b.HasOne("Modbot.Core.Data.Entities.CalendarEvent", null)
-                        .WithMany()
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_world_pick_calendar_event_event_id");
-                });
-
             modelBuilder.Entity("Modbot.Core.Data.Entities.AiChatConversation", b =>
                 {
                     b.Navigation("Messages");
-                });
-
-            modelBuilder.Entity("Modbot.Core.Data.Entities.CalendarEvent", b =>
-                {
-                    b.Navigation("DateChanges");
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.ModbotRole", b =>

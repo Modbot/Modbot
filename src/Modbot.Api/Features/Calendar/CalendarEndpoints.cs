@@ -349,6 +349,7 @@ public static class CalendarEndpoints
                     CalendarOpenNowOutcome.TooEarly => Results.Conflict(new { error = "It is too early to open the instance." }),
                     CalendarOpenNowOutcome.Over => Results.Conflict(new { error = "That event has already ended." }),
                     CalendarOpenNowOutcome.AlreadyOpen => Results.Conflict(new { error = "The instance is already open." }),
+                    CalendarOpenNowOutcome.Checking => Results.Conflict(new { error = "Checking whether VRChat opened the instance." }),
                     _ => null,
                 };
 
@@ -366,8 +367,9 @@ public static class CalendarEndpoints
             .WithSummary("Open an event's instance now")
             .WithDescription(
                 "Opens the group instance for the event's current or next time, from two hours before "
-                + "its start until its end, when none is open. One request to VRChat, recorded with who "
-                + "asked; the invites and the first-person posts follow as usual. Answers with the event.")
+                + "its start until its end, when none is open. Refused while an earlier attempt has no "
+                + "answer yet. One request to VRChat, recorded with who asked; the invites and the "
+                + "first-person posts follow as usual. Answers with the event.")
             .Produces<CalendarEventView>()
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound)
@@ -1744,7 +1746,8 @@ public static class CalendarEndpoints
                         closed,
                         opening.Error,
                         opening.FirstJoinDiscordPostError,
-                        opening.FirstJoinVRChatPostError),
+                        opening.FirstJoinVRChatPostError,
+                        opening.Checking),
                 occurrences,
                 e.CancelledAt,
                 e.WorldListId,

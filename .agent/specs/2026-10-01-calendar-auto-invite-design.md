@@ -105,6 +105,7 @@ messages and sends at most five a pass.
 | Backstop | `global` — timer-driven, nobody is waiting on it |
 | Priority | Background |
 | 429 | Cold-stops this class (§4.3.1). That person's invite is not sent again; they fall to Discord. The next people wait for the class to open. |
+| 5xx, 408, no answer | The invite may have arrived. Not sent again, and **no direct message on top**: the person counts as couldn't reach. Only a refusal VRChat certainly acted on (a 4xx other than 408), or one Cloudflare stopped, hands them to Discord. |
 
 The pace is kept twice, as group invites do: by the bucket, and by the last send time stored on the
 rows (`tried_at`), so a restart cannot hand back a turn.

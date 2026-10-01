@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.TestSupport;
 using Modbot.VRChat.Calendar;
@@ -23,31 +24,128 @@ public class CalendarOpenNowTests(PostgresFixture fixture) : CalendarTestBase(fi
             x.OpenMinutesBefore = 10;
         });
 
+    /// <summary>What the group instance poll leaves behind: an instance it listed, and when it ran.</summary>
+    private async Task<string> GroupPollSeesAsync(string? instanceNumber, DateTimeOffset polledAt)
+    {
+        var location = $"{WorldId}:{instanceNumber}~group({GroupId})~groupAccessType(members)~region(us)";
+
+        await using var context = Database.NewContext();
+
+        if (instanceNumber is not null)
+            await new PlaceStore(context, Clock).RecordSightingAsync(location, polledAt, userCount: 0, fromGroupList: true, ct: Ct);
+
+        var settings = await context.GetSettingsAsync(Ct);
+        settings.GroupInstancesPolledAt = polledAt;
+        await context.SaveChangesAsync(Ct);
+
+        return location;
+    }
+
     [Fact]
-    public async Task VRChatFailingOnItsSideIsTriedAgain_AfterAMinute_NotAtOnce()
+    public async Task A500ThenTheInstanceShowsUp_IsTakenAsTheEvents_WithNoSecondRequest()
     {
         var e = await AutoOpenAsync();
         VRChat.Instances.CreateStatus = HttpStatusCode.InternalServerError;
 
-        Assert.Equal(1, (await OpenAsync()).Failed);
-
-        var opening = await OpeningAsync(e.Id);
-        Assert.True(opening.TryAgain);
-        Assert.NotNull(opening.Error);
-        Assert.Empty(await FactsOfTypeAsync(FactType.PlannedEventInstanceFailed));
-
-        // Not in the same breath.
-        Clock.Advance(TimeSpan.FromSeconds(15));
         await OpenAsync();
-        Assert.Single(VRChat.Instances.Created);
 
+        var checking = await OpeningAsync(e.Id);
+        Assert.True(checking.Checking);
+        Assert.False(checking.TryAgain);
+        Assert.Null(checking.Error);
+
+        // VRChat made it after all; the group poll lists it a few seconds later.
+        Clock.Advance(TimeSpan.FromSeconds(10));
+        var location = await GroupPollSeesAsync("777", Clock.UtcNow);
         VRChat.Instances.CreateStatus = HttpStatusCode.OK;
-        Clock.Advance(CalendarOpener.TryAgainAfter);
+
         Assert.Equal(1, (await OpenAsync()).Opened);
 
-        Assert.Equal(2, VRChat.Instances.Created.Count);
-        Assert.Null((await OpeningAsync(e.Id)).Error);
+        Assert.Single(VRChat.Instances.Created);
+        var opening = await OpeningAsync(e.Id);
+        Assert.Equal(location, opening.Location);
+        Assert.False(opening.Checking);
+        Assert.Null(opening.Error);
         Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventInstanceOpened));
+
+        // And it stays the only request, however many passes follow.
+        for (var i = 0; i < 3; i++)
+        {
+            Clock.Advance(CalendarOpener.TryAgainAfter);
+            await OpenAsync();
+        }
+
+        Assert.Single(VRChat.Instances.Created);
+    }
+
+    [Fact]
+    public async Task A500AndNothingShowsUp_IsShownAsFailed_AndNeverSentAgainOnItsOwn()
+    {
+        var e = await AutoOpenAsync();
+        VRChat.Instances.CreateStatus = HttpStatusCode.InternalServerError;
+
+        await OpenAsync();
+
+        // A poll that ran too soon after the attempt proves nothing yet.
+        Clock.Advance(TimeSpan.FromSeconds(5));
+        await GroupPollSeesAsync(null, Clock.UtcNow);
+        await OpenAsync();
+        Assert.True((await OpeningAsync(e.Id)).Checking);
+
+        // One that ran well after it, and listed nothing.
+        Clock.Advance(CalendarOpener.PollAfterAttempt);
+        await GroupPollSeesAsync(null, Clock.UtcNow);
+        VRChat.Instances.CreateStatus = HttpStatusCode.OK;
+        await OpenAsync();
+
+        var opening = await OpeningAsync(e.Id);
+        Assert.False(opening.Checking);
+        Assert.False(opening.TryAgain);
+        Assert.Equal(CalendarOpener.NoAnswer, opening.Error);
+
+        for (var i = 0; i < 5; i++)
+        {
+            Clock.Advance(CalendarOpener.TryAgainAfter);
+            await OpenAsync();
+        }
+
+        Assert.Single(VRChat.Instances.Created);
+
+        // Open now is the moderator's to press, and it may.
+        Assert.Equal(CalendarOpenOutcome.Opened, (await OpenNowAsync(e.Id, Pressed)).Opened);
+        Assert.Equal(2, VRChat.Instances.Created.Count);
+    }
+
+    [Fact]
+    public async Task OpenNowIsRefusedWhileAnAttemptIsInFlight_OrBeingCheckedOn()
+    {
+        var e = await AddEventAsync(TimeSpan.FromMinutes(30));
+
+        // An attempt written and not yet answered: what the row looks like mid-request.
+        await using (var context = Database.NewContext())
+        {
+            context.CalendarOpenings.Add(new CalendarOpening
+            {
+                EventId = e.Id,
+                OccurrenceStartsAt = e.StartsAt,
+                AttemptedAt = Clock.UtcNow,
+            });
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Assert.Equal(CalendarOpenNowOutcome.Checking, (await OpenNowAsync(e.Id, Pressed)).Outcome);
+
+        // Its answer was a 500: still no, while Modbot looks for the instance.
+        await using (var context = Database.NewContext())
+        {
+            var row = await context.CalendarOpenings.SingleAsync(o => o.EventId == e.Id, Ct);
+            row.Checking = true;
+            await context.SaveChangesAsync(Ct);
+        }
+
+        Clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Equal(CalendarOpenNowOutcome.Checking, (await OpenNowAsync(e.Id, Pressed)).Outcome);
+        Assert.Empty(VRChat.Instances.Created);
     }
 
     [Fact]

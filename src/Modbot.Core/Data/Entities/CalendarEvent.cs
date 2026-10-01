@@ -430,12 +430,21 @@ public class CalendarOpening
     public string? Error { get; set; }
 
     /// <summary>
-    /// True when the last attempt did not get VRChat's answer to it -- nothing was sent, VRChat asked
-    /// Modbot to slow down, or VRChat failed on its side -- so a later pass may try again while the
-    /// time has not ended. False once VRChat really refused (a 4xx other than 429), which is final
-    /// for that time (calendar design §4, added 2026-10-01).
+    /// True when the last attempt certainly made no instance -- the gate never sent it, Cloudflare
+    /// stopped it, or VRChat answered 429 -- so a later pass may send it again while the time has not
+    /// ended. False once VRChat really refused (a 4xx other than 408 and 429), which is final for that
+    /// time, and false for an attempt whose outcome is unknown (<see cref="Checking"/>) (calendar
+    /// design §4, added 2026-10-01).
     /// </summary>
     public bool TryAgain { get; set; }
+
+    /// <summary>
+    /// True while Modbot looks for an instance VRChat may have made after all: the request went out
+    /// and VRChat failed on its side or gave no answer, so it may or may not have opened one. Never
+    /// sent again on its own; the group instance poll is watched for one of this world in the group
+    /// instead (calendar design §4, added 2026-10-01).
+    /// </summary>
+    public bool Checking { get; set; }
 
     /// <summary>The staff account that pressed Open now, or null when Modbot opened it on time.</summary>
     public Guid? OpenedByUserId { get; set; }

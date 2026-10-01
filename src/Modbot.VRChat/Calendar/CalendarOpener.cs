@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
+using Modbot.Analytics.Calendar;
 using Modbot.Core.Calendar;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -12,7 +13,8 @@ using CalendarEvent = Modbot.Core.Data.Entities.CalendarEvent;
 namespace Modbot.VRChat.Calendar;
 
 /// <summary>What one pass of the opener did.</summary>
-/// <param name="Failed">Attempts VRChat really refused, or that will be tried again.</param>
+/// <param name="Opened">Instances opened, or found after an attempt with no answer.</param>
+/// <param name="Failed">Attempts that did not open one this pass, whatever comes next.</param>
 public sealed record CalendarOpenerResult(int Opened, int Failed, bool NotConfigured = false);
 
 /// <summary>How one attempt to open an instance ended.</summary>
@@ -21,14 +23,20 @@ public enum CalendarOpenOutcome
     /// <summary>VRChat made the instance.</summary>
     Opened,
 
-    /// <summary>VRChat refused with a 4xx other than 429. Final for that time.</summary>
+    /// <summary>VRChat refused with a 4xx other than 408 and 429. Final for that time.</summary>
     Refused,
 
     /// <summary>
-    /// No answer to act on: nothing was sent, VRChat asked Modbot to slow down, or it failed on its
-    /// side. A later pass may try again while the time has not ended.
+    /// Certainly no instance: the gate never sent it, Cloudflare stopped it, or VRChat answered 429.
+    /// A later pass sends it again while the time has not ended.
     /// </summary>
     TryAgain,
+
+    /// <summary>
+    /// The request went out and VRChat failed on its side or did not answer, so it may have made an
+    /// instance anyway. Never sent again on its own; Modbot looks for the instance instead.
+    /// </summary>
+    Checking,
 }
 
 /// <summary>Why Open now did not open anything, or that it tried.</summary>
@@ -43,6 +51,9 @@ public enum CalendarOpenNowOutcome
     TooEarly,
     Over,
     AlreadyOpen,
+
+    /// <summary>An earlier attempt is in flight, or its outcome is still being checked.</summary>
+    Checking,
 }
 
 /// <param name="Opened">How the attempt ended, when one was made.</param>
@@ -59,14 +70,22 @@ public sealed record CalendarOpenNowResult(CalendarOpenNowOutcome Outcome, Calen
 /// between the two leaves a row with no outcome, and no second instance.
 /// </para>
 /// <para>
-/// <strong>Only a real refusal is final</strong> (changed 2026-10-01). Until then any failure gave
-/// up on the time, even when nothing had been sent: an attempt made while the gate was waiting out a
-/// rate limit or a sign-in never reached VRChat, and the event went without its instance. Now a 4xx
-/// other than 429 is final, shown on the event and on Health and recorded as a fact; anything else is
-/// marked to try again, on a later pass, while the time has not ended. A 429 is never tried again in
-/// the same pass: it cold-stops <c>instances.create</c>, and the gate sends nothing on it until the
-/// limiter allows (foundation §4.3.1).
+/// <strong>Sent again only when it certainly made nothing</strong> (changed 2026-10-01). Until then
+/// any failure gave up on the time, even when nothing had been sent, and the event went without its
+/// instance. Now:
 /// </para>
+/// <list type="bullet">
+/// <item>Nothing left Modbot (the gate waiting out a rate limit or a sign-in), Cloudflare stopped it,
+/// or VRChat answered 429: sent again on a later pass, a minute on at the soonest; a 429 only once
+/// the limiter's cold stop allows (foundation §4.3.1).</item>
+/// <item>VRChat refused with any other 4xx (408 aside): final, shown, recorded as a fact.</item>
+/// <item>VRChat failed on its side (5xx), answered 408, or nothing came back: VRChat has answered 500
+/// while still making things, so a second request could open a second instance. It is
+/// <strong>never sent again on its own</strong>. Modbot looks, in what the group instance poll has
+/// already recorded, for an instance of the event's world in the group made since the attempt, and
+/// takes it as the event's if there is one. If a poll that ran after the attempt shows none, the
+/// attempt is shown as failed and Open now is left to the moderator.</item>
+/// </list>
 /// <para>
 /// The instance is recorded through <see cref="PlaceStore"/> the same way a sighting is, so Live, the
 /// instance cards and the calendar's Discord posts find it without knowing where it came from.
@@ -74,11 +93,20 @@ public sealed record CalendarOpenNowResult(CalendarOpenNowOutcome Outcome, Calen
 /// </remarks>
 public sealed class CalendarOpener
 {
-    /// <summary>How long after a failed try the next one may go, for a failure that is not a 429.</summary>
+    /// <summary>The soonest an attempt that certainly made nothing is sent again.</summary>
     public static readonly TimeSpan TryAgainAfter = TimeSpan.FromMinutes(1);
 
     /// <summary>How long before a time's start Open now is offered: the most an event may open early.</summary>
     public static readonly TimeSpan OpenNowEarliest = TimeSpan.FromMinutes(120);
+
+    /// <summary>
+    /// How long after an unanswered attempt a group instance poll must have run before "no instance"
+    /// is believed: long enough for VRChat to list an instance it was still making.
+    /// </summary>
+    public static readonly TimeSpan PollAfterAttempt = TimeSpan.FromSeconds(15);
+
+    /// <summary>The words an unanswered attempt that found no instance is shown with.</summary>
+    public const string NoAnswer = "VRChat did not answer whether it opened the instance, and none showed up.";
 
     private readonly IVRChatGate _gate;
     private readonly ModbotContext _db;
@@ -120,6 +148,9 @@ public sealed class CalendarOpener
 
         var now = _clock.UtcNow;
 
+        // Every attempt with no answer, whether the timer or Open now made it.
+        var found = await CheckAsync(groupId, settings.GroupInstancesPolledAt, now, ct).ConfigureAwait(false);
+
         var candidates = await _db.CalendarEvents
             .Where(e => e.AutoOpen
                 && e.DeletedAt == null
@@ -127,7 +158,7 @@ public sealed class CalendarOpener
                 && (e.State == CalendarEventStates.Scheduled || e.State == CalendarEventStates.Open))
             .ToListAsync(ct).ConfigureAwait(false);
 
-        var opened = 0;
+        var opened = found;
         var failed = 0;
 
         foreach (var calendarEvent in candidates)
@@ -164,10 +195,12 @@ public sealed class CalendarOpener
                     continue;
                 }
             }
-            else if (attempt.TryAgain && attempt.Location is null && !TooSoon(attempt, now))
+            else if (attempt.TryAgain && attempt.Location is null && now - attempt.AttemptedAt >= TryAgainAfter)
             {
-                // Marked as tried again before it is sent, for the same reason the row is.
+                // Marked as in flight before it is sent, for the same reason the row is: with no
+                // error and no "try again" on it, Open now sees an attempt under way and waits.
                 attempt.TryAgain = false;
+                attempt.Error = null;
                 attempt.AttemptedAt = now;
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
             }
@@ -194,10 +227,10 @@ public sealed class CalendarOpener
     /// </summary>
     /// <remarks>
     /// Offered from <see cref="OpenNowEarliest"/> before the start until the end, and only while no
-    /// instance of that time is open. An instance that has closed, or an attempt that failed, is
-    /// replaced: the row is the time's, and it now says what this attempt did. People who were still
-    /// to be invited when the old instance closed are put back on the queue, and the first-person
-    /// posts may go again for the new instance.
+    /// instance of that time is open, opening, or being looked for after an attempt with no answer.
+    /// An instance that has closed, or an attempt that failed, is replaced: the row is the time's, and
+    /// it now says what this attempt did. People who were still to be invited when the old instance
+    /// closed go back on the queue once the new one is open, and the first-person posts may go again.
     /// </remarks>
     public async Task<CalendarOpenNowResult> OpenNowAsync(Guid eventId, Guid actorUserId, CancellationToken ct = default)
     {
@@ -225,8 +258,6 @@ public sealed class CalendarOpener
         var attempt = await _db.CalendarOpenings.FirstOrDefaultAsync(
             o => o.EventId == eventId && o.OccurrenceStartsAt == occurrence.StartsAt, ct).ConfigureAwait(false);
 
-        var replacingClosed = false;
-
         if (attempt is not null)
         {
             if (attempt.Location is not null)
@@ -236,19 +267,23 @@ public sealed class CalendarOpener
 
                 if (!closed)
                     return new CalendarOpenNowResult(CalendarOpenNowOutcome.AlreadyOpen);
-
-                replacingClosed = true;
+            }
+            else if (attempt.Checking)
+            {
+                // VRChat may have made one; a second request could make two.
+                return new CalendarOpenNowResult(CalendarOpenNowOutcome.Checking);
             }
             else if (attempt.Error is null && !attempt.TryAgain && now - attempt.AttemptedAt < TryAgainAfter)
             {
                 // Another attempt went out a moment ago and has no answer yet.
-                return new CalendarOpenNowResult(CalendarOpenNowOutcome.AlreadyOpen);
+                return new CalendarOpenNowResult(CalendarOpenNowOutcome.Checking);
             }
 
             attempt.Location = null;
             attempt.InstanceId = null;
             attempt.Error = null;
             attempt.TryAgain = false;
+            attempt.Checking = false;
             attempt.AttemptedAt = now;
             attempt.OpenedByUserId = actorUserId;
             attempt.FirstJoinDiscordPostedAt = null;
@@ -277,14 +312,11 @@ public sealed class CalendarOpener
         catch (DbUpdateException)
         {
             // The timer wrote this time's row at the same moment. It owns the attempt.
-            return new CalendarOpenNowResult(CalendarOpenNowOutcome.AlreadyOpen);
+            return new CalendarOpenNowResult(CalendarOpenNowOutcome.Checking);
         }
 
         var outcome = await OpenAsync(calendarEvent, attempt, groupId, now, VRChatCallPriority.Interactive, actorUserId, ct)
             .ConfigureAwait(false);
-
-        if (outcome == CalendarOpenOutcome.Opened && replacingClosed)
-            await InviteAgainAsync(attempt, now, ct).ConfigureAwait(false);
 
         return new CalendarOpenNowResult(CalendarOpenNowOutcome.Tried, outcome);
     }
@@ -308,51 +340,151 @@ public sealed class CalendarOpener
 
         var location = result.Success ? result.Value?.Location : null;
 
-        if (location is not { Length: > 0 })
+        if (location is { Length: > 0 })
         {
-            var reason = result.Success
-                ? "VRChat created the instance but did not say where it is."
-                : result.ErrorMessage ?? $"VRChat answered {result.StatusCode}.";
+            var instance = await _places.RecordSightingAsync(location, now, fromGroupList: false, ct: ct).ConfigureAwait(false);
+            await OpenedAsync(calendarEvent, attempt, location, instance, actorUserId, ct).ConfigureAwait(false);
+            return CalendarOpenOutcome.Opened;
+        }
 
-            if (!IsFinal(result))
-            {
-                // Nothing to act on yet. A request the gate never sent leaves no error to show: it
-                // is waiting, the way a place waiting on a rate limit is.
+        var reason = result.Success
+            ? "VRChat created the instance but did not say where it is."
+            : result.ErrorMessage ?? $"VRChat answered {result.StatusCode}.";
+
+        switch (Classify(result))
+        {
+            case CalendarOpenOutcome.TryAgain:
+                // A request the gate never sent leaves no error to show: it is waiting, the way a
+                // place waiting on a rate limit is.
                 attempt.TryAgain = true;
                 attempt.Error = result.WasNotSent && IsWaiting(result.Kind) ? null : Trim(reason);
                 await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
                 _log.Warning(
-                    "Could not open the instance for the event {EventId} yet; it will be tried again: {Reason}",
+                    "Could not open the instance for the event {EventId} yet; it will be sent again: {Reason}",
                     calendarEvent.Id, reason);
 
                 return CalendarOpenOutcome.TryAgain;
+
+            case CalendarOpenOutcome.Checking:
+                attempt.Checking = true;
+                attempt.Error = null;
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+                _log.Warning(
+                    "VRChat gave no clear answer to opening the instance for the event {EventId}; looking for it instead: {Reason}",
+                    calendarEvent.Id, reason);
+
+                return CalendarOpenOutcome.Checking;
+
+            default:
+                attempt.TryAgain = false;
+                attempt.Error = Trim(reason);
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+                _log.Warning(
+                    "Could not open the instance for the event {EventId}: {Reason}", calendarEvent.Id, reason);
+
+                await _facts.RecordAsync(
+                    FactType.PlannedEventInstanceFailed,
+                    calendarEvent,
+                    new JsonObject { ["error"] = attempt.Error, ["status"] = result.StatusCode },
+                    worldId: calendarEvent.WorldId,
+                    ct: ct,
+                    actorUserId: actorUserId).ConfigureAwait(false);
+
+                return CalendarOpenOutcome.Refused;
+        }
+    }
+
+    /// <summary>
+    /// For each attempt with no answer: takes an instance VRChat made after all, from what the group
+    /// instance poll recorded, or, once a poll after the attempt shows none, gives up and shows it.
+    /// Sends nothing.
+    /// </summary>
+    /// <returns>How many instances were found and taken.</returns>
+    private async Task<int> CheckAsync(string groupId, DateTimeOffset? polledAt, DateTimeOffset now, CancellationToken ct)
+    {
+        var checking = await _db.CalendarOpenings
+            .Where(o => o.Checking && o.Location == null)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        var found = 0;
+
+        foreach (var attempt in checking)
+        {
+            var calendarEvent = await _db.CalendarEvents.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == attempt.EventId, ct).ConfigureAwait(false);
+
+            if (calendarEvent?.WorldId is null)
+            {
+                attempt.Checking = false;
+                attempt.Error = NoAnswer;
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+                continue;
             }
 
-            attempt.TryAgain = false;
-            attempt.Error = Trim(reason);
-            await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            if (await MadeAfterAllAsync(calendarEvent, attempt, groupId, ct).ConfigureAwait(false) is { } instance)
+            {
+                await OpenedAsync(calendarEvent, attempt, instance.Location, instance, attempt.OpenedByUserId, ct).ConfigureAwait(false);
+                found++;
+                continue;
+            }
 
-            _log.Warning(
-                "Could not open the instance for the event {EventId}: {Reason}", calendarEvent.Id, reason);
+            var ended = now >= attempt.OccurrenceStartsAt + (calendarEvent.EndsAt - calendarEvent.StartsAt);
+            var pollSince = polledAt is { } at && at >= attempt.AttemptedAt + PollAfterAttempt;
 
-            await _facts.RecordAsync(
-                FactType.PlannedEventInstanceFailed,
-                calendarEvent,
-                new JsonObject { ["error"] = attempt.Error, ["status"] = result.StatusCode },
-                worldId: calendarEvent.WorldId,
-                ct: ct,
-                actorUserId: actorUserId).ConfigureAwait(false);
-
-            return CalendarOpenOutcome.Refused;
+            if (ended || pollSince)
+            {
+                // Shown as failed; Open now is the moderator's to press. Not sent again from here.
+                attempt.Checking = false;
+                attempt.Error = NoAnswer;
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            }
         }
 
-        var instance = await _places.RecordSightingAsync(location, now, fromGroupList: false, ct: ct).ConfigureAwait(false);
+        return found;
+    }
+
+    /// <summary>
+    /// An open instance of the event's world in the group, with its access and region, that Modbot
+    /// first saw after the attempt and that no other time has taken.
+    /// </summary>
+    private async Task<VRChatInstance?> MadeAfterAllAsync(
+        CalendarEvent calendarEvent, CalendarOpening attempt, string groupId, CancellationToken ct)
+    {
+        var taken = _db.CalendarOpenings.Where(o => o.InstanceId != null).Select(o => o.InstanceId!.Value);
+
+        var found = await _db.VRChatInstances.AsNoTracking()
+            .Where(i => i.GroupId == groupId
+                && i.WorldId == calendarEvent.WorldId
+                && i.ClosedAt == null
+                && i.OpenedAt >= attempt.AttemptedAt
+                && !taken.Contains(i.Id))
+            .OrderBy(i => i.OpenedAt)
+            .ToListAsync(ct).ConfigureAwait(false);
+
+        return found.FirstOrDefault(i =>
+            (i.GroupAccessType is null || string.Equals(i.GroupAccessType, calendarEvent.AccessType, StringComparison.OrdinalIgnoreCase))
+            && (i.Region is null || string.Equals(i.Region, calendarEvent.Region, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>Records the time's instance, and puts back on the queue whoever its last one left out.</summary>
+    private async Task OpenedAsync(
+        CalendarEvent calendarEvent,
+        CalendarOpening attempt,
+        string location,
+        VRChatInstance? instance,
+        Guid? actorUserId,
+        CancellationToken ct)
+    {
+        var now = _clock.UtcNow;
 
         attempt.Location = location;
         attempt.InstanceId = instance?.Id;
         attempt.Error = null;
         attempt.TryAgain = false;
+        attempt.Checking = false;
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
         _log.Information("Opened the instance for the event {EventId}", calendarEvent.Id);
@@ -370,18 +502,21 @@ public sealed class CalendarOpener
             ct: ct,
             actorUserId: actorUserId).ConfigureAwait(false);
 
-        return CalendarOpenOutcome.Opened;
+        // Whichever way this time's instance came -- the timer, Open now, a retry, or one found after
+        // an attempt with no answer -- people its earlier instance left out go back on the queue.
+        await InviteAgainAsync(attempt, now, ct).ConfigureAwait(false);
     }
 
     /// <summary>
     /// People still to be invited when the time's earlier instance closed go back on the queue for
-    /// the new one. Everybody already reached stays reached.
+    /// the new one. Everybody already reached stays reached; nobody stopped for another reason moves.
     /// </summary>
     private async Task InviteAgainAsync(CalendarOpening attempt, DateTimeOffset now, CancellationToken ct)
     {
         var stopped = _db.CalendarInvites.Where(i => i.EventId == attempt.EventId
             && i.OccurrenceStartsAt == attempt.OccurrenceStartsAt
-            && i.State == CalendarInviteStates.Stopped);
+            && i.State == CalendarInviteStates.Stopped
+            && i.Problem == CalendarInvites.InstanceClosed);
 
         await stopped.Where(i => i.VRChatUserId != null).ExecuteUpdateAsync(
             set => set
@@ -398,18 +533,27 @@ public sealed class CalendarOpener
             ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Whether VRChat really refused: a 4xx other than 429. Everything else -- nothing sent, a 429,
-    /// VRChat's own 5xx, no answer in time -- leaves the time to be tried again.
-    /// </summary>
-    internal static bool IsFinal<T>(VRChatResult<T> result) =>
-        result.Success || (result.StatusCode is >= 400 and < 500 && result.StatusCode != 429);
+    /// <summary>What a failed attempt means for the next one.</summary>
+    internal static CalendarOpenOutcome Classify<T>(VRChatResult<T> result)
+    {
+        // Certainly nothing made: the gate held it back, Cloudflare stopped it before VRChat saw
+        // it, or VRChat said slow down.
+        if (result.WasNotSent && IsWaiting(result.Kind))
+            return CalendarOpenOutcome.TryAgain;
+
+        if (result.IsWafBlocked || result.StatusCode == 429)
+            return CalendarOpenOutcome.TryAgain;
+
+        // VRChat read it and said no.
+        if (result.StatusCode is >= 400 and < 500 && result.StatusCode != 408)
+            return CalendarOpenOutcome.Refused;
+
+        // A 5xx, a 408, no answer at all, or a success that did not say where: it may exist.
+        return CalendarOpenOutcome.Checking;
+    }
 
     private static bool IsWaiting(VRChatFailureKind kind) =>
         kind is VRChatFailureKind.RateLimited or VRChatFailureKind.SignInWaiting or VRChatFailureKind.NotConfigured;
-
-    /// <summary>A 429 waits for the limiter, which the gate keeps; anything else waits a minute.</summary>
-    private static bool TooSoon(CalendarOpening attempt, DateTimeOffset now) => now - attempt.AttemptedAt < TryAgainAfter;
 
     /// <summary>What is sent to VRChat to open an event's instance.</summary>
     /// <remarks>

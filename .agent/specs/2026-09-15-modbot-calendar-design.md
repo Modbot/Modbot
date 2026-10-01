@@ -317,17 +317,28 @@ weekly event filled with old cards and "Cancelled" lines, a card per date and a 
 - **A refusal is not tried again for that occurrence.** It is shown on the event, on Health and as
   a red event block, and the next occurrence gets its own attempt. An automatic retry loop against a
   write VRChat just refused is the thing §4.3 exists to prevent.
-- **Only a real refusal is final** (changed 2026-10-01). Until then any failure gave up on the time,
-  even one where nothing was sent (the gate waiting out a rate limit or a sign-in), and the event
-  went without its instance. Now a 4xx other than 429 is final. Anything else marks the row
-  `try_again` and a later pass tries once more while the time has not ended: nothing sent, at once
-  on the next pass the gate allows; a 429, only once the limiter's cold stop is over (never in the
-  same pass); VRChat's 5xx or no answer, a minute later. The row is marked before each try, as before.
+- **Sent again only when it certainly made nothing** (changed 2026-10-01). Until then any failure
+  gave up on the time, even one where nothing was sent (the gate waiting out a rate limit or a
+  sign-in), and the event went without its instance. Now:
+  - nothing left Modbot, Cloudflare stopped it, or VRChat answered 429: the row is marked
+    `try_again` and a later pass sends it again while the time has not ended, a minute on at the
+    soonest, and for a 429 only once the limiter's cold stop is over (never in the same pass). The
+    row is cleared and marked in flight before each try, as before;
+  - any other 4xx except 408: final, as before;
+  - a 5xx, a 408, no answer, or a success with no location: VRChat has answered 500 while still
+    making things, so a second request could open a second instance. The row is marked `checking`
+    and **never sent again on its own**. Each pass looks, in `vrchat_instance` as the group instance
+    poll recorded it, for an open instance of the event's world in the group (same access and
+    region) first seen after the attempt and taken by no other time; one found becomes the time's
+    instance. Once a poll that ran at least 15 s after the attempt (`settings.group_instances_polled_at`)
+    shows none, or the time ends, the row is shown as failed and Open now is left to the moderator.
 - **Open now** (added 2026-10-01): somebody with Manage calendar can open the instance for the current
-  or next time, from two hours before its start until its end, while none is open. Same path, same
+  or next time, from two hours before its start until its end, while none is open and no attempt is
+  in flight or `checking` (the page shows "Checking…"). Same path, same
   `instances.create` budget, at interactive priority; the row records who pressed it
-  (`opened_by_user_id`) and so does the fact. Replacing a closed instance puts the people still to be
-  invited back on the queue, and the first-person posts may go again for the new instance.
+  (`opened_by_user_id`) and so does the fact. Whenever a time's instance opens after an earlier one of
+  that time closed (Open now, a later try, or one found while checking), the people its earlier
+  instance left out go back on the queue, and the first-person posts may go again for the new one.
 - An occurrence is still opened if Modbot comes up late, as long as the occurrence has not ended.
 - A date cancelled on its own is never opened, and a moved one opens before its new start (§2.2):
   the opener asks the same list of dates as everything else.

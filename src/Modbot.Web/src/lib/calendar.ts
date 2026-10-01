@@ -33,6 +33,8 @@ export type CalendarOpening = {
   firstJoinDiscordPostError?: string | null
   /** What VRChat said when the group post for the first person was refused. */
   firstJoinVRChatPostError?: string | null
+  /** VRChat gave no clear answer, and Modbot is looking for an instance it may have made. */
+  checking?: boolean
 }
 
 /** One date of an event (calendar design §2.2). */
@@ -183,6 +185,8 @@ export function canOpenNow(event: CalendarEvent, now: Date): boolean {
   const opening = event.opening
   if (!opening) return true
   if (opening.instanceId) return opening.closed
+  // VRChat may have made one; a second request could make two.
+  if (opening.checking) return false
   // A failed attempt, or one with no answer for a minute.
   return !!opening.error || now.getTime() - Date.parse(opening.attemptedAt) >= 60_000
 }

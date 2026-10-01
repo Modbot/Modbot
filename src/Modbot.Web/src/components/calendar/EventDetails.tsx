@@ -148,6 +148,8 @@ function EventBody({
             <button type="button" className="hover:underline" onClick={() => openInstance(event.opening!.instanceId!)}>
               {event.opening.closed ? 'Closed' : 'Open'}
             </button>
+          ) : event.opening.checking ? (
+            <span>Checking…</span>
           ) : (
             <span>Opening</span>
           )}

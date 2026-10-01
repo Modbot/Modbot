@@ -162,6 +162,26 @@ public class CalendarInviterTests(PostgresFixture fixture) : CalendarTestBase(fi
     }
 
     [Fact]
+    public async Task AfterA500TheInviteMayHaveArrived_SoNoDirectMessageFollows()
+    {
+        var eve = await AddStaffAsync("eve", "usr_eve", discordUserId: "100");
+        VRChat.Invites.Status["usr_eve"] = HttpStatusCode.InternalServerError;
+
+        var e = await OpenedEventAsync(x => x.InviteStaffUserIds = [eve.Id]);
+        await InviteAsync();
+
+        for (var i = 0; i < 3; i++)
+        {
+            Clock.Advance(Turn);
+            await InviteAsync();
+        }
+
+        var row = Assert.Single(await InviteRowsAsync(e.Id));
+        Assert.Equal(CalendarInviteStates.CouldNotReach, row.State);
+        Assert.Single(VRChat.Invites.Sent);
+    }
+
+    [Fact]
     public async Task PeopleBannedFromTheGroupAreSkipped()
     {
         var list = await AddEverybodyListAsync("usr_a", "usr_banned");

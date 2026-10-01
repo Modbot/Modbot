@@ -584,7 +584,14 @@ public sealed class CalendarInviter
 
         var problem = CalendarInvites.Short(result.ErrorMessage ?? $"VRChat answered {result.StatusCode}.");
 
-        if (row.DiscordUserId is { Length: > 0 })
+        // Only a refusal VRChat certainly acted on (a 4xx other than 408, a 429 among them) or one
+        // Cloudflare stopped before VRChat saw it hands the person to Discord. After a 5xx, a 408 or
+        // no answer the invite may have arrived, and a direct message on top would be the second
+        // message the person gets; they count as not reached instead, and nothing is sent again.
+        var certainlyNotSent = result.IsWafBlocked
+            || (result.StatusCode is >= 400 and < 500 && result.StatusCode != 408);
+
+        if (certainlyNotSent && row.DiscordUserId is { Length: > 0 })
         {
             // The calendar's Discord loop takes it from here.
             Mark(row, CalendarInviteStates.ToMessage, problem, now);
