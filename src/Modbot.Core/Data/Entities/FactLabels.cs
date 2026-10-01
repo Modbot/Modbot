@@ -149,6 +149,8 @@ public static class FactLabels
         [FactType.PlannedEventInstanceOpened] = "Instance opened for an event",
         [FactType.PlannedEventInstanceFailed] = "Instance for an event failed to open",
         [FactType.PlannedEventPublishFailed] = "Event failed to publish",
+        [FactType.PlannedEventPublished] = "Event published",
+        [FactType.PlannedEventTakenDown] = "Event taken down",
         [FactType.CalendarFeedRegenerated] = "Calendar feed link replaced",
 
         [FactType.GiveawayCreated] = "Giveaway created",

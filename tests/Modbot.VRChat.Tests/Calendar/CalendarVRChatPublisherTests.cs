@@ -36,6 +36,38 @@ public class CalendarVRChatPublisherTests(PostgresFixture fixture) : CalendarTes
         Assert.Equal(1, VRChat.Calendar.Calls);
     }
 
+    /// <summary>
+    /// Live updates (2026-10-01): the place turning published writes one fact for the live stream to
+    /// carry, so the calendar page shows it without a reload. The update after an edit, to a place
+    /// already published, writes none; taking it off VRChat writes one of its own.
+    /// </summary>
+    [Fact]
+    public async Task PublishingAndTakingDownEachWriteOneFact_AnUpdateWritesNone()
+    {
+        var e = await AddEventAsync(TimeSpan.FromDays(2), x => x.PublishToVRChat = true);
+        Clock.Advance(Settle);
+        await PublishAsync();
+
+        var published = Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublished));
+        Assert.Equal(e.Id.ToString(), published.SubjectId);
+        Assert.Contains(CalendarPlaces.VRChat, published.Data, StringComparison.Ordinal);
+
+        await EditAsync(e.Id, x => x.Title = "Movie night: Alien");
+        Clock.Advance(Settle);
+        Assert.Equal(CalendarPublishOutcome.Written, (await PublishAsync()).Outcome);
+        Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventPublished));
+
+        await EditAsync(e.Id, x =>
+        {
+            x.State = CalendarEventStates.Cancelled;
+            x.CancelledAt = Clock.UtcNow;
+        });
+        Assert.Equal("delete", (await PublishAsync()).Action);
+
+        var takenDown = Assert.Single(await FactsOfTypeAsync(FactType.PlannedEventTakenDown));
+        Assert.Contains("\"was\"", takenDown.Data, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task QuickEditsBecomeOneUpdate()
     {

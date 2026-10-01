@@ -218,6 +218,8 @@ public static class AuditVisibility
         [FactType.PlannedEventInstanceOpened] = AuditCategory.Operational,
         [FactType.PlannedEventInstanceFailed] = AuditCategory.Operational,
         [FactType.PlannedEventPublishFailed] = AuditCategory.Operational,
+        [FactType.PlannedEventPublished] = AuditCategory.Operational,
+        [FactType.PlannedEventTakenDown] = AuditCategory.Operational,
         [FactType.CalendarFeedRegenerated] = AuditCategory.Operational,
 
         // System: operational noise, and the row spec 5.9.2 gives the short retention class.

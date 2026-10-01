@@ -551,6 +551,16 @@ public static class FactType
     public const string PlannedEventInstanceOpened = "modbot.calendar.instance.open";
     public const string PlannedEventInstanceFailed = "modbot.calendar.instance.fail";
     public const string PlannedEventPublishFailed = "modbot.calendar.publish.fail";
+
+    /// <summary>
+    /// A place now has the event: VRChat's calendar, the Discord event, the channel post or the
+    /// cancel post. Written when the place's state turns to published, not on every edit after
+    /// that, so the calendar page redraws when "Waiting" becomes "Published" (added 2026-10-01).
+    /// </summary>
+    public const string PlannedEventPublished = "modbot.calendar.publish.done";
+
+    /// <summary>A place no longer has the event: taken off after a cancel, a delete or unticking.</summary>
+    public const string PlannedEventTakenDown = "modbot.calendar.publish.remove";
     public const string CalendarFeedRegenerated = "modbot.calendar.feed.regenerate";
 
     // ── Giveaways (giveaways design §8) ────────────────────────────────────────────────────

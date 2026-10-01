@@ -78,6 +78,9 @@ test('each screen knows which fact types change it', () => {
   assert.ok(changesReviews(fact({ type: 'modbot.review.opened' })))
   assert.ok(changesCalendar(fact({ type: 'modbot.calendar.event.create' })))
   assert.ok(changesCalendar(fact({ type: 'vrchat.group.calendar-event.delete' })))
+  // A place turning published or taken down: what makes "Published" show without a reload.
+  assert.ok(changesCalendar(fact({ type: 'modbot.calendar.publish.done' })))
+  assert.ok(changesCalendar(fact({ type: 'modbot.calendar.publish.remove' })))
   assert.ok(!changesCalendar(fact({ type: 'modbot.review.opened' })))
 })
 

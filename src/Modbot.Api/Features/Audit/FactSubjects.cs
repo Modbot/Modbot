@@ -113,6 +113,8 @@ public static class FactSubjects
         [FactType.PlannedEventInstanceOpened] = SubjectKind.Other,
         [FactType.PlannedEventInstanceFailed] = SubjectKind.Other,
         [FactType.PlannedEventPublishFailed] = SubjectKind.Other,
+        [FactType.PlannedEventPublished] = SubjectKind.Other,
+        [FactType.PlannedEventTakenDown] = SubjectKind.Other,
         [FactType.CalendarFeedRegenerated] = SubjectKind.Other,
 
         // The subject is the giveaway's id. Entering and withdrawing are about the person on

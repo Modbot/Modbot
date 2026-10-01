@@ -1336,6 +1336,18 @@ const SENTENCES: Record<string, Sentence> = {
       </>
     ),
 
+  'modbot.calendar.publish.done': (p) => <>{published(p.text('place'), <Quoted value={p.text('title')} />)}.</>,
+
+  // `was`: the place's state before. Only one that was published had anything to take down.
+  'modbot.calendar.publish.remove': (p) =>
+    p.text('was') === 'published' ? (
+      <>{takenDown(p.text('place'), <Quoted value={p.text('title')} />)}.</>
+    ) : (
+      <>
+        Modbot stopped publishing<Quoted value={p.text('title')} /> {placeName(p.text('place'))}.
+      </>
+    ),
+
   'modbot.calendar.feed.regenerate': (p) =>
     p.entry.data?.['replaced'] === true ? (
       <>{p.actor} made a new calendar feed link, and the old one stopped working.</>
@@ -2199,6 +2211,28 @@ function publishFailure(place: string | null, action: string | null, title: Reac
   if (action === 'update') return <>Modbot could not update{title} on VRChat's calendar</>
   if (action === 'delete') return <>Modbot could not take{title} off VRChat's calendar</>
   return <>Modbot could not add{title} to VRChat's calendar</>
+}
+
+function published(place: string | null, title: React.ReactNode): React.ReactNode {
+  if (place === 'discordEvent') return <>Modbot published{title} as a Discord event</>
+  if (place === 'channelPost') return <>Modbot posted{title} in the Discord channel</>
+  if (place === 'cancelPost') return <>Modbot posted in the Discord channel that{title} is cancelled</>
+  return <>Modbot added{title} to VRChat's calendar</>
+}
+
+function takenDown(place: string | null, title: React.ReactNode): React.ReactNode {
+  if (place === 'discordEvent') return <>Modbot ended the Discord event for{title}</>
+  // A post is deleted when it is unticked and kept with its last word when the event ends, and
+  // either way Modbot is done with it.
+  if (place === 'channelPost') return <>Modbot stopped updating the post for{title} in the Discord channel</>
+  return <>Modbot took{title} off VRChat's calendar</>
+}
+
+/** "as a Discord event", "in the Discord channel", "on VRChat's calendar". */
+function placeName(place: string | null): string {
+  if (place === 'discordEvent') return 'as a Discord event'
+  if (place === 'channelPost' || place === 'cancelPost') return 'in the Discord channel'
+  return "on VRChat's calendar"
 }
 
 /** "Ada, Mira and Sam" out of a draw's winners, first place first. */
