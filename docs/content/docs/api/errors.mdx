@@ -1,0 +1,175 @@
+---
+title: Errors
+description: What a Modbot API error looks like, and every code it can carry.
+---
+
+Every error from the Modbot API has the same shape, whatever went wrong and whichever endpoint you
+called. It is [`application/problem+json`](https://www.rfc-editor.org/rfc/rfc9457), the standard
+shape for HTTP API errors, with one field added: `code`.
+
+```json
+{
+  "type": "https://docs.modbot.co/api/errors/#needs-permission",
+  "title": "Needs a permission",
+  "status": 403,
+  "detail": "This needs the ViewAuditLog permission.",
+  "code": "needs-permission",
+  "error": "This needs the ViewAuditLog permission.",
+  "neededPermissions": ["ViewAuditLog"]
+}
+```
+
+| Field | |
+|---|---|
+| `code` | What went wrong, as a word your program can compare. See [the codes](#the-codes). |
+| `detail` | The same, as a sentence for a person. It can change between releases; do not compare it. |
+| `status` | The HTTP status, repeated. |
+| `title` | The code in a few words. |
+| `type` | A link to the code's entry on this page. |
+| `error` | The same sentence as `detail`. Kept for one more API version for programs written before `detail` existed; read `detail` instead. |
+
+Some errors carry more fields beside these, named in the endpoint's entry in the
+[API reference](/api/reference). The common ones:
+
+| Field | On | |
+|---|---|---|
+| `neededPermissions` | `needs-permission` | The names of the permissions the endpoint needs, as on [Roles](/accounts/roles-and-permissions). |
+| `missingGroupPermission` | `vrchat-refused` | The group permission Modbot's own VRChat account is missing, when that is why VRChat said no. |
+| `caseId` | `conflict` on a case file | The case file that already exists. |
+
+An error under `/api` with no body at all came from something in front of Modbot, such as a proxy,
+or is a `500` from a crash inside Modbot, whose log says what happened.
+
+## Reading an error
+
+Branch on `code`. New codes can be added in any release, so treat a code you do not know by its HTTP
+status: a `4xx` you cannot fix by asking again, a `5xx` you might.
+
+```js
+const answer = await fetch('https://modbot.example.com/api/group/invites', {
+  method: 'POST',
+  headers: { Authorization: 'Bearer mbk_...', 'Content-Type': 'application/json' },
+  body: JSON.stringify({ userId: 'usr_c1644b5b-3ca4-45b4-97c6-a2a0de70d469' }),
+})
+
+if (!answer.ok) {
+  const problem = await answer.json()
+  if (problem.code === 'too-many-requests') {
+    // Wait as long as Retry-After says, then ask again.
+  } else {
+    console.error(problem.detail)
+  }
+}
+```
+
+A code is never renamed and never reused to mean something else.
+
+## The codes
+
+### `invalid-request`
+
+`400`. Something in the request is missing or has a value Modbot cannot use. `detail` says what.
+
+### `not-signed-in`
+
+`401`. No key, a key that is wrong, expired or revoked, a key sent where keys are not allowed, or an
+account that is disabled. Modbot never says which, so it never says whether a key exists.
+
+### `needs-permission`
+
+`403`. Signed in, but without a permission this needs. `neededPermissions` names them.
+
+### `vrchat-not-linked`
+
+`403`. The account has not linked its VRChat account yet, and nothing but the link works until it
+has.
+
+### `refused`
+
+`403`. Modbot will not do this here, whoever asks: signing in on a [demo](/self-hosting/demo-mode),
+for example.
+
+### `not-found`
+
+`404`. That thing does not exist, or no longer does: a role somebody deleted in VRChat, say.
+
+### `wrong-method`
+
+`405`. The address exists, but not with that method: a `GET` to an address that only takes `POST`.
+
+### `conflict`
+
+`409`. It clashes with something as it stands: a name already taken, a flag already closed.
+
+### `no-group`
+
+`409`. No VRChat group has been chosen yet, so there is nothing to act in.
+
+### `gone`
+
+`410`. It existed and was removed for good, like evidence that was destroyed.
+
+### `too-large`
+
+`413`. The upload or body is larger than Modbot accepts.
+
+### `wrong-content-type`
+
+`415`. The body is not in a format the endpoint reads.
+
+### `not-possible`
+
+`422`. Modbot understood the request and cannot do it as things stand. `detail` says why.
+
+### `too-many-requests`
+
+`429`. One of Modbot's own limits: one group invite every thirty seconds, for example. A
+`Retry-After` header says how many seconds to wait when Modbot knows.
+
+### `vrchat-rate-limited`
+
+`429`. VRChat asked Modbot to slow down, or Modbot is pausing its own calls to VRChat to stay under
+VRChat's limits. Modbot never asks VRChat again by itself; ask again later.
+
+### `server-error`
+
+`500`. Something went wrong inside Modbot. Its log says what.
+
+### `not-available`
+
+`501`. This Modbot cannot do this at all.
+
+### `vrchat-refused`
+
+`502`. VRChat turned the request down. `detail` is what VRChat said, and `missingGroupPermission`
+names the group permission Modbot's VRChat account lacks when that was the reason.
+
+### `discord-refused`
+
+`502`. Discord turned the request down, often because the bot lacks a Discord permission or its
+role is below the person's. `detail` is what Discord said.
+
+### `service-failed`
+
+`502`. Another service Modbot asked failed: the AI provider, or Modbot Cloud.
+
+### `not-set-up`
+
+`503` (or `409`). Something this needs has not been set up on this Modbot: a VRChat account, a
+Discord server, evidence storage.
+
+### `unavailable`
+
+`503`. Something this needs is not reachable right now, such as the Discord bot. Asking again later
+can work.
+
+### `timed-out`
+
+`504`. Something Modbot asked took too long to answer.
+
+## What does not use this shape
+
+- An answer that VRChat itself gave, passed on by the [VRChat proxy](/api/vrchat-proxy), is
+  VRChat's own, untouched. The proxy's own refusals (switched off, no permission) use this shape.
+- The companion's connection (`/api/v1/companion/...`) has error codes of its own.
+- Sign-in for AI apps over MCP (`/mcp/...`) follows the OAuth standard's own error shape.

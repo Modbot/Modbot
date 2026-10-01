@@ -9,8 +9,8 @@ using Modbot.Core.Data.Entities;
 namespace Modbot.Api.Conventions;
 
 /// <summary>
-/// Gives an error that left the pipeline with no body the problem shape: a 401 from sign-in, a 405
-/// from routing, a 403 from a <c>Forbid()</c>.
+/// Gives an error that left the pipeline with no body the problem shape: a parameter that could not
+/// be read, a 401 from sign-in, a 403 from a <c>Forbid()</c>.
 /// </summary>
 /// <remarks>
 /// The same test the framework's status code pages make -- the response has not started, and

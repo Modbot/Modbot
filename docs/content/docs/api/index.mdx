@@ -15,9 +15,10 @@ you talk to **that** server, at the address it is hosted on. If your web app ope
 Every example in these pages uses `https://modbot.example.com`. Put your own address in its place.
 
 <Callout type="info">
-  Modbot sends CORS headers on one endpoint only, [`GET /api/server`](/api/server). For everything
-  else, a web page on a different site cannot call the API from a visitor's browser: call it from a
-  program or a server of your own.
+  A web page on a different site can call the API from a visitor's browser only if the operator
+  allows that site with `MODBOT_CORS_ORIGINS` (see [Calling from a web page](/api/conventions#calling-from-a-web-page)).
+  [`GET /api/server`](/api/server) is open to every site. Otherwise, call the API from a program or
+  a server of your own.
 </Callout>
 
 ## Signing in
@@ -65,25 +66,32 @@ Everywhere else, the key's permissions decide, exactly as a person's permissions
 
 ## Errors
 
-Modbot answers with ordinary HTTP status codes. Most errors carry a small JSON body with one field,
-`error`, which is a sentence saying what went wrong:
+Modbot answers with ordinary HTTP status codes, and every error carries the same small JSON body:
+`code` says what went wrong in a word your program can compare, and `detail` says it in a sentence.
 
 ```json
-{ "error": "A key needs a name." }
+{
+  "type": "https://docs.modbot.co/api/errors/#invalid-request",
+  "title": "Request not valid",
+  "status": 400,
+  "detail": "A key needs a name.",
+  "code": "invalid-request",
+  "error": "A key needs a name."
+}
 ```
 
-Some errors have no body at all. The most common are `401` and `403` answers from the sign-in and
-permission checks.
+[Errors](/api/errors) lists every code. In short:
 
 | Status | Meaning |
 |---|---|
 | `200`, `204` | It worked. `204` has no body. |
-| `400` | Something in the request is wrong. The `error` sentence says what. |
-| `401` | Not signed in: no key, a wrong, expired or revoked key, a key sent where keys are not allowed, or an account that is disabled or not linked. A refused key gets the header `WWW-Authenticate: Bearer` and no body. Modbot never says whether a key exists. |
-| `403` | Signed in, but without a permission this needs. |
+| `400` | Something in the request is wrong. `detail` says what. |
+| `401` | Not signed in: no key, a wrong, expired or revoked key, a key sent where keys are not allowed, or an account that is disabled. A refused key also gets the header `WWW-Authenticate: Bearer`. Modbot never says whether a key exists. |
+| `403` | Signed in, but without a permission this needs (`neededPermissions` names it), or the account has not linked its VRChat account. |
 | `404` | That thing does not exist. |
 | `409` | It clashes with something that already exists. |
 | `429` | A limit was reached. Some answers carry a `Retry-After` header with the number of seconds to wait. |
+| `502` | VRChat, Discord or another service Modbot asked turned the request down. `detail` is what it said. |
 | `503` | Something Modbot needs for this is not available right now, such as evidence storage. |
 
 ## Versions
@@ -133,6 +141,8 @@ They still exist and the web app uses them, but they can change without warning.
 
 <Cards>
   <Card title="API keys" href="/api/keys">Making, using and revoking keys.</Card>
+  <Card title="Conventions" href="/api/conventions">The names, addresses and numbers every endpoint uses.</Card>
+  <Card title="Errors" href="/api/errors">The shape of every error, and every code.</Card>
   <Card title="Paging through a list" href="/api/paging">Reading a long list one page at a time.</Card>
   <Card title="Events over WebSocket" href="/api/events-websocket">Stay connected and get each new event as it happens.</Card>
   <Card title="Events by long polling" href="/api/long-polling">The same events, by asking in a loop.</Card>

@@ -1154,11 +1154,11 @@ endpoint classes §4.2 does not schedule:
 | `groups.members` | **0.67 req/s** | `MemberConsumer` — 1500 ms between pages |
 | `groups.bans` | **0.29 req/s** | `BanConsumer` — 3500 ms between pages |
 | `groups.auditlog` | **0.29 req/s** | `LogConsumer` — 3500 ms between pages |
-| `groups.invites` | **0.29 req/s** | no prior data; matched to the conservative neighbour |
+| `groups.invites` | **0.29 req/s** | no prior data; matched to the conservative neighbour. Since 2026-09-19 one per 30 s, the maintainer's answer for auto-invites (`RateLimitOptions`); since 2026-10-01 also `POST /api/group/invites`, through the same `GroupInvites` and its stored 30 s gap, so the endpoint is not new (API conventions design §8) |
 | `users.read` | **0.33 req/s** | `UserProducer` — 3000 ms |
 | `users.profile` | **3.5 req/s** | the maintainer, 2026-09-15 — the same rate as `users.read`, its own budget |
 | `users.groups` | **0.2 req/s** | **no data at all** — see §4.3.4.1 |
-| `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative; under the `interactive` backstop since 2026-09-17 (§4.3.5) |
+| `moderation.write` | **0.3 req/s** | unknown; interactive and low-volume, kept conservative; under the `interactive` backstop since 2026-09-17 (§4.3.5). Group member role add and remove (role sync, AutoMod); since 2026-10-01 also the API's `PUT`/`DELETE /api/group/members/{userId}/roles/{roleId}` at interactive priority, the same two endpoints through `GroupRoles`, so not new (API conventions design §8) |
 | `groups.moderate` | **0.5 req/s** | the maintainer's deliberately low guess (M4 §12.2); under the `interactive` backstop since 2026-09-17 (§4.3.5) |
 | `groups.edit` | **0.1 req/s** | 2026-09-27 — changing the group's profile from the VRChat page; unmeasured, one request per Save, approved by the user as "only when a person acts". On the `global` backstop, below moderation |
 | `groups.posts` | **0.2 req/s** | 2026-09-27 — reading the group's posts when the Posts tab opens, a page turns or Refresh is pressed; unmeasured, `groups.read`'s rate (§4.3.4.1); `interactive` backstop |

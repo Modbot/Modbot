@@ -338,6 +338,39 @@ letting somebody back in is a different decision from keeping them out. The conf
 **Why lift the ban?** with the reasons ticked for **Unban**, and the ban's
 [case file](/moderation/case-files) records that it was lifted and why.
 
+### Remove from Discord
+
+Name: `DiscordKick`
+
+Remove a person from the Discord server without banning them, through the
+[API](/api/conventions) (`POST /api/discord/members/{id}/kick`). **Kick** is for the VRChat group
+only: acting on one platform is not permission to act on the other. The bot needs Discord's **Kick
+Members**. Every removal is written to the audit log with who asked.
+
+### Ban on Discord
+
+Name: `DiscordBan`
+
+Ban a person from the Discord server through the API (`POST /api/discord/bans`). Separate from
+**Ban**, for the reason above. The bot needs Discord's **Ban Members** and a role above the
+person's. A ban made this way is a ban by Modbot's bot, so ban sync does not copy it to VRChat
+unless it is set to copy bots' bans.
+
+### Unban on Discord
+
+Name: `DiscordUnban`
+
+Lift a Discord ban through the API (`DELETE /api/discord/bans/{id}`). Separate from **Ban on
+Discord**, as **Unban** is from **Ban**.
+
+### Time out on Discord
+
+Name: `DiscordTimeOut`
+
+Time a member of the Discord server out for up to 28 days through the API
+(`POST /api/discord/members/{id}/timeout`). The bot needs Discord's **Timeout Members** and a role
+above the person's.
+
 ### Act on many at once
 
 Name: `BulkAction`
@@ -449,10 +482,12 @@ Name: `ManageGroupRoles`
 - Opens **Roles** under the **VRChat** page's **Settings** tab, and creates, changes and deletes the
   group's roles on VRChat: their names, descriptions and permissions. See
   [Analytics](/analytics#roles).
+- Gives a member one of the group's roles, or takes one away, through the API
+  (`PUT` and `DELETE /api/group/members/{userId}/roles/{roleId}`).
 
 These are the group's roles on VRChat, not Modbot's own roles on this page. Modbot's VRChat account
-needs **Manage Group Roles** in the group's roles on VRChat. Every change is written to the audit log
-with who made it.
+needs **Manage Group Roles** in the group's roles on VRChat, and **Assign Group Roles** to give
+members roles. Every change is written to the audit log with who made it.
 
 Not in the built-in Moderator or Viewer roles.
 
@@ -462,6 +497,8 @@ Name: `ManageGroupInvites`
 
 - Opens the **VRChat** page's **Invites** tab, which lists the people the group has invited who have
   not answered yet, and cancels an invite. See [Analytics](/analytics#invites).
+- Invites a person to the group through the API (`POST /api/group/invites`), at most one invite every
+  thirty seconds across the whole Modbot, [auto-invites](/moderation/auto-invites) included.
 
 Modbot's VRChat account needs **Manage Group Invites** in the group's roles on VRChat. Not in the
 built-in Moderator or Viewer roles.

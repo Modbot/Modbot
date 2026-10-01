@@ -1,0 +1,99 @@
+---
+title: Conventions
+description: The rules every Modbot API endpoint follows, so one endpoint teaches you the rest.
+---
+
+The Modbot API grew one feature at a time, and some early endpoints use their own words for things.
+This page is the one way to do each thing. Older names and addresses keep working, and the
+[API reference](/api/reference) lists the ones on this page.
+
+## Names
+
+JSON fields and query parameters are written `likeThis`. The same idea has the same name
+everywhere:
+
+| Parameter | Means | Older names that still work |
+|---|---|---|
+| `search` | Free text to look for. | `q` (search, audit log), `text` (Modbot's log) |
+| `status` | Which ones, by where they stand: open, closed, banned. | `state` (flags, reviews, giveaways, Discord members) |
+| `vrchatUserId` | A person, by their VRChat id. | `id`, `userId`, `vrchat` |
+| `discordUserId` | A person, by their Discord id. | `discord` |
+
+When you send both a name from this page and the endpoint's older one, the older one wins, so an
+existing script never changes meaning.
+
+A VRChat id is passed on exactly as you send it. Modbot never checks its shape, because older VRChat
+ids follow no pattern.
+
+## Addresses and methods
+
+The thing an endpoint acts on is in the address, and the method says what happens to it:
+
+| | |
+|---|---|
+| `GET /api/things` | List them. |
+| `GET /api/things/{id}` | One of them. |
+| `POST /api/things` | Make one. |
+| `PUT /api/things/{id}` | Change one. |
+| `DELETE /api/things/{id}` | Delete one. |
+| `POST /api/things/{id}/verb` | Do something to one that is not a change or a deletion, such as `/kick`. |
+
+A few older endpoints took the id in the body (`PUT /api/group/roles`) or deleted with
+`POST .../delete`. They still work, and each now has a `DELETE` or `PUT` at its own address beside
+it. The reference marks the old ones deprecated and names the new one.
+
+## Numbers
+
+Every number in an answer is a JSON number. The reference describes each as an integer or a
+number, with its size (`int32`, `int64`). Modbot also reads a number you send as text, such as
+`"limit": "50"`, but always answers with a number.
+
+Ids that Modbot makes up itself are either text (most of them) or row numbers that stay far below
+2^53, the largest whole number JavaScript holds exactly. The one number above it is a permission
+bitfield, where **Administrator** is bit 62: wherever one appears, the permissions' names come
+beside it (`permissionNames`). Read the names.
+
+## Errors
+
+Every error has the same shape, with a `code` to branch on. See [Errors](/api/errors).
+
+## Who is calling
+
+`GET /api/auth/me` answers with the account a key or a session belongs to. Called with a key, its
+`apiKey` field says which key, and what the key may do right now:
+
+```json
+{
+  "username": "ada",
+  "permissionNames": ["ViewMembers", "ViewAuditLog", "ManageApiKeys"],
+  "apiKey": {
+    "id": "0199a3c4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+    "name": "Discord bot",
+    "start": "mbk_3fA9xQ2b",
+    "permissionNames": ["ViewAuditLog"],
+    "expiresAt": null
+  }
+}
+```
+
+`apiKey.permissionNames` is what every request with the key is checked against: the permissions
+ticked for the key, never more than the account holds now. The `permissionNames` beside it are the
+account's own. With a session, `apiKey` is `null`.
+
+## Calling from a web page
+
+A web page on another address can call the API from a visitor's browser only if the operator allows
+that address, with the `MODBOT_CORS_ORIGINS` [environment variable](/self-hosting/environment-variables):
+
+```bash
+MODBOT_CORS_ORIGINS=https://tools.example.org,https://dashboard.example.org
+```
+
+`*` allows every address. With the variable unset, no other address may call the API, as before.
+[`GET /api/server`](/api/server) is the exception: any page may always read it.
+
+A page on an allowed address signs in with an [API key](/api/keys) in the `Authorization` header.
+Modbot never lets the browser share an answer given to the `modbot.session` cookie with another
+address, so a page elsewhere cannot read what the person signed in to Modbot in the same browser
+can see. Remember that anything a page holds,
+its visitors can read: give such a key only the permissions the page needs.

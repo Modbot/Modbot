@@ -82,7 +82,9 @@ curl -H "Authorization: Bearer mbk_..." https://modbot.example.com/api/auth/me
 ```
 
 `GET /api/auth/me` answers with the account the key belongs to, which is a quick way to check a
-key works. See the [API overview](/api) for what keys cannot do, and for errors.
+key works. Its `apiKey` field names the key and lists what it may do right now (see
+[Who is calling](/api/conventions#who-is-calling)). See the [API overview](/api) for what keys
+cannot do, and [Errors](/api/errors) for what a refusal looks like.
 
 ## What a key may do
 
