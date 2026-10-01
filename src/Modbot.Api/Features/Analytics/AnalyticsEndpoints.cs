@@ -1,14 +1,18 @@
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.Activity;
+using Modbot.Analytics.Reviews;
 using Modbot.Api.Auth;
 using Modbot.Api.Features.Analytics.Group;
 using Modbot.Api.Features.Analytics.Instances;
 using Modbot.Api.Features.Analytics.Server;
 using Modbot.Api.Features.Analytics.Team;
 using Modbot.Api.Features.Analytics.Worlds;
+using Modbot.Api.Features.Users;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.Core.Discord;
@@ -162,25 +166,108 @@ public static class AnalyticsEndpoints
                 [FromQuery] bool? all,
                 [FromQuery] DateOnly? from,
                 [FromQuery] DateOnly? to,
+                [FromQuery] int? people,
+                HttpContext http,
                 CancellationToken ct) =>
             {
                 var window = await WindowAsync(db, clock, TeamAnalyticsQuery.Sources, days, all, from, to, ct);
                 if (window.Error is not null) return window.Error;
 
-                return Results.Ok(await new TeamAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, ct));
+                if (people is < ReviewThresholds.MinCoverPeople or > ReviewThresholds.MaxCoverPeople)
+                    return Results.BadRequest(new
+                    {
+                        error = $"`people` must be from {ReviewThresholds.MinCoverPeople} to {ReviewThresholds.MaxCoverPeople}.",
+                    });
+
+                var userId = ModbotAuth.UserIdOf(http.User);
+                var vrchatUserId = userId is { } id
+                    ? await db.Users.AsNoTracking().Where(u => u.Id == id).Select(u => u.VRChatUserId).FirstOrDefaultAsync(ct)
+                    : null;
+
+                var viewer = new TeamViewer(
+                    ModbotAuth.Allows(ModbotAuth.PermissionsOf(http.User), ModbotPermissions.ViewAuditLog),
+                    string.IsNullOrWhiteSpace(vrchatUserId) ? null : vrchatUserId);
+
+                return Results.Ok(await new TeamAnalyticsQuery(db).RunAsync(window.From, window.To, clock.UtcNow, viewer, people, ct));
             })
             .RequiresFlag(ModbotPermissions.ViewAnalytics)
             .WithName("GetTeamAnalytics")
             .WithSummary("Get team analytics")
             .WithDescription(
-                "The Team analytics page: who is doing the moderation work, and when is nobody covering? "
-                + "Actions per moderator broken down by kind and over time, from daily totals; and "
-                + "coverage gaps -- stretches when people were in a group instance and no moderator "
-                + "was, computed from the companion's presence reports. A moderator is present "
-                + "when a paired client is reporting from the instance or when somebody recognised as "
-                + "a moderator (holds a role with moderation permissions, or has taken a moderation "
-                + "action) is seen there. Moderators without the client are not seen at all.")
+                "The Stats page's Moderation tab: is moderation keeping up, and is the team OK? "
+                + "Actions on people (instance kicks, warns, bans, removals, join requests turned away) "
+                + "and door work and admin (invites, approvals, unbans, role changes), counted apart and "
+                + "never added together, from daily totals. The caller's own numbers (`you`, by their "
+                + "linked VRChat account) beside the team's middle (`middle`, left out below three "
+                + "active moderators). Each moderator's own numbers (`moderators`) and who left an "
+                + "instance last (`coverageGaps[].lastModerator`) need ViewAuditLog as well; without it "
+                + "`canSeeEachModerator` is false, `moderators` is empty and `lastModerator` is null.\n\n"
+                + "Coverage gaps are stretches when people were in a group instance and no moderator "
+                + "was, from the companion's presence reports. A moderator is present when a paired "
+                + "client is reporting from the instance or when somebody recognised as a moderator "
+                + "(holds a role with moderation permissions, or has taken a moderation action) is seen "
+                + "there. Moderators without the client are not seen at all. `cover` lays them over the "
+                + "hours of the week (168 buckets, Monday 00:00 UTC first): hours when a group instance "
+                + "held at least `people` people by VRChat's head count, those a gap overlapped, and "
+                + "those no companion reported from. `people` defaults to the saved setting.\n\n"
+                + "`waits` gives the middle wait of join requests (request to approval or rejection), "
+                + "AutoMod flags (flagged to dismissed or confirmed) and reviews (opened to closed), "
+                + "over the decisions made in the range. `actedOnAgain` counts people acted on who had "
+                + "been acted on within 30 days before; `bansLifted` counts bans lifted within 30 "
+                + "days, and the reasons given on case files lifted in the range.")
             .Produces<TeamAnalytics>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        // The Moderation tab's "how many people want a moderator" bar, saved for everybody. Here and
+        // not under /api/settings because the tab is the only place it is set and read; it is a
+        // setting all the same, so it needs Change settings and is recorded like one.
+        group.MapPut("/team/people", async (
+                [FromBody] SetCoverPeopleRequest body,
+                [FromServices] ModbotContext db,
+                [FromServices] AccountFacts facts,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                ArgumentNullException.ThrowIfNull(body);
+
+                if (body.People is < ReviewThresholds.MinCoverPeople or > ReviewThresholds.MaxCoverPeople)
+                    return Results.BadRequest(new
+                    {
+                        error = $"`people` must be from {ReviewThresholds.MinCoverPeople} to {ReviewThresholds.MaxCoverPeople}.",
+                    });
+
+                var settings = await db.GetSettingsAsync(ct);
+                var before = ReviewThresholds.Read(settings.ReviewThresholds);
+
+                if (before.CoverPeople == body.People)
+                    return Results.Ok(new CoverPeopleView(before.CoverPeople));
+
+                settings.ReviewThresholds = (before with { CoverPeople = body.People }).Clamped().ToJson();
+                await db.SaveChangesAsync(ct);
+
+                await facts.RecordAsync(
+                    FactType.SettingsChanged,
+                    "settings",
+                    Actor.Of(http),
+                    new JsonObject
+                    {
+                        ["setting"] = "coverPeople",
+                        ["before"] = before.CoverPeople,
+                        ["after"] = body.People,
+                    },
+                    ct);
+
+                return Results.Ok(new CoverPeopleView(body.People));
+            })
+            .RequiresFlag(ModbotPermissions.ManageSettings)
+            .WithName("SetCoverPeople")
+            .WithSummary("Set when an instance wants a moderator")
+            .WithDescription(
+                "How many people in one group instance mean it wants a moderator in it: the head count "
+                + "that makes an hour busy in the Moderation tab's `cover`, and the bar its list of "
+                + "gaps starts at. From 1 to 100; 3 until it is changed.")
+            .Produces<CoverPeopleView>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 

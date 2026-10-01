@@ -161,7 +161,9 @@ Name: `ViewAnalytics`
 - The world and instance popups.
 - [Insights](/ai/insights) on the **Stats** page.
 
-Seeing who was in a past instance also needs **See the audit log**.
+Seeing who was in a past instance also needs **See the audit log**, and so do each moderator's
+numbers on the **Stats** page's **Moderation** tab and who left an instance last. Without it the tab
+shows the team's numbers and your own.
 
 ### See live instances
 
@@ -207,6 +209,8 @@ Name: `ViewAuditLog`
   [Audit log](/moderation/audit-log).
 - The **Bans** page and the group's ban list. See [Members and bans](/moderation/members-and-bans).
 - Who was in a past instance, in the instance popup.
+- With **See analytics** as well: **Actions per moderator** and **Last moderator out** on the
+  **Stats** page's **Moderation** tab. See [Analytics](/analytics#team).
 - Moderation events in the [event stream](/api/events-websocket), [long polling](/api/long-polling)
   and [webhooks](/api/webhooks).
 - The Discord bot's `/recent` command.
@@ -545,6 +549,8 @@ Name: `ManageSettings`
 - Runs the [setup wizard](/setup-wizard) again once it has been completed.
 - Opens the **Integrations** page, from the sidebar's **Integrations** heading: the status of
   VRChat, Discord and Email, and where in Settings each is set up. See [Analytics](/analytics).
+- Saves the people buttons on the **Stats** page's **Moderation** tab (**Left without a moderator**)
+  for everybody. See [Analytics](/analytics#team).
 - Allows webhooks to be sent to private network addresses.
 
 The **API** tab's keys and webhooks also need **Manage API keys and webhooks**, and the reason list

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
+using Modbot.Analytics.Reviews;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 
@@ -109,9 +110,18 @@ public sealed class InsightFigureReader(ModbotContext db)
         var now = await TotalsAsync(period.FirstDay, period.LastDay, metrics, ct);
         var before = await TotalsAsync(period.BeforeFirstDay, period.BeforeLastDay, metrics, ct);
 
+        // Actions on people and door work are two figures, never one: summed, a month of invites
+        // reads to the model as a month of heavy moderation (accountability signals design 3.4).
+        decimal Sum(IReadOnlyDictionary<string, decimal> totals, bool onPeople) => totals
+            .Where(t => ActionsOnPeople.BaselineMetrics.Contains(t.Key, StringComparer.Ordinal) == onPeople)
+            .Sum(t => t.Value);
+
         var figures = new List<InsightFigure>
         {
-            new("All moderator actions", now.Values.Sum(), before.Values.Sum()),
+            new("Actions on people (instance kicks, warnings, bans, removals, join requests rejected)",
+                Sum(now, onPeople: true), Sum(before, onPeople: true)),
+            new("Door work and admin (invites, approvals, unbans, role changes)",
+                Sum(now, onPeople: false), Sum(before, onPeople: false)),
             new("Moderators who took any action",
                 await ModeratorsActiveAsync(period.FirstDay, period.LastDay, metrics, ct),
                 await ModeratorsActiveAsync(period.BeforeFirstDay, period.BeforeLastDay, metrics, ct)),

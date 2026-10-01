@@ -9721,7 +9721,7 @@
           "Analytics"
         ],
         "summary": "Get team analytics",
-        "description": "The Team analytics page: who is doing the moderation work, and when is nobody covering? Actions per moderator broken down by kind and over time, from daily totals; and coverage gaps -- stretches when people were in a group instance and no moderator was, computed from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all.\n\nNeeds the `ViewAnalytics` permission.",
+        "description": "The Stats page's Moderation tab: is moderation keeping up, and is the team OK? Actions on people (instance kicks, warns, bans, removals, join requests turned away) and door work and admin (invites, approvals, unbans, role changes), counted apart and never added together, from daily totals. The caller's own numbers (`you`, by their linked VRChat account) beside the team's middle (`middle`, left out below three active moderators). Each moderator's own numbers (`moderators`) and who left an instance last (`coverageGaps[].lastModerator`) need ViewAuditLog as well; without it `canSeeEachModerator` is false, `moderators` is empty and `lastModerator` is null.\n\nCoverage gaps are stretches when people were in a group instance and no moderator was, from the companion's presence reports. A moderator is present when a paired client is reporting from the instance or when somebody recognised as a moderator (holds a role with moderation permissions, or has taken a moderation action) is seen there. Moderators without the client are not seen at all. `cover` lays them over the hours of the week (168 buckets, Monday 00:00 UTC first): hours when a group instance held at least `people` people by VRChat's head count, those a gap overlapped, and those no companion reported from. `people` defaults to the saved setting.\n\n`waits` gives the middle wait of join requests (request to approval or rejection), AutoMod flags (flagged to dismissed or confirmed) and reviews (opened to closed), over the decisions made in the range. `actedOnAgain` counts people acted on who had been acted on within 30 days before; `bansLifted` counts bans lifted within 30 days, and the reasons given on case files lifted in the range.\n\nNeeds the `ViewAnalytics` permission.",
         "operationId": "GetTeamAnalytics",
         "parameters": [
           {
@@ -9758,6 +9758,18 @@
               "type": "string",
               "format": "date"
             }
+          },
+          {
+            "name": "people",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
           }
         ],
         "responses": {
@@ -9767,6 +9779,62 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TeamAnalytics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/analytics/team/people": {
+      "put": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Set when an instance wants a moderator",
+        "description": "How many people in one group instance mean it wants a moderator in it: the head count that makes an hour busy in the Moderation tab's `cover`, and the bar its list of gaps starts at. From 1 to 100; 3 until it is changed.\n\nNeeds the `ManageSettings` permission.",
+        "operationId": "SetCoverPeople",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetCoverPeopleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverPeopleView"
                 }
               }
             }
@@ -18597,10 +18665,45 @@
   },
   "components": {
     "schemas": {
+      "ActedOnAgain": {
+        "required": [
+          "people",
+          "again",
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "again": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "days": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "ActionKind": {
         "required": [
           "metric",
-          "label"
+          "label",
+          "group"
         ],
         "type": "object",
         "properties": {
@@ -18608,6 +18711,9 @@
             "type": "string"
           },
           "label": {
+            "type": "string"
+          },
+          "group": {
             "type": "string"
           }
         }
@@ -22098,6 +22204,56 @@
           }
         }
       },
+      "BansLifted": {
+        "required": [
+          "bans",
+          "liftedWithin",
+          "days",
+          "reasons",
+          "liftedWithoutReason"
+        ],
+        "type": "object",
+        "properties": {
+          "bans": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "liftedWithin": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "days": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LiftReason"
+            }
+          },
+          "liftedWithoutReason": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "BusiestDay": {
         "required": [
           "day",
@@ -24064,6 +24220,83 @@
               "string"
             ],
             "format": "double"
+          }
+        }
+      },
+      "CoverPeopleView": {
+        "required": [
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "CoverWeek": {
+        "required": [
+          "people",
+          "savedPeople",
+          "busy",
+          "nobodyOn",
+          "notSeen"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "savedPeople": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "busy": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "nobodyOn": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          "notSeen": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
           }
         }
       },
@@ -31482,6 +31715,26 @@
           }
         }
       },
+      "LiftReason": {
+        "required": [
+          "label",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "LinkCheckResult": {
         "required": [
           "linked",
@@ -33879,8 +34132,12 @@
       "ModeratorSummary": {
         "required": [
           "who",
-          "total",
+          "onPeople",
+          "doorAndAdmin",
           "byKind",
+          "daysActive",
+          "onPeoplePerDay",
+          "usualPerDay",
           "lastActiveDay"
         ],
         "type": "object",
@@ -33888,7 +34145,15 @@
           "who": {
             "$ref": "#/components/schemas/Person"
           },
-          "total": {
+          "onPeople": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "doorAndAdmin": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "number",
@@ -33906,6 +34171,32 @@
               ],
               "format": "double"
             }
+          },
+          "daysActive": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "onPeoplePerDay": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "usualPerDay": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           },
           "lastActiveDay": {
             "type": [
@@ -35826,6 +36117,43 @@
           },
           "confirmation": {
             "type": "string"
+          }
+        }
+      },
+      "QueueWait": {
+        "required": [
+          "queue",
+          "decided",
+          "middleMinutes",
+          "middleMinutesPerDay"
+        ],
+        "type": "object",
+        "properties": {
+          "queue": {
+            "type": "string"
+          },
+          "decided": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "middleMinutes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "middleMinutesPerDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayValue"
+            }
           }
         }
       },
@@ -37765,6 +38093,22 @@
           }
         }
       },
+      "SetCoverPeopleRequest": {
+        "required": [
+          "people"
+        ],
+        "type": "object",
+        "properties": {
+          "people": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "SetEmailLimitRequest": {
         "required": [
           "limitPer24Hours"
@@ -38271,10 +38615,19 @@
           "to",
           "today",
           "kinds",
+          "canSeeEachModerator",
+          "you",
           "moderators",
-          "actionsPerDay",
+          "moderatorsActive",
+          "middle",
+          "onPeoplePerDay",
+          "doorAndAdminPerDay",
           "actionsPerDayByKind",
           "coverageGaps",
+          "cover",
+          "waits",
+          "actedOnAgain",
+          "bansLifted",
           "moderatorsRecognised",
           "instancesWatched",
           "instancesOpenedWithoutAnyWatch",
@@ -38305,13 +38658,50 @@
               "$ref": "#/components/schemas/ActionKind"
             }
           },
+          "canSeeEachModerator": {
+            "type": "boolean"
+          },
+          "you": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ModeratorSummary"
+              }
+            ]
+          },
           "moderators": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ModeratorSummary"
             }
           },
-          "actionsPerDay": {
+          "moderatorsActive": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "middle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamMiddle"
+              }
+            ]
+          },
+          "onPeoplePerDay": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DayValue"
+            }
+          },
+          "doorAndAdminPerDay": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DayValue"
@@ -38328,6 +38718,21 @@
             "items": {
               "$ref": "#/components/schemas/CoverageGap"
             }
+          },
+          "cover": {
+            "$ref": "#/components/schemas/CoverWeek"
+          },
+          "waits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueWait"
+            }
+          },
+          "actedOnAgain": {
+            "$ref": "#/components/schemas/ActedOnAgain"
+          },
+          "bansLifted": {
+            "$ref": "#/components/schemas/BansLifted"
           },
           "moderatorsRecognised": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -38366,6 +38771,59 @@
           "generatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "TeamMiddle": {
+        "required": [
+          "moderators",
+          "onPeople",
+          "doorAndAdmin",
+          "daysActive",
+          "onPeoplePerDay"
+        ],
+        "type": "object",
+        "properties": {
+          "moderators": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "onPeople": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "doorAndAdmin": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "daysActive": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "onPeoplePerDay": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },

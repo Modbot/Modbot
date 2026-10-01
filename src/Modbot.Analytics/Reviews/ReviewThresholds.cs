@@ -84,6 +84,18 @@ public sealed record ReviewThresholds
     /// <summary>How many days back "usual" is measured over, ending yesterday.</summary>
     public int BaselineDays { get; init; } = 90;
 
+    /// <summary>
+    /// How many people in one instance mean it wants a moderator in it: the bar the Moderation
+    /// tab's busy hours and its list of gaps are drawn at.
+    /// </summary>
+    /// <remarks>
+    /// Kept here rather than in a column of its own because it is the same sort of number as the
+    /// rest -- a team's own line between "worth a look" and "not" -- and because this document
+    /// takes a new number without a migration. It was a choice made fresh on every visit until it
+    /// was saved (analytics design review, "Goals the owner sets").
+    /// </remarks>
+    public int CoverPeople { get; init; } = 3;
+
     public static ReviewThresholds Default { get; } = new();
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -143,7 +155,11 @@ public sealed record ReviewThresholds
         FarAboveTeamMultiplier = Math.Clamp(FarAboveTeamMultiplier, 1.5m, 100m),
         FarAboveTeamMinTeamDays = Math.Clamp(FarAboveTeamMinTeamDays, 1, 365),
         BaselineDays = Math.Clamp(BaselineDays, 7, 365),
+        CoverPeople = Math.Clamp(CoverPeople, MinCoverPeople, MaxCoverPeople),
     };
+
+    public const int MinCoverPeople = 1;
+    public const int MaxCoverPeople = 100;
 }
 
 /// <summary>

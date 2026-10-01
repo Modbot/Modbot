@@ -1,7 +1,18 @@
 import { useState } from 'react'
-import { DailyBars, RankedList, compactNumber, dateTime, longDay, minutes } from '@/components/charts'
+import {
+  DailyBars,
+  DailyLine,
+  Heatmap,
+  RankedList,
+  chartTheme,
+  compactNumber,
+  dateTime,
+  longDay,
+  minutes,
+  percent,
+} from '@/components/charts'
 import { InstanceLink } from '@/components/facts'
-import type { CoverageGap, TeamAnalytics } from '@/lib/api'
+import type { ActionGroup, CoverageGap, CoverWeek, ModeratorSummary, QueueName, TeamAnalytics, TeamMiddle } from '@/lib/api'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { Button } from '@/components/ui/button'
 import { Panel, Stat, StatStrip, Toggle } from './shared'
@@ -9,39 +20,73 @@ import { NarrowChevron, NarrowDetails, NarrowRow, NarrowRows, Table, Td, Th, Tr 
 import { plural } from '@/lib/format'
 import { countsByKind } from '@/lib/rowFacts'
 
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const HOURS = Array.from({ length: 24 }, (_, h) => `${h}:00`)
+
+/** The people bars offered, before the saved one if it is none of these. */
+const PEOPLE_BARS = [1, 3, 5, 10]
+
+const QUEUES: { value: QueueName; label: string }[] = [
+  { value: 'join-requests', label: 'Join requests' },
+  { value: 'flags', label: 'Flags' },
+  { value: 'reviews', label: 'Reviews' },
+]
+
 /**
- * The team on the Stats page's Moderation tab: who is doing the moderation work, and when is
- * nobody covering? (spec 10.1, 5.8, Stats page design). It was the Team page until the charts of
- * every platform moved onto one Stats page; `/analytics/team` opens that tab.
+ * The team on the Stats page's Moderation tab: is moderation keeping up, and is the team OK?
+ * (spec 10.1, 5.8, Stats page design, analytics design review F7-F9). It was the Team page until the
+ * charts of every platform moved onto one Stats page; `/analytics/team` opens that tab.
  *
- * The per-moderator numbers come from the daily totals, one metric per kind of action. Coverage
- * gaps come from the fact log, because they are about minutes rather than days, and they are the
- * one figure on any analytics page that suggests an action rather than describing a state.
+ * Actions on people and door work are two numbers, never one, so a moderator who runs the door
+ * does not read as one who runs people out of it. The reader's own row comes first, beside their
+ * usual and the team's middle, and nobody else's numbers are shown to somebody who cannot read the
+ * audit log, which is where who-did-what already lives: a page that ranks volunteers burns them out.
+ *
+ * Coverage gaps come from the fact log, because they are about minutes rather than days; the week
+ * grid lays them over the hours they fell in, so "Friday evenings keep going uncovered" can be seen
+ * rather than added up from rows. The people bar is the group's saved one, and choosing another
+ * saves it for somebody who may change settings.
  */
 export function TeamStats({
   data,
   onOpenSubject,
   onOpenReviews,
+  onPeople,
 }: {
   data: TeamAnalytics
   onOpenSubject?: (subjectId: string) => void
   /** Opens the Reviews page. Passed only when the signed-in person may review. */
   onOpenReviews?: () => void
+  /** Chooses another people bar: read again with it, and saved when the reader may change settings. */
+  onPeople?: (people: number) => void
 }) {
-  const [minPeople, setMinPeople] = useState<'1' | '3' | '5' | '10'>('3')
   const [openGaps, toggleGap] = useOpenRows()
   const [openModerators, toggleModerator] = useOpenRows()
+  const [perDay, setPerDay] = useState<ActionGroup>('people')
 
-  const shownGaps = [...data.coverageGaps.filter((g) => g.peopleWhenLastModeratorLeft >= Number(minPeople))].reverse()
-  const totalActions = data.actionsPerDay.reduce((s, p) => s + p.value, 0)
+  const people = data.cover.people
+  const shownGaps = [...data.coverageGaps.filter((g) => g.peopleWhenLastModeratorLeft >= people)].reverse()
+  const onPeopleTotal = data.onPeoplePerDay.reduce((s, p) => s + p.value, 0)
+  const doorTotal = data.doorAndAdminPerDay.reduce((s, p) => s + p.value, 0)
   const gapKey = (g: CoverageGap) => `${g.worldId}:${g.instanceId}:${g.startedAt}`
-  const moderatorKey = (m: TeamAnalytics['moderators'][number]) => `${m.who.platform}:${m.who.id}`
+  const moderatorKey = (m: ModeratorSummary) => `${m.who.platform}:${m.who.id}`
+  const named = data.canSeeEachModerator
+
+  const peopleBars = [...new Set([...PEOPLE_BARS, people])].sort((a, b) => a - b)
+  const reviews = onOpenReviews && (
+    <Button variant="outline" size="xs" onClick={onOpenReviews}>
+      Reviews of unusual patterns →
+    </Button>
+  )
 
   return (
     <PanelGrid className="grid-cols-1">
-      <StatStrip>
-        <Stat label="Moderators active" value={compactNumber(data.moderators.length)} />
-        <Stat label="Actions" value={compactNumber(totalActions)} />
+      {data.you && <You you={data.you} middle={data.middle} />}
+
+      <StatStrip className="xl:grid-cols-5" phonePairs>
+        <Stat label="Moderators active" value={compactNumber(data.moderatorsActive)} />
+        <Stat label="Actions on people" value={compactNumber(onPeopleTotal)} />
+        <Stat label="Door and admin" value={compactNumber(doorTotal)} />
         <Stat label="Left without a moderator" value={compactNumber(data.coverageGaps.length)} />
         <Stat
           label="Instances with no moderator in them"
@@ -59,18 +104,19 @@ export function TeamStats({
         title="Left without a moderator"
         flush
         right={
-          <Toggle
-            value={minPeople}
-            onChange={setMinPeople}
-            options={[
-              { value: '1', label: 'Anyone left behind' },
-              { value: '3', label: '3+ people' },
-              { value: '5', label: '5+' },
-              { value: '10', label: '10+' },
-            ]}
-          />
+          onPeople && (
+            <Toggle
+              value={String(people)}
+              onChange={(v) => onPeople(Number(v))}
+              options={peopleBars.map((n, i) => ({ value: String(n), label: i === 0 ? `${n}+ people` : `${n}+` }))}
+            />
+          )
         }
       >
+        <div className="border-b border-(length:--hairline) p-(--panel-pad)">
+          <CoverGrid cover={data.cover} />
+        </div>
+
         {data.coverageGaps.length === 0 ? (
           <EmptyRow>
             {data.instancesWatched === 0 ? 'No presence reports in this range.' : 'No gaps in this range.'}
@@ -86,6 +132,7 @@ export function TeamStats({
                   <NarrowGap
                     key={gapKey(g)}
                     gap={g}
+                    named={named}
                     open={openGaps.has(gapKey(g))}
                     onToggle={() => toggleGap(gapKey(g))}
                     onOpenSubject={onOpenSubject}
@@ -98,123 +145,159 @@ export function TeamStats({
                 <Th>Began</Th>
                 <Th>Lasted</Th>
                 <Th className="text-right">People left behind</Th>
-                <Th>Last moderator out</Th>
+                {named && <Th>Last moderator out</Th>}
                 <Th>Ended because</Th>
                 <Th>Instance</Th>
               </>
             }
           >
             {shownGaps.map((g) => (
-              <GapRow key={gapKey(g)} gap={g} onOpenSubject={onOpenSubject} />
+              <GapRow key={gapKey(g)} gap={g} named={named} onOpenSubject={onOpenSubject} />
             ))}
           </Table>
         )}
       </Panel>
 
-      <Panel
-        title="Actions per moderator"
-        flush
-        right={
-          onOpenReviews && (
-            <Button variant="outline" size="xs" onClick={onOpenReviews}>
-              Reviews of unusual patterns →
-            </Button>
-          )
-        }
-      >
-        {data.moderators.length === 0 ? (
-          <EmptyRow>No moderation actions recorded in this range.</EmptyRow>
-        ) : (
-          <Table
-            pinFirst
-            narrow={
-              <NarrowRows>
-                {data.moderators.map((m) => {
-                  const open = openModerators.has(moderatorKey(m))
-                  return (
-                    <NarrowRow
-                      key={moderatorKey(m)}
-                      main={
-                        <span className="block truncate">
-                          <ModeratorName who={m.who} onOpenSubject={onOpenSubject} />
-                        </span>
-                      }
-                      side={
-                        <>
-                          <span className="font-mono font-medium">{compactNumber(m.total)}</span>
-                          <NarrowChevron open={open} />
-                        </>
-                      }
-                      facts={[
-                        m.lastActiveDay && (
-                          <span key="active">
-                            active <span className="font-mono">{longDay(m.lastActiveDay)}</span>
-                          </span>
-                        ),
-                      ]}
-                      onOpen={() => toggleModerator(moderatorKey(m))}
-                      open={open}
-                      hasLinks={!!onOpenSubject}
-                    >
-                      {open && (
-                        <NarrowDetails
-                          items={countsByKind(data.kinds, m.byKind).map((c) => ({
-                            label: c.label,
-                            value: (
-                              <span className="font-mono">{c.count ? compactNumber(c.count) : '—'}</span>
-                            ),
-                          }))}
-                        />
-                      )}
-                    </NarrowRow>
-                  )
-                })}
-              </NarrowRows>
-            }
-            head={
-              <>
-                <Th>Moderator</Th>
-                <Th className="text-right">Total</Th>
-                {data.kinds.map((k) => (
-                  <Th key={k.metric} className="text-right">
-                    {k.label}
-                  </Th>
-                ))}
-                <Th>Last active</Th>
-              </>
-            }
-          >
-            {data.moderators.map((m) => (
-              <Tr key={moderatorKey(m)}>
-                <Td className="whitespace-nowrap">
-                  <ModeratorName who={m.who} onOpenSubject={onOpenSubject} />
-                </Td>
-                <Td className="text-right font-mono font-medium">{compactNumber(m.total)}</Td>
-                {data.kinds.map((k) => (
-                  <Td key={k.metric} className="text-right font-mono text-muted-foreground">
-                    {m.byKind[k.metric] ? compactNumber(m.byKind[k.metric]) : '—'}
-                  </Td>
-                ))}
-                <Td className="font-mono text-muted-foreground">{m.lastActiveDay ? longDay(m.lastActiveDay) : '—'}</Td>
-              </Tr>
-            ))}
-          </Table>
-        )}
-      </Panel>
+      <Waits data={data} />
 
       <PanelGrid className="lg:grid-cols-2">
-        <Panel title="Actions per day">
+        <Panel title="Acted on again">
+          <StatStrip className="xl:grid-cols-2">
+            <Stat label="People acted on" value={compactNumber(data.actedOnAgain.people)} />
+            <Stat
+              label={`Acted on again within ${data.actedOnAgain.days} days`}
+              value={compactNumber(data.actedOnAgain.again)}
+              note={data.actedOnAgain.people > 0 ? percent(data.actedOnAgain.again, data.actedOnAgain.people) : undefined}
+            />
+          </StatStrip>
+        </Panel>
+
+        <BansLiftedPanel data={data} />
+      </PanelGrid>
+
+      {named && (
+        <Panel title="Actions per moderator" flush right={reviews}>
+          {data.moderators.length === 0 ? (
+            <EmptyRow>No moderation actions recorded in this range.</EmptyRow>
+          ) : (
+            <Table
+              pinFirst
+              narrow={
+                <NarrowRows>
+                  {data.moderators.map((m) => {
+                    const open = openModerators.has(moderatorKey(m))
+                    return (
+                      <NarrowRow
+                        key={moderatorKey(m)}
+                        main={
+                          <span className="block truncate">
+                            <ModeratorName who={m.who} onOpenSubject={onOpenSubject} />
+                          </span>
+                        }
+                        side={
+                          <>
+                            <span className="font-mono font-medium">{compactNumber(m.onPeople)}</span>
+                            <NarrowChevron open={open} />
+                          </>
+                        }
+                        facts={[
+                          <span key="door">
+                            door and admin <span className="font-mono">{compactNumber(m.doorAndAdmin)}</span>
+                          </span>,
+                          m.lastActiveDay && (
+                            <span key="active">
+                              active <span className="font-mono">{longDay(m.lastActiveDay)}</span>
+                            </span>
+                          ),
+                        ]}
+                        onOpen={() => toggleModerator(moderatorKey(m))}
+                        open={open}
+                        hasLinks={!!onOpenSubject}
+                      >
+                        {open && (
+                          <NarrowDetails
+                            items={[
+                              { label: 'Days active', value: <span className="font-mono">{m.daysActive}</span> },
+                              ...countsByKind(data.kinds, m.byKind).map((c) => ({
+                                label: c.label,
+                                value: <span className="font-mono">{c.count ? compactNumber(c.count) : '—'}</span>,
+                              })),
+                            ]}
+                          />
+                        )}
+                      </NarrowRow>
+                    )
+                  })}
+                </NarrowRows>
+              }
+              head={
+                <>
+                  <Th>Moderator</Th>
+                  <Th className="text-right">Actions on people</Th>
+                  <Th className="text-right">Door and admin</Th>
+                  <Th className="text-right">Days active</Th>
+                  {data.kinds.map((k) => (
+                    <Th key={k.metric} className="text-right">
+                      {k.label}
+                    </Th>
+                  ))}
+                  <Th>Last active</Th>
+                </>
+              }
+            >
+              {data.moderators.map((m) => (
+                <Tr key={moderatorKey(m)}>
+                  <Td className="whitespace-nowrap">
+                    <ModeratorName who={m.who} onOpenSubject={onOpenSubject} />
+                  </Td>
+                  <Td className="text-right font-mono font-medium">{compactNumber(m.onPeople)}</Td>
+                  <Td className="text-right font-mono font-medium">{compactNumber(m.doorAndAdmin)}</Td>
+                  <Td className="text-right font-mono text-muted-foreground">{m.daysActive}</Td>
+                  {data.kinds.map((k) => (
+                    <Td key={k.metric} className="text-right font-mono text-muted-foreground">
+                      {m.byKind[k.metric] ? compactNumber(m.byKind[k.metric]) : '—'}
+                    </Td>
+                  ))}
+                  <Td className="font-mono text-muted-foreground">{m.lastActiveDay ? longDay(m.lastActiveDay) : '—'}</Td>
+                </Tr>
+              ))}
+            </Table>
+          )}
+        </Panel>
+      )}
+
+      <PanelGrid className="lg:grid-cols-2">
+        <Panel
+          title="Actions per day"
+          right={
+            <span className="flex flex-wrap items-center justify-end gap-2">
+              {!named && reviews}
+              <Toggle
+                value={perDay}
+                onChange={setPerDay}
+                options={[
+                  { value: 'people', label: 'On people' },
+                  { value: 'door', label: 'Door and admin' },
+                ]}
+              />
+            </span>
+          }
+        >
           <DailyBars
             from={data.from}
             to={data.to}
             missing={data.daysWithoutAuditLog}
             today={data.today}
-            series={[{ key: 'actions', label: 'actions', one: 'action', points: data.actionsPerDay, slot: 1 }]}
+            series={[
+              perDay === 'people'
+                ? { key: 'people', label: 'actions on people', one: 'action on people', points: data.onPeoplePerDay, slot: 1 }
+                : { key: 'door', label: 'door and admin', points: data.doorAndAdminPerDay, slot: 2 },
+            ]}
           />
         </Panel>
 
-        <Panel title="What kind of actions" flush={totalActions === 0}>
-          {totalActions === 0 ? (
+        <Panel title="What kind of actions" flush={onPeopleTotal + doorTotal === 0}>
+          {onPeopleTotal + doorTotal === 0 ? (
             <EmptyRow>Nothing yet.</EmptyRow>
           ) : (
             <RankedList
@@ -228,6 +311,162 @@ export function TeamStats({
         </Panel>
       </PanelGrid>
     </PanelGrid>
+  )
+}
+
+/**
+ * The reader's own numbers, first on the tab: what they did, beside the team's middle and their own
+ * usual. Never a rank -- the question a moderator brings here is "am I doing about what I usually
+ * do", not "where am I in the table".
+ */
+function You({ you, middle }: { you: ModeratorSummary; middle: TeamMiddle | null }) {
+  const usual = [
+    you.usualPerDay !== null && `your usual ${you.usualPerDay}`,
+    middle?.onPeoplePerDay != null && `team middle ${middle.onPeoplePerDay}`,
+  ].filter(Boolean)
+
+  return (
+    <Panel title={you.who.name ? `You · ${you.who.name}` : 'You'}>
+      <StatStrip phonePairs>
+        <Stat
+          label="Actions on people"
+          value={compactNumber(you.onPeople)}
+          note={middle && `team middle ${compactNumber(middle.onPeople)}`}
+        />
+        <Stat
+          label="Door and admin"
+          value={compactNumber(you.doorAndAdmin)}
+          note={middle && `team middle ${compactNumber(middle.doorAndAdmin)}`}
+        />
+        <Stat
+          label="Days active"
+          value={compactNumber(you.daysActive)}
+          note={middle && `team middle ${compactNumber(middle.daysActive)}`}
+        />
+        <Stat
+          label="Actions on people per active day"
+          value={you.onPeoplePerDay ?? '—'}
+          note={usual.length > 0 ? usual.join(' · ') : undefined}
+        />
+      </StatStrip>
+    </Panel>
+  )
+}
+
+/**
+ * The busy hours of the week, shaded by how many of them had nobody on, in the viewer's own time.
+ * Hours Modbot could not see into are striped rather than left blank, so "not known" never reads
+ * as "covered".
+ */
+function CoverGrid({ cover }: { cover: CoverWeek }) {
+  const busy = toLocalWeek(cover.busy)
+  const nobodyOn = toLocalWeek(cover.nobodyOn)
+  const notSeen = toLocalWeek(cover.notSeen)
+
+  if (cover.busy.every((v) => v === 0))
+    return <p className="text-muted-foreground">No busy hours in this range.</p>
+
+  return (
+    <Heatmap
+      rows={DAYS}
+      cols={HOURS}
+      values={nobodyOn}
+      valueLabel="hours with nobody on"
+      color={chartTheme.warn}
+      hatched={notSeen.map((row, r) => row.map((v, c) => v > 0 && nobodyOn[r][c] === 0))}
+      describe={(r, c) => (
+        <>
+          {DAYS[r]} {HOURS[c]} ·{' '}
+          <span className="font-mono font-medium text-foreground">{nobodyOn[r][c]}</span> of{' '}
+          <span className="font-mono">{busy[r][c]}</span> busy {plural(busy[r][c], 'hour')} with nobody on
+          {notSeen[r][c] > 0 && (
+            <>
+              {' '}
+              · <span className="font-mono">{notSeen[r][c]}</span> not seen
+            </>
+          )}
+        </>
+      )}
+    />
+  )
+}
+
+/**
+ * 168 hour-of-week buckets, Monday 00:00 UTC first, moved to the viewer's clock and cut into days,
+ * as the Activity tab's heatmap does it.
+ */
+function toLocalWeek(buckets: number[]): number[][] {
+  const shift = Math.round(-new Date().getTimezoneOffset() / 60)
+  const grid = DAYS.map(() => new Array<number>(24).fill(0))
+
+  buckets.forEach((value, utcIndex) => {
+    const local = (((utcIndex + shift) % 168) + 168) % 168
+    grid[Math.floor(local / 24)][local % 24] += value
+  })
+
+  return grid
+}
+
+/**
+ * How long join requests, flags and reviews waited for somebody to decide them: the middle wait of
+ * each, and the chosen one's middle by day.
+ */
+function Waits({ data }: { data: TeamAnalytics }) {
+  const [queue, setQueue] = useState<QueueName>('join-requests')
+  const chosen = data.waits.find((w) => w.queue === queue)
+  const label = (q: QueueName) => QUEUES.find((x) => x.value === q)?.label ?? q
+
+  return (
+    <Panel title="How long things wait" right={<Toggle value={queue} onChange={setQueue} options={QUEUES} />}>
+      <div className="flex flex-col gap-3">
+        <StatStrip className="xl:grid-cols-3">
+          {data.waits.map((w) => (
+            <Stat
+              key={w.queue}
+              label={label(w.queue)}
+              value={w.middleMinutes === null ? '—' : minutes(w.middleMinutes)}
+              note={`${compactNumber(w.decided)} decided`}
+            />
+          ))}
+        </StatStrip>
+
+        <DailyLine
+          from={data.from}
+          to={data.to}
+          mode="gap"
+          today={data.today}
+          format={minutes}
+          emptyText="Nothing decided in this range."
+          series={[{ key: queue, label: label(queue).toLowerCase(), points: chosen?.middleMinutesPerDay ?? [], slot: 1 }]}
+        />
+      </div>
+    </Panel>
+  )
+}
+
+function BansLiftedPanel({ data }: { data: TeamAnalytics }) {
+  const lifted = data.bansLifted
+  const reasons = [
+    ...lifted.reasons.map((r) => ({ key: `reason:${r.label}`, label: r.label, value: r.count })),
+    ...(lifted.liftedWithoutReason > 0
+      ? [{ key: 'none', label: 'No reason given', value: lifted.liftedWithoutReason }]
+      : []),
+  ]
+
+  return (
+    <Panel title="Bans lifted">
+      <div className="flex flex-col gap-3">
+        <StatStrip className="xl:grid-cols-2">
+          <Stat label="Bans" value={compactNumber(lifted.bans)} />
+          <Stat
+            label={`Lifted within ${lifted.days} days`}
+            value={compactNumber(lifted.liftedWithin)}
+            note={lifted.bans > 0 ? percent(lifted.liftedWithin, lifted.bans) : undefined}
+          />
+        </StatStrip>
+        {reasons.length > 0 && <RankedList slot={2} rows={reasons} />}
+      </div>
+    </Panel>
   )
 }
 
@@ -302,15 +541,26 @@ function GapInstance({ gap }: { gap: CoverageGap }) {
   )
 }
 
-function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id: string) => void }) {
+/** One gap. Who left last is a column only for a reader who may see each moderator. */
+function GapRow({
+  gap,
+  named,
+  onOpenSubject,
+}: {
+  gap: CoverageGap
+  named: boolean
+  onOpenSubject?: (id: string) => void
+}) {
   return (
     <Tr>
       <Td className="font-mono whitespace-nowrap">{dateTime(gap.startedAt)}</Td>
       <Td className="font-mono whitespace-nowrap">{gapLasted(gap) ?? 'unknown'}</Td>
       <Td className="text-right font-mono font-medium">{gap.peopleWhenLastModeratorLeft}</Td>
-      <Td className="min-w-[12rem] whitespace-normal">
-        <LastModeratorOut gap={gap} onOpenSubject={onOpenSubject} />
-      </Td>
+      {named && (
+        <Td className="min-w-[12rem] whitespace-normal">
+          <LastModeratorOut gap={gap} onOpenSubject={onOpenSubject} />
+        </Td>
+      )}
       <Td className="min-w-[12rem] whitespace-normal text-muted-foreground">{gapEndedBecause(gap)}</Td>
       <Td>
         <span className="inline-block max-w-56 truncate align-bottom">
@@ -328,11 +578,13 @@ function GapRow({ gap, onOpenSubject }: { gap: CoverageGap; onOpenSubject?: (id:
  */
 function NarrowGap({
   gap,
+  named,
   open,
   onToggle,
   onOpenSubject,
 }: {
   gap: CoverageGap
+  named: boolean
   open: boolean
   onToggle: () => void
   onOpenSubject?: (id: string) => void
@@ -372,7 +624,9 @@ function NarrowGap({
       {open && (
         <NarrowDetails
           items={[
-            { label: 'Last moderator out', value: <LastModeratorOut gap={gap} onOpenSubject={onOpenSubject} /> },
+            ...(named
+              ? [{ label: 'Last moderator out', value: <LastModeratorOut gap={gap} onOpenSubject={onOpenSubject} /> }]
+              : []),
             { label: 'Ended because', value: gapEndedBecause(gap) },
           ]}
         />

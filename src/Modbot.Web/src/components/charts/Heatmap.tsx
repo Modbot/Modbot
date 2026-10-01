@@ -22,7 +22,10 @@ export function Heatmap({
   valueLabel,
   valueLabelOne,
   slot = 1,
+  color: colorOverride,
   colLabelEvery = 3,
+  describe,
+  hatched,
 }: {
   rows: string[]
   cols: string[]
@@ -32,12 +35,18 @@ export function Heatmap({
   /** `valueLabel` for a value of exactly one, when it is a plural noun: "message" for "messages". */
   valueLabelOne?: string
   slot?: SeriesSlot
+  /** A status colour in place of the series one, for a grid whose value means something is wrong. */
+  color?: string
   /** Show every nth column label, so 24 hours do not become an unreadable strip. */
   colLabelEvery?: number
+  /** The line under the grid for the cell pointed at, in place of the value and its label. */
+  describe?: (row: number, col: number) => React.ReactNode
+  /** `hatched[row][col]`: cells striped, for "not known" rather than nought. */
+  hatched?: boolean[][]
 }) {
   const [hover, setHover] = useState<{ r: number; c: number } | null>(null)
   const max = Math.max(1, ...values.flat())
-  const color = seriesColor(slot)
+  const color = colorOverride ?? seriesColor(slot)
   const { grid: gridRef, label: labelRef, n: labelEvery } = useLabelEvery(colLabelEvery, cols.length)
 
   return (
@@ -72,6 +81,7 @@ export function Heatmap({
             label={r}
             ri={ri}
             cells={values[ri] ?? []}
+            hatched={hatched?.[ri]}
             max={max}
             color={color}
             hover={hover}
@@ -80,7 +90,9 @@ export function Heatmap({
         ))}
       </div>
 
-      {hover && (
+      {hover && describe && <div className="mt-2 text-muted-foreground">{describe(hover.r, hover.c)}</div>}
+
+      {hover && !describe && (
         <div className="mt-2 text-muted-foreground">
           <span className="font-mono font-medium text-foreground">
             {compactNumber(values[hover.r]?.[hover.c] ?? 0)}
@@ -97,6 +109,7 @@ function RowCells({
   label,
   ri,
   cells,
+  hatched,
   max,
   color,
   hover,
@@ -105,6 +118,7 @@ function RowCells({
   label: string
   ri: number
   cells: number[]
+  hatched?: boolean[]
   max: number
   color: string
   hover: { r: number; c: number } | null
@@ -130,7 +144,15 @@ function RowCells({
             onMouseEnter={() => onHover({ r: ri, c: ci })}
             onClick={() => onHover({ r: ri, c: ci })}
             className="bg-secondary"
-            style={{ height: cellHeight, outline: active ? `2px solid ${color}` : undefined, outlineOffset: -1 }}
+            style={{
+              height: cellHeight,
+              outline: active ? `2px solid ${color}` : undefined,
+              outlineOffset: -1,
+              // The same stripes the charts use for a day with no data: not known, as against nought.
+              backgroundImage: hatched?.[ci]
+                ? 'repeating-linear-gradient(45deg, color-mix(in oklab, var(--muted-foreground) 30%, transparent) 0 2px, transparent 2px 6px)'
+                : undefined,
+            }}
           >
             <div className="h-full w-full" style={{ background: color, opacity }} />
           </div>

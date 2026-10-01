@@ -474,14 +474,33 @@ time in voice; bots are never counted.
 
 ### Moderation
 
-**Who is doing the moderation work, and when is nobody covering?**
+**Is moderation keeping up, and is the team OK?**
 
 #### Team
 
-The stats along the top:
+Moderation work is counted in two kinds that are never added together:
+
+- **Actions on people**: instance kicks, warns, bans, removals from the group and join requests
+  rejected. These are the actions [Reviews](/moderation/reviews) count.
+- **Door and admin**: invites, join requests approved, unbans and role changes.
+
+A moderator who lets people in and hands out roles is not one who throws people out, and one total
+would make them look the same.
+
+##### You
+
+Your own numbers come first: **Actions on people**, **Door and admin**, **Days active** (days you
+took any action) and **Actions on people per active day**. Beside each is the **team middle**: half
+the moderators active in the range are at or below it. Beside the last is also **your usual**: the
+same number over the 90 days up to yesterday, the one Reviews compare a busy day against. The team
+middle is left out when fewer than three moderators were active, because with two it would give the
+other person's numbers away. Your numbers are found by the VRChat account linked to your Modbot
+account.
+
+##### The stats along the top
 
 - **Moderators active**: how many people took a moderation action in the range.
-- **Actions**: all moderation actions in the range.
+- **Actions on people** and **Door and admin**: the team's totals.
 - **Left without a moderator**: how many times the last moderator left an instance while people
   were still in it (see below).
 - **Instances with no moderator in them**: group instances (from Modbot's instance list) that
@@ -498,30 +517,73 @@ another client sees someone Modbot recognises as a moderator (they hold a role w
 permissions, have taken a moderation action, or own the group). A moderator without the client, in
 an instance no client is in, cannot be seen at all.
 
-Use the buttons to show only gaps where at least a number of people were left behind:
-**Anyone left behind**, **3+ people** (the default), **5+** or **10+**. The table shows:
+The buttons (**1+ people**, **3+**, **5+**, **10+**) say how many people in one instance mean it
+wants a moderator. The group's choice is saved: it starts at **3+**, and when somebody with
+**Change settings** picks another, it is saved for everybody. Anyone else can pick another to look
+at, and it is not saved.
+
+The grid shows the hours of the week, in your own time zone. An hour is **busy** when a group
+instance held at least that many people at some point in it, by VRChat's own head count, which
+needs no companion. The darker a square, the more of that weekday's busy hours at that time had
+**nobody on**: a gap was open in a busy instance. A striped square had busy hours no companion
+reported from, so Modbot cannot tell whether a moderator was there. Point at a square, or tap it,
+for "Fri 20:00 · 3 of 4 busy hours with nobody on · 1 not seen".
+
+The table lists the gaps with at least that many people left behind:
 
 | Column | Meaning |
 |---|---|
 | **Began** | When the last moderator left. |
 | **Lasted** | How long until the gap ended, or "unknown". |
 | **People left behind** | How many people were there when the last moderator left. |
-| **Last moderator out** | Who left last, or "a client stopped reporting". |
+| **Last moderator out** | Who left last, or "a client stopped reporting". Only with **See the audit log**. |
 | **Ended because** | "a moderator arrived", "the instance was closed", or "nothing more was reported". |
 | **Instance** | The world (click to open it) and instance number. |
 
+##### How long things wait
+
+The middle wait of everything decided in the range, so one request left over a weekend does not
+outweigh the rest:
+
+- **Join requests**: from the request to its approval or rejection, from VRChat's audit log. A join
+  by invite has no request before it and is not counted.
+- **Flags**: from when an [AutoMod](/moderation/automod) rule flagged something to when a moderator
+  dismissed it or confirmed it.
+- **Reviews**: from when a [review](/moderation/reviews) opened to when it was closed.
+
+Under each is how many were decided. The chart shows the chosen one's middle wait for each day
+something was decided.
+
+##### Acted on again and Bans lifted
+
+- **People acted on**: people with an action on them in the range, of the kinds the
+  [repeat offender rule](/moderation/reviews) counts. **Acted on again within 30 days**: how many of
+  them had another such action in the 30 days before one of those.
+- **Bans**: bans in the range. **Lifted within 30 days**: how many of those bans were lifted within
+  30 days, however they were lifted.
+- Under them, the reasons picked when a ban was lifted from Modbot in the range, most used first,
+  and **No reason given** for lifts without one. A ban lifted in VRChat itself has no reason.
+
+These are the team's numbers. They are never shown per moderator.
+
 ##### Actions
 
-- **Actions per moderator**: one row per moderator with a **Total** and a column per kind of action:
-  **Instance kicks**, **Warns**, **Bans**, **Unbans**, **Removed from group**, **Invites**, **Requests
-  approved**, **Requests rejected** and **Role changes**, plus the day they were **Last active**.
-  Rows are sorted by last active, most recent first, then by name, so whoever has gone quiet is at
-  the bottom. Click a name to open their [popup](/moderation/popups). People who can review tickets also see a
-  **Reviews of unusual patterns →** button that opens [Reviews](/moderation/reviews).
-- **Actions per day**: all actions per day.
+- **Actions per moderator**: only with **See the audit log**, which already shows who did what.
+  One row per moderator with **Actions on people**, **Door and admin**, **Days active**, a column per
+  kind of action (**Instance kicks**, **Warns**, **Bans**, **Removed from group**, **Requests
+  rejected**, **Invites**, **Requests approved**, **Unbans** and **Role changes**) and the day they
+  were **Last active**. Rows are sorted by last active, most recent first, then by name, so whoever
+  has gone quiet is at the bottom; never by how much anybody did. Click a name to open their
+  [popup](/moderation/popups).
+- **Actions per day**: actions on people or door and admin per day, by the buttons.
 - **What kind of actions**: each kind of action, largest first.
 
-The action counts come from daily totals. Gaps come from presence reports in the fact log.
+People who can review tickets also see a **Reviews of unusual patterns →** button that opens
+[Reviews](/moderation/reviews): on **Actions per moderator**, or on **Actions per day** for someone
+who cannot see each moderator.
+
+The action counts come from daily totals. Gaps come from presence reports in the fact log, and busy
+hours from VRChat's head counts.
 
 #### Discord
 

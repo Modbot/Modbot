@@ -90,7 +90,10 @@ public class InsightFigureReaderTests : InsightTestBase
         await using var context = NewContext();
         var figures = await new InsightFigureReader(context).ReadAsync(InsightKinds.Team, Week, Ct);
 
-        Assert.Equal(new InsightFigure("All moderator actions", 8, 1), Figure(figures, "All moderator actions"));
+        const string OnPeople = "Actions on people (instance kicks, warnings, bans, removals, join requests rejected)";
+        const string Door = "Door work and admin (invites, approvals, unbans, role changes)";
+        Assert.Equal(new InsightFigure(OnPeople, 8, 1), Figure(figures, OnPeople));
+        Assert.Equal(new InsightFigure(Door, 0, 0), Figure(figures, Door));
         Assert.Equal(new InsightFigure("Moderators who took any action", 2, 1), Figure(figures, "Moderators who took any action"));
         Assert.Equal(new InsightFigure("Warnings", 6, 0), Figure(figures, "Warnings"));
         Assert.Equal(new InsightFigure("Reviews opened", 1, 0), Figure(figures, "Reviews opened"));

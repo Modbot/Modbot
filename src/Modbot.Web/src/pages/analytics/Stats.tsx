@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs } from '@/components/ui/tabs'
 import { api, type CurrentUser } from '@/lib/api'
 import type { PageId } from '@/lib/nav'
+import { can } from '@/lib/permissions'
 import { GroupGrowth, MostOnline } from './GroupStats'
 import { InsightsPanel } from './InsightsPanel'
 import { HEATMAP_ID, InstanceStats } from './InstanceStats'
@@ -69,7 +70,24 @@ export function Stats({
   const loadServer = useCallback((q: string) => api.serverAnalytics(q), [])
   const loadInstances = useCallback((q: string) => api.instancesAnalytics(q), [])
   const loadWorlds = useCallback((q: string) => api.worldsAnalytics(q), [])
-  const loadTeam = useCallback((q: string) => api.teamAnalytics(q), [])
+  // The Moderation tab's people bar: null for the group's saved one, a number once somebody picks
+  // another. Picking reads the tab again with it, and saves it for a reader who may change settings.
+  const [people, setPeople] = useState<number | null>(null)
+  const canSavePeople = can(me, 'ManageSettings')
+  const loadTeam = useCallback(
+    (q: string) => api.teamAnalytics(people === null ? q : `${q}&people=${people}`),
+    [people],
+  )
+  const [peopleError, setPeopleError] = useState<string | null>(null)
+  const choosePeople = useCallback(
+    (next: number) => {
+      setPeople(next)
+      setPeopleError(null)
+      if (canSavePeople)
+        api.setCoverPeople(next).catch(() => setPeopleError(`Could not save ${next}+ people as the group's setting.`))
+    },
+    [canSavePeople],
+  )
 
   const group = useAnalytics(loadGroup, range, tab !== 'stats-moderation')
   const server = useAnalytics(loadServer, range)
@@ -123,7 +141,12 @@ export function Stats({
           <>
             <InsightsPanel only="team" />
             <Part title="Team" read={team}>
-              {(data) => <TeamStats data={data} onOpenSubject={onOpenSubject} onOpenReviews={onOpenReviews} />}
+              {(data) => (
+                <>
+                  {peopleError && <PageMessage tone="danger">{peopleError}</PageMessage>}
+                  <TeamStats data={data} onOpenSubject={onOpenSubject} onOpenReviews={onOpenReviews} onPeople={choosePeople} />
+                </>
+              )}
             </Part>
             <Part title="Discord" read={server} coverage={(data) => <ServerCoverage data={data} {...links} />}>
               {(data) => <ServerModeration data={data} {...links} />}

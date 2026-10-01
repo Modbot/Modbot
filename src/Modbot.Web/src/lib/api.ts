@@ -1712,13 +1712,67 @@ export type GroupMemberCountSeries = {
   daysWithoutReadings: string[]
 }
 
-export type ActionKind = { metric: string; label: string }
+/**
+ * `people` for an action on a person (instance kick, warn, ban, removal, request rejected), `door`
+ * for door work and admin (invite, approval, unban, role change). Never added together.
+ */
+export type ActionGroup = 'people' | 'door'
+
+export type ActionKind = { metric: string; label: string; group: ActionGroup }
 
 export type ModeratorSummary = {
   who: Person
-  total: number
+  onPeople: number
+  doorAndAdmin: number
   byKind: Record<string, number>
+  daysActive: number
+  /** Actions on people per day with any; null with none. */
+  onPeoplePerDay: number | null
+  /** The same over the reviews' last 90 days up to yesterday; null until there is one. */
+  usualPerDay: number | null
   lastActiveDay: string | null
+}
+
+/** The middle moderator for each number; null below three active moderators. */
+export type TeamMiddle = {
+  moderators: number
+  onPeople: number
+  doorAndAdmin: number
+  daysActive: number
+  onPeoplePerDay: number | null
+}
+
+/**
+ * Busy hours by hour of the week, 168 buckets each, Monday 00:00 UTC first. An hour is busy when a
+ * group instance held at least `people` people; `nobodyOn` had a gap in it, `notSeen` had no
+ * companion reporting from the busy instance.
+ */
+export type CoverWeek = {
+  people: number
+  savedPeople: number
+  busy: number[]
+  nobodyOn: number[]
+  notSeen: number[]
+}
+
+export type QueueName = 'join-requests' | 'flags' | 'reviews'
+
+export type QueueWait = {
+  queue: QueueName
+  decided: number
+  /** Null when nothing was decided in the range. */
+  middleMinutes: number | null
+  middleMinutesPerDay: DayValue[]
+}
+
+export type ActedOnAgain = { people: number; again: number; days: number }
+
+export type BansLifted = {
+  bans: number
+  liftedWithin: number
+  days: number
+  reasons: { label: string; count: number }[]
+  liftedWithoutReason: number
 }
 
 export type KindSeries = { metric: string; label: string; total: number; points: DayValue[] }
@@ -1744,10 +1798,23 @@ export type TeamAnalytics = {
   /** The last day, when it is today by the server's clock and so not over yet; otherwise null. */
   today: string | null
   kinds: ActionKind[]
+  /** Holds the audit log permission: sees each moderator's numbers and who left last. */
+  canSeeEachModerator: boolean
+  /** The caller's own numbers; null when no VRChat account is linked. */
+  you: ModeratorSummary | null
+  /** Empty unless `canSeeEachModerator`. */
   moderators: ModeratorSummary[]
-  actionsPerDay: DayValue[]
+  moderatorsActive: number
+  middle: TeamMiddle | null
+  onPeoplePerDay: DayValue[]
+  doorAndAdminPerDay: DayValue[]
   actionsPerDayByKind: KindSeries[]
+  /** `lastModerator` is null throughout unless `canSeeEachModerator`. */
   coverageGaps: CoverageGap[]
+  cover: CoverWeek
+  waits: QueueWait[]
+  actedOnAgain: ActedOnAgain
+  bansLifted: BansLifted
   moderatorsRecognised: number
   instancesWatched: number
   instancesOpenedWithoutAnyWatch: number
@@ -4892,6 +4959,9 @@ export const api = {
       body: JSON.stringify({ galleryId, imageId, submittedById }),
     }),
   teamAnalytics: (query: string) => request<TeamAnalytics>(`/api/analytics/team?${query}`),
+  /** Saves how many people in an instance want a moderator in it. Needs Change settings. */
+  setCoverPeople: (people: number) =>
+    request<{ people: number }>('/api/analytics/team/people', { method: 'PUT', body: JSON.stringify({ people }) }),
   worldsAnalytics: (query: string) => request<WorldsAnalytics>(`/api/analytics/worlds?${query}`),
   instancesAnalytics: (query: string) => request<InstancesAnalytics>(`/api/analytics/instances?${query}`),
   instanceActivity: (range: MemberCountRange) =>

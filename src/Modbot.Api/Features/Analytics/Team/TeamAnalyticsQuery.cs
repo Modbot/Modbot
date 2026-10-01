@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Modbot.Analytics.DailyTotals;
+using Modbot.Analytics.Reviews;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
 using Modbot.VRChat.Sync;
@@ -32,22 +33,58 @@ namespace Modbot.Api.Features.Analytics.Team;
 /// written there, because screens carry no explanatory text; the Team section of the analytics
 /// docs page states it.
 /// </para>
+/// <para>
+/// <strong>Not a leaderboard.</strong> Each moderator's own numbers go only to the people who can
+/// read the audit log, which already says who did what; everybody else gets the team's numbers,
+/// their own row, and the team's middle beside it. Burnout among volunteer moderators is the cost
+/// of a page that ranks them, so the middle is a median (one busy moderator does not set the
+/// usual), is left out for a team too small to keep it from naming somebody, and the rows sort by
+/// when each moderator was last active, never by how much they did.
+/// </para>
+/// <para>
+/// The busy-hours grid, the waits and the outcome numbers each have a class of their own beside
+/// this one (<see cref="TeamCoverWeek"/>, <see cref="TeamQueues"/>, <see cref="TeamOutcomes"/>).
+/// </para>
 /// </remarks>
 public sealed class TeamAnalyticsQuery(ModbotContext db)
 {
-    /// <summary>The kinds, in page order, with the words the columns use.</summary>
+    /// <summary>
+    /// The kinds, in page order, with the words the columns use: the actions on people first, then
+    /// door work and admin.
+    /// </summary>
+    /// <remarks>
+    /// Which group a kind is in is the reviews' own list (<see cref="ActionsOnPeople"/>), so the page
+    /// and the review checks agree about what an action on a person is. Unbans sit with the door
+    /// work: lifting a ban lets somebody back in and is no strike against anybody (accountability
+    /// signals design 3.4). Before this the page summed every kind into one "Actions" number, which
+    /// made a moderator who runs the door look like one who runs people out of it.
+    /// </remarks>
     public static readonly IReadOnlyList<ActionKind> Kinds =
     [
-        new(DailyTotalMetrics.ModeratorInstanceKicks, "Instance kicks"),
-        new(DailyTotalMetrics.ModeratorWarns, "Warns"),
-        new(DailyTotalMetrics.ModeratorBans, "Bans"),
-        new(DailyTotalMetrics.ModeratorUnbans, "Unbans"),
-        new(DailyTotalMetrics.ModeratorRemovals, "Removed from group"),
-        new(DailyTotalMetrics.ModeratorInvites, "Invites"),
-        new(DailyTotalMetrics.ModeratorApprovals, "Requests approved"),
-        new(DailyTotalMetrics.ModeratorRejections, "Requests rejected"),
-        new(DailyTotalMetrics.ModeratorRoleChanges, "Role changes"),
+        Kind(DailyTotalMetrics.ModeratorInstanceKicks, "Instance kicks"),
+        Kind(DailyTotalMetrics.ModeratorWarns, "Warns"),
+        Kind(DailyTotalMetrics.ModeratorBans, "Bans"),
+        Kind(DailyTotalMetrics.ModeratorRemovals, "Removed from group"),
+        Kind(DailyTotalMetrics.ModeratorRejections, "Requests rejected"),
+        Kind(DailyTotalMetrics.ModeratorInvites, "Invites"),
+        Kind(DailyTotalMetrics.ModeratorApprovals, "Requests approved"),
+        Kind(DailyTotalMetrics.ModeratorUnbans, "Unbans"),
+        Kind(DailyTotalMetrics.ModeratorRoleChanges, "Role changes"),
     ];
+
+    /// <summary>The fewest moderators active in the window for the team's middle to be shown.</summary>
+    public const int LeastForMiddle = 3;
+
+    private static ActionKind Kind(string metric, string label) => new(
+        metric,
+        label,
+        ActionsOnPeople.BaselineMetrics.Contains(metric, StringComparer.Ordinal) ? ActionGroups.People : ActionGroups.Door);
+
+    private static readonly IReadOnlySet<string> PeopleMetrics =
+        Kinds.Where(k => k.Group == ActionGroups.People).Select(k => k.Metric).ToHashSet(StringComparer.Ordinal);
+
+    private static readonly IReadOnlySet<string> DoorMetrics =
+        Kinds.Where(k => k.Group == ActionGroups.Door).Select(k => k.Metric).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>The actions that mark somebody as a moderator, whatever roles they hold.</summary>
     private static readonly string[] ModerationActionTypes =
@@ -73,24 +110,50 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
     /// </summary>
     public static readonly PageSources Sources = PageSources.Of(
         Kinds.Select(k => k.Metric).ToList(),
-        [.. AnalyticsSql.PresenceTypes, FactType.GroupInstanceCreated, FactType.GroupInstanceClosed],
-        groupInstances: true);
+        [.. AnalyticsSql.PresenceTypes, FactType.GroupInstanceCreated, FactType.GroupInstanceClosed, FactType.JoinRequestCreated],
+        groupInstances: true,
+        headCounts: true);
 
     private readonly AnalyticsSql _sql = new(db);
 
+    /// <param name="viewer">Who is asking: decides whether each moderator is named, and which row is theirs.</param>
+    /// <param name="people">
+    /// The head count that makes an instance busy for the hour grid, in place of the saved setting;
+    /// null for the saved one.
+    /// </param>
     public async Task<TeamAnalytics> RunAsync(
         DateOnly from,
         DateOnly to,
         DateTimeOffset now,
+        TeamViewer viewer,
+        int? people = null,
         CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(viewer);
+
+        var thresholds = ReviewThresholds.Read(await db.Settings.AsNoTracking()
+            .Where(s => s.Id == 1)
+            .Select(s => s.ReviewThresholds)
+            .FirstOrDefaultAsync(ct));
+
         var totals = await _sql.DailyTotalsAsync(from, to, KindMetrics, ct);
-        var moderators = await ModeratorsAsync(totals, ct);
+        var everyone = await ModeratorsAsync(totals, ct);
 
         var roster = await RosterAsync(ct);
         var gaps = await CoverageGapsAsync(from, to, roster, ct);
         var watched = await InstancesWatchedAsync(from, to, ct);
         var unwatched = await InstancesOpenedWithoutAnyWatchAsync(from, to, now, ct);
+
+        var cover = await new TeamCoverWeek(_sql).RunAsync(
+            from,
+            to,
+            now,
+            Math.Clamp(people ?? thresholds.CoverPeople, ReviewThresholds.MinCoverPeople, ReviewThresholds.MaxCoverPeople),
+            thresholds.CoverPeople,
+            gaps,
+            ct);
+
+        var outcomes = new TeamOutcomes(_sql);
 
         var byKind = Kinds
             .Select(k =>
@@ -105,10 +168,19 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
             to,
             MissingDays.Today(to, now),
             Kinds,
-            moderators,
-            totals.SummedPerDay(KindMetrics),
+            viewer.CanSeeEachModerator,
+            await YouAsync(everyone, viewer.VRChatUserId, ct),
+            viewer.CanSeeEachModerator ? everyone : [],
+            everyone.Count,
+            MiddleOf(everyone),
+            totals.SummedPerDay(PeopleMetrics),
+            totals.SummedPerDay(DoorMetrics),
             byKind,
-            gaps,
+            viewer.CanSeeEachModerator ? gaps : [.. gaps.Select(g => g with { LastModerator = null })],
+            cover,
+            await new TeamQueues(_sql).RunAsync(from, to, ct),
+            await outcomes.ActedOnAgainAsync(from, to, thresholds.CountedTypes, ct),
+            await outcomes.BansLiftedAsync(from, to, ct),
             roster.Count,
             watched,
             unwatched,
@@ -122,7 +194,7 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
         CancellationToken ct)
     {
         var perActor = totals
-            .Where(r => r.Dimension.Length > 0)
+            .Where(r => r.Dimension.Length > 0 && r.Value != 0)
             .GroupBy(r => r.Dimension, StringComparer.Ordinal)
             .ToList();
 
@@ -131,29 +203,108 @@ public sealed class TeamAnalyticsQuery(ModbotContext db)
 
         var split = perActor.ToDictionary(g => g.Key, g => AnalyticsSql.SplitDimension(g.Key), StringComparer.Ordinal);
         var names = await _sql.NamesAsync(split.Values.Select(s => s.Id).ToList(), ct);
+        var usual = await UsualAsync(ct);
 
         return perActor
             .Select(g =>
             {
                 var (platform, id) = split[g.Key];
-                var byKind = g
-                    .GroupBy(r => r.Metric, StringComparer.Ordinal)
-                    .ToDictionary(k => k.Key, k => k.Sum(r => r.Value), StringComparer.Ordinal);
-
-                return new ModeratorSummary(
-                    new Person(platform, id, names.GetValueOrDefault(id)),
-                    g.Sum(r => r.Value),
-                    byKind,
-                    g.Max(r => r.Day));
+                return Summary(new Person(platform, id, names.GetValueOrDefault(id)), g.ToList(), usual.GetValueOrDefault(g.Key));
             })
             // Most recently active first, then by name. Never by volume: a table sorted by count
-            // is a leaderboard, and the total mixes invites and role changes in with kicks and
-            // bans (accountability spec 3.4). Sorted this way, whoever has gone quiet sinks to
-            // the bottom, which is the question the table is here to answer.
+            // is a leaderboard (accountability spec 3.4, analytics design review F8). Sorted this
+            // way, whoever has gone quiet sinks to the bottom, which is the question the table is
+            // here to answer.
             .OrderByDescending(m => m.LastActiveDay)
             .ThenBy(m => m.Who.Name ?? m.Who.Id, StringComparer.OrdinalIgnoreCase)
             .ThenBy(m => m.Who.Id, StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>One moderator's numbers from their own daily total rows.</summary>
+    private static ModeratorSummary Summary(Person who, IReadOnlyList<DailyTotalRow> rows, decimal? usual)
+    {
+        var byKind = rows
+            .GroupBy(r => r.Metric, StringComparer.Ordinal)
+            .ToDictionary(k => k.Key, k => k.Sum(r => r.Value), StringComparer.Ordinal);
+
+        var onPeople = rows.Where(r => PeopleMetrics.Contains(r.Metric)).ToList();
+        var daysOnPeople = onPeople.Select(r => r.Day).Distinct().Count();
+        var onPeopleTotal = onPeople.Sum(r => r.Value);
+
+        return new ModeratorSummary(
+            who,
+            onPeopleTotal,
+            rows.Where(r => DoorMetrics.Contains(r.Metric)).Sum(r => r.Value),
+            byKind,
+            rows.Select(r => r.Day).Distinct().Count(),
+            daysOnPeople == 0 ? null : Math.Round(onPeopleTotal / daysOnPeople, 1),
+            usual,
+            rows.Count == 0 ? null : rows.Max(r => r.Day));
+    }
+
+    /// <summary>
+    /// Each moderator's usual from the reviews' baselines, keyed by daily total dimension. The
+    /// baselines are rebuilt with every detection run, so this reads them rather than working them
+    /// out again.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, decimal>> UsualAsync(CancellationToken ct)
+    {
+        var rows = await db.ModeratorBaselines.AsNoTracking()
+            .Select(b => new { b.Platform, b.ModeratorId, b.ActionsPerActiveDay })
+            .ToListAsync(ct);
+
+        var usual = new Dictionary<string, decimal>(StringComparer.Ordinal);
+
+        foreach (var row in rows)
+            usual[DailyTotalDimensions.ForUser(row.Platform, row.ModeratorId)] = Math.Round(row.ActionsPerActiveDay, 1);
+
+        return usual;
+    }
+
+    /// <summary>
+    /// The caller's own row: theirs from the list when they acted in the window, otherwise an
+    /// empty one under their VRChat name, so a quiet month reads as nought rather than as nothing.
+    /// </summary>
+    private async Task<ModeratorSummary?> YouAsync(
+        IReadOnlyList<ModeratorSummary> everyone,
+        string? vrchatUserId,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(vrchatUserId))
+            return null;
+
+        var vrchat = DailyTotalDimensions.Label(FactPlatform.VRChat);
+
+        var mine = everyone.FirstOrDefault(m =>
+            m.Who.Platform == vrchat && string.Equals(m.Who.Id, vrchatUserId, StringComparison.Ordinal));
+
+        if (mine is not null)
+            return mine;
+
+        var names = await _sql.NamesAsync([vrchatUserId], ct);
+        var usual = await UsualAsync(ct);
+
+        return Summary(
+            new Person(vrchat, vrchatUserId, names.GetValueOrDefault(vrchatUserId)),
+            [],
+            usual.GetValueOrDefault(DailyTotalDimensions.ForUser(FactPlatform.VRChat, vrchatUserId)));
+    }
+
+    /// <summary>The middle of each number over the moderators active in the window.</summary>
+    private static TeamMiddle? MiddleOf(IReadOnlyList<ModeratorSummary> everyone)
+    {
+        if (everyone.Count < LeastForMiddle)
+            return null;
+
+        var perDay = everyone.Where(m => m.OnPeoplePerDay is not null).Select(m => m.OnPeoplePerDay!.Value).ToList();
+
+        return new TeamMiddle(
+            everyone.Count,
+            Middles.Of(everyone.Select(m => m.OnPeople))!.Value,
+            Middles.Of(everyone.Select(m => m.DoorAndAdmin))!.Value,
+            Middles.Of(everyone.Select(m => (decimal)m.DaysActive))!.Value,
+            Middles.Of(perDay) is { } p ? Math.Round(p, 1) : null);
     }
 
     /// <summary>
