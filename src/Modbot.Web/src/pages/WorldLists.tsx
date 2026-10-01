@@ -252,11 +252,13 @@ function ListForm({ list, onClose, onSaved }: { list: WorldList | null; onClose:
             <span className="font-label">Worlds</span>
 
             {rows.length > 0 && (
-              <div className="grid grid-cols-[1fr_5.5rem_5.5rem_auto] items-center gap-x-2 gap-y-1.5">
-                <span />
-                <span className="text-muted-foreground">Fewest players</span>
-                <span className="text-muted-foreground">Most players</span>
-                <span />
+              <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[1fr_5.5rem_5.5rem_auto] sm:items-center sm:gap-x-2 sm:gap-y-1.5">
+                <div className="hidden sm:contents">
+                  <span />
+                  <span className="text-muted-foreground">Fewest players</span>
+                  <span className="text-muted-foreground">Most players</span>
+                  <span />
+                </div>
                 {rows.map((r) => (
                   <WorldRow
                     key={r.worldId}
@@ -287,26 +289,35 @@ function WorldRow({
 }) {
   const label = row.name ?? row.worldId
 
+  // On a phone the world has a row to itself and the two boxes and the remove button share the one
+  // below it, labelled in place; from sm up the row's cells join the list's one-row grid, under its
+  // column headings.
   return (
-    <>
-      <span className="flex min-w-0 items-center gap-2">
+    <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-x-2 gap-y-1.5 sm:contents">
+      <span className="col-span-3 flex min-w-0 items-center gap-2 sm:col-span-1">
         <WorldPicture url={row.thumbnailUrl} />
         <span className="min-w-0 [overflow-wrap:anywhere]">{label}</span>
       </span>
-      <Input
-        type="number"
-        min={1}
-        aria-label={`Fewest players, ${label}`}
-        value={row.min}
-        onChange={(e) => onChange('min', e.target.value)}
-      />
-      <Input
-        type="number"
-        min={1}
-        aria-label={`Most players, ${label}`}
-        value={row.max}
-        onChange={(e) => onChange('max', e.target.value)}
-      />
+      <label className="flex min-w-0 flex-col gap-1">
+        <span className="text-muted-foreground sm:hidden">Fewest players</span>
+        <Input
+          type="number"
+          min={1}
+          aria-label={`Fewest players, ${label}`}
+          value={row.min}
+          onChange={(e) => onChange('min', e.target.value)}
+        />
+      </label>
+      <label className="flex min-w-0 flex-col gap-1">
+        <span className="text-muted-foreground sm:hidden">Most players</span>
+        <Input
+          type="number"
+          min={1}
+          aria-label={`Most players, ${label}`}
+          value={row.max}
+          onChange={(e) => onChange('max', e.target.value)}
+        />
+      </label>
       <button
         type="button"
         aria-label={`Remove ${label}`}
@@ -316,7 +327,7 @@ function WorldRow({
       >
         <X className="size-4" />
       </button>
-    </>
+    </div>
   )
 }
 
