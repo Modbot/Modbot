@@ -894,6 +894,11 @@ public static class CalendarEndpoints
         if (body.EndsAt <= now)
             return "That time has already passed.";
 
+        // A date that has opened has started its Discord event, which Discord cannot move; its end
+        // can still change.
+        if (CalendarRepeat.OpensAt(calendarEvent, was) <= now && body.StartsAt != was.StartsAt)
+            return "That date has already started.";
+
         if (body.Title?.Trim() is { Length: > CalendarEvent.MaxTitleLength })
             return $"The title is longer than {CalendarEvent.MaxTitleLength} characters.";
 

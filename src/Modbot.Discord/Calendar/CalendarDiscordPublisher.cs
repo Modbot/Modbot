@@ -445,9 +445,11 @@ public sealed class CalendarDiscordPublisher
                 var dateCancelled = place.OccurrenceStartsAt is { } posted
                     && e.DateChanges.Any(c => c.Cancelled && c.PlannedStartsAt == posted);
                 var state = removedInModbot || dateCancelled ? CalendarCardState.Cancelled : CalendarCardState.Finished;
+                // At the times the post last showed: a date moved and then cancelled keeps its move.
                 var occurrence = place.OccurrenceStartsAt is { } was
-                    ? CalendarRepeat.ForDate(e, was)
-                        ?? new CalendarOccurrence(was, was + CalendarRepeat.LengthOf(e), was, e.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == was))
+                    ? e.DateChanges.FirstOrDefault(c => c.PlannedStartsAt == was) is { } change
+                        ? CalendarRepeat.Changed(change, CalendarRepeat.LengthOf(e))
+                        : new CalendarOccurrence(was, was + CalendarRepeat.LengthOf(e))
                     : current;
 
                 // The picture is already on the message and stays there, so the last word costs

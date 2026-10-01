@@ -90,7 +90,8 @@ the rule is still stored, plus **the dates changed on their own**.
   `POST /api/calendar/events/{id}/dates/cancel`. Only a repeating event that is not cancelled or
   finished, only a date the rule has, only one that has not ended, and never onto another date's
   start (two dates starting together could not be told apart by an opening or the page). A date
-  put back exactly as planned loses its row. Facts `modbot.calendar.date.change` (before and after)
+  that has opened keeps its start (its Discord event has started, and Discord cannot move a started
+  event); its end can still change. A date put back exactly as planned loses its row. Facts `modbot.calendar.date.change` (before and after)
   and `modbot.calendar.date.cancel` (§8).
 - **A cancelled date cannot be brought back from the page.** Not asked for; it can be added later.
 - **The page:** Edit, Cancel and a drag on a repeating event ask **This date / All dates**. A

@@ -206,6 +206,25 @@ public class CalendarDateEndpointTests(PostgresFixture db)
     }
 
     [Fact]
+    public async Task ADateThatHasStartedKeepsItsStart_ButItsEndCanChange()
+    {
+        await using var host = await StartAsync();
+        var (_, manager) = await host.SignedInAsync(ModbotPermissions.ViewCalendar | ModbotPermissions.ManageCalendar, Ct);
+        var (id, dates) = await CreateAsync(host, manager, Body(host));
+
+        var first = At(dates[0], "plannedStartsAt");
+        host.Clock.Advance(first - host.Clock.UtcNow + TimeSpan.FromMinutes(30));
+
+        var path = $"/api/calendar/events/{id}/dates";
+
+        var moved = await host.SendJsonAsync(HttpMethod.Put, path, new { plannedStartsAt = first, startsAt = first.AddHours(1), endsAt = first.AddHours(3), title = (string?)null, description = (string?)null }, manager, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, moved.StatusCode);
+
+        var longer = await host.SendJsonAsync(HttpMethod.Put, path, new { plannedStartsAt = first, startsAt = first, endsAt = first.AddHours(3), title = (string?)null, description = (string?)null }, manager, Ct);
+        Assert.Equal(HttpStatusCode.OK, longer.StatusCode);
+    }
+
+    [Fact]
     public async Task ChangingOneDateNeedsManageCalendar()
     {
         await using var host = await StartAsync();
