@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Modbot.Core.Data.Migrations
 {
     [DbContext(typeof(ModbotContext))]
-    [Migration("20261001094611_AddAiBriefsSwitch")]
+    [Migration("20261001150437_AddAiBriefsSwitch")]
     partial class AddAiBriefsSwitch
     {
         /// <inheritdoc />
@@ -2656,6 +2656,38 @@ namespace Modbot.Core.Data.Migrations
                     b.Property<long>("ByteSize")
                         .HasColumnType("bigint")
                         .HasColumnName("byte_size");
+
+                    b.Property<Guid?>("ClipDeviceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clip_device_id");
+
+                    b.Property<string>("ClipInstanceId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("clip_instance_id");
+
+                    b.Property<DateTimeOffset?>("ClipSavedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("clip_saved_at");
+
+                    b.Property<string>("ClipSavedById")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("clip_saved_by_id");
+
+                    b.Property<string>("ClipSavedByName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("clip_saved_by_name");
+
+                    b.Property<Guid?>("ClipSavedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clip_saved_by_user_id");
+
+                    b.Property<string>("ClipWorldId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("clip_world_id");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
@@ -5499,6 +5531,81 @@ namespace Modbot.Core.Data.Migrations
                     b.ToTable("other_instance_name", (string)null);
                 });
 
+            modelBuilder.Entity("Modbot.Core.Data.Entities.PersonWatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ended_at");
+
+                    b.Property<Guid?>("EndedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("ended_by_user_id");
+
+                    b.Property<string>("EndedByUsername")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ended_by_username");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<DateTimeOffset?>("FollowUpAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("follow_up_at");
+
+                    b.Property<DateTimeOffset?>("FollowUpRemindedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("follow_up_reminded_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("SetAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("set_at");
+
+                    b.Property<Guid>("SetByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("set_by_user_id");
+
+                    b.Property<string>("SetByUsername")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("set_by_username");
+
+                    b.Property<string>("SubjectId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("subject_id");
+
+                    b.Property<short>("SubjectPlatform")
+                        .HasColumnType("smallint")
+                        .HasColumnName("subject_platform");
+
+                    b.HasKey("Id")
+                        .HasName("pk_person_watch");
+
+                    b.HasIndex("SubjectPlatform", "SubjectId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_person_watch_standing")
+                        .HasFilter("ended_at IS NULL");
+
+                    b.HasIndex("SubjectPlatform", "SubjectId", "SetAt")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("ix_person_watch_person");
+
+                    b.ToTable("person_watch", (string)null);
+                });
+
             modelBuilder.Entity("Modbot.Core.Data.Entities.ProtectorKey", b =>
                 {
                     b.Property<int>("Id")
@@ -5811,6 +5918,45 @@ namespace Modbot.Core.Data.Migrations
                         {
                             t.HasCheckConstraint("ck_modbot_review_run_state_singleton", "id = 1");
                         });
+                });
+
+            modelBuilder.Entity("Modbot.Core.Data.Entities.SavedList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Rules")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("rules");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_saved_list");
+
+                    b.ToTable("saved_list", (string)null);
                 });
 
             modelBuilder.Entity("Modbot.Core.Data.Entities.Settings", b =>
