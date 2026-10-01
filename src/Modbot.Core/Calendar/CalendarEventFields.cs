@@ -39,6 +39,7 @@ public static class CalendarEventFields
             ["repeatDays"] = string.Join(",", e.RepeatDays),
             ["repeatUntil"] = e.RepeatUntil?.ToString("O", CultureInfo.InvariantCulture),
             ["worldId"] = e.WorldId,
+            ["worldListId"] = e.WorldListId?.ToString(),
             ["accessType"] = e.AccessType,
             ["region"] = e.Region,
             ["state"] = e.State,

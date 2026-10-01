@@ -1355,6 +1355,65 @@ const SENTENCES: Record<string, Sentence> = {
       <>{p.actor} made the calendar feed link.</>
     ),
 
+  // A world picked from a world list (world lists design §7): for a date, by Modbot unless somebody
+  // asked to pick again, or as the next game during the event.
+  'modbot.calendar.world.pick': (p) => {
+    const world = <Quoted value={p.text('worldName') ?? p.text('worldId')} />
+    const list = <Quoted value={p.text('list')} />
+    const instead = p.text('putBack') ? <>, in place of<Quoted value={p.text('putBackName') ?? p.text('putBack')} /></> : null
+    const people = p.entry.data?.['people']
+    const date = when(p.text('occurrenceStartsAt'))
+
+    if (p.text('kind') === 'game')
+      return (
+        <>
+          {p.actor} picked{world} from{list} as the next game at<Quoted value={p.text('title')} />
+          {typeof people === 'number' ? <>, for {people} {people === 1 ? 'person' : 'people'}</> : null}
+          {instead}.
+        </>
+      )
+
+    return (
+      <>
+        {p.hasActor ? p.actor : 'Modbot'} picked{world} from{list} for the event<Quoted value={p.text('title')} />
+        {date ? <> on {date}</> : null}
+        {instead}.
+      </>
+    )
+  },
+
+  // ── World lists ─────────────────────────────────────────────────────────────────────────────
+  'modbot.world-list.create': (p) => (
+    <>
+      {p.actor} made the world list<Quoted value={p.text('name')} />.
+    </>
+  ),
+
+  'modbot.world-list.change': (p) => {
+    const before = record(p.entry.data?.['before'])
+    const renamedFrom = typeof before?.['name'] === 'string' && before['name'] !== p.text('name') ? before['name'] : null
+    const added = p.entry.data?.['added']
+    const removed = p.entry.data?.['removed']
+    const counts = [
+      typeof added === 'number' && added > 0 ? `${added} ${added === 1 ? 'world' : 'worlds'} added` : null,
+      typeof removed === 'number' && removed > 0 ? `${removed} taken out` : null,
+    ].filter((c) => c !== null)
+
+    return (
+      <>
+        {p.actor} changed the world list<Quoted value={p.text('name')} />
+        {renamedFrom ? <> (was “{renamedFrom}”)</> : null}
+        {counts.length > 0 ? <>: {counts.join(', ')}</> : null}.
+      </>
+    )
+  },
+
+  'modbot.world-list.delete': (p) => (
+    <>
+      {p.actor} deleted the world list<Quoted value={p.text('name')} />.
+    </>
+  ),
+
   // ── Giveaways ───────────────────────────────────────────────────────────────────────────────
   'modbot.giveaway.create': (p) => (
     <>
@@ -2094,6 +2153,7 @@ const CALENDAR_FIELDS: Record<string, Say> = {
   repeatDays: { say: (_, __, whole) => `how it repeats, now ${repeatWords(whole)}` },
   repeatUntil: { word: 'the last date', show: plain },
   worldId: { say: (was, now) => (now ? (was ? 'the world' : 'a world added') : 'the world taken off') },
+  worldListId: { say: (_, now) => (now ? 'the world list' : 'the world list taken off') },
   accessType: { word: 'who can join', show: (v) => ACCESS_WORDS[String(v)] ?? plain(v) },
   region: { word: 'the region', show: (v) => plain(v).toUpperCase() },
   languages: { word: 'the languages', show: plain },

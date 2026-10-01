@@ -75,6 +75,9 @@ export const NAV = [
   { id: 'audit', label: 'Audit log', group: 'Community', needsAny: ['ViewAuditLog', 'ViewOperationalLog'], words: ['kick', 'warn', 'log', 'history'] },
   // Planned events, where each is published, and the calendar feed (calendar design).
   { id: 'calendar', label: 'Calendar', group: 'Community', needs: 'ViewCalendar', words: ['events', 'schedule'] },
+  // Lists of worlds an event can pick its world from, each world with the players its game is for
+  // (world lists design). Beside Calendar, whose events they are for, and under its permission.
+  { id: 'world-lists', label: 'World lists', group: 'Community', needs: 'ViewCalendar', words: ['game night', 'worlds', 'shuffle', 'next game'] },
   // Giveaways, their rules, who entered and how each draw went (giveaways design).
   { id: 'giveaways', label: 'Giveaways', group: 'Community', needs: 'ViewGiveaways' },
   // Saved lists of people, each a name and the giveaway rules, and who is in each now (lists
@@ -180,6 +183,7 @@ export const GO_TO_KEYS: Record<PageId, string> = {
   people: 'n',
   live: 'l',
   calendar: 'e',
+  'world-lists': '',
   giveaways: 'p',
   lists: 'u',
   chat: 'c',

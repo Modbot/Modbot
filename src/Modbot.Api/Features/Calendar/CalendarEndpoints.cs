@@ -185,6 +185,9 @@ public static class CalendarEndpoints
             {
                 ArgumentNullException.ThrowIfNull(body);
 
+                if (await ListProblemAsync(db, body, ct) is { } listProblem)
+                    return Results.BadRequest(new { error = listProblem });
+
                 var now = clock.UtcNow;
                 var calendarEvent = new CalendarEvent
                 {
@@ -211,6 +214,8 @@ public static class CalendarEndpoints
                     FactType.PlannedEventCreated, calendarEvent.Id.ToString(), Actor.Of(http), Describe(calendarEvent), ct);
 
                 await transaction.CommitAsync(ct);
+
+                await PickDateAsync(db, facts, clock, calendarEvent, ct);
 
                 var views = await ViewsAsync(db, [calendarEvent], now, now.AddDays(42), ct);
                 return Results.Ok(views[0]);
@@ -243,6 +248,9 @@ public static class CalendarEndpoints
 
                 if (body.Draft && calendarEvent.State != CalendarEventStates.Draft)
                     return Results.Conflict(new { error = "A published event cannot go back to being a draft." });
+
+                if (await ListProblemAsync(db, body, ct) is { } listProblem)
+                    return Results.BadRequest(new { error = listProblem });
 
                 var before = Describe(calendarEvent);
                 var now = clock.UtcNow;
@@ -277,6 +285,8 @@ public static class CalendarEndpoints
                     ct);
 
                 await transaction.CommitAsync(ct);
+
+                await PickDateAsync(db, facts, clock, calendarEvent, ct);
 
                 var views = await ViewsAsync(db, [calendarEvent], now, now.AddDays(42), ct);
                 return Results.Ok(views[0]);
@@ -610,6 +620,50 @@ public static class CalendarEndpoints
         return new CalendarFeedView(path, string.IsNullOrWhiteSpace(address) ? null : address.TrimEnd('/') + path);
     }
 
+    /// <summary>What is wrong with the world list an event names, or null.</summary>
+    private static async Task<string?> ListProblemAsync(ModbotContext db, CalendarEventRequest body, CancellationToken ct)
+    {
+        if (body.WorldListId is not { } listId)
+            return null;
+
+        if (!await db.WorldLists.AnyAsync(l => l.Id == listId, ct))
+            return "That world list does not exist.";
+
+        if (!body.Draft && !await db.WorldListItems.AnyAsync(i => i.ListId == listId, ct))
+            return "That world list has no worlds.";
+
+        return null;
+    }
+
+    /// <summary>
+    /// Picks the current date's world straight after a save, so the page shows it at once rather than
+    /// after the scheduler's next pass (world lists design §5). Modbot picks it, not the person who
+    /// saved: the scheduler would have picked the same way a moment later.
+    /// </summary>
+    internal static async Task PickDateAsync(
+        ModbotContext db, AccountFacts facts, IModbotClock clock, CalendarEvent calendarEvent, CancellationToken ct)
+    {
+        if (!WorldPicker.NeedsDatePick(calendarEvent))
+            return;
+
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var result = await new WorldPicker(db, clock).PickForDateAsync(calendarEvent, by: null, ct);
+        await db.SaveChangesAsync(ct);
+
+        if (result is { Outcome: WorldPickOutcome.Picked })
+        {
+            await facts.RecordAsync(
+                FactType.CalendarWorldPicked,
+                calendarEvent.Id.ToString(),
+                actor: null,
+                await WorldPicker.FactDataAsync(db, calendarEvent, result, again: false, ct),
+                ct);
+        }
+
+        await transaction.CommitAsync(ct);
+    }
+
     /// <summary>Works out the event's state and current occurrence; says so when nothing is left of it.</summary>
     private static string? Place(CalendarEvent calendarEvent, DateTimeOffset now) =>
         CalendarTimeline.Advance(calendarEvent, now) == CalendarStep.Finished
@@ -727,7 +781,7 @@ public static class CalendarEndpoints
         if (body.PostToChannel && channelId is null && !preview)
             return "Pick a channel to post to.";
 
-        if (body.AutoOpen && worldId is null && !preview)
+        if (body.AutoOpen && worldId is null && body.WorldListId is null && !preview)
             return "Pick a world to open the instance in.";
 
         var openBefore = body.OpenMinutesBefore ?? 10;
@@ -741,7 +795,26 @@ public static class CalendarEndpoints
         target.TimeZone = zone.Id;
         target.Repeat = repeat;
         target.RepeatUntil = repeat == CalendarRepeats.None ? null : until;
-        target.WorldId = worldId;
+
+        // A world picked from a list stays the current date's world through an edit; another list
+        // means a new pick (world lists design §5), made once the event is saved.
+        if (body.WorldListId is { } listId)
+        {
+            if (target.WorldListId != listId)
+            {
+                target.WorldId = null;
+                target.WorldPickedFor = null;
+            }
+
+            target.WorldListId = listId;
+        }
+        else
+        {
+            target.WorldListId = null;
+            target.WorldPickedFor = null;
+            target.WorldId = worldId;
+        }
+
         target.AccessType = access;
         target.Region = region;
         target.ImageUrl = imageUrl;
@@ -837,6 +910,13 @@ public static class CalendarEndpoints
             .Where(w => worldIds.Contains(w.WorldId))
             .ToDictionaryAsync(w => w.WorldId, StringComparer.Ordinal, ct);
 
+        var listIds = events.Where(e => e.WorldListId != null).Select(e => e.WorldListId!.Value).Distinct().ToList();
+        var listNames = listIds.Count == 0
+            ? []
+            : await db.WorldLists.AsNoTracking()
+                .Where(l => listIds.Contains(l.Id))
+                .ToDictionaryAsync(l => l.Id, l => l.Name, ct);
+
         return [.. events.Select(e =>
         {
             var zone = CalendarRepeat.ZoneOf(e);
@@ -913,7 +993,9 @@ public static class CalendarEndpoints
                         closed,
                         opening.Error),
                 occurrences,
-                e.CancelledAt);
+                e.CancelledAt,
+                e.WorldListId,
+                e.WorldListId is { } list ? listNames.GetValueOrDefault(list) : null);
         })];
     }
 

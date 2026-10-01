@@ -124,6 +124,10 @@ public sealed class DemoSeeder
         await _db.DiscordEventRoutes.ExecuteDeleteAsync(ct);
         await _db.DiscordEventChannels.ExecuteDeleteAsync(ct);
 
+        await _db.WorldPicks.ExecuteDeleteAsync(ct);
+        await _db.WorldListShuffles.ExecuteDeleteAsync(ct);
+        await _db.WorldListItems.ExecuteDeleteAsync(ct);
+        await _db.WorldLists.ExecuteDeleteAsync(ct);
         await _db.CalendarOpenings.ExecuteDeleteAsync(ct);
         await _db.CalendarEventPlaces.ExecuteDeleteAsync(ct);
         await _db.CalendarEvents.ExecuteDeleteAsync(ct);

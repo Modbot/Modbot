@@ -221,6 +221,10 @@ public static class AuditVisibility
         [FactType.PlannedEventPublished] = AuditCategory.Operational,
         [FactType.PlannedEventTakenDown] = AuditCategory.Operational,
         [FactType.CalendarFeedRegenerated] = AuditCategory.Operational,
+        [FactType.CalendarWorldPicked] = AuditCategory.Operational,
+        [FactType.WorldListCreated] = AuditCategory.Operational,
+        [FactType.WorldListChanged] = AuditCategory.Operational,
+        [FactType.WorldListDeleted] = AuditCategory.Operational,
 
         // System: operational noise, and the row spec 5.9.2 gives the short retention class.
         [FactType.SyncFailed] = AuditCategory.Operational,

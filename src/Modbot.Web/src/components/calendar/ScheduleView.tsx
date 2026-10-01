@@ -1,5 +1,6 @@
 import { WorldLink } from '@/components/facts'
 import { Card } from '@/components/ui/card'
+import { worldAt } from '@/lib/calendar'
 import { addDays, sameDay, startOfDay } from '@/lib/calendarGrid'
 import { timeOfDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -66,11 +67,7 @@ export function ScheduleView({
                   <span className="truncate">{entry.event.title}</span>
                 </button>
                 <StateBadge event={entry.event} />
-                {entry.event.worldId && (
-                  <span style={{ fontSize: 'var(--text-small)' }}>
-                    <WorldLink id={entry.event.worldId} name={entry.event.worldName} unnamed="id" />
-                  </span>
-                )}
+                <EntryWorld entry={entry} />
                 <div className="flex flex-wrap gap-1">
                   {entry.event.places
                     .filter((p) => p.state !== 'removed')
@@ -84,5 +81,21 @@ export function ScheduleView({
         </div>
       ))}
     </Card>
+  )
+}
+
+/** The world of one time, or the list it is picked from when that time has none yet. */
+function EntryWorld({ entry }: { entry: Entry }) {
+  const shown = worldAt(entry.event, entry.start)
+  if (!shown) return null
+
+  return (
+    <span style={{ fontSize: 'var(--text-small)' }}>
+      {'worldId' in shown ? (
+        <WorldLink id={shown.worldId} name={shown.worldName} unnamed="id" />
+      ) : (
+        <span className="text-muted-foreground">{shown.listName}</span>
+      )}
+    </span>
   )
 }

@@ -10,6 +10,9 @@ namespace Modbot.Api.Features.Calendar;
 /// <param name="RepeatDays">For weekly: <c>MO</c> to <c>SU</c>.</param>
 /// <param name="RepeatUntil">The last date an occurrence may start on, <c>2026-12-31</c>, or null.</param>
 /// <param name="Draft">Save without publishing anything or opening anything.</param>
+/// <param name="WorldListId">
+/// Pick the world from this world list, date by date, instead of <paramref name="WorldId"/>.
+/// </param>
 public sealed record CalendarEventRequest(
     string Title,
     string? Description,
@@ -36,7 +39,8 @@ public sealed record CalendarEventRequest(
     string? ChannelId,
     bool AutoOpen,
     int? OpenMinutesBefore,
-    bool Draft);
+    bool Draft,
+    Guid? WorldListId = null);
 
 /// <summary>One place an event is published, and how that went.</summary>
 /// <param name="Place"><c>vrchat</c>, <c>discordEvent</c> or <c>channelPost</c>.</param>
@@ -68,6 +72,9 @@ public sealed record CalendarOccurrenceView(DateTimeOffset StartsAt, DateTimeOff
 /// <param name="Occurrences">The occurrences inside the range asked for.</param>
 /// <param name="MadeOnVRChat">Made on VRChat (on vrchat.com or in the game) and read in by Modbot.</param>
 /// <param name="CancelledAt">When it was cancelled; its times after that never ran. Null when it was not.</param>
+/// <param name="WorldId">The world; for an event that picks from a list, the one picked for the current date.</param>
+/// <param name="WorldListId">The world list the world is picked from, or null.</param>
+/// <param name="WorldListName">That list's name.</param>
 public sealed record CalendarEventView(
     Guid Id,
     string Title,
@@ -109,7 +116,9 @@ public sealed record CalendarEventView(
     IReadOnlyList<CalendarPlaceView> Places,
     CalendarOpeningView? Opening,
     IReadOnlyList<CalendarOccurrenceView> Occurrences,
-    DateTimeOffset? CancelledAt = null);
+    DateTimeOffset? CancelledAt = null,
+    Guid? WorldListId = null,
+    string? WorldListName = null);
 
 /// <param name="Categories">VRChat's category words.</param>
 /// <param name="Platforms">VRChat's platform words.</param>
@@ -207,6 +216,38 @@ public sealed record CalendarFeedPreviewView(
     string? Repeat);
 
 public sealed record CalendarWorldView(string WorldId, string? Name, string? ThumbnailUrl);
+
+/// <param name="InstanceId">The instance whose people count is used: the one the instance popup is open on.</param>
+/// <param name="Instead">The world on screen, to put back and pick the one after it in its place (Pick another).</param>
+public sealed record NextGameRequest(Guid? InstanceId, string? Instead);
+
+/// <summary>A world picked as the next game, with what the page shows of it.</summary>
+public sealed record NextGameWorldView(
+    string WorldId,
+    string? Name,
+    string? ThumbnailUrl,
+    int? MinPlayers,
+    int? MaxPlayers,
+    DateTimeOffset PickedAt);
+
+/// <summary>Next game during an event that picks from a world list (world lists design §6).</summary>
+/// <param name="InstanceId">The event's instance whose people were counted; null when there is none.</param>
+/// <param name="People">How many people are in it now; null when unknown, and then players are ignored.</param>
+/// <param name="PeopleUnsure">The count came from <c>n_users</c>, shown as "8?".</param>
+/// <param name="Game">The world picked last as the next game, still standing; null before the first.</param>
+/// <param name="NoneFits">Nothing in the list fits the people now: the answer to a pick that picked nothing.</param>
+/// <param name="CanPick">The account may press Next game and Pick another.</param>
+public sealed record NextGameView(
+    Guid EventId,
+    string EventTitle,
+    Guid ListId,
+    string ListName,
+    Guid? InstanceId,
+    int? People,
+    bool PeopleUnsure,
+    NextGameWorldView? Game,
+    bool NoneFits,
+    bool CanPick);
 
 /// <param name="From">The start of the range the page shows. Left out with <paramref name="Upcoming"/>.</param>
 /// <param name="To">The end of the range the page shows.</param>

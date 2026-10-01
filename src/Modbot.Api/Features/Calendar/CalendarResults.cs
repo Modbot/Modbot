@@ -184,7 +184,20 @@ public sealed class CalendarResults(ModbotContext db)
         // The group's instances in the events' worlds that were open at some point in the stretch,
         // for the times Modbot did not open one itself.
         var groupId = (await db.GetSettingsAsync(ct)).ManagedGroupId;
-        var worldIds = wanted.Where(w => w.Event.WorldId != null).Select(w => w.Event.WorldId!).Distinct(StringComparer.Ordinal).ToList();
+
+        // An event that picks from a world list ran each date in that date's own world (world lists
+        // design §5), not the one it has picked for the date it is on now.
+        var listEventIds = wanted.Where(w => w.Event.WorldListId != null).Select(w => w.Event.Id).Distinct().ToList();
+        var datePicks = listEventIds.Count == 0
+            ? []
+            : await db.WorldPicks.AsNoTracking()
+                .Where(p => listEventIds.Contains(p.EventId) && p.Kind == WorldPickKinds.Date && p.PutBackAt == null)
+                .ToDictionaryAsync(p => (p.EventId, p.OccurrenceStartsAt), p => p.WorldId, ct);
+
+        string? WorldOf((CalendarEvent Event, CalendarOccurrence Time) w) =>
+            datePicks.GetValueOrDefault((w.Event.Id, w.Time.StartsAt)) ?? w.Event.WorldId;
+
+        var worldIds = wanted.Select(WorldOf).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
 
         var candidates = string.IsNullOrEmpty(groupId) || worldIds.Count == 0
             ? []
@@ -204,7 +217,7 @@ public sealed class CalendarResults(ModbotContext db)
 
                 return opened is not null
                     ? (Id: opened.InstanceId, ByModbot: true)
-                    : (Id: Longest(candidates, w.Event.WorldId, OpensAt(w.Event, w.Time), w.Time.EndsAt, now), ByModbot: false);
+                    : (Id: Longest(candidates, WorldOf(w), OpensAt(w.Event, w.Time), w.Time.EndsAt, now), ByModbot: false);
             })
             .ToList();
 

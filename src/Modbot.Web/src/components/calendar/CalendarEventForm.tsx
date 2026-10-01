@@ -37,8 +37,10 @@ import {
 import { cn } from '@/lib/utils'
 import { EventPreview } from './EventPreview'
 import { NotSetUp } from './NotSetUp'
+import { worldListApi, type WorldList } from '@/lib/worldLists'
 
 const OTHER_WORLD = '__other__'
+const FROM_LIST = '__list__'
 
 type Tab = 'details' | 'preview'
 
@@ -73,6 +75,8 @@ export function CalendarEventForm({
   const [input, setInput] = useState<CalendarEventInput>(() => initial ?? (event ? inputFrom(event) : blankEvent(new Date())))
   const [worlds, setWorlds] = useState<CalendarWorld[]>([])
   const [typedWorld, setTypedWorld] = useState(false)
+  const [lists, setLists] = useState<WorldList[]>([])
+  const [pickingList, setPickingList] = useState(false)
   // Kept as typed, so a comma can be typed; split when saving.
   const [languages, setLanguages] = useState(() => input.languages.join(', '))
   const [tags, setTags] = useState(() => input.tags.join(', '))
@@ -87,6 +91,10 @@ export function CalendarEventForm({
       .worlds()
       .then(setWorlds)
       .catch(() => setWorlds([]))
+    worldListApi
+      .all()
+      .then((answer) => setLists(answer.lists))
+      .catch(() => setLists([]))
   }, [])
 
   const zones = useMemo(() => {
@@ -107,7 +115,12 @@ export function CalendarEventForm({
     }))
 
   const knownWorld = input.worldId !== null && worlds.some((w) => w.worldId === input.worldId)
-  const worldChoice = typedWorld || (input.worldId !== null && !knownWorld) ? OTHER_WORLD : (input.worldId ?? '')
+  const fromList = pickingList || Boolean(input.worldListId)
+  const worldChoice = fromList
+    ? FROM_LIST
+    : typedWorld || (input.worldId !== null && !knownWorld)
+      ? OTHER_WORLD
+      : (input.worldId ?? '')
 
   const body = (draft: boolean): CalendarEventInput => ({
     ...input,
@@ -269,6 +282,15 @@ export function CalendarEventForm({
                         aria-label="World"
                         value={worldChoice}
                         onChange={(v) => {
+                          if (v === FROM_LIST) {
+                            setTypedWorld(false)
+                            setPickingList(true)
+                            return
+                          }
+
+                          setPickingList(false)
+                          set('worldListId', null)
+
                           if (v === OTHER_WORLD) {
                             setTypedWorld(true)
                             return
@@ -285,8 +307,25 @@ export function CalendarEventForm({
                           </option>
                         ))}
                         <option value={OTHER_WORLD}>World id</option>
+                        <option value={FROM_LIST}>Pick from a list</option>
                       </Select>
                     </Labelled>
+                    {worldChoice === FROM_LIST && (
+                      <Labelled label="World list">
+                        <Select
+                          aria-label="World list"
+                          value={input.worldListId ?? ''}
+                          onChange={(v) => set('worldListId', v || null)}
+                        >
+                          <option value="">—</option>
+                          {lists.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </Labelled>
+                    )}
                     {worldChoice === OTHER_WORLD && (
                       <Field label="World id" value={input.worldId ?? ''} placeholder="wrld_…" onChange={(v) => set('worldId', v.trim() || null)} />
                     )}

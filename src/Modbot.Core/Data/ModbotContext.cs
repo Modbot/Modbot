@@ -289,6 +289,18 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
     /// <summary>The calendar feed's secret link. One row.</summary>
     public DbSet<CalendarFeed> CalendarFeeds => Set<CalendarFeed>();
 
+    /// <summary>Lists of worlds for an event to pick its world from (world lists design).</summary>
+    public DbSet<WorldList> WorldLists => Set<WorldList>();
+
+    /// <summary>The worlds in each list, with the players each is for.</summary>
+    public DbSet<WorldListItem> WorldListItems => Set<WorldListItem>();
+
+    /// <summary>Each list's shuffle for each event: this round's order and what has been played.</summary>
+    public DbSet<WorldListShuffle> WorldListShuffles => Set<WorldListShuffle>();
+
+    /// <summary>Worlds picked from a list, for a date or as the next game.</summary>
+    public DbSet<WorldPick> WorldPicks => Set<WorldPick>();
+
     /// <summary>Giveaways, with their rules, exclusions and weighting (giveaways design §3).</summary>
     public DbSet<Giveaway> Giveaways => Set<Giveaway>();
 
@@ -2142,6 +2154,78 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
 
             // The scheduler's question every pass: which events are still live.
             entity.HasIndex(e => e.State).HasDatabaseName("ix_calendar_event_state");
+
+            // A deleted list leaves the events that once used it with their last world. The page
+            // refuses to delete a list a draft or live event still uses.
+            entity.HasOne<WorldList>()
+                .WithMany()
+                .HasForeignKey(e => e.WorldListId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        builder.Entity<WorldList>(entity =>
+        {
+            entity.ToTable("world_list");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Name).HasMaxLength(WorldList.MaxNameLength);
+        });
+
+        builder.Entity<WorldListItem>(entity =>
+        {
+            entity.ToTable("world_list_item");
+            entity.HasKey(e => new { e.ListId, e.WorldId });
+            entity.Property(e => e.WorldId).HasColumnType("text");
+
+            entity.HasOne<WorldList>()
+                .WithMany()
+                .HasForeignKey(e => e.ListId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WorldListShuffle>(entity =>
+        {
+            entity.ToTable("world_list_shuffle");
+            entity.HasKey(e => new { e.ListId, e.EventId });
+            entity.Property(e => e.Order).HasColumnType("jsonb").HasColumnName("world_order");
+            entity.Property(e => e.Played).HasColumnType("jsonb");
+            entity.Property(e => e.LastPlayed).HasColumnType("text");
+
+            entity.HasOne<WorldList>()
+                .WithMany()
+                .HasForeignKey(e => e.ListId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WorldPick>(entity =>
+        {
+            entity.ToTable("world_pick");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.Kind).HasMaxLength(16);
+            entity.Property(e => e.WorldId).HasColumnType("text");
+
+            // The lock on a date's world: one date pick standing per event and date, however many
+            // passes, people and restarts race for it.
+            entity.HasIndex(e => new { e.EventId, e.OccurrenceStartsAt })
+                .HasDatabaseName("ux_world_pick_date")
+                .IsUnique()
+                .HasFilter("kind = 'date' AND put_back_at IS NULL");
+
+            // The event popup's question: what has been picked for this date.
+            entity.HasIndex(e => new { e.EventId, e.OccurrenceStartsAt, e.PickedAt })
+                .HasDatabaseName("ix_world_pick_event_date");
+
+            // No key to the list: a pick is history, and stays after its list is deleted.
+            entity.HasOne<CalendarEvent>()
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<CalendarEventPlace>(entity =>

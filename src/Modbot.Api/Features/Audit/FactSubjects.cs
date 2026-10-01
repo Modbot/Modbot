@@ -116,6 +116,10 @@ public static class FactSubjects
         [FactType.PlannedEventPublished] = SubjectKind.Other,
         [FactType.PlannedEventTakenDown] = SubjectKind.Other,
         [FactType.CalendarFeedRegenerated] = SubjectKind.Other,
+        [FactType.CalendarWorldPicked] = SubjectKind.Other,
+        [FactType.WorldListCreated] = SubjectKind.Other,
+        [FactType.WorldListChanged] = SubjectKind.Other,
+        [FactType.WorldListDeleted] = SubjectKind.Other,
 
         // The subject is the giveaway's id. Entering and withdrawing are about the person on
         // Discord, so those two keep the default.

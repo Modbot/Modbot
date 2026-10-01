@@ -76,7 +76,20 @@ public class CalendarEvent
 
     // ── Where ────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// The world. For an event that picks from a list, the world picked for the current date
+    /// (world lists design §5), so every place that shows the world reads it the same way.
+    /// </summary>
     public string? WorldId { get; set; }
+
+    /// <summary>The world list the world is picked from, date by date. Null when the world is set by hand.</summary>
+    public Guid? WorldListId { get; set; }
+
+    /// <summary>
+    /// The date <see cref="WorldId"/> was picked for, for an event that picks from a list. When it is
+    /// not <see cref="OccurrenceStartsAt"/>, the current date still needs its pick.
+    /// </summary>
+    public DateTimeOffset? WorldPickedFor { get; set; }
 
     /// <summary>The instance's group access: <c>members</c>, <c>plus</c> or <c>public</c>.</summary>
     public string AccessType { get; set; } = "members";

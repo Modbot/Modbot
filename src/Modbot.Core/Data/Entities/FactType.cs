@@ -563,6 +563,22 @@ public static class FactType
     public const string PlannedEventTakenDown = "modbot.calendar.publish.remove";
     public const string CalendarFeedRegenerated = "modbot.calendar.feed.regenerate";
 
+    /// <summary>
+    /// A world was picked from a world list for an event (world lists design §7): for a date
+    /// (<c>kind</c> <c>date</c>), or as the next game during it (<c>game</c>). No actor when Modbot
+    /// picked a date by itself.
+    /// </summary>
+    public const string CalendarWorldPicked = "modbot.calendar.world.pick";
+
+    // ── World lists (world lists design §7). The subject is the list's id. ──────────────────
+    //
+    // A list of worlds and the players each is for: nothing about a member, so a purge has nothing
+    // to find in these.
+
+    public const string WorldListCreated = "modbot.world-list.create";
+    public const string WorldListChanged = "modbot.world-list.change";
+    public const string WorldListDeleted = "modbot.world-list.delete";
+
     // ── Giveaways (giveaways design §8) ────────────────────────────────────────────────────
     //
     // The subject is the giveaway's id on the Modbot platform, except for entering and

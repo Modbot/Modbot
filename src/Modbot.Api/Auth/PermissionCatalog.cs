@@ -56,7 +56,7 @@ public static class PermissionCatalog
         Describe(ModbotPermissions.ManageGroupRoles, "Manage group roles", "Create, change and delete the group's roles and their permissions, on VRChat.", "Administration"),
         Describe(ModbotPermissions.ManageGroupInvites, "Manage group invites", "See the invites the group has sent on VRChat, and cancel one.", "Administration"),
         Describe(ModbotPermissions.ManageGroupGallery, "Manage the group gallery", "Remove an image from one of the group's galleries on VRChat.", "Administration"),
-        Describe(ModbotPermissions.ManageCalendar, "Manage calendar", "Create, change and cancel events, and the calendar feed link.", "Administration"),
+        Describe(ModbotPermissions.ManageCalendar, "Manage calendar", "Create, change and cancel events, world lists, and the calendar feed link.", "Administration"),
         Describe(ModbotPermissions.RunGiveaways, "Run giveaways", "Create, change, open, close, draw and cancel giveaways.", "Administration"),
         Describe(ModbotPermissions.ManageLists, "Manage lists", "Make, change and delete saved lists. Seeing them needs See members and See profiles.", "Administration"),
         Describe(ModbotPermissions.ManageUsers, "Manage users", "Add people, invite them, disable them and change their roles.", "Administration"),

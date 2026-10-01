@@ -75,6 +75,22 @@ export type CalendarEvent = {
   occurrences: CalendarOccurrence[]
   /** When it was cancelled; its times after that never ran. */
   cancelledAt?: string | null
+  /** The world list its world is picked from, date by date; `worldId` is then the current date's. */
+  worldListId?: string | null
+  worldListName?: string | null
+}
+
+/**
+ * The world to show for one time of an event. An event that picks from a list has a world only for
+ * the date it is on now; its other dates show the list instead (world lists design §5).
+ */
+export function worldAt(event: CalendarEvent, start: Date): { worldId: string; worldName: string | null } | { listName: string } | null {
+  if (event.worldListId) {
+    const current = event.occurrenceStartsAt !== null && Date.parse(event.occurrenceStartsAt) === start.getTime()
+    if (current && event.worldId) return { worldId: event.worldId, worldName: event.worldName }
+    return { listName: event.worldListName ?? '' }
+  }
+  return event.worldId ? { worldId: event.worldId, worldName: event.worldName } : null
 }
 
 /**
@@ -229,6 +245,8 @@ export type CalendarEventInput = {
   autoOpen: boolean
   openMinutesBefore: number
   draft: boolean
+  /** Pick the world from this world list, date by date, instead of `worldId`. */
+  worldListId?: string | null
 }
 
 const base = '/api/calendar'
@@ -410,5 +428,6 @@ export function inputFrom(event: CalendarEvent): CalendarEventInput {
     autoOpen: event.autoOpen,
     openMinutesBefore: event.openMinutesBefore,
     draft: event.state === 'draft',
+    worldListId: event.worldListId ?? null,
   }
 }

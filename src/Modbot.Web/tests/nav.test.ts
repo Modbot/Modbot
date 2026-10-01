@@ -155,7 +155,7 @@ test('Community heads the pages from Requests to Lists, each of which names it',
 
   assert.deepEqual(
     community.map((n) => n.id),
-    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'giveaways', 'lists'],
+    ['requests', 'people', 'live', 'bans', 'flags', 'reviews', 'audit', 'calendar', 'world-lists', 'giveaways', 'lists'],
   )
   assert.deepEqual(shown.slice(first, first + community.length), community)
 })

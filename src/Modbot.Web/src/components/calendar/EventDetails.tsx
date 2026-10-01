@@ -9,13 +9,15 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFoot } from '@/components/ui/dialog'
 import { Checkbox, Outcome } from '@/components/settings/fields'
 import { ApiError } from '@/lib/api'
-import { calendarApi, PLACE_LABEL, PLACE_STATE_LABEL, STATE_LABEL, type CalendarEvent } from '@/lib/calendar'
+import { calendarApi, PLACE_LABEL, PLACE_STATE_LABEL, STATE_LABEL, worldAt, type CalendarEvent } from '@/lib/calendar'
+import { worldPickApi } from '@/lib/worldLists'
 import { sameDay } from '@/lib/calendarGrid'
 import { DESTINATION_LABEL, notSetUp, type CalendarReady } from '@/lib/calendarPlaces'
 import { timeOfDay } from '@/lib/format'
 import { openInstance } from '@/lib/subject'
 import type { Spot } from './entry'
 import { EventResults } from './EventResults'
+import { NextGame } from './NextGame'
 import { NotSetUp } from './NotSetUp'
 import { SHEET, useMedia } from './phone'
 
@@ -74,6 +76,8 @@ function EventBody({
   end,
   ready,
   results,
+  canManage = false,
+  onChanged,
   children,
 }: {
   event: CalendarEvent
@@ -81,6 +85,8 @@ function EventBody({
   end: Date
   ready?: CalendarReady | null
   results?: ReactNode
+  canManage?: boolean
+  onChanged?: () => void
   children?: ReactNode
 }) {
   // A ticked place that cannot work as things are set up, while the event can still go anywhere.
@@ -100,12 +106,9 @@ function EventBody({
 
       {event.description && <p className="line-clamp-6 whitespace-pre-wrap">{event.description}</p>}
 
-      {event.worldId && (
-        <div>
-          <span className="text-muted-foreground">World </span>
-          <WorldLink id={event.worldId} name={event.worldName} unnamed="id" />
-        </div>
-      )}
+      <WorldLine event={event} start={start} canManage={canManage} onChanged={onChanged} />
+
+      {event.worldListId && event.state === 'open' && isCurrent(event, start) && <NextGame eventId={event.id} />}
 
       {event.opening && (
         <div>
@@ -153,6 +156,68 @@ function EventBody({
       {results}
 
       {children}
+    </div>
+  )
+}
+
+/** Whether `start` is the date the event is on now: the one its world was picked for. */
+function isCurrent(event: CalendarEvent, start: Date): boolean {
+  return event.occurrenceStartsAt !== null && Date.parse(event.occurrenceStartsAt) === start.getTime()
+}
+
+/**
+ * The world, or for an event that picks from a list, the world picked for the date it is on now and
+ * the list (world lists design §5). Pick again, for an editor, while that date is scheduled.
+ */
+function WorldLine({
+  event,
+  start,
+  canManage,
+  onChanged,
+}: {
+  event: CalendarEvent
+  start: Date
+  canManage: boolean
+  onChanged?: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const shown = worldAt(event, start)
+
+  if (!shown) return null
+
+  const again = () => {
+    setBusy(true)
+    setError(null)
+    worldPickApi
+      .pickAgain(event.id)
+      .then(() => onChanged?.())
+      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : 'Could not pick again.'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {'worldId' in shown && (
+        <div>
+          <span className="text-muted-foreground">World </span>
+          <WorldLink id={shown.worldId} name={shown.worldName} unnamed="id" />
+        </div>
+      )}
+      {event.worldListId && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span>
+            <span className="text-muted-foreground">World list </span>
+            {event.worldListName}
+          </span>
+          {canManage && event.state === 'scheduled' && isCurrent(event, start) && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={again}>
+              Pick again
+            </Button>
+          )}
+        </div>
+      )}
+      {error && <span className="text-destructive">{error}</span>}
     </div>
   )
 }
@@ -293,7 +358,15 @@ export function EventDetails({
   )
   const shown = results ? <EventResults event={event} start={start} live={live} /> : undefined
   const body = (
-    <EventBody event={event} start={start} end={end} ready={ready} results={shown}>
+    <EventBody
+      event={event}
+      start={start}
+      end={end}
+      ready={ready}
+      results={shown}
+      canManage={actions.canManage}
+      onChanged={actions.onChanged}
+    >
       {buttons && <div className="flex flex-wrap gap-2 pt-1">{buttons}</div>}
     </EventBody>
   )
@@ -331,7 +404,15 @@ export function EventDetails({
             subtitle={<StateBadge event={event} />}
             foot={buttons && <DialogFoot>{buttons}</DialogFoot>}
           >
-            <EventBody event={event} start={start} end={end} ready={ready} results={shown} />
+            <EventBody
+              event={event}
+              start={start}
+              end={end}
+              ready={ready}
+              results={shown}
+              canManage={actions.canManage}
+              onChanged={actions.onChanged}
+            />
           </DialogContent>
         </Dialog>
         {confirmation}

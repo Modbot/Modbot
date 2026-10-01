@@ -58,6 +58,7 @@ import { Live } from '@/pages/Live'
 import { Calendar } from '@/pages/Calendar'
 import { Giveaways } from '@/pages/Giveaways'
 import { Lists } from '@/pages/Lists'
+import { WorldLists } from '@/pages/WorldLists'
 import { Integrations } from '@/pages/Integrations'
 import { Login } from '@/pages/Login'
 import { Connect } from '@/pages/Connect'
@@ -94,6 +95,7 @@ const TITLES: Record<PageId, string> = {
   people: 'People',
   live: 'Live',
   calendar: 'Calendar',
+  'world-lists': 'World lists',
   giveaways: 'Giveaways',
   lists: 'Lists',
   chat: 'Chat',
@@ -139,6 +141,7 @@ const PATHS: Record<PageId, string> = {
   people: '/people',
   live: '/live',
   calendar: '/calendar',
+  'world-lists': '/world-lists',
   giveaways: '/giveaways',
   lists: '/lists',
   chat: '/chat',
@@ -632,6 +635,7 @@ function Shell({
           {page === 'people' && !movingToMembers && <People me={me} />}
           {page === 'live' && <Live />}
           {page === 'calendar' && <Calendar />}
+          {page === 'world-lists' && <WorldLists />}
           {page === 'giveaways' && <Giveaways />}
           {page === 'lists' && <Lists />}
           {page === 'chat' && (

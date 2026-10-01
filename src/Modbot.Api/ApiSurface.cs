@@ -509,6 +509,10 @@ public static class ApiSurface
         Features.Calendar.CalendarEndpoints.MapCalendar(app);
         // What each time an event ran did: its instance, who came and who joined the group.
         Features.Calendar.CalendarResultsEndpoints.MapCalendarResults(app);
+        // Lists of worlds, and an event's world picked from one: Pick again, and Next game during
+        // the event (world lists design).
+        Features.WorldLists.WorldListEndpoints.MapWorldLists(app);
+        Features.Calendar.WorldPickEndpoints.MapWorldPicks(app);
 
         // Giveaways: their rules, who entered, and the draws (giveaways design). Drawing happens
         // here because a person pressed Draw; a draw whose time simply came round is made by the

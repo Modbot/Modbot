@@ -12,6 +12,7 @@ import {
   type TooltipRow,
 } from '@/components/charts'
 import { HeadCount } from '@/components/HeadCount'
+import { InstanceNextGame } from '@/components/calendar/NextGame'
 import { AuditLogList } from '@/components/audit/AuditLogList'
 import { InstanceWorld } from '@/components/subject/InstanceWorld'
 import { BriefButton } from '@/components/subject/Brief'
@@ -144,7 +145,9 @@ export function InstancePopup({ id, me, lead }: { id: string; me: CurrentUser; l
           ...(tab === 'json' ? [{ value: 'json' as const, label: 'Raw data' }] : []),
         ]}
       >
-        {data && tab === 'overview' && <Overview view={data} phone={phone} live={live} onMore={pick} />}
+        {data && tab === 'overview' && (
+          <Overview view={data} phone={phone} live={live} onMore={pick} canSeeCalendar={can(me, 'ViewCalendar')} />
+        )}
         {data && !data.canSeeWhoWasThere && (tab === 'people' || tab === 'logs') && (
           <Panel title={tab === 'people' ? 'People' : 'Activity'} flush>
             <EmptyRow>You do not have permission to see this.</EmptyRow>
@@ -264,11 +267,14 @@ function Overview({
   phone,
   live,
   onMore,
+  canSeeCalendar,
 }: {
   view: InstanceView
   phone: boolean
   live: number
   onMore: (tab: Tab) => void
+  /** Next game shows for an open instance of an event that picks from a world list. */
+  canSeeCalendar: boolean
 }) {
   const instance = view.instance
   const longest = [...view.people].sort((a, b) => b.minutesSeen - a.minutesSeen).slice(0, 6)
@@ -276,6 +282,8 @@ function Overview({
   return (
     <div className="flex flex-col">
       <Details view={view} phone={phone} />
+
+      {canSeeCalendar && !instance.closedAt && <InstanceNextGame instanceId={instance.id} />}
 
       <StatStrip className="m-0 shrink-0" phonePairs>
         <Stat label={instance.closedAt ? 'Ran for' : 'Open for'} value={minutes(instance.minutesOpen)} />

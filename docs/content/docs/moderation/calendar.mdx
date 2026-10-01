@@ -119,7 +119,11 @@ Click an event in any view. It opens in a small box beside it, showing:
 
 - when it starts and ends (the time you clicked, for a repeating event), and how it repeats;
 - the description;
-- **World**, which opens the [world popup](/moderation/popups#world-popup);
+- **World**, which opens the [world popup](/moderation/popups#world-popup). For an event that picks
+  from a [world list](/moderation/world-lists), the world picked for its next date, and under it the
+  **World list**, with **Pick again** while that date is scheduled; other dates show the list's name;
+- **Next game**, while an event that picks from a list is open. See
+  [Next game](/moderation/world-lists#next-game);
 - **Instance**, once Modbot has tried to open one: **Opening** while it waits for VRChat, **Open**
   or **Closed** (click it for the [instance popup](/moderation/popups#instance-popup)), and a
   **Join** link while it is open. If VRChat refused, VRChat's error is shown here instead, in red;
@@ -331,7 +335,8 @@ skips months that have no 31st.
 
 | Field | Notes |
 |---|---|
-| **World** | Pick from the worlds Modbot has seen recently, or choose **World id** and type the world's id. **None** is allowed, unless the instance opens by itself. |
+| **World** | Pick from the worlds Modbot has seen recently, or choose **World id** and type the world's id. **None** is allowed, unless the instance opens by itself. **Pick from a list** takes the world from a [world list](/moderation/world-lists) instead, a new one for each date. |
+| **World list** | Shown for **Pick from a list**. The list to pick from. See [When the world is picked](/moderation/world-lists#when-the-world-is-picked). |
 | **Who can join** | **Group members**, **Members and their friends** or **Anyone**. Used for the instance Modbot opens, and shown on the channel post. |
 | **Region** | **US West**, **US East**, **Europe** or **Japan**. Used for the instance Modbot opens. |
 | **Picture link** | Optional. Must start with `https://` and point at a public website. Used as the Discord event's cover and the channel post's picture. When empty, Discord gets the world's picture instead. |
@@ -362,7 +367,7 @@ The **Discord event** has no settings of its own.
 
 ### Open the instance
 
-Shown while the **Open the instance** chip is on. It needs a world.
+Shown while the **Open the instance** chip is on. It needs a world, or a world list.
 
 | Field | Notes |
 |---|---|
@@ -382,6 +387,8 @@ The form shows what is wrong, for example:
 - **The picture link must start with https://.** or **The picture link points at a private address.**
 - **Pick a channel to post to.**
 - **Pick a world to open the instance in.**
+- **That world list has no worlds.** Add worlds to it on the [World lists](/moderation/world-lists)
+  page first, or save the event as a draft.
 - **That event has already ended.** You tried to schedule an event whose last time is already over.
 
 ## VRChat's group calendar
@@ -602,7 +609,8 @@ The feed lists every event that is **Scheduled** or **Open**. For each one:
 - the title and description;
 - the start and end, in the event's time zone;
 - the repeat and last date, so calendar apps show every time it happens;
-- the world's name as the location.
+- the world's name as the location. A repeating event is one entry in the feed, so for one that picks
+  from a world list, the location is the world of its next date.
 
 The calendar is named after your managed group, or **Modbot** if none is set.
 
@@ -691,6 +699,7 @@ entries (you need **See the operational log** to see them):
 | **Event published** | A place has the event now: VRChat's calendar, the Discord event, the channel post, or the message that it is cancelled. Written once when it first gets there, not for every edit after. |
 | **Event taken down** | A place that had the event no longer has it, after a cancel, a delete or turning it off. Not written for a place the event never reached. |
 | **Calendar feed link replaced** | Someone made a feed link, or a new one. |
+| **World picked for an event** | A world was picked from the event's [world list](/moderation/world-lists): by Modbot for a date, with **Pick again**, or with **Next game**. |
 
 For events read from VRChat, the entries say so instead of naming a person: *Modbot added the event
 “…” from VRChat's calendar*, *The event “…” was changed on VRChat: …* and *The event “…” was

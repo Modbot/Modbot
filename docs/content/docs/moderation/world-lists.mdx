@@ -1,0 +1,123 @@
+---
+title: World lists
+description: Keep lists of worlds in Modbot, let an event pick its world from one, and use Next game during a game night to pick the next world that fits how many people are there.
+---
+
+A **world list** is a name and some worlds, for example **Game night**: Prop Hunt, Murder 4,
+Among Us. Each world can say the fewest and most players its game is for.
+
+An event on the [Calendar](/moderation/calendar) can take its world from a list instead of one world.
+Modbot then picks a world for each date, and during the event **Next game** picks the next one that
+fits the people there.
+
+World lists live in Modbot only. Nothing is read from or written to your VRChat favourites.
+
+## Who can use it
+
+| To do this | You need |
+|---|---|
+| See the **World lists** page, and **Next game** during an event | [**See calendar**](/accounts/roles-and-permissions#see-calendar) |
+| Make, change and delete lists; **Pick again**; **Next game** and **Pick another** | [**Manage calendar**](/accounts/roles-and-permissions#manage-calendar) and **See calendar** |
+
+Without **See calendar**, **World lists** does not appear in the sidebar. Without **Manage
+calendar**, the page is read-only and **Next game** shows the world picked last, with no buttons.
+
+## The page
+
+**World lists** is in the sidebar, under **Community**, after **Calendar**. Each list shows its name,
+how many worlds it has, the events that pick from it, and its worlds: picture, name (click it for the
+[world popup](/moderation/popups#world-popup)) and players, such as **4–10**, **2+** or **up to 8**.
+**—** means any number.
+
+### Making a list
+
+Click **New list**, or **Edit** on a list.
+
+- **Name**: up to 100 characters.
+- **Worlds**: type in the box under the worlds. As you type, worlds Modbot already knows (from your
+  group's instances, or anyone a moderator's client saw) are listed; click one to add it. To add a
+  world Modbot does not know yet, paste its link from vrchat.com (for example
+  `https://vrchat.com/home/world/wrld_…`) or its id, and click **Add** (or press Enter).
+- **Fewest players** and **Most players**: both optional, at least 1. Leave a box empty for no limit
+  on that side.
+- The **×** on a row takes the world out.
+
+Click **Save**. A list can hold up to 500 worlds.
+
+When you add a world Modbot has never seen, it asks VRChat about that world once, so its name and
+picture show. If VRChat is busy, the world is added by its id and Modbot fills in the name within a
+few minutes. If VRChat says there is no such world, the form says **VRChat has no world with that
+id.**
+
+### Deleting a list
+
+**Delete** asks first. A list that a draft, scheduled or open event picks from cannot be deleted
+(**Delete** is greyed out); change those events to another world or list first. Finished and
+cancelled events keep the last world they had.
+
+## An event that picks from a list
+
+In the event form, under **Where**, set **World** to **Pick from a list**, then choose the **World
+list**. Everything else about the event works as usual.
+
+### When the world is picked
+
+Modbot picks the world for a date **when that date becomes the event's next one**:
+
+- for a one-off event, or the first date, when you click **Schedule**;
+- for a repeating event, as soon as the date before it ends.
+
+From then on that date's world is on the Discord event, the channel post and the calendar feed, and
+it is the world the instance opens in. VRChat's own calendar has no world, so it shows nothing
+different. Later dates show the list's name until their turn comes.
+
+Modbot never changes a date's world by itself. Moving the event to another time keeps the same world.
+Changing the event to another list picks again from the new list.
+
+### Pick again
+
+Open the event on the calendar. Beside **World list**, **Pick again** (with **Manage calendar**) puts
+the date's world back and takes the next one. It is there while the date is **Scheduled**; once the
+event is **Open**, use **Next game** instead.
+
+### How Modbot picks
+
+Each event shuffles its list, then goes through the whole list before any world comes round again.
+When every world has been played, it shuffles again, and the new round never starts with the world
+just played. A world added to the list joins the current round; a world taken out is never picked
+again. The shuffle is saved, so a restart carries on where it was.
+
+Each event has its own shuffle: two events using the same list do not share one.
+
+## Next game
+
+While an event that picks from a list is **Open**, the event box on the calendar shows **Next game**.
+So does the [instance popup](/moderation/popups#instance-popup) of the event's instance.
+
+- **People now** is how many people are in the event's instance right now, from the group's instance
+  list Modbot already reads. It is the instance Modbot opened for the event, or the newest group
+  instance opened during the event in one of its picked worlds. From the instance popup, it is that
+  instance.
+- **Next game** picks the next world in the shuffle that has not been played this round and whose
+  players fit **People now**. A world with no players set fits any number. When Modbot does not know
+  how many people are there, players are ignored.
+- **Pick another** puts the shown world back and picks the next one after it that fits.
+- The picked world shows with its picture, name and players, and a **vrchat.com** link to its page.
+- When nothing fits: **No world fits 7 people.** (or **No other world fits 7 people.** after **Pick
+  another**). Nothing is recorded then.
+
+**Next game** never opens an instance. Open the next world yourself in VRChat.
+
+## In the audit log
+
+With the operational entries (you need **See the operational log**):
+
+| Entry | When |
+|---|---|
+| **World list made** | Someone made a list. |
+| **World list changed** | Someone renamed it, or added, took out or changed worlds. |
+| **World list deleted** | Someone deleted it. |
+| **World picked for an event** | A world was picked: by Modbot for a date, by someone with **Pick again**, or by someone with **Next game** or **Pick another**. Says the world, the list, and the world it replaced. |
+
+None of these hold anything about your members, so a
+[purge](/moderation/purge) has nothing to remove from them.

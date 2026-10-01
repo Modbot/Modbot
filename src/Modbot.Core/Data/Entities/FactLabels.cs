@@ -152,6 +152,10 @@ public static class FactLabels
         [FactType.PlannedEventPublished] = "Event published",
         [FactType.PlannedEventTakenDown] = "Event taken down",
         [FactType.CalendarFeedRegenerated] = "Calendar feed link replaced",
+        [FactType.CalendarWorldPicked] = "World picked for an event",
+        [FactType.WorldListCreated] = "World list made",
+        [FactType.WorldListChanged] = "World list changed",
+        [FactType.WorldListDeleted] = "World list deleted",
 
         [FactType.GiveawayCreated] = "Giveaway created",
         [FactType.GiveawayChanged] = "Giveaway changed",

@@ -37,7 +37,7 @@ the access the event names — never public by default, and never for an event n
 | Title, description | Title up to 100 characters (Discord's limit for an event name), description up to 1000. An event going to VRChat needs a description: VRChat answers an empty one with a 400 (seen 2026-09-25). A draft may stay empty until it is published. |
 | Start, end, time zone | Stored as the first start and end (UTC instants) plus an IANA time zone. The time zone is what keeps a weekly 20:00 event at 20:00 through daylight-saving changes. |
 | Repeat | `none`, `daily`, `weekly` on chosen days, or `monthly` on the same day of the month. An optional last date. **The rule is stored, not the occurrences.** A monthly event on the 31st skips months without one, the same as iCalendar. |
-| World | Picked from worlds Modbot knows, or typed as an id. Never checked for shape (foundation §3.1.1). |
+| World | Picked from worlds Modbot knows, or typed as an id. Never checked for shape (foundation §3.1.1). Or picked from a world list, date by date (world lists design, added 2026-10-01): `WorldId` is then the current date's pick. |
 | Instance access, region | `members`, `plus` or `public`; `us`, `use`, `eu` or `jp`. |
 | Image | A picture link for Discord, and optionally a VRChat file id for VRChat's calendar. Modbot does not upload files to VRChat — that endpoint has no rate limit set. |
 | VRChat calendar fields | Category, languages, platforms, tags, who can see it (`group` or `public`), and whether VRChat notifies group members. Exactly the fields `CreateCalendarEventRequest` has that make sense to set. |
