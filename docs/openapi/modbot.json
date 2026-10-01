@@ -4993,7 +4993,7 @@
           "AI settings"
         ],
         "summary": "Get AI chat settings",
-        "description": "Chat's on/off switch, model, extra instructions, limits and tools.\n\nNeeds the `ManageSettings` permission.",
+        "description": "Chat's on/off switch, the AI brief switch, model, extra instructions, limits and tools.\n\nNeeds the `ManageSettings` permission.",
         "operationId": "GetAiChatSettings",
         "responses": {
           "200": {
@@ -12685,6 +12685,258 @@
         ]
       }
     },
+    "/api/briefs/instances/{id}": {
+      "post": {
+        "tags": [
+          "Briefs"
+        ],
+        "summary": "Brief me on an instance",
+        "description": "A summary, written by the Chat model, of what the audit log recorded in one instance: the newest 100 entries the instance popup's Activity tab shows you, in one call with no tools. Each line of `text` ends with the entry ids it rests on, in square brackets; `sources` lists the cited ids that were among the entries sent, and `builtFrom` says what it was built from. No opinions, recommendations, scores or reasons.\n\nNeeds AI on, Chat on and AI briefs on (Settings → AI → Chat), and Use AI chat, See analytics and See the audit log. Counted, limited and logged as a Chat call; the call log keeps what was sent and what came back. With nothing recorded the model is not asked and `text` is null. 409 when briefs are off or AI is not set up, 429 at a spend limit or the monthly allowance, 502 when the provider did not answer.\n\nNeeds the `ViewAnalytics` and `ViewAuditLog` and `UseAiChat` permissions.",
+        "operationId": "WriteInstanceBrief",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/InstanceBriefRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefView"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/briefs/people": {
+      "post": {
+        "tags": [
+          "Briefs"
+        ],
+        "summary": "Brief me on a person",
+        "description": "A summary, written by the Chat model, of what the audit log recorded about one person: the newest 100 entries the person popup's Activity tab shows you, about or by any of their VRChat, Discord and Modbot accounts, in one call with no tools. Give exactly one of `vrchatUserId`, `discordUserId` or `accountId`, as for `GET /api/people/lookup`. The answer is shaped as for an instance's brief.\n\nNeeds AI on, Chat on and AI briefs on, and Use AI chat; which entries are read follows your audit log permissions. A brief that read people records `modbot.chat.lookup` with `via: brief`, as a Chat question does.\n\nNeeds the `UseAiChat` permission.",
+        "operationId": "WritePersonBrief",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonBriefRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BriefView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
+    "/api/briefs/{callId}/note": {
+      "post": {
+        "tags": [
+          "Briefs"
+        ],
+        "summary": "Save a brief as a note",
+        "description": "Saves one of your person briefs as a note about that person, marked `writtenByAi`. The server writes the note: the brief's text as the call log holds it, a blank line, and its `builtFrom` line. `callId` is the brief's own; a brief about an instance, one somebody else asked for, or one that did not answer is 404, and a brief already saved is 409. Needs Write notes.\n\nNeeds the `WriteNotes` permission.",
+        "operationId": "SaveBriefAsNote",
+        "parameters": [
+          {
+            "name": "callId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in, or the API key is not valid."
+          }
+        },
+        "security": [
+          {
+            "apiKey": [ ]
+          },
+          {
+            "session": [ ]
+          }
+        ]
+      }
+    },
     "/api/webhooks": {
       "get": {
         "tags": [
@@ -14830,7 +15082,7 @@
           "Notes"
         ],
         "summary": "Add a note",
-        "description": "The text is stored and shown as text, never as markup, and is at most 2000 characters. The note is one fact in the moderation log, so it shows in the person's history and can be read by anyone who may read that log.\n\nNeeds the `WriteNotes` permission.",
+        "description": "The text is stored and shown as text, never as markup, and is at most 2000 characters. The note is one fact in the moderation log, so it shows in the person's history and can be read by anyone who may read that log. An AI brief is saved with `POST /api/briefs/{callId}/note` instead.\n\nNeeds the `WriteNotes` permission.",
         "operationId": "WriteNote",
         "requestBody": {
           "content": {
@@ -19380,7 +19632,8 @@
           "maxReplyTokens",
           "timeLimitSeconds",
           "aiEnabled",
-          "tools"
+          "tools",
+          "briefs"
         ],
         "type": "object",
         "properties": {
@@ -19437,6 +19690,9 @@
             "items": {
               "$ref": "#/components/schemas/AiChatToolView"
             }
+          },
+          "briefs": {
+            "type": "boolean"
           }
         }
       },
@@ -19499,6 +19755,12 @@
             "additionalProperties": {
               "type": "boolean"
             }
+          },
+          "briefs": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -22260,6 +22522,67 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "BriefView": {
+        "required": [
+          "text",
+          "sources",
+          "entries",
+          "newest",
+          "builtFrom",
+          "callId",
+          "model"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int64"
+            }
+          },
+          "entries": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "newest": {
+            "type": "boolean"
+          },
+          "builtFrom": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "callId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -30840,6 +31163,17 @@
           }
         }
       },
+      "InstanceBriefRequest": {
+        "type": "object",
+        "properties": {
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "InstanceCoverage": {
         "required": [
           "windowDays",
@@ -34443,6 +34777,10 @@
           },
           "canTakeBack": {
             "type": "boolean"
+          },
+          "writtenByAi": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -35189,6 +35527,36 @@
               "string"
             ],
             "format": "date-time"
+          }
+        }
+      },
+      "PersonBriefRequest": {
+        "type": "object",
+        "properties": {
+          "vrChatUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discordUserId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "accountId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "timeZone": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -38158,6 +38526,10 @@
               "string"
             ],
             "format": "int32"
+          },
+          "briefsOn": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -41848,6 +42220,10 @@
       "name": "Search",
       "description": "Search for people and worlds by name or id.",
       "x-displayName": "Search"
+    },
+    {
+      "name": "Briefs",
+      "x-displayName": "Briefs"
     },
     {
       "name": "Lists",
