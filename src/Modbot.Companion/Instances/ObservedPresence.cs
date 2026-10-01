@@ -58,3 +58,9 @@ public sealed record ObservedPresence(
     string? DisplayName,
     InstanceLocation Instance,
     string? AvatarName = null);
+
+/// <summary>One person in the moderator's instance, as the log last described them.</summary>
+/// <param name="UserId">Their VRChat id. Opaque; never validated for shape.</param>
+/// <param name="DisplayName">The name the log gave them.</param>
+/// <param name="AvatarName">The avatar the log last said they were wearing, or null when it has not said.</param>
+public sealed record PersonHere(string UserId, string DisplayName, string? AvatarName);

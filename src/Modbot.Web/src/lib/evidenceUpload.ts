@@ -67,10 +67,15 @@ export async function send(
   return { uploadId: ticket.uploadId, expectedHash, name: file.name }
 }
 
-/** Phase 3: commit, naming the case file. */
-export async function attach(sent: Sent, reportId: string, onProgress: (progress: Progress) => void): Promise<void> {
+/** Phase 3: commit, naming the case file, and the saved clip the file is when it is one. */
+export async function attach(
+  sent: Sent,
+  reportId: string,
+  onProgress: (progress: Progress) => void,
+  clipId: number | null = null,
+): Promise<void> {
   onProgress({ phase: 'committing' })
-  await api.commitEvidenceUpload(sent.uploadId, sent.expectedHash, reportId)
+  await api.commitEvidenceUpload(sent.uploadId, sent.expectedHash, reportId, clipId)
   onProgress({ phase: 'done', name: sent.name })
 }
 

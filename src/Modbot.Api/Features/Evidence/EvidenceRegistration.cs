@@ -78,6 +78,7 @@ public static class EvidenceRegistration
         // ten minutes, not once per request.
         services.AddSingleton<EvidenceViewThrottle>();
         services.AddScoped<EvidenceAttachments>();
+        services.AddScoped<SavedClips>();
 
         return services;
     }

@@ -467,9 +467,16 @@ public sealed class CaseFileService
         var canViewEvidence = caller.Has(ModbotPermissions.ViewEvidence);
 
         IReadOnlyList<EvidenceObjectView>? evidence = null;
+        IReadOnlyList<SavedClipView>? clips = null;
         if (canViewEvidence)
         {
             evidence = await EvidenceOfAsync(row.Id.ToString(), ct);
+
+            // Clips moderators' companions said they saved while this person was there, that this
+            // case file does not hold yet. Only their fingerprints are on the server; the files are
+            // on those moderators' PCs until somebody attaches one (clips design spec §16).
+            var held = evidence.Where(e => e.TakenOffAt is null).Select(e => e.Hash).ToHashSet(StringComparer.Ordinal);
+            clips = await new SavedClips(_db).NearAsync(row, held, ct);
         }
 
         var newer = NewerProfileExists(row.ProfileRefreshedAt, user?.LastRefreshedAt);
@@ -512,7 +519,8 @@ public sealed class CaseFileService
             canViewEvidence,
             now,
             canViewEvidence && caller.Has(ModbotPermissions.DestroyEvidence),
-            await LiftOfAsync(row, ct));
+            await LiftOfAsync(row, ct),
+            clips);
     }
 
     /// <summary>
@@ -536,10 +544,21 @@ public sealed class CaseFileService
             .GroupBy(h => h.Attachment.Hash)
             .ToDictionary(g => g.Key, g => g.Max(h => h.Attachment.TakenOffAt), StringComparer.Ordinal);
 
-        return held
+        var views = held
             .Where(h => h.Attachment.IsOn || latestOff.GetValueOrDefault(h.Attachment.Hash) == h.Attachment.TakenOffAt)
             .Select(h => EvidenceViews.Of(h.Blob, h.Attachment))
             .ToList();
+
+        // A clip says which world it was saved in by name where Modbot knows the name.
+        if (views.Any(v => v.Clip is not null))
+        {
+            var names = await new SavedClips(_db).WorldNamesAsync(views.Select(v => v.Clip?.WorldId), ct);
+            views = [.. views.Select(v => v.Clip is { WorldId: { } world } clip && names.TryGetValue(world, out var name)
+                ? v with { Clip = clip with { WorldName = name } }
+                : v)];
+        }
+
+        return views;
     }
 
     public async Task<CaseFileListResponse> ListAsync(

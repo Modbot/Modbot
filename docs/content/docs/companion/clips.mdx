@@ -19,7 +19,9 @@ a recording of a conversation sitting on your disk until you delete it. Worth kn
 turn it on rather than after.
 
 What has **not** changed is the other half of that promise: nothing the companion records ever
-leaves your PC. There is no upload path in the client and it did not gain one.
+leaves your PC. There is no upload path in the client and it did not gain one. Since 1 October 2026
+a separate box, off until you tick it, can tell your group's Modbot **that** you saved a clip, with
+the file's fingerprint — see [telling your group a clip exists](#telling-your-group-a-clip-exists).
 
 It records **VRChat's window** and **VRChat's sound**, not your screen and not your speakers. The
 sections below say exactly what that does and does not keep out.
@@ -32,7 +34,9 @@ While it is off there is no recorder at all — no recording, no sound, no video
 thread, and nothing written anywhere.
 
 **Settings** → **Clips** → **Keep the last few minutes, with VRChat's sound** is the whole of the
-consent. **Discord's sound too** is a second box beside it, and it is off as well.
+consent. **Discord's sound too** is a second box beside it, and it is off as well. **Tell the
+group's Modbot when I save a clip** is the third, and it is off too; it records nothing, and is
+[below](#telling-your-group-a-clip-exists).
 
 ## What is recorded
 
@@ -286,33 +290,76 @@ Video is large, so three things bound it:
 Only `.mp4` files the companion wrote are ever counted or deleted. Your own videos sitting in the
 same folder are not Modbot's to touch.
 
-## What leaves your PC: nothing
+## What leaves your PC: never the clip
 
-**No clip, no frame of one, no second of its sound, and not even the fact that a clip exists is sent
-anywhere.** Not to the Modbot server you paired with. Not to Modbot Cloud. Not to us.
+**No clip, no frame of one and no second of its sound is sent anywhere.** Not to the Modbot server
+you paired with. Not to Modbot Cloud. Not to us.
 
 The companion has no way to upload a file and did not gain one for this. The token it holds after
 pairing can submit what it observes and read what the overlay needs, and nothing else — it cannot
-attach anything to anything.
+attach anything to anything, and it cannot read anything that is attached.
 
 So a clip is a file on your PC, and it stays one until you do something with it.
 
+Until 1 October 2026 not even the fact that a clip existed left your PC. It still does not, unless
+you tick the box below.
+
+## Telling your group a clip exists
+
+**Settings** → **Clips** → **Tell the group's Modbot when I save a clip**. Off until you tick it.
+
+Ticked, when you save a clip **in one of your group's instances**, the companion tells that group's
+Modbot — and nobody else — one thing: *this moderator saved a clip here, at this moment, and this is
+its fingerprint*. Exactly these fields:
+
+| Sent | Not sent |
+|---|---|
+| Your VRChat user id and display name | The clip, any picture from it, any of its sound |
+| The world and the instance | The clip's file name, or where it is on your PC |
+| When you pressed **Save a clip** | Anything at all about a clip saved outside your group's instances |
+| The file's SHA-256 and its size | Anything to Modbot Cloud |
+
+A SHA-256 is a fingerprint: 64 characters worked out from every byte of the file. The same file
+always gives the same fingerprint and any other file gives a different one, and nothing about the
+video can be worked out from it. It is worked out once, on your PC, after the clip is written.
+
+What your group gets from it:
+
+- **The instance's audit log** says "Alex saved a clip in The Black Cat #98874 on their PC. It was
+  not uploaded."
+- **The case file** of anybody who was in that instance then lists it — *Clip saved on Alex's PC at
+  9:14 PM (not uploaded)* — with an **Attach** beside it. See below.
+- **When the clip is attached, Modbot knows it is the clip** rather than any video somebody chose,
+  because its fingerprint matches. It keeps where and when it was saved, and whose PC it came from,
+  with the file.
+
+The companion's **Audit Log** page shows the line it sent, the same as every other event. Pausing a
+server stops this too: a paused server hears nothing.
+
 ## Attaching a clip to a ban, a kick or a case
 
-Exactly the way you attach anything else: open the case in Modbot's web app and
-[choose the file](/moderation/evidence). `video/mp4` is already an accepted kind of evidence, so a
-saved clip needs nothing special.
+In Modbot's web app, in your browser, signed in as yourself — never by the companion.
 
-The companion names each clip after [the world, the instance and the moment](#what-a-clip-is-called),
-so the right one is easy to find, and it writes a line into the companion's own **Audit Log** page
-saying a clip was saved and that it is on this PC only.
+**If you ticked the box**, open the case file. Under **Evidence**, each clip saved while that
+person was in the instance has a line of its own: *Clip saved on Alex's PC at 9:14 PM (not
+uploaded)*, with the instance and the file's size. Press **Attach** and choose the clip from your
+clips folder; the file's name has [the world, the instance and the moment](#what-a-clip-is-called)
+in it, so it is easy to find. Modbot checks the file's fingerprint against the one your companion
+sent. The right file is attached and marked as a clip, with where and when it was saved. Any other
+file is refused, and nothing is attached.
+
+**If you did not**, attach it the way you attach anything else: [choose the file](/moderation/evidence).
+`video/mp4` is an accepted kind of evidence, so a saved clip needs nothing special.
+
+Either way the companion writes a line into its own **Audit Log** page saying a clip was saved.
 
 <Callout title="The companion does not do this for you">
-There is no "record automatically when you ban somebody". A ban or a kick taken in Modbot never
-reaches the companion — the only things a server pushes to a client are who joined and who left —
-and giving a background client a credential that could upload video into your group's evidence
-store would make a stolen token far more dangerous than it is. Pressing **Save a clip** is the
-deliberate act, and choosing the file in a browser is the other one.
+There is no "record automatically when you ban somebody", and the companion never uploads. A ban or
+a kick taken in Modbot never reaches the companion — the only things a server pushes to a client
+are who joined and who left — and giving a background client a credential that could upload video
+into your group's evidence store would make a stolen token far more dangerous than it is. Pressing
+**Save a clip** is the deliberate act, and choosing the file in a browser is the other one. The
+fingerprint only lets Modbot recognise the file once you do.
 </Callout>
 
 ## What it costs while you are playing

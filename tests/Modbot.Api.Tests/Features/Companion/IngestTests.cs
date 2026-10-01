@@ -497,6 +497,69 @@ public class IngestTests
         Assert.Equal("39911", fact.InstanceId);
     }
 
+    private const string ClipHash = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+
+    private static CompanionEventDto ClipSaved(string? hash = ClipHash, string? bytes = "52428800", string subject = "usr_mod")
+    {
+        var data = new Dictionary<string, string> { ["displayName"] = "Alex", ["fileName"] = "The Black Cat.mp4" };
+        if (hash is not null)
+            data["clipHash"] = hash;
+        if (bytes is not null)
+            data["clipBytes"] = bytes;
+
+        return Event(type: "ClipSaved", subject: subject) with { Data = data };
+    }
+
+    /// <summary>
+    /// A saved clip is a fact about the moderator with the file's fingerprint, and nothing else
+    /// about the file: a field the protocol does not declare, like a file name, is dropped.
+    /// </summary>
+    [Fact]
+    public async Task ASavedClipIsRecordedWithItsFingerprintOnly()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var result = await PostAsync(host, token, Batch(ClipSaved()), ct);
+
+        Assert.Equal(1, result.Accepted);
+        Assert.Empty(result.Rejected);
+
+        await using var context = _db.NewContext();
+        var fact = context.Events.Single(e => e.SubjectId == "usr_mod");
+        Assert.Equal(Core.Data.Entities.FactType.InstanceClipSaved, fact.Type);
+        Assert.Equal("39911", fact.InstanceId);
+
+        using var data = JsonDocument.Parse(fact.Data);
+        Assert.Equal(ClipHash, data.RootElement.GetProperty("clipHash").GetString());
+        Assert.Equal(52428800, data.RootElement.GetProperty("clipBytes").GetInt64());
+        Assert.Equal("Alex", data.RootElement.GetProperty("displayName").GetString());
+        Assert.False(data.RootElement.TryGetProperty("fileName", out var _));
+    }
+
+    /// <summary>The fingerprint is what a later upload is matched against, so one that is not a SHA-256 is refused.</summary>
+    [Theory]
+    [InlineData(null, "100")]
+    [InlineData("not-a-hash", "100")]
+    [InlineData("9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08", "100")]
+    [InlineData(ClipHash, null)]
+    [InlineData(ClipHash, "-5")]
+    [InlineData(ClipHash, "lots")]
+    public async Task ASavedClipWithoutAUsableFingerprintIsRefused(string? hash, string? bytes)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (host, token) = await ReadyAsync(ct);
+        await using var _ = host;
+
+        var result = await PostAsync(host, token, Batch(Event(), ClipSaved(hash, bytes)), ct);
+
+        Assert.Equal(1, result.Accepted);
+        var refused = Assert.Single(result.Rejected);
+        Assert.Equal(1, refused.Index);
+        Assert.Equal("malformed_event", refused.Reason);
+    }
+
     /// <summary>
     /// The People page's "Last seen by Modbot" and the audit log agree the moment the report is
     /// in: the row moves as the fact is written, not on the profile sync's next pass (which this

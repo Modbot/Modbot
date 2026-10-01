@@ -111,7 +111,6 @@ public class CompanionSourceGuardTests
     [InlineData("System.Diagnostics.Process", "the client does not attach to, inspect or launch processes itself -- the installer's own updater is started by Velopack, from Updates.cs only (see TheOnlyFileThatTalksToTheInstallerIsUpdatesCs)")]
     [InlineData("localconfig.vdf", "the client does not read Steam's configuration -- M3 2.3.1")]
     [InlineData("GetAsyncKeyState", "the client does not read the keyboard")]
-    [InlineData("Clipboard", "the client does not read the clipboard")]
     public void TheClientDoesNotDoTheThingsThatWouldMakeItAnActualInfostealer(string forbidden, string why)
     {
         // The client is, feature for feature, shaped like spyware: it runs unattended on a personal
@@ -123,6 +122,42 @@ public class CompanionSourceGuardTests
             .ToList();
 
         Assert.True(offenders.Count == 0, $"{why}; found in {string.Join(", ", offenders)}");
+    }
+
+    /// <summary>The one file allowed to name the clipboard: the Log page's Copy crash details.</summary>
+    private const string ClipboardFile = "MainWindow.Crash.cs";
+
+    /// <summary>Every way Avalonia offers to read what is on the clipboard.</summary>
+    private static readonly Regex ReadsTheClipboard = new(
+        @"\b(GetTextAsync|TryGetTextAsync|GetDataAsync|TryGetDataAsync|GetFormatsAsync|GetDataFormatsAsync|TryGetInProcessDataObjectAsync)\b",
+        RegexOptions.Compiled);
+
+    [Fact]
+    public void TheOnlyFileThatTouchesTheClipboardIsMainWindowCrashCsAndItOnlyWrites()
+    {
+        // This ban used to be total: "the client does not read the clipboard". It is narrowed by
+        // exactly one file, for Copy crash details (clips design spec §16.3), and only in the
+        // direction that cannot take anything: the text is put on the clipboard when a moderator
+        // presses the button, and nothing anywhere in the client reads what is already there.
+        var naming = EverythingTheClientShips()
+            .Where(f => File.ReadAllText(f).Contains("Clipboard", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .Order()
+            .ToList();
+
+        Assert.Equal([ClipboardFile], naming);
+
+        var reading = EverythingTheClientShips()
+            .Where(f => ReadsTheClipboard.IsMatch(File.ReadAllText(f)))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        Assert.True(reading.Count == 0, $"the client does not read the clipboard; found in {string.Join(", ", reading)}");
+
+        var crash = File.ReadAllText(EverythingTheClientShips().Single(f => Path.GetFileName(f) == ClipboardFile));
+        Assert.Contains("SetTextAsync", crash, StringComparison.Ordinal);
+        Assert.Matches(ReadsTheClipboard, "var text = await clipboard.GetTextAsync();");
+        Assert.DoesNotMatch(ReadsTheClipboard, "await clipboard.SetTextAsync(text);");
     }
 
     /// <summary>The same ban, written so importing the namespace does not walk around it.</summary>

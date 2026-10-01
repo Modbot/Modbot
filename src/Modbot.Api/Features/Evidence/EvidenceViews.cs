@@ -24,7 +24,8 @@ internal static class EvidenceViews
         blob.DestroyedReason,
         attachment.AttachedAt,
         attachment.TakenOffAt,
-        attachment.TakenOffByName);
+        attachment.TakenOffByName,
+        ClipOf(blob));
 
     /// <summary>A file on its own, with nothing said about where it is.</summary>
     public static EvidenceObjectView Of(EvidenceBlob blob) => new(
@@ -39,5 +40,11 @@ internal static class EvidenceViews
         blob.IsDestroyed,
         blob.DestroyedAt,
         blob.DestroyedBy,
-        blob.DestroyedReason);
+        blob.DestroyedReason,
+        Clip: ClipOf(blob));
+
+    /// <summary>Where and when the file was saved as a clip, or null when it was not.</summary>
+    private static EvidenceClipView? ClipOf(EvidenceBlob blob) => blob.ClipSavedAt is { } savedAt
+        ? new EvidenceClipView(savedAt, blob.ClipWorldId, blob.ClipInstanceId, blob.ClipSavedById, blob.ClipSavedByName)
+        : null;
 }

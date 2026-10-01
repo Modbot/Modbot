@@ -125,7 +125,7 @@ The window has six pages:
 | **Servers** | Each paired server, whether it is reporting, and the pairing controls. See [Pairing](/companion/pairing). |
 | **Audit Log** | Every event the client has handled, newest first — one line each, with the group it was for and whether it was **sent**, **waiting**, **withheld** or **failed**. Events held back, for example while paused, are listed too, along with notes such as "Paused" or "Resumed reporting". An event that was for no paired server has the time and the sentence and nothing else. It shows the latest 200 events and keeps 1,500 lines on disk. |
 | **SteamVR** | Whether the [overlay](/companion/overlay) is attached to SteamVR, what it is showing, how many frames it has drawn, and where the panel sits. **Look for SteamVR now** attaches without waiting for the next ten-second look. |
-| **Log** | What the client makes of VRChat's log: **lines seen**, **lines Modbot looks at** and **recognised**. You can open the same file in Notepad and check the counts. |
+| **Log** | What the client makes of VRChat's log: **lines seen**, **lines Modbot looks at** and **recognised**. You can open the same file in Notepad and check the counts. Also **Copy crash details**: see [below](#crash-details). |
 | **Settings** | The client's switches, the voice and the VRChat log folder. See [Client settings](/companion/settings). |
 | **Credits** | Sponsors, early adopters and contributors, read from Modbot Cloud. See [Credits in the client](/companion/credits). |
 
@@ -133,6 +133,30 @@ The line at the bottom of the sidebar says **reading VRChat's log**, **VRChat no
 **log not recognised**. It says **reading VRChat's log** while you are alone in a world too: the
 **Log** page adds "Nothing has happened in a while", and that is not a problem. Nobody joining or
 leaving is nothing to report, not a fault.
+
+### Crash details
+
+When somebody crashes an instance, VRChat's staff ask for the instance, the people in it, what they
+were wearing, and VRChat's own log. **Log** → **Copy crash details** puts all of that on your
+clipboard as one block of text, ready to paste into a [VRChat Help Desk](https://help.vrchat.com)
+ticket:
+
+- the world and the instance, written the way VRChat writes an instance's address,
+- everybody the log says was in the instance, with their VRChat user id and the name of the avatar
+  the log last saw them wearing (VRChat's log never has another person's avatar id, so the name is
+  all there is),
+- VRChat's own `[Behaviour]` log lines from the ten minutes before the log's last line, at most 400
+  of them.
+
+Press it **before you start VRChat again**: a new VRChat session starts a new log, and the companion
+forgets the old instance when it does. The times are your PC's own clock, and the text says which
+timezone that is.
+
+**Nothing is sent.** The text goes onto your clipboard and nowhere else — not to your group's
+Modbot, not to Modbot Cloud, not to VRChat. Where it goes next is wherever you paste it. The secret
+part of an instance's address is taken out of every line first. The companion never reads what is
+already on your clipboard; this button is the only thing in it that touches the clipboard at all,
+and only to write.
 
 ### Keyboard shortcuts
 
@@ -203,13 +227,16 @@ those people are still in there and nothing later in the log would ever name the
 not running, nothing is sent at all.
 
 It does not read chat, your friends list, your screenshots folder, the clipboard, the keyboard or
-which other programs are running. It does not read Steam's settings. It has no way to attach files
+which other programs are running. (It writes to the clipboard once, when you press
+[**Copy crash details**](#crash-details), and never reads it.) It does not read Steam's settings. It has no way to attach files
 to a case: you do that in the web app, by choosing a file.
 
 One thing it **can** do, and only if you switch it on: [**Clips**](/companion/clips) keeps the last
 two to five minutes of **VRChat's window and VRChat's sound** while VRChat is running, so you can
 save those minutes as a video file. It is **off** unless you turn it on, it records nothing while
-VRChat is not running, and **nothing it records ever leaves your PC**. Anything drawn on top of
+VRChat is not running, and **nothing it records ever leaves your PC**. A separate box, also off,
+tells your group's Modbot when you save a clip in its instance, with the file's fingerprint — never
+the clip — so the clip can be attached to a case later and recognised as yours. Anything drawn on top of
 VRChat while you are in it — a chat overlay, a notification — is inside VRChat's window and so is
 in the clip; the rest of your screen never is.
 
@@ -228,7 +255,7 @@ so at the top of the window for as long as it is open.
 
 ### What it sends to your group's Modbot
 
-From what it recognises, the client builds five kinds of event:
+From what it recognises, and from what you do in it, the client builds six kinds of event:
 
 | Event | Meaning |
 |---|---|
@@ -237,6 +264,7 @@ From what it recognises, the client builds five kinds of event:
 | Left | Someone left. |
 | Changed avatar | Someone switched avatar. Carries the avatar's name. |
 | Log stopped | VRChat's log stopped growing for about two minutes while you were in an instance. Names you, and is sent once per stop. |
+| Clip saved | You saved a [clip](/companion/clips) in the instance. Names you, and carries the file's SHA-256 and size — never the clip, its name or where it is on your PC. Only sent if you ticked **Tell the group's Modbot when I save a clip**, and never to Modbot Cloud. |
 
 Each event carries a random event id, its type, the time it happened (adjusted to the server's
 clock), the person's VRChat user id and display name, the world id, the instance id and the group
@@ -267,7 +295,8 @@ Everything the client sent to a server is listed on **Audit Log**.
 Unless you turn it off, the client also sends **the same events, for every instance you are in**,
 straight to Modbot Cloud (`https://cloud.modbot.co`) as a backup. That includes public,
 friends-only and private instances, where the group is left empty. It works the same before and
-after you pair, and a paired server has no say in it. It never sends VRChat's raw log, and never
+after you pair, and a paired server has no say in it. **Clip saved** is the one event it never
+backs up: that goes to your group's Modbot or nowhere. It never sends VRChat's raw log, and never
 the secret part of an instance's address.
 
 The backup is not shown in the window. **Audit Log** lists what the client handled and how each

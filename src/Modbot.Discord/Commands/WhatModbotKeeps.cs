@@ -59,6 +59,7 @@ public static class WhatModbotKeeps
             "When you changed avatar, and the avatar's name",
             "Which instance you were in when something happened, and who else was there",
             "Instance kicks and warnings from VRChat's group log, with where they happened",
+            "If you moderate with the companion and turned it on: when you saved a clip there, and its fingerprint",
         ]),
         new("Moderation",
         [

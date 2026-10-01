@@ -68,6 +68,7 @@ public static class FactLabels
         [FactType.AvatarChanged] = "Changed avatar",
         [FactType.InstancePresenceObserved] = "Seen in an instance",
         [FactType.InstanceLogStopped] = "Stopped watching an instance",
+        [FactType.InstanceClipSaved] = "Saved a clip",
 
         [FactType.DiscordMemberJoined] = "Joined Discord",
         [FactType.DiscordMemberLeft] = "Left Discord",

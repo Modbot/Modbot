@@ -6,7 +6,11 @@ public enum EvidenceOriginKind : short
     /// <summary>A moderator chose a file in the web UI.</summary>
     Uploaded = 0,
 
-    /// <summary>Modbot fetched it itself — a profile image at ban time, say.</summary>
+    /// <summary>
+    /// Modbot made it itself: a profile image fetched at ban time, or a clip a moderator's
+    /// companion recorded, recognised by its SHA-256 when it was attached (the <c>Clip…</c> fields
+    /// on <see cref="EvidenceBlob"/> say where and when).
+    /// </summary>
     Captured = 1,
 }
 
@@ -94,4 +98,30 @@ public class EvidenceBlob
     public string? DestroyedReason { get; set; }
 
     public bool IsDestroyed => DestroyedAt is not null;
+
+    /// <summary>
+    /// When the moderator's companion saved this file as a clip, if it is one: set when a file was
+    /// attached as a clip and its SHA-256 matched what that companion reported at the time.
+    /// </summary>
+    /// <remarks>
+    /// <para>Kept on the file rather than on one case file's hold of it, because it is about the
+    /// bytes: these exact bytes are the clip that was saved there, then, whichever case file holds
+    /// them. Kept here rather than read from the fact that reported the clip, because that fact is
+    /// presence and ages out, and "where was this recorded" has to stay answerable as long as the
+    /// file does (clips design spec §16).</para>
+    /// <para>Null for every other file. Set once, by the first matched attach, and never changed.</para>
+    /// </remarks>
+    public DateTimeOffset? ClipSavedAt { get; set; }
+
+    /// <summary>The world the clip was saved in. Opaque.</summary>
+    public string? ClipWorldId { get; set; }
+
+    /// <summary>The instance the clip was saved in, as VRChat named it. Hostile text; display only.</summary>
+    public string? ClipInstanceId { get; set; }
+
+    /// <summary>The VRChat id of the moderator whose companion saved it. Opaque.</summary>
+    public string? ClipSavedById { get; set; }
+
+    /// <summary>Their display name at the time, as their companion reported it. Display only.</summary>
+    public string? ClipSavedByName { get; set; }
 }

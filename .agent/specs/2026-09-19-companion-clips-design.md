@@ -1,6 +1,6 @@
 # Clips: keeping the last few minutes on a moderator's PC
 
-**Status:** built, 2026-09-19. Changed the same day; see below.
+**Status:** built, 2026-09-19. Changed the same day; see below. Narrowed again on 2026-10-01 (§16).
 **Reverses:** M3 client and overlay design §3.1.1 ("Screen capture — forbidden, permanently") and
 §10, and evidence storage design §19 ("No automatic capture of anything").
 
@@ -57,6 +57,19 @@ feature would never take.
 | **The sound is lined up with the picture by counting samples, never a clock.** | §15.4 | A sample lost per picture is a clip whose voices are a second behind the mouths by the time anybody watches it, and the mistake is invisible until then. |
 | **Three promises were narrowed and one was widened.** | §15.6 | "No sound, at all" is gone from the source, the documentation site, the privacy policy and the security page. In its place: two named programs, no microphone, and nothing still leaving the PC. |
 
+## What changed on 2026-10-01: the server may learn a clip exists
+
+§6 said no clip, no frame, *and no fact that a clip exists* leaves the PC. The first two still hold.
+The third is narrowed by §16, behind a box that is off, so a clip saved in a group's instance can be
+listed on the right case files and recognised when a moderator attaches it.
+
+| What changed | Where | Why |
+|---|---|---|
+| **A third box on the Clips card, off: *Tell the group's Modbot when I save a clip*.** | §16.1 | The server never learned a moment was marked, so a case file could not say a clip existed and attaching meant hunting the folder. |
+| **What is sent: who, where, when, and the file's SHA-256 and size.** | §16.1 | The fingerprint is what lets a browser upload be recognised as this clip without the device token ever touching evidence. |
+| **The case file lists clips saved while its person was there, and checks the file on Attach.** | §16.2 | "Clip saved on Alex's PC at 21:14 (not uploaded)", and a matched file kept as captured. |
+| **Copy crash details, on the Log page.** | §16.3 | VRChat's staff ask for the instance, the people, the avatars and the log when somebody reports a crasher. The companion holds all four. Copied, never sent; the clipboard ban narrowed to one write-only file. |
+
 ---
 
 ## 1. What was asked for, and what this is
@@ -91,7 +104,9 @@ What survives, unchanged:
 
 - **Nothing recorded ever leaves the PC.** No clip, no frame, and no fact that a clip exists is sent
   to a paired server, to Modbot Cloud, or anywhere else. The client has no upload path and did not
-  gain one (§6).
+  gain one (§6). *(2026-10-01: "no fact that a clip exists" is narrowed by §16 — behind a box that is
+  off, the group's own server may be told a clip was saved, with its fingerprint. The clip itself
+  still never leaves.)*
 - **Attaching evidence to a case is still a deliberate human action** taken in Modbot's web
   interface, in a browser, by choosing a file.
 - **VRChat's screenshot folder, and Pictures, Documents and the Desktop, stay out of bounds.** The
@@ -423,6 +438,10 @@ and never a crash, because the box is clamped to the monitor before it is used (
 ---
 
 ## 6. When anything leaves the machine: never
+
+*(2026-10-01: narrowed by §16. The clip itself still never leaves. That a clip exists, with its
+fingerprint, now can — to the group's own server, behind a box that is off. Read the rest of this
+section as the reasoning that still decides what the device token can and cannot do.)*
 
 **No clip, no frame, and no fact that a clip exists is sent anywhere.** Not to a paired server, not
 to Modbot Cloud. The client's eight declared outbound senders are unchanged and no ninth was added;
@@ -1212,3 +1231,106 @@ saying so is the price of the feature.
   against Discord, whether half a second of holding is right on a machine under load, and whether
   the mix needs anything but addition are all unknown until somebody plays one back. That is the
   first thing to do with a headset and a build, beside the frame rate §4 has never measured.
+
+---
+
+## 16. Telling the server a clip exists, and crash details *(2026-10-01)*
+
+Task-discovery TASK-046: *"A clip is saved locally with world, instance and time in its name; the
+server never learns a moment was marked, the case page has no idea a clip exists, and attaching means
+finding the file and uploading by hand."* And: VRChat's staff ask for output logs and avatar names to
+act on crashers, and the companion has both in memory.
+
+### 16.1 The boundary, drawn
+
+```
+ moderator's PC                                  group's Modbot server          browser (signed in
+ ────────────────────────────────────────        ─────────────────────          as the moderator)
+ Save a clip ──► clip.mp4 in Modbot Clips ─────────────────────────────────────► chosen in the
+                 │  (never leaves the PC                                         file picker on
+                 │   by any other route)                                         the case file
+                 │                                                                     │
+                 └► SHA-256 + size ──── only if "Tell the group's Modbot" ──►  fact    │
+                     (worked out on        is ticked, only for that group's   clip-saved│
+                      the PC, once)        instance, device token, ingest     │        │
+                                           endpoint, never Modbot Cloud       ▼        ▼
+                                                                    case file lists it ◄─ upload as the
+                                                                    "Clip saved on      moderator, three
+                                                                     Alex's PC (not     phases, clipId;
+                                                                     uploaded)"         hash must match
+
+ Copy crash details ──► clipboard ──► wherever the moderator pastes it (nothing sent by Modbot)
+```
+
+**What leaves the PC, when, as whom:**
+
+| What | When | As whom | To |
+|---|---|---|---|
+| The clip's bytes | Only when the moderator chooses the file in a browser | The moderator, signed in, with **Upload evidence** | Their group's evidence store, through the normal upload |
+| That a clip was saved: moderator id and name, world, instance, time of Save, SHA-256, size | Once the file is on the disk, if the box is ticked and the instance is a paired group's | The device token, on the ingest endpoint, in the next batch | That group's server only. Never Modbot Cloud, never another group |
+| Crash details | Never, by Modbot | — | The clipboard, where the moderator pastes it |
+
+**Off by default, and its own box.** Saving a clip is a deliberate act, but it is not a decision to
+tell anybody, so the telling has its own consent: `clips.tellServer`, false in a fresh install and
+in an updated one. It is the third box on the Clips card and the only thing on the card that sends
+anything. Paused servers hear nothing, as with every event.
+
+**The device token is still ingest-only.** It submits one more kind of fact. It cannot upload, read
+or attach evidence (§6 point 1 and 2 still hold), and a stolen token that invents clip facts gets
+case file entries nobody can attach a file to, because no file hashes to an invented fingerprint by
+accident.
+
+**Why the hash and not a ticket the companion hands the browser.** The task suggested a signed,
+single-use upload ticket passed from the companion to the browser. The only thing the companion can
+sign with is the device token, so a "ticket" would be a server-side record the device creates — a
+new device endpoint and a new table — whose only job is to vouch for a file. The fingerprint already
+does that, better: it names the exact bytes (evidence spec §5.2), it is made once when the clip is
+saved, and replaying it attaches nothing a moderator did not choose. So the clip-saved fact *is*
+the ticket. It is not single-use, on purpose: one clip can show two people, and evidence can sit on
+several case files (evidence spec, holds). Attaching the same clip twice to one case file changes
+nothing, as with any file.
+
+**Why the browser and not the companion.** A browser cannot be handed a file from another program
+without the person choosing it, and the alternatives — a local web server in the companion, or an
+upload credential on the device — are exactly the escalations §6 refused. The attach therefore
+starts on the case file page, with the file picker. The companion does not open the case page:
+it does not know which case file a clip belongs to, and no ban reaches it (§6).
+
+### 16.2 On the server
+
+- **Fact:** `vrchat.instance.clip-saved`, subject the moderator, payload `clipHash`, `clipBytes`,
+  `displayName`. Presence class by prefix, so it ages out with presence. In the audit log (Moderation)
+  as *"Alex saved a clip in The Black Cat #98874 on their PC. It was not uploaded."* — which is the
+  instance popup's Activity tab, the instance's timeline. Counts as a sighting of the moderator.
+- **Case file:** `clips` lists clip-saved facts from a week before the ban (or the case file's
+  writing) to a day after, in instances where the companions' presence reports put the person —
+  a presence fact inside the clip's minutes, or a last known fact before Save that is not a leave,
+  within 24 hours (`ClipsNearAPerson`). A clip the case file already holds is left out. It is a list
+  to choose from, not a verdict.
+- **Attach:** the commit carries `clipId`; the clip's hash becomes the expected hash, so any other
+  file is refused before anything is kept (409, *"That file is not the clip saved on Alex's PC"*).
+  A match marks the blob `Captured` with `clip_*` columns and puts the same in the attach fact
+  (evidence spec §12.4).
+
+### 16.3 Copy crash details
+
+The Log page's **Crash details** card has one button. It builds one block of text from what the
+companion already has: the world and instance as VRChat writes the address (with every qualifier
+the companion kept, which never includes the `nonce`), everybody in the instance by the log with
+their VRChat id and the avatar the log last saw them wearing — arrival burst included, kept apart
+from the avatar-change rule so nothing reported changes — and VRChat's own `[Behaviour]` lines from
+the ten minutes before the log's last line, at most 400, read from the end of the file only when the
+button is pressed, with `~nonce(…)` replaced in every line. It uses the instance as the log last
+described it, not the live one, because the moment a moderator wants it is the moment VRChat stopped
+writing; it goes when VRChat opens a new log.
+
+It is put on the clipboard, and that is the end of it. The client's ban on the clipboard
+(`CompanionSourceGuardTests`) is narrowed by exactly one file, `MainWindow.Crash.cs`, which may
+write text and nothing else; no file may read the clipboard.
+
+### 16.4 What is not built
+
+- **Starting the attach from the companion**, or the companion opening a case file (16.1).
+- **Avatar ids** in crash details. VRChat's log has none for anybody but the moderator.
+- **Clips on the ban dialog.** The list is on the case file page, where attaching happens.
+- **Crash details from an earlier VRChat session.** It reads the log being read now.

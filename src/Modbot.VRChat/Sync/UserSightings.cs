@@ -55,6 +55,10 @@ public static class UserSightings
         // seen by their own report, and the People page said "4h ago" beside an audit log entry
         // from an hour earlier. Not presence: whether they are still there is unknown.
         FactType.InstanceLogStopped,
+
+        // The moderator who saved a clip there, by their own client's report. The same kind of
+        // sighting as the stopped log: they were standing in that instance when they pressed Save.
+        FactType.InstanceClipSaved,
     };
 
     /// <summary>Fact types that mean the person is in an instance right now, or was a moment ago.</summary>

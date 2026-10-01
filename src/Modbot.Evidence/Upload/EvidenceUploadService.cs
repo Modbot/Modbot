@@ -20,6 +20,13 @@ public sealed class EvidenceRejectedException : Exception
     public EvidenceRejectedException() : base("The file was refused.") { }
 
     public ContentRejection Reason { get; } = ContentRejection.NotAllowed;
+
+    /// <summary>
+    /// Whether the refusal is that the bytes did not hash to what was expected, rather than what
+    /// they are. A caller that supplied the expectation itself — a saved clip's fingerprint — says
+    /// so in its own words.
+    /// </summary>
+    public bool WrongHash { get; init; }
 }
 
 /// <summary>
@@ -302,7 +309,10 @@ public sealed class EvidenceUploadService
             throw new EvidenceRejectedException(
                 ContentRejection.NotAllowed,
                 "The stored bytes do not hash to what was expected, so they are not the file that was "
-                + "sent. Nothing was attached.");
+                + "sent. Nothing was attached.")
+            {
+                WrongHash = true,
+            };
         }
 
         if (!verdict.Accepted)

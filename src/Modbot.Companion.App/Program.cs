@@ -59,7 +59,9 @@ namespace Modbot.Companion.App;
 /// download of the voice from GitHub, with nothing attached (see <c>VoiceDownload</c>); what the
 /// voice then says is made and played on this PC and goes nowhere. And once, if you turn Listening
 /// on: one download of the phrase model from GitHub, with nothing attached (see
-/// <c>PhraseDownload</c>).
+/// <c>PhraseDownload</c>). And, only if you tick <strong>Tell the group's Modbot when I save a
+/// clip</strong>: when you save a clip in a group's instance, that group's server is told when,
+/// where, and the file's fingerprint (its SHA-256 and size) — never the clip.
 /// Never chat, never a recorded clip — neither its picture nor its sound — never any other picture
 /// of your screen, never a recording of anything your microphone heard, never keystrokes, never
 /// your friends list and never a list of your processes.</para>
@@ -102,11 +104,15 @@ namespace Modbot.Companion.App;
 /// and both deleted when recording stops or this program quits. Pressing <strong>Save a clip</strong>
 /// moves the older of the two into your Videos folder under <c>Modbot Clips</c>, or wherever you
 /// pointed it.</description></item>
-/// <item><description><strong>What leaves the machine: nothing.</strong> No clip, no frame, and no
-/// fact that a clip exists is sent to a paired server, to Modbot Cloud, or anywhere else. There is
-/// no upload path in this program and it did not gain one. Attaching a clip to a moderation case is
-/// still a deliberate human action taken in Modbot's web interface, in a browser, by choosing a
-/// file.</description></item>
+/// <item><description><strong>What leaves the machine: never the clip.</strong> No clip, no frame
+/// and no second of its sound is sent to a paired server, to Modbot Cloud, or anywhere else. There
+/// is no upload path in this program and it did not gain one. Until 2026-10-01 not even the fact
+/// that a clip exists was sent; now a box on the Clips card, <strong>Tell the group's Modbot
+/// when I save a clip</strong>, off until you tick it, sends the group's own server one line when
+/// you save a clip in its instance: when, where, and the file's SHA-256 and size. Attaching the clip
+/// to a moderation case is still a deliberate human action taken in Modbot's web interface, in a
+/// browser, signed in as yourself, by choosing the file — the fingerprint is how the server
+/// recognises it as the one this PC saved.</description></item>
 /// </list>
 /// One file — <c>ScreenRecording.cs</c> — is allowed to record a picture, one file —
 /// <c>ClipSound.cs</c> — is allowed to record a program's sound, one file — <c>ClipsFolder.cs</c> —
@@ -384,6 +390,13 @@ internal sealed class CompanionHost : IOverlayListener
 
     /// <summary>When Save a clip was last pressed, while the answer is still coming.</summary>
     private DateTimeOffset? _clipAskedAt;
+
+    /// <summary>
+    /// Where and by whom the clip waiting for an answer was saved, when the moderator ticked
+    /// <strong>Tell the group's Modbot when I save a clip</strong> and was in a group's instance.
+    /// Null otherwise, and then nothing is told to anybody.
+    /// </summary>
+    private ClipToTell? _clipToTell;
 
     /// <summary>What the recorder had last saved, and last complained about, when it was pressed.</summary>
     private string? _clipSavedBefore;
@@ -954,6 +967,13 @@ internal sealed class CompanionHost : IOverlayListener
                 _clipSave = new ClipSave(_clock.UtcNow, true);
                 _clipAskedAt = null;
                 AnswerOutLoud(true);
+
+                if (_clipToTell is { } tell)
+                {
+                    _clipToTell = null;
+                    _ = CrashGuard.RunAsync("telling the server a clip was saved", () => TellServerAboutClipAsync(tell, now));
+                }
+
                 return;
             }
 
@@ -961,6 +981,7 @@ internal sealed class CompanionHost : IOverlayListener
             {
                 _clipSave = new ClipSave(_clock.UtcNow, false);
                 _clipAskedAt = null;
+                _clipToTell = null;
                 AnswerOutLoud(false);
                 return;
             }
@@ -971,6 +992,7 @@ internal sealed class CompanionHost : IOverlayListener
 
         _clipSave = new ClipSave(_clock.UtcNow, false);
         _clipAskedAt = null;
+        _clipToTell = null;
         AnswerOutLoud(false);
     }
 
@@ -1032,9 +1054,11 @@ internal sealed class CompanionHost : IOverlayListener
     /// the oldest clips there are deleted if that would put the folder over its limit.
     /// </summary>
     /// <remarks>
-    /// <para>Nothing is sent anywhere. The clip is a file on this PC, and attaching it to a case is
+    /// <para>The clip is never sent anywhere. It is a file on this PC, and attaching it to a case is
     /// a separate, deliberate act in Modbot's web interface — the client has no way to upload one
-    /// (clips design spec §6).</para>
+    /// (clips design spec §6). With <strong>Tell the group's Modbot when I save a clip</strong>
+    /// ticked, the group's server is told that it was saved, with its fingerprint, once the file is
+    /// on the disk (<see cref="TellServerAboutClipAsync"/>, spec §16).</para>
     /// <para>Reached from two places: the button on the Settings page, and the Save a clip control
     /// on the overlay panel, which is the one a moderator wearing a headset can actually press
     /// (clips design spec §11). Both end here, so there is one rule about room, one naming scheme
@@ -1059,6 +1083,7 @@ internal sealed class CompanionHost : IOverlayListener
             // settings screen to read it on.
             _clipSave = new ClipSave(_clock.UtcNow, false);
             _clipAskedAt = null;
+            _clipToTell = null;
             AnswerOutLoud(false);
             Render();
             return;
@@ -1090,8 +1115,65 @@ internal sealed class CompanionHost : IOverlayListener
 
         _recorder.AskToSave(Path.Combine(folder.Path, name));
 
+        // Who and where are taken now, at the press, rather than when the file lands: the clip is
+        // of the minutes before this moment, and the moderator may have walked into another
+        // instance by the time the recorder answers.
+        _clipToTell = settings.TellServer
+            && CurrentInstance is { GroupId: { Length: > 0 } groupId } instance
+            && _engine?.ModeratorId is { Length: > 0 } moderatorId
+                ? new ClipToTell(folder.Path, moderatorId, _engine.ModeratorName, instance.WorldId, instance.InstanceId, groupId, _clock.UtcNow)
+                : null;
+
         _journal?.RecordNote("this PC", $"Saved a clip of the last few minutes as {name}. It is on this PC only.");
         Render();
+    }
+
+    /// <summary>What <see cref="TellServerAboutClipAsync"/> needs to know about a press of Save a clip.</summary>
+    private sealed record ClipToTell(
+        string Folder,
+        string ModeratorId,
+        string? ModeratorName,
+        string WorldId,
+        string InstanceId,
+        string GroupId,
+        DateTimeOffset SavedAt);
+
+    /// <summary>
+    /// Tells the group's paired server that a clip was saved in its instance, with the file's
+    /// fingerprint, once the file is on the disk.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>Only with the box ticked</strong> — <strong>Tell the group's Modbot when I save
+    /// a clip</strong> on the Clips card, off until somebody ticks it — and only for a clip saved in
+    /// an instance a paired server's group owns. Anywhere else nothing is sent, the same rule every
+    /// other observation follows.</para>
+    /// <para><strong>What is sent:</strong> one event naming the moderator, the world, the instance,
+    /// the moment Save was pressed, and the file's SHA-256 and size. <strong>What is not:</strong>
+    /// the clip, any frame or sound of it, its file name and where it is on the disk. The
+    /// fingerprint is what lets the server recognise the same file if the moderator attaches it to
+    /// a case later, in a browser, signed in as themselves (clips design spec §16).</para>
+    /// <para>The file is read once, on a worker thread, to work out the fingerprint; the event is
+    /// queued back on this thread, where the reading loop that sends it runs. A file that cannot be
+    /// read is still a saved clip, and the server is simply not told.</para>
+    /// </remarks>
+    private async Task TellServerAboutClipAsync(ClipToTell tell, string fileName)
+    {
+        var path = Path.Combine(tell.Folder, fileName);
+        var fingerprint = await Task.Run(() => ClipFingerprint.OfAsync(path));
+
+        if (fingerprint is not { } found)
+        {
+            Log.Warning("A saved clip could not be read to tell the server about it: {File}", fileName);
+            return;
+        }
+
+        var clip = new ClipReport(
+            tell.ModeratorId, tell.ModeratorName, tell.WorldId, tell.InstanceId, tell.GroupId,
+            tell.SavedAt, found.Hash, found.Bytes);
+
+        var told = _engine?.Connections.Count(c => c.AcceptClipSaved(clip)) ?? 0;
+        Log.Information(
+            told > 0 ? "Told the group's server a clip was saved" : "No paired server took the saved clip");
     }
 
     /// <summary>
@@ -2931,6 +3013,10 @@ internal sealed class CompanionHost : IOverlayListener
                 SetClips = SetClips,
                 SaveClip = SaveClip,
                 SetListening = SetListening,
+
+                // Made on this PC at the press, from VRChat's log and the companion's own memory of
+                // the instance, in this PC's own timezone offset. Copied, never sent.
+                CrashDetails = () => _engine?.CrashDetailsText(TimeZoneInfo.Local.GetUtcOffset(_clock.UtcNow)),
             });
     }
 

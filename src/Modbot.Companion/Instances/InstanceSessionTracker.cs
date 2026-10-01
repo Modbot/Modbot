@@ -52,6 +52,13 @@ public sealed class InstanceSessionTracker
     private readonly Dictionary<string, string> _displayNameToUserId = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _userIdToDisplayName = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _userIdToAvatar = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// What each person here was last logged wearing, arrival burst included. Kept apart from
+    /// <see cref="_userIdToAvatar"/>, which decides when an avatar change is reported and must not
+    /// learn the burst's avatars, or the first real change after arriving would read as a repeat.
+    /// </summary>
+    private readonly Dictionary<string, string> _avatarWorn = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTime?> _arrivedAt = new(StringComparer.Ordinal);
 
     private Phase _phase = Phase.Outside;
@@ -84,6 +91,19 @@ public sealed class InstanceSessionTracker
     /// already here, so the two never disagree.</para>
     /// </remarks>
     public IReadOnlyDictionary<string, DateTime?> ArrivedAt => _arrivedAt;
+
+    /// <summary>
+    /// Who is in the instance right now, with the name the log gave each of them and the avatar
+    /// it last said they switched to, in the order they are held.
+    /// </summary>
+    /// <remarks>
+    /// Read for one thing: <strong>Copy crash details</strong>, which puts this list into a block
+    /// of text the moderator copies and pastes into a report to VRChat themselves. It is never
+    /// sent anywhere from here. The avatar is its name only — VRChat's log has no avatar ids for
+    /// anybody but the moderator (research note §4).
+    /// </remarks>
+    public IReadOnlyList<PersonHere> People => [.. _userIdToDisplayName.Select(p =>
+        new PersonHere(p.Key, p.Value, _avatarWorn.GetValueOrDefault(p.Key)))];
 
     /// <summary>The instance the moderator is in, or <c>null</c> when that is not yet known.</summary>
     public InstanceLocation? CurrentInstance => _phase is Phase.Departed or Phase.Outside ? null : _instance;
@@ -123,6 +143,7 @@ public sealed class InstanceSessionTracker
         _userIdToDisplayName.Clear();
         _displayNameToUserId.Clear();
         _userIdToAvatar.Clear();
+        _avatarWorn.Clear();
         _arrivedAt.Clear();
 
         _phase = Phase.Outside;
@@ -195,6 +216,7 @@ public sealed class InstanceSessionTracker
         _userIdToDisplayName.Clear();
         _displayNameToUserId.Clear();
         _userIdToAvatar.Clear();
+        _avatarWorn.Clear();
         _arrivedAt.Clear();
 
         // The world's readable name arrives on the line after this one. Whatever is held is last
@@ -307,6 +329,17 @@ public sealed class InstanceSessionTracker
 
     private IEnumerable<ObservedPresence> AvatarSwitched(AvatarSwitchedEvent avatar)
     {
+        // What they are wearing, whether or not it is a change worth reporting. Read only by
+        // People, for the crash details a moderator copies by hand; never sent from here.
+        foreach (var (displayName, avatarName) in avatar.CandidateSplits())
+        {
+            if (_displayNameToUserId.TryGetValue(displayName, out var wearer))
+            {
+                _avatarWorn[wearer] = avatarName;
+                break;
+            }
+        }
+
         // During the arrival burst VRChat logs what everybody present is *already* wearing, one
         // line per occupant. Nobody changed avatar, so these are dropped exactly as the phantom
         // joins beside them are -- otherwise every moderator walking in would manufacture an
@@ -408,6 +441,7 @@ public sealed class InstanceSessionTracker
         {
             _userIdToDisplayName.Remove(userId);
             _userIdToAvatar.Remove(userId);
+            _avatarWorn.Remove(userId);
             _arrivedAt.Remove(userId);
         }
 

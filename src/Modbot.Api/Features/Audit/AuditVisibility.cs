@@ -123,6 +123,10 @@ public static class AuditVisibility
         [FactType.InstancePresenceObserved] = AuditCategory.Moderation,
         [FactType.InstanceLogStopped] = AuditCategory.Moderation,
 
+        // A moderator saving a clip in an instance: the same timeline as the presence around it,
+        // and the same people asking.
+        [FactType.InstanceClipSaved] = AuditCategory.Moderation,
+
         // Discord, once the bot is a second fact source (spec 9.1).
         [FactType.DiscordMemberJoined] = AuditCategory.Moderation,
         [FactType.DiscordMemberLeft] = AuditCategory.Moderation,

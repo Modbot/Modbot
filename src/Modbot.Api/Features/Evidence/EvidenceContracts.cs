@@ -204,7 +204,27 @@ public sealed record EvidenceStagedView(string Hash, long ByteSize);
 /// The case file to attach to, for an upload begun before the case file existed. An upload begun
 /// for one case file cannot be committed to another.
 /// </param>
-public sealed record EvidenceCommitRequest(string? ExpectedHash = null, string? ReportId = null);
+/// <param name="ClipId">
+/// The saved clip this file is, from the case file's <c>clips</c> list. The file must hash to what
+/// that moderator's companion reported when the clip was saved, or the commit is refused; when it
+/// does, the file is kept as captured, with where and when the clip was saved.
+/// </param>
+public sealed record EvidenceCommitRequest(string? ExpectedHash = null, string? ReportId = null, long? ClipId = null);
+
+/// <summary>Where and when a file was saved as a clip, by whose companion.</summary>
+/// <param name="SavedAt">When they pressed Save.</param>
+/// <param name="WorldId">The world. Opaque.</param>
+/// <param name="InstanceId">The instance, as VRChat named it. Display only.</param>
+/// <param name="SavedById">The moderator's VRChat id.</param>
+/// <param name="SavedBy">Their display name, as their companion reported it.</param>
+/// <param name="WorldName">The world's name, when Modbot has read the world's page.</param>
+public sealed record EvidenceClipView(
+    DateTimeOffset SavedAt,
+    string? WorldId,
+    string? InstanceId,
+    string? SavedById,
+    string? SavedBy,
+    string? WorldName = null);
 
 /// <param name="ContentType">Modbot's determination from the bytes. Never the client's claim.</param>
 public sealed record EvidenceCommitResponse(
@@ -221,6 +241,7 @@ public sealed record EvidenceCommitResponse(
 /// <param name="AttachedAt">When it was put on this case file.</param>
 /// <param name="TakenOffAt">When it was taken off this case file. Null while it is on.</param>
 /// <param name="TakenOffBy">Who took it off, as their username.</param>
+/// <param name="Clip">Where and when it was saved as a clip, when it is one. Null for anything else.</param>
 public sealed record EvidenceObjectView(
     string Hash,
     long ByteSize,
@@ -236,7 +257,8 @@ public sealed record EvidenceObjectView(
     string? DestroyedReason,
     DateTimeOffset? AttachedAt = null,
     DateTimeOffset? TakenOffAt = null,
-    string? TakenOffBy = null);
+    string? TakenOffBy = null,
+    EvidenceClipView? Clip = null);
 
 /// <param name="Reason">Recorded permanently, alongside who did it and when.</param>
 /// <param name="CaseId">

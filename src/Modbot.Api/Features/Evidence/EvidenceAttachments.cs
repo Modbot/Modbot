@@ -89,15 +89,25 @@ public sealed class EvidenceAttachments
     /// <summary>
     /// Puts a file on a case file. Does nothing, and writes nothing, when it is already on.
     /// </summary>
+    /// <param name="clip">
+    /// The saved clip this file was matched to, when it was attached as one. The caller has already
+    /// made the commit check the bytes against the clip's SHA-256; here the file is marked as
+    /// captured, with where and when the clip was saved, and the fact says so.
+    /// </param>
     /// <returns>Whether it was newly put on.</returns>
     public async Task<bool> AttachAsync(
-        CaseFile caseFile, CommitResult committed, Actor actor, CancellationToken ct)
+        CaseFile caseFile, CommitResult committed, Actor actor, CancellationToken ct, SavedClip? clip = null)
     {
         ArgumentNullException.ThrowIfNull(caseFile);
         ArgumentNullException.ThrowIfNull(committed);
 
         var caseId = caseFile.Id.ToString();
         var hash = committed.Hash.Hex;
+
+        // Before the "already on" check: a file put on earlier by choosing it plainly, and now
+        // attached again as the clip it is, still learns where it came from.
+        if (clip is not null)
+            await MarkAsClipAsync(hash, clip, ct);
 
         if (await IsOnAsync(caseId, hash, ct))
             return false;
@@ -142,13 +152,47 @@ public sealed class EvidenceAttachments
             {
                 ["byteSize"] = committed.ByteSize,
                 ["contentType"] = committed.ContentType,
-                ["description"] = $"{actor.Username} attached {name ?? "a file"} to a case file",
+                ["description"] = clip is null
+                    ? $"{actor.Username} attached {name ?? "a file"} to a case file"
+                    : $"{actor.Username} attached a clip saved on {clip.SavedBy ?? clip.SavedById}'s PC to a case file",
+                ["clip"] = clip is null ? null : new JsonObject
+                {
+                    ["clipId"] = clip.Id,
+                    ["savedAt"] = clip.SavedAt.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                    ["worldId"] = clip.WorldId,
+                    ["instanceId"] = clip.InstanceId,
+                    ["savedById"] = clip.SavedById,
+                    ["savedBy"] = clip.SavedBy,
+                },
             }),
             ct);
 
         await transaction.CommitAsync(ct);
         return true;
     }
+
+    /// <summary>
+    /// Writes onto the file's own record that it is this saved clip: captured, and where, when and
+    /// by whose companion. Once: a file already marked keeps what it was first marked with.
+    /// </summary>
+    private async Task MarkAsClipAsync(string hash, SavedClip clip, CancellationToken ct)
+    {
+        var blob = await _db.EvidenceBlobs.FirstOrDefaultAsync(b => b.Hash == hash, ct);
+        if (blob is null || blob.ClipSavedAt is not null)
+            return;
+
+        blob.Origin = EvidenceOriginKind.Captured;
+        blob.ClipSavedAt = clip.SavedAt;
+        blob.ClipWorldId = Cut(clip.WorldId, 128);
+        blob.ClipInstanceId = Cut(clip.InstanceId, 256);
+        blob.ClipSavedById = Cut(clip.SavedById, 128);
+        blob.ClipSavedByName = Cut(clip.SavedBy, 128);
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private static string? Cut(string? text, int length)
+        => text is null ? null : text.Length > length ? text[..length] : text;
 
     /// <summary>Takes a file off a case file, keeping the record that it was there.</summary>
     /// <exception cref="CaseFileRefused">404 when the file is not on this case file.</exception>

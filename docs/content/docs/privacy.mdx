@@ -97,6 +97,13 @@ wherever you choose to store them. These pages describe what is kept and how it 
   clip becomes evidence on a case only if they choose that file in a browser, the same as any other
   attachment.
 
+  **One thing about a clip can reach your server: that it exists.** A second box, **Tell the group's
+  Modbot when I save a clip**, off unless that person ticks it, sends your server when and where a
+  clip was saved in your group's instance, and the file's SHA-256 and size — never the clip. Your
+  server keeps that as a presence entry, lists the clip on the case files of people who were there,
+  and uses the fingerprint to recognise the file if it is attached. A clip attached that way keeps
+  when, where and by whose companion it was saved.
+
   **A clip has sound in it, and in an instance that sound is people's voices.** Until 19 September
   2026 it had none, and this says so plainly rather than leaving it to be found out. Discord's sound
   can go in as well, on a separate switch that is off until that person turns it on. **Nothing else
@@ -114,3 +121,7 @@ wherever you choose to store them. These pages describe what is kept and how it 
   companion also asks Windows which microphones that PC has, so the person using it can pick one — a
   name and an id for each device, used to fill a list on their own settings screen and never sent
   anywhere. With it off, no microphone is listed or opened.
+- [Crash details](/companion/install#crash-details): **Copy crash details** puts the instance, who
+  was in it with their avatars' names, and VRChat's own log lines from the last ten minutes on that
+  person's clipboard, for a report they write to VRChat themselves. Nothing is sent, and the
+  companion never reads the clipboard.

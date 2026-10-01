@@ -1,3 +1,4 @@
+using Modbot.Companion.Clips;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Time;
 
@@ -29,7 +30,8 @@ public sealed class RandomClientEventIdSource : ICompanionEventIdSource
 /// <para><strong>This is the last point at which anything is added</strong>, so it is the place to
 /// check what is sent. Per event, and nothing else: the VRChat user id, world id, instance id,
 /// group id, a corrected timestamp, the display name, and for an avatar change the avatar's display
-/// name.</para>
+/// name. A saved clip (<see cref="MapClipSaved"/>) adds the file's SHA-256 and size, and nothing
+/// else about it.</para>
 /// <para><strong>What is dropped here, on purpose.</strong> The raw log line, which was never kept
 /// this far anyway. The instance's raw location string, which for non-group instances carries the
 /// instance secret. Anything about instances belonging to no group. And avatar ids, which VRChat
@@ -73,6 +75,47 @@ public sealed class PresenceEventMapper
     /// backup, which can be turned off on this PC; never by anything that sends to a Modbot server.
     /// </summary>
     public CompanionEvent MapAnyInstance(ObservedPresence observation) => Build(observation, observation.Instance.GroupId);
+
+    /// <summary>
+    /// Builds the event that tells a server the moderator saved a clip in its group's instance.
+    /// </summary>
+    /// <remarks>
+    /// <para>Exactly these fields: the moderator's own VRChat id and display name, the world, the
+    /// instance, the group, when Save was pressed (on the server's clock), and the clip's SHA-256
+    /// and size. No file name, no folder, no frame and no sound.</para>
+    /// <para>There is no cloud twin of this. The Modbot Cloud backup hears observations of other
+    /// people, and a saved clip is not one; it is only ever sent to the one server whose group owns
+    /// the instance, and only when the moderator ticked the box for it.</para>
+    /// </remarks>
+    public CompanionEvent MapClipSaved(ClipReport clip)
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+
+        var data = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["clipHash"] = clip.Hash,
+            ["clipBytes"] = clip.Bytes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        };
+
+        if (clip.ModeratorName is { Length: > 0 } name)
+            data["displayName"] = name;
+
+        return new CompanionEvent
+        {
+            CompanionEventId = _ids.Next(),
+            Type = CompanionEventType.ClipSaved,
+
+            // Already an instant -- it came from the companion's clock, not from a log line -- so
+            // only the server's offset is applied.
+            OccurredAt = _clock.ToServerTime(clip.SavedAt),
+            OccurredBefore = null,
+            SubjectId = clip.ModeratorId,
+            WorldId = clip.WorldId,
+            InstanceId = clip.InstanceId,
+            GroupId = clip.GroupId,
+            Data = data,
+        };
+    }
 
     private CompanionEvent Build(ObservedPresence observation, string? groupId)
     {

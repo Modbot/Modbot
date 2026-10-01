@@ -1,3 +1,4 @@
+using Modbot.Companion.Clips;
 using Modbot.Companion.Instances;
 using Modbot.Companion.Journal;
 using Modbot.Companion.Routing;
@@ -223,6 +224,44 @@ public sealed class ServerConnection : IIngestTarget
             if (IsChange(companionEvent.Type))
                 _changeWaitingSince ??= _clock.UtcNow;
         }
+    }
+
+    /// <summary>
+    /// Takes a clip the moderator saved in this server's group's instance, and queues the one event
+    /// that says so.
+    /// </summary>
+    /// <remarks>
+    /// <para>Called only when the moderator ticked <strong>Tell the group's Modbot when I save a
+    /// clip</strong>; the caller checks that. This checks the rest: the clip was saved in an
+    /// instance this server's group owns, and reporting to it is not paused or stopped. A clip in
+    /// any other instance is not this server's business and is dropped without a word, the same way
+    /// an observation in another group's instance never reaches this connection at all.</para>
+    /// <para>It goes with the next batch rather than within two seconds: it changes nobody's
+    /// whereabouts, and the case file it may end up on is written minutes later at the
+    /// earliest.</para>
+    /// </remarks>
+    /// <returns>Whether it was queued.</returns>
+    public bool AcceptClipSaved(ClipReport clip)
+    {
+        ArgumentNullException.ThrowIfNull(clip);
+
+        if (!string.Equals(clip.GroupId, ManagedGroupId, StringComparison.Ordinal))
+            return false;
+
+        if (_paused || State is ConnectionState.Stopped)
+        {
+            _journal?.RecordWithheld(
+                serverId: Name,
+                reason: _paused
+                    ? "A saved clip was not mentioned — reporting is paused."
+                    : "A saved clip was not mentioned — this pairing has stopped; the server rejected its token.");
+            return false;
+        }
+
+        var companionEvent = _mapper.MapClipSaved(clip);
+        _buffer.Add(companionEvent);
+        _journal?.RecordQueued(Name, JournalDestination.Server, companionEvent.CompanionEventId, companionEvent);
+        return true;
     }
 
     /// <summary>

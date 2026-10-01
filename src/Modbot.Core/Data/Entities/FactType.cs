@@ -196,6 +196,21 @@ public static class FactType
     /// </remarks>
     public const string InstanceLogStopped = "vrchat.instance.log-stopped";
 
+    /// <summary>
+    /// A moderator saved a clip on their own PC while they were in this instance. The subject is
+    /// the moderator; the time is when they pressed Save. Payload: <c>clipHash</c> (the file's
+    /// SHA-256), <c>clipBytes</c>, and their display name.
+    /// </summary>
+    /// <remarks>
+    /// Never the clip. The companion sends this only when the moderator ticked the box for it, and
+    /// only to the server whose group owns the instance (clips design spec §16). It is what lets a
+    /// case file say "Clip saved on Alex's PC at 21:14" before anybody has uploaded anything, and
+    /// what lets the server recognise the file when somebody does: a file whose SHA-256 matches is
+    /// that clip. Presence class, by prefix, so it ages out with the rest of presence; once the clip
+    /// is attached, where and when it was saved is kept with the file itself.
+    /// </remarks>
+    public const string InstanceClipSaved = "vrchat.instance.clip-saved";
+
     // ── Discord (M5) ───────────────────────────────────────────────────────────────────────
     //
     // Everything here has subject_platform = Discord and, where somebody did it, an actor on

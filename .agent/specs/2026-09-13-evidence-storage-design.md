@@ -908,6 +908,24 @@ instruction:
   radius to include opening a ban report, and a cold stop that blocks a ban is not acceptable. If the
   groups list is wanted, it needs its own answer, not a borrowed lane.
 
+### 12.4 A companion clip, recognised by its hash *(2026-10-01)*
+
+The first blobs to use `origin = Captured` are not profile images but **clips a moderator's
+companion recorded** (clips design spec §16). The bytes still arrive the ordinary way — a signed-in
+moderator, in a browser, through §9.1's three phases — because the companion's device token cannot
+upload and was not given a way to. What makes the file "captured" is that its content address is
+one the companion reported when the clip was saved, in a `vrchat.instance.clip-saved` fact, before
+any human chose anything. §5.2 is what lets that mean something: the hash names the exact bytes, so
+a file whose hash matches is that clip and nothing else can pass for it.
+
+The commit carries `clipId`; the clip's hash becomes the commit's expected hash, so a different
+file is refused before anything is promoted or attached (409, "That file is not the clip saved on
+Alex's PC"). On a match the blob row gains `clip_saved_at`, `clip_world_id`, `clip_instance_id`,
+`clip_saved_by_id` and `clip_saved_by_name`, set once by the first matched attach and never changed,
+and the `modbot.evidence.attach` fact carries the same under `clip`. They are kept on the blob rather
+than read back from the clip-saved fact because that fact is presence and ages out; where a piece of
+evidence was recorded has to stay answerable for as long as the evidence does (§15).
+
 ---
 
 ## 13. The interface
@@ -1209,6 +1227,13 @@ Tasks, not changes. Nothing here is implemented by this document.
   is a file on the moderator's PC; the client has no upload path and did not gain one, and a clip
   becomes evidence only the way every other file does — a human, in the web UI, choosing it. Audio is
   still never recorded, by anything, anywhere.
+
+  **And on 2026-10-01 by the same spec's §16** (see also §12.4 here). Still true: the clip's bytes
+  enter the system only when a human chooses the file in the web UI. What changed is that the client,
+  if the moderator ticks a box for it, tells the group's server that a clip was saved and what its
+  SHA-256 is, so the attach that follows can be recognised as that clip. A fingerprint is not bytes,
+  and the device token still cannot upload or read evidence. *(The "never records audio" line was
+  overtaken on 2026-09-19 too: a clip carries VRChat's sound — clips spec §15.)*
 - **No content analysis.** Modbot does not run detection, classification, or recognition over
   evidence. A file is stored and served; it is not interpreted. (M8's flagging works on facts, not on
   media, and that is unchanged.)

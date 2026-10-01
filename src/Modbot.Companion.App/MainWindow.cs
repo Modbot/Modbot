@@ -53,11 +53,19 @@ internal enum Page
 /// which in an instance means the voices of the people around them, and the switch on the card says
 /// so in those words rather than leaving it to be found out. Discord's sound is a second box, off
 /// until somebody ticks it. Nothing else the machine is playing is ever recorded, and there is no
-/// setting that could ask for it. That is the whole of it: no microphone, no keyboard, no
-/// clipboard, no list of other programs or of their windows, and nothing read
+/// setting that could ask for it. That is the whole of it: no microphone, no keyboard, nothing read
+/// from the clipboard, no list of other programs or of their windows, and nothing read
 /// from VRChat's screenshot folder or any other folder on the machine. No clip is ever uploaded —
 /// this program has no path to a server that could take one, and did not gain one. Attaching a clip
 /// to a case is still what it always was: a moderator, in the web UI, in a browser, choosing a file.
+/// A third box on the card, off until ticked, tells the group's own server that a clip was saved in
+/// its instance, with the file's fingerprint, so the browser upload can be recognised as this PC's
+/// clip.</para>
+/// <para><strong>The clipboard is written once, and only when asked.</strong> The Log page's
+/// <strong>Copy crash details</strong> puts one block of text on it — the instance, who was in it
+/// and what they wore, and VRChat's own <c>[Behaviour]</c> lines from the last ten minutes — for a
+/// report to VRChat the moderator writes themselves. Nothing is read from the clipboard, ever, and
+/// the text is sent nowhere (<c>MainWindow.Crash.cs</c>).
 /// <c>CompanionSourceGuardTests</c> holds every part of that, and fails the build if a second file
 /// learns to capture anything.</para>
 /// <para>Built in code rather than markup because a reader auditing this program should be able to
@@ -1282,6 +1290,8 @@ public sealed partial class MainWindow : Window
             },
             "VRChat's log"));
 
+        _body.Children.Add(Ui.Card(CrashDetailsCard(), "Crash details"));
+
         _body.Children.Add(Ui.Card(
             Ui.Dim(
                 "Modbot reads VRChat's log directory and nothing else on this machine. It does "
@@ -1293,7 +1303,9 @@ public sealed partial class MainWindow : Window
                 + "box; nothing else this PC plays is ever recorded, and no microphone is opened "
                 + "for a clip. Nothing it records leaves this PC: attaching a "
                 + "clip or any other evidence to a case is something you do in Modbot's web "
-                + "interface, in a browser, by choosing a file."),
+                + "interface, in a browser, by choosing a file. If you tick the box for it, the "
+                + "group's Modbot is told when you save a clip there, with the file's "
+                + "fingerprint, and never the clip."),
             "What it does not read"));
     }
 
@@ -1942,6 +1954,13 @@ public sealed record MainWindowActions(
     /// others were.
     /// </summary>
     public Action<ListeningSettings> SetListening { get; init; } = _ => { };
+
+    /// <summary>
+    /// The text <strong>Copy crash details</strong> puts on the clipboard, made at the moment of
+    /// the press, or null when VRChat's log has not named an instance or written a line. Added
+    /// after the positional list the same way the others were.
+    /// </summary>
+    public Func<string?> CrashDetails { get; init; } = () => null;
 
     public static MainWindowActions None { get; } = new(
         _ => { },

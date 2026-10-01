@@ -10915,7 +10915,7 @@
           "Evidence"
         ],
         "summary": "Finish the upload",
-        "description": "Phase 3: hash it, decide what it is, and attach it. Modbot reads the staged bytes back, hashes them, decides the content type from the bytes themselves — never from the filename and never from what the client claimed — checks the size that was actually stored against the per-file limit and the per-case-file and whole-install totals, promotes the object to its content-addressed key, writes the metadata and puts the file on the case file. SVG and HTML are refused outright. Idempotent on the upload id. reportId names the case file to attach to when the upload was begun without one, so a file can be sent before its case file is written; naming a different case file from the one the upload was begun for is refused with 409. The case file must exist (404), must not be withdrawn (409), and must be the caller's own or the caller must be allowed to ban (403); with no case file at all the commit is refused with 400. Recorded as a fact against your account.\n\nNeeds the `UploadEvidence` permission.",
+        "description": "Phase 3: hash it, decide what it is, and attach it. Modbot reads the staged bytes back, hashes them, decides the content type from the bytes themselves — never from the filename and never from what the client claimed — checks the size that was actually stored against the per-file limit and the per-case-file and whole-install totals, promotes the object to its content-addressed key, writes the metadata and puts the file on the case file. SVG and HTML are refused outright. Idempotent on the upload id. reportId names the case file to attach to when the upload was begun without one, so a file can be sent before its case file is written; naming a different case file from the one the upload was begun for is refused with 409. The case file must exist (404), must not be withdrawn (409), and must be the caller's own or the caller must be allowed to ban (403); with no case file at all the commit is refused with 400. clipId names a saved clip from the case file's clips list: the file must hash to what that moderator's companion reported when the clip was saved (409 when it does not, 404 when there is no such clip), and is then kept as captured, with where and when it was saved. Recorded as a fact against your account.\n\nNeeds the `UploadEvidence` permission.",
         "operationId": "CommitEvidenceUpload",
         "parameters": [
           {
@@ -23602,6 +23602,15 @@
                 "$ref": "#/components/schemas/CaseLiftView"
               }
             ]
+          },
+          "clips": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SavedClipView"
+            }
           }
         }
       },
@@ -26715,6 +26724,52 @@
           }
         }
       },
+      "EvidenceClipView": {
+        "required": [
+          "savedAt",
+          "worldId",
+          "instanceId",
+          "savedById",
+          "savedBy"
+        ],
+        "type": "object",
+        "properties": {
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "worldId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instanceId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "savedById": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "savedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "worldName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "EvidenceCommitRequest": {
         "type": "object",
         "properties": {
@@ -26729,6 +26784,15 @@
               "null",
               "string"
             ]
+          },
+          "clipId": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -27150,6 +27214,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "clip": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EvidenceClipView"
+              }
             ]
           }
         }
@@ -37429,6 +37503,62 @@
           },
           "text": {
             "type": "string"
+          }
+        }
+      },
+      "SavedClipView": {
+        "required": [
+          "id",
+          "savedAt",
+          "worldId",
+          "instanceId",
+          "savedById",
+          "savedBy",
+          "byteSize",
+          "worldName"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "worldId": {
+            "type": "string"
+          },
+          "instanceId": {
+            "type": "string"
+          },
+          "savedById": {
+            "type": "string"
+          },
+          "savedBy": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "byteSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "worldName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

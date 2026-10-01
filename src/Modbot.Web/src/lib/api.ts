@@ -3331,6 +3331,34 @@ export type EvidenceItem = {
   attachedAt: string | null
   takenOffAt: string | null
   takenOffBy: string | null
+  /** Where and when it was saved as a clip, by whose companion. Null for anything else. */
+  clip: EvidenceClip | null
+}
+
+/** A file that is a clip a moderator's companion saved, matched by its SHA-256 when it was attached. */
+export type EvidenceClip = {
+  savedAt: string
+  worldId: string | null
+  instanceId: string | null
+  savedById: string | null
+  savedBy: string | null
+  worldName: string | null
+}
+
+/**
+ * A clip a moderator's companion said it saved while the person on the case file was in the same
+ * instance, not on the case file yet. The server has only its fingerprint; the file is on that PC.
+ */
+export type SavedClip = {
+  /** Send back as `clipId` when attaching, so the server checks the file is this clip. */
+  id: number
+  savedAt: string
+  worldId: string
+  instanceId: string
+  savedById: string
+  savedBy: string | null
+  byteSize: number
+  worldName: string | null
 }
 
 /** What a destroy answers. A refusal is `destroyed: false` with the case files in the way named in `message`. */
@@ -3382,6 +3410,8 @@ export type CaseFileView = {
   canDestroyEvidence: boolean
   /** The unban that lifted the ban, when it was lifted from Modbot. */
   lifted: CaseLift | null
+  /** Saved clips this person may be in, not on the case file yet. Null when evidence may not be viewed. */
+  clips: SavedClip[] | null
 }
 
 /** Why and when a case file's ban was lifted. `unbanFactId` opens the unban's audit log row. */
@@ -5213,10 +5243,17 @@ export const api = {
   beginEvidenceUpload: (body: { fileName: string; contentType: string; length: number; reportId: string | null }) =>
     post<EvidenceUploadTicket>('/api/evidence/uploads', body),
 
-  commitEvidenceUpload: (uploadId: string, expectedHash: string | null, reportId: string | null = null) =>
+  /** `clipId` says the file is that saved clip; the server refuses it unless the bytes match its fingerprint. */
+  commitEvidenceUpload: (
+    uploadId: string,
+    expectedHash: string | null,
+    reportId: string | null = null,
+    clipId: number | null = null,
+  ) =>
     post<EvidenceCommitted>(`/api/evidence/uploads/${encodeURIComponent(uploadId)}/commit`, {
       expectedHash,
       reportId,
+      clipId,
     }),
 
   /** Upload limits for a screen with no case file yet — the ban dialog. */

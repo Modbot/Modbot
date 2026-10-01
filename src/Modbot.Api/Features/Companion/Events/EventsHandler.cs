@@ -329,6 +329,18 @@ public static class EventsHandler
                 data[key] = value;
         }
 
+        // A saved clip's fingerprint, and nothing else about it. Checked rather than copied: the
+        // hash is what a later upload is matched against, so one that is not a SHA-256 is a
+        // malformed event, and a size that is not a whole number of bytes is not a size.
+        if (type == FactType.InstanceClipSaved)
+        {
+            if (ClipFingerprint(submitted.Data) is not { } clip)
+                return null;
+
+            data[ClipKeys.Hash] = clip.Hash;
+            data[ClipKeys.Bytes] = clip.Bytes;
+        }
+
         return new FactRecord
         {
             Type = type,
@@ -360,6 +372,26 @@ public static class EventsHandler
         "InstanceLeft" => FactType.InstanceLeft,
         "AvatarChanged" => FactType.AvatarChanged,
         "LogStopped" => FactType.InstanceLogStopped,
+        "ClipSaved" => FactType.InstanceClipSaved,
         _ => null,
     };
+
+    /// <summary>
+    /// A saved clip's SHA-256 and size from an event's data, or null when either is missing or is
+    /// not what it says it is.
+    /// </summary>
+    internal static (string Hash, long Bytes)? ClipFingerprint(IReadOnlyDictionary<string, string>? data)
+    {
+        if (data is null
+            || !data.TryGetValue(ClipKeys.Hash, out var hash)
+            || !Modbot.Evidence.Storage.EvidenceHash.TryParse(hash, out var parsed)
+            || !data.TryGetValue(ClipKeys.Bytes, out var size)
+            || !long.TryParse(size, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var bytes)
+            || bytes <= 0)
+        {
+            return null;
+        }
+
+        return (parsed.Hex, bytes);
+    }
 }

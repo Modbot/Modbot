@@ -19,8 +19,12 @@ namespace Modbot.Companion.Clips;
 /// instance at all, so it is its own switch and it is off. Nothing else on the PC is ever recorded:
 /// there is no setting for the machine's own sound, for music or for any other program, and the
 /// recorder has no way to ask for one (clips design spec §14).</para>
-/// <para>Nothing here leaves the machine. These five values decide what the client does on this PC;
+/// <para>Nothing here leaves the machine. These six values decide what the client does on this PC;
 /// no server is told any of them, and no server can change them.</para>
+/// <para><strong>Telling the server a clip was saved is its own box, and it is off.</strong> Ticked,
+/// saving a clip in a group's instance tells that group's paired server when and where, with the
+/// file's fingerprint, so the clip can be attached to a case later and recognised as this PC's
+/// (clips design spec §16). The clip itself still never leaves the PC.</para>
 /// </remarks>
 /// <param name="On">
 /// Whether to keep the last few minutes while VRChat is running. False unless a person turned it on.
@@ -41,12 +45,17 @@ namespace Modbot.Companion.Clips;
 /// <param name="DiscordSound">
 /// Whether Discord's own sound goes into a clip beside VRChat's. False unless a person turned it on.
 /// </param>
+/// <param name="TellServer">
+/// Whether saving a clip in a group's instance tells that group's paired server, with the file's
+/// fingerprint and never the file. False unless a person turned it on.
+/// </param>
 public sealed record ClipSettings(
     bool On = false,
     int Minutes = ClipSettings.DefaultMinutes,
     string? Folder = null,
     int KeepGigabytes = ClipSettings.DefaultKeepGigabytes,
-    bool DiscordSound = false)
+    bool DiscordSound = false,
+    bool TellServer = false)
 {
     /// <summary>The shortest length on offer. Below this a clip rarely holds what happened.</summary>
     public const int MinMinutes = 2;

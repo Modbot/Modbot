@@ -32,6 +32,21 @@ public enum CompanionEventType
     /// to an older server costs one rejected line and nothing else.
     /// </remarks>
     LogStopped,
+
+    /// <summary>
+    /// The moderator saved a clip while they were in this instance. The subject is the moderator,
+    /// the time is when they pressed Save, and <c>Data</c> carries the clip's SHA-256 and its size
+    /// — never the clip, never a frame of it, never its file name. Sent only when the moderator
+    /// ticked the box that says so (<c>ClipSettings.TellServer</c>), only to the server whose group
+    /// owns the instance, and never to Modbot Cloud.
+    /// </summary>
+    /// <remarks>
+    /// The fingerprint is what lets the moderator attach the same file later, in a browser, and
+    /// have the server know it is the clip this PC saved rather than any video somebody chose
+    /// (clips design spec §16). An older server rejects this one event as malformed and accepts the
+    /// rest of the batch, the same as <see cref="LogStopped"/>.
+    /// </remarks>
+    ClipSaved,
 }
 
 /// <summary>
@@ -48,6 +63,10 @@ public enum CompanionEventType
 /// because the pairing of id to name at a point in time is useful history: it is what lets a
 /// moderator searching for a name somebody used six months ago find them. It is never used as
 /// identity, because names are mutable and collide.</para>
+/// <para>One event is about the moderator rather than about anybody they saw: a saved clip, sent
+/// only when they ticked the box for it. Its <c>Data</c> is <c>clipHash</c> (the SHA-256 of the
+/// file) and <c>clipBytes</c> (its size), plus their own display name. The clip itself, its file
+/// name and where it is on the disk are not here, so they are not sent.</para>
 /// <para><strong>Where it goes.</strong> To a paired Modbot server, only for that server's group's
 /// instances. And, separately and unless it is turned off on this PC, to Modbot Cloud as a backup for
 /// every instance the moderator is in, group or not (<c>CloudEventBackup</c>).</para>

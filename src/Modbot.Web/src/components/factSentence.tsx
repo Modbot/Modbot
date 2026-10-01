@@ -745,6 +745,14 @@ const SENTENCES: Record<string, Sentence> = {
     </>
   ),
 
+  // Only the clip's fingerprint reached the server; the clip is on that moderator's PC until
+  // somebody attaches it to a case file, where the matched file says where it was saved.
+  'vrchat.instance.clip-saved': (p) => (
+    <>
+      {p.subject} saved a clip in {p.place ?? 'an instance'} on their PC. It was not uploaded.
+    </>
+  ),
+
   // VRChat's log carries an avatar's display name and never an `avtr_…` id, so the name is all
   // there is to show and two avatars called the same thing cannot be told apart. A row recorded
   // before the name was kept, or one whose log line could not be split against the roster, still

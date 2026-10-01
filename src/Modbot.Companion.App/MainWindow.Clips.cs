@@ -15,7 +15,11 @@ namespace Modbot.Companion.App;
 /// 2026-09-19 a clip carries what people said in the instance, which is a different thing to keep
 /// on somebody's disk from a silent picture, and the one place a moderator decides about it is
 /// this line of text. Discord's sound is the second box and is off until somebody ticks it; there
-/// is no third box, and nothing else the machine is playing can be recorded at all.</para>
+/// is no third sound box, and nothing else the machine is playing can be recorded at all.</para>
+/// <para><strong>Tell the group's Modbot when I save a clip</strong> is the third box, and it is
+/// off. Ticked, saving a clip in a group's instance tells that group's paired server when and
+/// where, with the file's fingerprint, so the clip can be recognised when it is attached to a case
+/// in a browser. The clip itself still goes nowhere.</para>
 /// <para>Built once, like the Voice and Notifications cards: the window redraws on a timer and a
 /// slider being dragged or a folder being typed into dies under a rebuild. Everything that changes
 /// reaches the card through <see cref="RefreshClipControls"/>, and the recorder's state is one of
@@ -25,6 +29,7 @@ public sealed partial class MainWindow
 {
     private readonly CheckBox _clipsOn = new();
     private readonly CheckBox _clipsDiscordSound = new();
+    private readonly CheckBox _clipsTellServer = new();
     private readonly Slider _clipsMinutes = new();
     private readonly TextBlock _clipsMinutesValue = Ui.Text("", Ui.T.Density.TextSmall, Ui.T.TextDimBrush, wrap: false, mono: true);
     private readonly TextBox _clipsFolderBox = Ui.Input();
@@ -45,6 +50,12 @@ public sealed partial class MainWindow
 
         _clipsDiscordSound.Content = Ui.Text("Discord's sound too", Ui.T.Density.TextSmall, Ui.T.TextBrush);
         _clipsDiscordSound.IsCheckedChanged += (_, _) => ClipsChanged();
+
+        // Its own box, off until ticked, because it is the one thing on this card that sends
+        // anything anywhere: one line to the group's own server saying a clip was saved, with its
+        // fingerprint. Never the clip (clips design spec §16).
+        _clipsTellServer.Content = Ui.Text("Tell the group's Modbot when I save a clip", Ui.T.Density.TextSmall, Ui.T.TextBrush);
+        _clipsTellServer.IsCheckedChanged += (_, _) => ClipsChanged();
 
         _clipsMinutesValue.VerticalAlignment = VerticalAlignment.Center;
         _clipsMinutesValue.Width = 32;
@@ -85,6 +96,7 @@ public sealed partial class MainWindow
             On = _clipsOn.IsChecked == true,
             Minutes = (int)_clipsMinutes.Value,
             DiscordSound = _clipsDiscordSound.IsChecked == true,
+            TellServer = _clipsTellServer.IsChecked == true,
         });
     }
 
@@ -93,6 +105,7 @@ public sealed partial class MainWindow
     {
         _clipsOn.IsChecked = clips.Settings.On;
         _clipsDiscordSound.IsChecked = clips.Settings.DiscordSound;
+        _clipsTellServer.IsChecked = clips.Settings.TellServer;
 
         if (!_clipsMinutes.IsPointerOver && !_clipsMinutes.IsFocused)
             _clipsMinutes.Value = ClipSettings.ClampMinutes(clips.Settings.Minutes);
@@ -113,6 +126,7 @@ public sealed partial class MainWindow
         // "Off" like a choice somebody made.
         _clipsOn.IsEnabled = clips.Supported;
         _clipsDiscordSound.IsEnabled = clips.Supported;
+        _clipsTellServer.IsEnabled = clips.Supported;
         _clipsMinutes.IsEnabled = clips.Supported;
         _clipsFolderBox.IsEnabled = clips.Supported;
 
@@ -127,7 +141,7 @@ public sealed partial class MainWindow
     {
         foreach (var control in new Control[]
         {
-            _clipsOn, _clipsDiscordSound, _clipsMinutes, _clipsMinutesValue, _clipsFolderBox,
+            _clipsOn, _clipsDiscordSound, _clipsTellServer, _clipsMinutes, _clipsMinutesValue, _clipsFolderBox,
             _clipsFolderSave, _clipsFolderReset, _clipsSave, _clipsLine, _clipsProblem,
         })
         {
@@ -143,6 +157,7 @@ public sealed partial class MainWindow
             {
                 _clipsOn,
                 _clipsDiscordSound,
+                _clipsTellServer,
                 Ui.Field("Minutes", new StackPanel
                 {
                     Orientation = Orientation.Horizontal,

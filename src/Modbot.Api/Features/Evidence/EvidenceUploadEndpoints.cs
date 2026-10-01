@@ -152,6 +152,7 @@ public static class EvidenceUploadEndpoints
                 [FromServices] EvidenceUploadService uploads,
                 [FromServices] IEvidenceUploadRegistry registry,
                 [FromServices] EvidenceAttachments attachments,
+                [FromServices] SavedClips clips,
                 CancellationToken ct) =>
             {
                 if (!EvidenceUploadId.TryParse(uploadId, out var id))
@@ -159,6 +160,17 @@ public static class EvidenceUploadEndpoints
 
                 if (CaseFileEndpoints.CallerOf(http) is not { } caller || Actor.Of(http) is not { } actor)
                     return Results.Forbid();
+
+                // A file sent as a saved clip must be that clip: the bytes have to hash to what the
+                // moderator's companion reported when it was saved. The check is the commit's own
+                // expected-hash check, so a different file is refused before anything is kept.
+                SavedClip? clip = null;
+                if (body.ClipId is { } clipId)
+                {
+                    clip = await clips.FindAsync(clipId, ct);
+                    if (clip is null)
+                        return Results.NotFound(new { error = "No such clip." });
+                }
 
                 EvidenceHash? expected = null;
                 if (body.ExpectedHash is { Length: > 0 } claimed)
@@ -174,6 +186,17 @@ public static class EvidenceUploadEndpoints
                     expected = parsed;
                 }
 
+                if (clip is not null)
+                {
+                    if (!EvidenceHash.TryParse(clip.Hash, out var clipHash))
+                        return Results.NotFound(new { error = "No such clip." });
+
+                    if (expected is { } claimedHash && claimedHash != clipHash)
+                        return Results.Conflict(new { error = NotTheClip(clip) });
+
+                    expected = clipHash;
+                }
+
                 try
                 {
                     // The case file is checked before anything is promoted or recorded: it has to
@@ -186,12 +209,22 @@ public static class EvidenceUploadEndpoints
                         caller,
                         ct);
 
-                    var result = await uploads.CommitAsync(id, expected, caseFile.Id.ToString(), ct);
+                    CommitResult result;
+                    try
+                    {
+                        result = await uploads.CommitAsync(id, expected, caseFile.Id.ToString(), ct);
+                    }
+                    catch (EvidenceRejectedException rejected) when (clip is not null && rejected.WrongHash)
+                    {
+                        // The one refusal a clip adds: the bytes are not the ones its companion
+                        // fingerprinted. Said in words that name the clip rather than the hash.
+                        return Results.Conflict(new { error = NotTheClip(clip) });
+                    }
 
                     // Put on the case file only now that the bytes are safe in the store, in one
                     // step with the fact that says who did it. Retrying a commit that already
                     // worked puts on nothing twice.
-                    await attachments.AttachAsync(caseFile, result, actor, ct);
+                    await attachments.AttachAsync(caseFile, result, actor, ct, clip);
 
                     // The outcome — whether these bytes were already in the store — is deliberately
                     // not returned. Telling a moderator "you have already uploaded this file" tells
@@ -220,7 +253,10 @@ public static class EvidenceUploadEndpoints
                 + "case file from the one the upload was begun for is refused with 409. The case "
                 + "file must exist (404), must not be withdrawn (409), and must be the caller's own "
                 + "or the caller must be allowed to ban (403); with no case file at all the commit "
-                + "is refused with 400. Recorded as a fact against your account.")
+                + "is refused with 400. clipId names a saved clip from the case file's clips list: "
+                + "the file must hash to what that moderator's companion reported when the clip was "
+                + "saved (409 when it does not, 404 when there is no such clip), and is then kept as "
+                + "captured, with where and when it was saved. Recorded as a fact against your account.")
             .Produces<EvidenceCommitResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden)
@@ -234,6 +270,9 @@ public static class EvidenceUploadEndpoints
     }
 
     private static string? ModbotAuthActor(HttpContext http) => http.User.Identity?.Name;
+
+    private static string NotTheClip(SavedClip clip)
+        => $"That file is not the clip saved on {clip.SavedBy ?? clip.SavedById}'s PC.";
 
     /// <summary>
     /// Turns the pipeline's exceptions into answers a moderator can act on.

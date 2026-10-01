@@ -207,7 +207,7 @@ expected (M3 §5.1), not a failure to report.
 ```json
 {
   "companionEventId": "b7e2…",        // stable across retries; the idempotency key
-  "type": "InstanceJoined",        // | InstancePresenceObserved | InstanceLeft | AvatarChanged | LogStopped
+  "type": "InstanceJoined",        // | InstancePresenceObserved | InstanceLeft | AvatarChanged | LogStopped | ClipSaved
   "occurredAt": "2026-09-12T20:14:07.412+00:00",
   "occurredBefore": null,          // non-null ⇒ it happened somewhere in (occurredAt, occurredBefore]
   "subjectId": "usr_…",            // opaque; never validated for shape (foundation §3.1.1)
@@ -240,6 +240,22 @@ as `vrchat.instance.log-stopped` and uses it to end that moderator's watch of th
   its current roster once as `InstancePresenceObserved`, dated at the first new line, moderator
   included. The server ended the watch at the stop, and this is how it learns the watch started
   again. A new file is a new session and is not restated.
+
+`ClipSaved` (added 2026-10-01) means *the moderator saved a clip while in this instance*. The
+subject is the moderator, `occurredAt` is when they pressed Save (the companion's clock, corrected to
+the server's), and `data` carries `clipHash` — the saved file's SHA-256, 64 lowercase hex characters —
+and `clipBytes`, its size, plus the moderator's `displayName`. Nothing else about the clip: no file
+name, no path, no frame. The server stores it as `vrchat.instance.clip-saved` and refuses the event
+(`malformed_event`) when either field is missing or is not what it says it is, because the hash is
+what a later evidence upload is matched against (clips design spec §16, evidence spec §12.4).
+
+- **Only with the box ticked.** The companion sends it only when the moderator ticked *Tell the
+  group's Modbot when I save a clip*, which is off by default.
+- **Only to the instance's own group's server**, like every other event, and **never to Modbot
+  Cloud**: the backup carries observations of other people, and this is not one.
+- **Sent with the next batch**, not within two seconds: it changes nobody's whereabouts.
+- **Not a credential.** The device token still cannot upload or read evidence. The fingerprint lets
+  a signed-in moderator's upload be recognised as this clip; it cannot put a file anywhere.
 
 #### 4.2.1 Old servers and new event types
 

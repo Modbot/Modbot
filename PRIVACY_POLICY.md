@@ -72,6 +72,9 @@ It depends on what the group has set up. At most:
 - Which of the group's instances you joined and left, and when — so how long you were in each.
 - When you changed avatar, and the avatar's name.
 - Which instance you were in when something happened, and who else was there at the time.
+- If you moderate with the Windows client and ticked **Tell the group's Modbot when I save a clip**:
+  each time you saved a clip in one of the group's instances, when and where, and the clip's
+  fingerprint (its SHA-256 and size). Never the clip itself.
 
 This comes from the Windows client some moderators run, which reads the VRChat log file on their PC
 (and from old records a moderator imports). That log names everyone in the instance with them, which
@@ -94,7 +97,9 @@ instance warnings, with the place they happened.
   group membership and ban entry as they were at the time.
 - Evidence a moderator attached: screenshots, clips, files. Modbot also writes down who attached,
   took off, viewed, downloaded or destroyed each file, and when. It says so here because a file
-  may be a picture or a clip of a person: who looked at it is part of the record.
+  may be a picture or a clip of a person: who looked at it is part of the record. A clip attached
+  as one a moderator's client saved also keeps when and in which instance it was saved, and that
+  moderator's VRChat id and name.
 - Flags raised by the group's word lists and AI topics: which rule matched, the words that matched
   (up to 1,000 characters) or, for a picture, its address and a label, and where it was. The AI call
   log keeps the whole prompt and answer (each up to 20,000 characters) for a call that produced a flag, and for a call a person
@@ -480,7 +485,11 @@ and uses it only to limit how fast one address can register. The instance is sen
 parts.
 
 What it sends a Modbot server it is paired with is the same kind of event, only for instances that
-belong to a group, with the same version and clock fields.
+belong to a group, with the same version and clock fields. One more event goes only to that server
+and never to Modbot Cloud, and only if the moderator ticked **Tell the group's Modbot when I save a
+clip**: that they saved a clip in the group's instance, when, and the file's SHA-256 and size. It
+lets the server recognise the clip if they later attach it to a case in a browser. The clip, its
+file name and where it is on their PC are not sent.
 
 **The client's window does not mention this backup, which is why it is written down here.** Its
 Events page shows what the client observed and how each event's own group's server took it; it does
@@ -525,7 +534,13 @@ recorded** — not music, not a browser, not another chat program, not the opera
 sounds — because Windows is asked for one named program's sound rather than for what the speakers
 are playing, and the route that hands over the speakers does not exist anywhere in the client. **No
 microphone is opened for a clip.** As with everything else on this page about the companion, none of
-it leaves that PC.
+it leaves that PC. The one thing about a clip that can leave is that it exists, with its fingerprint,
+to that moderator's own group's server, if they ticked the box for it (above).
+
+**Copy crash details** puts text on that PC's clipboard when the moderator presses it: the instance
+they were in, who was in it with the avatar each was last seen wearing, and VRChat's own log lines
+from the last ten minutes, for a report they write to VRChat themselves. The client sends none of it
+anywhere. It never reads the clipboard.
 
 **It does not send anything your microphone heard, ever.** Since 19 September 2026 the client *can*
 open a microphone: if the person using that PC switches **Listening** on in its settings, saying

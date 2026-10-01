@@ -1,3 +1,4 @@
+using Modbot.Companion.Crash;
 using Modbot.Companion.Instances;
 using Modbot.Companion.LogReading;
 using Modbot.Core.Time;
@@ -139,11 +140,30 @@ public sealed class PresenceObserver
     /// </summary>
     public string? ModeratorId => _tracker.LocalUserId;
 
+    /// <summary>The moderator's own display name, as the log last said it, or null until it has.</summary>
+    public string? ModeratorName => _tracker.LocalDisplayName;
+
     /// <summary>Who is in it. Used by the overlay, which renders from local state only.</summary>
     public IReadOnlyCollection<string> Roster => _tracker.Roster;
 
     /// <summary>When each person in the instance got here. See <see cref="InstanceSessionTracker.ArrivedAt"/>.</summary>
     public IReadOnlyDictionary<string, DateTime?> ArrivedAt => _tracker.ArrivedAt;
+
+    /// <summary>
+    /// The instance and the people in it as VRChat's log last described them, whether or not the
+    /// log is still being written.
+    /// </summary>
+    /// <remarks>
+    /// <para>Unlike <see cref="CurrentInstance"/>, this does not go blank two minutes after the log
+    /// stops — that is the point of it. It is read by <strong>Copy crash details</strong>, and the
+    /// moment a moderator wants the instance they were crashed out of is the moment VRChat stopped
+    /// writing. It goes blank when VRChat opens a new log, which is a new session.</para>
+    /// <para>Nothing is sent from it. The moderator copies it, and pastes it where they choose.</para>
+    /// </remarks>
+    public CrashScene LastLoggedScene => new(_tracker.WorldName, _tracker.CurrentInstance, _tracker.People);
+
+    /// <summary>The VRChat log file being read, or null before one has been found.</summary>
+    public string? LogFile => _tail.CurrentFile;
 
     public LogHealth Health => new(
         _tail.LinesRead,

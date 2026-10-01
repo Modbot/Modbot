@@ -733,6 +733,11 @@ public class ModbotContext : DbContext, IDataProtectionKeyContext
             entity.Property(e => e.UploaderId).HasMaxLength(128);
             entity.Property(e => e.DestroyedBy).HasMaxLength(128);
             entity.Property(e => e.DestroyedReason).HasMaxLength(512);
+
+            entity.Property(e => e.ClipWorldId).HasMaxLength(128);
+            entity.Property(e => e.ClipInstanceId).HasMaxLength(256);
+            entity.Property(e => e.ClipSavedById).HasMaxLength(128);
+            entity.Property(e => e.ClipSavedByName).HasMaxLength(128);
         });
 
         builder.Entity<EvidenceAttachment>(entity =>

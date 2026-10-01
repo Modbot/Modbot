@@ -223,7 +223,12 @@ The companion pairs with your server through the pairing page. See
   holding the **Upload evidence** permission, which no device token has. A stolen device token
   cannot start a recording, cannot read one, cannot hear anything, and cannot attach one to a case.
   The sound in a clip is VRChat's own, with Discord's on a switch of its own that is off; nothing
-  else the PC plays can be recorded by anybody, including whoever holds the token.
+  else the PC plays can be recorded by anybody, including whoever holds the token. If the moderator
+  ticks **Tell the group's Modbot when I save a clip**, the token sends one more kind of event: that
+  a clip was saved in the group's instance, with the file's SHA-256 and size. That describes a file
+  and cannot put one anywhere. A file is attached as that clip only by a signed-in person with
+  **Upload evidence**, and only if its bytes hash to that fingerprint, so a stolen token that sends
+  made-up clips gets a line in the audit log and a case file entry nobody can attach a file to.
 - The companion can open that person's microphone if they switch
   [Listening](/companion/listening) on, and **a device token reaches none of that either**. Nothing
   the microphone hears is recorded, kept or sent anywhere by anybody: the sound is checked against

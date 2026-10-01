@@ -1,4 +1,5 @@
 using Modbot.Companion.CloudBackup;
+using Modbot.Companion.Crash;
 using Modbot.Companion.Journal;
 using Modbot.Companion.Ingest;
 using Modbot.Companion.Instances;
@@ -111,12 +112,27 @@ public sealed class CompanionEngine
     /// <summary>The moderator's own VRChat id as the log last said, or null while unknown. See <see cref="PresenceObserver.ModeratorId"/>.</summary>
     public string? ModeratorId => _observer.ModeratorId;
 
+    /// <summary>The moderator's own display name as the log last said it, or null while unknown.</summary>
+    public string? ModeratorName => _observer.ModeratorName;
+
     /// <summary>
     /// When each person in the moderator's instance got here, as the log said. Like
     /// <see cref="CurrentInstance"/>, read by the overlay and never sent. See
     /// <see cref="InstanceSessionTracker.ArrivedAt"/>.
     /// </summary>
     public IReadOnlyDictionary<string, DateTime?> ArrivedAt => _observer.ArrivedAt;
+
+    /// <summary>
+    /// What <strong>Copy crash details</strong> puts together: the instance and the people in it as
+    /// the log last described them, and the log's own <c>[Behaviour]</c> lines from the last few
+    /// minutes. Read from this PC only and handed back as text; nothing is transmitted.
+    /// </summary>
+    /// <returns>The block to copy, or null when the log has not named an instance or written a line.</returns>
+    public string? CrashDetailsText(TimeSpan utcOffset)
+        => CrashDetails.Write(
+            _observer.LastLoggedScene,
+            RecentBehaviourLines.Read(_observer.LogFile, CrashDetails.Window),
+            utcOffset);
 
     public void Add(ServerConnection connection)
     {

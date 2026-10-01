@@ -150,7 +150,8 @@ public sealed record CaseFileView(
     bool CanViewEvidence,
     DateTimeOffset Now,
     bool CanDestroyEvidence = false,
-    CaseLiftView? Lifted = null);
+    CaseLiftView? Lifted = null,
+    IReadOnlyList<SavedClipView>? Clips = null);
 
 /// <summary>The unban that lifted a case file's ban.</summary>
 /// <param name="At">When, on Modbot's clock.</param>
@@ -164,6 +165,29 @@ public sealed record CaseLiftView(
     long? UnbanFactId,
     IReadOnlyList<CaseFileReason> Reasons,
     string? Note);
+
+/// <summary>
+/// A clip a moderator's companion said it saved while the person on this case file was in the same
+/// instance, and that is not on this case file yet. Only the fingerprint ever reached the server;
+/// the file is on that moderator's PC.
+/// </summary>
+/// <param name="Id">Send it back as <c>clipId</c> when attaching the file, so the server checks it is this clip.</param>
+/// <param name="SavedAt">When they pressed Save. The clip is the few minutes before.</param>
+/// <param name="WorldId">The world. Opaque.</param>
+/// <param name="InstanceId">The instance, as VRChat named it. Display only.</param>
+/// <param name="SavedById">The moderator's VRChat id.</param>
+/// <param name="SavedBy">Their display name, as their companion reported it.</param>
+/// <param name="ByteSize">How big the file is, so the right one can be picked out of a folder.</param>
+/// <param name="WorldName">The world's name, when Modbot has read the world's page.</param>
+public sealed record SavedClipView(
+    long Id,
+    DateTimeOffset SavedAt,
+    string WorldId,
+    string InstanceId,
+    string SavedById,
+    string? SavedBy,
+    long ByteSize,
+    string? WorldName);
 
 /// <param name="RefreshOutcome">What asking VRChat for a fresher profile came back with: Queued, Promoted, AlreadyQueued, FreshEnough or NotAvailable.</param>
 public sealed record CaseFileCreatedResponse(

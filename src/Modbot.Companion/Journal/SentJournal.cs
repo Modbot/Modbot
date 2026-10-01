@@ -382,6 +382,12 @@ public sealed class SentJournal
     {
         ArgumentNullException.ThrowIfNull(companionEvent);
 
+        // About the moderator, not about somebody they saw, so it is not one of the presence
+        // sentences: what went is that a clip exists and its fingerprint, and the screen says the
+        // clip itself did not go.
+        if (companionEvent.Type is CompanionEventType.ClipSaved)
+            return ClipSavedSentence;
+
         var who = companionEvent.Data.TryGetValue("displayName", out var name) && name.Length > 0
             ? name
             : companionEvent.SubjectId;
@@ -398,6 +404,9 @@ public sealed class SentJournal
             _ => (PresenceKind?)null,
         }, who, avatar);
     }
+
+    /// <summary>What the Events page says for a saved clip the server was told about.</summary>
+    public const string ClipSavedSentence = "You saved a clip here. Its fingerprint was sent; the clip stays on this PC";
 
     /// <summary>The same sentence for an observation that was sent nowhere.</summary>
     public static string Describe(ObservedPresence observation)

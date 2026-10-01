@@ -81,6 +81,28 @@ they can carry code that would run in a moderator's browser.
 Modbot stores the file exactly as you uploaded it. It does not shrink, convert or clean it, so a
 photo keeps any hidden details saved inside it (such as when or where it was taken).
 
+### Clips saved in the companion
+
+A moderator whose [companion](/companion/clips) is set to **Tell the group's Modbot when I save a
+clip** tells Modbot each time they save a clip in one of your group's instances — when, where, and
+the file's fingerprint, never the clip itself. The case file of anybody who was in that instance at
+the time lists each such clip under **Evidence**, until the case file holds it:
+
+> Clip saved on Alex's PC at 9:14 PM · The Black Cat #98874 · 48.2 MB · not uploaded **Attach**
+
+Clips are listed from a week before the ban (or before the case file was written, when it has no
+ban) to a day after it. The list is of instances the person was in, by the companions' reports;
+whether the clip shows them is for you to see.
+
+**Attach** opens the file picker. Choose the clip on the PC that saved it: its file name has the
+world, the instance and the time in it. Modbot checks the file's fingerprint against the one the
+companion sent. The right file is attached and its line says **clip saved on Alex's PC**, with when
+and where. Any other file is refused with **That file is not the clip saved on Alex's PC**, and
+nothing is attached. The audit log's **Evidence attached** entry says it was a clip and which one.
+
+The same three rules as any other upload apply: **Upload evidence**, your own case file or **Ban**,
+and a case file that has not been withdrawn.
+
 ### If uploads are refused
 
 When the storage is not set up or not reachable, the button is greyed out and a line says
@@ -94,7 +116,9 @@ Each attached file shows:
 - **Images** inline. Click one to open it full size in a new tab.
 - **Video** in a player on the page. Seeking works when the storage supports reading part of a
   file (**Settings**, **Evidence**, **Partial downloads**).
-- The file name, its type, its size, the date it was attached and who attached it.
+- The file name, its type, its size, the date it was attached and who attached it. A file
+  attached as a [companion clip](#clips-saved-in-the-companion) also says whose PC saved it, when
+  and in which instance.
 - **Download**, to save the file.
 - **Take off** and **Destroy**, when you are allowed them (see below).
 - Its `sha256` fingerprint. This is a code worked out from the file's exact contents. If a

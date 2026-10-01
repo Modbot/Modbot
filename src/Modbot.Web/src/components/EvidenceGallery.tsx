@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { api, ApiError, type EvidenceDelivery, type EvidenceItem } from '@/lib/api'
+import { api, ApiError, type EvidenceClip, type EvidenceDelivery, type EvidenceItem, type SavedClip } from '@/lib/api'
 import { attach, busy, failure, send, tooLarge, type Progress } from '@/lib/evidenceUpload'
-import { formatDay } from '@/lib/format'
+import { dateTime, formatDay } from '@/lib/format'
+import { instanceName } from '@/lib/instanceName'
 import { bytes } from '@/components/settings/units'
 import { EmptyRow, PanelGrid } from '@/components/PanelGrid'
 import { cn } from '@/lib/utils'
@@ -29,6 +30,11 @@ import { cn } from '@/lib/utils'
  * case file and deletes the bytes, and the server refuses while another case file holds it. Every
  * request for the bytes names this case file (`case`), and the pictures and the video, which a
  * page shows, say so (`view`), so the audit log tells a look from a download.
+ *
+ * Under the files, the clips a moderator's companion said it saved while this person was there,
+ * that are not on the case file yet (clips design spec §16). The server has only each clip's
+ * fingerprint; Attach opens the file picker, and the server takes the file only if its bytes are
+ * that clip's. A matched file is kept as captured, and its line says where and when it was saved.
  */
 export function EvidenceGallery({
   caseId,
@@ -36,6 +42,7 @@ export function EvidenceGallery({
   delivery,
   canAttach,
   canDestroy,
+  clips = [],
   onChanged,
   onImageReady,
 }: {
@@ -45,6 +52,8 @@ export function EvidenceGallery({
   canAttach: boolean
   /** Whether Destroy shows: the person may destroy evidence, on any case file, withdrawn or not. */
   canDestroy: boolean
+  /** Saved clips this person may be in, not on the case file yet. */
+  clips?: SavedClip[]
   onChanged: () => void
   /** Tells the page an image's object URL, so the written reason can show `evidence:` references inline. */
   onImageReady?: (hash: string, url: string) => void
@@ -106,9 +115,112 @@ export function EvidenceGallery({
         </PanelGrid>
       )}
 
+      {clips.length > 0 && (
+        <PanelGrid as="ul" className="m-0">
+          {clips.map((clip) => (
+            <li key={clip.id} className="px-(--panel-pad) py-2">
+              <ClipRow clip={clip} caseId={caseId} delivery={delivery} canAttach={canAttach} onChanged={changed} />
+            </li>
+          ))}
+        </PanelGrid>
+      )}
+
       {canAttach && <Attach caseId={caseId} delivery={delivery} onChanged={changed} />}
     </div>
   )
+}
+
+/** Who saved a clip, by name where their companion gave one. */
+function savedBy(clip: { savedBy: string | null; savedById: string | null }): string {
+  return clip.savedBy || clip.savedById || 'a moderator'
+}
+
+/**
+ * One saved clip that is not on the case file: where and when, whose PC, and Attach. The picker
+ * takes any file; the server refuses one whose bytes are not this clip, in a sentence that says so.
+ */
+function ClipRow({
+  clip,
+  caseId,
+  delivery,
+  canAttach,
+  onChanged,
+}: {
+  clip: SavedClip
+  caseId: string
+  delivery: EvidenceDelivery
+  canAttach: boolean
+  onChanged: () => void
+}) {
+  const [progress, setProgress] = useState<Progress>({ phase: 'idle' })
+  const input = useRef<HTMLInputElement>(null)
+  const sending = busy(progress)
+
+  const upload = async (file: File) => {
+    const refusal = tooLarge(file, delivery)
+    if (refusal) {
+      setProgress({ phase: 'failed', message: refusal })
+      return
+    }
+
+    try {
+      const sent = await send(file, caseId, setProgress)
+      await attach(sent, caseId, setProgress, clip.id)
+      onChanged()
+    } catch (e: unknown) {
+      setProgress(failure(e))
+    } finally {
+      if (input.current) input.current.value = ''
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1" style={{ fontSize: 'var(--text-small)' }}>
+      <span>
+        Clip saved on {savedBy(clip)}'s PC at <span className="font-mono">{dateTime(clip.savedAt)}</span>
+      </span>
+      <span className="text-muted-foreground">
+        {instanceName(clip.worldName, clip.worldId, clip.instanceId)} · <span className="font-mono">{bytes(clip.byteSize)}</span> ·
+        not uploaded
+      </span>
+      {canAttach && (
+        <>
+          <input
+            ref={input}
+            type="file"
+            accept={delivery.acceptedTypes.join(',')}
+            disabled={sending || !delivery.uploadsAllowed}
+            tabIndex={-1}
+            aria-hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void upload(file)
+            }}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            disabled={sending || !delivery.uploadsAllowed}
+            onClick={() => input.current?.click()}
+          >
+            {sending ? 'Uploading…' : 'Attach'}
+          </Button>
+        </>
+      )}
+      {progress.phase !== 'idle' && (
+        <div className="basis-full">
+          <ProgressLine progress={progress} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** What an evidence line says about a file that is a saved clip. */
+function clipWords(clip: EvidenceClip): string {
+  return `clip saved on ${savedBy(clip)}'s PC, ${dateTime(clip.savedAt)}, ${instanceName(clip.worldName, clip.worldId, clip.instanceId)}`
 }
 
 function Item({
@@ -161,7 +273,7 @@ function Item({
           {item.contentType} · <span className="font-mono">{bytes(item.byteSize)}</span> ·{' '}
           <span className="font-mono">{formatDay(item.firstStoredAt)}</span>
           {item.uploaderId ? ` · by ${item.uploaderId}` : ''}
-          {item.origin === 'Captured' ? ' · captured by Modbot' : ''}
+          {item.clip ? ` · ${clipWords(item.clip)}` : item.origin === 'Captured' ? ' · captured by Modbot' : ''}
         </span>
         {!item.destroyed && (
           <a href={api.evidenceUrl(item.hash, { caseId })} className="underline underline-offset-2" download>
