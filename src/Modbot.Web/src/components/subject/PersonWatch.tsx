@@ -36,14 +36,14 @@ export function PersonWatch({
   const [version, setVersion] = useState(0)
 
   const load = useCallback(() => api.personWatches({ vrchat: vrchatId, discord: discordId }), [vrchatId, discordId])
-  const { data, error } = useLoad<PersonWatches>(load, version)
+  const { data, error, reload } = useLoad<PersonWatches>(load, version)
 
   const again = () => {
     setVersion((n) => n + 1)
     onChanged?.()
   }
 
-  if (error) return <Empty tone="danger">{error}</Empty>
+  if (error) return <Empty tone="danger" onTryAgain={reload}>{error}</Empty>
   if (!data) return null
 
   const standing = data.watches.find((w) => w.standing) ?? null

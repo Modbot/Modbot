@@ -80,7 +80,8 @@ export function Stats({
     (q: string) => api.teamAnalytics(people === null ? q : `${q}&people=${people}`),
     [people],
   )
-  const [peopleError, setPeopleError] = useState<string | null>(null)
+  // The pick that failed to save, so "Try again" saves that same pick again.
+  const [peopleError, setPeopleError] = useState<{ message: string; next: number } | null>(null)
   // A pick being saved, shown on the buttons until the read after the save replaces `over`.
   const [saving, setSaving] = useState<{ people: number; over: unknown } | null>(null)
 
@@ -104,7 +105,7 @@ export function Stats({
         .then(() => reloadTeam?.())
         .catch(() => {
           setSaving(null)
-          setPeopleError(`Could not save ${next}+ people as the group's setting.`)
+          setPeopleError({ message: `Could not save ${next}+ people as the group's setting.`, next })
         })
     },
     [canSavePeople, teamData, reloadTeam],
@@ -159,7 +160,11 @@ export function Stats({
             <Part title="Team" read={team}>
               {(data) => (
                 <>
-                  {peopleError && <PageMessage tone="danger">{peopleError}</PageMessage>}
+                  {peopleError && (
+                    <PageMessage tone="danger" onTryAgain={() => choosePeople(peopleError.next)}>
+                      {peopleError.message}
+                    </PageMessage>
+                  )}
                   <TeamStats
                     data={data}
                     onOpenSubject={onOpenSubject}
