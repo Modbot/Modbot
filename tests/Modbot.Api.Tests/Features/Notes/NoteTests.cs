@@ -110,6 +110,68 @@ public class NoteTests
             (await host.GetAsync($"/api/notes?userId={Person}", operator_, ct)).StatusCode);
     }
 
+    // ── Everyone's notes (API conventions design §8) ───────────────────────────────────────
+
+    [Fact]
+    public async Task EveryonesNotes_AreOneListNewestFirst_PagedAndMarked()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+
+        var cookie = await host.SignedInAsync(ModbotPermissions.WriteNotes | ModbotPermissions.ViewAuditLog, ct);
+
+        NoteView? first = null;
+        foreach (var (minutes, person, text) in new[] { (0, Person, "first"), (5, "usr_other", "second"), (10, Person, "third") })
+        {
+            host.Clock.UtcNow = Day.AddMinutes(minutes);
+            var written = await ReadAsync<NoteView>(await host.PostJsonAsync("/api/notes", Body(person, text), cookie, ct), ct);
+            first ??= written;
+        }
+
+        (await host.PostJsonAsync($"/api/notes/{first!.Id}/take-back", null, cookie, ct)).EnsureSuccessStatusCode();
+
+        var all = await host.GetJsonAsync<NotePage>("/api/notes/all", cookie, ct);
+        Assert.Equal(["third", "second", "first"], all.Notes.Select(n => n.Text));
+        Assert.True(all.Notes[^1].TakenBack);
+        Assert.Null(all.Next);
+
+        var page = await host.GetJsonAsync<NotePage>("/api/notes/all?limit=2", cookie, ct);
+        Assert.Equal(["third", "second"], page.Notes.Select(n => n.Text));
+        Assert.NotNull(page.Next);
+
+        var rest = await host.GetJsonAsync<NotePage>(
+            $"/api/notes/all?limit=2&beforeWrittenAt={Uri.EscapeDataString(page.Next!.WrittenAt.ToString("o"))}&beforeId={page.Next.Id}", cookie, ct);
+        Assert.Equal("first", Assert.Single(rest.Notes).Text);
+        Assert.Null(rest.Next);
+    }
+
+    [Fact]
+    public async Task EveryonesNotes_NarrowByAuthorAndTime_AndNeedTheAuditLog()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var host = await ReadSurfaceTestHost.StartAsync(_db);
+        await host.ResetAsync(ct);
+        host.Clock.UtcNow = Day;
+
+        var one = await host.SignedInAsync(ModbotPermissions.WriteNotes | ModbotPermissions.ViewAuditLog, ct);
+        var two = await host.SignedInAsync(ModbotPermissions.WriteNotes | ModbotPermissions.ViewAuditLog, ct);
+
+        var mine = await ReadAsync<NoteView>(await host.PostJsonAsync("/api/notes", Body(Person, "mine"), one, ct), ct);
+        host.Clock.UtcNow = Day.AddDays(1);
+        (await host.PostJsonAsync("/api/notes", Body(Person, "theirs"), two, ct)).EnsureSuccessStatusCode();
+
+        var byAuthor = await host.GetJsonAsync<NotePage>($"/api/notes/all?author={mine.AuthorAccountId}", one, ct);
+        Assert.Equal("mine", Assert.Single(byAuthor.Notes).Text);
+
+        var later = await host.GetJsonAsync<NotePage>(
+            $"/api/notes/all?from={Uri.EscapeDataString(Day.AddHours(12).ToString("o"))}", one, ct);
+        Assert.Equal("theirs", Assert.Single(later.Notes).Text);
+
+        var writerOnly = await host.SignedInAsync(ModbotPermissions.WriteNotes, ct);
+        Assert.Equal(HttpStatusCode.Forbidden, (await host.GetAsync("/api/notes/all", writerOnly, ct)).StatusCode);
+    }
+
     // ── Writing and reading back ───────────────────────────────────────────────────────────
 
     [Fact]

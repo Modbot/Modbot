@@ -58,3 +58,28 @@ public sealed record NoteView(
 /// <param name="Standing">How many of them still stand — the number worth putting on a tab.</param>
 /// <param name="CanWrite">Whether the person reading may add one.</param>
 public sealed record NoteListResponse(IReadOnlyList<NoteView> Notes, int Standing, bool CanWrite);
+
+/// <summary>Which notes to list across everyone. Every part is optional.</summary>
+/// <param name="Platform"><c>VRChat</c> or <c>Discord</c>; empty for both.</param>
+/// <param name="Author">The Modbot account that wrote them.</param>
+/// <param name="From">Written at or after this.</param>
+/// <param name="To">Written before this.</param>
+/// <param name="BeforeWrittenAt">With <paramref name="BeforeId"/>, the <c>next</c> of the previous page.</param>
+/// <param name="BeforeId">With <paramref name="BeforeWrittenAt"/>, the <c>next</c> of the previous page.</param>
+/// <param name="Limit">How many at most, 1 to 200.</param>
+public sealed record NoteFilter(
+    string? Platform = null,
+    Guid? Author = null,
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null,
+    DateTimeOffset? BeforeWrittenAt = null,
+    long? BeforeId = null,
+    int Limit = NoteService.DefaultLimit);
+
+/// <summary>Where the next page of notes starts.</summary>
+public sealed record NoteCursor(DateTimeOffset WrittenAt, long Id);
+
+/// <summary>A page of everyone's notes, newest first.</summary>
+/// <param name="Notes">Taken-back notes are in here too, marked, as on one person's list.</param>
+/// <param name="Next">Pass as <c>beforeWrittenAt</c> and <c>beforeId</c> for the next page; null on the last.</param>
+public sealed record NotePage(IReadOnlyList<NoteView> Notes, NoteCursor? Next);

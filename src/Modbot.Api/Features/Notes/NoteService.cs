@@ -376,6 +376,94 @@ public sealed class NoteService
             caller.Has(ModbotPermissions.WriteNotes));
     }
 
+    /// <summary>
+    /// Everyone's notes, newest first, a page at a time (API conventions design §8): what a
+    /// group's own tools need to read the notes without asking about one person at a time.
+    /// </summary>
+    /// <remarks>
+    /// Paged by the last note's time and id together, as the audit log is, because an imported note
+    /// carries the date it was first written and so is not in id order.
+    /// </remarks>
+    public async Task<NotePage> ListEveryoneAsync(NoteFilter filter, Caller caller, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+        ArgumentNullException.ThrowIfNull(caller);
+
+        var take = Math.Clamp(filter.Limit <= 0 ? DefaultLimit : filter.Limit, 1, MaxLimit);
+
+        var query = _db.Events.AsNoTracking().Where(e => e.Type == FactType.NoteAdded);
+
+        if (!string.IsNullOrWhiteSpace(filter.Platform))
+        {
+            var of = PlatformOf(filter.Platform);
+            query = query.Where(e => e.SubjectPlatform == of);
+        }
+
+        if (filter.Author is { } author)
+        {
+            var actor = author.ToString();
+            query = query.Where(e => e.ActorId == actor);
+        }
+
+        if (filter.From is { } from)
+            query = query.Where(e => e.OccurredAt >= from);
+
+        if (filter.To is { } to)
+            query = query.Where(e => e.OccurredAt < to);
+
+        if (filter.BeforeWrittenAt is { } beforeAt && filter.BeforeId is { } beforeId)
+            query = query.Where(e => e.OccurredAt < beforeAt || (e.OccurredAt == beforeAt && e.Id < beforeId));
+
+        // One more than a page, to know whether there is another.
+        var notes = await query
+            .OrderByDescending(e => e.OccurredAt)
+            .ThenByDescending(e => e.Id)
+            .Take(take + 1)
+            .ToListAsync(ct);
+
+        var more = notes.Count > take;
+        if (more)
+            notes.RemoveAt(notes.Count - 1);
+
+        var takenBack = await TakeBacksAmongAsync(notes, ct);
+
+        var views = notes
+            .Select(n => Shape(n, takenBack.TryGetValue(n.Id, out var back) ? back : null, caller))
+            .ToList();
+
+        return new NotePage(views, more && notes.Count > 0 ? new NoteCursor(notes[^1].OccurredAt, notes[^1].Id) : null);
+    }
+
+    /// <summary>
+    /// Which of these notes, about any number of people, have been taken back. Narrowed to their
+    /// people first, for the reason <see cref="TakeBacksAsync"/> gives.
+    /// </summary>
+    private async Task<Dictionary<long, TakeBack>> TakeBacksAmongAsync(IReadOnlyCollection<ModbotEvent> notes, CancellationToken ct)
+    {
+        var found = new Dictionary<long, TakeBack>();
+
+        if (notes.Count == 0)
+            return found;
+
+        var wanted = notes.Select(n => n.Id).ToHashSet();
+        var subjects = notes.Select(n => n.SubjectId).Distinct(StringComparer.Ordinal).ToList();
+
+        var candidates = await _db.Events.AsNoTracking()
+            .Where(e => e.Type == FactType.NoteTakenBack && subjects.Contains(e.SubjectId))
+            .OrderBy(e => e.Id)
+            .ToListAsync(ct);
+
+        foreach (var fact in candidates)
+        {
+            if (NoteIdOf(fact.Data) is not { } id || !wanted.Contains(id))
+                continue;
+
+            found.TryAdd(id, new TakeBack(fact.OccurredAt, NameOf(fact.Data)));
+        }
+
+        return found;
+    }
+
     // ── Shaping ────────────────────────────────────────────────────────────────────────────
 
     /// <summary>A note's withdrawal: when, and by whom.</summary>

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Modbot.Analytics.Facts;
 using Modbot.Api.Auth;
+using Modbot.Api.Conventions;
 using Modbot.Api.Features.Cases;
 using Modbot.Core.Data;
 using Modbot.Core.Data.Entities;
@@ -69,6 +70,47 @@ public static class NoteEndpoints
                 + "are listed too and say so; standing counts only the ones that still stand. Returns at "
                 + "most `limit` notes (default 50, at most 200).")
             .Produces<NoteListResponse>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status403Forbidden);
+
+        group.MapGet("/all", async (
+                HttpContext http,
+                [FromQuery] string? platform,
+                [FromQuery] Guid? author,
+                [FromQuery] DateTimeOffset? from,
+                [FromQuery] DateTimeOffset? to,
+                [FromQuery] DateTimeOffset? beforeWrittenAt,
+                [FromQuery] long? beforeId,
+                [FromQuery] int? limit,
+                [FromServices] ModbotContext db,
+                [FromServices] IModbotClock clock,
+                CancellationToken ct) =>
+            {
+                if (CallerOf(http) is not { } caller)
+                    return Results.Forbid();
+
+                try
+                {
+                    return Results.Ok(await new NoteService(db, clock).ListEveryoneAsync(
+                        new NoteFilter(platform, author, from, to, beforeWrittenAt, beforeId, limit ?? NoteService.DefaultLimit),
+                        caller,
+                        ct));
+                }
+                catch (NoteRefused refused)
+                {
+                    return Problems.Of(refused.Status, refused.Message);
+                }
+            })
+            .RequiresFlag(ModbotPermissions.ViewAuditLog)
+            .WithName("ListAllNotes")
+            .WithSummary("List everyone's notes")
+            .WithDescription(
+                "Every person's notes, newest first, a page at a time. `platform` (VRChat or "
+                + "Discord) narrows it to one platform's people, `author` to one Modbot account's "
+                + "notes, and `from` and `to` to when they were written. Taken-back notes are listed "
+                + "too and say so. Returns at most `limit` notes (default 50, at most 200); pass "
+                + "`next` back as `beforeWrittenAt` and `beforeId` for the page after.")
+            .Produces<NotePage>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status403Forbidden);
 
